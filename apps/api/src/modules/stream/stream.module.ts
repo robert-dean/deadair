@@ -12,6 +12,7 @@ import { AudioChainRestart } from './stream.restart.js';
 import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
+import { LiquidsoapEndpoint } from '#modules/playout/liquidsoap.endpoint.js';
 
 /**
  * The stream's configuration, materialized for containers that cannot read the
@@ -29,6 +30,24 @@ import { StreamConfigWatch } from './stream.staleness.js';
  * grows into a second writer of those settings calls
  * {@link StreamService.materialize} itself.
  */
+/**
+ * Push the bridge secret into every singleton that signs or checks a URL with it.
+ *
+ * All three in ONE place, and here rather than in `PlayoutModule.ready`, because `LiquidsoapEndpoint`
+ * is what `AudioUrlSigner` reads, and `RenderModule.ready` runs between the two modules and measures
+ * segments and pads through signed URLs. Pushed in playout's `ready`, the endpoint still held the
+ * empty string when render signed, the sidecar was answered 401 by `signed.audio.middleware`, and the
+ * same files failed to measure on every boot.
+ *
+ * The Apple player takes the same bridge secret as the Spotify shim: it verifies exactly the token
+ * the shim does, because it is the same signing scheme serving the same kind of URL.
+ */
+export function handOverBridgeSecrets(container: Container, playoutBridgeSecret: string, spotifyShimSecret: string): void {
+    container.get(LiquidsoapEndpoint).useSecret(playoutBridgeSecret);
+    container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret, spotifyShimSecret);
+    container.get(ApplePlayerClient).useSecrets(playoutBridgeSecret);
+}
+
 export const StreamModule: ServerKitModule = {
     name: 'Stream',
     setup: async (registry: Registry, _config: AppConfig) => {
@@ -94,11 +113,7 @@ export const StreamModule: ServerKitModule = {
             // After the seed, so a first boot hands over the secrets it just wrote
             // rather than the empty pair it read a moment earlier.
             const settings = stream.settings();
-            const { playoutBridgeSecret, spotifyShimSecret } = settings;
-            container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyShimSecret ?? '');
-            // The same bridge secret, for the same reason: the Apple player verifies exactly the token the
-            // Spotify shim does, because it is the same signing scheme serving the same kind of URL.
-            container.get(ApplePlayerClient).useSecrets(playoutBridgeSecret ?? '');
+            handOverBridgeSecrets(container, settings.playoutBridgeSecret ?? '', settings.spotifyShimSecret ?? '');
 
             // The mounts whose listeners are the station's audience, from the same settings
             // the rendered icecast.xml was built from a moment ago — including the admin

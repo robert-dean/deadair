@@ -462,6 +462,47 @@ describe('PlayoutPusher.reconcile', () => {
 
         expect(spy.releaseOnAir).not.toHaveBeenCalled();
     });
+
+    it('does not count a take-back it did itself as a hand-over the player never took', async () => {
+        // Live on 14 October: every time the gate shut, the reading after the release found the
+        // handed record missing and, a grace later, warned that "the player never took 1 of 1
+        // handed over" and spent one of its three attempts. Three gate cycles would skip it.
+        vi.useFakeTimers();
+        try {
+            const warn = vi.fn();
+            const quiet = { ...logger, warn } as unknown as Logger;
+            const rundown = new Rundown(new StubResolver(), quiet);
+            const order = seed(rundown, ['a', 'b'].map(track));
+            const { control, pushed } = scriptedControl();
+            const gate = stubAudience(true);
+            const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, gate.audience, config, new Heartbeat(), quiet);
+
+            control.reading = { queued: 0, ready: true };
+            await pusher.reconcile();
+            expect(pushed).toHaveLength(1);
+            const handed = itemId(pushed[0]!);
+            control.reading = { queued: 1, ready: true };
+
+            gate.set(false);
+            // The status read sees the queue; the release answers with it gone.
+            control.readingAfter(2, { queued: 0, ready: true });
+            await pusher.reconcile();
+            expect(control.releaseOnAir).toHaveBeenCalledOnce();
+
+            // Well past the grace, on readings that still find nothing held.
+            for (let i = 0; i < 4; i += 1) {
+                vi.advanceTimersByTime(6_000);
+                rundown.reconcile({ queued: 0, ready: true });
+            }
+
+            expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('never took'));
+            expect(order.all().find(item => item.id === handed)?.state).toBe('planned');
+            // Prepared afresh when the gate opens rather than handed over as a snapshot from before.
+            expect(rundown.isPrepared(handed)).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
 
 // Measured on the running station: an API killed without standing down leaves its pushes in the

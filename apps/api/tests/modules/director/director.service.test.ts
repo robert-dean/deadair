@@ -2107,6 +2107,32 @@ describe('DirectorService committing segments', () => {
         expect(committed[0]?.artists).toEqual([]);
     });
 
+    it('forgets the prepared form of a break the planner reopens for rewriting', async () => {
+        // Live on 14 October: a weather break was prepared while it was ready, the planner then found
+        // its words stale and sent it back to `planned`, and the transport still held the old form.
+        // The pusher handed over a segment with no audio and the player skipped it.
+        const library = { id: 'seg-1', kind: 'talkbreak', state: 'ready' as 'ready' | 'planned', label: 'The weather', source: 'render' };
+        const { director, lineup, rundown, seed, breaks } = build({ items: ['a', 'b'], segments: [library] });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+        await settle();
+        const item = lineup.all().find(entry => entry.kind === 'segment' && entry.segmentId === 'seg-1')!;
+        expect(rundown.isPrepared(item.id)).toBe(true);
+
+        // The rewrite reopens the row, which is what the real planner's `rewriteStale` does.
+        vi.spyOn(breaks, 'ripen').mockImplementationOnce(async () => {
+            library.state = 'planned';
+            return { offered: 1, rewritten: ['seg-1'], released: [], rerendered: [] };
+        });
+        await director.post({ kind: 'wake' });
+        await settle();
+
+        expect(rundown.isPrepared(item.id)).toBe(false);
+        expect(rundown.upcoming().some(entry => entry.externalId === 'seg-1')).toBe(false);
+    });
+
     it('skips a segment that has no audio yet rather than holding the slot open', async () => {
         const { director, lineup, rundown, seed } = build({
             items: ['a', 'b', 'c'],

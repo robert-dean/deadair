@@ -30,6 +30,11 @@ export const refreshCookieMiddleware: () => ServerKitMiddleware = () => {
         if (presented) {
             ctx.container.get(RequestCookieJar).setRefreshToken(presented);
         }
+        // Resolved up front, as `auditContextMiddleware` resolves `AfterCommit`, because the scope may
+        // not be there to ask afterwards: ServerKit disposes it when the response CLOSES, which is also
+        // when the client hangs up, and a `ctx.container` call after `next()` then throws "Cannot
+        // resolve from a disposed container", turning a hang-up into a logged 500.
+        const jar = ctx.container.get(ResponseCookieJar);
 
         try {
             await next();
@@ -38,15 +43,19 @@ export const refreshCookieMiddleware: () => ServerKitMiddleware = () => {
             // Drained in `finally` because the error path needs it most: a rejected refresh grant
             // throws 401, and code after `await next()` would never run, leaving the browser
             // re-presenting a dead token on every boot until it expires naturally.
-            if (ctx.container.get(ResponseCookieJar).takeClearRefreshToken()) {
+            //
+            // Not once the response has closed: the cookie writers resolve `AppConfig` from the same
+            // disposed scope, and there is nobody left to send a cookie to anyway.
+            if (jar.takeClearRefreshToken() && !ctx.res?.closed) {
                 clearRefreshCookie(ctx);
             }
         }
 
         // Everything below is success-path only (a thrown error rethrows out of the `finally`).
+        if (ctx.res?.closed) return;
 
         // Server-initiated cookie (invitation accept etc.): the flow already decided to set it.
-        const stashed = ctx.container.get(ResponseCookieJar).takeRefreshToken();
+        const stashed = jar.takeRefreshToken();
         if (stashed) {
             setRefreshCookie(ctx, stashed);
         }

@@ -894,6 +894,69 @@ export class Rundown {
     }
 
     /**
+     * Take back everything the player was holding, because the pusher took it back itself.
+     *
+     * What the audience gate shutting does. The pusher released the player's queue on purpose, so
+     * the items are not LOST and nothing here may treat them as lost: left to {@link reconcile}, the
+     * next readings found them missing, called them "never taken" a few seconds later and spent one
+     * of each item's {@link MAX_HAND_OVERS} on a hand-over the player never had the chance to take.
+     * Three gate cycles and a perfectly good record was skipped. Reclaimed here instead, the way
+     * {@link unserve} reclaims one item, without counting.
+     *
+     * Their prepared forms go too. The station may be off air for hours, and the form is a snapshot
+     * of the moment each was next (its signed URL, its measurement, a talk-over written for the
+     * boundary it no longer sits on), so it is prepared afresh when the gate opens. A cue riding one
+     * of them is marked skipped, as {@link forgetStranded} does and for its reason: it is `handed`
+     * from the moment it is attached and would never be offered again.
+     *
+     * @returns how many it took back.
+     */
+    takeBackHanded(): number {
+        const handed = this.handedIds();
+        if (handed.length === 0) return 0;
+
+        this.order?.reclaim(handed);
+        for (const id of handed) {
+            this.servedAt.delete(id);
+            this.missingSince.delete(id);
+        }
+        this.forgetPrepared(handed);
+        this.emit();
+        return handed.length;
+    }
+
+    /**
+     * Forget the playable form of some items the player has not been given, so the director
+     * prepares them afresh.
+     *
+     * For a change the director makes to what an item IS after it was prepared. A break the planner
+     * reopens for rewriting is the case it exists for: its segment goes back to `planned` and loses
+     * its audio, but the form prepared while it was ready stayed here, {@link isPrepared} told the
+     * director there was nothing to do, and the pusher handed the player a segment with no audio,
+     * which was skipped (live on 14 October, a weather segment). Forgotten, it is resolved again when
+     * it is next, and a segment that is not ready by then is the director's to skip or hold.
+     *
+     * Only `planned` items. One handed over is with the player, and its form is what lets a reading
+     * that names it on air be believed ({@link observeOnAir}). A talk-over cue riding a forgotten
+     * record is marked skipped, as in {@link forgetStranded} and for its reason.
+     *
+     * @returns how many it forgot.
+     */
+    forgetPrepared(ids: readonly string[]): number {
+        let forgot = 0;
+        for (const id of ids) {
+            const item = this.prepared.get(id);
+            if (item === undefined || this.stateOf(id) !== 'planned') continue;
+
+            this.prepared.delete(id);
+            if (item.voice?.itemId !== undefined) this.order?.markSkipped(item.voice.itemId);
+            forgot += 1;
+        }
+        if (forgot > 0) this.emit();
+        return forgot;
+    }
+
+    /**
      * The player says this item started. Anything handed over before it was
      * skipped — a failed decode, an operator skip — and the order marks those as it
      * moves.

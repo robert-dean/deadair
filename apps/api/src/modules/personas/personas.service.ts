@@ -102,10 +102,21 @@ export class PersonasService {
     }
 
     async update(id: string, body: PersonaInput): Promise<PersonaList> {
-        const hosts = await this.hostsFor(body);
-        const updated = await this.write(body.key, () => this.personas.update(id, draftOf(body)));
+        // A client built before `kinds` sends back the one `kind` it read, which is the one the
+        // character's set ranks highest. That means "what it already is", so the set it has is kept.
+        // Read as written, the save would quietly turn a host who also drops by into a host who
+        // does not.
+        const held = body.kinds === undefined ? await this.personas.find(id) : undefined;
+        const unchanged = held !== undefined && body.kind !== undefined && primaryKind(held.kinds) === body.kind;
+        const draft = unchanged ? { ...draftOf(body), kinds: held.kinds } : draftOf(body);
+
+        // Ties are kept only where such a client could not have meant to clear them: it sends them for
+        // a caller or a guest, so absent there still unties, and for nobody else.
+        const keepTies = unchanged && body.hosts === undefined && body.kind !== 'caller' && body.kind !== 'guest';
+        const hosts = keepTies ? undefined : await this.hostsFor(body);
+        const updated = await this.write(body.key, () => this.personas.update(id, draft));
         if (updated === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
-        await this.personas.setHosts(updated.id, hosts);
+        if (hosts !== undefined) await this.personas.setHosts(updated.id, hosts);
         // A host rewritten as somebody who can no longer present can no longer be rung, so the
         // callers tied to it are untied rather than left naming a presenter who will never present.
         if (!hasKind(updated, 'host')) await this.personas.untieHost(updated.id);

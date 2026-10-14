@@ -291,6 +291,43 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
         expect(personas.untieHost).not.toHaveBeenCalled();
     });
 
+    // A client built before `kinds` (an older desktop app) sends back the one kind it read. That is
+    // what the character already is, so the rest of its kinds, and its ties, survive the save.
+    describe('saved by a client built before kinds', () => {
+        const peter = persona({ id: 'h3', key: 'peter', kinds: ['host' as const, 'guest' as const], label: 'Peter', defaultHost: false });
+
+        function holding() {
+            const built = build({ roster: [...roster, peter] });
+            built.personas.find = vi.fn(async (id: string) => [...roster, peter].find(row => row.id === id)) as never;
+            return built;
+        }
+
+        it('keeps the kinds the character has beyond the one it was sent as', async () => {
+            const { service, personas } = holding();
+
+            await service.update('h3', input({ key: 'peter', kind: 'host', label: 'Peter' }));
+
+            expect(vi.mocked(personas.update).mock.calls[0]?.[1]).toMatchObject({ kinds: ['host', 'guest'] });
+        });
+
+        it('leaves its ties alone, which such a client never sends for a host', async () => {
+            const { service, personas } = holding();
+
+            await service.update('h3', input({ key: 'peter', kind: 'host', label: 'Peter' }));
+
+            expect(personas.setHosts).not.toHaveBeenCalled();
+        });
+
+        it('takes a kind it was sent that the character is not as a change of what it is', async () => {
+            const { service, personas } = holding();
+
+            await service.update('h3', input({ key: 'peter', kind: 'caller', label: 'Peter' }));
+
+            expect(vi.mocked(personas.update).mock.calls[0]?.[1]).toMatchObject({ kinds: ['caller'] });
+            expect(personas.setHosts).toHaveBeenCalledWith('h3', []);
+        });
+    });
+
     it('refuses hosts on a host, and writes nothing', async () => {
         const { service, personas } = tying();
 

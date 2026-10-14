@@ -19,12 +19,18 @@ const listImportablePlaylists = vi.fn();
 const listPersonas = vi.fn();
 const listCharts = vi.fn();
 const listStationPlaylists = vi.fn(async () => ({ playlists: [] as unknown[] }));
+const readSlotPlaylistPosition = vi.fn(async (_id: string): Promise<{ title?: string; artist?: string }> => ({}));
+const restartSlotPlaylist = vi.fn(async (_id: string) => undefined);
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         playlists: { listImportablePlaylists: () => listImportablePlaylists(), listStationPlaylists: () => listStationPlaylists() },
         personas: { listPersonas: () => listPersonas() },
         charts: { listCharts: () => listCharts() },
+        schedule: {
+            readSlotPlaylistPosition: (id: string) => readSlotPlaylistPosition(id),
+            restartSlotPlaylist: (id: string) => restartSlotPlaylist(id),
+        },
     },
 }));
 
@@ -32,6 +38,9 @@ afterEach(() => {
     listImportablePlaylists.mockReset();
     listPersonas.mockReset();
     listCharts.mockReset();
+    readSlotPlaylistPosition.mockReset();
+    readSlotPlaylistPosition.mockResolvedValue({});
+    restartSlotPlaylist.mockClear();
 });
 
 const PLAYLISTS: CatalogPlaylistPage = { playlists: [], errors: [] };
@@ -596,5 +605,127 @@ describe('SlotEditor', () => {
         await setupUser().click(screen.getByRole('button', { name: 'Save' }));
 
         expect(onSubmit.mock.calls[0]![0].moods).toEqual(['comfort', 'sadness']);
+    });
+
+    describe('a slot that resumes its playlist', () => {
+        const playlistSlot = (over: Partial<ScheduleSlot> = {}) =>
+            slot({ sourcePluginId: 'deadair.spotify', sourcePlaylistId: 'pl_1', resumePlaylist: true, ...over });
+        const offered = { pluginId: 'deadair.spotify', id: 'pl_1', name: 'Evergreen Rock', pluginName: 'Spotify' };
+        const resumeSwitch = () => screen.queryByRole('switch', { name: /Pick the playlist up where it left off/ });
+
+        it('offers resuming only beside a playlist, and sends it only when it is switched on', async () => {
+            listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+            listPersonas.mockResolvedValue(PERSONAS);
+            const onSubmit = vi.fn();
+            const user = setupUser();
+
+            render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+            await screen.findByRole('combobox', { name: 'Playing from' });
+            // A slot the station fills itself has no playlist to pick up.
+            expect(resumeSwitch()).toBeNull();
+
+            await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Late night');
+            await user.click(screen.getByRole('combobox', { name: 'Playing from' }));
+            await user.click(await screen.findByRole('option', { name: `${offered.name} — ${offered.pluginName}` }));
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+            expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('resumePlaylist');
+
+            await user.click(resumeSwitch()!);
+            // A slot not saved yet has aired nothing, so there is no place to show and nothing is asked.
+            expect(screen.getByText('Save the slot to see where it will pick up.')).toBeInTheDocument();
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+            expect(onSubmit.mock.calls[1]?.[0].resumePlaylist).toBe(true);
+            expect(readSlotPlaylistPosition).not.toHaveBeenCalled();
+        });
+
+        it('shows the record it will open on next, and starts it from the top when asked', async () => {
+            listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+            listPersonas.mockResolvedValue(PERSONAS);
+            readSlotPlaylistPosition.mockResolvedValueOnce({ title: 'Roads', artist: 'Portishead' });
+            const user = setupUser();
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: playlistSlot() }}
+                    onClose={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            expect(resumeSwitch()).toBeChecked();
+            expect(await screen.findByText('Next time it opens on Roads by Portishead.')).toBeInTheDocument();
+            expect(readSlotPlaylistPosition).toHaveBeenCalledWith('slot-1');
+
+            await user.click(screen.getByRole('button', { name: 'Start from the top' }));
+
+            expect(restartSlotPlaylist).toHaveBeenCalledWith('slot-1');
+            expect(await screen.findByText('Next time it starts from the top.')).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Start from the top' })).toBeNull();
+        });
+
+        it('says when it would start from the top anyway, and offers nothing to press', async () => {
+            listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+            listPersonas.mockResolvedValue(PERSONAS);
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: playlistSlot() }}
+                    onClose={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            expect(await screen.findByText('Next time it starts from the top.')).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Start from the top' })).toBeNull();
+        });
+
+        it('asks nothing of a slot whose resuming is not saved yet', async () => {
+            listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+            listPersonas.mockResolvedValue(PERSONAS);
+            const user = setupUser();
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: playlistSlot({ resumePlaylist: false }) }}
+                    onClose={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+            await screen.findByRole('combobox', { name: 'Playing from' });
+            expect(resumeSwitch()).not.toBeChecked();
+
+            await user.click(resumeSwitch()!);
+
+            expect(screen.getByText('Save the slot to see where it will pick up.')).toBeInTheDocument();
+            expect(readSlotPlaylistPosition).not.toHaveBeenCalled();
+        });
+
+        it('says so when where it got to cannot be read', async () => {
+            listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+            listPersonas.mockResolvedValue(PERSONAS);
+            readSlotPlaylistPosition.mockRejectedValue(new Error('the provider did not answer'));
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: playlistSlot() }}
+                    onClose={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            expect(await screen.findByText('Where it got to could not be read.', {}, { timeout: 5000 })).toBeInTheDocument();
+        });
     });
 });

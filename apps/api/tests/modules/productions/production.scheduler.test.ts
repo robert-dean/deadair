@@ -125,6 +125,39 @@ describe('commissioning what the clock wants', () => {
         expect(jobs.send).toHaveBeenCalledWith('director.produce', expect.objectContaining({ pass: 'outline' }));
     });
 
+    // A banter is the presenters trading lines. Commissioned on a show with one presenter, it failed
+    // at the caster and left a failed row on Productions every hour the band came round.
+    it('passes over a banter band on a show with nobody beside the host', async () => {
+        const { scheduler, opened } = build({ bands: [{ kind: 'banter', at: 'clock', minute: 30 }] });
+
+        await scheduler.ripen(now, { personaId: 'persona-1' });
+        await scheduler.ripen(now, { personaId: 'persona-1', coHosted: false });
+
+        expect(opened).toEqual([]);
+    });
+
+    it('commissions a banter band on a show with co-hosts', async () => {
+        const { scheduler, opened } = build({ bands: [{ kind: 'banter', at: 'clock', minute: 30 }] });
+
+        await scheduler.ripen(now, { personaId: 'persona-1', coHosted: true });
+
+        expect(opened).toHaveLength(1);
+        expect(opened[0]).toMatchObject({ kind: 'banter', personaId: 'persona-1', scheduledFor: Date.UTC(2026, 7, 25, 12, 30) });
+    });
+
+    it('still commissions every other band on a show with nobody beside the host', async () => {
+        const { scheduler, opened } = build({
+            bands: [
+                { kind: 'banter', at: 'clock', minute: 30 },
+                { kind: 'callin', at: 'clock', minute: 40 },
+            ],
+        });
+
+        await scheduler.ripen(now, {});
+
+        expect(opened.map(row => row.kind)).toEqual(['callin']);
+    });
+
     it('ignores a band whose kind is not made as a production', async () => {
         const { scheduler, opened } = build({ bands: [{ kind: 'news', at: 'clock', minute: 30 }] });
 

@@ -7,7 +7,7 @@ import { ClockBandRepository } from '#modules/director/clock.band.repository.js'
 import { stationZone } from '#modules/director/clock.words.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { firstPass } from './production.passes.js';
-import { dialogueKinds, stationTargetMs, stationWritingMode } from './production.settings.js';
+import { BANTER_KIND, dialogueKinds, stationTargetMs, stationWritingMode } from './production.settings.js';
 import { ProductionRepository } from './production.repository.js';
 
 /**
@@ -75,6 +75,11 @@ export interface BroadcastContext {
     callins?: boolean;
     /** Minutes of airtime between one call and the next. `ResolvedRules.callinEveryMinutes`. */
     callinEveryMinutes?: number;
+    /**
+     * Whether anybody presents beside the host on this broadcast tonight: `StationLineup.coHostPersonaIds`.
+     * A banter is the presenters trading lines, so a show with one has nobody to banter with.
+     */
+    coHosted?: boolean;
 }
 
 /**
@@ -147,6 +152,12 @@ export class ProductionScheduler {
         let started = 0;
 
         for (const band of anchored) {
+            // A banter on a show with nobody beside the host is cast, fails at the caster and leaves
+            // a failed row on Productions every hour the band comes round. Passed over instead, and
+            // asked again on the next pass, so a band inside the read-ahead is still commissioned
+            // once a show with co-hosts is the one on.
+            if (band.kind.trim().toLowerCase() === BANTER_KIND && show.coHosted !== true) continue;
+
             const at = nextOccurrence(band, now, zone);
             if (at - now > COMMISSION_AHEAD_MS) continue;
 

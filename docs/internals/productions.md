@@ -96,6 +96,11 @@ beat wraps up and hands back to the music. The caster reads the co-hosts off the
 broadcast the banter airs in (tonight's, which is where a visiting co-host's night is stamped) and
 throws, as a visit does, when nobody presents beside the host. `banter` is a default production kind
 and always a dialogue kind; a `banter` band on the format clock is how a station asks for a few a show.
+**The scheduler passes a `banter` band over on a show with nobody beside the host** (`coHosted` on
+`BroadcastContext`, from the running order's co-hosts): the band is station-wide, and commissioning it
+anyway left a failed row on Productions every hour it came round. It is asked again every pass, so a
+slot inside the read-ahead is still commissioned once a co-hosted show is the one on. A banter asked
+for by hand on such a night still fails at the caster, which says why.
 
 ## Commissioning one
 

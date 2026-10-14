@@ -55,6 +55,8 @@ export interface ProviderArm {
      * `effort` is what the plugin decided to send after the setting and the
      * caller's hint: `'none'`, `'low'`, `'medium'`, `'high'`, or `undefined`
      * for "say nothing about it", which every arm must answer `undefined` to.
+     * `'minimal'` reaches only an arm that implements
+     * {@link isReasoningValueRefusal} and has said `none` was refused.
      * The vocabulary is the station's rather than any service's, because it is
      * the one an operator picked from a list; translating it is the arm's job.
      *
@@ -76,6 +78,23 @@ export interface ProviderArm {
      * turn thinking off across a station because one model was busy.
      */
     isReasoningRefusal(error: unknown): boolean;
+
+    /**
+     * Whether a fault is this service accepting the thinking field but refusing
+     * the one VALUE it carried, rather than the field itself.
+     *
+     * Optional, because only a service that can say so separately needs it: the
+     * plugin asks it about `none` alone, and a model that cannot switch thinking
+     * off but takes a lower level is better served by that level than by the
+     * field dropped, which leaves the model on its own default and so thinking
+     * at full length on every call. An arm without it behaves exactly as before:
+     * any refusal drops the field.
+     *
+     * Asked before {@link isReasoningRefusal}, which a value refusal usually
+     * satisfies too, so the bar is the same high one: the body has to name the
+     * field AND the value, or say the value is not one it takes.
+     */
+    isReasoningValueRefusal?(error: unknown, value: string): boolean;
 
     /**
      * Whether every model this service lists accepts tools.

@@ -82,9 +82,17 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private kinds = new Map<string, ProviderRow['kind']>();
 
     /**
-     * The arms that have refused the thinking field, for the rest of this load.
+     * How far each arm has stepped the thinking field down after a refusal, for the rest of this load.
      *
-     * A SET rather than a flag, and the difference is a real failure: a Gemini 2.5
+     * Two floors, because a refusal comes in two kinds. `dropped` is a server that does not know
+     * the field at all, so it stops going out. `minimal` is a server that knows the field and
+     * refuses `none`, which is what some reasoning models say when thinking cannot be switched off
+     * entirely. Dropping the field for those was the wrong answer: it handed the model its own
+     * default, which is full-length thinking on every call, seconds and a thousand-odd tokens spent
+     * before a break says a word, exactly when the operator had asked for none. The lowest level
+     * the model does take is the nearest thing to what was asked for.
+     *
+     * A MAP rather than a flag, and the difference is a real failure: a Gemini 2.5
      * model refusing `thinkingLevel` used to latch the whole plugin, so the next
      * break written on Claude went out with its thinking silently switched off. A
      * refusal is a fact about the provider that refused it, and two rows of the same
@@ -95,7 +103,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * a different account entirely, and a strict model today says nothing about the
      * one an operator names tomorrow.
      */
-    private readonly reasoningRefused = new Set<string>();
+    private readonly reasoningFloor = new Map<string, 'minimal' | 'dropped'>();
 
     /**
      * What each arm's model listing last said, and when. See {@link fetchModels}.
@@ -116,7 +124,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         this.models = typeof config.models === 'string' ? config.models : '';
         const configuredEffort = configString(config.reasoningEffort);
         this.reasoningEffort = isReasoningEffortSetting(configuredEffort) ? configuredEffort : DEFAULT_REASONING_EFFORT;
-        this.reasoningRefused.clear();
+        this.reasoningFloor.clear();
 
         // Built once per load rather than per call: an arm is a closure over an
         // address, a key and the fetch, none of which change without a reload. A
@@ -489,11 +497,14 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * the original fault is still attached to an `error` part, so this reads it directly and filters
      * `text-delta` out by hand — the same thing `textStream` does internally.
      *
-     * `retriable` is true only for the very first part read off `first`, and only when an effort
-     * field actually went out on it; it is spent the moment a retry fires, so a second refusal on the
-     * fallback attempt is surfaced rather than chased. `commit` fixes which attempt `resolveResult`
-     * answers from — the first, unless a refusal sends it chasing a second one before any words or
-     * any other fault arrived — and runs at most once.
+     * `retriable` is true only while an effort field is going out, and a retry that drops the field
+     * spends it, so a refusal of the fallback attempt is surfaced rather than chased. The one way to
+     * a second retry is the step-down: `none` refused as a value retries at `minimal`, and if that is
+     * refused too the third attempt carries no field at all. Every other refusal gets exactly one.
+     * See {@link floorAfterRefusal}.
+     *
+     * `commit` fixes which attempt `resolveResult` answers from — the first, unless a refusal sends
+     * it chasing another one before any words or any other fault arrived — and runs at most once.
      */
     private async *driveText(
         host: PluginHost,
@@ -506,7 +517,8 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     ): AsyncGenerator<string, void, unknown> {
         let current = first;
         let reader = current.stream.stream.getReader();
-        let retriable = firstEffortSent !== undefined;
+        let sent = firstEffortSent;
+        let retriable = sent !== undefined;
         let committed = false;
 
         const commit = (): void => {
@@ -534,15 +546,27 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                     continue;
                 }
 
-                if (part.type === 'error' && retriable && this.arms.get(provider)?.isReasoningRefusal(part.error) === true) {
-                    retriable = false;
-                    this.reasoningRefused.add(provider);
-                    host.logger.warn('llm: the provider refused the thinking field; retrying once without it', {
-                        provider,
-                        error: errorText(part.error),
-                    });
+                const floor = part.type === 'error' && retriable ? this.floorAfterRefusal(provider, part.error, sent) : undefined;
+                if (part.type === 'error' && floor !== undefined) {
+                    this.reasoningFloor.set(provider, floor);
+                    if (floor === 'minimal') {
+                        // Still retriable: `minimal` refused as well is the one case that earns a
+                        // second retry, and that one drops the field, so the chain ends there.
+                        sent = 'minimal';
+                        host.logger.warn('llm: the provider refused none as a thinking level; stepping down to minimal instead', {
+                            provider,
+                            error: errorText(part.error),
+                        });
+                    } else {
+                        sent = undefined;
+                        retriable = false;
+                        host.logger.warn('llm: the provider refused the thinking field; retrying once without it', {
+                            provider,
+                            error: errorText(part.error),
+                        });
+                    }
 
-                    current = buildAttempt(undefined);
+                    current = buildAttempt(sent);
                     active.controller = current.controller;
                     reader = current.stream.stream.getReader();
                     continue;
@@ -564,17 +588,47 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     }
 
     /**
-     * What `reasoning_effort` should actually carry, given the setting and the caller's own hint.
+     * Which floor a fault latches, or `undefined` for a fault that is not a refusal of the
+     * thinking field at all.
      *
-     * `undefined` once {@link reasoningRefused} has latched FOR THIS ARM: a provider that rejected
-     * the field once gets it dropped for the rest of this plugin's life, regardless of what a later
-     * caller asks for or how this is configured. Only that provider — one arm refusing says nothing
-     * about the others, and latching them together would silently switch thinking off on a model
-     * that had never refused anything.
+     * `minimal` only for `none` refused as a VALUE, by an arm able to tell that apart from the field
+     * being refused. Asked first, because a server refusing the value names the field in the same
+     * breath and would otherwise read as a field refusal. Anything else the arm recognises as a
+     * refusal, `minimal` itself refused included, drops the field.
+     */
+    private floorAfterRefusal(provider: string, error: unknown, sent: string | undefined): 'minimal' | 'dropped' | undefined {
+        const arm = this.arms.get(provider);
+        if (arm === undefined || sent === undefined) return undefined;
+        if (sent === 'none' && arm.isReasoningValueRefusal?.(error, sent) === true) return 'minimal';
+        if (arm.isReasoningRefusal(error) || arm.isReasoningValueRefusal?.(error, sent) === true) return 'dropped';
+        return undefined;
+    }
+
+    /**
+     * What `reasoning_effort` should actually carry, given the setting, the caller's own hint and
+     * how far {@link reasoningFloor} has stepped this arm down.
+     *
+     * `undefined` once the floor is `dropped` FOR THIS ARM: a provider that rejected the field once
+     * gets it dropped for the rest of this plugin's life, regardless of what a later caller asks for
+     * or how this is configured. Only that provider — one arm refusing says nothing about the
+     * others, and latching them together would silently switch thinking off on a model that had
+     * never refused anything.
+     *
+     * A floor of `minimal` lifts `none` and nothing else. The model said it cannot stop thinking
+     * altogether, not that it wants to think more, so `low` and above still go out as asked. And
+     * `minimal` stays this plugin's own word: no setting or caller can name it, it exists only as
+     * the answer to that one refusal.
      */
     private effortToSend(provider: string, hint: LlmRequest['reasoningEffort']): string | undefined {
-        if (this.reasoningRefused.has(provider)) return undefined;
+        const floor = this.reasoningFloor.get(provider);
+        if (floor === 'dropped') return undefined;
 
+        const effort = this.requestedEffort(hint);
+        return floor === 'minimal' && effort === 'none' ? 'minimal' : effort;
+    }
+
+    /** The effort the setting and the caller's hint ask for, before any refusal has had its say. */
+    private requestedEffort(hint: LlmRequest['reasoningEffort']): string | undefined {
         switch (this.reasoningEffort) {
             case 'off':
                 // The value a reasoning model reads as "answer without reasoning". Omitting the

@@ -32,6 +32,15 @@ function refusalResponse(): Response {
     });
 }
 
+/** What a server says when it knows the field but takes no `none`: a model that cannot stop thinking altogether. */
+function valueRefusalResponse(value = 'none'): () => Response {
+    return () =>
+        new Response(JSON.stringify({ error: { message: `Unsupported value: 'reasoning_effort' does not support '${value}' with this model.` } }), {
+            status: 400,
+            headers: { 'content-type': 'application/json' },
+        });
+}
+
 function plainErrorResponse(status: number): Response {
     return new Response(JSON.stringify({ error: { message: 'internal error' } }), {
         status,
@@ -128,5 +137,100 @@ describe('reasoning effort', () => {
 
         await expect(collectGeneration(handle)).rejects.toThrow();
         expect(host.calls).toHaveLength(1);
+    });
+});
+
+describe('a refused none', () => {
+    it('steps down to minimal rather than dropping the field, and the words still arrive', async () => {
+        const host = scriptedHost([valueRefusalResponse(), () => sseResponse('Hello.')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        const result = await collectGeneration(await plugin.generate(request));
+
+        expect(result.text).toBe('Hello.');
+        expect(host.calls).toHaveLength(2);
+        expect(reasoningEffortSent(host, 0)).toBe('none');
+        expect(reasoningEffortSent(host, 1)).toBe('minimal');
+    });
+
+    it('sends minimal straight away on the next call to the same provider', async () => {
+        const host = scriptedHost([valueRefusalResponse(), () => sseResponse('first'), () => sseResponse('second')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        await collectGeneration(await plugin.generate(request));
+        const second = await collectGeneration(await plugin.generate(request));
+
+        expect(second.text).toBe('second');
+        expect(host.calls).toHaveLength(3);
+        expect(reasoningEffortSent(host, 2)).toBe('minimal');
+    });
+
+    it('leaves a level above none exactly as asked', async () => {
+        const host = scriptedHost([valueRefusalResponse(), () => sseResponse('first'), () => sseResponse('low'), () => sseResponse('high')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'auto' });
+
+        await collectGeneration(await plugin.generate({ ...request, reasoningEffort: 'none' }));
+        await collectGeneration(await plugin.generate({ ...request, reasoningEffort: 'low' }));
+        await collectGeneration(await plugin.generate({ ...request, reasoningEffort: 'high' }));
+
+        expect(host.calls).toHaveLength(4);
+        expect(reasoningEffortSent(host, 1)).toBe('minimal');
+        expect(reasoningEffortSent(host, 2)).toBe('low');
+        expect(reasoningEffortSent(host, 3)).toBe('high');
+    });
+
+    it('still drops the field when what was refused is the field itself', async () => {
+        const host = scriptedHost([refusalResponse, () => sseResponse('Hello.')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        const result = await collectGeneration(await plugin.generate(request));
+
+        expect(result.text).toBe('Hello.');
+        expect(host.calls).toHaveLength(2);
+        expect(reasoningEffortSent(host, 0)).toBe('none');
+        expect(reasoningEffortSent(host, 1)).toBeUndefined();
+    });
+
+    it('drops the field on a third attempt when minimal is refused too, and sends none of it afterwards', async () => {
+        const host = scriptedHost([valueRefusalResponse(), valueRefusalResponse('minimal'), () => sseResponse('Hello.'), () => sseResponse('later')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        const result = await collectGeneration(await plugin.generate(request));
+        const later = await collectGeneration(await plugin.generate(request));
+
+        expect(result.text).toBe('Hello.');
+        expect(later.text).toBe('later');
+        expect(host.calls).toHaveLength(4);
+        expect(reasoningEffortSent(host, 0)).toBe('none');
+        expect(reasoningEffortSent(host, 1)).toBe('minimal');
+        expect(reasoningEffortSent(host, 2)).toBeUndefined();
+        expect(reasoningEffortSent(host, 3)).toBeUndefined();
+    });
+
+    it('surfaces a refusal of the dropped-field attempt rather than retrying a fourth time', async () => {
+        const host = scriptedHost([valueRefusalResponse(), valueRefusalResponse('minimal'), refusalResponse]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        await expect(collectGeneration(await plugin.generate(request))).rejects.toThrow();
+        expect(host.calls).toHaveLength(3);
+    });
+
+    it('steps down only the provider that refused', async () => {
+        const host = scriptedHost([valueRefusalResponse(), () => sseResponse('first'), () => sseResponse('other')]);
+        const plugin = await loadedPlugin(host, {
+            reasoningEffort: 'off',
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'alt', kind: 'openai-compat', baseUrl: 'https://other.test/v1' },
+            ]),
+        });
+
+        await collectGeneration(await plugin.generate(request));
+        const other = await collectGeneration(await plugin.generate({ ...request, model: 'alt:gpt-y' }));
+
+        expect(other.text).toBe('other');
+        expect(host.calls).toHaveLength(3);
+        expect(reasoningEffortSent(host, 1)).toBe('minimal');
+        expect(reasoningEffortSent(host, 2)).toBe('none');
     });
 });

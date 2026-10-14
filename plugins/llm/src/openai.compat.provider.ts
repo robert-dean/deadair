@@ -127,5 +127,27 @@ export function openAiCompatibleArm(host: PluginHost, options: { baseUrl: string
         isReasoningRefusal(error: unknown): boolean {
             return APICallError.isInstance(error) && error.statusCode === 400 && /reasoning_effort/.test(error.responseBody ?? '');
         },
+
+        /**
+         * A server that knows `reasoning_effort` and refuses the value it was sent.
+         *
+         * Told apart from {@link isReasoningRefusal} by what else the body says: the value
+         * quoted, or a word saying the value is the problem. A body that only says the
+         * argument is unrecognized names the field and nothing more, and stays a field refusal.
+         */
+        isReasoningValueRefusal(error: unknown, value: string): boolean {
+            if (!APICallError.isInstance(error) || error.statusCode !== 400) return false;
+            const body = error.responseBody ?? '';
+            if (!/reasoning_effort/.test(body)) return false;
+
+            // The value itself, in single or double quotes (escaped, inside a JSON string).
+            const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (new RegExp(`(?:'|\\\\?")${escaped}(?:'|\\\\?")`).test(body)) return true;
+
+            // Otherwise a word that blames the value, but never a body saying the argument itself is
+            // unknown: "invalid" can describe a field the server never heard of as easily as a value.
+            if (/unrecognized|unknown (?:request )?(?:argument|parameter|field)/i.test(body)) return false;
+            return /unsupported|not supported|invalid|not (?:a )?valid|not allowed|must be one of/i.test(body);
+        },
     };
 }

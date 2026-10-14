@@ -320,8 +320,10 @@ data class Persona(
     val id: String,
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     val key: String,
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
     val kind: PersonaKind? = null,
+    /** What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host` */
+    val kinds: List<PersonaKinds>? = null,
     val label: String,
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     val style: String,
@@ -363,7 +365,7 @@ data class Persona(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
     val hosts: List<String>? = null,
     /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
     val defaultHost: Boolean,
@@ -378,8 +380,10 @@ data class Persona(
 data class PersonaInput(
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     val key: String,
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
     val kind: PersonaKind? = null,
+    /** What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host` */
+    val kinds: List<PersonaKinds>? = null,
     val label: String,
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     val style: String,
@@ -421,7 +425,7 @@ data class PersonaInput(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
     val hosts: List<String>? = null,
 )
 
@@ -540,7 +544,10 @@ data class PersonaImportEntry(
     /** What identifies this character across two installs */
     val key: String,
     val label: String,
+    /** The one of `kinds` that ranks highest, host first, for a console built before `kinds` */
     val kind: PersonaImportEntryKind? = null,
+    /** What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host` */
+    val kinds: List<PersonaImportEntryKinds>? = null,
     /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
     val outcome: PersonaImportEntryOutcome,
     val storiesNew: Long,
@@ -715,8 +722,10 @@ data class PersonaFilePersona(
     val trivia: PersonaDraftViewTrivia? = null,
     val samples: List<String>? = null,
     val templates: String? = null,
-    /** Absent means `host`, as everywhere else */
+    /** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
     val kind: PersonaFilePersonaKind? = null,
+    /** What the character may be cast as, in any combination. Wins over `kind` when a file has both */
+    val kinds: List<PersonaFilePersonaKinds>? = null,
     val stories: List<PersonaFileStory>,
 )
 
@@ -827,7 +836,7 @@ data class PersonaImportResult(
 @Serializable
 class PersonaImportResultInput
 
-/** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+/** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
 @Serializable(with = PersonaKindSerializer::class)
 enum class PersonaKind {
     HOST,
@@ -850,6 +859,30 @@ object PersonaKindSerializer : SdkEnumSerializer<PersonaKind>(
     PersonaKind.CALLER to "caller",
     PersonaKind.NEWSREADER to "newsreader",
     PersonaKind.GUEST to "guest",
+)
+
+@Serializable(with = PersonaKindsSerializer::class)
+enum class PersonaKinds {
+    HOST,
+    CALLER,
+    NEWSREADER,
+    GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PersonaKinds] by its wire spelling. A spelling it does not know reads as [PersonaKinds.UNKNOWN]. */
+object PersonaKindsSerializer : SdkEnumSerializer<PersonaKinds>(
+    "PersonaKinds",
+    PersonaKinds.UNKNOWN,
+    PersonaKinds.HOST to "host",
+    PersonaKinds.CALLER to "caller",
+    PersonaKinds.NEWSREADER to "newsreader",
+    PersonaKinds.GUEST to "guest",
 )
 
 /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
@@ -1418,7 +1451,7 @@ object PersonaStoryStateStateSerializer : SdkEnumSerializer<PersonaStoryStateSta
     PersonaStoryStateState.REJECTED to "rejected",
 )
 
-/** Absent means `host`, as everywhere else */
+/** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
 @Serializable(with = PersonaFilePersonaKindSerializer::class)
 enum class PersonaFilePersonaKind {
     HOST,
@@ -1441,6 +1474,30 @@ object PersonaFilePersonaKindSerializer : SdkEnumSerializer<PersonaFilePersonaKi
     PersonaFilePersonaKind.CALLER to "caller",
     PersonaFilePersonaKind.NEWSREADER to "newsreader",
     PersonaFilePersonaKind.GUEST to "guest",
+)
+
+@Serializable(with = PersonaFilePersonaKindsSerializer::class)
+enum class PersonaFilePersonaKinds {
+    HOST,
+    CALLER,
+    NEWSREADER,
+    GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PersonaFilePersonaKinds] by its wire spelling. A spelling it does not know reads as [PersonaFilePersonaKinds.UNKNOWN]. */
+object PersonaFilePersonaKindsSerializer : SdkEnumSerializer<PersonaFilePersonaKinds>(
+    "PersonaFilePersonaKinds",
+    PersonaFilePersonaKinds.UNKNOWN,
+    PersonaFilePersonaKinds.HOST to "host",
+    PersonaFilePersonaKinds.CALLER to "caller",
+    PersonaFilePersonaKinds.NEWSREADER to "newsreader",
+    PersonaFilePersonaKinds.GUEST to "guest",
 )
 
 /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
@@ -1528,6 +1585,7 @@ object PersonaFileStoryDetailStateSerializer : SdkEnumSerializer<PersonaFileStor
     PersonaFileStoryDetailState.REJECTED to "rejected",
 )
 
+/** The one of `kinds` that ranks highest, host first, for a console built before `kinds` */
 @Serializable(with = PersonaImportEntryKindSerializer::class)
 enum class PersonaImportEntryKind {
     HOST,
@@ -1550,6 +1608,30 @@ object PersonaImportEntryKindSerializer : SdkEnumSerializer<PersonaImportEntryKi
     PersonaImportEntryKind.CALLER to "caller",
     PersonaImportEntryKind.NEWSREADER to "newsreader",
     PersonaImportEntryKind.GUEST to "guest",
+)
+
+@Serializable(with = PersonaImportEntryKindsSerializer::class)
+enum class PersonaImportEntryKinds {
+    HOST,
+    CALLER,
+    NEWSREADER,
+    GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PersonaImportEntryKinds] by its wire spelling. A spelling it does not know reads as [PersonaImportEntryKinds.UNKNOWN]. */
+object PersonaImportEntryKindsSerializer : SdkEnumSerializer<PersonaImportEntryKinds>(
+    "PersonaImportEntryKinds",
+    PersonaImportEntryKinds.UNKNOWN,
+    PersonaImportEntryKinds.HOST to "host",
+    PersonaImportEntryKinds.CALLER to "caller",
+    PersonaImportEntryKinds.NEWSREADER to "newsreader",
+    PersonaImportEntryKinds.GUEST to "guest",
 )
 
 /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */

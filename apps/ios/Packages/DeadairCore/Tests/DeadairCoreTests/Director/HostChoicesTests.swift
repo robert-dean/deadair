@@ -14,6 +14,20 @@ struct HostChoicesTests {
         #expect(hostChoices([persona("a", "Cass", kind: .host)], currentId: nil).count == 1)
     }
 
+    @Test func aGuestOrTheNewsreaderIsNeverOfferedEitherSinceNeitherPresents() {
+        let personas = [persona("a", "Cass"), persona("b", "Chef", kind: .guest), persona("c", "Walter", kind: .newsreader)]
+        #expect(hostChoices(personas, currentId: nil).map(\.name) == ["Cass"])
+    }
+
+    @Test func theKindsDecideWhenTheStationSendsThemSoAHostWhoAlsoDropsByIsOffered() {
+        let personas = [
+            persona("a", "Peter", kind: .host, kinds: [.host, .guest]),
+            persona("b", "Chef", kind: .guest, kinds: [.guest]),
+            persona("c", "Walter", kind: .newsreader, kinds: [.newsreader]),
+        ]
+        #expect(hostChoices(personas, currentId: nil).map(\.name) == ["Peter"])
+    }
+
     @Test func sortedByLabelWhateverItsCase() {
         let choices = hostChoices([persona("a", "zoe"), persona("b", "Ash"), persona("c", "cass")], currentId: nil)
         #expect(choices.map(\.name) == ["Ash", "cass", "zoe"])

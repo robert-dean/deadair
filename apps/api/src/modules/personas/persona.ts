@@ -61,20 +61,22 @@ export const NEWSREADER_READS: ReadonlySet<string> = new Set(['news']);
 export const DEFAULT_PERSONA_KIND: PersonaKind = 'host';
 
 /**
- * Why a persona of this kind cannot present the station, as one sentence, or nothing for a host.
+ * Why a persona cannot present the station, as one sentence, or nothing for anybody who may.
  *
- * One wording for every place that refuses (making it the station's host, recasting a show onto it),
- * so a newsreader is not told it is a caller, which `recast` used to say of anybody who was not a host.
+ * Presenting is the `host` kind and nothing else, whatever else a character is. The sentence names
+ * the first other kind the character has, so a newsreader is not told it is a caller, which `recast`
+ * used to say of anybody who was not a host. One wording for every place that refuses (making it the
+ * station's host, recasting a show onto it, putting it on a schedule slot).
  */
-export function cannotPresent(persona: { kind: PersonaKind; label: string }): string | undefined {
-    switch (persona.kind) {
-        case 'host':
-            return undefined;
+export function cannotPresent(persona: { kinds: readonly PersonaKind[]; label: string }): string | undefined {
+    if (persona.kinds.includes('host')) return undefined;
+
+    switch (persona.kinds[0]) {
         case 'newsreader':
             return `"${persona.label}" reads the news, and the newsreader cannot present the station`;
         case 'guest':
             return `"${persona.label}" is a guest who drops by the studio, and a guest cannot present the station`;
-        case 'caller':
+        default:
             return `"${persona.label}" is a caller, and a caller cannot present the station`;
     }
 }
@@ -82,18 +84,45 @@ export function cannotPresent(persona: { kind: PersonaKind; label: string }): st
 /** Whether a stored or submitted value is one this code knows how to apply. */
 export const isPersonaKind = (value: unknown): value is PersonaKind => PERSONA_KINDS.includes(value as PersonaKind);
 
+/**
+ * A set of kinds as the station stores it: only values this code knows, each once, in
+ * {@link PERSONA_KINDS} order, and never empty.
+ *
+ * Never empty because a character nobody may cast is a row with no meaning, and the table refuses
+ * one (migration 0103). What it falls back to is {@link DEFAULT_PERSONA_KIND} on `toPersona`'s
+ * argument: `host` is what the table meant before there was anything else, so it is the safe reading
+ * of a set that held nothing this code recognises.
+ */
+export function personaKinds(values: Iterable<unknown> | undefined): PersonaKind[] {
+    const known = new Set([...(values ?? [])].filter(isPersonaKind));
+    const kinds = PERSONA_KINDS.filter(kind => known.has(kind));
+    return kinds.length > 0 ? kinds : [DEFAULT_PERSONA_KIND];
+}
+
+/**
+ * The one kind a client that predates `kinds` is told: the first of {@link PERSONA_KINDS} the set
+ * holds, so anybody who can present is a `host` to it.
+ *
+ * Host first because that is the question every such client asks of `kind` (may this character
+ * present?), and answering `guest` for a host who also drops by would take a presenter off its list.
+ */
+export const primaryKind = (kinds: readonly PersonaKind[]): PersonaKind => personaKinds(kinds)[0] ?? DEFAULT_PERSONA_KIND;
+
+/** Whether this character may be cast as `kind`. */
+export const hasKind = (persona: { kinds: readonly PersonaKind[] }, kind: PersonaKind): boolean => persona.kinds.includes(kind);
+
 /** A persona as an operator wrote it, before it is a row. */
 export interface PersonaDraft extends PersonaSheet {
     /** A stable slug. What a seed is recognised by, and what a log line names. */
     key: string;
     /**
-     * What this character is for, and it is required rather than optional.
+     * What this character may be cast as, in any combination, as {@link personaKinds} stores it.
      *
-     * The column is `not null` with a default, so every row has one, and a draft that omitted it
-     * would be a draft nobody could classify: `host` and "not stated" would be the same thing right
-     * up until somebody wrote a caller and forgot.
+     * Required rather than optional, and never empty: the column is `not null` with a default, so
+     * every row has one, and a draft that omitted it would be a draft nobody could classify. `host`
+     * and "not stated" would be the same thing right up until somebody wrote a caller and forgot.
      */
-    kind: PersonaKind;
+    kinds: PersonaKind[];
     /** What the console calls it. */
     label: string;
     /**

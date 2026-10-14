@@ -10,7 +10,7 @@ Read the ones covering whatever you are about to change. The always-loaded index
 ## Who a caller is
 
 **Somebody can PHONE IN, and everything about that is decided host-side rather than by the model.**
-`personas.kind` is `host` or `caller` — not null, defaulting to `host`, which is a correction to
+`personas.kind` was `host` or `caller` (it is a set, `kinds`, since migration 0103; see `personas.md` § "Kinds") — not null, defaulting to `host`, which is a correction to
 [personas](https://github.com/robert-dean/deadair/discussions/25) §1: it sketched the column nullable with a `(station_key, kind)` unique index "with
 nulls distinct", and nulls distinct is Postgres's default, so two null-kind rows would not conflict and the
 station could have TWO active hosts. A caller can never be active at all, refused by
@@ -54,8 +54,8 @@ listener hears take the call, and a station presenting as nobody casts only the 
 rows with foreign keys rather than a list of ids on the sheet, on `clock_bands`' argument that a row
 can carry a foreign key, and both ends cascade: deleting a host unties its callers rather than
 silencing them, which is the call `schedule_slots.persona_id` makes with `set null`. A host rewritten
-as a caller is untied the same way. `PersonasService` refuses ties on a host and to anything but a
-host, since the table checks neither kind, and a caller saved without `hosts` is untied, because the
+as something that cannot present is untied the same way. `PersonasService` refuses ties on a character
+that is neither a caller nor a guest and to anything but a host, since the table checks neither kind, and a caller saved without `hosts` is untied, because the
 console leaves an empty field out and "leave them alone" would make the last tie impossible to
 remove. Ties do not travel in a persona file (they name this station's ids) and an import leaves
 them alone. **Tying a caller to a SHOW is not built**: a production records no schedule slot, so it
@@ -75,7 +75,8 @@ thanked for dropping by. A guest uses the presenter's cues, not a caller's telep
 and is held to the unoffered-weather check like the host, because a guest is under the station's sky.
 
 **A visit casts exactly one guest, and fails rather than air the host alone.** `ProductionCaster`
-reads `castable(host, 'guest')` (the same ties a caller has, least recently heard first). A phone-in
+reads `castable(host, 'guest', onTheShow)` (the same ties a caller has, least recently heard first, and
+never anybody already presenting the broadcast, since a host may be a guest too). A phone-in
 with nobody to ring falls back to the presenter, which still sounds like the station; a visit with no
 guest would be the host talking for minutes under a guest's billing, so the caster throws and the
 production is failed with the reason. `visit` is a production kind by default and a dialogue kind

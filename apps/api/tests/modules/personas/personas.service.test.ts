@@ -15,7 +15,7 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'pirate',
-    kind: 'host',
+    kinds: ['host'],
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
     defaultHost: true,
@@ -144,7 +144,7 @@ describe('PersonasService putting a persona on air', () => {
         // Somebody who phones IN cannot present the station. The database refuses it too, and this
         // is the half that answers the operator with a sentence rather than a constraint violation
         // — which also means `setDefaultHost` is never reached, so there is nothing to undo.
-        const { service, personas, director, activity } = build({ setDefaultHost: persona({ kind: 'caller', defaultHost: false }) });
+        const { service, personas, director, activity } = build({ setDefaultHost: persona({ kinds: ['caller' as const], defaultHost: false }) });
 
         await expect(service.setDefaultHost('p1')).rejects.toMatchObject({ statusCode: 400 });
 
@@ -154,7 +154,9 @@ describe('PersonasService putting a persona on air', () => {
     });
 
     it('refuses to put a guest on air, in words about a guest', async () => {
-        const { service, personas } = build({ setDefaultHost: persona({ kind: 'guest', label: 'Touring guitarist', defaultHost: false }) });
+        const { service, personas } = build({
+            setDefaultHost: persona({ kinds: ['guest' as const], label: 'Touring guitarist', defaultHost: false }),
+        });
 
         await expect(service.setDefaultHost('p1')).rejects.toMatchObject({
             statusCode: 400,
@@ -236,8 +238,8 @@ describe('PersonasService answering who is presenting', () => {
 describe('PersonasService tying a caller to the hosts it rings', () => {
     const host = persona({ id: 'h1', key: 'conspiracy', label: 'Conspiracy host', defaultHost: true });
     const otherHost = persona({ id: 'h2', key: 'classic', label: 'Classic host', defaultHost: false });
-    const skeptic = persona({ id: 'c1', key: 'skeptic', kind: 'caller', label: 'Caller who wants proof', defaultHost: false });
-    const pedant = persona({ id: 'c2', key: 'pedant', kind: 'caller', label: 'Caller who knows better', defaultHost: false });
+    const skeptic = persona({ id: 'c1', key: 'skeptic', kinds: ['caller' as const], label: 'Caller who wants proof', defaultHost: false });
+    const pedant = persona({ id: 'c2', key: 'pedant', kinds: ['caller' as const], label: 'Caller who knows better', defaultHost: false });
     const roster = [host, otherHost, skeptic, pedant];
 
     const input = (over: Record<string, unknown> = {}) =>
@@ -276,6 +278,54 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
         await service.create(input({ key: 'guitarist', kind: 'guest', label: 'Touring guitarist', hosts: ['h1'] }));
 
         expect(personas.setHosts).toHaveBeenCalledWith('new-id', ['h1']);
+    });
+
+    // A host who also drops by is tied like any guest: the tie is about where a character turns up,
+    // and being able to present does not change that. Nor does it untie the callers ringing them.
+    it('ties a host who also drops by, and keeps the callers who ring them', async () => {
+        const { service, personas } = tying();
+
+        await service.update('h2', input({ key: 'classic', kinds: ['host', 'guest'], label: 'Classic host', hosts: ['h1'] }));
+
+        expect(personas.setHosts).toHaveBeenCalledWith('h2', ['h1']);
+        expect(personas.untieHost).not.toHaveBeenCalled();
+    });
+
+    // A client built before `kinds` (an older desktop app) sends back the one kind it read. That is
+    // what the character already is, so the rest of its kinds, and its ties, survive the save.
+    describe('saved by a client built before kinds', () => {
+        const peter = persona({ id: 'h3', key: 'peter', kinds: ['host' as const, 'guest' as const], label: 'Peter', defaultHost: false });
+
+        function holding() {
+            const built = build({ roster: [...roster, peter] });
+            built.personas.find = vi.fn(async (id: string) => [...roster, peter].find(row => row.id === id)) as never;
+            return built;
+        }
+
+        it('keeps the kinds the character has beyond the one it was sent as', async () => {
+            const { service, personas } = holding();
+
+            await service.update('h3', input({ key: 'peter', kind: 'host', label: 'Peter' }));
+
+            expect(vi.mocked(personas.update).mock.calls[0]?.[1]).toMatchObject({ kinds: ['host', 'guest'] });
+        });
+
+        it('leaves its ties alone, which such a client never sends for a host', async () => {
+            const { service, personas } = holding();
+
+            await service.update('h3', input({ key: 'peter', kind: 'host', label: 'Peter' }));
+
+            expect(personas.setHosts).not.toHaveBeenCalled();
+        });
+
+        it('takes a kind it was sent that the character is not as a change of what it is', async () => {
+            const { service, personas } = holding();
+
+            await service.update('h3', input({ key: 'peter', kind: 'caller', label: 'Peter' }));
+
+            expect(vi.mocked(personas.update).mock.calls[0]?.[1]).toMatchObject({ kinds: ['caller'] });
+            expect(personas.setHosts).toHaveBeenCalledWith('h3', []);
+        });
     });
 
     it('refuses hosts on a host, and writes nothing', async () => {
@@ -329,7 +379,7 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
 
 describe('the newsreader', () => {
     it('cannot be made the station’s host, and is told why in its own words', async () => {
-        const reader = persona({ id: 'n1', key: 'newsdesk', kind: 'newsreader', label: 'The newsdesk', defaultHost: false });
+        const reader = persona({ id: 'n1', key: 'newsdesk', kinds: ['newsreader' as const], label: 'The newsdesk', defaultHost: false });
         const { service, personas } = build({ setDefaultHost: reader });
 
         await expect(service.setDefaultHost('n1')).rejects.toMatchObject({
@@ -373,5 +423,27 @@ describe('draftOf, for a quirk with a cadence', () => {
 
     it('stores no quirks at all for an empty list, as every other list on a sheet does', () => {
         expect(draftOf({ key: 'quiet', label: 'Quiet', style: 'a quiet host', quirks: [] }).quirks).toBeUndefined();
+    });
+});
+
+// What a character may be cast as. `kinds` is the field; `kind` is what a client built before it
+// sends, and it still has to mean what it always did.
+describe('draftOf, for what a character may be cast as', () => {
+    const base = { key: 'peter', label: 'Peter', style: 'a ghost' };
+
+    it('takes the kinds it was sent, in the order the code ranks them', () => {
+        expect(draftOf({ ...base, kinds: ['guest', 'host'] }).kinds).toEqual(['host', 'guest']);
+    });
+
+    it('prefers the kinds over the one kind when a client sends both', () => {
+        expect(draftOf({ ...base, kind: 'caller', kinds: ['host', 'guest'] }).kinds).toEqual(['host', 'guest']);
+    });
+
+    it('reads the one kind an older client sends as a character of that kind alone', () => {
+        expect(draftOf({ ...base, kind: 'caller' }).kinds).toEqual(['caller']);
+    });
+
+    it('makes a host of a form that says neither', () => {
+        expect(draftOf(base).kinds).toEqual(['host']);
     });
 });

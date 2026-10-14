@@ -18,7 +18,7 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } 
 const build = (settings: Record<string, string> = {}) => new ChangeoverWriter(settingsConfig(settings).config, logger);
 
 const persona = (id: string, djName?: string): Persona =>
-    ({ id, key: id, kind: 'host', label: id, style: '', defaultHost: false, ...(djName === undefined ? {} : { djName }) }) as Persona;
+    ({ id, key: id, kinds: ['host' as const], label: id, style: '', defaultHost: false, ...(djName === undefined ? {} : { djName }) }) as Persona;
 
 const morning: RoughTime = { words: 'good morning', validFrom: 1_000, validUntil: 9_000 };
 

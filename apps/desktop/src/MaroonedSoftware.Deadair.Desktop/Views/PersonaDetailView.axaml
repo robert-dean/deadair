@@ -142,8 +142,8 @@
                             <TextBlock Classes="help" Text="A couple of grounded facts they may mention about themselves." />
                         </StackPanel>
 
-                        <!-- Callers only: a tie is a restriction, and one with none rings in to anybody. -->
-                        <StackPanel Spacing="8" IsVisible="{Binding IsCaller}">
+                        <!-- Whoever rings in or drops by, whatever else they do: a tie is a restriction, and one with none turns up on anybody's show. -->
+                        <StackPanel Spacing="8" IsVisible="{Binding TakesTies}">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="eyebrow" Text="Who they ring" />
                                 <TextBlock Classes="help" Text="A phone-in is cast from the callers who ring whoever is presenting it. Among them, whoever rang longest ago goes first." />

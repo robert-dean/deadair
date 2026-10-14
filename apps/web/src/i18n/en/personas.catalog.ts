@@ -83,6 +83,12 @@ export const personas = {
         },
     },
     card: {
+        alsoKind: {
+            host: 'Also hosts',
+            caller: 'Also rings in',
+            newsreader: 'Reads the news',
+            guest: 'Also drops by',
+        },
         onAirNow: 'On air now',
         coHostingNow: 'On air now, co-host',
         stationsOwn: 'Station’s own',
@@ -121,6 +127,7 @@ export const personas = {
             defaultVoice: "speaks in the plugin's default voice",
         },
         ringsIn: 'Rings in to {{names}}',
+        dropsBy: 'Drops by {{names}}',
     },
     editor: {
         title: {
@@ -131,6 +138,7 @@ export const personas = {
             edit: 'Edit {{label}}',
         },
         validate: {
+            kinds: 'Tick at least one thing this character does',
             key: 'A persona needs a key',
             label: 'A persona needs a name',
             style: 'Say who this character is',
@@ -179,6 +187,28 @@ export const personas = {
             },
         },
         field: {
+            kinds: {
+                label: 'What they do',
+                description:
+                    'Tick everything this character may be cast as. It is one character in every job, with one sheet, one voice and one notebook.',
+                host: {
+                    label: 'Hosts',
+                    description: 'Presents: the station’s own host, a show’s host, a guest host or a co-host.',
+                },
+                caller: {
+                    label: 'Rings in',
+                    description: 'Can be cast into a phone-in.',
+                },
+                guest: {
+                    label: 'Drops by',
+                    description: 'Can be cast into a visit, on a show they are not presenting that night.',
+                },
+                newsreader: {
+                    label: 'Reads the news',
+                    description: 'Reads every bulletin, whoever is presenting.',
+                    taken: '{{name}} reads the news, and a station has one newsreader.',
+                },
+            },
             name: {
                 label: 'Name',
                 description: 'What the roster calls them.',
@@ -206,6 +236,8 @@ export const personas = {
             hosts: {
                 label: 'Rings in to',
                 description: 'Leave it empty and they ring in to whoever is presenting.',
+                visitLabel: 'Drops by',
+                visitDescription: 'Leave it empty and they drop by whoever is presenting.',
                 remove: 'Remove {{label}}',
             },
             diction: {

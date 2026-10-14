@@ -16,7 +16,16 @@ import type {
     PersonaList,
     PersonaRequest,
 } from './types/personas.types.js';
-import { cannotPresent, DEFAULT_PERSONA_KIND, type Persona, type PersonaDraft } from './persona.js';
+import {
+    cannotPresent,
+    DEFAULT_PERSONA_KIND,
+    hasKind,
+    personaKinds,
+    primaryKind,
+    type Persona,
+    type PersonaDraft,
+    type PersonaKind,
+} from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { quirksForView, quirksIn } from './persona.sheet.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
@@ -93,13 +102,24 @@ export class PersonasService {
     }
 
     async update(id: string, body: PersonaInput): Promise<PersonaList> {
-        const hosts = await this.hostsFor(body);
-        const updated = await this.write(body.key, () => this.personas.update(id, draftOf(body)));
+        // A client built before `kinds` sends back the one `kind` it read, which is the one the
+        // character's set ranks highest. That means "what it already is", so the set it has is kept.
+        // Read as written, the save would quietly turn a host who also drops by into a host who
+        // does not.
+        const held = body.kinds === undefined ? await this.personas.find(id) : undefined;
+        const unchanged = held !== undefined && body.kind !== undefined && primaryKind(held.kinds) === body.kind;
+        const draft = unchanged ? { ...draftOf(body), kinds: held.kinds } : draftOf(body);
+
+        // Ties are kept only where such a client could not have meant to clear them: it sends them for
+        // a caller or a guest, so absent there still unties, and for nobody else.
+        const keepTies = unchanged && body.hosts === undefined && body.kind !== 'caller' && body.kind !== 'guest';
+        const hosts = keepTies ? undefined : await this.hostsFor(body);
+        const updated = await this.write(body.key, () => this.personas.update(id, draft));
         if (updated === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
-        await this.personas.setHosts(updated.id, hosts);
-        // A host rewritten as somebody who phones in can no longer be rung, so the callers tied to it
-        // are untied rather than left naming a presenter who will never present.
-        if (updated.kind !== DEFAULT_PERSONA_KIND) await this.personas.untieHost(updated.id);
+        if (hosts !== undefined) await this.personas.setHosts(updated.id, hosts);
+        // A host rewritten as somebody who can no longer present can no longer be rung, so the
+        // callers tied to it are untied rather than left naming a presenter who will never present.
+        if (!hasKind(updated, 'host')) await this.personas.untieHost(updated.id);
 
         // `stationDefault` rather than `onAir`, which is what this line said while meaning the
         // other thing. The flag is who presents when the broadcast names nobody; who is actually
@@ -376,8 +396,9 @@ export class PersonasService {
      * impossible to express. Every save of a caller therefore states its ties whole.
      *
      * Refused with a sentence rather than left to the table, which checks neither kind (see migration
-     * 0045): a host that rings in is a question with no answer, and a caller tied to another caller or
-     * to a persona this station does not have would be a tie casting could never honour. Checked
+     * 0045): a tie on a character who neither rings in nor drops by is a question with no answer, and
+     * a tie to somebody who cannot present or to a persona this station does not have would be a tie
+     * casting could never honour. Checked
      * BEFORE the row is written, so a refusal leaves the persona exactly as it was.
      */
     private async hostsFor(body: PersonaInput): Promise<string[]> {
@@ -385,16 +406,17 @@ export class PersonasService {
         if (hosts.length === 0) return [];
 
         // A caller rings in to a host and a guest drops by one; the same tie narrows both, so a regular
-        // guest written for one show does not wander into another's studio.
-        const kind = body.kind ?? DEFAULT_PERSONA_KIND;
-        if (kind !== 'caller' && kind !== 'guest') {
+        // guest written for one show does not wander into another's studio. A host who also rings in
+        // or drops by is tied the same way: the tie is about where they turn up, not what they are.
+        const kinds = kindsOf(body);
+        if (!kinds.includes('caller') && !kinds.includes('guest')) {
             throw httpError(400).withDetails({ message: `"${body.label}" presents, and only somebody who rings in or drops by is tied to a host` });
         }
 
         for (const id of hosts) {
             const host = await this.personas.find(id);
             if (host === undefined) throw httpError(400).withDetails({ message: `persona "${id}" does not exist, so nobody can ring in to it` });
-            if (host.kind !== 'host') {
+            if (!hasKind(host, 'host')) {
                 throw httpError(400).withDetails({ message: `"${host.label}" does not present a show, so "${body.label}" cannot be tied to them` });
             }
         }
@@ -453,6 +475,9 @@ function isUniqueViolation(error: unknown): boolean {
  * stops the two disagreeing about which blank fields mean "unset" — a distinction with no symptom
  * except a character whose djName is the empty string.
  */
+/** What a form says a character may be cast as: `kinds` if it sent them, else the one `kind`, else `host`. */
+const kindsOf = (body: Pick<PersonaInput, 'kind' | 'kinds'>): PersonaKind[] => personaKinds(body.kinds ?? [body.kind ?? DEFAULT_PERSONA_KIND]);
+
 export function draftOf(body: PersonaInput): PersonaDraft {
     const text = (value: string | undefined): string | undefined => {
         const trimmed = value?.trim();
@@ -462,9 +487,10 @@ export function draftOf(body: PersonaInput): PersonaDraft {
 
     return {
         key: body.key,
-        // Defaulted rather than required of a client, because every persona the console wrote before
-        // callers existed is a host and a form that has not been redeployed still means one.
-        kind: body.kind ?? DEFAULT_PERSONA_KIND,
+        // `kinds` wins, then the one `kind` a client built before it sends, then `host`: every persona
+        // the console wrote before callers existed is a host, and a form that has not been
+        // redeployed still means one.
+        kinds: kindsOf(body),
         label: body.label,
         style: body.style,
         ...omitUndefined({
@@ -507,7 +533,8 @@ function toView(persona: Persona, presentingId: string | undefined, coHostIds: R
     return {
         id: persona.id,
         key: persona.key,
-        kind: persona.kind,
+        kind: primaryKind(persona.kinds),
+        kinds: [...persona.kinds],
         label: persona.label,
         style: persona.style,
         defaultHost: persona.defaultHost,

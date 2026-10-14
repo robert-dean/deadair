@@ -7,6 +7,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useImportPersonas, usePreviewPersonaImport } from '../../api/personas.queries';
 import { usePhone } from '../shared/use.phone';
 import { upgradePersonaFile } from './persona.file.upgrade';
+import { kindsOf, type PersonaKind } from './persona.kind';
 import { ErrorAlert } from '../shared/error.alert';
 import { toneColor } from '../shared/status';
 
@@ -247,15 +248,15 @@ function ImportPlan({ plan, onChoose }: { plan: PersonaImportPlan; onChoose?: (k
                                     <Stack gap="xxs">
                                         <Group gap="xs">
                                             <Text size="sm">{entry.label}</Text>
-                                            {entry.kind === 'caller' || entry.kind === 'newsreader' || entry.kind === 'guest' ? (
-                                                <Badge size="xs" variant="outline" color="gray">
-                                                    {entry.kind === 'caller'
-                                                        ? t('import.caller')
-                                                        : entry.kind === 'guest'
-                                                          ? t('import.guest')
-                                                          : t('import.newsreader')}
-                                                </Badge>
-                                            ) : undefined}
+                                            {/* A badge per job besides hosting, which is what every
+                                                character without one is. */}
+                                            {kindsOf(entry)
+                                                .filter(kind => kind !== 'host')
+                                                .map(kind => (
+                                                    <Badge key={kind} size="xs" variant="outline" color="gray">
+                                                        {kindWord(kind, t)}
+                                                    </Badge>
+                                                ))}
                                         </Group>
                                         {/* What a skipped character's notices describe is a replace that is not
                                             going to happen, so they wait until somebody chooses it. */}
@@ -337,4 +338,16 @@ function storyLine(added: number, held: number, t: TFunction<'personas'>): strin
     if (added === 0) return t('import.storyLine.held', { held });
 
     return t('import.storyLine.both', { added, held });
+}
+
+/** What the preview calls a job a character does besides hosting. */
+function kindWord(kind: Exclude<PersonaKind, 'host'>, t: TFunction<'personas'>): string {
+    switch (kind) {
+        case 'caller':
+            return t('import.caller');
+        case 'guest':
+            return t('import.guest');
+        case 'newsreader':
+            return t('import.newsreader');
+    }
 }

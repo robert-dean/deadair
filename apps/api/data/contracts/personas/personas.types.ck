@@ -8,7 +8,8 @@ options {
 contract Persona: {
     id: readonly string(min=1, max=100)
     key: string(min=1, max=100) # A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
-    kind?: enum(host, caller, newsreader, guest) # What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
+    kind?: enum(host, caller, newsreader, guest) # The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`
+    kinds?: array(enum(host, caller, newsreader, guest), min=1, max=4) # What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host`
     label: string(min=1, max=200)
     style: string(min=1, max=2000) # Completes "You are …". Who they ARE; the sheet below carries how they talk
     djName?: string(max=200) # The name this character goes by on air, overriding the station's own while it is active
@@ -30,7 +31,7 @@ contract Persona: {
     trivia?: enum(keen) # How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
     templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's own five
-    hosts?: array(string(min=1, max=100)) # The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
+    hosts?: array(string(min=1, max=100)) # The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties
     defaultHost: readonly boolean # The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     presenting: readonly boolean # Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
     coHosting?: readonly boolean # Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting`
@@ -192,7 +193,8 @@ contract PersonaFile: {
 # exactly what travels, plus the two fields a model is deliberately not asked for and a real install
 # always knows: what the character is FOR, and which rack it has to hand
 contract PersonaFilePersona: PersonaDraftView & {
-    kind?: enum(host, caller, newsreader, guest) # Absent means `host`, as everywhere else
+    kind?: enum(host, caller, newsreader, guest) # The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else
+    kinds?: array(enum(host, caller, newsreader, guest), min=1, max=4) # What the character may be cast as, in any combination. Wins over `kind` when a file has both
     soundboard?: string(max=200) # The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got
     stories: array(PersonaFileStory)
 }
@@ -239,7 +241,8 @@ contract PersonaImportPlan: {
 contract PersonaImportEntry: {
     key: readonly string(min=1, max=100) # What identifies this character across two installs
     label: readonly string(min=1, max=200)
-    kind?: readonly enum(host, caller, newsreader, guest)
+    kind?: readonly enum(host, caller, newsreader, guest) # The one of `kinds` that ranks highest, host first, for a console built before `kinds`
+    kinds?: readonly array(enum(host, caller, newsreader, guest)) # What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host`
     outcome: readonly enum(create, update, skip) # Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again
     storiesNew: readonly int(min=0)
     storiesHeld: readonly int(min=0) # Already here under the same handle, so importing would skip them

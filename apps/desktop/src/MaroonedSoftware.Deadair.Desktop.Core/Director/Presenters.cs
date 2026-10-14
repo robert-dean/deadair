@@ -1,3 +1,4 @@
+using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 using MaroonedSoftware.Deadair.Sdk.Models;
 
 namespace MaroonedSoftware.Deadair.Desktop.Core.Director;
@@ -11,12 +12,11 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Director;
 /// </remarks>
 public static class Presenters
 {
-    /// <summary>Absent on the wire means a host, which is what every persona was before callers.</summary>
-    public static bool Presents(Persona persona)
-    {
-        ArgumentNullException.ThrowIfNull(persona);
-        return (persona.Kind ?? PersonaKind.Host) == PersonaKind.Host;
-    }
+    /// <summary>
+    /// Whether a character's kinds include host, whatever else it does. Absent on the wire means a host,
+    /// which is what every persona was before callers.
+    /// </summary>
+    public static bool Presents(Persona persona) => PersonaRoster.KindsOf(persona).Contains(PersonaKind.Host);
 
     /// <summary>The hosts, in the order the station listed them.</summary>
     public static IReadOnlyList<Persona> Of(IEnumerable<Persona> personas) => [.. personas.Where(Presents)];

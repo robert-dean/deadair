@@ -18,7 +18,7 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 const stored: Persona = {
     id: 'p1',
     key: 'wisecrack',
-    kind: 'host',
+    kinds: ['host'],
     label: 'Wisecrack',
     style: 'a wisecracking late-night host',
     defaultHost: false,

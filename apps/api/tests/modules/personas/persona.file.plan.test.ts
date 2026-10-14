@@ -152,6 +152,24 @@ describe('what is worth saying about the file', () => {
 
     // Reported and never enforced: migrations here are edited in place, so the stamp cannot promise
     // a shape and the shape is what the contract already validated.
+    // A `/2` file carries one `kind`, which still means what it did, so it is not news.
+    it('reads a file from before kinds without a word about its format', () => {
+        expect(planImport(file([entry({ kind: 'caller' })], { format: 'deadair.persona/2' }), empty()).notices).toEqual([]);
+    });
+
+    it('says what each character will be cast as, from its kinds or the one kind an older file carries', () => {
+        const plan = planImport(
+            file([entry({ key: 'peter', kinds: ['guest', 'host'] }), entry({ key: 'lonnie', kind: 'caller' }), entry({ key: 'plain' })]),
+            empty(),
+        );
+
+        expect(plan.personas.map(row => [row.key, row.kinds, row.kind])).toEqual([
+            ['peter', ['host', 'guest'], 'host'],
+            ['lonnie', ['caller'], 'caller'],
+            ['plain', ['host'], 'host'],
+        ]);
+    });
+
     it('names a format it does not recognise without refusing it', () => {
         const plan = planImport(file([entry()], { format: 'deadair.persona/9' }), empty());
 

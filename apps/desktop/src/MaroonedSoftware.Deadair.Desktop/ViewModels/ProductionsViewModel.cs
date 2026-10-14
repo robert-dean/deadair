@@ -203,7 +203,7 @@ public sealed partial class ProductionRequestDialogViewModel : DialogViewModel
         Presenters =
         [
             new ChoiceViewModel(string.Empty, "Whoever is on air when it is made"),
-            .. roster.Where(persona => PersonaRoster.KindOf(persona) == PersonaKind.Host).Select(persona => new ChoiceViewModel(persona.Id, persona.Label)),
+            .. roster.Where(Core.Director.Presenters.Presents).Select(persona => new ChoiceViewModel(persona.Id, persona.Label)),
         ];
         _presenter = Presenters[0];
         _mode = Modes[0];

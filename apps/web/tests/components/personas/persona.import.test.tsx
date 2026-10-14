@@ -115,3 +115,24 @@ describe('a character this station already holds', () => {
         expect(await screen.findByRole('button', { name: 'Nothing to import' })).toBeDisabled();
     });
 });
+
+// A character in a file may do several jobs, and the preview says which before anything is written.
+describe('what each character in a file does', () => {
+    it('badges every job besides hosting', async () => {
+        previewPersonaImport.mockResolvedValue({
+            ...PLAN,
+            personas: [
+                entry({ key: 'peter', label: 'Peter', kind: 'host', kinds: ['host', 'guest'] }),
+                entry({ key: 'lonnie', label: 'Lonnie', kind: 'caller' }),
+            ],
+        });
+        const user = setupUser();
+
+        render(<PersonaImportModal opened onClose={() => undefined} />);
+        await choose(user);
+
+        expect(await screen.findByText('Guest')).toBeInTheDocument();
+        expect(screen.getByText('Caller')).toBeInTheDocument();
+        expect(screen.queryByText('Host')).not.toBeInTheDocument();
+    });
+});

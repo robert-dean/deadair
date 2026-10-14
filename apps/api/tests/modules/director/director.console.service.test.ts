@@ -83,7 +83,7 @@ interface Options {
      * sets it and a double that quietly filled it in would pass whatever `recast` did with a
      * caller. The column is `not null`; so is this.
      */
-    persona?: (id: string) => { id: string; label: string; kind: PersonaKind } | undefined;
+    persona?: (id: string) => { id: string; label: string; kinds: PersonaKind[] } | undefined;
     /** The slot of the day in force. Absent is the ordinary state: a station with no schedule. */
     slot?: { id: string };
     /** The veto's own answer, when a case wants it to actually drop something rather than pass everything through. */
@@ -1655,7 +1655,7 @@ describe('DirectorConsoleService editing the running order', () => {
     // The one way a show's host changes without a new broadcast. What it costs — the breaks already
     // written for this show being written again — is the director's half and is tested there.
     it('recasts the broadcast, naming the host the operator picked', async () => {
-        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate', kind: 'host' }) });
+        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate', kinds: ['host' as const] }) });
 
         await service.recast({ personaId: 'pirate' });
 
@@ -1667,7 +1667,10 @@ describe('DirectorConsoleService editing the running order', () => {
     // presented the show. Refused with the same sentence `PersonasService.setDefaultHost` uses,
     // because it is the same answer to the same question.
     it('refuses a caller, who phones in to a production and cannot present the station', async () => {
-        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'Caller who wants proof', kind: 'caller' }) });
+        const { service, director } = build({
+            order: onAirWith(3),
+            persona: id => ({ id, label: 'Caller who wants proof', kinds: ['caller' as const] }),
+        });
 
         expect(await refusalOf(service.recast({ personaId: 'p-caller' }))).toContain('cannot present the station');
         expect(await statusOf(service.recast({ personaId: 'p-caller' }))).toBe(400);
@@ -1695,7 +1698,7 @@ describe('DirectorConsoleService editing the running order', () => {
     });
 
     it('records the recast against the operator who asked for it', async () => {
-        const { service, activity } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate', kind: 'host' }) });
+        const { service, activity } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate', kinds: ['host' as const] }) });
 
         await service.recast({ personaId: 'pirate' });
 

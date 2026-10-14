@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Programme;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
@@ -167,7 +168,7 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
 
         var chosen = Host?.Value;
         _hosts.Clear();
-        _hosts.AddRange(roster.Where(persona => PersonaRoster.KindOf(persona) == PersonaKind.Host));
+        _hosts.AddRange(roster.Where(Presenters.Presents));
 
         Hosts.Clear();
         foreach (var host in _hosts)

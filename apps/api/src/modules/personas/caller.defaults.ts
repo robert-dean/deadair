@@ -374,6 +374,6 @@ const CALLERS = [
             "The mail comes already opened, but only on Tuesdays. It's probably nothing. I didn't want to bother anybody, I was just wondering.",
         ],
     },
-] as const satisfies readonly Omit<PersonaDraft, 'kind'>[];
+] as const satisfies readonly Omit<PersonaDraft, 'kinds'>[];
 
-export const SEED_CALLERS: readonly PersonaDraft[] = CALLERS.map(draft => ({ ...draft, kind: 'caller' as const }));
+export const SEED_CALLERS: readonly PersonaDraft[] = CALLERS.map(draft => ({ ...draft, kinds: ['caller' as const] }));

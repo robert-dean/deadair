@@ -682,6 +682,7 @@ export interface DeadairPersonas {
   id: Generated<string>;
   key: string;
   kind: Generated<"host" | "caller" | "newsreader" | "guest">;
+  kinds: Generated<string[]>;
   label: string;
   latitude: string | null;
   preoccupations: Generated<Json>;

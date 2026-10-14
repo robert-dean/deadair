@@ -153,10 +153,14 @@ public sealed record PersonaSheet
     /// rung of every dial is absent too: a stored value meaning "unchanged" says what a missing one
     /// already does.
     /// </remarks>
-    public PersonaInput ToInput(PersonaKind kind) => new()
+    public PersonaInput ToInput(IReadOnlyList<PersonaKind> kinds) => new()
     {
         Key = Key.Trim(),
-        Kind = kind,
+
+        // The set, which is what the station decides on, and the one kind beside it for a station from
+        // before the set, which reads that alone.
+        Kind = kinds[0],
+        Kinds = [.. kinds.Select(PersonaRoster.KindsMember)],
         Label = Label.Trim(),
         Style = Style.Trim(),
         DjName = Text(DjName),
@@ -182,8 +186,8 @@ public sealed record PersonaSheet
         ExclusiveSubjects = ListOf(ExclusiveSubjects),
         Samples = ListOf(Samples),
 
-        // Only a caller rings in, and an absent list unties one.
-        Hosts = kind == PersonaKind.Caller && Hosts.Count > 0 ? [.. Hosts] : null,
+        // Only somebody who rings in or drops by is tied, and an absent list unties them.
+        Hosts = (kinds.Contains(PersonaKind.Caller) || kinds.Contains(PersonaKind.Guest)) && Hosts.Count > 0 ? [.. Hosts] : null,
     };
 
     /// <summary>

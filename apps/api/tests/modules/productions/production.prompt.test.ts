@@ -18,7 +18,7 @@ const dale: CastMember = { role: 'caller', personaId: 'c1', personaKey: 'skeptic
 const sheet = (over: Partial<Persona> = {}): Persona => ({
     id: 'c1',
     key: 'skeptic',
-    kind: 'caller',
+    kinds: ['caller'],
     label: 'Caller who wants proof',
     style: 'a listener who wants to believe it and cannot get there without proof',
     defaultHost: false,

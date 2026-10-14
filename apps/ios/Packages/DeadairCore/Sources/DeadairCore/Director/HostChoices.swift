@@ -17,14 +17,24 @@ public struct HostChoice: Equatable, Sendable {
     public let current: Bool
 }
 
-/// Who this broadcast could be handed to.
-///
-/// Callers are left out. A caller phones IN to a production and is cast per programme; the contract
-/// says one can never be put on air, so offering one would be offering a refusal. An absent kind is a
-/// host, which is what the contract says and what most stored personas leave blank.
+extension Persona {
+    /// Whether this persona can present: whether its `kinds` hold `host`.
+    ///
+    /// A character may do several jobs, and presenting is the `host` one whatever else it does. A
+    /// station from before `kinds` sends one `kind`, and there an absent kind is a host, which is what
+    /// the contract says and what most stored personas left blank. Anything else, a caller, a guest or
+    /// the newsreader, cannot be put on air, so offering one would be offering a refusal.
+    /// `apps/android`'s `Persona.presents`.
+    public var presents: Bool {
+        if let kinds { return kinds.contains(.host) }
+        return kind == nil || kind == .host
+    }
+}
+
+/// Who this broadcast could be handed to: everybody who `presents`.
 public func hostChoices(_ personas: [Persona], currentId: String?) -> [HostChoice] {
     personas
-        .filter { $0.kind != .caller }
+        .filter(\.presents)
         .sorted { $0.label.lowercased() < $1.label.lowercased() }
         .map { persona in
             HostChoice(

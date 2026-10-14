@@ -974,8 +974,10 @@ public struct Persona: Codable, Equatable, Sendable {
     public var id: String
     /// A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
     public var key: String
-    /// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
+    /// The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`
     public var kind: PersonaKind?
+    /// What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host`
+    public var kinds: [PersonaKinds]?
     public var label: String
     /// Completes "You are …". Who they ARE; the sheet below carries how they talk
     public var style: String
@@ -1017,7 +1019,7 @@ public struct Persona: Codable, Equatable, Sendable {
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
-    /// The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
+    /// The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties
     public var hosts: [String]?
     /// The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     public var defaultHost: Bool
@@ -1026,10 +1028,11 @@ public struct Persona: Codable, Equatable, Sendable {
     /// Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting`
     public var coHosting: Bool?
 
-    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool, coHosting: Bool? = nil) {
+    public init(id: String, key: String, kind: PersonaKind? = nil, kinds: [PersonaKinds]? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool, coHosting: Bool? = nil) {
         self.id = id
         self.key = key
         self.kind = kind
+        self.kinds = kinds
         self.label = label
         self.style = style
         self.djName = djName
@@ -1061,6 +1064,7 @@ public struct Persona: Codable, Equatable, Sendable {
         case id = "id"
         case key = "key"
         case kind = "kind"
+        case kinds = "kinds"
         case label = "label"
         case style = "style"
         case djName = "djName"
@@ -1093,6 +1097,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.id = try container.decode(String.self, forKey: .id)
         self.key = try container.decode(String.self, forKey: .key)
         self.kind = try container.decodeIfPresent(PersonaKind.self, forKey: .kind)
+        self.kinds = try container.decodeIfPresent([PersonaKinds].self, forKey: .kinds)
         self.label = try container.decode(String.self, forKey: .label)
         self.style = try container.decode(String.self, forKey: .style)
         self.djName = try container.decodeIfPresent(String.self, forKey: .djName)
@@ -1125,6 +1130,7 @@ public struct Persona: Codable, Equatable, Sendable {
         try container.encode(self.id, forKey: .id)
         try container.encode(self.key, forKey: .key)
         try container.encodeIfPresent(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.kinds, forKey: .kinds)
         try container.encode(self.label, forKey: .label)
         try container.encode(self.style, forKey: .style)
         try container.encodeIfPresent(self.djName, forKey: .djName)
@@ -1157,8 +1163,10 @@ public struct Persona: Codable, Equatable, Sendable {
 public struct PersonaInput: Codable, Equatable, Sendable {
     /// A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
     public var key: String
-    /// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
+    /// The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`
     public var kind: PersonaKind?
+    /// What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host`
+    public var kinds: [PersonaKinds]?
     public var label: String
     /// Completes "You are …". Who they ARE; the sheet below carries how they talk
     public var style: String
@@ -1200,12 +1208,13 @@ public struct PersonaInput: Codable, Equatable, Sendable {
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
-    /// The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
+    /// The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties
     public var hosts: [String]?
 
-    public init(key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil) {
+    public init(key: String, kind: PersonaKind? = nil, kinds: [PersonaKinds]? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil) {
         self.key = key
         self.kind = kind
+        self.kinds = kinds
         self.label = label
         self.style = style
         self.djName = djName
@@ -1233,6 +1242,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case key = "key"
         case kind = "kind"
+        case kinds = "kinds"
         case label = "label"
         case style = "style"
         case djName = "djName"
@@ -1261,6 +1271,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.key = try container.decode(String.self, forKey: .key)
         self.kind = try container.decodeIfPresent(PersonaKind.self, forKey: .kind)
+        self.kinds = try container.decodeIfPresent([PersonaKinds].self, forKey: .kinds)
         self.label = try container.decode(String.self, forKey: .label)
         self.style = try container.decode(String.self, forKey: .style)
         self.djName = try container.decodeIfPresent(String.self, forKey: .djName)
@@ -1289,6 +1300,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.key, forKey: .key)
         try container.encodeIfPresent(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.kinds, forKey: .kinds)
         try container.encode(self.label, forKey: .label)
         try container.encode(self.style, forKey: .style)
         try container.encodeIfPresent(self.djName, forKey: .djName)
@@ -1678,7 +1690,10 @@ public struct PersonaImportEntry: Codable, Equatable, Sendable {
     /// What identifies this character across two installs
     public var key: String
     public var label: String
+    /// The one of `kinds` that ranks highest, host first, for a console built before `kinds`
     public var kind: PersonaImportEntryKind?
+    /// What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host`
+    public var kinds: [PersonaImportEntryKinds]?
     /// Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again
     public var outcome: PersonaImportEntryOutcome
     public var storiesNew: Int
@@ -1688,10 +1703,11 @@ public struct PersonaImportEntry: Codable, Equatable, Sendable {
     public var detailsHeld: Int
     public var notices: [PersonaImportNotice]
 
-    public init(key: String, label: String, kind: PersonaImportEntryKind? = nil, outcome: PersonaImportEntryOutcome, storiesNew: Int, storiesHeld: Int, detailsNew: Int, detailsHeld: Int, notices: [PersonaImportNotice]) {
+    public init(key: String, label: String, kind: PersonaImportEntryKind? = nil, kinds: [PersonaImportEntryKinds]? = nil, outcome: PersonaImportEntryOutcome, storiesNew: Int, storiesHeld: Int, detailsNew: Int, detailsHeld: Int, notices: [PersonaImportNotice]) {
         self.key = key
         self.label = label
         self.kind = kind
+        self.kinds = kinds
         self.outcome = outcome
         self.storiesNew = storiesNew
         self.storiesHeld = storiesHeld
@@ -1704,6 +1720,7 @@ public struct PersonaImportEntry: Codable, Equatable, Sendable {
         case key = "key"
         case label = "label"
         case kind = "kind"
+        case kinds = "kinds"
         case outcome = "outcome"
         case storiesNew = "storiesNew"
         case storiesHeld = "storiesHeld"
@@ -1717,6 +1734,7 @@ public struct PersonaImportEntry: Codable, Equatable, Sendable {
         self.key = try container.decode(String.self, forKey: .key)
         self.label = try container.decode(String.self, forKey: .label)
         self.kind = try container.decodeIfPresent(PersonaImportEntryKind.self, forKey: .kind)
+        self.kinds = try container.decodeIfPresent([PersonaImportEntryKinds].self, forKey: .kinds)
         self.outcome = try container.decode(PersonaImportEntryOutcome.self, forKey: .outcome)
         self.storiesNew = try container.decode(Int.self, forKey: .storiesNew)
         self.storiesHeld = try container.decode(Int.self, forKey: .storiesHeld)
@@ -1730,6 +1748,7 @@ public struct PersonaImportEntry: Codable, Equatable, Sendable {
         try container.encode(self.key, forKey: .key)
         try container.encode(self.label, forKey: .label)
         try container.encodeIfPresent(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.kinds, forKey: .kinds)
         try container.encode(self.outcome, forKey: .outcome)
         try container.encode(self.storiesNew, forKey: .storiesNew)
         try container.encode(self.storiesHeld, forKey: .storiesHeld)
@@ -2247,11 +2266,13 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
     public var trivia: PersonaDraftViewTrivia?
     public var samples: [String]?
     public var templates: String?
-    /// Absent means `host`, as everywhere else
+    /// The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else
     public var kind: PersonaFilePersonaKind?
+    /// What the character may be cast as, in any combination. Wins over `kind` when a file has both
+    public var kinds: [PersonaFilePersonaKinds]?
     public var stories: [PersonaFileStory]
 
-    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, templates: String? = nil, kind: PersonaFilePersonaKind? = nil, stories: [PersonaFileStory]) {
+    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, templates: String? = nil, kind: PersonaFilePersonaKind? = nil, kinds: [PersonaFilePersonaKinds]? = nil, stories: [PersonaFileStory]) {
         self.key = key
         self.label = label
         self.style = style
@@ -2274,6 +2295,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         self.samples = samples
         self.templates = templates
         self.kind = kind
+        self.kinds = kinds
         self.stories = stories
     }
 
@@ -2300,6 +2322,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         case samples = "samples"
         case templates = "templates"
         case kind = "kind"
+        case kinds = "kinds"
         case stories = "stories"
     }
 
@@ -2327,6 +2350,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.kind = try container.decodeIfPresent(PersonaFilePersonaKind.self, forKey: .kind)
+        self.kinds = try container.decodeIfPresent([PersonaFilePersonaKinds].self, forKey: .kinds)
         self.stories = try container.decode([PersonaFileStory].self, forKey: .stories)
     }
 
@@ -2354,6 +2378,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encodeIfPresent(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.kinds, forKey: .kinds)
         try container.encode(self.stories, forKey: .stories)
     }
 }
@@ -2654,7 +2679,7 @@ public struct PersonaImportResultInput: Codable, Equatable, Sendable {
     }
 }
 
-/// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
+/// The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`
 public enum PersonaKind: Codable, CaseIterable, Hashable, Sendable {
     case host
     case caller
@@ -2700,6 +2725,58 @@ public enum PersonaKind: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PersonaKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum PersonaKinds: Codable, CaseIterable, Hashable, Sendable {
+    case host
+    case caller
+    case newsreader
+    case guest
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PersonaKinds] = [.host, .caller, .newsreader, .guest]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .host: return "host"
+        case .caller: return "caller"
+        case .newsreader: return "newsreader"
+        case .guest: return "guest"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "host": self = .host
+        case "caller": self = .caller
+        case "newsreader": self = .newsreader
+        case "guest": self = .guest
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PersonaKinds.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()
@@ -3965,7 +4042,7 @@ public enum PersonaStoryStateState: Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// Absent means `host`, as everywhere else
+/// The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else
 public enum PersonaFilePersonaKind: Codable, CaseIterable, Hashable, Sendable {
     case host
     case caller
@@ -4011,6 +4088,58 @@ public enum PersonaFilePersonaKind: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PersonaFilePersonaKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum PersonaFilePersonaKinds: Codable, CaseIterable, Hashable, Sendable {
+    case host
+    case caller
+    case newsreader
+    case guest
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PersonaFilePersonaKinds] = [.host, .caller, .newsreader, .guest]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .host: return "host"
+        case .caller: return "caller"
+        case .newsreader: return "newsreader"
+        case .guest: return "guest"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "host": self = .host
+        case "caller": self = .caller
+        case "newsreader": self = .newsreader
+        case "guest": self = .guest
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PersonaFilePersonaKinds.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()
@@ -4208,6 +4337,7 @@ public enum PersonaFileStoryDetailState: Codable, CaseIterable, Hashable, Sendab
     }
 }
 
+/// The one of `kinds` that ranks highest, host first, for a console built before `kinds`
 public enum PersonaImportEntryKind: Codable, CaseIterable, Hashable, Sendable {
     case host
     case caller
@@ -4253,6 +4383,58 @@ public enum PersonaImportEntryKind: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PersonaImportEntryKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum PersonaImportEntryKinds: Codable, CaseIterable, Hashable, Sendable {
+    case host
+    case caller
+    case newsreader
+    case guest
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PersonaImportEntryKinds] = [.host, .caller, .newsreader, .guest]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .host: return "host"
+        case .caller: return "caller"
+        case .newsreader: return "newsreader"
+        case .guest: return "guest"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "host": self = .host
+        case "caller": self = .caller
+        case "newsreader": self = .newsreader
+        case "guest": self = .guest
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PersonaImportEntryKinds.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

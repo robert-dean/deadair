@@ -317,8 +317,10 @@ export interface Persona {
     id: string;
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host` */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     label: string;
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     style: string;
@@ -360,7 +362,7 @@ export interface Persona {
     samples?: string[];
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     templates?: string;
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
     hosts?: string[];
     /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
     defaultHost: boolean;
@@ -373,8 +375,10 @@ export interface Persona {
 export interface PersonaInput {
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host` */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     label: string;
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     style: string;
@@ -416,7 +420,7 @@ export interface PersonaInput {
     samples?: string[];
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     templates?: string;
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
     hosts?: string[];
 }
 
@@ -530,7 +534,10 @@ export interface PersonaImportEntry {
     /** What identifies this character across two installs */
     key: string;
     label: string;
+    /** The one of `kinds` that ranks highest, host first, for a console built before `kinds` */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host` */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
     outcome: 'create' | 'update' | 'skip';
     storiesNew: number;
@@ -688,8 +695,10 @@ export interface PersonaStoryListInput {
  * generated from [PersonaFilePersona](../../../../../apps/api/data/contracts/personas/personas.types.ck)
  */
 export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'> {
-    /** Absent means `host`, as everywhere else */
+    /** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What the character may be cast as, in any combination. Wins over `kind` when a file has both */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     /** The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got */
     soundboard?: string;
     stories: PersonaFileStory[];

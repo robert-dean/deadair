@@ -8,7 +8,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { CHANGEOVER_CONTEXT, ChangeoverSource, changeoverContext } from '../../../src/modules/director/changeover.source.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 
-const persona = (id: string): Persona => ({ id, key: id, kind: 'host', label: id, style: '', defaultHost: id === 'p-default' }) as Persona;
+const persona = (id: string): Persona =>
+    ({ id, key: id, kinds: ['host' as const], label: id, style: '', defaultHost: id === 'p-default' }) as Persona;
 
 /** A repository with these hosts, and `p-default` as the station's own. */
 const source = (known: readonly string[] = ['p-default', 'p-dave', 'p-ruth']) => {

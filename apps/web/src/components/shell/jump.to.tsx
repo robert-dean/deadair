@@ -13,6 +13,7 @@ import { PROGRAMME_TABS } from '../schedule/schedule.page';
 import { SETTINGS_ROUTES, SETTINGS_SECTIONS } from '../settings/settings.shell';
 import { CHECKUP_ROUTES, CHECKUP_TABS } from '../station/checkup.shell';
 import { VOICE_TABS } from '../voice/voice.page';
+import { kindOf } from '../personas/persona.kind';
 
 /** Below this many characters, a search asks nothing: a single letter matches most of the library. */
 const MIN_QUERY = 2;
@@ -171,7 +172,7 @@ export function JumpTo() {
                           id: `persona:${persona.key}`,
                           label: persona.label,
                           description:
-                              persona.kind === 'caller' ? t('jumpTo.caller') : persona.kind === 'guest' ? t('jumpTo.guest') : t('jumpTo.host'),
+                              kindOf(persona) === 'caller' ? t('jumpTo.caller') : kindOf(persona) === 'guest' ? t('jumpTo.guest') : t('jumpTo.host'),
                           onClick: () => void navigate({ to: '/voice', search: { tab: 'characters', segment: '', persona: persona.key } }),
                       })),
               },

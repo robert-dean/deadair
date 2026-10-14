@@ -313,8 +313,8 @@ import type { PersonaDraft } from './persona.js';
 /**
  * The hosts.
  *
- * `kind` is stamped once at the bottom rather than written on every entry, because this file IS the
- * host list: a `kind: 'host'` on each row would be one fact said ten times and capable of being
+ * `kinds` is stamped once at the bottom rather than written on every entry, because this file IS the
+ * host list: a `kinds: ['host']` on each row would be one fact said ten times and capable of being
  * wrong once. The people who ring IN are `caller.defaults.ts`, which does the same thing with the
  * other value.
  */
@@ -1946,6 +1946,6 @@ const HOSTS = [
             "It's {{clock.rough}} on {{station.name}}.[[ {{previous.title}} there, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
         ].join('\n'),
     },
-] as const satisfies readonly Omit<PersonaDraft, 'kind'>[];
+] as const satisfies readonly Omit<PersonaDraft, 'kinds'>[];
 
-export const SEED_PERSONAS: readonly PersonaDraft[] = HOSTS.map(draft => ({ ...draft, kind: 'host' as const }));
+export const SEED_PERSONAS: readonly PersonaDraft[] = HOSTS.map(draft => ({ ...draft, kinds: ['host' as const] }));

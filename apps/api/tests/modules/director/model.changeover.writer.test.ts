@@ -18,7 +18,7 @@ import type { Persona } from '../../../src/modules/personas/persona.js';
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
 const morning: RoughTime = { words: 'good morning', validFrom: 1_000, validUntil: 9_000 };
-const dave = { id: 'p-dave', key: 'dave', kind: 'host', label: 'Dave', style: '', djName: 'Dave', defaultHost: false } as Persona;
+const dave = { id: 'p-dave', key: 'dave', kinds: ['host' as const], label: 'Dave', style: '', djName: 'Dave', defaultHost: false } as Persona;
 
 function build(options: { values?: Record<string, unknown>; answer?: string; canGenerate?: boolean } = {}) {
     const values: Record<string, unknown> = { [MODEL_WRITER_KEYS.enabled]: 'true', ...options.values };

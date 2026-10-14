@@ -5,6 +5,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import { PlayHistoryRepository } from '#modules/director/play.history.repository.js';
 import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
+import { hasKind } from '#modules/personas/persona.js';
 import { triviaOf } from '#modules/personas/persona.sheet.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
@@ -111,7 +112,7 @@ export class ProductionCaster {
 
         try {
             // Whoever may ring THIS host: the ones tied to them, and everybody tied to nobody.
-            const roster = await this.personas.castable(presenting?.id);
+            const roster = await this.personas.castable(presenting?.id, 'caller', await this.onTheShow(production));
             const wanted = callerCount(turns, roster.length);
             if (wanted === 0) return [host];
 
@@ -140,6 +141,22 @@ export class ProductionCaster {
     }
 
     /**
+     * Everybody presenting the broadcast this production airs in besides its host: tonight's
+     * co-hosts, and the regular host while a guest host sits in for them. Read off the running order
+     * for {@link coHosts}' reason, and empty for a production commissioned for another broadcast,
+     * whose cast is nobody's business but its own.
+     *
+     * What it is for: a character may present AND ring in or drop by, and nobody is cast onto a show
+     * they are already on.
+     */
+    private async onTheShow(production: Production): Promise<string[]> {
+        const lineup = await this.lineups.load();
+        if (lineup === undefined || lineup.broadcastId !== production.broadcastId) return [];
+
+        return [...lineup.coHostPersonaIds, ...(lineup.regularPersonaId === undefined ? [] : [lineup.regularPersonaId])];
+    }
+
+    /**
      * The one guest who drops by for a visit: tied to this host or to nobody, least recently heard.
      *
      * One, because a visit is somebody in the studio for a chat and two would be a panel. And it
@@ -149,7 +166,7 @@ export class ProductionCaster {
      * failure, which is where an operator who scheduled a visit finds out the station has no guests.
      */
     private async guest(hostId: string | undefined, production: Production): Promise<CastMember> {
-        const roster = await this.personas.castable(hostId, 'guest');
+        const roster = await this.personas.castable(hostId, 'guest', await this.onTheShow(production));
         const id = (await this.leastRecent(roster.map(persona => persona.id)))[0];
         const persona = roster.find(candidate => candidate.id === id);
         if (persona === undefined) throw new Error('nobody on the station is a guest who could drop by, so there is nobody to visit');
@@ -173,7 +190,7 @@ export class ProductionCaster {
         const ids = lineup !== undefined && lineup.broadcastId === production.broadcastId ? lineup.coHostPersonaIds : [];
 
         const found = await Promise.all(ids.filter(id => id !== hostId).map(id => this.personas.find(id)));
-        const coHosts = found.flatMap(persona => (persona?.kind === 'host' ? [coHostMember(persona, production.id)] : []));
+        const coHosts = found.flatMap(persona => (persona !== undefined && hasKind(persona, 'host') ? [coHostMember(persona, production.id)] : []));
         if (coHosts.length === 0) throw new Error('nobody presents beside the host on this show tonight, so there is nobody to banter with');
 
         this.logger.info('productions: cast the co-hosts for a banter', {

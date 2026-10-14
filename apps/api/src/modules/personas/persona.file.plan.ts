@@ -32,7 +32,8 @@
 
 import { phrasingLines, unusablePhrasing } from '#modules/director/break.templates.js';
 import { unearnedMarkers } from './persona.sheet.js';
-import { PERSONA_FILE_FORMAT } from './persona.file.js';
+import { DEFAULT_PERSONA_KIND, personaKinds, primaryKind } from './persona.js';
+import { PERSONA_FILE_FORMAT, READABLE_PERSONA_FILE_FORMATS } from './persona.file.js';
 import type { PersonaFile, PersonaFilePersona, PersonaImportEntry, PersonaImportNotice, PersonaImportPlan } from './types/personas.types.js';
 
 /**
@@ -152,7 +153,7 @@ function fileNotices(file: PersonaFile): PersonaImportNotice[] {
     // Said and never enforced, on the design's own terms: migrations here are edited in place rather
     // than superseded, so a version stamp cannot promise a shape and the shapes are what the
     // contract already validated. This is for the person reading a result that surprised them.
-    if (file.format !== PERSONA_FILE_FORMAT) {
+    if (!READABLE_PERSONA_FILE_FORMATS.has(file.format)) {
         notices.push({
             kind: 'format',
             message: `this file says it is "${file.format}" and this station writes "${PERSONA_FILE_FORMAT}". Everything in it still validated, so it will import — but if something comes out wrong, that is the first thing to look at`,
@@ -203,6 +204,7 @@ function entryFor(persona: PersonaFilePersona, station: StationSnapshot, replace
         }
     }
 
+    const kinds = personaKinds(persona.kinds ?? [persona.kind ?? DEFAULT_PERSONA_KIND]);
     return {
         key: persona.key,
         label: persona.label,
@@ -215,7 +217,10 @@ function entryFor(persona: PersonaFilePersona, station: StationSnapshot, replace
         detailsNew,
         detailsHeld,
         notices: personaNotices(persona, station, held),
-        ...(persona.kind === undefined ? {} : { kind: persona.kind }),
+        // What the character is FOR, as the import will write it: `kinds` if the file has them, else
+        // the one `kind` a `/2` file carries. Both, so a console built before `kinds` reads its badge.
+        kinds,
+        kind: primaryKind(kinds),
     };
 }
 

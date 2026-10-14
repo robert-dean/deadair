@@ -17,7 +17,7 @@ public class PersonaSheetTests
     [Fact]
     public void AnEmptyFieldIsLeftOutRatherThanSentEmpty()
     {
-        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", DjName = "  ", Quirks = [new QuirkLine(" ", string.Empty)] }.ToInput(PersonaKind.Host);
+        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", DjName = "  ", Quirks = [new QuirkLine(" ", string.Empty)] }.ToInput([PersonaKind.Host]);
 
         Assert.Null(input.DjName);
         Assert.Null(input.Quirks);
@@ -26,7 +26,7 @@ public class PersonaSheetTests
     [Fact]
     public void EveryListIsOneEntryPerLine_TrimmedWithBlankLinesDropped()
     {
-        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", Diction = " Always contract \n\nSpeak to one person\n" }.ToInput(PersonaKind.Host);
+        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", Diction = " Always contract \n\nSpeak to one person\n" }.ToInput([PersonaKind.Host]);
 
         Assert.Equal(["Always contract", "Speak to one person"], input.Diction);
     }
@@ -35,7 +35,7 @@ public class PersonaSheetTests
     public void TheMiddleRungOfEachDialIsSentAsAbsent()
     {
         var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", Chattiness = "ordinary", Storytelling = "occasionally", Growth = "proposes" }
-            .ToInput(PersonaKind.Host);
+            .ToInput([PersonaKind.Host]);
 
         Assert.Null(input.Chattiness);
         Assert.Null(input.Storytelling);
@@ -45,7 +45,7 @@ public class PersonaSheetTests
     [Fact]
     public void ADialIsSentAsTheStationsWord()
     {
-        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", Brevity = "one-line", Growth = "self-directed" }.ToInput(PersonaKind.Host);
+        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", Brevity = "one-line", Growth = "self-directed" }.ToInput([PersonaKind.Host]);
 
         Assert.Equal(PersonaBrevity.OneLine, input.Brevity);
         Assert.Equal(PersonaGrowth.SelfDirected, input.Growth);
@@ -81,7 +81,7 @@ public class PersonaSheetTests
             Label = "L",
             Style = "s",
             Quirks = [new QuirkLine(" Call it the Boneyard ", string.Empty), new QuirkLine("Yell for Sharon", "rarely"), new QuirkLine("Mean it", "always")],
-        }.ToInput(PersonaKind.Host);
+        }.ToInput([PersonaKind.Host]);
 
         Assert.Equal(
             [
@@ -107,8 +107,18 @@ public class PersonaSheetTests
     {
         var sheet = new PersonaSheet { Key = "k", Label = "L", Style = "s", Hosts = ["h1"] };
 
-        Assert.Null(sheet.ToInput(PersonaKind.Host).Hosts);
-        Assert.Equal(["h1"], sheet.ToInput(PersonaKind.Caller).Hosts);
+        Assert.Null(sheet.ToInput([PersonaKind.Host]).Hosts);
+        Assert.Equal(["h1"], sheet.ToInput([PersonaKind.Caller]).Hosts);
+        Assert.Equal(["h1"], sheet.ToInput([PersonaKind.Host, PersonaKind.Guest]).Hosts);
+    }
+
+    [Fact]
+    public void ASaveSendsEveryKindTheCharacterHas_AndTheFirstAsTheOneKind()
+    {
+        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s" }.ToInput([PersonaKind.Host, PersonaKind.Guest]);
+
+        Assert.Equal([PersonaKinds.Host, PersonaKinds.Guest], input.Kinds);
+        Assert.Equal(PersonaKind.Host, input.Kind);
     }
 
     [Theory]

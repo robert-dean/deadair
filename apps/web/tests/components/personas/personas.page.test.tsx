@@ -105,6 +105,24 @@ describe('PersonasPage', () => {
         expect(screen.queryByRole('menuitem', { name: 'New newsreader' })).not.toBeInTheDocument();
     });
 
+    // One character in several jobs is one card, under the first kind it has, badged with the rest.
+    it('lists a host who also drops by once, among the hosts, badged with what else they do', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona({ kinds: ['host', 'guest'] })] });
+        render(<PersonasPage />);
+
+        expect(await screen.findByText('Also drops by')).toBeInTheDocument();
+        expect(screen.getAllByText('Marlowe')).toHaveLength(1);
+        expect(screen.getByRole('button', { name: 'Make station host' })).toBeInTheDocument();
+    });
+
+    it('offers the host button to a newsreader who also hosts', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona({ kind: 'host', kinds: ['host', 'newsreader'] })] });
+        render(<PersonasPage />);
+
+        expect(await screen.findByText('Reads the news')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Make station host' })).toBeInTheDocument();
+    });
+
     it('never offers the host button for the station\u2019s own host, since it already is', async () => {
         listPersonas.mockResolvedValue({ personas: [persona({ defaultHost: true })] });
         render(<PersonasPage />);

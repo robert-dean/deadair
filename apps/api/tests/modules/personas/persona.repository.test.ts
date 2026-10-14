@@ -70,6 +70,7 @@ const row = (id: string, kind: string, over: Record<string, unknown> = {}) => ({
     stationKey: STATION,
     key: id,
     kind,
+    kinds: [kind],
     label: id,
     style: `the ${id}`,
     defaultHost: kind === 'host',
@@ -84,7 +85,7 @@ describe('PersonaRepository.presentingFor', () => {
         const reader = await repository.presentingFor('news', 'tonights-host');
 
         expect(reader?.key).toBe('newsdesk');
-        expect(captured.statements[0]?.parameters).toContain('newsreader');
+        expect(captured.statements[0]?.sql).toContain(`'newsreader' = any("kinds")`);
     });
 
     it('falls back to whoever is presenting when the station has no newsreader', async () => {
@@ -98,10 +99,73 @@ describe('PersonaRepository.presentingFor', () => {
         const repository = new PersonaRepository(scriptedDb([[row('tonights-host', 'host')]], captured), identity());
 
         expect((await repository.presentingFor('talkbreak', 'tonights-host'))?.key).toBe('tonights-host');
-        expect(captured.statements.flatMap(statement => statement.parameters)).not.toContain('newsreader');
+        expect(captured.statements.map(statement => statement.sql).join(' ')).not.toContain('newsreader');
     });
 
     it('means the same word as the news writer does', () => {
         expect(NEWSREADER_READS.has(NEWS_KIND)).toBe(true);
+    });
+});
+
+// A character may be several things, and what the code reads is the set. `kind` is written beside it
+// for clients built before the set existed, so both have to come from the one value on the way in.
+describe('PersonaRepository, for a character of several kinds', () => {
+    it('reads the set in the order the code ranks it, without what it does not know', async () => {
+        const repository = new PersonaRepository(scriptedDb([[row('peter', 'host', { kinds: ['guest', 'mystery', 'host'] })]]), identity());
+
+        const peter = await repository.find('peter');
+
+        expect(peter?.kinds).toEqual(['host', 'guest']);
+    });
+
+    it('reads a set holding nothing it knows as a host, which is what the table meant before there was anything else', async () => {
+        const repository = new PersonaRepository(scriptedDb([[row('odd', 'host', { kinds: ['mystery'] })]]), identity());
+
+        expect((await repository.find('odd'))?.kinds).toEqual(['host']);
+    });
+
+    it('writes the set and the kind it ranks highest together', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[row('peter', 'host', { kinds: ['host', 'guest'] })]], captured), identity());
+
+        await repository.create({ key: 'peter', kinds: ['guest', 'host'], label: 'Peter', style: 'a ghost' });
+
+        const parameters = captured.statements[0]?.parameters ?? [];
+        expect(parameters).toContainEqual(['host', 'guest']);
+        expect(parameters).toContain('host');
+    });
+});
+
+// Who may be cast into a phone-in or a visit. The set is what is asked, so a host who also drops by is
+// a guest to it, and the presenters of the show are never on the list for it.
+describe('PersonaRepository.castable', () => {
+    it('asks for the kind in the set rather than for the one kind', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[row('peter', 'host', { kinds: ['host', 'guest'] })]], captured), identity());
+
+        const cast = await repository.castable('ozzy', 'guest');
+
+        expect(cast.map(persona => persona.key)).toEqual(['peter']);
+        expect(captured.statements[0]?.sql).toContain('= any("caller"."kinds")');
+        expect(captured.statements[0]?.parameters).toContain('guest');
+    });
+
+    it('leaves out the host and everybody else presenting the show', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[]], captured), identity());
+
+        await repository.castable('peter', 'guest', ['lemmy', 'peter']);
+
+        expect(captured.statements[0]?.sql).toMatch(/"caller"\."id" not in \(\$\d+, \$\d+\)/);
+        expect(captured.statements[0]?.parameters).toEqual(expect.arrayContaining(['peter', 'lemmy']));
+    });
+
+    it('leaves nobody out when nobody presents', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[]], captured), identity());
+
+        await repository.castable(undefined, 'caller');
+
+        expect(captured.statements[0]?.sql).not.toContain('not in');
     });
 });

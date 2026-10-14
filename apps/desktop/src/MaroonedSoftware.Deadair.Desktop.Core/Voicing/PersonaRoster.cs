@@ -18,17 +18,51 @@ public static class PersonaRoster
     /// <summary>Below this many characters a filter box costs more attention than it saves.</summary>
     public const int FilterFrom = 6;
 
-    /// <summary>What a character is for, with absent read the one way the station reads it.</summary>
-    public static PersonaKind KindOf(Persona persona)
+    /// <summary>Every kind, in the order the station ranks them: the first one a character has is its heading.</summary>
+    public static readonly IReadOnlyList<PersonaKind> Ranked = [PersonaKind.Host, PersonaKind.Caller, PersonaKind.Newsreader, PersonaKind.Guest];
+
+    /// <summary>
+    /// Everything a character may be cast as, in the station's order, with the absent cases read the one
+    /// way the station reads them: <c>kinds</c> when the station sends them, else its one <c>kind</c>,
+    /// else a host.
+    /// </summary>
+    public static IReadOnlyList<PersonaKind> KindsOf(Persona persona)
     {
         ArgumentNullException.ThrowIfNull(persona);
-        return persona.Kind ?? PersonaKind.Host;
+
+        var held = persona.Kinds is { } kinds
+            ? kinds.Select(KindOf).OfType<PersonaKind>().ToHashSet()
+            : [persona.Kind ?? PersonaKind.Host];
+        var ranked = Ranked.Where(held.Contains).ToList();
+        return ranked.Count > 0 ? ranked : [PersonaKind.Host];
     }
+
+    /// <summary>The one kind a character is listed under: the first of <see cref="KindsOf"/>, so anybody who presents is a host.</summary>
+    public static PersonaKind KindOf(Persona persona) => KindsOf(persona)[0];
+
+    /// <summary>One of the set as the single kind the rest of this app speaks, or null for one this build does not know.</summary>
+    public static PersonaKind? KindOf(PersonaKinds kind) => kind switch
+    {
+        PersonaKinds.Host => PersonaKind.Host,
+        PersonaKinds.Caller => PersonaKind.Caller,
+        PersonaKinds.Newsreader => PersonaKind.Newsreader,
+        PersonaKinds.Guest => PersonaKind.Guest,
+        _ => null,
+    };
+
+    /// <summary>One kind as the set's own member, for sending back.</summary>
+    public static PersonaKinds KindsMember(PersonaKind kind) => kind switch
+    {
+        PersonaKind.Caller => PersonaKinds.Caller,
+        PersonaKind.Newsreader => PersonaKinds.Newsreader,
+        PersonaKind.Guest => PersonaKinds.Guest,
+        _ => PersonaKinds.Host,
+    };
 
     /// <summary>The roster in the order the tab draws it. A stable sort, so the station's order breaks ties.</summary>
     public static IReadOnlyList<Persona> Order(IEnumerable<Persona> personas) =>
         personas
-            .OrderBy(persona => KindOf(persona) == PersonaKind.Caller ? 1 : 0)
+            .OrderBy(persona => Ranked.ToList().IndexOf(KindOf(persona)))
             .ThenByDescending(persona => persona.Presenting)
             .ThenByDescending(persona => persona.DefaultHost)
             .ToList();
@@ -49,16 +83,16 @@ public static class PersonaRoster
     /// </summary>
     /// <remarks>
     /// Each half is printed only when it DEVIATES from a fully equipped character: a line that reads
-    /// the same on every card is a line nobody reads on any of them. A caller is not asked about
-    /// phrasings, because a caller writes no breaks and saying it has none would report the design as
-    /// a gap.
+    /// the same on every card is a line nobody reads on any of them. Only somebody who presents is asked
+    /// about phrasings, because a caller or a guest writes no breaks and saying one has none would report
+    /// the design as a gap.
     /// </remarks>
     public static string? Summary(Persona persona)
     {
         ArgumentNullException.ThrowIfNull(persona);
 
         var parts = new List<string>();
-        if (PersonaReadout.TemplateLines(persona.Templates ?? string.Empty).Count == 0 && KindOf(persona) != PersonaKind.Caller)
+        if (PersonaReadout.TemplateLines(persona.Templates ?? string.Empty).Count == 0 && KindsOf(persona).Contains(PersonaKind.Host))
         {
             parts.Add("no phrasings of its own, so it falls back to the station's when the model declines");
         }
@@ -77,7 +111,7 @@ public static class PersonaRoster
     }
 
     /// <summary>
-    /// Which hosts a caller rings in to, named, or null for a caller tied to nobody.
+    /// Which hosts a caller rings in to or a guest drops by, named, or null for somebody tied to nobody.
     /// </summary>
     /// <remarks>
     /// Null rather than "rings in to anybody", which is what every caller did before ties existed. An id
@@ -93,7 +127,9 @@ public static class PersonaRoster
             .OfType<string>()
             .ToList();
 
-        return names.Count == 0 ? null : $"Rings in to {string.Join(", ", names)}";
+        // One list of ties narrows both jobs, so it is worded for the one they do.
+        var verb = KindsOf(persona).Contains(PersonaKind.Caller) ? "Rings in to" : "Drops by";
+        return names.Count == 0 ? null : $"{verb} {string.Join(", ", names)}";
     }
 
     /// <summary>A character's record on air, or null when it has made no attempts in the window.</summary>

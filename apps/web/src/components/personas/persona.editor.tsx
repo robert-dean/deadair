@@ -4,6 +4,7 @@ import {
     Autocomplete,
     Button,
     Card,
+    Checkbox,
     Code,
     Divider,
     Drawer,
@@ -28,7 +29,7 @@ import { PersonaPortrait } from './persona.portrait';
 import { useGeneratePersona, usePersonas, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
 import { usePhone } from '../shared/use.phone';
-import { presents, type PersonaKind } from './persona.kind';
+import { hasKind, kindsOf, PERSONA_KINDS, presents, type PersonaKind } from './persona.kind';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { suggestAirName } from './air.names';
@@ -86,14 +87,6 @@ import { Eyebrow } from '../shared/eyebrow';
 export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving, error }: Props) {
     const phone = usePhone();
     const { t } = useTranslation('personas');
-    // Fixed for the life of the form rather than a field. What a character is FOR decides which
-    // half of the roster it lands in and whether it can ever present, and flipping it under a
-    // character an operator has already cast would be a quieter change than it looks.
-    // A guest is the same shape as a caller everywhere this form cares: on somebody else's show, tied
-    // to the hosts they belong with, never presenting and so with no phrasings or portrait. Only the
-    // words differ, for somebody who drops by the studio rather than rings it.
-    const guest = kind === 'guest';
-    const caller = kind === 'caller' || guest;
     const voices = useVoices(opened);
     const pads = usePads();
     // The roster, for the hosts a caller may ring in to. Already cached by the page this opens from.
@@ -113,20 +106,33 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     const [ownKey, setOwnKey] = useState(persona !== undefined);
 
     const form = useForm<FormValues>({
-        initialValues: valuesOf(persona),
+        initialValues: valuesOf(persona, kind),
         // Recreated on open rather than kept: the modal is the only place these are edited, so a
         // form surviving a close is a form holding a persona nobody is looking at any more.
         enhanceGetInputProps: () => ({}),
         validate: {
+            kinds: value => (value.length === 0 ? t('editor.validate.kinds') : undefined),
             key: value => (value.trim().length === 0 ? t('editor.validate.key') : undefined),
             label: value => (value.trim().length === 0 ? t('editor.validate.label') : undefined),
             style: value => (value.trim().length === 0 ? t('editor.validate.style') : undefined),
         },
     });
 
+    // What this character does, which decides which halves of the sheet are drawn. A field rather than
+    // fixed, because a character may do several things: phrasings and a portrait belong to whoever
+    // presents, and ties to whoever rings in or drops by, so a host who also drops by has both.
+    const hosting = form.values.kinds.includes('host');
+    const guest = form.values.kinds.includes('guest');
+    const appears = guest || form.values.kinds.includes('caller');
+    // The newsreader is one per station, so the box is closed while somebody else holds it.
+    const newsreader = (personas.data?.personas ?? []).find(other => other.id !== persona?.id && hasKind(other, 'newsreader'));
+
     // Hosts only, through `presents`: a caller ringing in to another caller is a tie the API refuses,
     // and offering it would be a form that cannot be saved.
-    const hostOptions = (personas.data?.personas ?? []).filter(presents).map(host => ({ value: host.id, label: host.label }));
+    const hostOptions = (personas.data?.personas ?? [])
+        // Never themselves: a host who also drops by is cast onto nobody's show but other people's.
+        .filter(host => presents(host) && host.id !== persona?.id)
+        .map(host => ({ value: host.id, label: host.label }));
     const hostLabel = (id: string | undefined) => hostOptions.find(option => option.value === id)?.label ?? id ?? '';
 
     const voiceOptions = (voices.data?.voices ?? []).map(voice => ({ value: voice.id, label: voice.label }));
@@ -210,7 +216,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
             }}
         >
             <form
-                onSubmit={form.onSubmit(values => onSubmit(draftOf(values, kind)), showFirstFault)}
+                onSubmit={form.onSubmit(values => onSubmit(draftOf(values)), showFirstFault)}
                 style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
             >
                 <Stack gap="md" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} pr="xs">
@@ -220,11 +226,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 <Eyebrow>{t('editor.generate.eyebrow')}</Eyebrow>
                                 <Textarea
                                     placeholder={
-                                        guest
-                                            ? t('editor.generate.placeholderGuest')
-                                            : caller
-                                              ? t('editor.generate.placeholderCaller')
-                                              : t('editor.generate.placeholderHost')
+                                        hosting
+                                            ? t('editor.generate.placeholderHost')
+                                            : guest
+                                              ? t('editor.generate.placeholderGuest')
+                                              : t('editor.generate.placeholderCaller')
                                     }
                                     description={t('editor.generate.description')}
                                     autosize
@@ -261,7 +267,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                                     // The model names the character, so its key is
                                                     // its own and the name no longer drives it.
                                                     setOwnKey(true);
-                                                    form.setValues(valuesOf(written.persona));
+                                                    // What the character does is the operator's, as
+                                                    // the button they pressed said, and not the model's.
+                                                    form.setValues({ ...valuesOf(written.persona, kind), kinds: form.values.kinds });
                                                 },
                                             })
                                         }
@@ -306,9 +314,39 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         />
                     </SimpleGrid>
 
-                    {/* Only a host that exists: a caller never presents, and a persona not saved yet
-                        has no id for a picture to belong to. */}
-                    {persona !== undefined && !caller ? <PersonaPortrait personaId={persona.id} name={persona.label} /> : undefined}
+                    <Checkbox.Group
+                        label={t('editor.field.kinds.label')}
+                        description={t('editor.field.kinds.description')}
+                        {...form.getInputProps('kinds')}
+                        // Kept in the API's order whatever order they were ticked in, so the card's
+                        // heading and badges read the same way the station ranks them.
+                        onChange={value =>
+                            form.setFieldValue(
+                                'kinds',
+                                PERSONA_KINDS.filter(option => value.includes(option)),
+                            )
+                        }
+                    >
+                        <Stack gap="xs" mt="xs">
+                            {PERSONA_KINDS.map(option => (
+                                <Checkbox
+                                    key={option}
+                                    value={option}
+                                    label={t(`editor.field.kinds.${option}.label`)}
+                                    description={
+                                        option === 'newsreader' && newsreader !== undefined
+                                            ? t('editor.field.kinds.newsreader.taken', { name: newsreader.label })
+                                            : t(`editor.field.kinds.${option}.description`)
+                                    }
+                                    disabled={option === 'newsreader' && newsreader !== undefined && !form.values.kinds.includes('newsreader')}
+                                />
+                            ))}
+                        </Stack>
+                    </Checkbox.Group>
+
+                    {/* Only somebody who presents and exists: a caller never presents, and a persona
+                        not saved yet has no id for a picture to belong to. */}
+                    {persona !== undefined && hosting ? <PersonaPortrait personaId={persona.id} name={persona.label} /> : undefined}
 
                     <Textarea
                         label={t('editor.field.style.label')}
@@ -355,15 +393,20 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     {/* Callers only, the other way round from the phrasings below, which only a host has.
                         A tie is a restriction: a caller with hosts here rings in to nobody else's
                         programme, and one with none rings in to anybody's. */}
-                    {caller ? (
+                    {appears ? (
                         <>
                             <Section
                                 title={guest ? t('editor.section.visit.title') : t('editor.section.ring.title')}
                                 blurb={guest ? t('editor.section.visit.blurb') : t('editor.section.ring.blurb')}
                             />
                             <MultiSelect
-                                label={t('editor.field.hosts.label')}
-                                description={t('editor.field.hosts.description')}
+                                // One tie list narrows both jobs, so it is worded for the one they do.
+                                label={form.values.kinds.includes('caller') ? t('editor.field.hosts.label') : t('editor.field.hosts.visitLabel')}
+                                description={
+                                    form.values.kinds.includes('caller')
+                                        ? t('editor.field.hosts.description')
+                                        : t('editor.field.hosts.visitDescription')
+                                }
                                 data={hostOptions}
                                 searchable
                                 clearable
@@ -437,11 +480,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         {...form.getInputProps('exclusiveSubjects')}
                     />
 
-                    {/* A caller has no floor and should not have one: phrasings are what the STATION
-                        says when the model declines, and a phone-in whose caller was written by a
-                        template is a phone-in with nobody on the phone. So the section is not drawn
-                        rather than drawn and ignored. */}
-                    {caller ? undefined : (
+                    {/* Only somebody who presents has a floor: phrasings are what the STATION says
+                        when the model declines, and a phone-in whose caller was written by a template
+                        is a phone-in with nobody on the phone. So the section is not drawn for a
+                        character who only rings in or drops by, rather than drawn and ignored. */}
+                    {hosting ? (
                         <>
                             <Section title={t('editor.section.fallback.title')} blurb={t('editor.section.fallback.blurb')} />
 
@@ -458,7 +501,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                             <TemplateFaults raw={form.values.templates} />
                         </>
-                    )}
+                    ) : undefined}
 
                     <Textarea
                         label={t('editor.field.samples.label')}
@@ -964,6 +1007,7 @@ interface Props {
  * the array it is sent as.
  */
 interface FormValues {
+    kinds: PersonaKind[];
     key: string;
     label: string;
     style: string;
@@ -995,7 +1039,7 @@ interface FormValues {
  * Not derived from the `validate` object: that is keyed in the order the rules happened to be
  * written, and a save that faults on two of them should land on whichever the operator meets first.
  */
-const VALIDATED = ['label', 'key', 'style'] as const;
+const VALIDATED = ['label', 'key', 'kinds', 'style'] as const;
 
 const linesOf = (values: string[] | undefined): string => (values ?? []).join('\n');
 
@@ -1018,8 +1062,11 @@ const titleFor = (persona: Persona | undefined, kind: PersonaKind, t: TFunction<
  * this reads neither. That is what lets one function serve opening an existing persona and dropping
  * a generated one into the same fields.
  */
-function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
+function valuesOf(persona: PersonaDraftView | Persona | undefined, kind: PersonaKind): FormValues {
     return {
+        // An `in` check, as `growth` is below: a generated draft says nothing of what a character does,
+        // which is the operator's call, so a new one starts as the button they pressed.
+        kinds: persona !== undefined && 'id' in persona ? kindsOf(persona) : [kind],
         key: persona?.key ?? '',
         label: persona?.label ?? '',
         style: persona?.style ?? '',
@@ -1057,7 +1104,7 @@ function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
  * An empty field is left OUT rather than sent as an empty string, which is what makes "clear the
  * on-air name" mean "fall back to the station's" rather than "the presenter is called nothing".
  */
-function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
+function draftOf(values: FormValues): PersonaInput {
     const list = (raw: string): string[] | undefined => {
         const lines = raw
             .split('\n')
@@ -1086,7 +1133,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
 
     return {
         key: values.key.trim(),
-        kind,
+        kinds: values.kinds,
         label: values.label.trim(),
         style: values.style.trim(),
         ...omitUndefined({
@@ -1119,8 +1166,9 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             avoid: list(values.avoid),
             exclusiveSubjects: list(values.exclusiveSubjects),
             samples: list(values.samples),
-            // Only a caller rings in. Absent unties it, which is what the API reads it as.
-            hosts: (kind === 'caller' || kind === 'guest') && values.hosts.length > 0 ? values.hosts : undefined,
+            // Only somebody who rings in or drops by is tied. Absent unties them, which is what the
+            // API reads it as.
+            hosts: (values.kinds.includes('caller') || values.kinds.includes('guest')) && values.hosts.length > 0 ? values.hosts : undefined,
         }),
     };
 }

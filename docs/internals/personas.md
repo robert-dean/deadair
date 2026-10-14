@@ -89,17 +89,19 @@ check is loosened for the language rather than translated; see `breaks.md` § "T
 ## The newsreader
 
 **A bulletin is read by the newsreader when the station has one, whoever is hosting.** `newsreader` is
-the third `kind` (migration 0061), and the station has at most one, enforced by
-`personas_one_newsreader_idx` rather than a flag: it is the only one, not a default of anything. The
-existing `personas_caller_not_default_check` keeps it from ever being the station's host without a word
-changed. `PersonaRepository.presentingFor(kind, lineupPersonaId)` is the one place the precedence lives: a
+one of the `kinds` (migration 0061, and 0103 for the set), and the station has at most one, enforced by
+`personas_one_newsreader_idx` rather than a flag: it is the only one, not a default of anything. A
+newsreader who is not also a `host` can never be the station's host (`personas_caller_not_default_check`);
+one who is reads the bulletins whoever presents, and presents like anybody else. `PersonaRepository.presentingFor(kind, lineupPersonaId)` is the one place the precedence lives: a
 kind in `NEWSREADER_READS` (the bulletin, `news`, and nothing else; the weather and the time of day stay the
 presenter's) answers the newsreader when there is one, and everything else answers `presenting`.
 `WriteBreakJob` reads its single persona through it, so the model's sheet, the floor's phrasing and the voice
 stamp cannot disagree: a declined bulletin is never the host's words in the newsreader's voice. A show that
-names its own host does not move the news, because a host is not a newsreader. A recast leaves the
-newsreader's bulletins alone (`SegmentRepository.reopening`), since a change of host does not change who
-reads them. This is [personas](https://github.com/robert-dean/deadair/discussions/25) §1, with one change
+names its own host does not move the news, because hosting is not reading the news. A recast leaves the
+newsreader's BULLETINS alone (`SegmentRepository.reopening` asks the segment's kind as well as the
+persona's), since a change of host does not change who reads them, and a newsreader who also hosts gives
+their other breaks back like anybody. For the same reason a bulletin is never shared with co-hosts, and the
+newsreader's other breaks are (`WriteBreakJob.speakerFor` asks it of the break, not of the persona). This is [personas](https://github.com/robert-dean/deadair/discussions/25) §1, with one change
 from its sketch: one newsreader per station rather than a default per kind.
 
 ## A guest host
@@ -127,13 +129,32 @@ its own every `rotation.banterEveryMinutes`: see `productions.md` § "Banter bet
 
 ## The guest
 
-**A fourth kind, `guest`, drops by the studio for a short back-and-forth with the host** (migration
-0076). It is a caller in every way the roster cares about: on somebody else's show, never presenting
-(`cannotPresent` refuses making one the station's host or recasting a show onto one, and is now the one
-wording for every kind that cannot present, so a newsreader is no longer told it is a caller), with no
-phrasings or portrait, and tied to the hosts it belongs with through the same `caller_hosts` rows.
-`castable(hostId, kind)` reads either half. What differs is the programme it appears in, a `visit`,
-which `docs/internals/productions.md` covers.
+**`guest` drops by the studio for a short back-and-forth with the host** (migration 0076). As a guest it
+is a caller in every way the roster cares about: on somebody else's show, and tied to the hosts it belongs
+with through the same `caller_hosts` rows. `castable(hostId, kind)` reads either half. What differs is the
+programme it appears in, a `visit`, which `docs/internals/productions.md` covers.
+
+## Kinds: one character, any combination of jobs
+
+**A persona has a SET of kinds, `kinds` (migration 0103), and every rule asks whether the set holds one.**
+It was one `kind` per character, so a host who also dropped by somebody else's show had to be written twice,
+with two sheets, two notebooks and one voice mapped twice, and the two drifted. Now:
+
+- **Presenting is `host` and nothing else.** `cannotPresent` refuses a character without it as the
+  station's host, as a show's host on a recast, and on a schedule slot (host, guest host or co-host),
+  naming the first other kind it has, so a newsreader is not told it is a caller.
+- **Being cast is `caller` or `guest`.** `castable` asks `kind = any(kinds)`, so a host who also drops by
+  is a guest to it, and ties apply to anybody with either kind.
+- **Nobody is cast onto a show they are presenting.** `castable` takes everybody on the broadcast
+  (`ProductionCaster.onTheShow`: the host, tonight's co-hosts, and the regular a guest host sits in for)
+  and leaves them out. Before the set this could not happen; after it, a host who is also a guest would
+  otherwise visit their own show.
+- **The sheet is one sheet.** What a job adds is said by the station rather than the sheet: the sitting-in
+  line for a guest host, the visit's own prompt for a guest. A sheet that writes "you are sitting in" into a
+  quirk says it in every job, which is the thing to avoid.
+
+`kind` is still stored and answered, as `primaryKind(kinds)` (the first of `PERSONA_KINDS` the set holds,
+host first), for clients built before the set. Nothing in the API decides on it.
 
 ## A pasted character
 

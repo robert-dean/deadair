@@ -1321,7 +1321,9 @@ a refusal is still said at the foot of the page by `OperatorActions`.
 `PersonaDetailViewModel`). A sheet is nineteen fields read whole, and a dialog made it a tall column
 in the middle of a dimmed window; the fields scroll and Save does not, so the way out is never
 fourteen boxes away. A new one carries whether it is a caller, because what a character is FOR is
-fixed for the life of the page. Back from it reads the roster again, which is how a save reaches
+fixed for the life of the page. An existing one keeps every kind the station sent (`Kinds`) and sends
+them all back on save: the page does not change what a character does, which is the console's
+editor's job, and a save carrying one kind would make a host who also drops by a host alone. Back from it reads the roster again, which is how a save reaches
 its card. It does not ask before throwing away unsaved edits, as the console's drawer does: the
 shell's Back cannot be stopped from a page, and a question on Cancel alone would be a promise Back
 breaks.

@@ -44,8 +44,8 @@ describe('the seeded characters', () => {
         // The seeded active persona is the classic host, and `PersonaRepository.seed` picks it by
         // key — so a caller could only end up active through a key collision, which is exactly the
         // sort of thing a second seed list makes possible. The database refuses it as well.
-        expect(SEED_CALLERS.every(caller => caller.kind === 'caller')).toBe(true);
-        expect(SEED_PERSONAS.every(host => host.kind === 'host')).toBe(true);
+        expect(SEED_CALLERS.every(caller => caller.kinds.join() === 'caller')).toBe(true);
+        expect(SEED_PERSONAS.every(host => host.kinds.join() === 'host')).toBe(true);
         expect(SEED_CHARACTERS.map(persona => persona.key)).toHaveLength(new Set(SEED_CHARACTERS.map(persona => persona.key)).size);
     });
 });

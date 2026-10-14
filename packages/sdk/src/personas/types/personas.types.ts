@@ -317,8 +317,10 @@ export interface Persona {
     id: string;
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host` */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     label: string;
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     style: string;
@@ -373,8 +375,10 @@ export interface Persona {
 export interface PersonaInput {
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host` */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host` */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     label: string;
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     style: string;

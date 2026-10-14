@@ -16,6 +16,7 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'pirate',
     kind: 'host',
+    kinds: ['host'],
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
     defaultHost: true,
@@ -373,5 +374,27 @@ describe('draftOf, for a quirk with a cadence', () => {
 
     it('stores no quirks at all for an empty list, as every other list on a sheet does', () => {
         expect(draftOf({ key: 'quiet', label: 'Quiet', style: 'a quiet host', quirks: [] }).quirks).toBeUndefined();
+    });
+});
+
+// What a character may be cast as. `kinds` is the field; `kind` is what a client built before it
+// sends, and it still has to mean what it always did.
+describe('draftOf, for what a character may be cast as', () => {
+    const base = { key: 'peter', label: 'Peter', style: 'a ghost' };
+
+    it('takes the kinds it was sent, in the order the code ranks them', () => {
+        expect(draftOf({ ...base, kinds: ['guest', 'host'] }).kinds).toEqual(['host', 'guest']);
+    });
+
+    it('prefers the kinds over the one kind when a client sends both', () => {
+        expect(draftOf({ ...base, kind: 'caller', kinds: ['host', 'guest'] }).kinds).toEqual(['host', 'guest']);
+    });
+
+    it('reads the one kind an older client sends as a character of that kind alone', () => {
+        expect(draftOf({ ...base, kind: 'caller' }).kinds).toEqual(['caller']);
+    });
+
+    it('makes a host of a form that says neither', () => {
+        expect(draftOf(base).kinds).toEqual(['host']);
     });
 });

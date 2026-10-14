@@ -70,6 +70,7 @@ const row = (id: string, kind: string, over: Record<string, unknown> = {}) => ({
     stationKey: STATION,
     key: id,
     kind,
+    kinds: [kind],
     label: id,
     style: `the ${id}`,
     defaultHost: kind === 'host',
@@ -103,5 +104,35 @@ describe('PersonaRepository.presentingFor', () => {
 
     it('means the same word as the news writer does', () => {
         expect(NEWSREADER_READS.has(NEWS_KIND)).toBe(true);
+    });
+});
+
+// A character may be several things, and what the code reads is the set. `kind` is written beside it
+// for clients built before the set existed, so both have to come from the one value on the way in.
+describe('PersonaRepository, for a character of several kinds', () => {
+    it('reads the set in the order the code ranks it, without what it does not know, and derives the one kind from it', async () => {
+        const repository = new PersonaRepository(scriptedDb([[row('peter', 'host', { kinds: ['guest', 'mystery', 'host'] })]]), identity());
+
+        const peter = await repository.find('peter');
+
+        expect(peter?.kinds).toEqual(['host', 'guest']);
+        expect(peter?.kind).toBe('host');
+    });
+
+    it('reads a set holding nothing it knows as a host, which is what the table meant before there was anything else', async () => {
+        const repository = new PersonaRepository(scriptedDb([[row('odd', 'host', { kinds: ['mystery'] })]]), identity());
+
+        expect((await repository.find('odd'))?.kinds).toEqual(['host']);
+    });
+
+    it('writes the set and the kind it ranks highest together', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[row('peter', 'host', { kinds: ['host', 'guest'] })]], captured), identity());
+
+        await repository.create({ key: 'peter', kinds: ['guest', 'host'], label: 'Peter', style: 'a ghost' });
+
+        const parameters = captured.statements[0]?.parameters ?? [];
+        expect(parameters).toContainEqual(['host', 'guest']);
+        expect(parameters).toContain('host');
     });
 });

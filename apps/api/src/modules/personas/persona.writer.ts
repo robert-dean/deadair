@@ -366,7 +366,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
             // The model never decides this. A generated sheet goes into the editor as a form's
             // contents and the operator saves it, so what a character is FOR is answered by which
             // New button they pressed — `toDraftView` drops this again on the way out.
-            kind: DEFAULT_PERSONA_KIND,
+            kinds: [DEFAULT_PERSONA_KIND],
             label,
             style,
             ...omitUndefined({

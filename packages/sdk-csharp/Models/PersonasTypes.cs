@@ -507,10 +507,15 @@ public sealed record Persona
     [JsonPropertyName("key")]
     public required string Key { get; init; }
 
-    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+    /// <summary>The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`</summary>
     [JsonPropertyName("kind")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaKind? Kind { get; init; }
+
+    /// <summary>What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host`</summary>
+    [JsonPropertyName("kinds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaKinds>? Kinds { get; init; }
 
     [JsonPropertyName("label")]
     public required string Label { get; init; }
@@ -640,10 +645,15 @@ public sealed record PersonaInput
     [JsonPropertyName("key")]
     public required string Key { get; init; }
 
-    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+    /// <summary>The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`</summary>
     [JsonPropertyName("kind")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaKind? Kind { get; init; }
+
+    /// <summary>What this character may be cast as, in any combination. A `host` presents, which is the station's own voice or a show's; a `caller` phones in to a production and a `guest` drops by the studio on a `visit`, both cast per programme and never onto a show the character is presenting that night; the `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `kind` alone, or `host`</summary>
+    [JsonPropertyName("kinds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaKinds>? Kinds { get; init; }
 
     [JsonPropertyName("label")]
     public required string Label { get; init; }
@@ -1489,7 +1499,7 @@ public sealed record PersonaImportResult
 /// </summary>
 public sealed record PersonaImportResultInput;
 
-/// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+/// <summary>The one of `kinds` that ranks highest, host first, kept for clients built before a character could be several things. Sent without `kinds`, it is a character of this one kind; sent with it, `kinds` wins. Absent means `host`</summary>
 [JsonConverter(typeof(PersonaKindConverter))]
 public enum PersonaKind
 {
@@ -1553,6 +1563,72 @@ public sealed class PersonaKindConverter : JsonConverter<PersonaKind>
         PersonaKind.Newsreader => "newsreader",
         PersonaKind.Guest => "guest",
         _ => throw new JsonException($"PersonaKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaKindsConverter))]
+public enum PersonaKinds
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("host")]
+    Host,
+
+    [JsonStringEnumMemberName("caller")]
+    Caller,
+
+    [JsonStringEnumMemberName("newsreader")]
+    Newsreader,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaKinds"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaKinds.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaKindsConverter : JsonConverter<PersonaKinds>
+{
+    public override PersonaKinds Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaKinds, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaKinds value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaKinds ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaKinds value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaKinds FromWire(string? text) => text switch
+    {
+        "host" => PersonaKinds.Host,
+        "caller" => PersonaKinds.Caller,
+        "newsreader" => PersonaKinds.Newsreader,
+        "guest" => PersonaKinds.Guest,
+        _ => PersonaKinds.Unknown,
+    };
+
+    private static string ToWire(PersonaKinds value) => value switch
+    {
+        PersonaKinds.Host => "host",
+        PersonaKinds.Caller => "caller",
+        PersonaKinds.Newsreader => "newsreader",
+        PersonaKinds.Guest => "guest",
+        _ => throw new JsonException($"PersonaKinds.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

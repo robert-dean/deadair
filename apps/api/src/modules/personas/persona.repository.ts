@@ -11,7 +11,7 @@ import {
     isPersonaTrivia,
     quirksIn,
 } from './persona.sheet.js';
-import { DEFAULT_PERSONA_KIND, isPersonaKind, NEWSREADER_READS, type Persona, type PersonaDraft } from './persona.js';
+import { NEWSREADER_READS, personaKinds, primaryKind, type Persona, type PersonaDraft } from './persona.js';
 
 /**
  * The personas an operator has written, which of them is the station's own host, and which of them
@@ -380,7 +380,10 @@ export class PersonaRepository extends DataRepository {
 function columnsOf(draft: PersonaDraft) {
     return {
         key: draft.key,
-        kind: draft.kind,
+        // Both, from the one set: `kind` is what a client built before `kinds` reads, so it is
+        // derived here on the way in rather than left for a second writer to keep in step.
+        kinds: personaKinds(draft.kinds),
+        kind: primaryKind(draft.kinds),
         label: draft.label,
         style: draft.style,
         djName: draft.djName ?? null,
@@ -424,7 +427,7 @@ function stringsIn(value: unknown): string[] | undefined {
 function toPersona(row: {
     id: string;
     key: string;
-    kind: string;
+    kinds: string[];
     label: string;
     style: string;
     defaultHost: boolean;
@@ -455,15 +458,17 @@ function toPersona(row: {
     // Objects rather than strings since quirks carry a cadence; `quirksIn` reads a bare string as the
     // `always` quirk it was before that, so a row the migration missed still means what it meant.
     const quirks = quirksIn(row.quirks);
+    const kinds = personaKinds(row.kinds);
 
     return {
         id: row.id,
         key: row.key,
         // Checked rather than cast, on the same argument as the three rungs below: the column is
         // plain text, and a row edited by hand naming a kind this code has never heard of is a
-        // character nothing knows what to do with. `host` is what the table meant before callers
-        // existed, so it is the safe reading of anything unrecognised.
-        kind: isPersonaKind(row.kind) ? row.kind : DEFAULT_PERSONA_KIND,
+        // character nothing knows what to do with. `personaKinds` drops what it does not know and
+        // reads an empty set as `host`, which is what the table meant before callers existed.
+        kinds,
+        kind: primaryKind(kinds),
         label: row.label,
         style: row.style,
         defaultHost: row.defaultHost,

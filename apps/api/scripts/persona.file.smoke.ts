@@ -86,7 +86,7 @@ await db
         // presenting. A persona with nothing filled in would pass this by having nothing to lose.
         const written = await personas.create({
             key: KEY,
-            kind: 'host',
+            kinds: ['host'],
             label: 'The smoke host',
             style: 'a voice for a script that will be rolled back',
             djName: 'Smoke',

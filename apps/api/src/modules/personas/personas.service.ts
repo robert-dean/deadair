@@ -16,7 +16,7 @@ import type {
     PersonaList,
     PersonaRequest,
 } from './types/personas.types.js';
-import { cannotPresent, DEFAULT_PERSONA_KIND, type Persona, type PersonaDraft } from './persona.js';
+import { cannotPresent, DEFAULT_PERSONA_KIND, personaKinds, type Persona, type PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { quirksForView, quirksIn } from './persona.sheet.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
@@ -462,9 +462,10 @@ export function draftOf(body: PersonaInput): PersonaDraft {
 
     return {
         key: body.key,
-        // Defaulted rather than required of a client, because every persona the console wrote before
-        // callers existed is a host and a form that has not been redeployed still means one.
-        kind: body.kind ?? DEFAULT_PERSONA_KIND,
+        // `kinds` wins, then the one `kind` a client built before it sends, then `host`: every persona
+        // the console wrote before callers existed is a host, and a form that has not been
+        // redeployed still means one.
+        kinds: personaKinds(body.kinds ?? [body.kind ?? DEFAULT_PERSONA_KIND]),
         label: body.label,
         style: body.style,
         ...omitUndefined({
@@ -508,6 +509,7 @@ function toView(persona: Persona, presentingId: string | undefined, coHostIds: R
         id: persona.id,
         key: persona.key,
         kind: persona.kind,
+        kinds: [...persona.kinds],
         label: persona.label,
         style: persona.style,
         defaultHost: persona.defaultHost,

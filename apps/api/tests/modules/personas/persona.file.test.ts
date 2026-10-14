@@ -16,6 +16,7 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     id: '9f1d0a5e-0000-4000-8000-000000000001',
     key: 'overnight',
     kind: 'host',
+    kinds: ['host'],
     label: 'The overnight host',
     style: 'a voice for the small hours',
     defaultHost: false,

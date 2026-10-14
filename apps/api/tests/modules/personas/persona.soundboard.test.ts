@@ -19,6 +19,7 @@ const stored: Persona = {
     id: 'p1',
     key: 'wisecrack',
     kind: 'host',
+    kinds: ['host'],
     label: 'Wisecrack',
     style: 'a wisecracking late-night host',
     defaultHost: false,

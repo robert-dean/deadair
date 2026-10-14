@@ -82,18 +82,45 @@ export function cannotPresent(persona: { kind: PersonaKind; label: string }): st
 /** Whether a stored or submitted value is one this code knows how to apply. */
 export const isPersonaKind = (value: unknown): value is PersonaKind => PERSONA_KINDS.includes(value as PersonaKind);
 
+/**
+ * A set of kinds as the station stores it: only values this code knows, each once, in
+ * {@link PERSONA_KINDS} order, and never empty.
+ *
+ * Never empty because a character nobody may cast is a row with no meaning, and the table refuses
+ * one (migration 0103). What it falls back to is {@link DEFAULT_PERSONA_KIND} on `toPersona`'s
+ * argument: `host` is what the table meant before there was anything else, so it is the safe reading
+ * of a set that held nothing this code recognises.
+ */
+export function personaKinds(values: Iterable<unknown> | undefined): PersonaKind[] {
+    const known = new Set([...(values ?? [])].filter(isPersonaKind));
+    const kinds = PERSONA_KINDS.filter(kind => known.has(kind));
+    return kinds.length > 0 ? kinds : [DEFAULT_PERSONA_KIND];
+}
+
+/**
+ * The one kind a client that predates `kinds` is told: the first of {@link PERSONA_KINDS} the set
+ * holds, so anybody who can present is a `host` to it.
+ *
+ * Host first because that is the question every such client asks of `kind` (may this character
+ * present?), and answering `guest` for a host who also drops by would take a presenter off its list.
+ */
+export const primaryKind = (kinds: readonly PersonaKind[]): PersonaKind => personaKinds(kinds)[0] ?? DEFAULT_PERSONA_KIND;
+
+/** Whether this character may be cast as `kind`. */
+export const hasKind = (persona: { kinds: readonly PersonaKind[] }, kind: PersonaKind): boolean => persona.kinds.includes(kind);
+
 /** A persona as an operator wrote it, before it is a row. */
 export interface PersonaDraft extends PersonaSheet {
     /** A stable slug. What a seed is recognised by, and what a log line names. */
     key: string;
     /**
-     * What this character is for, and it is required rather than optional.
+     * What this character may be cast as, in any combination, as {@link personaKinds} stores it.
      *
-     * The column is `not null` with a default, so every row has one, and a draft that omitted it
-     * would be a draft nobody could classify: `host` and "not stated" would be the same thing right
-     * up until somebody wrote a caller and forgot.
+     * Required rather than optional, and never empty: the column is `not null` with a default, so
+     * every row has one, and a draft that omitted it would be a draft nobody could classify. `host`
+     * and "not stated" would be the same thing right up until somebody wrote a caller and forgot.
      */
-    kind: PersonaKind;
+    kinds: PersonaKind[];
     /** What the console calls it. */
     label: string;
     /**
@@ -141,6 +168,11 @@ export interface PersonaDraft extends PersonaSheet {
 /** A persona as it is stored. */
 export interface Persona extends PersonaDraft {
     id: string;
+    /**
+     * {@link primaryKind} of {@link PersonaDraft.kinds}, derived on read and stored beside it for
+     * clients built before a character could be several things. Nothing in this code decides on it.
+     */
+    kind: PersonaKind;
     /**
      * Whether this is the station's OWN host: who presents when the broadcast on air names nobody.
      *

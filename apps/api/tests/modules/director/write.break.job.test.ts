@@ -999,6 +999,7 @@ describe('WriteBreakJob', () => {
                 label: 'Overnight host',
                 style: 'an overnight host',
                 kind: 'host',
+                kinds: ['host'],
                 defaultHost: true,
                 preoccupations,
             }) as Persona;
@@ -1046,6 +1047,7 @@ describe('WriteBreakJob', () => {
             label: "Ozzy's Ghost",
             style: 'a ghost',
             kind: 'host',
+            kinds: ['host'],
             defaultHost: true,
             quirks: [{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'often' }],
         } as Persona;

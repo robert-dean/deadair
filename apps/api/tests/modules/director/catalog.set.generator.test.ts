@@ -93,6 +93,11 @@ function build(options: Options = {}) {
             return new Set(ids.filter(id => options.likedAlbums?.has(id)));
         }),
         tagsFor: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
+        // A record's title, read off the sample it came from, for a version rule.
+        namesFor: vi.fn(async (ids: readonly string[]) => {
+            const titles = new Map((options.sample ?? options.library ?? []).map(track => [track.trackId, track.title]));
+            return new Map(ids.flatMap(id => (titles.has(id) ? [[id, { title: titles.get(id)! }]] : [])));
+        }),
     } as unknown as CandidatesRepository;
     const rules = {
         steer: vi.fn(async () => (options.steer === undefined ? undefined : { genres: options.steer.genres, endsAt: '2099-01-01T00:00:00.000Z' })),
@@ -785,6 +790,20 @@ describe('CatalogSetGenerator under a never-play rule', () => {
         const sizes = vi.mocked(candidates.sample).mock.calls.map(call => sampleSize(call[0] as number));
         expect(sizes[0]).toBe(240);
         expect(sizes[1]).toBe(500);
+    });
+
+    it('refuses a live recording under a version rule, and asks the SQL nothing about tags for it', async () => {
+        const library = Array.from({ length: 40 }, (_, index) =>
+            candidate(index % 2 === 0 ? `Song ${index} - Live` : `Song ${index}`, `Artist ${index}`),
+        );
+        const { generator, candidates } = build({ library, neverPlay: [{ id: 'no-live', field: 'version', value: 'live' }] });
+
+        const picks = await generator.generate({ count: 10, rules: { ...rotation, artistCooldownMinutes: 0, repeatWindowDays: 0 } });
+
+        expect(picks.length).toBeGreaterThan(0);
+        expect(picks.some(pick => pick.title.endsWith('- Live'))).toBe(false);
+        expect(vi.mocked(candidates.sample).mock.calls[0]![5]).toEqual({ refusedTags: [], trackIds: [] });
+        expect(candidates.tagsFor).not.toHaveBeenCalledWith(expect.anything());
     });
 
     it('asks the SQL to leave out what is tagged exactly the rule, and never what was drawn already', async () => {

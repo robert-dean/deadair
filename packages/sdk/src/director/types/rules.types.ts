@@ -16,9 +16,9 @@ const __dt = (v: unknown, path: string): DateTime => {
  */
 export interface BlockRule {
     id: string;
-    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag */
-    field: 'genre' | 'tag';
-    /** The genre or tag, as you would write it */
+    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire") */
+    field: 'genre' | 'tag' | 'version';
+    /** The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one */
     value: string;
     /** First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end */
     seasonFrom?: string;
@@ -39,9 +39,9 @@ export interface BlockRule {
 }
 
 export interface BlockRuleInput {
-    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag */
-    field: 'genre' | 'tag';
-    /** The genre or tag, as you would write it */
+    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire") */
+    field: 'genre' | 'tag' | 'version';
+    /** The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one */
     value: string;
     /** First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end */
     seasonFrom?: string;

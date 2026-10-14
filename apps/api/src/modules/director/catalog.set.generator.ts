@@ -20,7 +20,7 @@ import { historyDaysForLeans, isDeepCut, mayBeDeepCut, quietMinutesFor, resolveA
 import { trackLengthBounds } from './track.length.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { STEER_LEAN, steered } from './genre.steer.js';
-import type { CompiledRule } from './block.rules.js';
+import { readsTags, type CompiledRule } from './block.rules.js';
 import { NeverPlay } from './never.play.js';
 import type { TrackLengthBounds } from './track.length.js';
 
@@ -276,7 +276,8 @@ export class CatalogSetGenerator extends SetGenerator {
         if (refusing.length === 0) return await this.candidates.sample(count, policy, era, bounds, taggedLike);
 
         const wanted = sampleSize(count);
-        const refusedTags = refusing.map(rule => rule.target);
+        // Tag-reading rules only: a version rule's target is a version, not a tag, and is judged below.
+        const refusedTags = refusing.filter(readsTags).map(rule => rule.target);
         const kept: CandidateTrack[] = [];
         const drawnIds: string[] = [];
         // The first draw is the ordinary size. Each one after it is sized from how much of the

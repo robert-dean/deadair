@@ -41,7 +41,16 @@ describe('BlockRulesService', () => {
         expect(await statusOf(service.add({ field: 'genre', value: 'Christmas', seasonFrom: '13-01', seasonTo: '12-31' }))).toBe(400);
         expect(await statusOf(service.add({ field: 'genre', value: 'Metal', fromHour: 6 }))).toBe(400);
         expect(await statusOf(service.add({ field: 'genre', value: '   ' }))).toBe(400);
+        expect(await statusOf(service.add({ field: 'version', value: 'acoustic' }))).toBe(400);
         expect(rules.add).not.toHaveBeenCalled();
+    });
+
+    it('stores a version rule as the version, folded to lower case', async () => {
+        const { service, rules } = build();
+
+        await service.add({ field: 'version', value: ' Live ' });
+
+        expect(rules.add).toHaveBeenCalledWith({ field: 'version', value: 'live' });
     });
 
     it('stores a rule trimmed, with its expiry in UTC', async () => {

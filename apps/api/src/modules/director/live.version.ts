@@ -46,7 +46,13 @@ const LIVE_ALBUM = [
 /** Whether a title or an album name carries a live version marker in a suffix. */
 function markedLive(text: string): boolean {
     // Every segment after the first, so "Song - 2011 Remaster - Live" is read as well as "Song - Live".
-    if (text.split(DASH).slice(1).some(segment => VERSION_OPENING.test(segment.trim()))) return true;
+    if (
+        text
+            .split(DASH)
+            .slice(1)
+            .some(segment => VERSION_OPENING.test(segment.trim()))
+    )
+        return true;
     for (const match of text.matchAll(BRACKETED)) if (VERSION_OPENING.test((match[1] ?? '').trim())) return true;
     return false;
 }

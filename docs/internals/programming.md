@@ -350,7 +350,14 @@ never carried.
 `director/block.rules.ts` the evaluation: a `genre` rule refuses any record tagged with that genre or a kind
 of it (`genre.match.ts`: words compared after `normalizeKey`, the target a contiguous run inside the tag, so
 `Punk Rock` falls under `Punk`, plain `Pop` never under `Pop Punk`, and `Trap` never under `Rap`); a `tag`
-rule is exact. Scopes are a season of `MM-DD` days wrapping the year end, a window of hours wrapping midnight,
+rule is exact. A `version` rule refuses a version of a record rather than a kind of music, and `live` is the
+only one: `live.version.ts` reads the markers a provider writes on the title and the album ("War Pigs -
+Live", "(Live)", an album named "Live in Nottingham" or ending on "Live"), never the word wherever it falls,
+because "Live Wire", "Live And Let Die" and *Long Live The Kane* are studio records. Measured on the live
+station, 2026-10-14: no record of 5485 was TAGGED live, and the reader flags 35, every one a live recording.
+It reads text rather than tags, so `NeverPlay` reads titles and albums (`CandidatesRepository.namesFor`)
+only when a version rule holds, the draw's SQL is given only the tag rules' targets, and the model's search
+judges a provider row by its title and album where a genre rule cannot judge it at all. Scopes are a season of `MM-DD` days wrapping the year end, a window of hours wrapping midnight,
 station modes, schedule slots and an expiry, each optional and absent meaning always. Rows live in
 `deadair.block_rules` (0069). **Exclude only, and absolute**: no "only these genres", and no relaxing when the
 station runs short, including for a listener request. A record nobody tagged falls under nothing.

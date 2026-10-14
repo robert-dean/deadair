@@ -9674,13 +9674,13 @@ components:
                     readOnly: true
                 field:
                     type: string
-                    enum: [genre, tag]
-                    description: '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag'
+                    enum: [genre, tag, version]
+                    description: '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")'
                 value:
                     type: string
                     minLength: 1
                     maxLength: 200
-                    description: 'The genre or tag, as you would write it'
+                    description: 'The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one'
                 seasonFrom:
                     type: string
                     minLength: 5

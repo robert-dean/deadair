@@ -131,4 +131,29 @@ public class PlanRequestTests
 
         Assert.Equal(["a", "c"], hosts.Select(persona => persona.Id));
     }
+
+    [Fact]
+    public void AHostWhoAlsoDropsByPresents_AndAGuestOrTheNewsreaderDoesNot()
+    {
+        static Persona Persona(string id, PersonaKind kind, params PersonaKinds[] kinds) => new()
+        {
+            Id = id,
+            Key = id,
+            Kind = kind,
+            Kinds = kinds.Length == 0 ? null : [.. kinds],
+            Label = id,
+            Style = string.Empty,
+            DefaultHost = false,
+            Presenting = false,
+        };
+
+        var hosts = Presenters.Of(
+        [
+            Persona("peter", PersonaKind.Host, PersonaKinds.Host, PersonaKinds.Guest),
+            Persona("chef", PersonaKind.Guest),
+            Persona("walter", PersonaKind.Newsreader, PersonaKinds.Newsreader),
+        ]);
+
+        Assert.Equal(["peter"], hosts.Select(persona => persona.Id));
+    }
 }

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -106,6 +107,8 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         _owner = owner;
         Persona = persona;
         Kind = kind;
+        // What an existing character is comes from the station; a new one is the button pressed.
+        Kinds = persona is null ? [kind] : PersonaRoster.KindsOf(persona);
         _ownKey = persona is not null;
 
         // What a character has accumulated exists only once it does, so a new one has a sheet alone.
@@ -122,7 +125,8 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         }
         _saved = persona is null ? new PersonaSheet() : PersonaSheet.From(persona);
 
-        foreach (var host in owner.Roster.Where(row => PersonaRoster.KindOf(row) == PersonaKind.Host))
+        // Never themselves: a host who also drops by is tied to other people's shows.
+        foreach (var host in owner.Roster.Where(row => Presenters.Presents(row) && row.Id != persona?.Id))
         {
             var choice = new HostChoiceViewModel(host.Id, host.Label, persona?.Hosts?.Contains(host.Id) == true);
             choice.PropertyChanged += (_, _) => IsDirty = !Current().SameAs(_saved);
@@ -195,11 +199,23 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
 
     public PersonaKind Kind { get; }
 
+    /// <summary>
+    /// Everything this character may be cast as. Kept as the station sent it and sent back whole: this
+    /// page does not change what a character does, which is the console's editor's job, and a save that
+    /// sent one kind would be a host who also drops by saved as a host alone.
+    /// </summary>
+    public IReadOnlyList<PersonaKind> Kinds { get; }
+
     public bool IsNew => Persona is null;
 
-    public bool IsCaller => Kind == PersonaKind.Caller;
+    /// <summary>Presents, so the phrasings and the picture belong here.</summary>
+    public bool IsHost => Kinds.Contains(PersonaKind.Host);
 
-    public bool IsHost => !IsCaller;
+    /// <summary>Only rings in or drops by: the words for a new one, and for anybody who never presents.</summary>
+    public bool IsCaller => !IsHost;
+
+    /// <summary>Rings in or drops by, so the hosts they are tied to belong here, whatever else they do.</summary>
+    public bool TakesTies => Kinds.Contains(PersonaKind.Caller) || Kinds.Contains(PersonaKind.Guest);
 
     public string Title => Persona is null ? IsCaller ? "New caller" : "New host" : $"Edit {Persona.Label}";
 
@@ -491,7 +507,7 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         Busy = true;
         try
         {
-            var input = sheet.ToInput(Kind);
+            var input = sheet.ToInput(Kinds);
             var taken = new Dictionary<int, string> { [409] = $"Another character already has the key \"{input.Key}\"." };
             var list = await _actions.RunAsync(
                 async token =>

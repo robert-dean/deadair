@@ -2,9 +2,10 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Programme;
-using MaroonedSoftware.Deadair.Sdk;
 using MaroonedSoftware.Deadair.Sdk.Models;
+using MaroonedSoftware.Deadair.Sdk;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
@@ -236,7 +237,7 @@ public sealed partial class TimetableViewModel : ObservableObject
         var hosts = new List<HostChoice> { new(null, "The station's own host") };
         foreach (var persona in personas)
         {
-            if (persona.Kind != PersonaKind.Caller || persona.Id == chosen)
+            if (Presenters.Presents(persona) || persona.Id == chosen)
             {
                 hosts.Add(new HostChoice(persona.Id, persona.Label));
             }

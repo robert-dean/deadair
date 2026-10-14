@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Forms;
 using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 using MaroonedSoftware.Deadair.Desktop.Services;
@@ -60,10 +61,10 @@ public sealed partial class PersonaRowViewModel : ObservableObject
     public bool ShowsStationsOwn => Persona.DefaultHost && !Persona.Presenting;
 
     /// <summary>
-    /// Not offered for a caller at all, rather than offered and refused: somebody who phones in cannot
-    /// present the station, and the station says so.
+    /// Not offered for anybody who cannot present at all, rather than offered and refused: somebody who
+    /// only phones in or drops by cannot present the station, and the station says so.
     /// </summary>
-    public bool CanMakeHost => !Persona.DefaultHost && !IsCaller;
+    public bool CanMakeHost => !Persona.DefaultHost && Presenters.Presents(Persona);
 
     /// <summary>"Hosts" or "Callers" above the first card of each half, and null on every other.</summary>
     public string? Heading { get; }
@@ -220,7 +221,7 @@ public sealed partial class CharactersViewModel(
 
         var name = settings.Values.TryGetValue(PresenterNameKey, out var stored) ? FormValues.Read(stored)?.Trim() ?? string.Empty : string.Empty;
         var unnamed = _roster
-            .Where(persona => PersonaRoster.KindOf(persona) == PersonaKind.Host && string.IsNullOrWhiteSpace(persona.DjName))
+            .Where(persona => Presenters.Presents(persona) && string.IsNullOrWhiteSpace(persona.DjName))
             .Select(persona => persona.Label)
             .ToList();
         PresenterNameSummary = PersonaMemoryText.PresenterName(name, unnamed);
@@ -301,10 +302,18 @@ public sealed partial class CharactersViewModel(
         PersonaKind? last = null;
         foreach (var persona in shown)
         {
-            // A heading at each changeover rather than two lists: the roster is already ordered hosts
-            // then callers, so one comparison with the card above is the whole of it.
+            // A heading at each changeover rather than separate lists: the roster is already ordered by
+            // the first kind each character has, so one comparison with the card above is the whole of it.
             var kind = PersonaRoster.KindOf(persona);
-            var heading = kind == last ? null : kind == PersonaKind.Caller ? "Callers" : "Hosts";
+            var heading = kind == last
+                ? null
+                : kind switch
+                {
+                    PersonaKind.Caller => "Callers",
+                    PersonaKind.Newsreader => "Newsreader",
+                    PersonaKind.Guest => "Guests",
+                    _ => "Hosts",
+                };
             last = kind;
 
             Rows.Add(new PersonaRowViewModel(

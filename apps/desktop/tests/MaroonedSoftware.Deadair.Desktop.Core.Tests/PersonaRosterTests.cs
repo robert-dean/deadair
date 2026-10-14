@@ -30,6 +30,31 @@ public class PersonaRosterTests
     }
 
     [Fact]
+    public void ACharacterOfSeveralKindsIsListedUnderTheFirst_AndTheKindsDecideOverTheOneKind()
+    {
+        var peter = Persona("peter", kind: PersonaKind.Host) with { Kinds = [PersonaKinds.Guest, PersonaKinds.Host] };
+        var chef = Persona("chef", kind: PersonaKind.Host) with { Kinds = [PersonaKinds.Guest] };
+
+        Assert.Equal([PersonaKind.Host, PersonaKind.Guest], PersonaRoster.KindsOf(peter));
+        Assert.Equal(PersonaKind.Guest, PersonaRoster.KindOf(chef));
+        Assert.Equal([PersonaKind.Host], PersonaRoster.KindsOf(Persona("plain")));
+    }
+
+    [Fact]
+    public void HostsThenCallersThenTheNewsreaderThenGuests()
+    {
+        var order = PersonaRoster.Order(
+        [
+            Persona("guest", kind: PersonaKind.Guest),
+            Persona("reader", kind: PersonaKind.Newsreader),
+            Persona("caller", kind: PersonaKind.Caller),
+            Persona("plain"),
+        ]);
+
+        Assert.Equal(["plain", "caller", "reader", "guest"], order.Select(persona => persona.Key));
+    }
+
+    [Fact]
     public void AFilterFindsByNameKeyStyleOrOnAirName_IgnoringCase()
     {
         var marla = Persona("marla") with { DjName = "Midnight Marla", Style = "dry and unhurried" };
@@ -58,6 +83,15 @@ public class PersonaRosterTests
 
         Assert.Equal("Rings in to Marla", PersonaRoster.RingsIn(caller, [host, caller]));
         Assert.Null(PersonaRoster.RingsIn(host, [host, caller]));
+    }
+
+    [Fact]
+    public void SomebodyWhoOnlyDropsBySaysSo_SinceTheyDoNotRingIn()
+    {
+        var host = Persona("host") with { Id = "h", Label = "Marla" };
+        var peter = Persona("peter") with { Kinds = [PersonaKinds.Host, PersonaKinds.Guest], Hosts = ["h"] };
+
+        Assert.Equal("Drops by Marla", PersonaRoster.RingsIn(peter, [host, peter]));
     }
 
     [Theory]

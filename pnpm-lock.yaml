@@ -65,7 +65,7 @@ importers:
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/appconfig':
         specifier: ^2.6.1
-        version: 2.6.1(pg@8.23.1)(yaml@2.9.0)
+        version: 2.6.1(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/authentication':
         specifier: ^6.3.1
         version: 6.3.1(ioredis@6.0.0)
@@ -88,8 +88,8 @@ importers:
         specifier: ^1.12.2
         version: 1.12.2(pg-boss@12.37.1(@opentelemetry/api@1.9.0))
       '@maroonedsoftware/koa':
-        specifier: ^4.1.1
-        version: 4.1.1(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.0)
+        specifier: ^4.1.2
+        version: 4.1.2(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/kysely':
         specifier: ^0.7.11
         version: 0.7.11
@@ -108,6 +108,9 @@ importers:
       '@maroonedsoftware/policies':
         specifier: ^0.6.9
         version: 0.6.9
+      '@maroonedsoftware/servercore':
+        specifier: ^0.4.0
+        version: 0.4.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/serverfeed':
         specifier: ^0.1.6
         version: 0.1.6(@maroonedsoftware/logger@1.1.9)
@@ -3351,13 +3354,13 @@ packages:
       pg-boss:
         optional: true
 
-  '@maroonedsoftware/koa@4.1.1':
-    resolution: {integrity: sha512-1ECYljcHKOEQKsm/CD6WezG+Mu/wu7Ifq3YH3xOftrDq6NB3aVy7LxThfiGJ6BxlLXXskEDi3XxcuH3QzCA0aw==}
+  '@maroonedsoftware/koa@4.1.2':
+    resolution: {integrity: sha512-t8ia8Rz2Eft0onZ7P4Sf2qkoCit3Fczrp+CDCOT3p0lm7IFOPalzDpc/PhLneIyIFcamFsO/0mEJkBwnMrp4zA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@koa/cors': ^5.0.0
       '@koa/router': ^15.2.0
-      '@maroonedsoftware/authentication': ^6.0.0
+      '@maroonedsoftware/authentication': ^6.3.1
       '@maroonedsoftware/serverfeed': 0.1.6
       koa: ^3.1.1
     peerDependenciesMeta:
@@ -3401,8 +3404,8 @@ packages:
   '@maroonedsoftware/rhapsode-sdk@0.1.26':
     resolution: {integrity: sha512-LC4Z5ZBlGftfMrctN5ThFjEfDWkh1On6l1MIIMIxKIWFTmpGgFHavR+5LGL2HrBFLp0r6HAdrrwDETxXGpudBw==}
 
-  '@maroonedsoftware/servercore@0.3.0':
-    resolution: {integrity: sha512-wz4BWzw65BbdAds7KCD06HbawmCPgqxHAfXxdQ5BlrScjCGN+3PG4/cZcN35DJ297uP5V8WTkBWCbPOSZ5hCDA==}
+  '@maroonedsoftware/servercore@0.4.0':
+    resolution: {integrity: sha512-1MP6bfs92aqoKPU+hn62MchLBTSVDjzNX12PSGb5SPmG2410zEvh63cVo34/lLkA1v0/Jz/kDo4QzpPpfob4oA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@maroonedsoftware/serverfeed': 0.1.6
@@ -14244,7 +14247,7 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.1
 
-  '@maroonedsoftware/appconfig@2.6.1(pg@8.23.1)(yaml@2.9.0)':
+  '@maroonedsoftware/appconfig@2.6.1(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
@@ -14253,7 +14256,7 @@ snapshots:
       injectkit: 1.7.1
     optionalDependencies:
       pg: 8.23.1
-      yaml: 2.9.0
+      yaml: 2.9.1
 
   '@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0)':
     dependencies:
@@ -14327,16 +14330,16 @@ snapshots:
     optionalDependencies:
       pg-boss: 12.37.1(@opentelemetry/api@1.9.0)
 
-  '@maroonedsoftware/koa@4.1.1(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.0)':
+  '@maroonedsoftware/koa@4.1.2(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)
-      '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.0)
+      '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/authentication': 6.3.1(ioredis@6.0.0)
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
       '@maroonedsoftware/policies': 0.6.9
-      '@maroonedsoftware/servercore': 0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.0)
+      '@maroonedsoftware/servercore': 0.4.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)
       injectkit: 1.7.1
       koa: 3.2.1
       luxon: 3.7.2
@@ -14406,10 +14409,10 @@ snapshots:
 
   '@maroonedsoftware/rhapsode-sdk@0.1.26': {}
 
-  '@maroonedsoftware/servercore@0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.0)':
+  '@maroonedsoftware/servercore@0.4.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
       '@hapi/bourne': 4.0.1
-      '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.0)
+      '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
       '@maroonedsoftware/multipart': 1.3.8

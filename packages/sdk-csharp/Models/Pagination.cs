@@ -92,12 +92,58 @@ public sealed record PaginationWithActiveInput
 }
 
 /// <summary>The sort order</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PaginationSort>))]
+[JsonConverter(typeof(PaginationSortConverter))]
 public enum PaginationSort
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("asc")]
     Asc,
 
     [JsonStringEnumMemberName("desc")]
     Desc,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PaginationSort"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PaginationSort.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PaginationSortConverter : JsonConverter<PaginationSort>
+{
+    public override PaginationSort Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PaginationSort, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PaginationSort value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PaginationSort ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PaginationSort value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PaginationSort FromWire(string? text) => text switch
+    {
+        "asc" => PaginationSort.Asc,
+        "desc" => PaginationSort.Desc,
+        _ => PaginationSort.Unknown,
+    };
+
+    private static string ToWire(PaginationSort value) => value switch
+    {
+        PaginationSort.Asc => "asc",
+        PaginationSort.Desc => "desc",
+        _ => throw new JsonException($"PaginationSort.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

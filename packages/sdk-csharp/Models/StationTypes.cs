@@ -323,9 +323,15 @@ public sealed record StationCheckup
 public sealed record StationCheckupInput;
 
 /// <summary>`failure` is the station not doing its job, `warning` is something failing beside a station that is working, and `notice` is a thing nobody has set up yet. A notice is not a fault and must not be drawn as one</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<AttentionItemSeverity>))]
+[JsonConverter(typeof(AttentionItemSeverityConverter))]
 public enum AttentionItemSeverity
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("failure")]
     Failure,
 
@@ -336,10 +342,58 @@ public enum AttentionItemSeverity
     Notice,
 }
 
+/// <summary>
+/// Reads and writes <see cref="AttentionItemSeverity"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="AttentionItemSeverity.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class AttentionItemSeverityConverter : JsonConverter<AttentionItemSeverity>
+{
+    public override AttentionItemSeverity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for AttentionItemSeverity, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, AttentionItemSeverity value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override AttentionItemSeverity ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, AttentionItemSeverity value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static AttentionItemSeverity FromWire(string? text) => text switch
+    {
+        "failure" => AttentionItemSeverity.Failure,
+        "warning" => AttentionItemSeverity.Warning,
+        "notice" => AttentionItemSeverity.Notice,
+        _ => AttentionItemSeverity.Unknown,
+    };
+
+    private static string ToWire(AttentionItemSeverity value) => value switch
+    {
+        AttentionItemSeverity.Failure => "failure",
+        AttentionItemSeverity.Warning => "warning",
+        AttentionItemSeverity.Notice => "notice",
+        _ => throw new JsonException($"AttentionItemSeverity.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<StationModelHolderPriority>))]
+[JsonConverter(typeof(StationModelHolderPriorityConverter))]
 public enum StationModelHolderPriority
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("breaking")]
     Breaking,
 
@@ -351,4 +405,48 @@ public enum StationModelHolderPriority
 
     [JsonStringEnumMemberName("preview")]
     Preview,
+}
+
+/// <summary>
+/// Reads and writes <see cref="StationModelHolderPriority"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="StationModelHolderPriority.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class StationModelHolderPriorityConverter : JsonConverter<StationModelHolderPriority>
+{
+    public override StationModelHolderPriority Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for StationModelHolderPriority, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, StationModelHolderPriority value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override StationModelHolderPriority ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, StationModelHolderPriority value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static StationModelHolderPriority FromWire(string? text) => text switch
+    {
+        "breaking" => StationModelHolderPriority.Breaking,
+        "air" => StationModelHolderPriority.Air,
+        "background" => StationModelHolderPriority.Background,
+        "preview" => StationModelHolderPriority.Preview,
+        _ => StationModelHolderPriority.Unknown,
+    };
+
+    private static string ToWire(StationModelHolderPriority value) => value switch
+    {
+        StationModelHolderPriority.Breaking => "breaking",
+        StationModelHolderPriority.Air => "air",
+        StationModelHolderPriority.Background => "background",
+        StationModelHolderPriority.Preview => "preview",
+        _ => throw new JsonException($"StationModelHolderPriority.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

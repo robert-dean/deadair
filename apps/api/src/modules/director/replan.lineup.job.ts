@@ -164,6 +164,8 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // part of the instruction the deterministic floor can honour on its own.
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
                 ...(mood === undefined ? {} : { mood }),
+                // Not staged: an avoided mood holds for the whole broadcast.
+                ...(lineup.avoidMoods === undefined ? {} : { avoidMoods: lineup.avoidMoods }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is

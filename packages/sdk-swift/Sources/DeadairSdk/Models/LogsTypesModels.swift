@@ -6,12 +6,59 @@ import Foundation
 /// by `DeadairLogger`, which tees every level the app-wide `Logger` has, `trace` included. Narrowing
 /// here would make a `trace` line unrepresentable in the type of the surface that reads the file it
 /// is in.
-public enum LogLevel: String, Codable, CaseIterable, Sendable {
-    case trace = "trace"
-    case debug = "debug"
-    case info = "info"
-    case warn = "warn"
-    case error = "error"
+public enum LogLevel: Codable, CaseIterable, Hashable, Sendable {
+    case trace
+    case debug
+    case info
+    case warn
+    case error
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [LogLevel] = [.trace, .debug, .info, .warn, .error]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .trace: return "trace"
+        case .debug: return "debug"
+        case .info: return "info"
+        case .warn: return "warn"
+        case .error: return "error"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "trace": self = .trace
+        case "debug": self = .debug
+        case "info": self = .info
+        case "warn": self = .warn
+        case "error": self = .error
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "LogLevel.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// One log file this install has, whether or not anything has been written to it

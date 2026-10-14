@@ -22,13 +22,13 @@ Security: authenticated (policy: platform.manage)
 
 | Attribute  | Type              | Required | Description                                       |
 | ---------- | ----------------- | -------- | ------------------------------------------------- |
-| `page`     | `number`          | Yes      | The page number                                   |
-| `pageSize` | `number`          | Yes      | The page size                                     |
-| `sort`     | `'asc' \| 'desc'` | Yes      | The sort order                                    |
 | `total`    | `number`          | Yes      | The total number of items                         |
 | `active`   | `boolean`         | No       | Optionally filter by whether the items are active |
+| `page`     | `number`          | No       | The page number                                   |
+| `pageSize` | `number`          | No       | The page size                                     |
 | `role`     | `PlatformRole`    | No       | Only people holding this role                     |
 | `search`   | `string`          | No       | Part of an email address                          |
+| `sort`     | `'asc' \| 'desc'` | No       | The sort order                                    |
 
 </details>
 

@@ -542,6 +542,33 @@ describe('SlotEditor', () => {
         expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('moods');
     });
 
+    it('sends the moods a slot steers away from, and nothing for a slot that avoids none', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ moods: ['happiness'], avoidMoods: ['sadness', 'anger'] }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        expect(await screen.findByText('Steers away from')).toBeInTheDocument();
+
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[0]![0].avoidMoods).toEqual(['sadness', 'anger']);
+        expect(onSubmit.mock.calls[0]![0].moods).toEqual(['happiness']);
+
+        const untouched = vi.fn();
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
+        await setupUser().type((await screen.findAllByRole('textbox', { name: 'Name' })).at(-1)!, 'Breakfast');
+        await setupUser().click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
+        expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('avoidMoods');
+    });
+
     it('sends a second mood stage after the first, and closes the gap when one is cleared', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

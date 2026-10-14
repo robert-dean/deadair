@@ -651,7 +651,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -660,7 +660,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -670,7 +670,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -757,7 +757,7 @@ paths:
                       format: uuid
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -766,7 +766,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -776,7 +776,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -843,7 +843,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -852,7 +852,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -862,7 +862,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -948,7 +948,7 @@ paths:
                       format: uuid
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -957,7 +957,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -967,7 +967,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -1280,7 +1280,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -1289,7 +1289,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -1299,7 +1299,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -1883,6 +1883,143 @@ paths:
                                 '$ref': '#/components/schemas/BlockRuleList'
                 '404':
                     description: 'Not found'
+    '/events/types':
+        get:
+            operationId: listTypes
+            summary: 'List event types'
+            description: 'Every kind of event the station sends, each with an example of what a destination receives'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventTypeList'
+    '/events/destinations':
+        get:
+            operationId: listEventDestinations
+            summary: 'List event destinations'
+            description: 'Every event destination, oldest first'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestinationList'
+        post:
+            operationId: createEventDestination
+            summary: 'Create event destination'
+            description: 'Add an event destination. The answer carries its signing secret, which is not shown again'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/EventDestinationCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestinationCreated'
+    '/events/destinations/{id}':
+        patch:
+            operationId: updateEventDestination
+            summary: 'Update event destination'
+            description: "Change an event destination's name, address, or whether it is on"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/EventDestinationUpdate'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestination'
+        delete:
+            operationId: deleteEventDestination
+            summary: 'Delete event destination'
+            description: 'Remove an event destination and its delivery log'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
+    '/events/destinations/{id}/secret':
+        post:
+            operationId: rotateSecret
+            summary: 'Rotate event destination secret'
+            description: 'Make a new signing secret for a destination. The old one stops working at once'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestinationSecret'
+    '/events/destinations/{id}/test':
+        post:
+            operationId: test
+            summary: 'Test event destination'
+            description: 'Send a destination a test event now, and say what it answered. Sent even when the destination is off'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventTestResult'
+    '/events/destinations/{id}/deliveries':
+        get:
+            operationId: listDeliveries
+            summary: 'List event deliveries'
+            description: "A destination's latest delivery attempts, newest first"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDeliveryList'
     '/history':
         get:
             operationId: readHistory
@@ -4837,7 +4974,7 @@ paths:
                       format: uuid
                 - name: rendition
                   in: query
-                  required: true
+                  required: false
                   description: 'A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing'
                   schema:
                       '$ref': '#/components/schemas/SegmentAudioRendition'
@@ -6188,7 +6325,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -6197,7 +6334,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -6207,7 +6344,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -6369,7 +6506,7 @@ components:
     schemas:
         ActivityModule:
             type: string
-            enum: [playout, director, render, catalog, plugins, storage]
+            enum: [playout, director, render, catalog, plugins, storage, events]
             description: "Which part of the station an entry came from, and the console's one filter axis"
         ActivitySeverity:
             type: string
@@ -9313,6 +9450,13 @@ components:
                         enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
                     maxItems: 4
                     description: 'The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean'
+                avoidMoods:
+                    type: array
+                    items:
+                        type: string
+                        enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    maxItems: 6
+                    description: 'The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing'
                 breaks:
                     type: boolean
                     description: "Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says"
@@ -9530,13 +9674,13 @@ components:
                     readOnly: true
                 field:
                     type: string
-                    enum: [genre, tag]
-                    description: '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag'
+                    enum: [genre, tag, version]
+                    description: '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")'
                 value:
                     type: string
                     minLength: 1
                     maxLength: 200
-                    description: 'The genre or tag, as you would write it'
+                    description: 'The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one'
                 seasonFrom:
                     type: string
                     minLength: 5
@@ -9632,6 +9776,247 @@ components:
                     description: 'How long it lasts, from now'
             required: [genres, hours]
             description: 'Lean the station toward some genres for a number of hours'
+        EventDestination:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'What the operator calls it'
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: "Where events are POSTed. http or https, and allowed to be on the station's own network. A redirect is never followed"
+                enabled:
+                    type: boolean
+                    description: 'Off sends nothing'
+                events:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    description: 'The event types it is sent, from `/events/types`. Empty means every type, including any added later'
+                consecutiveFailures:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off'
+                disabledReason:
+                    type: string
+                    enum: [failing]
+                    readOnly: true
+                    description: 'Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count'
+                lastDeliveredAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                lastFailedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                lastFailure:
+                    type: string
+                    maxLength: 1000
+                    readOnly: true
+                    description: "What went wrong last time, in the station's words"
+                createdAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                updatedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+            required: [id, name, url, enabled, events, consecutiveFailures, createdAt, updatedAt]
+            description: "Somewhere the station sends what happens on it: an operator's own server, sent a signed POST per event"
+        EventDestinationList:
+            type: object
+            properties:
+                destinations:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/EventDestination'
+            required: [destinations]
+            description: 'Every event destination, oldest first'
+        EventDestinationCreate:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                enabled:
+                    type: boolean
+                    description: 'Defaults to on'
+                events:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    description: 'The event types to send it. Absent or empty means every type'
+            required: [name, url]
+            description: 'A new event destination'
+        EventDestinationUpdate:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                enabled:
+                    type: boolean
+                    description: 'Turning a destination back on also clears why the station turned it off, and its count of failures'
+                events:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    description: 'Empty means every type'
+            description: 'Changes to an event destination. Only what is sent changes'
+        EventDestinationSecret:
+            type: object
+            properties:
+                secret:
+                    type: string
+                    description: 'Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=<hex HMAC-SHA256 of "<Deadair-Webhook-Timestamp>.<body>">`'
+            required: [secret]
+            description: 'The secret deliveries to a destination are signed with. Shown only when it is made, so keep it'
+        EventDestinationCreated:
+            allOf:
+                - '$ref': '#/components/schemas/EventDestination'
+                - '$ref': '#/components/schemas/EventDestinationSecret'
+            description: 'A destination just made, with its secret'
+        EventDelivery:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                eventId:
+                    type: string
+                    format: uuid
+                    description: "The event's own id, which every attempt at it shares"
+                eventType:
+                    type: string
+                    maxLength: 100
+                attempt:
+                    type: integer
+                    minimum: 1
+                outcome:
+                    type: string
+                    enum: [delivered, failed, dropped]
+                    description: '`dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down'
+                httpStatus:
+                    type: integer
+                    description: 'What the destination answered, when it answered at all'
+                durationMs:
+                    type: integer
+                    minimum: 0
+                error:
+                    type: string
+                    maxLength: 1000
+                    description: "What went wrong, in the station's words. Never the destination's response body"
+                createdAt:
+                    type: string
+                    format: date-time
+            required: [id, eventId, eventType, attempt, outcome, durationMs, createdAt]
+            description: 'One attempt at sending an event to a destination'
+        EventDeliveryList:
+            type: object
+            properties:
+                deliveries:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/EventDelivery'
+            required: [deliveries]
+            description: "A destination's latest delivery attempts, newest first. The station keeps the latest fifty"
+        EventTestResult:
+            type: object
+            properties:
+                delivered:
+                    type: boolean
+                httpStatus:
+                    type: integer
+                    description: 'What the destination answered, when it answered at all'
+                durationMs:
+                    type: integer
+                    minimum: 0
+                error:
+                    type: string
+                    maxLength: 1000
+                    description: "Why it was not delivered, in the station's words"
+            required: [delivered, durationMs]
+            description: 'What a test delivery came to'
+        EventStation:
+            type: object
+            properties:
+                key:
+                    type: string
+                name:
+                    type: string
+            required: [key, name]
+            description: 'Which station sent an event'
+        EventEnvelope:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The event's own id. A redelivery of the same event carries the same one"
+                type:
+                    type: string
+                    maxLength: 100
+                    description: 'What happened, such as `track.started`'
+                occurredAt:
+                    type: string
+                    description: 'When, as an ISO-8601 instant in UTC'
+                station:
+                    '$ref': '#/components/schemas/EventStation'
+                data:
+                    type: object
+                    additionalProperties: {}
+                    description: 'What the type says it holds. `/events/types` gives an example of each'
+            required: [id, type, occurredAt, station, data]
+            description: 'One event, as a destination receives it. The same shape for every type: read `type`, then `data`'
+        EventType:
+            type: object
+            properties:
+                type:
+                    type: string
+                    maxLength: 100
+                description:
+                    type: string
+                    description: 'When it is sent, and what its `data` holds'
+                subscribable:
+                    type: boolean
+                    description: 'False for the test event, which only a test delivery sends'
+                example:
+                    '$ref': '#/components/schemas/EventEnvelope'
+            required: [type, description, subscribable, example]
+            description: 'One kind of event the station sends'
+        EventTypeList:
+            type: object
+            properties:
+                types:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/EventType'
+            required: [types]
+            description: 'Every kind of event the station sends'
         HistoryEntry:
             type: object
             properties:
@@ -14639,6 +15024,13 @@ components:
                         enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
                     maxItems: 4
                     description: "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean"
+                avoidMoods:
+                    type: array
+                    items:
+                        type: string
+                        enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    maxItems: 6
+                    description: 'The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing'
                 breaks:
                     type: boolean
                     description: "Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says"

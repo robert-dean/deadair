@@ -317,9 +317,15 @@ public sealed record MfaEnrollAuthenticatorVerify
 }
 
 /// <summary>A second-factor method a user may enroll</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<EnrollmentMethod>))]
+[JsonConverter(typeof(EnrollmentMethodConverter))]
 public enum EnrollmentMethod
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("authenticator")]
     Authenticator,
 
@@ -328,6 +334,48 @@ public enum EnrollmentMethod
 
     [JsonStringEnumMemberName("fido")]
     Fido,
+}
+
+/// <summary>
+/// Reads and writes <see cref="EnrollmentMethod"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="EnrollmentMethod.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class EnrollmentMethodConverter : JsonConverter<EnrollmentMethod>
+{
+    public override EnrollmentMethod Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for EnrollmentMethod, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, EnrollmentMethod value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override EnrollmentMethod ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, EnrollmentMethod value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static EnrollmentMethod FromWire(string? text) => text switch
+    {
+        "authenticator" => EnrollmentMethod.Authenticator,
+        "phone" => EnrollmentMethod.Phone,
+        "fido" => EnrollmentMethod.Fido,
+        _ => EnrollmentMethod.Unknown,
+    };
+
+    private static string ToWire(EnrollmentMethod value) => value switch
+    {
+        EnrollmentMethod.Authenticator => "authenticator",
+        EnrollmentMethod.Phone => "phone",
+        EnrollmentMethod.Fido => "fido",
+        _ => throw new JsonException($"EnrollmentMethod.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Begin enrolling an SMS phone factor during a pending login MFA challenge (no session — authorized by the challenge)</summary>
@@ -560,9 +608,15 @@ public sealed record FidoFactorAttestationPubKeyCredParams
 }
 
 /// <summary>The attestation</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<FidoFactorAttestationAttestation>))]
+[JsonConverter(typeof(FidoFactorAttestationAttestationConverter))]
 public enum FidoFactorAttestationAttestation
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("direct")]
     Direct,
 
@@ -571,6 +625,48 @@ public enum FidoFactorAttestationAttestation
 
     [JsonStringEnumMemberName("none")]
     None,
+}
+
+/// <summary>
+/// Reads and writes <see cref="FidoFactorAttestationAttestation"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="FidoFactorAttestationAttestation.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class FidoFactorAttestationAttestationConverter : JsonConverter<FidoFactorAttestationAttestation>
+{
+    public override FidoFactorAttestationAttestation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for FidoFactorAttestationAttestation, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, FidoFactorAttestationAttestation value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override FidoFactorAttestationAttestation ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, FidoFactorAttestationAttestation value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static FidoFactorAttestationAttestation FromWire(string? text) => text switch
+    {
+        "direct" => FidoFactorAttestationAttestation.Direct,
+        "indirect" => FidoFactorAttestationAttestation.Indirect,
+        "none" => FidoFactorAttestationAttestation.None,
+        _ => FidoFactorAttestationAttestation.Unknown,
+    };
+
+    private static string ToWire(FidoFactorAttestationAttestation value) => value switch
+    {
+        FidoFactorAttestationAttestation.Direct => "direct",
+        FidoFactorAttestationAttestation.Indirect => "indirect",
+        FidoFactorAttestationAttestation.None => "none",
+        _ => throw new JsonException($"FidoFactorAttestationAttestation.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 [JsonConverter(typeof(AuthenticationFactorRegistrationResponseConverter))]

@@ -16,7 +16,8 @@ extension TransportUiState {
         case .schedule: .schedulePutThisOn
         case .sustaining: .betweenBlocks
         case .operator: .youPutThisOn
-        case .off, nil: nil
+        // A source a newer station names that this build cannot read: say nothing rather than guess who.
+        case .off, .unknown, nil: nil
         }
     }
 

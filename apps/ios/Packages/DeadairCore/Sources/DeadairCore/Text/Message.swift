@@ -178,6 +178,8 @@ public enum Message: Equatable, Sendable {
     case requestWaiting(String)
     /// A request is in and the station is finding it a place.
     case requestOnItsWay(String)
+    /// A request is in, with a status a newer station sends that this build cannot read.
+    case requestTaken(String)
     /// The station turned a request down. The reason is the station's own sentence, and absent for a plain no.
     case requestRefused(String?)
     /// The record went from the station between the search and the send.

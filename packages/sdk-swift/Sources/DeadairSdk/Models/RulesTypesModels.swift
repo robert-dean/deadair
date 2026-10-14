@@ -6,9 +6,9 @@ import Foundation
 /// Every scope is optional and an absent one means "always"
 public struct BlockRule: Codable, Equatable, Sendable {
     public var id: UUID
-    /// `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag
+    /// `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")
     public var field: BlockRuleField
-    /// The genre or tag, as you would write it
+    /// The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one
     public var value: String
     /// First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end
     public var seasonFrom: String?
@@ -90,9 +90,9 @@ public struct BlockRule: Codable, Equatable, Sendable {
 /// exclude-only: there is no "only these" rule, because one could leave the station nothing to play.
 /// Every scope is optional and an absent one means "always"
 public struct BlockRuleInput: Codable, Equatable, Sendable {
-    /// `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag
+    /// `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")
     public var field: BlockRuleField
-    /// The genre or tag, as you would write it
+    /// The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one
     public var value: String
     /// First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end
     public var seasonFrom: String?
@@ -290,14 +290,101 @@ public struct GenreSteerReading: Codable, Equatable, Sendable {
     }
 }
 
-/// `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag
-public enum BlockRuleField: String, Codable, CaseIterable, Sendable {
-    case genre = "genre"
-    case tag = "tag"
+/// `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")
+public enum BlockRuleField: Codable, CaseIterable, Hashable, Sendable {
+    case genre
+    case tag
+    case version
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [BlockRuleField] = [.genre, .tag, .version]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .genre: return "genre"
+        case .tag: return "tag"
+        case .version: return "version"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "genre": self = .genre
+        case "tag": self = .tag
+        case "version": self = .version
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "BlockRuleField.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum BlockRuleModes: String, Codable, CaseIterable, Sendable {
-    case rotation = "rotation"
-    case setlist = "setlist"
-    case feature = "feature"
+public enum BlockRuleModes: Codable, CaseIterable, Hashable, Sendable {
+    case rotation
+    case setlist
+    case feature
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [BlockRuleModes] = [.rotation, .setlist, .feature]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .rotation: return "rotation"
+        case .setlist: return "setlist"
+        case .feature: return "feature"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "rotation": self = .rotation
+        case "setlist": self = .setlist
+        case "feature": self = .feature
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "BlockRuleModes.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

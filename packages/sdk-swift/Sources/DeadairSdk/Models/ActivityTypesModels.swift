@@ -2,22 +2,117 @@
 import Foundation
 
 /// Which part of the station an entry came from, and the console's one filter axis
-public enum ActivityModule: String, Codable, CaseIterable, Sendable {
-    case playout = "playout"
-    case director = "director"
-    case render = "render"
-    case catalog = "catalog"
-    case plugins = "plugins"
-    case storage = "storage"
+public enum ActivityModule: Codable, CaseIterable, Hashable, Sendable {
+    case playout
+    case director
+    case render
+    case catalog
+    case plugins
+    case storage
+    case events
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ActivityModule] = [.playout, .director, .render, .catalog, .plugins, .storage, .events]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .playout: return "playout"
+        case .director: return "director"
+        case .render: return "render"
+        case .catalog: return "catalog"
+        case .plugins: return "plugins"
+        case .storage: return "storage"
+        case .events: return "events"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "playout": self = .playout
+        case "director": self = .director
+        case "render": self = .render
+        case "catalog": self = .catalog
+        case "plugins": self = .plugins
+        case "storage": self = .storage
+        case "events": self = .events
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ActivityModule.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for
 /// want of a listener says so in its own words and stays `info`, for the same reason the transport
 /// reports it as `ready` rather than as a mild fault
-public enum ActivitySeverity: String, Codable, CaseIterable, Sendable {
-    case info = "info"
-    case warn = "warn"
-    case fault = "fault"
+public enum ActivitySeverity: Codable, CaseIterable, Hashable, Sendable {
+    case info
+    case warn
+    case fault
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ActivitySeverity] = [.info, .warn, .fault]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .info: return "info"
+        case .warn: return "warn"
+        case .fault: return "fault"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "info": self = .info
+        case "warn": self = .warn
+        case "fault": self = .fault
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ActivitySeverity.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// One thing that happened, from whichever of the feed's sources holds it

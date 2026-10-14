@@ -565,16 +565,104 @@ public struct StationCheckupInput: Codable, Equatable, Sendable {
 }
 
 /// `failure` is the station not doing its job, `warning` is something failing beside a station that is working, and `notice` is a thing nobody has set up yet. A notice is not a fault and must not be drawn as one
-public enum AttentionItemSeverity: String, Codable, CaseIterable, Sendable {
-    case failure = "failure"
-    case warning = "warning"
-    case notice = "notice"
+public enum AttentionItemSeverity: Codable, CaseIterable, Hashable, Sendable {
+    case failure
+    case warning
+    case notice
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [AttentionItemSeverity] = [.failure, .warning, .notice]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .failure: return "failure"
+        case .warning: return "warning"
+        case .notice: return "notice"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "failure": self = .failure
+        case "warning": self = .warning
+        case "notice": self = .notice
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "AttentionItemSeverity.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something
-public enum StationModelHolderPriority: String, Codable, CaseIterable, Sendable {
-    case breaking = "breaking"
-    case air = "air"
-    case background = "background"
-    case preview = "preview"
+public enum StationModelHolderPriority: Codable, CaseIterable, Hashable, Sendable {
+    case breaking
+    case air
+    case background
+    case preview
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [StationModelHolderPriority] = [.breaking, .air, .background, .preview]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .breaking: return "breaking"
+        case .air: return "air"
+        case .background: return "background"
+        case .preview: return "preview"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "breaking": self = .breaking
+        case "air": self = .air
+        case "background": self = .background
+        case "preview": self = .preview
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "StationModelHolderPriority.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

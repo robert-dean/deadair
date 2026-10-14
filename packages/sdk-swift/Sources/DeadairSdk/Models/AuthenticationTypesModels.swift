@@ -2,40 +2,230 @@
 import Foundation
 
 /// Denotes the authorization flow to use
-public enum AuthenticationGrantType: String, Codable, CaseIterable, Sendable {
-    case clientCredentials = "client_credentials"
-    case password = "password"
-    case refreshToken = "refresh_token"
-    case link = "link"
-    case code = "code"
-    case fido = "fido"
-    case authenticator = "authenticator"
-    case oidc = "oidc"
+public enum AuthenticationGrantType: Codable, CaseIterable, Hashable, Sendable {
+    case clientCredentials
+    case password
+    case refreshToken
+    case link
+    case code
+    case fido
+    case authenticator
+    case oidc
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [AuthenticationGrantType] = [.clientCredentials, .password, .refreshToken, .link, .code, .fido, .authenticator, .oidc]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .clientCredentials: return "client_credentials"
+        case .password: return "password"
+        case .refreshToken: return "refresh_token"
+        case .link: return "link"
+        case .code: return "code"
+        case .fido: return "fido"
+        case .authenticator: return "authenticator"
+        case .oidc: return "oidc"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "client_credentials": self = .clientCredentials
+        case "password": self = .password
+        case "refresh_token": self = .refreshToken
+        case "link": self = .link
+        case "code": self = .code
+        case "fido": self = .fido
+        case "authenticator": self = .authenticator
+        case "oidc": self = .oidc
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "AuthenticationGrantType.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Denotes the authorization flow to use
-public enum PasswordlessAuthenticationGrantType: String, Codable, CaseIterable, Sendable {
-    case link = "link"
-    case code = "code"
-    case fido = "fido"
-    case oidc = "oidc"
+public enum PasswordlessAuthenticationGrantType: Codable, CaseIterable, Hashable, Sendable {
+    case link
+    case code
+    case fido
+    case oidc
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PasswordlessAuthenticationGrantType] = [.link, .code, .fido, .oidc]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .link: return "link"
+        case .code: return "code"
+        case .fido: return "fido"
+        case .oidc: return "oidc"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "link": self = .link
+        case "code": self = .code
+        case "fido": self = .fido
+        case "oidc": self = .oidc
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PasswordlessAuthenticationGrantType.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The type of the factor
-public enum AuthenticationFactorMethod: String, Codable, CaseIterable, Sendable {
-    case phone = "phone"
-    case password = "password"
-    case email = "email"
-    case authenticator = "authenticator"
-    case fido = "fido"
-    case oidc = "oidc"
+public enum AuthenticationFactorMethod: Codable, CaseIterable, Hashable, Sendable {
+    case phone
+    case password
+    case email
+    case authenticator
+    case fido
+    case oidc
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [AuthenticationFactorMethod] = [.phone, .password, .email, .authenticator, .fido, .oidc]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .phone: return "phone"
+        case .password: return "password"
+        case .email: return "email"
+        case .authenticator: return "authenticator"
+        case .fido: return "fido"
+        case .oidc: return "oidc"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "phone": self = .phone
+        case "password": self = .password
+        case "email": self = .email
+        case "authenticator": self = .authenticator
+        case "fido": self = .fido
+        case "oidc": self = .oidc
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "AuthenticationFactorMethod.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The kind of the factor
-public enum AuthenticationFactorKind: String, Codable, CaseIterable, Sendable {
-    case knowledge = "knowledge"
-    case possession = "possession"
-    case biometric = "biometric"
+public enum AuthenticationFactorKind: Codable, CaseIterable, Hashable, Sendable {
+    case knowledge
+    case possession
+    case biometric
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [AuthenticationFactorKind] = [.knowledge, .possession, .biometric]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .knowledge: return "knowledge"
+        case .possession: return "possession"
+        case .biometric: return "biometric"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "knowledge": self = .knowledge
+        case "possession": self = .possession
+        case "biometric": self = .biometric
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "AuthenticationFactorKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and security. `GET /auth/login/oidc/providers` lists them
@@ -442,12 +632,59 @@ public struct PublicKeyCredentialDescriptor: Codable, Equatable, Sendable {
 }
 
 /// The transport used by the authenticator
-public enum FidoAuthenticatorTransport: String, Codable, CaseIterable, Sendable {
-    case hybrid = "hybrid"
-    case ble = "ble"
-    case `internal` = "internal"
-    case nfc = "nfc"
-    case usb = "usb"
+public enum FidoAuthenticatorTransport: Codable, CaseIterable, Hashable, Sendable {
+    case hybrid
+    case ble
+    case `internal`
+    case nfc
+    case usb
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [FidoAuthenticatorTransport] = [.hybrid, .ble, .`internal`, .nfc, .usb]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .hybrid: return "hybrid"
+        case .ble: return "ble"
+        case .`internal`: return "internal"
+        case .nfc: return "nfc"
+        case .usb: return "usb"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "hybrid": self = .hybrid
+        case "ble": self = .ble
+        case "internal": self = .`internal`
+        case "nfc": self = .nfc
+        case "usb": self = .usb
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "FidoAuthenticatorTransport.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Request to complete an OIDC sign-in flow
@@ -845,9 +1082,50 @@ public struct SessionRevoke: Codable, Equatable, Sendable {
 }
 
 /// A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
-public enum PlatformRole: String, Codable, CaseIterable, Sendable {
-    case admin = "admin"
-    case listener = "listener"
+public enum PlatformRole: Codable, CaseIterable, Hashable, Sendable {
+    case admin
+    case listener
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PlatformRole] = [.admin, .listener]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .admin: return "admin"
+        case .listener: return "listener"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "admin": self = .admin
+        case "listener": self = .listener
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PlatformRole.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A successful authentication record
@@ -966,9 +1244,50 @@ public struct ActorPreferences: Codable, Equatable, Sendable {
 }
 
 /// What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
-public enum ApiKeyScope: String, Codable, CaseIterable, Sendable {
-    case view = "view"
-    case manage = "manage"
+public enum ApiKeyScope: Codable, CaseIterable, Hashable, Sendable {
+    case view
+    case manage
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ApiKeyScope] = [.view, .manage]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .view: return "view"
+        case .manage: return "manage"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "view": self = .view
+        case "manage": self = .manage
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ApiKeyScope.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public struct BaseAuthenticationRequest: Codable, Equatable, Sendable {
@@ -2708,9 +3027,50 @@ public indirect enum AuthenticationTokenResponse: Codable, Equatable, Sendable {
 }
 
 /// The authenticator attachment
-public enum PublicKeyCredentialAuthenticatorAttachment: String, Codable, CaseIterable, Sendable {
-    case crossPlatform = "cross-platform"
-    case platform = "platform"
+public enum PublicKeyCredentialAuthenticatorAttachment: Codable, CaseIterable, Hashable, Sendable {
+    case crossPlatform
+    case platform
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PublicKeyCredentialAuthenticatorAttachment] = [.crossPlatform, .platform]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .crossPlatform: return "cross-platform"
+        case .platform: return "platform"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "cross-platform": self = .crossPlatform
+        case "platform": self = .platform
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PublicKeyCredentialAuthenticatorAttachment.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public struct SimpleClientExtensionResultsCredProps: Codable, Equatable, Sendable {
@@ -2773,26 +3133,159 @@ public indirect enum AuthenticationLoginStart: Codable, Equatable, Sendable {
     }
 }
 
-public enum PublicKeyCredentialDescriptorTransports: String, Codable, CaseIterable, Sendable {
-    case usb = "usb"
-    case nfc = "nfc"
-    case ble = "ble"
-    case `internal` = "internal"
-    case hybrid = "hybrid"
+public enum PublicKeyCredentialDescriptorTransports: Codable, CaseIterable, Hashable, Sendable {
+    case usb
+    case nfc
+    case ble
+    case `internal`
+    case hybrid
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PublicKeyCredentialDescriptorTransports] = [.usb, .nfc, .ble, .`internal`, .hybrid]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .usb: return "usb"
+        case .nfc: return "nfc"
+        case .ble: return "ble"
+        case .`internal`: return "internal"
+        case .hybrid: return "hybrid"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "usb": self = .usb
+        case "nfc": self = .nfc
+        case "ble": self = .ble
+        case "internal": self = .`internal`
+        case "hybrid": self = .hybrid
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PublicKeyCredentialDescriptorTransports.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The attestation
-public enum FidoPublicKeyCredentialRequestOptionsAttestation: String, Codable, CaseIterable, Sendable {
-    case direct = "direct"
-    case indirect = "indirect"
-    case none = "none"
+public enum FidoPublicKeyCredentialRequestOptionsAttestation: Codable, CaseIterable, Hashable, Sendable {
+    case direct
+    case indirect
+    case none
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [FidoPublicKeyCredentialRequestOptionsAttestation] = [.direct, .indirect, .none]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .direct: return "direct"
+        case .indirect: return "indirect"
+        case .none: return "none"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "direct": self = .direct
+        case "indirect": self = .indirect
+        case "none": self = .none
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "FidoPublicKeyCredentialRequestOptionsAttestation.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Whether the authenticator must verify the user
-public enum FidoPublicKeyCredentialRequestOptionsUserVerification: String, Codable, CaseIterable, Sendable {
-    case required = "required"
-    case preferred = "preferred"
-    case discouraged = "discouraged"
+public enum FidoPublicKeyCredentialRequestOptionsUserVerification: Codable, CaseIterable, Hashable, Sendable {
+    case required
+    case preferred
+    case discouraged
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [FidoPublicKeyCredentialRequestOptionsUserVerification] = [.required, .preferred, .discouraged]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .required: return "required"
+        case .preferred: return "preferred"
+        case .discouraged: return "discouraged"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "required": self = .required
+        case "preferred": self = .preferred
+        case "discouraged": self = .discouraged
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "FidoPublicKeyCredentialRequestOptionsUserVerification.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public indirect enum AuthenticationLoginStartResponse: Codable, Equatable, Sendable {
@@ -2897,29 +3390,172 @@ public indirect enum FactorChallengeStartResponse: Codable, Equatable, Sendable 
 }
 
 /// The verification method
-public enum SessionFactorMethod: String, Codable, CaseIterable, Sendable {
-    case phone = "phone"
-    case password = "password"
-    case authenticator = "authenticator"
-    case email = "email"
-    case fido = "fido"
-    case oidc = "oidc"
+public enum SessionFactorMethod: Codable, CaseIterable, Hashable, Sendable {
+    case phone
+    case password
+    case authenticator
+    case email
+    case fido
+    case oidc
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [SessionFactorMethod] = [.phone, .password, .authenticator, .email, .fido, .oidc]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .phone: return "phone"
+        case .password: return "password"
+        case .authenticator: return "authenticator"
+        case .email: return "email"
+        case .fido: return "fido"
+        case .oidc: return "oidc"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "phone": self = .phone
+        case "password": self = .password
+        case "authenticator": self = .authenticator
+        case "email": self = .email
+        case "fido": self = .fido
+        case "oidc": self = .oidc
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "SessionFactorMethod.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// MFA category for the factor
-public enum SessionFactorKind: String, Codable, CaseIterable, Sendable {
-    case knowledge = "knowledge"
-    case possession = "possession"
-    case biometric = "biometric"
+public enum SessionFactorKind: Codable, CaseIterable, Hashable, Sendable {
+    case knowledge
+    case possession
+    case biometric
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [SessionFactorKind] = [.knowledge, .possession, .biometric]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .knowledge: return "knowledge"
+        case .possession: return "possession"
+        case .biometric: return "biometric"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "knowledge": self = .knowledge
+        case "possession": self = .possession
+        case "biometric": self = .biometric
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "SessionFactorKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys
-public enum LoginFactorType: String, Codable, CaseIterable, Sendable {
-    case phone = "phone"
-    case password = "password"
-    case authenticator = "authenticator"
-    case email = "email"
-    case fido = "fido"
-    case oidc = "oidc"
-    case apikey = "apikey"
+public enum LoginFactorType: Codable, CaseIterable, Hashable, Sendable {
+    case phone
+    case password
+    case authenticator
+    case email
+    case fido
+    case oidc
+    case apikey
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [LoginFactorType] = [.phone, .password, .authenticator, .email, .fido, .oidc, .apikey]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .phone: return "phone"
+        case .password: return "password"
+        case .authenticator: return "authenticator"
+        case .email: return "email"
+        case .fido: return "fido"
+        case .oidc: return "oidc"
+        case .apikey: return "apikey"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "phone": self = .phone
+        case "password": self = .password
+        case "authenticator": self = .authenticator
+        case "email": self = .email
+        case "fido": self = .fido
+        case "oidc": self = .oidc
+        case "apikey": self = .apikey
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "LoginFactorType.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

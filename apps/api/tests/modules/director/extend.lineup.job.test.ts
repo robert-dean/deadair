@@ -74,6 +74,8 @@ interface Options {
     expiresIn?: Duration;
     /** The broadcast's mood stages, and the slot it was put on for. */
     moods?: LyricMood[];
+    /** The moods the broadcast steers away from. */
+    avoidMoods?: LyricMood[];
     slotId?: string;
     /** The slot the schedule says is in force. */
     inForce?: ScheduleSlot;
@@ -89,6 +91,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
         source: 'director',
         ...(options.brief === undefined ? {} : { brief: options.brief }),
         ...(options.moods === undefined ? {} : { moods: options.moods }),
+        ...(options.avoidMoods === undefined ? {} : { avoidMoods: options.avoidMoods }),
         ...(options.slotId === undefined ? {} : { slotId: options.slotId }),
     });
 
@@ -200,6 +203,16 @@ describe('ExtendLineupJob', () => {
         const none = build({});
         await none.job.run({ count: 5 });
         expect(none.generate.mock.calls[0]![0]).not.toHaveProperty('mood');
+    });
+
+    it('steers every refill away from the moods the broadcast avoids, whatever the stage', async () => {
+        const avoiding = build({ moods: ['comfort', 'happiness'], avoidMoods: ['sadness'], slotId: 'evening' });
+        await avoiding.job.run({ count: 5 });
+        expect(avoiding.generate.mock.calls[0]![0]!.avoidMoods).toEqual(['sadness']);
+
+        const none = build({});
+        await none.job.run({ count: 5 });
+        expect(none.generate.mock.calls[0]![0]).not.toHaveProperty('avoidMoods');
     });
 
     it('tells the generator nothing about who is presenting', async () => {

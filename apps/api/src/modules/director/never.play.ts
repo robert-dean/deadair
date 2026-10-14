@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { activeRules, blockedBy, compileRules, type CompiledRule } from './block.rules.js';
+import { activeRules, blockedBy, compileRules, readsTags, type CompiledRule } from './block.rules.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { readClock } from './clock.bands.js';
@@ -26,7 +26,8 @@ export interface PickBroadcast {
  * is deletable because the other exists holds here as it does for a dislike.
  *
  * The rules are read and narrowed once per call and the tags only when some rule holds, so a station
- * with no rules pays one cheap read and nothing else. A record with no tags is forbidden by nothing.
+ * with no rules pays one cheap read and nothing else. A record with no tags is forbidden by no genre or
+ * tag rule; a `version` rule reads its title and album instead.
  */
 @Injectable()
 export class NeverPlay {
@@ -58,9 +59,16 @@ export class NeverPlay {
         const blocked = new Map<string, CompiledRule>();
         if (rules.length === 0 || trackIds.length === 0) return blocked;
 
-        const tags = await this.candidates.tagsFor(trackIds);
+        // Each read only when a rule holding needs it: the tags for a genre or tag rule, the title and
+        // album for a version rule. A station with only one kind pays for one.
+        const [tags, versions] = await Promise.all([
+            rules.some(readsTags) ? this.candidates.tagsFor(trackIds) : Promise.resolve(new Map<string, string[]>()),
+            rules.some(rule => !readsTags(rule))
+                ? this.candidates.namesFor(trackIds)
+                : Promise.resolve(new Map<string, { title: string; album?: string }>()),
+        ]);
         for (const trackId of trackIds) {
-            const rule = blockedBy(rules, tags.get(trackId) ?? []);
+            const rule = blockedBy(rules, { tags: tags.get(trackId) ?? [], ...versions.get(trackId) });
             if (rule !== undefined) blocked.set(trackId, rule);
         }
         return blocked;

@@ -11,6 +11,7 @@ import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { NeverPlay } from '#modules/director/never.play.js';
+import { blockedBy, readsTags, type CompiledRule } from '#modules/director/block.rules.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { LYRIC_SUBJECT_KEYS, LYRIC_SUBJECTS_DEFAULT } from '#modules/lyrics/lyrics.keys.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
@@ -287,7 +288,9 @@ export class MusicSearchTool implements ToolSource {
         //
         // The seed is the broadcast, which is what makes the library's arbitrary ordering hold still
         // for one programme and move between them. See `searchPlayable`'s order clause.
-        const owned = await this.ownedAllowed(query, limit, cleanOnly, {
+        // The never-play rules holding now, read once for both halves. See `ownedAllowed`.
+        const rules = await this.neverPlay.holding();
+        const owned = await this.ownedAllowed(rules, query, limit, cleanOnly, {
             ...filters,
             ...seedOf(this.identity.current()),
             ...(about === undefined ? {} : { about }),
@@ -299,7 +302,18 @@ export class MusicSearchTool implements ToolSource {
             about === undefined && (owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT));
         // The conversation's signal goes with it, so a model the gate takes back mid-search stops the
         // provider calls too rather than only the registry's wait on them. See `ProviderSearch.search`.
-        const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS, signal === undefined ? {} : { signal })).tracks : [];
+        const searched = reaching ? (await this.providers.search(query, filters, MAX_RESULTS, signal === undefined ? {} : { signal })).tracks : [];
+        // A provider row has a title and an album though no tags, so a version rule can judge it here
+        // where a genre rule cannot: a model is not offered a live recording the station will refuse.
+        const versionRules = rules.filter(rule => !readsTags(rule));
+        const reached =
+            versionRules.length === 0
+                ? searched
+                : searched.filter(
+                      track =>
+                          blockedBy(versionRules, { tags: [], title: track.title, ...(track.album === undefined ? {} : { album: track.album }) }) ===
+                          undefined,
+                  );
 
         const fromProviders = await this.fromProviders(reached, owned);
         const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromProviders.length));
@@ -309,16 +323,16 @@ export class MusicSearchTool implements ToolSource {
         // for the run that cost an hour and for why the transcript is the wrong place to read it
         // back from.
         //
-        // Each with whether it matched the query as whole words, which the model never sees: it
+        // Each with whether it answered the query as whole words, which the model never sees: it
         // reads the strays and skips them, and only a refill falling back to these rows needs telling.
-        // The library answered that in SQL, where the styles a record is tagged with are in reach;
-        // a provider row carries no tags, so it is judged on its title and its credits here.
-        const libraryMatches = new Set(owned.filter(row => row.matchesWords === true).map(row => keyOf(row.title, row.artistName)));
+        // A row answers by its credits, or by a style the library tagged it with, which only the SQL
+        // can see. Never by its title alone: see `answersQuery`.
+        const styleMatches = new Set(owned.filter(row => row.matchesStyle === true).map(row => keyOf(row.title, row.artistName)));
         this.searched.remember(
             rows.map(row => ({
                 title: row.title,
                 artist: row.artist,
-                matches: libraryMatches.has(keyOf(row.title, row.artist)) || answersQuery(row, query),
+                matches: styleMatches.has(keyOf(row.title, row.artist)) || answersQuery(row, query),
             })),
         );
         this.logger.debug('llm: searched for music', {
@@ -340,10 +354,16 @@ export class MusicSearchTool implements ToolSource {
      * its answer with repeats and the floor quietly fills the hour. Asked with no broadcast, so a
      * rule scoped to a mode or a block is not judged here; `PickResolver` judges every pick against
      * the broadcast it is for, and this only keeps the model from being offered what the station
-     * will refuse anyway. Provider rows the catalog has never seen carry no tags and are judged there.
+     * will refuse anyway. Provider rows the catalog has never seen carry no tags and are judged there,
+     * save by a version rule, which reads their title and album in `search`.
      */
-    private async ownedAllowed(query: string, limit: number, cleanOnly: boolean, options: Parameters<TracksRepository['searchPlayable']>[3]) {
-        const rules = await this.neverPlay.holding();
+    private async ownedAllowed(
+        rules: readonly CompiledRule[],
+        query: string,
+        limit: number,
+        cleanOnly: boolean,
+        options: Parameters<TracksRepository['searchPlayable']>[3],
+    ) {
         if (rules.length === 0) return await this.tracks.searchPlayable(query, limit, cleanOnly, options);
 
         const rows = await this.tracks.searchPlayable(query, limit * NEVER_PLAY_OVERFETCH, cleanOnly, options);
@@ -458,14 +478,20 @@ const ownedAllowance = (limit: number, reached: number): number => {
 };
 
 /**
- * Whether a row's own words answer the query: its title, its artist or anyone it features.
+ * Whether a row's credits answer the query: its artist or anyone it features.
  *
- * The provider half's version of the library's `matchesWords`. No query is a search the row cannot
- * have missed. A library row reaches here too, and is judged only on these words, which is why the
- * caller asks the library's own answer first: that one also read the record's styles.
+ * Not its TITLE, and that is the point of this function. The model searches for acts and styles, and
+ * a provider answers a name with every record CALLED that name too. Measured on the live station,
+ * 2026-10-14: a rock and roll hour searched `Chuck Berry` and `Little Richard`, the model went quiet,
+ * and the rescue took in Pharrell Williams' "Chuck Berry", The Rolling Stones' "Chuck Berry Style Jam"
+ * and Eddie Murphy's stand-up bit "Little Richard", which then aired. The model can still name a
+ * record by its title, having read the row; only the rescue reads this.
+ *
+ * No query is a search the row cannot have missed. A library row reaches here too, which is why the
+ * caller asks the library's own answer first: that one read the record's styles.
  */
 const answersQuery = (row: MusicTrack, query: string): boolean =>
-    query.trim().length === 0 || [row.title, row.artist, ...(row.featuring ?? [])].some(text => hasWholeWords(text, query));
+    query.trim().length === 0 || [row.artist, ...(row.featuring ?? [])].some(text => hasWholeWords(text, query));
 
 /** The identity two halves of the answer are compared on, which is the resolver's own key. */
 const keyOf = (title: string, artist: string): string => catalogKey(normalizeKey(title), normalizeKey(artist));

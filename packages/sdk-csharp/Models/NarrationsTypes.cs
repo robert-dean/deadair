@@ -174,9 +174,15 @@ public sealed record StationPiecePage
 }
 
 /// <summary>How it is worked through: `serial` from the beginning in order, `latest` its newest piece and nothing once that has aired</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<StationSeriesOrder>))]
+[JsonConverter(typeof(StationSeriesOrderConverter))]
 public enum StationSeriesOrder
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("serial")]
     Serial,
 
@@ -184,13 +190,99 @@ public enum StationSeriesOrder
     Latest,
 }
 
+/// <summary>
+/// Reads and writes <see cref="StationSeriesOrder"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="StationSeriesOrder.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class StationSeriesOrderConverter : JsonConverter<StationSeriesOrder>
+{
+    public override StationSeriesOrder Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for StationSeriesOrder, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, StationSeriesOrder value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override StationSeriesOrder ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, StationSeriesOrder value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static StationSeriesOrder FromWire(string? text) => text switch
+    {
+        "serial" => StationSeriesOrder.Serial,
+        "latest" => StationSeriesOrder.Latest,
+        _ => StationSeriesOrder.Unknown,
+    };
+
+    private static string ToWire(StationSeriesOrder value) => value switch
+    {
+        StationSeriesOrder.Serial => "serial",
+        StationSeriesOrder.Latest => "latest",
+        _ => throw new JsonException($"StationSeriesOrder.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How its series is worked through, copied onto the piece by every refresh</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<StationPieceOrder>))]
+[JsonConverter(typeof(StationPieceOrderConverter))]
 public enum StationPieceOrder
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("serial")]
     Serial,
 
     [JsonStringEnumMemberName("latest")]
     Latest,
+}
+
+/// <summary>
+/// Reads and writes <see cref="StationPieceOrder"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="StationPieceOrder.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class StationPieceOrderConverter : JsonConverter<StationPieceOrder>
+{
+    public override StationPieceOrder Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for StationPieceOrder, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, StationPieceOrder value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override StationPieceOrder ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, StationPieceOrder value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static StationPieceOrder FromWire(string? text) => text switch
+    {
+        "serial" => StationPieceOrder.Serial,
+        "latest" => StationPieceOrder.Latest,
+        _ => StationPieceOrder.Unknown,
+    };
+
+    private static string ToWire(StationPieceOrder value) => value switch
+    {
+        StationPieceOrder.Serial => "serial",
+        StationPieceOrder.Latest => "latest",
+        _ => throw new JsonException($"StationPieceOrder.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

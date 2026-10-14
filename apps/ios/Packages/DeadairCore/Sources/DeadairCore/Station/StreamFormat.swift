@@ -28,14 +28,16 @@ public enum StreamFormat: String, CaseIterable, Sendable, Codable {
         }
     }
 
-    /// The format for a wire value. Exhaustive over the generated enum on purpose.
-    public init(wire: NowPlayingMountFormat) {
+    /// The format for a wire value, or nothing for one a newer station names that this build cannot
+    /// read (`.unknown`). Exhaustive over the generated enum on purpose.
+    public init?(wire: NowPlayingMountFormat) {
         switch wire {
         case .mp3: self = .mp3
         case .hls: self = .hls
         case .aac: self = .aac
         case .opus: self = .opus
         case .flac: self = .flac
+        case .unknown: return nil
         }
     }
 

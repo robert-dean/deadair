@@ -1490,9 +1490,15 @@ public sealed record PersonaImportResult
 public sealed record PersonaImportResultInput;
 
 /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaKind>))]
+[JsonConverter(typeof(PersonaKindConverter))]
 public enum PersonaKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("host")]
     Host,
 
@@ -1506,10 +1512,60 @@ public enum PersonaKind
     Guest,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaKindConverter : JsonConverter<PersonaKind>
+{
+    public override PersonaKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaKind FromWire(string? text) => text switch
+    {
+        "host" => PersonaKind.Host,
+        "caller" => PersonaKind.Caller,
+        "newsreader" => PersonaKind.Newsreader,
+        "guest" => PersonaKind.Guest,
+        _ => PersonaKind.Unknown,
+    };
+
+    private static string ToWire(PersonaKind value) => value switch
+    {
+        PersonaKind.Host => "host",
+        PersonaKind.Caller => "caller",
+        PersonaKind.Newsreader => "newsreader",
+        PersonaKind.Guest => "guest",
+        _ => throw new JsonException($"PersonaKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaBrevity>))]
+[JsonConverter(typeof(PersonaBrevityConverter))]
 public enum PersonaBrevity
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("short")]
     Short,
 
@@ -1517,10 +1573,56 @@ public enum PersonaBrevity
     OneLine,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaBrevity"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaBrevity.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaBrevityConverter : JsonConverter<PersonaBrevity>
+{
+    public override PersonaBrevity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaBrevity, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaBrevity value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaBrevity ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaBrevity value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaBrevity FromWire(string? text) => text switch
+    {
+        "short" => PersonaBrevity.Short,
+        "one-line" => PersonaBrevity.OneLine,
+        _ => PersonaBrevity.Unknown,
+    };
+
+    private static string ToWire(PersonaBrevity value) => value switch
+    {
+        PersonaBrevity.Short => "short",
+        PersonaBrevity.OneLine => "one-line",
+        _ => throw new JsonException($"PersonaBrevity.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaLatitude>))]
+[JsonConverter(typeof(PersonaLatitudeConverter))]
 public enum PersonaLatitude
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("loose")]
     Loose,
 
@@ -1528,10 +1630,56 @@ public enum PersonaLatitude
     Unleashed,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaLatitude"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaLatitude.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaLatitudeConverter : JsonConverter<PersonaLatitude>
+{
+    public override PersonaLatitude Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaLatitude, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaLatitude value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaLatitude ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaLatitude value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaLatitude FromWire(string? text) => text switch
+    {
+        "loose" => PersonaLatitude.Loose,
+        "unleashed" => PersonaLatitude.Unleashed,
+        _ => PersonaLatitude.Unknown,
+    };
+
+    private static string ToWire(PersonaLatitude value) => value switch
+    {
+        PersonaLatitude.Loose => "loose",
+        PersonaLatitude.Unleashed => "unleashed",
+        _ => throw new JsonException($"PersonaLatitude.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaChattiness>))]
+[JsonConverter(typeof(PersonaChattinessConverter))]
 public enum PersonaChattiness
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("reserved")]
     Reserved,
 
@@ -1548,10 +1696,62 @@ public enum PersonaChattiness
     Relentless,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaChattiness"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaChattiness.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaChattinessConverter : JsonConverter<PersonaChattiness>
+{
+    public override PersonaChattiness Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaChattiness, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaChattiness value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaChattiness ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaChattiness value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaChattiness FromWire(string? text) => text switch
+    {
+        "reserved" => PersonaChattiness.Reserved,
+        "sparing" => PersonaChattiness.Sparing,
+        "ordinary" => PersonaChattiness.Ordinary,
+        "chatty" => PersonaChattiness.Chatty,
+        "relentless" => PersonaChattiness.Relentless,
+        _ => PersonaChattiness.Unknown,
+    };
+
+    private static string ToWire(PersonaChattiness value) => value switch
+    {
+        PersonaChattiness.Reserved => "reserved",
+        PersonaChattiness.Sparing => "sparing",
+        PersonaChattiness.Ordinary => "ordinary",
+        PersonaChattiness.Chatty => "chatty",
+        PersonaChattiness.Relentless => "relentless",
+        _ => throw new JsonException($"PersonaChattiness.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStorytelling>))]
+[JsonConverter(typeof(PersonaStorytellingConverter))]
 public enum PersonaStorytelling
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("never")]
     Never,
 
@@ -1562,10 +1762,58 @@ public enum PersonaStorytelling
     Often,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaStorytelling"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStorytelling.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStorytellingConverter : JsonConverter<PersonaStorytelling>
+{
+    public override PersonaStorytelling Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStorytelling, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStorytelling value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStorytelling ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStorytelling value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStorytelling FromWire(string? text) => text switch
+    {
+        "never" => PersonaStorytelling.Never,
+        "occasionally" => PersonaStorytelling.Occasionally,
+        "often" => PersonaStorytelling.Often,
+        _ => PersonaStorytelling.Unknown,
+    };
+
+    private static string ToWire(PersonaStorytelling value) => value switch
+    {
+        PersonaStorytelling.Never => "never",
+        PersonaStorytelling.Occasionally => "occasionally",
+        PersonaStorytelling.Often => "often",
+        _ => throw new JsonException($"PersonaStorytelling.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaGrowth>))]
+[JsonConverter(typeof(PersonaGrowthConverter))]
 public enum PersonaGrowth
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("proposes")]
     Proposes,
 
@@ -1573,18 +1821,108 @@ public enum PersonaGrowth
     SelfDirected,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaGrowth"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaGrowth.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaGrowthConverter : JsonConverter<PersonaGrowth>
+{
+    public override PersonaGrowth Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaGrowth, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaGrowth value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaGrowth ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaGrowth value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaGrowth FromWire(string? text) => text switch
+    {
+        "proposes" => PersonaGrowth.Proposes,
+        "self-directed" => PersonaGrowth.SelfDirected,
+        _ => PersonaGrowth.Unknown,
+    };
+
+    private static string ToWire(PersonaGrowth value) => value switch
+    {
+        PersonaGrowth.Proposes => "proposes",
+        PersonaGrowth.SelfDirected => "self-directed",
+        _ => throw new JsonException($"PersonaGrowth.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaTrivia>))]
+[JsonConverter(typeof(PersonaTriviaConverter))]
 public enum PersonaTrivia
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("keen")]
     Keen,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaTrivia"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaTrivia.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaTriviaConverter : JsonConverter<PersonaTrivia>
+{
+    public override PersonaTrivia Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaTrivia, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaTrivia value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaTrivia ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaTrivia value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaTrivia FromWire(string? text) => text switch
+    {
+        "keen" => PersonaTrivia.Keen,
+        _ => PersonaTrivia.Unknown,
+    };
+
+    private static string ToWire(PersonaTrivia value) => value switch
+    {
+        PersonaTrivia.Keen => "keen",
+        _ => throw new JsonException($"PersonaTrivia.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaQuirkCadence>))]
+[JsonConverter(typeof(PersonaQuirkCadenceConverter))]
 public enum PersonaQuirkCadence
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("always")]
     Always,
 
@@ -1598,9 +1936,59 @@ public enum PersonaQuirkCadence
     Rarely,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewBrevity>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaQuirkCadence"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaQuirkCadence.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaQuirkCadenceConverter : JsonConverter<PersonaQuirkCadence>
+{
+    public override PersonaQuirkCadence Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaQuirkCadence, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaQuirkCadence value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaQuirkCadence ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaQuirkCadence value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaQuirkCadence FromWire(string? text) => text switch
+    {
+        "always" => PersonaQuirkCadence.Always,
+        "often" => PersonaQuirkCadence.Often,
+        "occasionally" => PersonaQuirkCadence.Occasionally,
+        "rarely" => PersonaQuirkCadence.Rarely,
+        _ => PersonaQuirkCadence.Unknown,
+    };
+
+    private static string ToWire(PersonaQuirkCadence value) => value switch
+    {
+        PersonaQuirkCadence.Always => "always",
+        PersonaQuirkCadence.Often => "often",
+        PersonaQuirkCadence.Occasionally => "occasionally",
+        PersonaQuirkCadence.Rarely => "rarely",
+        _ => throw new JsonException($"PersonaQuirkCadence.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaDraftViewBrevityConverter))]
 public enum PersonaDraftViewBrevity
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("short")]
     Short,
 
@@ -1608,9 +1996,55 @@ public enum PersonaDraftViewBrevity
     OneLine,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewLatitude>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaDraftViewBrevity"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaDraftViewBrevity.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaDraftViewBrevityConverter : JsonConverter<PersonaDraftViewBrevity>
+{
+    public override PersonaDraftViewBrevity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaDraftViewBrevity, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaDraftViewBrevity value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaDraftViewBrevity ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaDraftViewBrevity value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaDraftViewBrevity FromWire(string? text) => text switch
+    {
+        "short" => PersonaDraftViewBrevity.Short,
+        "one-line" => PersonaDraftViewBrevity.OneLine,
+        _ => PersonaDraftViewBrevity.Unknown,
+    };
+
+    private static string ToWire(PersonaDraftViewBrevity value) => value switch
+    {
+        PersonaDraftViewBrevity.Short => "short",
+        PersonaDraftViewBrevity.OneLine => "one-line",
+        _ => throw new JsonException($"PersonaDraftViewBrevity.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaDraftViewLatitudeConverter))]
 public enum PersonaDraftViewLatitude
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("loose")]
     Loose,
 
@@ -1618,9 +2052,55 @@ public enum PersonaDraftViewLatitude
     Unleashed,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewChattiness>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaDraftViewLatitude"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaDraftViewLatitude.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaDraftViewLatitudeConverter : JsonConverter<PersonaDraftViewLatitude>
+{
+    public override PersonaDraftViewLatitude Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaDraftViewLatitude, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaDraftViewLatitude value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaDraftViewLatitude ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaDraftViewLatitude value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaDraftViewLatitude FromWire(string? text) => text switch
+    {
+        "loose" => PersonaDraftViewLatitude.Loose,
+        "unleashed" => PersonaDraftViewLatitude.Unleashed,
+        _ => PersonaDraftViewLatitude.Unknown,
+    };
+
+    private static string ToWire(PersonaDraftViewLatitude value) => value switch
+    {
+        PersonaDraftViewLatitude.Loose => "loose",
+        PersonaDraftViewLatitude.Unleashed => "unleashed",
+        _ => throw new JsonException($"PersonaDraftViewLatitude.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaDraftViewChattinessConverter))]
 public enum PersonaDraftViewChattiness
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("reserved")]
     Reserved,
 
@@ -1637,9 +2117,61 @@ public enum PersonaDraftViewChattiness
     Relentless,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewStorytelling>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaDraftViewChattiness"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaDraftViewChattiness.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaDraftViewChattinessConverter : JsonConverter<PersonaDraftViewChattiness>
+{
+    public override PersonaDraftViewChattiness Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaDraftViewChattiness, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaDraftViewChattiness value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaDraftViewChattiness ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaDraftViewChattiness value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaDraftViewChattiness FromWire(string? text) => text switch
+    {
+        "reserved" => PersonaDraftViewChattiness.Reserved,
+        "sparing" => PersonaDraftViewChattiness.Sparing,
+        "ordinary" => PersonaDraftViewChattiness.Ordinary,
+        "chatty" => PersonaDraftViewChattiness.Chatty,
+        "relentless" => PersonaDraftViewChattiness.Relentless,
+        _ => PersonaDraftViewChattiness.Unknown,
+    };
+
+    private static string ToWire(PersonaDraftViewChattiness value) => value switch
+    {
+        PersonaDraftViewChattiness.Reserved => "reserved",
+        PersonaDraftViewChattiness.Sparing => "sparing",
+        PersonaDraftViewChattiness.Ordinary => "ordinary",
+        PersonaDraftViewChattiness.Chatty => "chatty",
+        PersonaDraftViewChattiness.Relentless => "relentless",
+        _ => throw new JsonException($"PersonaDraftViewChattiness.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaDraftViewStorytellingConverter))]
 public enum PersonaDraftViewStorytelling
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("never")]
     Never,
 
@@ -1650,28 +2182,166 @@ public enum PersonaDraftViewStorytelling
     Often,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewTrivia>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaDraftViewStorytelling"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaDraftViewStorytelling.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaDraftViewStorytellingConverter : JsonConverter<PersonaDraftViewStorytelling>
+{
+    public override PersonaDraftViewStorytelling Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaDraftViewStorytelling, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaDraftViewStorytelling value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaDraftViewStorytelling ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaDraftViewStorytelling value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaDraftViewStorytelling FromWire(string? text) => text switch
+    {
+        "never" => PersonaDraftViewStorytelling.Never,
+        "occasionally" => PersonaDraftViewStorytelling.Occasionally,
+        "often" => PersonaDraftViewStorytelling.Often,
+        _ => PersonaDraftViewStorytelling.Unknown,
+    };
+
+    private static string ToWire(PersonaDraftViewStorytelling value) => value switch
+    {
+        PersonaDraftViewStorytelling.Never => "never",
+        PersonaDraftViewStorytelling.Occasionally => "occasionally",
+        PersonaDraftViewStorytelling.Often => "often",
+        _ => throw new JsonException($"PersonaDraftViewStorytelling.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaDraftViewTriviaConverter))]
 public enum PersonaDraftViewTrivia
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("keen")]
     Keen,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaDraftViewTrivia"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaDraftViewTrivia.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaDraftViewTriviaConverter : JsonConverter<PersonaDraftViewTrivia>
+{
+    public override PersonaDraftViewTrivia Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaDraftViewTrivia, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaDraftViewTrivia value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaDraftViewTrivia ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaDraftViewTrivia value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaDraftViewTrivia FromWire(string? text) => text switch
+    {
+        "keen" => PersonaDraftViewTrivia.Keen,
+        _ => PersonaDraftViewTrivia.Unknown,
+    };
+
+    private static string ToWire(PersonaDraftViewTrivia value) => value switch
+    {
+        PersonaDraftViewTrivia.Keen => "keen",
+        _ => throw new JsonException($"PersonaDraftViewTrivia.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaNoteKind>))]
+[JsonConverter(typeof(PersonaNoteKindConverter))]
 public enum PersonaNoteKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("said")]
     Said,
 
     [JsonStringEnumMemberName("trait")]
     Trait,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaNoteKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaNoteKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaNoteKindConverter : JsonConverter<PersonaNoteKind>
+{
+    public override PersonaNoteKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaNoteKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaNoteKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaNoteKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaNoteKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaNoteKind FromWire(string? text) => text switch
+    {
+        "said" => PersonaNoteKind.Said,
+        "trait" => PersonaNoteKind.Trait,
+        _ => PersonaNoteKind.Unknown,
+    };
+
+    private static string ToWire(PersonaNoteKind value) => value switch
+    {
+        PersonaNoteKind.Said => "said",
+        PersonaNoteKind.Trait => "trait",
+        _ => throw new JsonException($"PersonaNoteKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>`active` is carried into breaks. `rejected` outlives the pass that proposed it, or the same scripts propose it again forever</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaNoteState2>))]
+[JsonConverter(typeof(PersonaNoteState2Converter))]
 public enum PersonaNoteState2
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1682,10 +2352,58 @@ public enum PersonaNoteState2
     Rejected,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaNoteState2"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaNoteState2.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaNoteState2Converter : JsonConverter<PersonaNoteState2>
+{
+    public override PersonaNoteState2 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaNoteState2, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaNoteState2 value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaNoteState2 ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaNoteState2 value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaNoteState2 FromWire(string? text) => text switch
+    {
+        "active" => PersonaNoteState2.Active,
+        "suggested" => PersonaNoteState2.Suggested,
+        "rejected" => PersonaNoteState2.Rejected,
+        _ => PersonaNoteState2.Unknown,
+    };
+
+    private static string ToWire(PersonaNoteState2 value) => value switch
+    {
+        PersonaNoteState2.Active => "active",
+        PersonaNoteState2.Suggested => "suggested",
+        PersonaNoteState2.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaNoteState2.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Who says so. `model` is the distil pass reading this character's own history back</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaNoteOrigin>))]
+[JsonConverter(typeof(PersonaNoteOriginConverter))]
 public enum PersonaNoteOrigin
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("operator")]
     Operator,
 
@@ -1693,9 +2411,55 @@ public enum PersonaNoteOrigin
     Model,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaNoteWriteKind>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaNoteOrigin"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaNoteOrigin.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaNoteOriginConverter : JsonConverter<PersonaNoteOrigin>
+{
+    public override PersonaNoteOrigin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaNoteOrigin, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaNoteOrigin value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaNoteOrigin ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaNoteOrigin value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaNoteOrigin FromWire(string? text) => text switch
+    {
+        "operator" => PersonaNoteOrigin.Operator,
+        "model" => PersonaNoteOrigin.Model,
+        _ => PersonaNoteOrigin.Unknown,
+    };
+
+    private static string ToWire(PersonaNoteOrigin value) => value switch
+    {
+        PersonaNoteOrigin.Operator => "operator",
+        PersonaNoteOrigin.Model => "model",
+        _ => throw new JsonException($"PersonaNoteOrigin.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaNoteWriteKindConverter))]
 public enum PersonaNoteWriteKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("said")]
     Said,
 
@@ -1703,9 +2467,55 @@ public enum PersonaNoteWriteKind
     Trait,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaNoteStateState>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaNoteWriteKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaNoteWriteKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaNoteWriteKindConverter : JsonConverter<PersonaNoteWriteKind>
+{
+    public override PersonaNoteWriteKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaNoteWriteKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaNoteWriteKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaNoteWriteKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaNoteWriteKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaNoteWriteKind FromWire(string? text) => text switch
+    {
+        "said" => PersonaNoteWriteKind.Said,
+        "trait" => PersonaNoteWriteKind.Trait,
+        _ => PersonaNoteWriteKind.Unknown,
+    };
+
+    private static string ToWire(PersonaNoteWriteKind value) => value switch
+    {
+        PersonaNoteWriteKind.Said => "said",
+        PersonaNoteWriteKind.Trait => "trait",
+        _ => throw new JsonException($"PersonaNoteWriteKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaNoteStateStateConverter))]
 public enum PersonaNoteStateState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1714,12 +2524,60 @@ public enum PersonaNoteStateState
 
     [JsonStringEnumMemberName("rejected")]
     Rejected,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaNoteStateState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaNoteStateState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaNoteStateStateConverter : JsonConverter<PersonaNoteStateState>
+{
+    public override PersonaNoteStateState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaNoteStateState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaNoteStateState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaNoteStateState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaNoteStateState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaNoteStateState FromWire(string? text) => text switch
+    {
+        "active" => PersonaNoteStateState.Active,
+        "suggested" => PersonaNoteStateState.Suggested,
+        "rejected" => PersonaNoteStateState.Rejected,
+        _ => PersonaNoteStateState.Unknown,
+    };
+
+    private static string ToWire(PersonaNoteStateState value) => value switch
+    {
+        PersonaNoteStateState.Active => "active",
+        PersonaNoteStateState.Suggested => "suggested",
+        PersonaNoteStateState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaNoteStateState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>`active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryState2>))]
+[JsonConverter(typeof(PersonaStoryState2Converter))]
 public enum PersonaStoryState2
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1728,23 +2586,117 @@ public enum PersonaStoryState2
 
     [JsonStringEnumMemberName("rejected")]
     Rejected,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryState2"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryState2.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryState2Converter : JsonConverter<PersonaStoryState2>
+{
+    public override PersonaStoryState2 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryState2, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryState2 value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryState2 ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryState2 value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryState2 FromWire(string? text) => text switch
+    {
+        "active" => PersonaStoryState2.Active,
+        "suggested" => PersonaStoryState2.Suggested,
+        "rejected" => PersonaStoryState2.Rejected,
+        _ => PersonaStoryState2.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryState2 value) => value switch
+    {
+        PersonaStoryState2.Active => "active",
+        PersonaStoryState2.Suggested => "suggested",
+        PersonaStoryState2.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaStoryState2.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Who says so. `model` is the enrichment pass writing from what the station already holds</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryOrigin>))]
+[JsonConverter(typeof(PersonaStoryOriginConverter))]
 public enum PersonaStoryOrigin
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("operator")]
     Operator,
 
     [JsonStringEnumMemberName("model")]
     Model,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryOrigin"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryOrigin.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryOriginConverter : JsonConverter<PersonaStoryOrigin>
+{
+    public override PersonaStoryOrigin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryOrigin, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryOrigin value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryOrigin ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryOrigin value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryOrigin FromWire(string? text) => text switch
+    {
+        "operator" => PersonaStoryOrigin.Operator,
+        "model" => PersonaStoryOrigin.Model,
+        _ => PersonaStoryOrigin.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryOrigin value) => value switch
+    {
+        PersonaStoryOrigin.Operator => "operator",
+        PersonaStoryOrigin.Model => "model",
+        _ => throw new JsonException($"PersonaStoryOrigin.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryKind>))]
+[JsonConverter(typeof(PersonaStoryKindConverter))]
 public enum PersonaStoryKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("anecdote")]
     Anecdote,
 
@@ -1755,9 +2707,57 @@ public enum PersonaStoryKind
     Bit,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryDetailState>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryKindConverter : JsonConverter<PersonaStoryKind>
+{
+    public override PersonaStoryKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryKind FromWire(string? text) => text switch
+    {
+        "anecdote" => PersonaStoryKind.Anecdote,
+        "arc" => PersonaStoryKind.Arc,
+        "bit" => PersonaStoryKind.Bit,
+        _ => PersonaStoryKind.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryKind value) => value switch
+    {
+        PersonaStoryKind.Anecdote => "anecdote",
+        PersonaStoryKind.Arc => "arc",
+        PersonaStoryKind.Bit => "bit",
+        _ => throw new JsonException($"PersonaStoryKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaStoryDetailStateConverter))]
 public enum PersonaStoryDetailState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1768,20 +2768,114 @@ public enum PersonaStoryDetailState
     Rejected,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryDetailOrigin>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryDetailState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryDetailState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryDetailStateConverter : JsonConverter<PersonaStoryDetailState>
+{
+    public override PersonaStoryDetailState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryDetailState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryDetailState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryDetailState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryDetailState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryDetailState FromWire(string? text) => text switch
+    {
+        "active" => PersonaStoryDetailState.Active,
+        "suggested" => PersonaStoryDetailState.Suggested,
+        "rejected" => PersonaStoryDetailState.Rejected,
+        _ => PersonaStoryDetailState.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryDetailState value) => value switch
+    {
+        PersonaStoryDetailState.Active => "active",
+        PersonaStoryDetailState.Suggested => "suggested",
+        PersonaStoryDetailState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaStoryDetailState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaStoryDetailOriginConverter))]
 public enum PersonaStoryDetailOrigin
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("operator")]
     Operator,
 
     [JsonStringEnumMemberName("model")]
     Model,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryDetailOrigin"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryDetailOrigin.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryDetailOriginConverter : JsonConverter<PersonaStoryDetailOrigin>
+{
+    public override PersonaStoryDetailOrigin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryDetailOrigin, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryDetailOrigin value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryDetailOrigin ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryDetailOrigin value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryDetailOrigin FromWire(string? text) => text switch
+    {
+        "operator" => PersonaStoryDetailOrigin.Operator,
+        "model" => PersonaStoryDetailOrigin.Model,
+        _ => PersonaStoryDetailOrigin.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryDetailOrigin value) => value switch
+    {
+        PersonaStoryDetailOrigin.Operator => "operator",
+        PersonaStoryDetailOrigin.Model => "model",
+        _ => throw new JsonException($"PersonaStoryDetailOrigin.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryWriteKind>))]
+[JsonConverter(typeof(PersonaStoryWriteKindConverter))]
 public enum PersonaStoryWriteKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("anecdote")]
     Anecdote,
 
@@ -1792,9 +2886,57 @@ public enum PersonaStoryWriteKind
     Bit,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryBeatState>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryWriteKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryWriteKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryWriteKindConverter : JsonConverter<PersonaStoryWriteKind>
+{
+    public override PersonaStoryWriteKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryWriteKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryWriteKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryWriteKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryWriteKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryWriteKind FromWire(string? text) => text switch
+    {
+        "anecdote" => PersonaStoryWriteKind.Anecdote,
+        "arc" => PersonaStoryWriteKind.Arc,
+        "bit" => PersonaStoryWriteKind.Bit,
+        _ => PersonaStoryWriteKind.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryWriteKind value) => value switch
+    {
+        PersonaStoryWriteKind.Anecdote => "anecdote",
+        PersonaStoryWriteKind.Arc => "arc",
+        PersonaStoryWriteKind.Bit => "bit",
+        _ => throw new JsonException($"PersonaStoryWriteKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaStoryBeatStateConverter))]
 public enum PersonaStoryBeatState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1805,9 +2947,57 @@ public enum PersonaStoryBeatState
     Rejected,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryBeatOrigin>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryBeatState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryBeatState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryBeatStateConverter : JsonConverter<PersonaStoryBeatState>
+{
+    public override PersonaStoryBeatState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryBeatState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryBeatState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryBeatState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryBeatState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryBeatState FromWire(string? text) => text switch
+    {
+        "active" => PersonaStoryBeatState.Active,
+        "suggested" => PersonaStoryBeatState.Suggested,
+        "rejected" => PersonaStoryBeatState.Rejected,
+        _ => PersonaStoryBeatState.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryBeatState value) => value switch
+    {
+        PersonaStoryBeatState.Active => "active",
+        PersonaStoryBeatState.Suggested => "suggested",
+        PersonaStoryBeatState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaStoryBeatState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaStoryBeatOriginConverter))]
 public enum PersonaStoryBeatOrigin
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("operator")]
     Operator,
 
@@ -1815,9 +3005,55 @@ public enum PersonaStoryBeatOrigin
     Model,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryStateState>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryBeatOrigin"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryBeatOrigin.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryBeatOriginConverter : JsonConverter<PersonaStoryBeatOrigin>
+{
+    public override PersonaStoryBeatOrigin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryBeatOrigin, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryBeatOrigin value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryBeatOrigin ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryBeatOrigin value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryBeatOrigin FromWire(string? text) => text switch
+    {
+        "operator" => PersonaStoryBeatOrigin.Operator,
+        "model" => PersonaStoryBeatOrigin.Model,
+        _ => PersonaStoryBeatOrigin.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryBeatOrigin value) => value switch
+    {
+        PersonaStoryBeatOrigin.Operator => "operator",
+        PersonaStoryBeatOrigin.Model => "model",
+        _ => throw new JsonException($"PersonaStoryBeatOrigin.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaStoryStateStateConverter))]
 public enum PersonaStoryStateState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1828,10 +3064,58 @@ public enum PersonaStoryStateState
     Rejected,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaStoryStateState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaStoryStateState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaStoryStateStateConverter : JsonConverter<PersonaStoryStateState>
+{
+    public override PersonaStoryStateState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaStoryStateState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaStoryStateState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaStoryStateState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaStoryStateState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaStoryStateState FromWire(string? text) => text switch
+    {
+        "active" => PersonaStoryStateState.Active,
+        "suggested" => PersonaStoryStateState.Suggested,
+        "rejected" => PersonaStoryStateState.Rejected,
+        _ => PersonaStoryStateState.Unknown,
+    };
+
+    private static string ToWire(PersonaStoryStateState value) => value switch
+    {
+        PersonaStoryStateState.Active => "active",
+        PersonaStoryStateState.Suggested => "suggested",
+        PersonaStoryStateState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaStoryStateState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Absent means `host`, as everywhere else</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaFilePersonaKind>))]
+[JsonConverter(typeof(PersonaFilePersonaKindConverter))]
 public enum PersonaFilePersonaKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("host")]
     Host,
 
@@ -1845,10 +3129,60 @@ public enum PersonaFilePersonaKind
     Guest,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaFilePersonaKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaFilePersonaKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaFilePersonaKindConverter : JsonConverter<PersonaFilePersonaKind>
+{
+    public override PersonaFilePersonaKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaFilePersonaKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaFilePersonaKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaFilePersonaKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaFilePersonaKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaFilePersonaKind FromWire(string? text) => text switch
+    {
+        "host" => PersonaFilePersonaKind.Host,
+        "caller" => PersonaFilePersonaKind.Caller,
+        "newsreader" => PersonaFilePersonaKind.Newsreader,
+        "guest" => PersonaFilePersonaKind.Guest,
+        _ => PersonaFilePersonaKind.Unknown,
+    };
+
+    private static string ToWire(PersonaFilePersonaKind value) => value switch
+    {
+        PersonaFilePersonaKind.Host => "host",
+        PersonaFilePersonaKind.Caller => "caller",
+        PersonaFilePersonaKind.Newsreader => "newsreader",
+        PersonaFilePersonaKind.Guest => "guest",
+        _ => throw new JsonException($"PersonaFilePersonaKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryKind>))]
+[JsonConverter(typeof(PersonaFileStoryKindConverter))]
 public enum PersonaFileStoryKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("anecdote")]
     Anecdote,
 
@@ -1859,21 +3193,115 @@ public enum PersonaFileStoryKind
     Bit,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaFileStoryKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaFileStoryKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaFileStoryKindConverter : JsonConverter<PersonaFileStoryKind>
+{
+    public override PersonaFileStoryKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaFileStoryKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaFileStoryKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaFileStoryKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaFileStoryKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaFileStoryKind FromWire(string? text) => text switch
+    {
+        "anecdote" => PersonaFileStoryKind.Anecdote,
+        "arc" => PersonaFileStoryKind.Arc,
+        "bit" => PersonaFileStoryKind.Bit,
+        _ => PersonaFileStoryKind.Unknown,
+    };
+
+    private static string ToWire(PersonaFileStoryKind value) => value switch
+    {
+        PersonaFileStoryKind.Anecdote => "anecdote",
+        PersonaFileStoryKind.Arc => "arc",
+        PersonaFileStoryKind.Bit => "bit",
+        _ => throw new JsonException($"PersonaFileStoryKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryState>))]
+[JsonConverter(typeof(PersonaFileStoryStateConverter))]
 public enum PersonaFileStoryState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
     [JsonStringEnumMemberName("rejected")]
     Rejected,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaFileStoryState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaFileStoryState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaFileStoryStateConverter : JsonConverter<PersonaFileStoryState>
+{
+    public override PersonaFileStoryState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaFileStoryState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaFileStoryState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaFileStoryState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaFileStoryState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaFileStoryState FromWire(string? text) => text switch
+    {
+        "active" => PersonaFileStoryState.Active,
+        "rejected" => PersonaFileStoryState.Rejected,
+        _ => PersonaFileStoryState.Unknown,
+    };
+
+    private static string ToWire(PersonaFileStoryState value) => value switch
+    {
+        PersonaFileStoryState.Active => "active",
+        PersonaFileStoryState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaFileStoryState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Absent means `active`, exactly as a story's does</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryBeatState>))]
+[JsonConverter(typeof(PersonaFileStoryBeatStateConverter))]
 public enum PersonaFileStoryBeatState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1881,9 +3309,55 @@ public enum PersonaFileStoryBeatState
     Rejected,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryDetailState>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaFileStoryBeatState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaFileStoryBeatState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaFileStoryBeatStateConverter : JsonConverter<PersonaFileStoryBeatState>
+{
+    public override PersonaFileStoryBeatState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaFileStoryBeatState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaFileStoryBeatState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaFileStoryBeatState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaFileStoryBeatState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaFileStoryBeatState FromWire(string? text) => text switch
+    {
+        "active" => PersonaFileStoryBeatState.Active,
+        "rejected" => PersonaFileStoryBeatState.Rejected,
+        _ => PersonaFileStoryBeatState.Unknown,
+    };
+
+    private static string ToWire(PersonaFileStoryBeatState value) => value switch
+    {
+        PersonaFileStoryBeatState.Active => "active",
+        PersonaFileStoryBeatState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaFileStoryBeatState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaFileStoryDetailStateConverter))]
 public enum PersonaFileStoryDetailState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1891,9 +3365,55 @@ public enum PersonaFileStoryDetailState
     Rejected,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaImportEntryKind>))]
+/// <summary>
+/// Reads and writes <see cref="PersonaFileStoryDetailState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaFileStoryDetailState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaFileStoryDetailStateConverter : JsonConverter<PersonaFileStoryDetailState>
+{
+    public override PersonaFileStoryDetailState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaFileStoryDetailState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaFileStoryDetailState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaFileStoryDetailState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaFileStoryDetailState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaFileStoryDetailState FromWire(string? text) => text switch
+    {
+        "active" => PersonaFileStoryDetailState.Active,
+        "rejected" => PersonaFileStoryDetailState.Rejected,
+        _ => PersonaFileStoryDetailState.Unknown,
+    };
+
+    private static string ToWire(PersonaFileStoryDetailState value) => value switch
+    {
+        PersonaFileStoryDetailState.Active => "active",
+        PersonaFileStoryDetailState.Rejected => "rejected",
+        _ => throw new JsonException($"PersonaFileStoryDetailState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaImportEntryKindConverter))]
 public enum PersonaImportEntryKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("host")]
     Host,
 
@@ -1907,10 +3427,60 @@ public enum PersonaImportEntryKind
     Guest,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaImportEntryKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaImportEntryKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaImportEntryKindConverter : JsonConverter<PersonaImportEntryKind>
+{
+    public override PersonaImportEntryKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaImportEntryKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaImportEntryKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaImportEntryKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaImportEntryKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaImportEntryKind FromWire(string? text) => text switch
+    {
+        "host" => PersonaImportEntryKind.Host,
+        "caller" => PersonaImportEntryKind.Caller,
+        "newsreader" => PersonaImportEntryKind.Newsreader,
+        "guest" => PersonaImportEntryKind.Guest,
+        _ => PersonaImportEntryKind.Unknown,
+    };
+
+    private static string ToWire(PersonaImportEntryKind value) => value switch
+    {
+        PersonaImportEntryKind.Host => "host",
+        PersonaImportEntryKind.Caller => "caller",
+        PersonaImportEntryKind.Newsreader => "newsreader",
+        PersonaImportEntryKind.Guest => "guest",
+        _ => throw new JsonException($"PersonaImportEntryKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaImportEntryOutcome>))]
+[JsonConverter(typeof(PersonaImportEntryOutcomeConverter))]
 public enum PersonaImportEntryOutcome
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("create")]
     Create,
 
@@ -1921,10 +3491,58 @@ public enum PersonaImportEntryOutcome
     Skip,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaImportEntryOutcome"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaImportEntryOutcome.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaImportEntryOutcomeConverter : JsonConverter<PersonaImportEntryOutcome>
+{
+    public override PersonaImportEntryOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaImportEntryOutcome, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaImportEntryOutcome value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaImportEntryOutcome ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaImportEntryOutcome value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaImportEntryOutcome FromWire(string? text) => text switch
+    {
+        "create" => PersonaImportEntryOutcome.Create,
+        "update" => PersonaImportEntryOutcome.Update,
+        "skip" => PersonaImportEntryOutcome.Skip,
+        _ => PersonaImportEntryOutcome.Unknown,
+    };
+
+    private static string ToWire(PersonaImportEntryOutcome value) => value switch
+    {
+        PersonaImportEntryOutcome.Create => "create",
+        PersonaImportEntryOutcome.Update => "update",
+        PersonaImportEntryOutcome.Skip => "skip",
+        _ => throw new JsonException($"PersonaImportEntryOutcome.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Which sort, so a console can group or ignore by it rather than parsing the sentence</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaImportNoticeKind>))]
+[JsonConverter(typeof(PersonaImportNoticeKindConverter))]
 public enum PersonaImportNoticeKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("format")]
     Format,
 
@@ -1950,10 +3568,68 @@ public enum PersonaImportNoticeKind
     Markers,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaImportNoticeKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaImportNoticeKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaImportNoticeKindConverter : JsonConverter<PersonaImportNoticeKind>
+{
+    public override PersonaImportNoticeKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaImportNoticeKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaImportNoticeKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaImportNoticeKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaImportNoticeKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaImportNoticeKind FromWire(string? text) => text switch
+    {
+        "format" => PersonaImportNoticeKind.Format,
+        "duplicate" => PersonaImportNoticeKind.Duplicate,
+        "on-air" => PersonaImportNoticeKind.OnAir,
+        "clears" => PersonaImportNoticeKind.Clears,
+        "voice" => PersonaImportNoticeKind.Voice,
+        "soundboard" => PersonaImportNoticeKind.Soundboard,
+        "phrasing" => PersonaImportNoticeKind.Phrasing,
+        "markers" => PersonaImportNoticeKind.Markers,
+        _ => PersonaImportNoticeKind.Unknown,
+    };
+
+    private static string ToWire(PersonaImportNoticeKind value) => value switch
+    {
+        PersonaImportNoticeKind.Format => "format",
+        PersonaImportNoticeKind.Duplicate => "duplicate",
+        PersonaImportNoticeKind.OnAir => "on-air",
+        PersonaImportNoticeKind.Clears => "clears",
+        PersonaImportNoticeKind.Voice => "voice",
+        PersonaImportNoticeKind.Soundboard => "soundboard",
+        PersonaImportNoticeKind.Phrasing => "phrasing",
+        PersonaImportNoticeKind.Markers => "markers",
+        _ => throw new JsonException($"PersonaImportNoticeKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`cancelled` keeps whatever breaks were already written</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaAuditionSummaryState>))]
+[JsonConverter(typeof(PersonaAuditionSummaryStateConverter))]
 public enum PersonaAuditionSummaryState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("queued")]
     Queued,
 
@@ -1970,10 +3646,62 @@ public enum PersonaAuditionSummaryState
     Cancelled,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaAuditionSummaryState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaAuditionSummaryState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaAuditionSummaryStateConverter : JsonConverter<PersonaAuditionSummaryState>
+{
+    public override PersonaAuditionSummaryState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaAuditionSummaryState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaAuditionSummaryState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaAuditionSummaryState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaAuditionSummaryState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaAuditionSummaryState FromWire(string? text) => text switch
+    {
+        "queued" => PersonaAuditionSummaryState.Queued,
+        "running" => PersonaAuditionSummaryState.Running,
+        "done" => PersonaAuditionSummaryState.Done,
+        "failed" => PersonaAuditionSummaryState.Failed,
+        "cancelled" => PersonaAuditionSummaryState.Cancelled,
+        _ => PersonaAuditionSummaryState.Unknown,
+    };
+
+    private static string ToWire(PersonaAuditionSummaryState value) => value switch
+    {
+        PersonaAuditionSummaryState.Queued => "queued",
+        PersonaAuditionSummaryState.Running => "running",
+        PersonaAuditionSummaryState.Done => "done",
+        PersonaAuditionSummaryState.Failed => "failed",
+        PersonaAuditionSummaryState.Cancelled => "cancelled",
+        _ => throw new JsonException($"PersonaAuditionSummaryState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaTellingSource>))]
+[JsonConverter(typeof(PersonaTellingSourceConverter))]
 public enum PersonaTellingSource
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("break")]
     Break,
 
@@ -1984,13 +3712,101 @@ public enum PersonaTellingSource
     Backfill,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PersonaTellingSource"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaTellingSource.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaTellingSourceConverter : JsonConverter<PersonaTellingSource>
+{
+    public override PersonaTellingSource Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaTellingSource, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaTellingSource value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaTellingSource ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaTellingSource value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaTellingSource FromWire(string? text) => text switch
+    {
+        "break" => PersonaTellingSource.Break,
+        "production" => PersonaTellingSource.Production,
+        "backfill" => PersonaTellingSource.Backfill,
+        _ => PersonaTellingSource.Unknown,
+    };
+
+    private static string ToWire(PersonaTellingSource value) => value switch
+    {
+        PersonaTellingSource.Break => "break",
+        PersonaTellingSource.Production => "production",
+        PersonaTellingSource.Backfill => "backfill",
+        _ => throw new JsonException($"PersonaTellingSource.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Whether the story was handed over as something the writer MAY use, or as the thing the break was for</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PersonaTellingMode>))]
+[JsonConverter(typeof(PersonaTellingModeConverter))]
 public enum PersonaTellingMode
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("offered")]
     Offered,
 
     [JsonStringEnumMemberName("told")]
     Told,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaTellingMode"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaTellingMode.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaTellingModeConverter : JsonConverter<PersonaTellingMode>
+{
+    public override PersonaTellingMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaTellingMode, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaTellingMode value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaTellingMode ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaTellingMode value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaTellingMode FromWire(string? text) => text switch
+    {
+        "offered" => PersonaTellingMode.Offered,
+        "told" => PersonaTellingMode.Told,
+        _ => PersonaTellingMode.Unknown,
+    };
+
+    private static string ToWire(PersonaTellingMode value) => value switch
+    {
+        PersonaTellingMode.Offered => "offered",
+        PersonaTellingMode.Told => "told",
+        _ => throw new JsonException($"PersonaTellingMode.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

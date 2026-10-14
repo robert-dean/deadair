@@ -111,6 +111,83 @@ export function parseBigIntHeader(name: string, value: string): bigint {
     throw new Error(`Response header '${name}' is not a bigint: ${JSON.stringify(value)}`);
 }
 
+/** Per-call options for an operation that streams Server-Sent Events. */
+export interface SseRequestOptions {
+    /** Aborts the request. An iteration in progress rejects with the abort reason. */
+    signal?: AbortSignal;
+    /** Resume after this event id, sent as Last-Event-ID. Usually an earlier stream's lastEventId. */
+    lastEventId?: string;
+}
+
+/**
+ * The events of one Server-Sent Events response, parsed as they arrive. Iterate it once with
+ * for await; leaving the loop early closes the connection.
+ */
+export interface SseEventStream<T> extends AsyncIterable<T> {
+    /** The id of the most recent event that carried one, to resume from with SseRequestOptions.lastEventId. */
+    readonly lastEventId: string | undefined;
+}
+
+/** The request headers a streaming call sends: Accept, plus Last-Event-ID when resuming. */
+export function sseRequestHeaders(options: SseRequestOptions | undefined): Record<string, string> {
+    const headers: Record<string, string> = { Accept: 'text/event-stream' };
+    if (options?.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;
+    return headers;
+}
+
+/**
+ * Parse a text/event-stream response into its events. Data lines are joined with newlines and
+ * dispatched on a blank line; comments and other fields are skipped; an event cut off by the end
+ * of the stream is dropped. Each event's data goes through parse, JSON.parse by default.
+ */
+export function parseSse<T>(res: Response, parse: (data: string) => T = data => JSON.parse(data) as T): SseEventStream<T> {
+    let lastEventId: string | undefined;
+    let iterated = false;
+    async function* events(): AsyncGenerator<T> {
+        if (!res.body) return;
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = '';
+        let data: string[] = [];
+        try {
+            for (;;) {
+                const chunk = await reader.read();
+                if (!chunk.done) buffer += chunk.value;
+                for (;;) {
+                    const end = buffer.search(/\r\n|\r|\n/);
+                    // A trailing CR may be the first half of a CRLF split across two reads, unless
+                    // this was the last read.
+                    if (end === -1 || (!chunk.done && end === buffer.length - 1 && buffer[end] === '\r')) break;
+                    const line = buffer.slice(0, end);
+                    buffer = buffer.slice(buffer.startsWith('\r\n', end) ? end + 2 : end + 1);
+                    if (line === '') {
+                        if (data.length > 0) yield parse(data.join('\n'));
+                        data = [];
+                        continue;
+                    }
+                    const colon = line.indexOf(':');
+                    const field = colon === -1 ? line : line.slice(0, colon);
+                    const value = colon === -1 ? '' : line.slice(line.startsWith(' ', colon + 1) ? colon + 2 : colon + 1);
+                    if (field === 'data') data.push(value);
+                    else if (field === 'id' && !value.includes('\0')) lastEventId = value;
+                }
+                if (chunk.done) return;
+            }
+        } finally {
+            await reader.cancel().catch(() => undefined);
+        }
+    }
+    return {
+        get lastEventId() {
+            return lastEventId;
+        },
+        [Symbol.asyncIterator]() {
+            if (iterated) throw new Error('An SseEventStream can be iterated only once');
+            iterated = true;
+            return events();
+        },
+    };
+}
+
 /**
  * Read a JSON response body.
  *

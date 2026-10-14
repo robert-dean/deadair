@@ -189,6 +189,11 @@ export interface ScheduleSlot {
      */
     moods?: LyricMood[];
     /**
+     * The moods this stretch of the day steers away from, for the whole of it, copied onto the running
+     * order beside {@link moods}. A lean and never a filter: see `director/mood.lean.ts`.
+     */
+    avoidMoods?: LyricMood[];
+    /**
      * Whether the host talks between the records during this stretch of the day.
      *
      * Absent is the mode's own answer, a rotation talking and a setlist not, as on

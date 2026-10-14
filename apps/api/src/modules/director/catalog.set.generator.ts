@@ -1,6 +1,6 @@
 import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
-import { moodFits } from './mood.lean.js';
+import { inAvoidedMood, moodFits } from './mood.lean.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { DateTime } from 'luxon';
@@ -20,7 +20,7 @@ import { historyDaysForLeans, isDeepCut, mayBeDeepCut, quietMinutesFor, resolveA
 import { trackLengthBounds } from './track.length.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { STEER_LEAN, steered } from './genre.steer.js';
-import type { CompiledRule } from './block.rules.js';
+import { readsTags, type CompiledRule } from './block.rules.js';
 import { NeverPlay } from './never.play.js';
 import type { TrackLengthBounds } from './track.length.js';
 
@@ -103,13 +103,24 @@ export class CatalogSetGenerator extends SetGenerator {
         }
     }
 
-    /** The sampled records a model judged to be in this mood. Empty when nothing could be read. */
-    private async fittingMood(trackIds: readonly string[], mood: LyricMood): Promise<Set<string>> {
+    /**
+     * The sampled records a model judged to be in the mood leant into, and those in a mood steered away
+     * from, from one read. Both empty when neither is named or nothing could be read.
+     */
+    private async judgedMoods(
+        trackIds: readonly string[],
+        mood: LyricMood | undefined,
+        avoided: readonly LyricMood[],
+    ): Promise<{ fitting: Set<string>; avoiding: Set<string> }> {
+        if (mood === undefined && avoided.length === 0) return { fitting: new Set(), avoiding: new Set() };
         try {
             const moods = await this.labels.moodsForTracks(trackIds);
-            return new Set(trackIds.filter(id => moodFits(moods.get(id), mood)));
+            return {
+                fitting: mood === undefined ? new Set() : new Set(trackIds.filter(id => moodFits(moods.get(id), mood))),
+                avoiding: new Set(trackIds.filter(id => inAvoidedMood(moods.get(id), avoided))),
+            };
         } catch {
-            return new Set();
+            return { fitting: new Set(), avoiding: new Set() };
         }
     }
 
@@ -171,15 +182,13 @@ export class CatalogSetGenerator extends SetGenerator {
         // the age rather than raising the ceiling (the same note #30 makes about a play count).
         const now = DateTime.utc();
         // The broadcast's mood, the period's sibling: a number the model already stored, so the floor
-        // can lean on it with nothing reading prose. Read only when a mood is named, for the sampled
-        // records only, and a failed read costs the lean and never the batch.
-        const fitting =
-            inputs.mood === undefined
-                ? new Set<string>()
-                : await this.fittingMood(
-                      sampled.map(track => track.trackId),
-                      inputs.mood,
-                  );
+        // can lean on it with nothing reading prose. Read only when a mood is named or avoided, for the
+        // sampled records only, and a failed read costs the lean and never the batch.
+        const { fitting, avoiding } = await this.judgedMoods(
+            sampled.map(track => track.trackId),
+            inputs.mood,
+            inputs.avoidMoods ?? [],
+        );
         // Which sampled albums the operator likes, asked only about records that could be a deep cut
         // at all, and only with the lean on. A failed read costs the lean and never the batch.
         const likedAlbums = deepCuts ? await this.likedAlbums(sampled) : new Set<string>();
@@ -199,6 +208,7 @@ export class CatalogSetGenerator extends SetGenerator {
                 ...(deepCut ? { deepCut: true as const } : {}),
                 ...(skipped === undefined ? {} : { skippedFor: freshnessOf(skipped, now, skipLean.days) }),
                 ...(fitting.has(track.trackId) ? { moodFit: true as const } : {}),
+                ...(avoiding.has(track.trackId) ? { moodAvoid: true as const } : {}),
                 ...(leans?.has(track.trackId) ? { lean: STEER_LEAN } : {}),
                 ...(returning ? { returning: true as const } : {}),
             };
@@ -266,7 +276,8 @@ export class CatalogSetGenerator extends SetGenerator {
         if (refusing.length === 0) return await this.candidates.sample(count, policy, era, bounds, taggedLike);
 
         const wanted = sampleSize(count);
-        const refusedTags = refusing.map(rule => rule.target);
+        // Tag-reading rules only: a version rule's target is a version, not a tag, and is judged below.
+        const refusedTags = refusing.filter(readsTags).map(rule => rule.target);
         const kept: CandidateTrack[] = [];
         const drawnIds: string[] = [];
         // The first draw is the ordinary size. Each one after it is sized from how much of the

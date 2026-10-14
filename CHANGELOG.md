@@ -9,6 +9,16 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.64.0] — 2026-10-14
+
+- A never-play rule can refuse live recordings: `field: version` with `value: live`. It reads the version markers on a record's title and album ("War Pigs - Live", anything from "Live in Nottingham"), never the word wherever it appears, so "Live Wire" and "Live And Let Die" still play. The console offers it as **Live recordings** beside Genre and Tag under Programme, Leans and rules. Like every never-play rule it is absolute, and can hold only for some schedule blocks, hours, seasons or modes.
+
+## [0.63.0] — 2026-10-14
+
+- A schedule slot, and a broadcast put on air by hand, can name moods to steer away from with `avoidMoods`. A record a model judged to be in one is half as likely to be picked for the whole of the slot, and never kept off the air for it: the judgement is right about half the time, so refusing a record outright stays a never-play rule's job. The console's slot editor sets them under **Steers away from**, and the desktop app keeps a slot's avoided moods when it saves the slot.
+- The station can now send events to your own servers, such as a Home Assistant webhook trigger or an n8n workflow. Add an event destination with `POST /events/destinations` and its address; the answer carries the destination's signing secret, which is shown once (`POST /events/destinations/{id}/secret` makes a new one). `POST /events/destinations/{id}/test` sends it a test event and says what it answered, and `GET /events/destinations/{id}/deliveries` lists the latest attempts. Every delivery is a JSON POST signed in `Deadair-Webhook-Signature` with a timestamp in `Deadair-Webhook-Timestamp`. Addresses on your own network are fine; a redirect is never followed. The station sends `track.started` as a record begins, `talk.started` when it starts speaking, `production.started` when a phone-in or a guest begins, and `programme.started` for a podcast episode or a reading, each at the moment listeners hear it, so a light can follow what is on air. `station.onAir` and `station.offAir` say when the station starts and stops, and why. `request.received` says a listener asked for a record, from an app, the console, a party pass or a chat, with how it stands and any dedication. A destination can ask for only some of them (`events`, empty for all, `GET /events/types` for each with an example). An event that would arrive after its record has finished is dropped rather than sent late, and a destination that fails twenty deliveries in a row is turned off, with a line on the activity feed; turning it back on resets the count. In the console it is Settings, Event destinations: add one, send it a test, read what it has been sent, and turn it back on after the station turned it off. The same operations are in every SDK; the routes that return a secret are not MCP tools.
+- A refill whose model goes quiet no longer airs a record just because its title holds the act that was searched for. Searching `Little Richard` had put Eddie Murphy's stand-up bit of that name on a rock and roll hour; a searched record now counts only when its artist, a featured artist or one of its styles answers the search.
+
 ## [0.62.1] — 2026-10-13
 
 - A record whose cover the station had not cached yet now shows its artwork on a BluOS player. The stream advertised that cover as a bare `art/source/<token>` path, which BluOS ignores because it only fetches a URL that ends like an image; it now carries `/cover.jpg` like every other cover the station sends.
@@ -1399,7 +1409,9 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.62.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.64.0...HEAD
+[0.64.0]: https://github.com/robert-dean/deadair/compare/v0.63.0...v0.64.0
+[0.63.0]: https://github.com/robert-dean/deadair/compare/v0.62.1...v0.63.0
 [0.62.1]: https://github.com/robert-dean/deadair/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/robert-dean/deadair/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/robert-dean/deadair/compare/v0.60.0...v0.61.0

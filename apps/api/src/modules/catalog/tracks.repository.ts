@@ -303,18 +303,32 @@ function isExactly(pattern: string) {
  * Whether the search appears as whole WORDS in a record's title, its artist's name or one of its
  * styles, which is the question `search_music` cares about and containment answers badly.
  *
- * The same four places as {@link isExactly}, asked through {@link regexWholeWords}. Selected as
- * `matchesWords` by {@link TracksRepository.searchPlayable}, and since that search filters on it too,
- * every library row it answers with reads true. The column stays because the search tool reads it
- * per row beside provider rows that answer it in TypeScript. `coalesce`
- * on the genre because a null under `~*` is null rather than false, and a column read back as null
- * would be a third answer to a yes-or-no question.
+ * The same four places as {@link isExactly}, asked through {@link regexWholeWords}, and the filter
+ * {@link TracksRepository.searchPlayable} applies.
  */
 function hasWholeWords(pattern: string) {
     return sql<boolean>`(
         deadair.tracks.title ~* ${pattern}
         or deadair.artists.name ~* ${pattern}
-        or coalesce(deadair.tracks.genre, '') ~* ${pattern}
+        or ${hasStyleWords(pattern)}
+    )`;
+}
+
+/**
+ * Whether the search appears as whole WORDS in one of a record's styles: its promoted genre or any
+ * tag a plugin found. The half of {@link hasWholeWords} that the record's TITLE plays no part in.
+ *
+ * Selected as `matchesStyle` by {@link TracksRepository.searchPlayable}, because the search tool
+ * tells a refill which rows answered a search by what they ARE rather than by what they are called,
+ * and only the SQL can see the tags. A title holding the words is not that: measured on the live
+ * station, 2026-10-14, a rock and roll hour searched `Little Richard` and a refill whose model went
+ * quiet aired Eddie Murphy's comedy bit of that name. `coalesce` on the genre because a null under
+ * `~*` is null rather than false, and a column read back as null would be a third answer to a
+ * yes-or-no question.
+ */
+function hasStyleWords(pattern: string) {
+    return sql<boolean>`(
+        coalesce(deadair.tracks.genre, '') ~* ${pattern}
         or ${taggedWith(pattern, '~*')}
     )`;
 }
@@ -683,9 +697,9 @@ export class TracksRepository extends DataRepository {
                 'deadair.artists.name as artistName',
                 'deadair.albums.name as albumName',
             ])
-            // True of every row now that the filter below is the same question, and kept because the
-            // search tool reads it per row and a provider row beside these still needs the answer.
-            .select(matchesText ? hasWholeWords(words).as('matchesWords') : sql<boolean>`true`.as('matchesWords'))
+            // Whether a STYLE answered the search, rather than the title or the artist, which the
+            // search tool cannot tell apart from here. See {@link hasStyleWords}.
+            .select(matchesText ? hasStyleWords(words).as('matchesStyle') : sql<boolean>`true`.as('matchesStyle'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
             // Title, artist, genre OR any genre a plugin found.
             //

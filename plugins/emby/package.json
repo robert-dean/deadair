@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-emby",
-    "version": "0.62.1",
+    "version": "0.64.0",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

@@ -14,11 +14,55 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
-[JsonConverter(typeof(JsonStringEnumConverter<OnboardingRequirementKey>))]
+[JsonConverter(typeof(OnboardingRequirementKeyConverter))]
 public enum OnboardingRequirementKey
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("admin.account")]
     AdminAccount,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OnboardingRequirementKey"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OnboardingRequirementKey.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OnboardingRequirementKeyConverter : JsonConverter<OnboardingRequirementKey>
+{
+    public override OnboardingRequirementKey Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OnboardingRequirementKey, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OnboardingRequirementKey value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OnboardingRequirementKey ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OnboardingRequirementKey value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OnboardingRequirementKey FromWire(string? text) => text switch
+    {
+        "admin.account" => OnboardingRequirementKey.AdminAccount,
+        _ => OnboardingRequirementKey.Unknown,
+    };
+
+    private static string ToWire(OnboardingRequirementKey value) => value switch
+    {
+        OnboardingRequirementKey.AdminAccount => "admin.account",
+        _ => throw new JsonException($"OnboardingRequirementKey.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>A single onboarding requirement</summary>

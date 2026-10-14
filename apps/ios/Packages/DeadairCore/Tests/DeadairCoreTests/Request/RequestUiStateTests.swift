@@ -96,6 +96,10 @@ struct RequestUiStateTests {
         #expect(RequestRules.outcome(request(.expired)) == .requestRefused(nil))
     }
 
+    @Test func aStatusANewerStationSendsThatThisBuildCannotReadSaysOnlyThatItIsIn() {
+        #expect(RequestRules.outcome(request(.unknown)) == .requestTaken("Blue Monday"))
+    }
+
     @Test func aRequestTheOperatorMustApproveSaysSo() {
         #expect(RequestRules.outcome(request(.waiting)) == .requestWaiting("Blue Monday"))
     }

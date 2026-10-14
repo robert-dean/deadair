@@ -26,9 +26,13 @@ public class TrackStatesTests
     public void EachChipCountsWhatItFiltersTo(TrackState state, long expected) =>
         Assert.Equal(expected, TrackStates.Count(state, Counts));
 
+    // `Unknown` is the SDK's sentinel for a state a newer station sends that this build does not know,
+    // not a state the station filters on, so it has no chip.
     [Fact]
     public void EveryStateTheStationFiltersOnHasAChip() =>
-        Assert.Equal(Enum.GetValues<TrackState>().Order(), TrackStates.All.Select(filter => filter.State).Order());
+        Assert.Equal(
+            Enum.GetValues<TrackState>().Where(state => state != TrackState.Unknown).Order(),
+            TrackStates.All.Select(filter => filter.State).Order());
 
     [Fact]
     public void TheSentenceSaysHowMuchCanAirNow() =>

@@ -63,24 +63,43 @@ describe('blockedBy', () => {
     const rules = compileRules([rule({ id: 'no-country', value: 'Country' }), rule({ id: 'no-live', field: 'tag', value: 'live' })]);
 
     it('names the rule a record falls under', () => {
-        expect(blockedBy(rules, ['Country Pop'])?.id).toBe('no-country');
-        expect(blockedBy(rules, ['Live'])?.id).toBe('no-live');
+        expect(blockedBy(rules, { tags: ['Country Pop'] })?.id).toBe('no-country');
+        expect(blockedBy(rules, { tags: ['Live'] })?.id).toBe('no-live');
     });
 
     it('lets through a record that only looks like the genre, or that nobody tagged', () => {
-        expect(blockedBy(rules, ['Alt-Country Rock and Roll'])?.id).toBe('no-country');
-        expect(blockedBy(rules, ['Countrypolitan'])).toBeUndefined();
-        expect(blockedBy(rules, ['live recordings'])).toBeUndefined();
-        expect(blockedBy(rules, [])).toBeUndefined();
+        expect(blockedBy(rules, { tags: ['Alt-Country Rock and Roll'] })?.id).toBe('no-country');
+        expect(blockedBy(rules, { tags: ['Countrypolitan'] })).toBeUndefined();
+        expect(blockedBy(rules, { tags: ['live recordings'] })).toBeUndefined();
+        expect(blockedBy(rules, { tags: [] })).toBeUndefined();
     });
 
     it('judges only the rules that hold now', () => {
         const seasonal = compileRules([rule({ id: 'no-christmas', value: 'Christmas', seasonFrom: '01-07', seasonTo: '11-24' })]);
-        expect(blockedBy(activeRules(seasonal, context({ clock: clock(10, 4) })), ['Christmas'])?.id).toBe('no-christmas');
-        expect(blockedBy(activeRules(seasonal, context({ clock: clock(12, 20) })), ['Christmas'])).toBeUndefined();
+        expect(blockedBy(activeRules(seasonal, context({ clock: clock(10, 4) })), { tags: ['Christmas'] })?.id).toBe('no-christmas');
+        expect(blockedBy(activeRules(seasonal, context({ clock: clock(12, 20) })), { tags: ['Christmas'] })).toBeUndefined();
     });
 
     it('drops a rule that names no genre at all, rather than letting it match everything', () => {
         expect(compileRules([rule({ value: '!!!' })])).toEqual([]);
+    });
+});
+
+describe('a version rule', () => {
+    const live = compileRules([rule({ id: 'no-live', field: 'version', value: ' Live ' })]);
+
+    it('refuses a live recording by its title or its album, and not a title that only says the word', () => {
+        expect(live).toHaveLength(1);
+        expect(blockedBy(live, { tags: [], title: 'War Pigs - Live' })?.id).toBe('no-live');
+        expect(blockedBy(live, { tags: [], title: 'Sister Christian', album: 'Live In Tokyo' })?.id).toBe('no-live');
+        expect(blockedBy(live, { tags: ['live'], title: 'Live Wire', album: 'High Voltage' })).toBeUndefined();
+    });
+
+    it('refuses nothing for a record whose title was not read', () => {
+        expect(blockedBy(live, { tags: ['Rock'] })).toBeUndefined();
+    });
+
+    it('drops a version the station cannot tell apart, rather than refusing everything or nothing', () => {
+        expect(compileRules([rule({ field: 'version', value: 'acoustic' })])).toEqual([]);
     });
 });

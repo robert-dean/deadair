@@ -72,7 +72,9 @@ public enum LyricsUiState: Equatable, Sendable {
             return
         }
         switch lyrics.kind {
-        case .none, .instrumental:
+        // `.unknown` is a kind a newer station sends that this build cannot read, so there are no
+        // words to show, as Android's `UNKNOWN` and the desktop's `Unknown` read it.
+        case .none, .instrumental, .unknown:
             self = .hidden
         case .words:
             if let lines = lyrics.synced, !lines.isEmpty {

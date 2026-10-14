@@ -665,6 +665,20 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * What sort of segment this is, and which production it belongs to, if any.
+     *
+     * Its own query rather than {@link findById} because a production's JOINED row, the one that
+     * usually airs, has no ordinal, and `toSegment` exposes `productionId` only beside an ordinal: a
+     * reader asking "is this part of a programme" of the row that actually went to air would be told
+     * no. `production_id` alone answers it for a beat and a joined row alike.
+     */
+    async kindOf(id: string): Promise<{ kind: string; productionId?: string } | undefined> {
+        const row = await this.db.selectFrom('deadair.segments').select(['kind', 'productionId']).where('id', '=', id).executeTakeFirst();
+        if (row === undefined) return undefined;
+        return row.productionId == null ? { kind: row.kind } : { kind: row.kind, productionId: row.productionId };
+    }
+
+    /**
      * Several segments at once, keyed by id.
      *
      * What the director commits against and what the console draws a lineup with. One query rather

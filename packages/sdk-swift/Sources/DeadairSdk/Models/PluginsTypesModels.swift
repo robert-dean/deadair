@@ -2,49 +2,276 @@
 import Foundation
 
 /// Lifecycle state of a plugin the host knows about
-public enum PluginStatus: String, Codable, CaseIterable, Sendable {
-    case discovered = "discovered"
-    case disabled = "disabled"
-    case misconfigured = "misconfigured"
-    case active = "active"
-    case failed = "failed"
+public enum PluginStatus: Codable, CaseIterable, Hashable, Sendable {
+    case discovered
+    case disabled
+    case misconfigured
+    case active
+    case failed
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PluginStatus] = [.discovered, .disabled, .misconfigured, .active, .failed]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .discovered: return "discovered"
+        case .disabled: return "disabled"
+        case .misconfigured: return "misconfigured"
+        case .active: return "active"
+        case .failed: return "failed"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "discovered": self = .discovered
+        case "disabled": self = .disabled
+        case "misconfigured": self = .misconfigured
+        case "active": self = .active
+        case "failed": self = .failed
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PluginStatus.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins
 /// directory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges
-public enum PluginOrigin: String, Codable, CaseIterable, Sendable {
-    case bundled = "bundled"
-    case installed = "installed"
+public enum PluginOrigin: Codable, CaseIterable, Hashable, Sendable {
+    case bundled
+    case installed
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PluginOrigin] = [.bundled, .installed]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .bundled: return "bundled"
+        case .installed: return "installed"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "bundled": self = .bundled
+        case "installed": self = .installed
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PluginOrigin.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum ConfigFieldType: String, Codable, CaseIterable, Sendable {
-    case string = "string"
-    case text = "text"
-    case url = "url"
-    case secret = "secret"
-    case number = "number"
-    case boolean = "boolean"
-    case select = "select"
-    case multiselect = "multiselect"
-    case list = "list"
-    case note = "note"
+public enum ConfigFieldType: Codable, CaseIterable, Hashable, Sendable {
+    case string
+    case text
+    case url
+    case secret
+    case number
+    case boolean
+    case select
+    case multiselect
+    case list
+    case note
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConfigFieldType] = [.string, .text, .url, .secret, .number, .boolean, .select, .multiselect, .list, .note]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .string: return "string"
+        case .text: return "text"
+        case .url: return "url"
+        case .secret: return "secret"
+        case .number: return "number"
+        case .boolean: return "boolean"
+        case .select: return "select"
+        case .multiselect: return "multiselect"
+        case .list: return "list"
+        case .note: return "note"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "string": self = .string
+        case "text": self = .text
+        case "url": self = .url
+        case "secret": self = .secret
+        case "number": self = .number
+        case "boolean": self = .boolean
+        case "select": self = .select
+        case "multiselect": self = .multiselect
+        case "list": self = .list
+        case "note": self = .note
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConfigFieldType.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What a `number` field's value is measured in. The stored value is always in this unit; only the
 /// control the operator touches changes, so a byte count stays a byte count everywhere it is read and
 /// a `fraction` stays the share between 0 and 1 that the code multiplying by it wants
-public enum ConfigFieldUnit: String, Codable, CaseIterable, Sendable {
-    case bytes = "bytes"
-    case fraction = "fraction"
+public enum ConfigFieldUnit: Codable, CaseIterable, Hashable, Sendable {
+    case bytes
+    case fraction
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConfigFieldUnit] = [.bytes, .fraction]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .bytes: return "bytes"
+        case .fraction: return "fraction"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "bytes": self = .bytes
+        case "fraction": self = .fraction
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConfigFieldUnit.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The control a field asks to be drawn with, where the ordinary one for its type reads badly. Opt-in
 /// per field rather than inferred, because a slider is right for a value you feel for and wrong for
 /// one you have to hit exactly, and `tags` is right for a comma-separated line that is really a SET
 /// and wrong for one that is prose. Nothing about the stored value changes either way
-public enum ConfigFieldControl: String, Codable, CaseIterable, Sendable {
-    case slider = "slider"
-    case tags = "tags"
+public enum ConfigFieldControl: Codable, CaseIterable, Hashable, Sendable {
+    case slider
+    case tags
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConfigFieldControl] = [.slider, .tags]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .slider: return "slider"
+        case .tags: return "tags"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "slider": self = .slider
+        case "tags": self = .tags
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConfigFieldControl.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// One choice of a `select` config field
@@ -78,18 +305,77 @@ public struct ConfigFieldOption: Codable, Equatable, Sendable {
 /// Where a field's or a column's choices come from when only the console can enumerate them: the
 /// station's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,
 /// or the models the selected model plugin currently offers. Resolved by the console either way
-public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
-    case stationNewsCategories = "station.newsCategories"
-    case stationNewsFeeds = "station.newsFeeds"
-    case stationPodcastShows = "station.podcastShows"
-    case stationNarrationSeries = "station.narrationSeries"
-    case intlTimeZones = "intl.timeZones"
-    case pluginsSpeech = "plugins.speech"
-    case pluginsLlm = "plugins.llm"
-    case pluginsMixer = "plugins.mixer"
-    case pluginsAnalysis = "plugins.analysis"
-    case pluginsSimilarity = "plugins.similarity"
-    case llmModels = "llm.models"
+public enum ConfigFieldOptionSource: Codable, CaseIterable, Hashable, Sendable {
+    case stationNewsCategories
+    case stationNewsFeeds
+    case stationPodcastShows
+    case stationNarrationSeries
+    case intlTimeZones
+    case pluginsSpeech
+    case pluginsLlm
+    case pluginsMixer
+    case pluginsAnalysis
+    case pluginsSimilarity
+    case llmModels
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConfigFieldOptionSource] = [.stationNewsCategories, .stationNewsFeeds, .stationPodcastShows, .stationNarrationSeries, .intlTimeZones, .pluginsSpeech, .pluginsLlm, .pluginsMixer, .pluginsAnalysis, .pluginsSimilarity, .llmModels]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .stationNewsCategories: return "station.newsCategories"
+        case .stationNewsFeeds: return "station.newsFeeds"
+        case .stationPodcastShows: return "station.podcastShows"
+        case .stationNarrationSeries: return "station.narrationSeries"
+        case .intlTimeZones: return "intl.timeZones"
+        case .pluginsSpeech: return "plugins.speech"
+        case .pluginsLlm: return "plugins.llm"
+        case .pluginsMixer: return "plugins.mixer"
+        case .pluginsAnalysis: return "plugins.analysis"
+        case .pluginsSimilarity: return "plugins.similarity"
+        case .llmModels: return "llm.models"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "station.newsCategories": self = .stationNewsCategories
+        case "station.newsFeeds": self = .stationNewsFeeds
+        case "station.podcastShows": self = .stationPodcastShows
+        case "station.narrationSeries": self = .stationNarrationSeries
+        case "intl.timeZones": self = .intlTimeZones
+        case "plugins.speech": self = .pluginsSpeech
+        case "plugins.llm": self = .pluginsLlm
+        case "plugins.mixer": self = .pluginsMixer
+        case "plugins.analysis": self = .pluginsAnalysis
+        case "plugins.similarity": self = .pluginsSimilarity
+        case "llm.models": self = .llmModels
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConfigFieldOptionSource.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from
@@ -125,9 +411,50 @@ public struct ConfigFieldPreset: Codable, Equatable, Sendable {
 /// Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
 /// and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
 /// station read the pairing from
-public enum ProviderMode: String, Codable, CaseIterable, Sendable {
-    case one = "one"
-    case ordered = "ordered"
+public enum ProviderMode: Codable, CaseIterable, Hashable, Sendable {
+    case one
+    case ordered
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ProviderMode] = [.one, .ordered]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .one: return "one"
+        case .ordered: return "ordered"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "one": self = .one
+        case "ordered": self = .ordered
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ProviderMode.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A plugin handed over from the browser. The generated client types the body as `FormData`, so
@@ -155,11 +482,56 @@ public struct PluginImport: Codable, Equatable, Sendable {
     }
 }
 
-public enum PluginLogLevel: String, Codable, CaseIterable, Sendable {
-    case debug = "debug"
-    case info = "info"
-    case warn = "warn"
-    case error = "error"
+public enum PluginLogLevel: Codable, CaseIterable, Hashable, Sendable {
+    case debug
+    case info
+    case warn
+    case error
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PluginLogLevel] = [.debug, .info, .warn, .error]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .debug: return "debug"
+        case .info: return "info"
+        case .warn: return "warn"
+        case .error: return "error"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "debug": self = .debug
+        case "info": self = .info
+        case "warn": self = .warn
+        case "error": self = .error
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PluginLogLevel.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A submitted settings form. Secret values arrive in here and are never echoed back
@@ -187,9 +559,50 @@ public struct PluginConfigInput: Codable, Equatable, Sendable {
 
 /// What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
 /// capability is refused until somebody allows it, so "never answered" and "refused" are one state
-public enum GrantDecision: String, Codable, CaseIterable, Sendable {
-    case allowed = "allowed"
-    case denied = "denied"
+public enum GrantDecision: Codable, CaseIterable, Hashable, Sendable {
+    case allowed
+    case denied
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [GrantDecision] = [.allowed, .denied]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .allowed: return "allowed"
+        case .denied: return "denied"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "allowed": self = .allowed
+        case "denied": self = .denied
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "GrantDecision.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Outcome of the plugin's own `testConnection()`
@@ -1403,11 +1816,56 @@ public struct PluginDetailInput: Codable, Equatable, Sendable {
     }
 }
 
-public enum ConfigFieldColumnType: String, Codable, CaseIterable, Sendable {
-    case string = "string"
-    case url = "url"
-    case select = "select"
-    case secret = "secret"
+public enum ConfigFieldColumnType: Codable, CaseIterable, Hashable, Sendable {
+    case string
+    case url
+    case select
+    case secret
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConfigFieldColumnType] = [.string, .url, .select, .secret]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .string: return "string"
+        case .url: return "url"
+        case .select: return "select"
+        case .secret: return "secret"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "string": self = .string
+        case "url": self = .url
+        case "select": self = .select
+        case "secret": self = .secret
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConfigFieldColumnType.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public indirect enum ConfigFieldDescriptorDefault: Codable, Equatable, Sendable {

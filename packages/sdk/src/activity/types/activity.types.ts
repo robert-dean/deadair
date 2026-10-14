@@ -12,7 +12,7 @@ const __dt = (v: unknown, path: string): DateTime => {
  * Which part of the station an entry came from, and the console's one filter axis
  * generated from [ActivityModule](../../../../../apps/api/data/contracts/activity/activity.types.ck)
  */
-export type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage';
+export type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage' | 'events';
 
 /**
  * How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for

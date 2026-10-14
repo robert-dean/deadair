@@ -15,11 +15,11 @@ const _ZodDatetime = z.preprocess(
 export const BlockRule = z.strictObject({
     id: z.uuid(),
     field: z
-        .enum(['genre', 'tag'])
+        .enum(['genre', 'tag', 'version'])
         .describe(
-            '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag',
+            '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")',
         ),
-    value: z.string().min(1).max(200).describe('The genre or tag, as you would write it'),
+    value: z.string().min(1).max(200).describe('The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one'),
     seasonFrom: z
         .string()
         .min(5)
@@ -49,11 +49,11 @@ export type BlockRule = z.infer<typeof BlockRule>;
 
 export const BlockRuleInput = z.strictObject({
     field: z
-        .enum(['genre', 'tag'])
+        .enum(['genre', 'tag', 'version'])
         .describe(
-            '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag',
+            '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")',
         ),
-    value: z.string().min(1).max(200).describe('The genre or tag, as you would write it'),
+    value: z.string().min(1).max(200).describe('The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one'),
     seasonFrom: z
         .string()
         .min(5)

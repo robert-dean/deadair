@@ -41,10 +41,13 @@ asked for. Measured on the live station, 2026-10-11: briefed for heavy metal, ge
 seventeen on-brief searches, the library had answered `Dio` with every "Radio Edit", "Audio Remix",
 "Diopter" and "Dior" it held, and the Boneyard aired Culture Beat, Pop Smoke and a run of house remixes.
 So the search tool remembers each row with `matches`, whether it answered the query as whole words, and
-the rescue reads only `matching()`. A library row's answer is the SQL's (`matchesWords`, the same four
-places `searchPlayable` searches, through `regexWholeWords`), because a style search finds a record by a
-tag the row itself does not carry; a provider row has no tags and is judged on its title and credits by
-`hasWholeWords`, the same rule in TypeScript, which is what turns away "slayr" for `Slayer`. A search with
+the rescue reads only `matching()`. A row matches by its CREDITS (`hasWholeWords` over the artist and
+anyone featured, which is what turns away "slayr" for `Slayer`), or, in the library, by a STYLE: the SQL's
+`matchesStyle`, the genre and the tags through `regexWholeWords`, because a style search finds a record by a
+tag the row itself does not carry. **Never by its title alone.** Measured on the live station, 2026-10-14:
+a rock and roll hour searched `Chuck Berry` and `Little Richard`, the model went quiet, and the rescue took
+in Pharrell Williams' "Chuck Berry", The Rolling Stones' "Chuck Berry Style Jam" and Eddie Murphy's stand-up
+bit "Little Richard", which aired. The model reading a row can still name it by its title. A search with
 no text matches every row. Nothing matching is an empty answer, and the chain carries on exactly as it
 did before the rescue existed, so under `rotation.briefOnly` a short refill beats an off-brief one.
 
@@ -143,6 +146,14 @@ a library of forty still airs all forty, and a failed read of the moods costs th
 batch. Only the floor reads it, for the period's reason (a stored number, not prose), and there is no
 switch of its own: naming a mood IS the switch. `MOOD_FIT_SHARE` is an unfitted third and says so; fitting
 it needs records labelled by hand on this station.
+
+**A mood a broadcast avoids is the same lean the other way up, and for the same reason it is not a
+never-play rule.** `SetInputs.avoidMoods` stamps `moodAvoid` on a sampled record judged to give any of them
+`MOOD_FIT_SHARE`, and `weightOf` multiplies it by `MOOD_AVOID`, a half: the inverse of the boost, so a record
+in both the mood leant into and an avoided one weighs what it did. Never zero. A judgement right about half
+the time would refuse as many records wrongly as rightly, with nothing on air to say so, and a refusal is
+`block_rules`' job, which reads a provider's tags rather than a model's reading of the lyrics. One read of
+the labels serves both halves.
 
 **Several similarity sources are asked in an order the operator sets, and the order matters to two of the three questions rather than all three.** `SimilarityService` pools every source for `similarTo` — two sources disagreeing about who resembles Portishead are two opinions, not a conflict — so the order there only decides whose ids survive when both name the same artist. `topTracks` and `similarTracks` take the FIRST usable answer and stop, so for those it decides whose judgement airs. Until `rotation.similarityOrder` that order was `record.id.localeCompare`, which on a station running all three bundled sources means `deadair.deezer`, then `deadair.lastfm`, then `deadair.musicbrainz`: an accident of spelling, and nothing an operator who trusted one source over another could change short of disabling the others. The setting is a `list` of plugin ids, and it is now one of six that share the same machinery: `plugins/plugin.order.ts` reads any of them with `pluginOrder` and sorts with `byOrderThen`, which puts the listed ones first in the order given and leaves everything else to the capability's own fallback — alphabetical here — so **an empty setting is exactly the old behaviour**. Which key belongs to which capability is one row of `plugins/plugin.providers.ts`, and `SimilarityService.plugins()` reaches its sources through `pluginsInOrder` over that row rather than composing the sort itself. It orders and never gates: an id that is listed but not installed is absent rather than an error, and a source left out is asked after the listed ones rather than switched off — a setting that could silently disable the only similarity plugin would turn a typo into a station with no discovery. `SimilarityService` is scoped, so the setting is read once per refill and a change applies at the next one; the day-long cache holds merged neighbours rather than the order, so nothing needs invalidating.
 
@@ -339,7 +350,14 @@ never carried.
 `director/block.rules.ts` the evaluation: a `genre` rule refuses any record tagged with that genre or a kind
 of it (`genre.match.ts`: words compared after `normalizeKey`, the target a contiguous run inside the tag, so
 `Punk Rock` falls under `Punk`, plain `Pop` never under `Pop Punk`, and `Trap` never under `Rap`); a `tag`
-rule is exact. Scopes are a season of `MM-DD` days wrapping the year end, a window of hours wrapping midnight,
+rule is exact. A `version` rule refuses a version of a record rather than a kind of music, and `live` is the
+only one: `live.version.ts` reads the markers a provider writes on the title and the album ("War Pigs -
+Live", "(Live)", an album named "Live in Nottingham" or ending on "Live"), never the word wherever it falls,
+because "Live Wire", "Live And Let Die" and *Long Live The Kane* are studio records. Measured on the live
+station, 2026-10-14: no record of 5485 was TAGGED live, and the reader flags 35, every one a live recording.
+It reads text rather than tags, so `NeverPlay` reads titles and albums (`CandidatesRepository.namesFor`)
+only when a version rule holds, the draw's SQL is given only the tag rules' targets, and the model's search
+judges a provider row by its title and album where a genre rule cannot judge it at all. Scopes are a season of `MM-DD` days wrapping the year end, a window of hours wrapping midnight,
 station modes, schedule slots and an expiry, each optional and absent meaning always. Rows live in
 `deadair.block_rules` (0069). **Exclude only, and absolute**: no "only these genres", and no relaxing when the
 station runs short, including for a listener request. A record nobody tagged falls under nothing.

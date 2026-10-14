@@ -583,6 +583,7 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean; host?
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         // Beside the period and for its reason: it has to steer every refill, not the first batch.
         ...(slot.moods === undefined ? {} : { moods: slot.moods }),
+        ...(slot.avoidMoods === undefined ? {} : { avoidMoods: slot.avoidMoods }),
         ...(personaId === undefined ? {} : { personaId }),
         // Absent leaves the station's own setting standing, which is the same three-way
         // `putOnAir` gives an operator briefing by hand. Passing `false` for an unset

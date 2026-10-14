@@ -20,9 +20,15 @@ public sealed record OAuthAuthorizationQuery
 }
 
 /// <summary>How the station knows an app: registered by an operator, registered by itself, or described by a document on its own website</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<OAuthClientKind>))]
+[JsonConverter(typeof(OAuthClientKindConverter))]
 public enum OAuthClientKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("preregistered")]
     Preregistered,
 
@@ -31,6 +37,48 @@ public enum OAuthClientKind
 
     [JsonStringEnumMemberName("metadata_document")]
     MetadataDocument,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OAuthClientKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OAuthClientKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OAuthClientKindConverter : JsonConverter<OAuthClientKind>
+{
+    public override OAuthClientKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OAuthClientKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OAuthClientKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OAuthClientKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OAuthClientKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OAuthClientKind FromWire(string? text) => text switch
+    {
+        "preregistered" => OAuthClientKind.Preregistered,
+        "dynamic" => OAuthClientKind.Dynamic,
+        "metadata_document" => OAuthClientKind.MetadataDocument,
+        _ => OAuthClientKind.Unknown,
+    };
+
+    private static string ToWire(OAuthClientKind value) => value switch
+    {
+        OAuthClientKind.Preregistered => "preregistered",
+        OAuthClientKind.Dynamic => "dynamic",
+        OAuthClientKind.MetadataDocument => "metadata_document",
+        _ => throw new JsonException($"OAuthClientKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>A request with something wrong that the app should be told about: send the browser back to it</summary>
@@ -70,14 +118,60 @@ public sealed record OAuthAuthorizationDecision
 }
 
 /// <summary>What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<OAuthGrantScope>))]
+[JsonConverter(typeof(OAuthGrantScopeConverter))]
 public enum OAuthGrantScope
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("view")]
     View,
 
     [JsonStringEnumMemberName("manage")]
     Manage,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OAuthGrantScope"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OAuthGrantScope.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OAuthGrantScopeConverter : JsonConverter<OAuthGrantScope>
+{
+    public override OAuthGrantScope Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OAuthGrantScope, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OAuthGrantScope value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OAuthGrantScope ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OAuthGrantScope value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OAuthGrantScope FromWire(string? text) => text switch
+    {
+        "view" => OAuthGrantScope.View,
+        "manage" => OAuthGrantScope.Manage,
+        _ => OAuthGrantScope.Unknown,
+    };
+
+    private static string ToWire(OAuthGrantScope value) => value switch
+    {
+        OAuthGrantScope.View => "view",
+        OAuthGrantScope.Manage => "manage",
+        _ => throw new JsonException($"OAuthGrantScope.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Where to send the browser now</summary>
@@ -89,9 +183,15 @@ public sealed record OAuthAuthorizationOutcome
 }
 
 /// <summary>How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<OAuthClientAuthMethod>))]
+[JsonConverter(typeof(OAuthClientAuthMethodConverter))]
 public enum OAuthClientAuthMethod
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("none")]
     None,
 
@@ -100,6 +200,48 @@ public enum OAuthClientAuthMethod
 
     [JsonStringEnumMemberName("client_secret_basic")]
     ClientSecretBasic,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OAuthClientAuthMethod"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OAuthClientAuthMethod.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OAuthClientAuthMethodConverter : JsonConverter<OAuthClientAuthMethod>
+{
+    public override OAuthClientAuthMethod Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OAuthClientAuthMethod, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OAuthClientAuthMethod value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OAuthClientAuthMethod ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OAuthClientAuthMethod value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OAuthClientAuthMethod FromWire(string? text) => text switch
+    {
+        "none" => OAuthClientAuthMethod.None,
+        "client_secret_post" => OAuthClientAuthMethod.ClientSecretPost,
+        "client_secret_basic" => OAuthClientAuthMethod.ClientSecretBasic,
+        _ => OAuthClientAuthMethod.Unknown,
+    };
+
+    private static string ToWire(OAuthClientAuthMethod value) => value switch
+    {
+        OAuthClientAuthMethod.None => "none",
+        OAuthClientAuthMethod.ClientSecretPost => "client_secret_post",
+        OAuthClientAuthMethod.ClientSecretBasic => "client_secret_basic",
+        _ => throw new JsonException($"OAuthClientAuthMethod.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>An app the signed-in person has let act as them</summary>
@@ -326,12 +468,58 @@ public sealed class OAuthAuthorizationContextResultConverter : JsonConverter<OAu
 }
 
 /// <summary>Created by an operator, or registered by itself</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<OAuthClientSummaryKind>))]
+[JsonConverter(typeof(OAuthClientSummaryKindConverter))]
 public enum OAuthClientSummaryKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("preregistered")]
     Preregistered,
 
     [JsonStringEnumMemberName("dynamic")]
     Dynamic,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OAuthClientSummaryKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OAuthClientSummaryKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OAuthClientSummaryKindConverter : JsonConverter<OAuthClientSummaryKind>
+{
+    public override OAuthClientSummaryKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OAuthClientSummaryKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OAuthClientSummaryKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OAuthClientSummaryKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OAuthClientSummaryKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OAuthClientSummaryKind FromWire(string? text) => text switch
+    {
+        "preregistered" => OAuthClientSummaryKind.Preregistered,
+        "dynamic" => OAuthClientSummaryKind.Dynamic,
+        _ => OAuthClientSummaryKind.Unknown,
+    };
+
+    private static string ToWire(OAuthClientSummaryKind value) => value switch
+    {
+        OAuthClientSummaryKind.Preregistered => "preregistered",
+        OAuthClientSummaryKind.Dynamic => "dynamic",
+        _ => throw new JsonException($"OAuthClientSummaryKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

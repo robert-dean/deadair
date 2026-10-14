@@ -369,9 +369,15 @@ public sealed record OwnShowListInput
 }
 
 /// <summary>How much of the model an episode is worth. Absent is the station's default</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<OwnShowWritingMode>))]
+[JsonConverter(typeof(OwnShowWritingModeConverter))]
 public enum OwnShowWritingMode
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("quick")]
     Quick,
 
@@ -380,4 +386,46 @@ public enum OwnShowWritingMode
 
     [JsonStringEnumMemberName("polished")]
     Polished,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OwnShowWritingMode"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OwnShowWritingMode.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OwnShowWritingModeConverter : JsonConverter<OwnShowWritingMode>
+{
+    public override OwnShowWritingMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OwnShowWritingMode, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OwnShowWritingMode value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OwnShowWritingMode ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OwnShowWritingMode value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OwnShowWritingMode FromWire(string? text) => text switch
+    {
+        "quick" => OwnShowWritingMode.Quick,
+        "outlined" => OwnShowWritingMode.Outlined,
+        "polished" => OwnShowWritingMode.Polished,
+        _ => OwnShowWritingMode.Unknown,
+    };
+
+    private static string ToWire(OwnShowWritingMode value) => value switch
+    {
+        OwnShowWritingMode.Quick => "quick",
+        OwnShowWritingMode.Outlined => "outlined",
+        OwnShowWritingMode.Polished => "polished",
+        _ => throw new JsonException($"OwnShowWritingMode.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

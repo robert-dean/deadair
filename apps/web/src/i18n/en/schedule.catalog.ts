@@ -201,18 +201,21 @@ export const schedule = {
         never: {
             title: 'Never play',
             description:
-                'A genre or tag the station must not play, like a dislike for a whole kind of record. A rule is absolute while it holds: no request and no playlist gets round it. It holds from the next record the station chooses.',
+                'A genre, a tag or live recordings the station must not play, like a dislike for a whole kind of record. A rule is absolute while it holds: no request and no playlist gets round it. It holds from the next record the station chooses.',
             empty: 'No rules. The station plays anything its rotation and your dislikes allow.',
             readFailed: 'The rules could not be read',
             writeFailed: 'The rules could not be changed',
             addFailed: 'The rule could not be added.',
             removeFailed: 'The rule could not be removed.',
-            field: { genre: 'Genre', tag: 'Tag' },
+            field: { genre: 'Genre', tag: 'Tag', version: 'Version' },
+            versionLive: 'Live recordings',
             valueGenre: 'Genre',
             valueTag: 'Tag',
             genreHint:
                 'Also refuses any kind of it: a rule for Punk refuses Punk Rock, and never plain Pop or Trap for a rule about Pop Punk or Rap.',
             tagHint: 'Refuses a record carrying exactly this tag, however it is capitalised.',
+            liveHint:
+                'Refuses a record its title or album marks as live, like “War Pigs - Live” or anything from “Live in Nottingham”. A title that only says the word, like “Live Wire”, still plays, and so does a live album that never says it is one.',
             seasonFrom: 'From (MM-DD)',
             seasonTo: 'To (MM-DD)',
             fromHour: 'From hour',

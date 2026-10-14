@@ -3,9 +3,9 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** A host who sits in on a slot on some nights, saying whose show it usually is */
@@ -85,6 +85,8 @@ data class ScheduleSlot(
     val eraTo: Long? = null,
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     val moods: List<ScheduleSlotMoods>? = null,
+    /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
+    val avoidMoods: List<ScheduleSlotAvoidMoods>? = null,
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     val breaks: Boolean? = null,
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
@@ -141,6 +143,8 @@ data class ScheduleSlotInput(
     val eraTo: Long? = null,
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     val moods: List<ScheduleSlotMoods>? = null,
+    /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
+    val avoidMoods: List<ScheduleSlotAvoidMoods>? = null,
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     val breaks: Boolean? = null,
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
@@ -208,50 +212,128 @@ data class ScheduleSlotListInput(
 )
 
 /** Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId` */
-@Serializable
+@Serializable(with = ScheduleSlotSourceChartOrderSerializer::class)
 enum class ScheduleSlotSourceChartOrder {
-    @SerialName("countdown")
     COUNTDOWN,
-    @SerialName("ranked")
     RANKED,
-    @SerialName("unordered")
     UNORDERED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [ScheduleSlotSourceChartOrder] by its wire spelling. A spelling it does not know reads as [ScheduleSlotSourceChartOrder.UNKNOWN]. */
+object ScheduleSlotSourceChartOrderSerializer : SdkEnumSerializer<ScheduleSlotSourceChartOrder>(
+    "ScheduleSlotSourceChartOrder",
+    ScheduleSlotSourceChartOrder.UNKNOWN,
+    ScheduleSlotSourceChartOrder.COUNTDOWN to "countdown",
+    ScheduleSlotSourceChartOrder.RANKED to "ranked",
+    ScheduleSlotSourceChartOrder.UNORDERED to "unordered",
+)
+
+@Serializable(with = ScheduleSlotMoodsSerializer::class)
 enum class ScheduleSlotMoods {
-    @SerialName("love")
     LOVE,
-    @SerialName("happiness")
     HAPPINESS,
-    @SerialName("comfort")
     COMFORT,
-    @SerialName("sadness")
     SADNESS,
-    @SerialName("loneliness")
     LONELINESS,
-    @SerialName("anger")
     ANGER,
-    @SerialName("fear")
     FEAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [ScheduleSlotMoods] by its wire spelling. A spelling it does not know reads as [ScheduleSlotMoods.UNKNOWN]. */
+object ScheduleSlotMoodsSerializer : SdkEnumSerializer<ScheduleSlotMoods>(
+    "ScheduleSlotMoods",
+    ScheduleSlotMoods.UNKNOWN,
+    ScheduleSlotMoods.LOVE to "love",
+    ScheduleSlotMoods.HAPPINESS to "happiness",
+    ScheduleSlotMoods.COMFORT to "comfort",
+    ScheduleSlotMoods.SADNESS to "sadness",
+    ScheduleSlotMoods.LONELINESS to "loneliness",
+    ScheduleSlotMoods.ANGER to "anger",
+    ScheduleSlotMoods.FEAR to "fear",
+)
+
+@Serializable(with = ScheduleSlotAvoidMoodsSerializer::class)
+enum class ScheduleSlotAvoidMoods {
+    LOVE,
+    HAPPINESS,
+    COMFORT,
+    SADNESS,
+    LONELINESS,
+    ANGER,
+    FEAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [ScheduleSlotAvoidMoods] by its wire spelling. A spelling it does not know reads as [ScheduleSlotAvoidMoods.UNKNOWN]. */
+object ScheduleSlotAvoidMoodsSerializer : SdkEnumSerializer<ScheduleSlotAvoidMoods>(
+    "ScheduleSlotAvoidMoods",
+    ScheduleSlotAvoidMoods.UNKNOWN,
+    ScheduleSlotAvoidMoods.LOVE to "love",
+    ScheduleSlotAvoidMoods.HAPPINESS to "happiness",
+    ScheduleSlotAvoidMoods.COMFORT to "comfort",
+    ScheduleSlotAvoidMoods.SADNESS to "sadness",
+    ScheduleSlotAvoidMoods.LONELINESS to "loneliness",
+    ScheduleSlotAvoidMoods.ANGER to "anger",
+    ScheduleSlotAvoidMoods.FEAR to "fear",
+)
+
+@Serializable(with = ScheduleSlotModeSerializer::class)
 enum class ScheduleSlotMode {
-    @SerialName("rotation")
     ROTATION,
-    @SerialName("setlist")
     SETLIST,
-    @SerialName("feature")
     FEATURE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [ScheduleSlotMode] by its wire spelling. A spelling it does not know reads as [ScheduleSlotMode.UNKNOWN]. */
+object ScheduleSlotModeSerializer : SdkEnumSerializer<ScheduleSlotMode>(
+    "ScheduleSlotMode",
+    ScheduleSlotMode.UNKNOWN,
+    ScheduleSlotMode.ROTATION to "rotation",
+    ScheduleSlotMode.SETLIST to "setlist",
+    ScheduleSlotMode.FEATURE to "feature",
+)
+
+@Serializable(with = ScheduleSlotOnEndSerializer::class)
 enum class ScheduleSlotOnEnd {
-    @SerialName("extend")
     EXTEND,
-    @SerialName("repeat")
     REPEAT,
-    @SerialName("stop")
     STOP,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [ScheduleSlotOnEnd] by its wire spelling. A spelling it does not know reads as [ScheduleSlotOnEnd.UNKNOWN]. */
+object ScheduleSlotOnEndSerializer : SdkEnumSerializer<ScheduleSlotOnEnd>(
+    "ScheduleSlotOnEnd",
+    ScheduleSlotOnEnd.UNKNOWN,
+    ScheduleSlotOnEnd.EXTEND to "extend",
+    ScheduleSlotOnEnd.REPEAT to "repeat",
+    ScheduleSlotOnEnd.STOP to "stop",
+)

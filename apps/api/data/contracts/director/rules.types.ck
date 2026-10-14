@@ -9,8 +9,8 @@ options {
 # Every scope is optional and an absent one means "always"
 contract BlockRule: {
     id: readonly uuid
-    field: enum(genre, tag) # `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag
-    value: string(min=1, max=200) # The genre or tag, as you would write it
+    field: enum(genre, tag, version) # `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")
+    value: string(min=1, max=200) # The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one
     seasonFrom?: string(min=5, max=5) # First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end
     seasonTo?: string(min=5, max=5) # Last day it holds, as `MM-DD`
     fromHour?: int(min=0, max=23) # First hour of the station's day it holds. With `untilHour`; a window starting after it ends wraps midnight

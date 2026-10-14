@@ -7,6 +7,7 @@ import {
     LYRIC_MOODS,
     MAX_MOOD_STAGES,
     MAX_PROMPT_LYRIC_CHARS,
+    avoidMoodsField,
     moodsField,
     moodStages,
     moodsPrompt,
@@ -89,5 +90,17 @@ describe('mood stages', () => {
     it('spreads as a field, or as nothing at all', () => {
         expect(moodsField(['comfort'])).toEqual({ moods: ['comfort'] });
         expect(moodsField([])).toEqual({});
+    });
+});
+
+describe('avoidMoodsField', () => {
+    it('keeps the known moods once each, and spells avoiding none as nothing', () => {
+        expect(avoidMoodsField(['sadness', 'grief', 'sadness', 'fear'])).toEqual({ avoidMoods: ['sadness', 'fear'] });
+        expect(avoidMoodsField([])).toEqual({});
+        expect(avoidMoodsField(null)).toEqual({});
+    });
+
+    it('never avoids all seven moods at once', () => {
+        expect(avoidMoodsField(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']).avoidMoods).toHaveLength(6);
     });
 });

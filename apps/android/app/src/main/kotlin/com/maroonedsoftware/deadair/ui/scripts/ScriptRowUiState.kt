@@ -24,6 +24,8 @@ data class ScriptRowUiState(val attempt: ScriptAttempt) {
                 ScriptOutcome.WRITTEN -> ScriptTone.OK
                 ScriptOutcome.DECLINED -> ScriptTone.STANDBY
                 ScriptOutcome.FAILED -> ScriptTone.FAULT
+                // An outcome a newer station names that this build cannot read: neither good news nor a fault.
+                ScriptOutcome.UNKNOWN -> ScriptTone.STANDBY
             }
 
     /** The words, or for an attempt that produced none, the reason, which takes the line the words would have. */

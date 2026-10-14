@@ -156,12 +156,94 @@ public struct ConsoleLanguageList: Codable, Equatable, Sendable {
 }
 
 /// Which way its text runs
-public enum ConsoleLanguagePackDirection: String, Codable, CaseIterable, Sendable {
-    case ltr = "ltr"
-    case rtl = "rtl"
+public enum ConsoleLanguagePackDirection: Codable, CaseIterable, Hashable, Sendable {
+    case ltr
+    case rtl
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConsoleLanguagePackDirection] = [.ltr, .rtl]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .ltr: return "ltr"
+        case .rtl: return "rtl"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "ltr": self = .ltr
+        case "rtl": self = .rtl
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConsoleLanguagePackDirection.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum ConsoleLanguageDirection: String, Codable, CaseIterable, Sendable {
-    case ltr = "ltr"
-    case rtl = "rtl"
+public enum ConsoleLanguageDirection: Codable, CaseIterable, Hashable, Sendable {
+    case ltr
+    case rtl
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ConsoleLanguageDirection] = [.ltr, .rtl]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .ltr: return "ltr"
+        case .rtl: return "rtl"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "ltr": self = .ltr
+        case "rtl": self = .rtl
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ConsoleLanguageDirection.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

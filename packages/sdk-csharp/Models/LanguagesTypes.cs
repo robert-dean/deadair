@@ -80,9 +80,15 @@ public sealed record ConsoleLanguageList
 }
 
 /// <summary>Which way its text runs</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ConsoleLanguagePackDirection>))]
+[JsonConverter(typeof(ConsoleLanguagePackDirectionConverter))]
 public enum ConsoleLanguagePackDirection
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("ltr")]
     Ltr,
 
@@ -90,12 +96,98 @@ public enum ConsoleLanguagePackDirection
     Rtl,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ConsoleLanguageDirection>))]
+/// <summary>
+/// Reads and writes <see cref="ConsoleLanguagePackDirection"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConsoleLanguagePackDirection.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConsoleLanguagePackDirectionConverter : JsonConverter<ConsoleLanguagePackDirection>
+{
+    public override ConsoleLanguagePackDirection Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConsoleLanguagePackDirection, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConsoleLanguagePackDirection value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConsoleLanguagePackDirection ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConsoleLanguagePackDirection value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConsoleLanguagePackDirection FromWire(string? text) => text switch
+    {
+        "ltr" => ConsoleLanguagePackDirection.Ltr,
+        "rtl" => ConsoleLanguagePackDirection.Rtl,
+        _ => ConsoleLanguagePackDirection.Unknown,
+    };
+
+    private static string ToWire(ConsoleLanguagePackDirection value) => value switch
+    {
+        ConsoleLanguagePackDirection.Ltr => "ltr",
+        ConsoleLanguagePackDirection.Rtl => "rtl",
+        _ => throw new JsonException($"ConsoleLanguagePackDirection.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ConsoleLanguageDirectionConverter))]
 public enum ConsoleLanguageDirection
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("ltr")]
     Ltr,
 
     [JsonStringEnumMemberName("rtl")]
     Rtl,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ConsoleLanguageDirection"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConsoleLanguageDirection.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConsoleLanguageDirectionConverter : JsonConverter<ConsoleLanguageDirection>
+{
+    public override ConsoleLanguageDirection Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConsoleLanguageDirection, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConsoleLanguageDirection value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConsoleLanguageDirection ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConsoleLanguageDirection value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConsoleLanguageDirection FromWire(string? text) => text switch
+    {
+        "ltr" => ConsoleLanguageDirection.Ltr,
+        "rtl" => ConsoleLanguageDirection.Rtl,
+        _ => ConsoleLanguageDirection.Unknown,
+    };
+
+    private static string ToWire(ConsoleLanguageDirection value) => value switch
+    {
+        ConsoleLanguageDirection.Ltr => "ltr",
+        ConsoleLanguageDirection.Rtl => "rtl",
+        _ => throw new JsonException($"ConsoleLanguageDirection.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

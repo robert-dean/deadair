@@ -12,7 +12,9 @@ import { PageHeader } from '../shared/page.header';
 import { severityColor } from '../shared/status';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
-const MODULES = ['all', 'playout', 'director', 'render', 'catalog', 'plugins', 'storage'] as const satisfies readonly (ActivityModule | 'all')[];
+const MODULES = ['all', 'playout', 'director', 'render', 'catalog', 'plugins', 'storage', 'events'] as const satisfies readonly (
+    ActivityModule | 'all'
+)[];
 
 const SEVERITIES = ['all', 'warn', 'fault'] as const satisfies readonly (ActivitySeverity | 'all')[];
 
@@ -38,6 +40,7 @@ const MODULE_COLOR: Record<ActivityModule, string> = {
     catalog: 'gray',
     plugins: 'gray',
     storage: 'gray',
+    events: 'gray',
 };
 
 /**

@@ -3,10 +3,10 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** Which people to list */
@@ -164,29 +164,53 @@ data class UserDetailInput(
 )
 
 /** What kind of factor it is */
-@Serializable
+@Serializable(with = UserFactorMethodSerializer::class)
 enum class UserFactorMethod {
-    @SerialName("email")
     EMAIL,
-    @SerialName("password")
     PASSWORD,
-    @SerialName("authenticator")
     AUTHENTICATOR,
-    @SerialName("fido")
     FIDO,
-    @SerialName("oidc")
     OIDC,
-    @SerialName("phone")
     PHONE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [UserFactorMethod] by its wire spelling. A spelling it does not know reads as [UserFactorMethod.UNKNOWN]. */
+object UserFactorMethodSerializer : SdkEnumSerializer<UserFactorMethod>(
+    "UserFactorMethod",
+    UserFactorMethod.UNKNOWN,
+    UserFactorMethod.EMAIL to "email",
+    UserFactorMethod.PASSWORD to "password",
+    UserFactorMethod.AUTHENTICATOR to "authenticator",
+    UserFactorMethod.FIDO to "fido",
+    UserFactorMethod.OIDC to "oidc",
+    UserFactorMethod.PHONE to "phone",
+)
+
 /** What it proves */
-@Serializable
+@Serializable(with = UserFactorKindSerializer::class)
 enum class UserFactorKind {
-    @SerialName("knowledge")
     KNOWLEDGE,
-    @SerialName("possession")
     POSSESSION,
-    @SerialName("biometric")
     BIOMETRIC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [UserFactorKind] by its wire spelling. A spelling it does not know reads as [UserFactorKind.UNKNOWN]. */
+object UserFactorKindSerializer : SdkEnumSerializer<UserFactorKind>(
+    "UserFactorKind",
+    UserFactorKind.UNKNOWN,
+    UserFactorKind.KNOWLEDGE to "knowledge",
+    UserFactorKind.POSSESSION to "possession",
+    UserFactorKind.BIOMETRIC to "biometric",
+)

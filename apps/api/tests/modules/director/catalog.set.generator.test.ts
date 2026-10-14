@@ -24,7 +24,7 @@ import { StationIdentity } from '../../../src/modules/shared/station.identity.js
 import type { BlockRulesRepository } from '../../../src/modules/director/block.rules.repository.js';
 import type { LyricLabelsRepository } from '../../../src/modules/lyrics/lyric.labels.repository.js';
 import type { MoodDistribution } from '../../../src/modules/lyrics/lyric.moods.js';
-import { MOOD_BOOST } from '../../../src/modules/director/mood.lean.js';
+import { MOOD_AVOID, MOOD_BOOST } from '../../../src/modules/director/mood.lean.js';
 import { NeverPlay } from '../../../src/modules/director/never.play.js';
 import type { BlockRule } from '../../../src/modules/director/block.rules.js';
 import { sampleSize, type SampleExclusions } from '../../../src/modules/director/candidates.repository.js';
@@ -93,6 +93,11 @@ function build(options: Options = {}) {
             return new Set(ids.filter(id => options.likedAlbums?.has(id)));
         }),
         tagsFor: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
+        // A record's title, read off the sample it came from, for a version rule.
+        namesFor: vi.fn(async (ids: readonly string[]) => {
+            const titles = new Map((options.sample ?? options.library ?? []).map(track => [track.trackId, track.title]));
+            return new Map(ids.flatMap(id => (titles.has(id) ? [[id, { title: titles.get(id)! }]] : [])));
+        }),
     } as unknown as CandidatesRepository;
     const rules = {
         steer: vi.fn(async () => (options.steer === undefined ? undefined : { genres: options.steer.genres, endsAt: '2099-01-01T00:00:00.000Z' })),
@@ -709,6 +714,46 @@ describe('CatalogSetGenerator leaning toward a mood', () => {
         expect(fits / draws).toBeGreaterThan(0.6);
         expect(fits / draws).toBeLessThan(0.73);
     });
+
+    it('makes a record in an avoided mood half as likely, and no less', async () => {
+        expect(MOOD_AVOID).toBe(0.5);
+        const sample = [candidate('Sad', 'One'), candidate('Other', 'Two')];
+        const { generator } = build({ sample, moods: new Map([['id-One-Sad', judged({ sadness: 0.6, loneliness: 0.4 })]]), settings: off });
+
+        let sad = 0;
+        const draws = 3000;
+        for (let index = 0; index < draws; index++) {
+            const [pick] = await generator.generate({ count: 1, rules: rotation, avoidMoods: ['anger', 'sadness'] });
+            if (pick?.title === 'Sad') sad++;
+        }
+
+        // One to two is a third. A generous band, because this is a draw.
+        expect(sad / draws).toBeGreaterThan(0.27);
+        expect(sad / draws).toBeLessThan(0.4);
+    });
+
+    it('never keeps a record in an avoided mood off the air', async () => {
+        const sample = Array.from({ length: 40 }, (_, index) => candidate(`Song ${index}`, `Artist ${index}`));
+        const { generator } = build({
+            sample,
+            moods: new Map(sample.slice(0, 30).map(track => [track.trackId, judged({ sadness: 1 })])),
+            settings: off,
+        });
+
+        const picks = await generator.generate({
+            count: 40,
+            rules: { ...rotation, artistCooldownMinutes: 0, repeatWindowDays: 0 },
+            avoidMoods: ['sadness'],
+        });
+
+        expect(new Set(picks.map(pick => pick.title)).size).toBe(40);
+    });
+
+    it('reads the moods once when a broadcast both leans into one and avoids others', async () => {
+        const { generator, labels } = build({ sample: [candidate('Party', 'One')], settings: off });
+        await generator.generate({ count: 1, rules: rotation, mood: 'happiness', avoidMoods: ['sadness'] });
+        expect(labels.moodsForTracks).toHaveBeenCalledTimes(1);
+    });
 });
 
 describe('CatalogSetGenerator under a never-play rule', () => {
@@ -745,6 +790,20 @@ describe('CatalogSetGenerator under a never-play rule', () => {
         const sizes = vi.mocked(candidates.sample).mock.calls.map(call => sampleSize(call[0] as number));
         expect(sizes[0]).toBe(240);
         expect(sizes[1]).toBe(500);
+    });
+
+    it('refuses a live recording under a version rule, and asks the SQL nothing about tags for it', async () => {
+        const library = Array.from({ length: 40 }, (_, index) =>
+            candidate(index % 2 === 0 ? `Song ${index} - Live` : `Song ${index}`, `Artist ${index}`),
+        );
+        const { generator, candidates } = build({ library, neverPlay: [{ id: 'no-live', field: 'version', value: 'live' }] });
+
+        const picks = await generator.generate({ count: 10, rules: { ...rotation, artistCooldownMinutes: 0, repeatWindowDays: 0 } });
+
+        expect(picks.length).toBeGreaterThan(0);
+        expect(picks.some(pick => pick.title.endsWith('- Live'))).toBe(false);
+        expect(vi.mocked(candidates.sample).mock.calls[0]![5]).toEqual({ refusedTags: [], trackIds: [] });
+        expect(candidates.tagsFor).not.toHaveBeenCalledWith(expect.anything());
     });
 
     it('asks the SQL to leave out what is tagged exactly the rule, and never what was drawn already', async () => {

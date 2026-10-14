@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.13.2] — 2026-10-14
+
+- A schedule block that plays a playlist can pick it up where it left off. Switch on **Pick the playlist up where it left off** in the slot editor, and each time the block opens it starts with the record after the last one from its playlist that aired, rather than from the top, so a long playlist on a short block gets all the way through over several nights. An operator's takeover ending in the middle of the block no longer starts the playlist over. The editor shows the record the block will open on next, and **Start from the top** sends it back to the beginning; a record taken off the playlist, or choosing a different playlist, starts it from the top too. Through the API it is `resumePlaylist` on a slot, with `GET` and `DELETE /schedule/{id}/playlist-position`. The desktop app keeps the setting when it saves a slot.
+
 ## [0.13.1] — 2026-10-14
 
 - A schedule slot, and a broadcast put on air by hand, can name moods to steer away from with `avoidMoods`. A record a model judged to be in one is half as likely to be picked for the whole of the slot, and never kept off the air for it: the judgement is right about half the time, so refusing a record outright stays a never-play rule's job. The console's slot editor sets them under **Steers away from**, and the desktop app keeps a slot's avoided moods when it saves the slot.
@@ -140,7 +144,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.2...HEAD
+[0.13.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.1...desktop-v0.13.2
 [0.13.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.0...desktop-v0.13.1
 [0.13.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.12.0...desktop-v0.13.0
 [0.12.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.11.0...desktop-v0.12.0

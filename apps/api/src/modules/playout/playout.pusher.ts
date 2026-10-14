@@ -614,9 +614,11 @@ export class PlayoutPusher {
      * cut: that is what the gate being shut means.
      *
      * Nothing is lost from the running order. The reading this answers with is
-     * reconciled, and `Rundown.reconcile` re-queues every item the player turns
-     * out not to be holding, so the station resumes where it stopped. Only the
-     * part-played item is dropped.
+     * reconciled, which retires the part-played item, and everything handed over
+     * is then taken back directly with `Rundown.takeBackHanded`, so the station
+     * resumes where it stopped. Directly, and not by leaving the reconcile to find
+     * them missing: that called them lost a few seconds later and counted each one
+     * against the ceiling on hand-overs, so a few gate cycles skipped good records.
      *
      * @returns whether it took anything back, in which case the caller should
      *   stop: the depth it was about to push against no longer exists.
@@ -630,6 +632,7 @@ export class PlayoutPusher {
         if (!released) return false;
 
         this.rundown.reconcile(released);
+        this.rundown.takeBackHanded();
         this.logger.info('playout: nobody is listening; taking back what the player was holding');
         return true;
     }

@@ -193,8 +193,16 @@ describe('the event types', () => {
 
         const { types } = await service.listTypes();
 
-        expect(types.map(type => type.type)).toEqual(['track.started', 'talk.started', 'production.started', 'programme.started', DESTINATION_TEST]);
+        expect(types.map(type => type.type)).toEqual([
+            'track.started',
+            'talk.started',
+            'production.started',
+            'programme.started',
+            'station.onAir',
+            'station.offAir',
+            DESTINATION_TEST,
+        ]);
         expect(types.at(-1)).toMatchObject({ subscribable: false, example: { type: DESTINATION_TEST, station: { key: 'main', name: 'Dead Air' } } });
-        expect(types.filter(type => type.subscribable)).toHaveLength(4);
+        expect(types.filter(type => type.subscribable)).toHaveLength(6);
     });
 });

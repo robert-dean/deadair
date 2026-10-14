@@ -208,6 +208,18 @@ export const ProgrammeStartedData = z.strictObject({
 export type ProgrammeStartedData = z.infer<typeof ProgrammeStartedData>;
 
 /**
+ * `data` of `station.onAir` and `station.offAir`: the station went on air, or came off it
+ * generated from [StationAirData](../../../../data/contracts/events/events.types.ck)
+ */
+export const StationAirData = z.strictObject({
+    reason: z
+        .enum(['programme', 'resumed', 'stopped', 'ranOut'])
+        .describe('A new running order, the stopped one started again, somebody stopping it, or the running order running out'),
+    programme: z.string().optional().describe("The running order's name, when going on air with a new one that has one"),
+});
+export type StationAirData = z.infer<typeof StationAirData>;
+
+/**
  * Every event destination, oldest first
  * generated from [EventDestinationList](../../../../data/contracts/events/events.types.ck)
  */

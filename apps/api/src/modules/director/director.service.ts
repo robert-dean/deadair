@@ -11,6 +11,7 @@ import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js
 import { CACHE_AHEAD, TrackAudioService, bindingKey } from '#modules/playout/audio/track.audio.service.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { isStationArt } from '#modules/playout/annotate.js';
@@ -445,6 +446,9 @@ export class DirectorService {
         // Beside `Epoch` and `StationIdentity` for the same reason those are here: a `shared/`
         // singleton the transport also reads, so the edge runs to neither module.
         private readonly heartbeat: Heartbeat,
+        // The station's moments, for subscribers registered after this module that it must not
+        // know about: going on and off air, which `events` passes on to an operator's servers.
+        private readonly bus: StationBus,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -1454,6 +1458,7 @@ export class DirectorService {
             detail: `The station went on air with ${binding.name || 'a new running order'}, ${tracks.length} ${tracks.length === 1 ? 'item' : 'items'} long.`,
             data: { name: binding.name, items: tracks.length, source: binding.source, ...(binding.brief ? { brief: binding.brief } : {}) },
         });
+        this.bus.publish('air.changed', { on: true, reason: 'programme', ...(binding.name ? { programme: binding.name } : {}), at: Date.now() });
         await this.commit();
         await this.mixInIfAsked(lineup);
     }
@@ -3681,6 +3686,7 @@ export class DirectorService {
             detail: 'The station was started again on the running order it had been stopped on.',
             data: { remaining: this.lineup.remaining() },
         });
+        this.bus.publish('air.changed', { on: true, reason: 'resumed', at: Date.now() });
 
         return { resumed: true };
     }
@@ -3727,6 +3733,7 @@ export class DirectorService {
                 kind: 'air.off',
                 detail: 'The station was stood down, so it is holding nothing and airing nothing.',
             });
+            this.bus.publish('air.changed', { on: false, reason: ranOut ? 'ranOut' : 'stopped', at: Date.now() });
         }
     }
 

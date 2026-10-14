@@ -12,13 +12,14 @@ import { isRenderItem } from '#modules/render/segment.source.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { StationBus, type StationEvents } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { resolvePublicUrl } from '#modules/stream/stream.settings.js';
-import { PRODUCTION_STARTED, PROGRAMME_STARTED, TALK_STARTED, TRACK_STARTED } from './event.catalogue.js';
+import { PRODUCTION_STARTED, PROGRAMME_STARTED, STATION_OFF_AIR, STATION_ON_AIR, TALK_STARTED, TRACK_STARTED } from './event.catalogue.js';
 import { EventDestinationsRepository } from './event.destinations.repository.js';
 import { eventEnvelope, eventStation } from './event.envelope.js';
 import type { DeliverPayload } from './event.deliverer.js';
-import type { ProductionStartedData, ProgrammeStartedData, TalkStartedData, TrackStartedData } from './types/events.types.js';
+import type { ProductionStartedData, ProgrammeStartedData, StationAirData, TalkStartedData, TrackStartedData } from './types/events.types.js';
 
 /** What a segment that aired turned out to be, from the reads only a segment needs. */
 export interface SegmentFacts {
@@ -29,10 +30,16 @@ export interface SegmentFacts {
     production?: { kind: string; title: string };
 }
 
-/** One aired item, as the event it becomes. */
+/**
+ * How long news of the station going on or off air stays worth sending. A light left in the wrong
+ * state for ten minutes is already wrong; past that, the next record or break says what is on.
+ */
+export const AIR_CHANGE_WINDOW_MS = 10 * 60_000;
+
+/** One aired item, or the station going on or off air, as the event it becomes. */
 export interface AiredEvent {
     type: string;
-    data: TrackStartedData | TalkStartedData | ProductionStartedData | ProgrammeStartedData;
+    data: TrackStartedData | TalkStartedData | ProductionStartedData | ProgrammeStartedData | StationAirData;
     /** Epoch milliseconds past which this is false rather than late; see `announceDeadline`. */
     notAfter: number;
 }
@@ -125,6 +132,12 @@ export function airedEvent(
     return { type: TALK_STARTED, data, notAfter };
 }
 
+/** The station going on or off air, as the event it becomes. */
+export function airChangedEvent(change: StationEvents['air.changed']): AiredEvent {
+    const data: StationAirData = { reason: change.reason, ...(change.programme === undefined ? {} : { programme: change.programme }) };
+    return { type: change.on ? STATION_ON_AIR : STATION_OFF_AIR, data, notAfter: change.at + AIR_CHANGE_WINDOW_MS };
+}
+
 /**
  * Telling event destinations what goes on air, as each item is heard.
  *
@@ -142,6 +155,12 @@ export function airedEvent(
  * `MessagingAnnouncer` uses it: one job per destination, so a receiver that is down costs no other
  * its event. Which destinations want this type is asked here, so a destination that wants nothing of
  * it costs no job; the job asks again before sending, so one turned off in between is respected.
+ *
+ * ## Going on and off air comes over the bus
+ *
+ * The director decides that, and it is registered long before this module, so it publishes
+ * `air.changed` on `StationBus` and this subscribes: the one case the bus exists for, a producer and
+ * its subscriber on opposite sides of `modules.ts`. Records and breaks stay on the rundown's own edge.
  */
 @Injectable()
 export class EventAnnouncer {
@@ -149,8 +168,11 @@ export class EventAnnouncer {
     /** The production the last aired item belonged to, so a block of its beats announces once. */
     private lastProductionId?: string;
 
+    private unsubscribeAir?: () => void;
+
     constructor(
         private readonly rundown: Rundown,
+        private readonly bus: StationBus,
         private readonly jobs: PgBossJobBroker,
         // The ROOT container, for `inScope`, as `ActivityRecorder` takes it.
         private readonly container: Container,
@@ -165,12 +187,21 @@ export class EventAnnouncer {
     start(): void {
         if (this.unsubscribe !== undefined) return;
         this.unsubscribe = this.rundown.onAired(item => this.aired(item));
+        this.unsubscribeAir = this.bus.subscribe(
+            'air.changed',
+            change =>
+                void this.send(airChangedEvent(change), change.at).catch(error =>
+                    this.logger.warn(`events: could not announce the station going ${change.on ? 'on' : 'off'} air (${errorText(error)})`),
+                ),
+        );
     }
 
     /** Stop announcing. */
     stop(): void {
         this.unsubscribe?.();
         this.unsubscribe = undefined;
+        this.unsubscribeAir?.();
+        this.unsubscribeAir = undefined;
     }
 
     private aired(item: RundownItem): void {
@@ -187,12 +218,20 @@ export class EventAnnouncer {
 
         const artworkUrl = isRenderItem(item) ? undefined : listenerArtwork(item, resolvePublicUrl(this.config), this.covers);
         const event = airedEvent(item, airedAt, facts, { ...(artworkUrl === undefined ? {} : { artworkUrl }), productionAlreadyFired });
-        if (event === undefined) return 0;
+        return event === undefined ? 0 : this.send(event, airedAt);
+    }
 
+    /**
+     * One delivery job per destination that wants this event. Answers how many.
+     *
+     * Every event sent here is a STATE event, something now on air or the station now off it, which
+     * is what lets a late retry of an older one be dropped rather than undo a newer one.
+     */
+    async send(event: AiredEvent, occurredAt: number): Promise<number> {
         const destinations = await inScope(this.container, async scope => scope.get(EventDestinationsRepository).subscribedTo(event.type));
         if (destinations.length === 0) return 0;
 
-        const envelope = eventEnvelope(event.type, event.data, eventStation(this.identity, this.config), DateTime.fromMillis(airedAt));
+        const envelope = eventEnvelope(event.type, event.data, eventStation(this.identity, this.config), DateTime.fromMillis(occurredAt));
         for (const destinationId of destinations) {
             const payload: DeliverPayload = { destinationId, envelope, notAfter: event.notAfter, state: true };
             await this.jobs.send('events.deliver', payload);

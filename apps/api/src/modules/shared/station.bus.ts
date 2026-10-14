@@ -36,10 +36,11 @@ import { errorText } from './error.text.js';
 /**
  * Every kind of moment, and what it carries.
  *
- * Two entries today, deliberately. The station's other moments — a departure, an air toggle, a silence
- * cause changing — are one line each on the day something wants to react to one, which is the same
- * rule `Heartbeat` states for the loops that have not adopted it. A map full of events nobody
- * subscribes to would be a description of an intention rather than of this program.
+ * Only what something subscribes to, deliberately: the map used to open by counting its entries and
+ * was wrong the day a third arrived, so it no longer counts. The station's other moments (a
+ * departure, a silence cause changing) are one line each on the day something wants to react to one,
+ * which is the same rule `Heartbeat` states for the loops that have not adopted it. A map full of
+ * events nobody subscribes to would be a description of an intention rather than of this program.
  */
 export interface StationEvents {
     /**
@@ -83,6 +84,21 @@ export interface StationEvents {
      * the director's question rather than the catalog's.
      */
     'catalog.disliked': { level: 'artist' | 'album' | 'track'; id: string; name: string };
+
+    /**
+     * The station went on air, or came off it.
+     *
+     * Published by the director beside the `air.on` and `air.off` lines it writes to the activity
+     * feed, and at the same moments: after the durable write, so nothing hears of a change the
+     * station itself does not believe. The subscriber is `events`, which tells an operator's own
+     * servers, and which the director cannot reach because it is registered long after.
+     *
+     * `reason` says which way it happened: a new running order (`programme`, with its name when it
+     * has one), the stopped one started again (`resumed`), somebody stopping it (`stopped`), or the
+     * running order running out and saying to stop (`ranOut`). `at` is epoch milliseconds, taken
+     * when the director decided, so a subscriber that does slow work still reports the right moment.
+     */
+    'air.changed': { on: boolean; reason: 'programme' | 'resumed' | 'stopped' | 'ranOut'; programme?: string; at: number };
 }
 
 export type StationEventKind = keyof StationEvents;

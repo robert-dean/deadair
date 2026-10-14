@@ -53,6 +53,7 @@ import { PersonaRepository } from '../../../src/modules/personas/persona.reposit
 import { PersonaArtworkService } from '../../../src/modules/art/persona.artwork.service.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
+import { StationBus } from '../../../src/modules/shared/station.bus.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { Heartbeat, HEARTBEATS } from '../../../src/modules/shared/heartbeat.js';
 import { WARMUP_KIND } from '../../../src/modules/director/warmup.writer.js';
@@ -491,6 +492,9 @@ function build(options: Options = {}) {
     // only be a second thing to keep in step. The warm ticker's own tests read it.
     const heartbeat = new Heartbeat();
 
+    // Real, for the same reason: a map of listeners. A test that cares what was announced subscribes.
+    const bus = new StationBus(logger);
+
     const director = new DirectorService(
         rundown,
         audience,
@@ -499,6 +503,7 @@ function build(options: Options = {}) {
         activity,
         new StationIdentity(),
         heartbeat,
+        bus,
         station.config,
         logger,
     );
@@ -506,6 +511,7 @@ function build(options: Options = {}) {
     return {
         director,
         heartbeat,
+        bus,
         station,
         container,
         createScope,
@@ -1350,6 +1356,21 @@ describe('DirectorService standing down', () => {
         expect(record.mock.calls.filter(call => call[0]?.kind === 'air.off')).toHaveLength(1);
     });
 
+    it('announces coming off air on the bus once, beside the feed line', async () => {
+        const { director, rundown, bus, seed } = build();
+        const heard = vi.fn();
+        bus.subscribe('air.changed', heard);
+        await seed();
+        await director.start();
+
+        rundown.reset();
+        await settle();
+        rundown.reset();
+        await settle();
+
+        expect(heard.mock.calls.filter(call => call[0].on === false)).toEqual([[expect.objectContaining({ on: false, reason: 'stopped' })]]);
+    });
+
     it('says it in the log as well, which is what still works when the database does not', async () => {
         const { director, rundown, seed } = build();
         await seed();
@@ -1594,14 +1615,18 @@ describe('DirectorService resuming what it was stopped on', () => {
     // Stop deliberately leaves the running order alone, every item still saying where it got to.
     // Until this there was no way to pick that up: the only route back on air replaced it.
     it('goes back on air on the order it already has', async () => {
-        const { director, rundown, airRepository, seed } = build({ air: { active: false } });
+        const { director, rundown, airRepository, bus, seed } = build({ air: { active: false } });
         await seed();
         await director.start();
         expect(rundown.upcoming()).toHaveLength(0);
 
+        const heard = vi.fn();
+        bus.subscribe('air.changed', heard);
+
         const result = await director.resumeAir();
 
         expect(result).toEqual({ resumed: true });
+        expect(heard).toHaveBeenCalledWith(expect.objectContaining({ on: true, reason: 'resumed' }));
         expect(airRepository.goOnAir).toHaveBeenCalled();
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
     });
@@ -1756,6 +1781,22 @@ describe('DirectorService telling the transport what is on', () => {
 });
 
 describe('DirectorService going on air', () => {
+    it('announces going on air on the bus, naming the programme', async () => {
+        const { director, bus, seed } = build();
+        const heard = vi.fn();
+        bus.subscribe('air.changed', heard);
+        await seed();
+        await director.start();
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(heard).toHaveBeenCalledWith(expect.objectContaining({ on: true, reason: 'programme', programme: 'Something else' }));
+    });
+
     it('replaces the running order with what it was handed, and retracts the old one', async () => {
         const { director, rundown, seed, snapshots } = build();
         await seed();

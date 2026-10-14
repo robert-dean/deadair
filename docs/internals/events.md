@@ -60,6 +60,14 @@ joined row that usually airs has no ordinal and `toSegment` hides the production
 
 **A segment whose row is gone sends nothing**, rather than a guessed kind a receiver would act on.
 
+**Going on and off air comes over `StationBus`.** The director decides it and is registered long
+before `events`, so it publishes `air.changed` beside its `air.on` and `air.off` feed lines, after
+the durable write, and `EventAnnouncer` subscribes: the one case the bus exists for, a producer and
+its subscriber on opposite sides of `modules.ts`. It becomes `station.onAir` or `station.offAir` with a
+`reason` (`programme`, `resumed`, `stopped`, `ranOut`), true for ten minutes rather than an item's
+length, and a state event like the four above, so a late retry of it cannot undo what came after. The
+moment carried is when the director decided, not when the subscriber got round to it.
+
 ## Late, stale, and switched off
 
 **A delivery is an EVENT, not an attempt.** `events.deliver` is one job per destination per event,

@@ -597,6 +597,36 @@ public struct ProgrammeStartedData: Codable, Equatable, Sendable {
     }
 }
 
+/// `data` of `station.onAir` and `station.offAir`: the station went on air, or came off it
+public struct StationAirData: Codable, Equatable, Sendable {
+    /// A new running order, the stopped one started again, somebody stopping it, or the running order running out
+    public var reason: StationAirDataReason
+    /// The running order's name, when going on air with a new one that has one
+    public var programme: String?
+
+    public init(reason: StationAirDataReason, programme: String? = nil) {
+        self.reason = reason
+        self.programme = programme
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case programme = "programme"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.reason = try container.decode(StationAirDataReason.self, forKey: .reason)
+        self.programme = try container.decodeIfPresent(String.self, forKey: .programme)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.reason, forKey: .reason)
+        try container.encodeIfPresent(self.programme, forKey: .programme)
+    }
+}
+
 /// Every event destination, oldest first
 public struct EventDestinationList: Codable, Equatable, Sendable {
     public var destinations: [EventDestination]
@@ -931,4 +961,12 @@ public enum EventDeliveryOutcome: String, Codable, CaseIterable, Sendable {
 public enum ProgrammeStartedDataSource: String, Codable, CaseIterable, Sendable {
     case podcast = "podcast"
     case narration = "narration"
+}
+
+/// A new running order, the stopped one started again, somebody stopping it, or the running order running out
+public enum StationAirDataReason: String, Codable, CaseIterable, Sendable {
+    case programme = "programme"
+    case resumed = "resumed"
+    case stopped = "stopped"
+    case ranOut = "ranOut"
 }

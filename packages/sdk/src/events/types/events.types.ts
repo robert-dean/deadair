@@ -214,6 +214,17 @@ export interface ProgrammeStartedData {
 }
 
 /**
+ * `data` of `station.onAir` and `station.offAir`: the station went on air, or came off it
+ * generated from [StationAirData](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface StationAirData {
+    /** A new running order, the stopped one started again, somebody stopping it, or the running order running out */
+    reason: 'programme' | 'resumed' | 'stopped' | 'ranOut';
+    /** The running order's name, when going on air with a new one that has one */
+    programme?: string;
+}
+
+/**
  * Every event destination, oldest first
  * generated from [EventDestinationList](../../../../../apps/api/data/contracts/events/events.types.ck)
  */

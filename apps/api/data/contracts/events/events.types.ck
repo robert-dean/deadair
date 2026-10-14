@@ -130,3 +130,8 @@ contract ProgrammeStartedData: { # `data` of `programme.started`: a programme th
     durationMs?: int(min=0)
     endsAt?: string # When it should finish, as an ISO-8601 instant in UTC
 }
+
+contract StationAirData: { # `data` of `station.onAir` and `station.offAir`: the station went on air, or came off it
+    reason: enum(programme, resumed, stopped, ranOut) # A new running order, the stopped one started again, somebody stopping it, or the running order running out
+    programme?: string # The running order's name, when going on air with a new one that has one
+}

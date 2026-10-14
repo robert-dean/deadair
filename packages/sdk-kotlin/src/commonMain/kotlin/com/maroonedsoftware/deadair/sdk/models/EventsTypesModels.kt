@@ -174,6 +174,15 @@ data class ProgrammeStartedData(
     val endsAt: String? = null,
 )
 
+/** `data` of `station.onAir` and `station.offAir`: the station went on air, or came off it */
+@Serializable
+data class StationAirData(
+    /** A new running order, the stopped one started again, somebody stopping it, or the running order running out */
+    val reason: StationAirDataReason,
+    /** The running order's name, when going on air with a new one that has one */
+    val programme: String? = null,
+)
+
 /** Every event destination, oldest first */
 @Serializable
 data class EventDestinationList(
@@ -289,4 +298,17 @@ enum class ProgrammeStartedDataSource {
     PODCAST,
     @SerialName("narration")
     NARRATION,
+}
+
+/** A new running order, the stopped one started again, somebody stopping it, or the running order running out */
+@Serializable
+enum class StationAirDataReason {
+    @SerialName("programme")
+    PROGRAMME,
+    @SerialName("resumed")
+    RESUMED,
+    @SerialName("stopped")
+    STOPPED,
+    @SerialName("ranOut")
+    RAN_OUT,
 }

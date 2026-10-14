@@ -1,6 +1,13 @@
 import { DateTime } from 'luxon';
 import { eventEnvelope, type EventStation } from './event.envelope.js';
-import type { EventType, ProductionStartedData, ProgrammeStartedData, TalkStartedData, TrackStartedData } from './types/events.types.js';
+import type {
+    EventType,
+    ProductionStartedData,
+    ProgrammeStartedData,
+    StationAirData,
+    TalkStartedData,
+    TrackStartedData,
+} from './types/events.types.js';
 
 /** The event a test delivery sends. Not subscribable: only the test route sends it. */
 export const DESTINATION_TEST = 'destination.test';
@@ -14,6 +21,11 @@ export const PRODUCTION_STARTED = 'production.started';
 /** A programme the station carries began: a podcast episode, or a reading. */
 export const PROGRAMME_STARTED = 'programme.started';
 
+/** The station went on air. */
+export const STATION_ON_AIR = 'station.onAir';
+/** The station came off air. */
+export const STATION_OFF_AIR = 'station.offAir';
+
 /** One kind of event the station sends, as `/events/types` describes it. */
 interface CatalogueEntry {
     type: string;
@@ -22,6 +34,9 @@ interface CatalogueEntry {
     /** What `data` holds, filled in with believable values. */
     exampleData: Record<string, unknown>;
 }
+
+const exampleOnAir: StationAirData = { reason: 'programme', programme: 'Late Night Lows' };
+const exampleOffAir: StationAirData = { reason: 'stopped' };
 
 const exampleTrack: TrackStartedData = {
     itemId: 'b4f1c9a2-6d3e-4f70-8a19-2c5e7d9f0b31',
@@ -101,6 +116,19 @@ const CATALOGUE: readonly CatalogueEntry[] = [
         description: 'A programme the station carries began: an episode of a podcast, or something the station reads out itself (`narration`).',
         subscribable: true,
         exampleData: exampleProgramme,
+    },
+    {
+        type: STATION_ON_AIR,
+        description:
+            'The station went on air: with a new running order (`programme`, named when it has a name), or on the one it was stopped on (`resumed`).',
+        subscribable: true,
+        exampleData: exampleOnAir,
+    },
+    {
+        type: STATION_OFF_AIR,
+        description: 'The station came off air: somebody stopped it (`stopped`), or its running order ran out and said to stop (`ranOut`).',
+        subscribable: true,
+        exampleData: exampleOffAir,
     },
     {
         type: DESTINATION_TEST,

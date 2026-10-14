@@ -329,6 +329,19 @@ public sealed record ProgrammeStartedData
     public string? EndsAt { get; init; }
 }
 
+/// <summary>`data` of `station.onAir` and `station.offAir`: the station went on air, or came off it</summary>
+public sealed record StationAirData
+{
+    /// <summary>A new running order, the stopped one started again, somebody stopping it, or the running order running out</summary>
+    [JsonPropertyName("reason")]
+    public required StationAirDataReason Reason { get; init; }
+
+    /// <summary>The running order's name, when going on air with a new one that has one</summary>
+    [JsonPropertyName("programme")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Programme { get; init; }
+}
+
 /// <summary>Every event destination, oldest first</summary>
 public sealed record EventDestinationList
 {
@@ -508,4 +521,21 @@ public enum ProgrammeStartedDataSource
 
     [JsonStringEnumMemberName("narration")]
     Narration,
+}
+
+/// <summary>A new running order, the stopped one started again, somebody stopping it, or the running order running out</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<StationAirDataReason>))]
+public enum StationAirDataReason
+{
+    [JsonStringEnumMemberName("programme")]
+    Programme,
+
+    [JsonStringEnumMemberName("resumed")]
+    Resumed,
+
+    [JsonStringEnumMemberName("stopped")]
+    Stopped,
+
+    [JsonStringEnumMemberName("ranOut")]
+    RanOut,
 }

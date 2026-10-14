@@ -6,12 +6,13 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
 
-import { EventAnnouncer, airedEvent } from '../../../src/modules/events/event.announcer.js';
+import { AIR_CHANGE_WINDOW_MS, EventAnnouncer, airChangedEvent, airedEvent } from '../../../src/modules/events/event.announcer.js';
 import { EventDestinationsRepository } from '../../../src/modules/events/event.destinations.repository.js';
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 import { ProductionRepository } from '../../../src/modules/productions/production.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { SegmentRepository } from '../../../src/modules/render/segment.repository.js';
+import { StationBus } from '../../../src/modules/shared/station.bus.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const AIRED_AT = DateTime.fromISO('2026-10-14T20:00:00Z').toMillis();
@@ -121,15 +122,17 @@ describe('EventAnnouncer', () => {
         const container = { createScopedContainer: () => scope };
         const jobs = { send: vi.fn(async () => 'job') };
         const config = { get: (key: string, fallback: unknown) => (key === 'stream.title' ? 'Dead Air' : fallback) };
+        const bus = new StationBus({ warn: vi.fn() } as never);
         const announcer = new EventAnnouncer(
-            {} as never,
+            { onAired: () => () => undefined } as never,
+            bus,
             jobs as never,
             container as never,
             new StationIdentity(),
             config as never,
             { warn: vi.fn() } as never,
         );
-        return { announcer, jobs };
+        return { announcer, jobs, bus };
     }
 
     it('sends one job per subscribed destination, carrying the envelope and when it stops being true', async () => {
@@ -170,5 +173,55 @@ describe('EventAnnouncer', () => {
             call => (call[1] as { envelope: { data: { productionId: string } } }).envelope.data.productionId,
         );
         expect(types).toEqual(['prod-1', 'prod-2']);
+    });
+});
+
+describe('the station going on and off air', () => {
+    it('becomes station.onAir or station.offAir, true for ten minutes', () => {
+        expect(airChangedEvent({ on: true, reason: 'programme', programme: 'Late Night Lows', at: AIRED_AT })).toEqual({
+            type: 'station.onAir',
+            data: { reason: 'programme', programme: 'Late Night Lows' },
+            notAfter: AIRED_AT + AIR_CHANGE_WINDOW_MS,
+        });
+        expect(airChangedEvent({ on: false, reason: 'ranOut', at: AIRED_AT })).toEqual({
+            type: 'station.offAir',
+            data: { reason: 'ranOut' },
+            notAfter: AIRED_AT + AIR_CHANGE_WINDOW_MS,
+        });
+    });
+
+    it('is heard off the bus once started, at the moment the director decided, and not after stopping', async () => {
+        const repositories = new Map<unknown, unknown>([[EventDestinationsRepository, { subscribedTo: vi.fn(async () => ['dest-1']) }]]);
+        const container = {
+            createScopedContainer: () => ({ get: (token: unknown) => repositories.get(token), disposeAsync: async () => undefined }),
+        };
+        const jobs = { send: vi.fn(async () => 'job') };
+        const bus = new StationBus({ warn: vi.fn() } as never);
+        const config = { get: (_: string, fallback: unknown) => fallback };
+        const announcer = new EventAnnouncer(
+            { onAired: () => () => undefined } as never,
+            bus,
+            jobs as never,
+            container as never,
+            new StationIdentity(),
+            config as never,
+            { warn: vi.fn() } as never,
+        );
+
+        announcer.start();
+        bus.publish('air.changed', { on: false, reason: 'stopped', at: AIRED_AT });
+        await vi.waitFor(() => expect(jobs.send).toHaveBeenCalledOnce());
+        expect(jobs.send).toHaveBeenCalledWith(
+            'events.deliver',
+            expect.objectContaining({
+                envelope: expect.objectContaining({ type: 'station.offAir', occurredAt: '2026-10-14T20:00:00.000Z' }),
+                state: true,
+            }),
+        );
+
+        announcer.stop();
+        bus.publish('air.changed', { on: true, reason: 'resumed', at: AIRED_AT + 1 });
+        await new Promise(resolve => setTimeout(resolve, 10));
+        expect(jobs.send).toHaveBeenCalledOnce();
     });
 });

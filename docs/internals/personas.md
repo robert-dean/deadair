@@ -122,6 +122,8 @@ thing to pass round. Whoever speaks is told everybody else presenting tonight by
 (`coPresenters`, one line under the role sentence, through `stationPromptSettings` so every writer has
 it) and is the persona whose sheet, phrasings, notebook, story, pads and voice the break uses, as for
 any host. `speakerGuard` takes their names too. A guest host's "sitting in" line is the lead's alone.
+Where they talk TOGETHER is a banter, a production rather than a break, which a co-hosted show gets on
+its own every `rotation.banterEveryMinutes`: see `productions.md` § "Banter between co-hosts".
 
 ## The guest
 

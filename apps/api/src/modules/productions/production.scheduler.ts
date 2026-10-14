@@ -80,6 +80,8 @@ export interface BroadcastContext {
      * A banter is the presenters trading lines, so a show with one has nobody to banter with.
      */
     coHosted?: boolean;
+    /** Minutes of airtime between one banter and the next on a co-hosted show. `ResolvedRules.banterEveryMinutes`. */
+    banterEveryMinutes?: number;
 }
 
 /**
@@ -127,7 +129,7 @@ export class ProductionScheduler {
      */
     async ripen(now = Date.now(), show: BroadcastContext = {}): Promise<number> {
         try {
-            return (await this.fromTheClock(now, show)) + (await this.standing(now, show));
+            return (await this.fromTheClock(now, show)) + (await this.standing(now, show)) + (await this.standingBanter(now, show));
         } catch (error) {
             this.logger.warn(`productions: could not commission what was asked for (${errorText(error)})`);
             return 0;
@@ -220,12 +222,45 @@ export class ProductionScheduler {
      */
     private async standing(now: number, show: BroadcastContext): Promise<number> {
         const every = show.callinEveryMinutes ?? 0;
-        if (show.callins !== true || every <= 0 || show.broadcastId === undefined) return 0;
+        if (show.callins !== true) return 0;
 
         const kind = [...dialogueKinds(this.config)][0];
         // A station whose operator emptied the dialogue kinds has said there are no conversations,
         // which is a coherent thing to have said. There is nothing to commission.
         if (kind === undefined) return 0;
+
+        return this.keepUp(now, show, kind, every, 'productions: this broadcast takes calls, so somebody is being put on the phone');
+    }
+
+    /**
+     * The banter a show with co-hosts keeps having, on {@link standing}'s terms.
+     *
+     * Not a band, for the call's reason: presenters beside the host are a property of tonight's show
+     * rather than of the clock, so the spacing runs from the last banter this broadcast aired and the
+     * first goes out as soon as it can be made. It counts a banter a clock band commissioned too,
+     * since `standingIn` reads every one this broadcast has, so a station with both does not get two
+     * back to back. A station that took `banter` out of its production kinds has said a band naming it
+     * is a break, and gets none here either.
+     */
+    private async standingBanter(now: number, show: BroadcastContext): Promise<number> {
+        if (show.coHosted !== true || !productionKinds(this.config).has(BANTER_KIND)) return 0;
+        return this.keepUp(
+            now,
+            show,
+            BANTER_KIND,
+            show.banterEveryMinutes ?? 0,
+            'productions: this show has co-hosts, so they are being given a banter',
+        );
+    }
+
+    /**
+     * Commission one `kind` for this broadcast unless one is coming or the last aired too recently.
+     *
+     * By table read rather than by memory, which is what makes it safe on every commit pass: see
+     * {@link standing}.
+     */
+    private async keepUp(now: number, show: BroadcastContext, kind: string, every: number, why: string): Promise<number> {
+        if (every <= 0 || show.broadcastId === undefined) return 0;
 
         const { pending, lastAiredAt } = await this.productions.standingIn(show.broadcastId, kind);
         if (pending) return 0;
@@ -244,7 +279,7 @@ export class ProductionScheduler {
         });
 
         await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production) });
-        this.logger.info('productions: this broadcast takes calls, so somebody is being put on the phone', {
+        this.logger.info(why, {
             production: production.id,
             kind,
             everyMinutes: every,

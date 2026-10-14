@@ -252,6 +252,88 @@ describe('a broadcast that takes calls', () => {
     });
 });
 
+// A show that names co-hosts has said it wants its presenters trading lines, so it gets a banter
+// every so often without a band, spaced from the last one that aired, on the call's terms.
+describe('a show with co-hosts', () => {
+    const show = { broadcastId: 'b1', personaId: 'persona-1', coHosted: true, banterEveryMinutes: 30 };
+
+    const cohosted = (options: { standing?: { pending: boolean; lastAiredAt?: number } } = {}) => build({ bands: [], ...options });
+
+    it('gets a banter even where the clock asked for nothing', async () => {
+        const { scheduler, opened, productions } = cohosted();
+
+        await scheduler.ripen(now, show);
+
+        expect(opened).toHaveLength(1);
+        expect(opened[0]).toMatchObject({ kind: 'banter', personaId: 'persona-1' });
+        expect(opened[0]).not.toHaveProperty('scheduledFor');
+        expect(productions.standingIn).toHaveBeenCalledWith('b1', 'banter');
+    });
+
+    it('commissions nothing while one is already coming', async () => {
+        const { scheduler, opened } = cohosted({ standing: { pending: true } });
+
+        await scheduler.ripen(now, show);
+
+        expect(opened).toEqual([]);
+    });
+
+    it('waits out the spacing after one has aired, and takes another once it has passed', async () => {
+        const recent = cohosted({ standing: { pending: false, lastAiredAt: now - 10 * 60_000 } });
+        await recent.scheduler.ripen(now, show);
+        expect(recent.opened).toEqual([]);
+
+        const due = cohosted({ standing: { pending: false, lastAiredAt: now - 31 * 60_000 } });
+        await due.scheduler.ripen(now, show);
+        expect(due.opened).toHaveLength(1);
+    });
+
+    it('gets none on a show with nobody beside the host', async () => {
+        const { scheduler, opened } = cohosted();
+
+        await scheduler.ripen(now, { ...show, coHosted: false });
+        await scheduler.ripen(now, { broadcastId: 'b1', banterEveryMinutes: 30 });
+
+        expect(opened).toEqual([]);
+    });
+
+    it('gets none when the spacing is off, or with no broadcast to space against', async () => {
+        const { scheduler, opened } = cohosted();
+
+        await scheduler.ripen(now, { ...show, banterEveryMinutes: 0 });
+        await scheduler.ripen(now, { coHosted: true, banterEveryMinutes: 30 });
+
+        expect(opened).toEqual([]);
+    });
+
+    it('gets none on a station that took banter out of its production kinds', async () => {
+        const productions = {
+            scheduledAfter: vi.fn(async () => []),
+            standingIn: vi.fn(async () => ({ pending: false })),
+            open: vi.fn(async (input: Record<string, unknown>) => ({ id: 'p1', ...input })),
+        };
+        const scheduler = new ProductionScheduler(
+            productions as never,
+            { active: vi.fn(async () => []) } as never,
+            { send: vi.fn(async () => undefined) } as never,
+            config({ 'render.productionKinds': 'podcast,callin,visit' }),
+            logger as never,
+        );
+
+        await scheduler.ripen(now, show);
+
+        expect(productions.open).not.toHaveBeenCalled();
+    });
+
+    it('is as well as the calls on a show that takes them', async () => {
+        const { scheduler, opened } = cohosted();
+
+        await scheduler.ripen(now, { ...show, callins: true, callinEveryMinutes: 30 });
+
+        expect(opened.map(row => row.kind)).toEqual(['callin', 'banter']);
+    });
+});
+
 // The label a production gets when nobody names it is for the console's list. Handed to the model as
 // the programme's name, it became the host's opening line.
 describe('what a programme is called on air', () => {

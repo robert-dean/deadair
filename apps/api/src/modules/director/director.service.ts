@@ -2245,6 +2245,7 @@ export class DirectorService {
                 // Who presents beside the host tonight, so a banter is only commissioned for a show
                 // that has somebody to banter with.
                 coHosted: lineup.coHostPersonaIds.length > 0,
+                banterEveryMinutes: rules.banterEveryMinutes,
             });
         }).catch(error => this.logger.warn(`director: could not commission scheduled productions (${errorText(error)})`));
 

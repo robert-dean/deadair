@@ -119,6 +119,8 @@ describe('resolveRules', () => {
             // ringing in is exactly what this mode exists to prevent.
             callins: false,
             callinEveryMinutes: 0,
+            // And presenters trading lines for a few minutes is a phone-in without the phone.
+            banterEveryMinutes: 0,
             // Same argument, one step further: somebody decided where these records stop
             // and start, and overlapping two of them overrules that decision.
             crossfade: false,
@@ -244,6 +246,9 @@ describe('resolveRules, for a setlist told to talk', () => {
             mayGenerate: false,
             mixInSimilar: false,
             callins: false,
+            // A banter is a programme in the middle of their sequence, which talking between the
+            // records is not.
+            banterEveryMinutes: 0,
             crossfade: false,
         });
     });
@@ -279,6 +284,20 @@ describe('stationRules', () => {
         expect(stationRules(config).callins).toBe(false);
         expect(resolveRules('rotation', undefined, stationRules(config)).callins).toBe(false);
         expect(resolveRules('rotation', { callins: true }, stationRules(config)).callins).toBe(true);
+    });
+
+    it('gives a co-hosted show a banter every half hour until an operator sets otherwise', () => {
+        expect(stationRules(settingsConfig().config).banterEveryMinutes).toBe(30);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.banterEveryMinutes]: '45' }).config).banterEveryMinutes).toBe(45);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.banterEveryMinutes]: '0' }).config).banterEveryMinutes).toBe(0);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.banterEveryMinutes]: 'often' }).config).banterEveryMinutes).toBe(30);
+    });
+
+    it('gives a broadcast told to stay quiet no banter, since a banter is its presenters talking', () => {
+        const station = stationRules(settingsConfig().config);
+        expect(resolveRules('rotation', undefined, station).banterEveryMinutes).toBe(30);
+        expect(resolveRules('rotation', { breaks: false }, station).banterEveryMinutes).toBe(0);
+        expect(resolveRules('rotation', undefined, { ...station, breaks: false }).banterEveryMinutes).toBe(0);
     });
 
     it('leaves jingles off until an operator sets a spacing, and reads the one they set', () => {

@@ -41,10 +41,13 @@ asked for. Measured on the live station, 2026-10-11: briefed for heavy metal, ge
 seventeen on-brief searches, the library had answered `Dio` with every "Radio Edit", "Audio Remix",
 "Diopter" and "Dior" it held, and the Boneyard aired Culture Beat, Pop Smoke and a run of house remixes.
 So the search tool remembers each row with `matches`, whether it answered the query as whole words, and
-the rescue reads only `matching()`. A library row's answer is the SQL's (`matchesWords`, the same four
-places `searchPlayable` searches, through `regexWholeWords`), because a style search finds a record by a
-tag the row itself does not carry; a provider row has no tags and is judged on its title and credits by
-`hasWholeWords`, the same rule in TypeScript, which is what turns away "slayr" for `Slayer`. A search with
+the rescue reads only `matching()`. A row matches by its CREDITS (`hasWholeWords` over the artist and
+anyone featured, which is what turns away "slayr" for `Slayer`), or, in the library, by a STYLE: the SQL's
+`matchesStyle`, the genre and the tags through `regexWholeWords`, because a style search finds a record by a
+tag the row itself does not carry. **Never by its title alone.** Measured on the live station, 2026-10-14:
+a rock and roll hour searched `Chuck Berry` and `Little Richard`, the model went quiet, and the rescue took
+in Pharrell Williams' "Chuck Berry", The Rolling Stones' "Chuck Berry Style Jam" and Eddie Murphy's stand-up
+bit "Little Richard", which aired. The model reading a row can still name it by its title. A search with
 no text matches every row. Nothing matching is an empty answer, and the chain carries on exactly as it
 did before the rescue existed, so under `rotation.briefOnly` a short refill beats an off-brief one.
 

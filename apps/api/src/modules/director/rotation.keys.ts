@@ -56,7 +56,7 @@ export const albumKey = (artists: readonly string[], album: string): string => `
  * {@link normalizeKey} never emits (it turns every slash into a space), so a credit key with this in
  * it is always a joined credit and a plain artist key never is.
  */
-const ACT_SEPARATOR = ' / ';
+export const ACT_SEPARATOR = ' / ';
 
 /** A run of characters that are not part of any word, in any script. */
 const NON_WORD_RUN = /[^\p{L}\p{N}\p{M}]+/gu;

@@ -17,7 +17,7 @@ import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { advisoryPolicy, demandsClean } from './advisory.policy.js';
-import { artistKey, creditKey, sameAct } from './rotation.keys.js';
+import { ACT_SEPARATOR, artistKey, creditKey, sameAct } from './rotation.keys.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
@@ -294,6 +294,7 @@ export class ModelSetGenerator extends SetGenerator {
             {
                 count: inputs.count,
                 avoid: describeAvoided(inputs),
+                heldArtists: await this.heldArtists(inputs),
                 ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                 // Sent whether or not there is also a prose brief, unlike the persona's `music` line
                 // that used to be here: a range and a style are not competing claims, so there is
@@ -549,6 +550,22 @@ export class ModelSetGenerator extends SetGenerator {
     }
 
     /**
+     * The artists the rotation rules will refuse for this batch: aired inside the cooldown, queued
+     * near it, or in the order's tail. See `SetPromptRequest.heldArtists`.
+     *
+     * A failed read of the cooldown costs those names and nothing else, like the marks below.
+     */
+    private async heldArtists(inputs: SetInputs): Promise<string[]> {
+        const aired = await this.history.artistKeysSince(inputs.rules.artistCooldownMinutes, this.identity.stationKey).catch((error: unknown) => {
+            this.logger.debug(
+                `director: the model will not be told who aired inside the cooldown, because the history could not be read (${errorText(error)})`,
+            );
+            return new Set<string>();
+        });
+        return describeHeldArtists([...aired, ...(inputs.queuedArtistKeys ?? []), ...(inputs.avoidArtistKeys ?? [])]);
+    }
+
+    /**
      * Tell the search which records aired lately, so its rows can say so. See `AiredRecords`.
      *
      * A failed read costs the marks and nothing else: the refill goes ahead with the search as it was
@@ -749,6 +766,19 @@ function describeAvoided(inputs: SetInputs): string[] {
         described.push(`"${key.slice(separator + 1)}" by ${key.slice(0, separator)}`);
     }
     return described;
+}
+
+/**
+ * The artists a spacing set holds, as the prompt shows them: each key once, a joined credit in its
+ * joined form ("yusuf / cat stevens") rather than also as the flattened key beside it.
+ *
+ * Keys rather than display names, as {@link describeAvoided} shows records: they are what the sets
+ * carry, and a model reads "aphex twin" as Aphex Twin.
+ */
+export function describeHeldArtists(keys: Iterable<string>): string[] {
+    const all = [...new Set(keys)].filter(key => key.length > 0);
+    const flattened = new Set(all.filter(key => key.includes(ACT_SEPARATOR)).map(key => key.split(ACT_SEPARATOR).join(' ')));
+    return all.filter(key => !flattened.has(key));
 }
 
 /**

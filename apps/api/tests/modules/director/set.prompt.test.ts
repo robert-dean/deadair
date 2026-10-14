@@ -266,6 +266,19 @@ describe('setPrompt', () => {
         expect(userOf(setPrompt({ count: 12, avoid: [] }))).toMatch(/Choose 12 records/);
     });
 
+    it('names the artists the rules will refuse, once each and capped', () => {
+        const held = Array.from({ length: 15 }, (_, index) => `act ${index}`);
+        const user = userOf(setPrompt({ count: 5, avoid: [], heldArtists: ['act 0', ...held] }));
+
+        expect(user).toMatch(/choose someone else unless nothing else fits: act 0; act 1;/);
+        expect(user).toContain('(and 3 more)');
+    });
+
+    it('says nothing about held artists when there are none', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [], heldArtists: [] }))).not.toMatch(/choose someone else/);
+        expect(userOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/choose someone else/);
+    });
+
     it('carries the operator’s brief in the turn about this refill', () => {
         // The user turn rather than the system one: the system turn is the standing job and this is
         // what tonight was asked for.

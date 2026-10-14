@@ -19,6 +19,21 @@ export const EventDestination = z.strictObject({
         .max(2000)
         .describe("Where events are POSTed. http or https, and allowed to be on the station's own network. A redirect is never followed"),
     enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('Off sends nothing'),
+    events: z
+        .array(z.string().max(100))
+        .describe('The event types it is sent, from `/events/types`. Empty means every type, including any added later'),
+    consecutiveFailures: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe(
+            'Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off',
+        ),
+    disabledReason: z
+        .enum(['failing'])
+        .optional()
+        .describe('Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count'),
+    lastDeliveredAt: _ZodDatetime.optional(),
+    lastFailedAt: _ZodDatetime.optional(),
+    lastFailure: z.string().max(1000).optional().describe("What went wrong last time, in the station's words"),
     createdAt: _ZodDatetime,
     updatedAt: _ZodDatetime,
 });
@@ -32,6 +47,9 @@ export const EventDestinationInput = z.strictObject({
         .max(2000)
         .describe("Where events are POSTed. http or https, and allowed to be on the station's own network. A redirect is never followed"),
     enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('Off sends nothing'),
+    events: z
+        .array(z.string().max(100))
+        .describe('The event types it is sent, from `/events/types`. Empty means every type, including any added later'),
 });
 export type EventDestinationInput = z.infer<typeof EventDestinationInput>;
 
@@ -46,6 +64,7 @@ export const EventDestinationCreate = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe('Defaults to on'),
+    events: z.array(z.string().max(100)).optional().describe('The event types to send it. Absent or empty means every type'),
 });
 export type EventDestinationCreate = z.infer<typeof EventDestinationCreate>;
 
@@ -56,7 +75,11 @@ export type EventDestinationCreate = z.infer<typeof EventDestinationCreate>;
 export const EventDestinationUpdate = z.strictObject({
     name: z.string().min(1).max(200).optional(),
     url: z.string().min(1).max(2000).optional(),
-    enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).optional(),
+    enabled: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('Turning a destination back on also clears why the station turned it off, and its count of failures'),
+    events: z.array(z.string().max(100)).optional().describe('Empty means every type'),
 });
 export type EventDestinationUpdate = z.infer<typeof EventDestinationUpdate>;
 
@@ -119,6 +142,70 @@ export const EventStation = z.strictObject({
     name: z.string(),
 });
 export type EventStation = z.infer<typeof EventStation>;
+
+/**
+ * `data` of `track.started`: a record began playing, as listeners heard it
+ * generated from [TrackStartedData](../../../../data/contracts/events/events.types.ck)
+ */
+export const TrackStartedData = z.strictObject({
+    itemId: z.string().describe("The running order's id for this play"),
+    title: z.string(),
+    artists: z.array(z.string()).describe('The credit as the release writes it'),
+    artist: z.string().describe('The credit as one line, for showing'),
+    album: z.string().optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
+    trackId: z.uuid().optional().describe("The station's catalog id, where the record is in the catalog"),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    endsAt: z.string().optional().describe('When it should finish, as an ISO-8601 instant in UTC'),
+    artworkUrl: z
+        .string()
+        .optional()
+        .describe("The cover as the station serves it publicly, or the station's logo. Absent when the station has no public address"),
+});
+export type TrackStartedData = z.infer<typeof TrackStartedData>;
+
+/**
+ * `data` of `talk.started`: the station began speaking, in a break or a bulletin
+ * generated from [TalkStartedData](../../../../data/contracts/events/events.types.ck)
+ */
+export const TalkStartedData = z.strictObject({
+    itemId: z.string(),
+    segmentId: z.uuid(),
+    kind: z.string().describe('What sort of break: `talkbreak`, `news`, `weather`, `welcome` and so on'),
+    label: z.string().optional().describe('What a listener may be told it is, where the writer said'),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    endsAt: z.string().optional().describe('When it should finish, as an ISO-8601 instant in UTC'),
+});
+export type TalkStartedData = z.infer<typeof TalkStartedData>;
+
+/**
+ * `data` of `production.started`: a produced piece, such as a phone-in or a guest, began. Sent once per production
+ * generated from [ProductionStartedData](../../../../data/contracts/events/events.types.ck)
+ */
+export const ProductionStartedData = z.strictObject({
+    itemId: z.string(),
+    productionId: z.uuid(),
+    kind: z.string().describe('What sort of production: `callin`, `visit`, `banter` and so on'),
+    title: z.string(),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    endsAt: z.string().optional().describe('When it should finish, as an ISO-8601 instant in UTC'),
+});
+export type ProductionStartedData = z.infer<typeof ProductionStartedData>;
+
+/**
+ * `data` of `programme.started`: a programme the station carries began, a podcast episode or a reading
+ * generated from [ProgrammeStartedData](../../../../data/contracts/events/events.types.ck)
+ */
+export const ProgrammeStartedData = z.strictObject({
+    itemId: z.string(),
+    segmentId: z.uuid(),
+    source: z.enum(['podcast', 'narration']).describe('A podcast episode as published, or something the station reads out itself'),
+    show: z.string().optional(),
+    episode: z.string(),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    endsAt: z.string().optional().describe('When it should finish, as an ISO-8601 instant in UTC'),
+});
+export type ProgrammeStartedData = z.infer<typeof ProgrammeStartedData>;
 
 /**
  * Every event destination, oldest first

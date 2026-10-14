@@ -6506,7 +6506,7 @@ components:
     schemas:
         ActivityModule:
             type: string
-            enum: [playout, director, render, catalog, plugins, storage]
+            enum: [playout, director, render, catalog, plugins, storage, events]
             description: "Which part of the station an entry came from, and the console's one filter axis"
         ActivitySeverity:
             type: string
@@ -9789,6 +9789,35 @@ components:
                 enabled:
                     type: boolean
                     description: 'Off sends nothing'
+                events:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    description: 'The event types it is sent, from `/events/types`. Empty means every type, including any added later'
+                consecutiveFailures:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off'
+                disabledReason:
+                    type: string
+                    enum: [failing]
+                    readOnly: true
+                    description: 'Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count'
+                lastDeliveredAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                lastFailedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                lastFailure:
+                    type: string
+                    maxLength: 1000
+                    readOnly: true
+                    description: "What went wrong last time, in the station's words"
                 createdAt:
                     type: string
                     format: date-time
@@ -9797,7 +9826,7 @@ components:
                     type: string
                     format: date-time
                     readOnly: true
-            required: [id, name, url, enabled, createdAt, updatedAt]
+            required: [id, name, url, enabled, events, consecutiveFailures, createdAt, updatedAt]
             description: "Somewhere the station sends what happens on it: an operator's own server, sent a signed POST per event"
         EventDestinationList:
             type: object
@@ -9822,6 +9851,12 @@ components:
                 enabled:
                     type: boolean
                     description: 'Defaults to on'
+                events:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    description: 'The event types to send it. Absent or empty means every type'
             required: [name, url]
             description: 'A new event destination'
         EventDestinationUpdate:
@@ -9837,6 +9872,13 @@ components:
                     maxLength: 2000
                 enabled:
                     type: boolean
+                    description: 'Turning a destination back on also clears why the station turned it off, and its count of failures'
+                events:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    description: 'Empty means every type'
             description: 'Changes to an event destination. Only what is sent changes'
         EventDestinationSecret:
             type: object

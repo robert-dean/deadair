@@ -9,6 +9,12 @@ contract EventDestination: { # Somewhere the station sends what happens on it: a
     name: string(min=1, max=200) # What the operator calls it
     url: string(min=1, max=2000) # Where events are POSTed. http or https, and allowed to be on the station's own network. A redirect is never followed
     enabled: boolean # Off sends nothing
+    events: array(string(max=100)) # The event types it is sent, from `/events/types`. Empty means every type, including any added later
+    consecutiveFailures: readonly int(min=0) # Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off
+    disabledReason?: readonly enum(failing) # Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count
+    lastDeliveredAt?: readonly datetime
+    lastFailedAt?: readonly datetime
+    lastFailure?: readonly string(max=1000) # What went wrong last time, in the station's words
     createdAt: readonly datetime
     updatedAt: readonly datetime
 }
@@ -21,12 +27,14 @@ contract EventDestinationCreate: { # A new event destination
     name: string(min=1, max=200)
     url: string(min=1, max=2000)
     enabled?: boolean # Defaults to on
+    events?: array(string(max=100)) # The event types to send it. Absent or empty means every type
 }
 
 contract EventDestinationUpdate: { # Changes to an event destination. Only what is sent changes
     name?: string(min=1, max=200)
     url?: string(min=1, max=2000)
-    enabled?: boolean
+    enabled?: boolean # Turning a destination back on also clears why the station turned it off, and its count of failures
+    events?: array(string(max=100)) # Empty means every type
 }
 
 contract EventDestinationSecret: { # The secret deliveries to a destination are signed with. Shown only when it is made, so keep it
@@ -80,4 +88,45 @@ contract EventType: { # One kind of event the station sends
 
 contract EventTypeList: { # Every kind of event the station sends
     types: array(EventType)
+}
+
+contract TrackStartedData: { # `data` of `track.started`: a record began playing, as listeners heard it
+    itemId: string # The running order's id for this play
+    title: string
+    artists: array(string) # The credit as the release writes it
+    artist: string # The credit as one line, for showing
+    album?: string
+    year?: int
+    trackId?: uuid # The station's catalog id, where the record is in the catalog
+    durationMs?: int(min=0)
+    endsAt?: string # When it should finish, as an ISO-8601 instant in UTC
+    artworkUrl?: string # The cover as the station serves it publicly, or the station's logo. Absent when the station has no public address
+}
+
+contract TalkStartedData: { # `data` of `talk.started`: the station began speaking, in a break or a bulletin
+    itemId: string
+    segmentId: uuid
+    kind: string # What sort of break: `talkbreak`, `news`, `weather`, `welcome` and so on
+    label?: string # What a listener may be told it is, where the writer said
+    durationMs?: int(min=0)
+    endsAt?: string # When it should finish, as an ISO-8601 instant in UTC
+}
+
+contract ProductionStartedData: { # `data` of `production.started`: a produced piece, such as a phone-in or a guest, began. Sent once per production
+    itemId: string
+    productionId: uuid
+    kind: string # What sort of production: `callin`, `visit`, `banter` and so on
+    title: string
+    durationMs?: int(min=0)
+    endsAt?: string # When it should finish, as an ISO-8601 instant in UTC
+}
+
+contract ProgrammeStartedData: { # `data` of `programme.started`: a programme the station carries began, a podcast episode or a reading
+    itemId: string
+    segmentId: uuid
+    source: enum(podcast, narration) # A podcast episode as published, or something the station reads out itself
+    show?: string
+    episode: string
+    durationMs?: int(min=0)
+    endsAt?: string # When it should finish, as an ISO-8601 instant in UTC
 }

@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { DateTime } from 'luxon';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { StationIdentity } from '#modules/shared/station.identity.js';
+import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import type { EventEnvelope, EventStation } from './types/events.types.js';
 
 export type { EventEnvelope, EventStation };
@@ -23,4 +26,12 @@ export function eventEnvelope(
     id: string = randomUUID(),
 ): EventEnvelope {
     return { id, type, occurredAt: occurredAt.toUTC().toISO()!, station, data };
+}
+
+/**
+ * Which station this is, as every envelope says it. The name is the stream's title, as listeners see
+ * it, read each time so a renamed station says so on its next event.
+ */
+export function eventStation(identity: StationIdentity, config: AppConfig): EventStation {
+    return { key: identity.stationKey, name: String(config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title)) };
 }

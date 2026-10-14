@@ -36,6 +36,54 @@ targets a plugin names. This one sends every kind of moment, as a typed envelope
 own table. What it borrows is the pattern: listen on the edge, hand one job per destination to the
 broker, and drop an event once it would be false rather than late.
 
+## What goes on air, and when
+
+**Off the transport's aired edge.** `EventAnnouncer` listens to `Rundown.onAired`, which fires once
+per item at the moment listeners hear it, the edge play history, the scrobble and the chat
+announcements hang off. That is what "a track changed" has to mean to a light in somebody's hall:
+committed to the running order is minutes early, and a production's `production.aired` row is
+written when it is PLACED, not heard. The rundown is in `playout`, before this module, so listening
+needs nothing earlier to know `events` exists; this is not a `StationBus` arm, because the
+transport's own seams stay off the bus (`apps/api/CLAUDE.md` § "How work is dispatched").
+
+**Four types say what is on air at every moment** (`airedEvent`, pure, in `event.announcer.ts`):
+`track.started` for a record, `programme.started` for a podcast episode or a reading,
+`production.started` for a phone-in, a guest or banter, and `talk.started` for every other thing the
+station says. A receiver that wants an On Air light turns it on for the middle two and off for the
+others, and needs no "ended" event: what ends something is the next thing starting.
+
+**A production fires once.** A station with no mixer airs a production as a block of beats, one item
+each, and a phone-in announced seven times is seven claims that it started. The announcer remembers
+the production the last item belonged to and stays quiet while it is the same one. Which production a
+segment belongs to is read from `production_id` alone (`SegmentRepository.kindOf`), because the
+joined row that usually airs has no ordinal and `toSegment` hides the production id without one.
+
+**A segment whose row is gone sends nothing**, rather than a guessed kind a receiver would act on.
+
+## Late, stale, and switched off
+
+**A delivery is an EVENT, not an attempt.** `events.deliver` is one job per destination per event,
+retried by the broker three times from fifteen seconds with backoff: about two minutes, the length of
+a hub restarting. `EventDeliverer` decides which attempt is the last, and only that one counts toward
+switching a destination off, so a restart costs one failure per event that fell in the gap rather
+than four. pg-boss gives a job no attempt counter, so the attempt number is read from the delivery log.
+
+**Past its moment, an event is dropped.** `notAfter` is the item's end (`announceDeadline`, the chat
+announcer's rule), and a light switched for a record that has finished is wrong rather than late. A
+drop counts as a failure only if an attempt at that event had already failed.
+
+**A stale state event is dropped too.** The broker keeps no order, so a retried `talk.started` can
+finish after the `track.started` that followed it. `last_state_at` holds the newest moment a
+destination has taken, moved forward with `greatest()` so two deliveries finishing in either order
+leave the newer one, and an older state event is written down as dropped instead of being sent.
+
+**Twenty failed deliveries in a row turn a destination off**, with one `warn` line on the activity
+feed under the `events` module, written by whichever job crossed the line: the count is incremented
+in the database, and `disableFailing` updates only a destination that is still on, so two jobs
+crossing together say it once. Turning it back on clears the reason and the count, because an
+operator doing that is saying the receiver is fixed and a count left at nineteen would switch it off
+again on the first hiccup. A test delivery never touches the count: a test is a probe, not traffic.
+
 ## What a delivery is
 
 **One envelope for every type** (`EventEnvelope` in `events.types.ck`): `id`, `type`, `occurredAt`,
@@ -100,7 +148,8 @@ deliveries included, and nothing reads it to decide whether to send: retries are
 It is kept to the newest fifty per destination, trimmed by the same call that writes a row, because
 the moment a row arrives is the one moment the destination is known to have one too many, and a busy
 station would otherwise write one row per record per destination forever.
-`apps/api/scripts/events.smoke.ts` covers the trim, which is the part that is SQL.
+`apps/api/scripts/events.smoke.ts` covers the trim, and the subscription match, the state mark and the
+failure count, which are the parts that are SQL.
 
 **A test is sent whether the destination is on or not**, because checking a receiver before turning
 it on is the obvious thing to want, and it lands in the same log as real traffic so the console shows

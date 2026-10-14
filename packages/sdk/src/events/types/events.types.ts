@@ -20,6 +20,16 @@ export interface EventDestination {
     url: string;
     /** Off sends nothing */
     enabled: boolean;
+    /** The event types it is sent, from `/events/types`. Empty means every type, including any added later */
+    events: string[];
+    /** Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off */
+    consecutiveFailures: number;
+    /** Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count */
+    disabledReason?: 'failing';
+    lastDeliveredAt?: DateTime;
+    lastFailedAt?: DateTime;
+    /** What went wrong last time, in the station's words */
+    lastFailure?: string;
     createdAt: DateTime;
     updatedAt: DateTime;
 }
@@ -31,11 +41,19 @@ export interface EventDestinationInput {
     url: string;
     /** Off sends nothing */
     enabled: boolean;
+    /** The event types it is sent, from `/events/types`. Empty means every type, including any added later */
+    events: string[];
 }
 
 /** Rehydrates every wire-encoded scalar in a EventDestination into its runtime type. Mutates and returns `raw`. */
 export function reviveEventDestination(raw: EventDestination): EventDestination {
     const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['lastDeliveredAt'] != null) {
+        __o0['lastDeliveredAt'] = __dt(__o0['lastDeliveredAt'], 'EventDestination.lastDeliveredAt');
+    }
+    if (__o0['lastFailedAt'] != null) {
+        __o0['lastFailedAt'] = __dt(__o0['lastFailedAt'], 'EventDestination.lastFailedAt');
+    }
     __o0['createdAt'] = __dt(__o0['createdAt'], 'EventDestination.createdAt');
     __o0['updatedAt'] = __dt(__o0['updatedAt'], 'EventDestination.updatedAt');
     return raw;
@@ -50,6 +68,8 @@ export interface EventDestinationCreate {
     url: string;
     /** Defaults to on */
     enabled?: boolean;
+    /** The event types to send it. Absent or empty means every type */
+    events?: string[];
 }
 
 /**
@@ -59,7 +79,10 @@ export interface EventDestinationCreate {
 export interface EventDestinationUpdate {
     name?: string;
     url?: string;
+    /** Turning a destination back on also clears why the station turned it off, and its count of failures */
     enabled?: boolean;
+    /** Empty means every type */
+    events?: string[];
 }
 
 /**
@@ -118,6 +141,76 @@ export interface EventTestResult {
 export interface EventStation {
     key: string;
     name: string;
+}
+
+/**
+ * `data` of `track.started`: a record began playing, as listeners heard it
+ * generated from [TrackStartedData](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface TrackStartedData {
+    /** The running order's id for this play */
+    itemId: string;
+    title: string;
+    /** The credit as the release writes it */
+    artists: string[];
+    /** The credit as one line, for showing */
+    artist: string;
+    album?: string;
+    year?: number;
+    /** The station's catalog id, where the record is in the catalog */
+    trackId?: string;
+    durationMs?: number;
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    endsAt?: string;
+    /** The cover as the station serves it publicly, or the station's logo. Absent when the station has no public address */
+    artworkUrl?: string;
+}
+
+/**
+ * `data` of `talk.started`: the station began speaking, in a break or a bulletin
+ * generated from [TalkStartedData](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface TalkStartedData {
+    itemId: string;
+    segmentId: string;
+    /** What sort of break: `talkbreak`, `news`, `weather`, `welcome` and so on */
+    kind: string;
+    /** What a listener may be told it is, where the writer said */
+    label?: string;
+    durationMs?: number;
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    endsAt?: string;
+}
+
+/**
+ * `data` of `production.started`: a produced piece, such as a phone-in or a guest, began. Sent once per production
+ * generated from [ProductionStartedData](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface ProductionStartedData {
+    itemId: string;
+    productionId: string;
+    /** What sort of production: `callin`, `visit`, `banter` and so on */
+    kind: string;
+    title: string;
+    durationMs?: number;
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    endsAt?: string;
+}
+
+/**
+ * `data` of `programme.started`: a programme the station carries began, a podcast episode or a reading
+ * generated from [ProgrammeStartedData](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface ProgrammeStartedData {
+    itemId: string;
+    segmentId: string;
+    /** A podcast episode as published, or something the station reads out itself */
+    source: 'podcast' | 'narration';
+    show?: string;
+    episode: string;
+    durationMs?: number;
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    endsAt?: string;
 }
 
 /**

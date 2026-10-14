@@ -10,14 +10,30 @@ public struct EventDestination: Codable, Equatable, Sendable {
     public var url: String
     /// Off sends nothing
     public var enabled: Bool
+    /// The event types it is sent, from `/events/types`. Empty means every type, including any added later
+    public var events: [String]
+    /// Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off
+    public var consecutiveFailures: Int
+    /// Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count
+    public var disabledReason: EventDestinationDisabledReason?
+    public var lastDeliveredAt: Date?
+    public var lastFailedAt: Date?
+    /// What went wrong last time, in the station's words
+    public var lastFailure: String?
     public var createdAt: Date
     public var updatedAt: Date
 
-    public init(id: UUID, name: String, url: String, enabled: Bool, createdAt: Date, updatedAt: Date) {
+    public init(id: UUID, name: String, url: String, enabled: Bool, events: [String], consecutiveFailures: Int, disabledReason: EventDestinationDisabledReason? = nil, lastDeliveredAt: Date? = nil, lastFailedAt: Date? = nil, lastFailure: String? = nil, createdAt: Date, updatedAt: Date) {
         self.id = id
         self.name = name
         self.url = url
         self.enabled = enabled
+        self.events = events
+        self.consecutiveFailures = consecutiveFailures
+        self.disabledReason = disabledReason
+        self.lastDeliveredAt = lastDeliveredAt
+        self.lastFailedAt = lastFailedAt
+        self.lastFailure = lastFailure
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -27,6 +43,12 @@ public struct EventDestination: Codable, Equatable, Sendable {
         case name = "name"
         case url = "url"
         case enabled = "enabled"
+        case events = "events"
+        case consecutiveFailures = "consecutiveFailures"
+        case disabledReason = "disabledReason"
+        case lastDeliveredAt = "lastDeliveredAt"
+        case lastFailedAt = "lastFailedAt"
+        case lastFailure = "lastFailure"
         case createdAt = "createdAt"
         case updatedAt = "updatedAt"
     }
@@ -37,6 +59,12 @@ public struct EventDestination: Codable, Equatable, Sendable {
         self.name = try container.decode(String.self, forKey: .name)
         self.url = try container.decode(String.self, forKey: .url)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.events = try container.decode([String].self, forKey: .events)
+        self.consecutiveFailures = try container.decode(Int.self, forKey: .consecutiveFailures)
+        self.disabledReason = try container.decodeIfPresent(EventDestinationDisabledReason.self, forKey: .disabledReason)
+        self.lastDeliveredAt = try container.decodeIfPresent(Date.self, forKey: .lastDeliveredAt)
+        self.lastFailedAt = try container.decodeIfPresent(Date.self, forKey: .lastFailedAt)
+        self.lastFailure = try container.decodeIfPresent(String.self, forKey: .lastFailure)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
@@ -47,6 +75,12 @@ public struct EventDestination: Codable, Equatable, Sendable {
         try container.encode(self.name, forKey: .name)
         try container.encode(self.url, forKey: .url)
         try container.encode(self.enabled, forKey: .enabled)
+        try container.encode(self.events, forKey: .events)
+        try container.encode(self.consecutiveFailures, forKey: .consecutiveFailures)
+        try container.encodeIfPresent(self.disabledReason, forKey: .disabledReason)
+        try container.encodeIfPresent(self.lastDeliveredAt, forKey: .lastDeliveredAt)
+        try container.encodeIfPresent(self.lastFailedAt, forKey: .lastFailedAt)
+        try container.encodeIfPresent(self.lastFailure, forKey: .lastFailure)
         try container.encode(self.createdAt, forKey: .createdAt)
         try container.encode(self.updatedAt, forKey: .updatedAt)
     }
@@ -60,17 +94,21 @@ public struct EventDestinationInput: Codable, Equatable, Sendable {
     public var url: String
     /// Off sends nothing
     public var enabled: Bool
+    /// The event types it is sent, from `/events/types`. Empty means every type, including any added later
+    public var events: [String]
 
-    public init(name: String, url: String, enabled: Bool) {
+    public init(name: String, url: String, enabled: Bool, events: [String]) {
         self.name = name
         self.url = url
         self.enabled = enabled
+        self.events = events
     }
 
     private enum CodingKeys: String, CodingKey {
         case name = "name"
         case url = "url"
         case enabled = "enabled"
+        case events = "events"
     }
 
     public init(from decoder: Decoder) throws {
@@ -78,6 +116,7 @@ public struct EventDestinationInput: Codable, Equatable, Sendable {
         self.name = try container.decode(String.self, forKey: .name)
         self.url = try container.decode(String.self, forKey: .url)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.events = try container.decode([String].self, forKey: .events)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -85,6 +124,7 @@ public struct EventDestinationInput: Codable, Equatable, Sendable {
         try container.encode(self.name, forKey: .name)
         try container.encode(self.url, forKey: .url)
         try container.encode(self.enabled, forKey: .enabled)
+        try container.encode(self.events, forKey: .events)
     }
 }
 
@@ -94,17 +134,21 @@ public struct EventDestinationCreate: Codable, Equatable, Sendable {
     public var url: String
     /// Defaults to on
     public var enabled: Bool?
+    /// The event types to send it. Absent or empty means every type
+    public var events: [String]?
 
-    public init(name: String, url: String, enabled: Bool? = nil) {
+    public init(name: String, url: String, enabled: Bool? = nil, events: [String]? = nil) {
         self.name = name
         self.url = url
         self.enabled = enabled
+        self.events = events
     }
 
     private enum CodingKeys: String, CodingKey {
         case name = "name"
         case url = "url"
         case enabled = "enabled"
+        case events = "events"
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,6 +156,7 @@ public struct EventDestinationCreate: Codable, Equatable, Sendable {
         self.name = try container.decode(String.self, forKey: .name)
         self.url = try container.decode(String.self, forKey: .url)
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.events = try container.decodeIfPresent([String].self, forKey: .events)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -119,6 +164,7 @@ public struct EventDestinationCreate: Codable, Equatable, Sendable {
         try container.encode(self.name, forKey: .name)
         try container.encode(self.url, forKey: .url)
         try container.encodeIfPresent(self.enabled, forKey: .enabled)
+        try container.encodeIfPresent(self.events, forKey: .events)
     }
 }
 
@@ -126,18 +172,23 @@ public struct EventDestinationCreate: Codable, Equatable, Sendable {
 public struct EventDestinationUpdate: Codable, Equatable, Sendable {
     public var name: String?
     public var url: String?
+    /// Turning a destination back on also clears why the station turned it off, and its count of failures
     public var enabled: Bool?
+    /// Empty means every type
+    public var events: [String]?
 
-    public init(name: String? = nil, url: String? = nil, enabled: Bool? = nil) {
+    public init(name: String? = nil, url: String? = nil, enabled: Bool? = nil, events: [String]? = nil) {
         self.name = name
         self.url = url
         self.enabled = enabled
+        self.events = events
     }
 
     private enum CodingKeys: String, CodingKey {
         case name = "name"
         case url = "url"
         case enabled = "enabled"
+        case events = "events"
     }
 
     public init(from decoder: Decoder) throws {
@@ -145,6 +196,7 @@ public struct EventDestinationUpdate: Codable, Equatable, Sendable {
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.url = try container.decodeIfPresent(String.self, forKey: .url)
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        self.events = try container.decodeIfPresent([String].self, forKey: .events)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -152,6 +204,7 @@ public struct EventDestinationUpdate: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.name, forKey: .name)
         try container.encodeIfPresent(self.url, forKey: .url)
         try container.encodeIfPresent(self.enabled, forKey: .enabled)
+        try container.encodeIfPresent(self.events, forKey: .events)
     }
 }
 
@@ -314,6 +367,236 @@ public struct EventStation: Codable, Equatable, Sendable {
     }
 }
 
+/// `data` of `track.started`: a record began playing, as listeners heard it
+public struct TrackStartedData: Codable, Equatable, Sendable {
+    /// The running order's id for this play
+    public var itemId: String
+    public var title: String
+    /// The credit as the release writes it
+    public var artists: [String]
+    /// The credit as one line, for showing
+    public var artist: String
+    public var album: String?
+    public var year: Int?
+    /// The station's catalog id, where the record is in the catalog
+    public var trackId: UUID?
+    public var durationMs: Int?
+    /// When it should finish, as an ISO-8601 instant in UTC
+    public var endsAt: String?
+    /// The cover as the station serves it publicly, or the station's logo. Absent when the station has no public address
+    public var artworkUrl: String?
+
+    public init(itemId: String, title: String, artists: [String], artist: String, album: String? = nil, year: Int? = nil, trackId: UUID? = nil, durationMs: Int? = nil, endsAt: String? = nil, artworkUrl: String? = nil) {
+        self.itemId = itemId
+        self.title = title
+        self.artists = artists
+        self.artist = artist
+        self.album = album
+        self.year = year
+        self.trackId = trackId
+        self.durationMs = durationMs
+        self.endsAt = endsAt
+        self.artworkUrl = artworkUrl
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case itemId = "itemId"
+        case title = "title"
+        case artists = "artists"
+        case artist = "artist"
+        case album = "album"
+        case year = "year"
+        case trackId = "trackId"
+        case durationMs = "durationMs"
+        case endsAt = "endsAt"
+        case artworkUrl = "artworkUrl"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.itemId = try container.decode(String.self, forKey: .itemId)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.artists = try container.decode([String].self, forKey: .artists)
+        self.artist = try container.decode(String.self, forKey: .artist)
+        self.album = try container.decodeIfPresent(String.self, forKey: .album)
+        self.year = try container.decodeIfPresent(Int.self, forKey: .year)
+        self.trackId = try container.decodeIfPresent(UUID.self, forKey: .trackId)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.endsAt = try container.decodeIfPresent(String.self, forKey: .endsAt)
+        self.artworkUrl = try container.decodeIfPresent(String.self, forKey: .artworkUrl)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.itemId, forKey: .itemId)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.artists, forKey: .artists)
+        try container.encode(self.artist, forKey: .artist)
+        try container.encodeIfPresent(self.album, forKey: .album)
+        try container.encodeIfPresent(self.year, forKey: .year)
+        try container.encodeIfPresent(self.trackId, forKey: .trackId)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encodeIfPresent(self.endsAt, forKey: .endsAt)
+        try container.encodeIfPresent(self.artworkUrl, forKey: .artworkUrl)
+    }
+}
+
+/// `data` of `talk.started`: the station began speaking, in a break or a bulletin
+public struct TalkStartedData: Codable, Equatable, Sendable {
+    public var itemId: String
+    public var segmentId: UUID
+    /// What sort of break: `talkbreak`, `news`, `weather`, `welcome` and so on
+    public var kind: String
+    /// What a listener may be told it is, where the writer said
+    public var label: String?
+    public var durationMs: Int?
+    /// When it should finish, as an ISO-8601 instant in UTC
+    public var endsAt: String?
+
+    public init(itemId: String, segmentId: UUID, kind: String, label: String? = nil, durationMs: Int? = nil, endsAt: String? = nil) {
+        self.itemId = itemId
+        self.segmentId = segmentId
+        self.kind = kind
+        self.label = label
+        self.durationMs = durationMs
+        self.endsAt = endsAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case itemId = "itemId"
+        case segmentId = "segmentId"
+        case kind = "kind"
+        case label = "label"
+        case durationMs = "durationMs"
+        case endsAt = "endsAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.itemId = try container.decode(String.self, forKey: .itemId)
+        self.segmentId = try container.decode(UUID.self, forKey: .segmentId)
+        self.kind = try container.decode(String.self, forKey: .kind)
+        self.label = try container.decodeIfPresent(String.self, forKey: .label)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.endsAt = try container.decodeIfPresent(String.self, forKey: .endsAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.itemId, forKey: .itemId)
+        try container.encode(self.segmentId, forKey: .segmentId)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.label, forKey: .label)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encodeIfPresent(self.endsAt, forKey: .endsAt)
+    }
+}
+
+/// `data` of `production.started`: a produced piece, such as a phone-in or a guest, began. Sent once per production
+public struct ProductionStartedData: Codable, Equatable, Sendable {
+    public var itemId: String
+    public var productionId: UUID
+    /// What sort of production: `callin`, `visit`, `banter` and so on
+    public var kind: String
+    public var title: String
+    public var durationMs: Int?
+    /// When it should finish, as an ISO-8601 instant in UTC
+    public var endsAt: String?
+
+    public init(itemId: String, productionId: UUID, kind: String, title: String, durationMs: Int? = nil, endsAt: String? = nil) {
+        self.itemId = itemId
+        self.productionId = productionId
+        self.kind = kind
+        self.title = title
+        self.durationMs = durationMs
+        self.endsAt = endsAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case itemId = "itemId"
+        case productionId = "productionId"
+        case kind = "kind"
+        case title = "title"
+        case durationMs = "durationMs"
+        case endsAt = "endsAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.itemId = try container.decode(String.self, forKey: .itemId)
+        self.productionId = try container.decode(UUID.self, forKey: .productionId)
+        self.kind = try container.decode(String.self, forKey: .kind)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.endsAt = try container.decodeIfPresent(String.self, forKey: .endsAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.itemId, forKey: .itemId)
+        try container.encode(self.productionId, forKey: .productionId)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.title, forKey: .title)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encodeIfPresent(self.endsAt, forKey: .endsAt)
+    }
+}
+
+/// `data` of `programme.started`: a programme the station carries began, a podcast episode or a reading
+public struct ProgrammeStartedData: Codable, Equatable, Sendable {
+    public var itemId: String
+    public var segmentId: UUID
+    /// A podcast episode as published, or something the station reads out itself
+    public var source: ProgrammeStartedDataSource
+    public var show: String?
+    public var episode: String
+    public var durationMs: Int?
+    /// When it should finish, as an ISO-8601 instant in UTC
+    public var endsAt: String?
+
+    public init(itemId: String, segmentId: UUID, source: ProgrammeStartedDataSource, show: String? = nil, episode: String, durationMs: Int? = nil, endsAt: String? = nil) {
+        self.itemId = itemId
+        self.segmentId = segmentId
+        self.source = source
+        self.show = show
+        self.episode = episode
+        self.durationMs = durationMs
+        self.endsAt = endsAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case itemId = "itemId"
+        case segmentId = "segmentId"
+        case source = "source"
+        case show = "show"
+        case episode = "episode"
+        case durationMs = "durationMs"
+        case endsAt = "endsAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.itemId = try container.decode(String.self, forKey: .itemId)
+        self.segmentId = try container.decode(UUID.self, forKey: .segmentId)
+        self.source = try container.decode(ProgrammeStartedDataSource.self, forKey: .source)
+        self.show = try container.decodeIfPresent(String.self, forKey: .show)
+        self.episode = try container.decode(String.self, forKey: .episode)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.endsAt = try container.decodeIfPresent(String.self, forKey: .endsAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.itemId, forKey: .itemId)
+        try container.encode(self.segmentId, forKey: .segmentId)
+        try container.encode(self.source, forKey: .source)
+        try container.encodeIfPresent(self.show, forKey: .show)
+        try container.encode(self.episode, forKey: .episode)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encodeIfPresent(self.endsAt, forKey: .endsAt)
+    }
+}
+
 /// Every event destination, oldest first
 public struct EventDestinationList: Codable, Equatable, Sendable {
     public var destinations: [EventDestination]
@@ -369,16 +652,32 @@ public struct EventDestinationCreated: Codable, Equatable, Sendable {
     public var url: String
     /// Off sends nothing
     public var enabled: Bool
+    /// The event types it is sent, from `/events/types`. Empty means every type, including any added later
+    public var events: [String]
+    /// Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off
+    public var consecutiveFailures: Int
+    /// Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count
+    public var disabledReason: EventDestinationDisabledReason?
+    public var lastDeliveredAt: Date?
+    public var lastFailedAt: Date?
+    /// What went wrong last time, in the station's words
+    public var lastFailure: String?
     public var createdAt: Date
     public var updatedAt: Date
     /// Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=<hex HMAC-SHA256 of "<Deadair-Webhook-Timestamp>.<body>">`
     public var secret: String
 
-    public init(id: UUID, name: String, url: String, enabled: Bool, createdAt: Date, updatedAt: Date, secret: String) {
+    public init(id: UUID, name: String, url: String, enabled: Bool, events: [String], consecutiveFailures: Int, disabledReason: EventDestinationDisabledReason? = nil, lastDeliveredAt: Date? = nil, lastFailedAt: Date? = nil, lastFailure: String? = nil, createdAt: Date, updatedAt: Date, secret: String) {
         self.id = id
         self.name = name
         self.url = url
         self.enabled = enabled
+        self.events = events
+        self.consecutiveFailures = consecutiveFailures
+        self.disabledReason = disabledReason
+        self.lastDeliveredAt = lastDeliveredAt
+        self.lastFailedAt = lastFailedAt
+        self.lastFailure = lastFailure
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.secret = secret
@@ -389,6 +688,12 @@ public struct EventDestinationCreated: Codable, Equatable, Sendable {
         case name = "name"
         case url = "url"
         case enabled = "enabled"
+        case events = "events"
+        case consecutiveFailures = "consecutiveFailures"
+        case disabledReason = "disabledReason"
+        case lastDeliveredAt = "lastDeliveredAt"
+        case lastFailedAt = "lastFailedAt"
+        case lastFailure = "lastFailure"
         case createdAt = "createdAt"
         case updatedAt = "updatedAt"
         case secret = "secret"
@@ -400,6 +705,12 @@ public struct EventDestinationCreated: Codable, Equatable, Sendable {
         self.name = try container.decode(String.self, forKey: .name)
         self.url = try container.decode(String.self, forKey: .url)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.events = try container.decode([String].self, forKey: .events)
+        self.consecutiveFailures = try container.decode(Int.self, forKey: .consecutiveFailures)
+        self.disabledReason = try container.decodeIfPresent(EventDestinationDisabledReason.self, forKey: .disabledReason)
+        self.lastDeliveredAt = try container.decodeIfPresent(Date.self, forKey: .lastDeliveredAt)
+        self.lastFailedAt = try container.decodeIfPresent(Date.self, forKey: .lastFailedAt)
+        self.lastFailure = try container.decodeIfPresent(String.self, forKey: .lastFailure)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         self.secret = try container.decode(String.self, forKey: .secret)
@@ -411,6 +722,12 @@ public struct EventDestinationCreated: Codable, Equatable, Sendable {
         try container.encode(self.name, forKey: .name)
         try container.encode(self.url, forKey: .url)
         try container.encode(self.enabled, forKey: .enabled)
+        try container.encode(self.events, forKey: .events)
+        try container.encode(self.consecutiveFailures, forKey: .consecutiveFailures)
+        try container.encodeIfPresent(self.disabledReason, forKey: .disabledReason)
+        try container.encodeIfPresent(self.lastDeliveredAt, forKey: .lastDeliveredAt)
+        try container.encodeIfPresent(self.lastFailedAt, forKey: .lastFailedAt)
+        try container.encodeIfPresent(self.lastFailure, forKey: .lastFailure)
         try container.encode(self.createdAt, forKey: .createdAt)
         try container.encode(self.updatedAt, forKey: .updatedAt)
         try container.encode(self.secret, forKey: .secret)
@@ -425,13 +742,16 @@ public struct EventDestinationCreatedInput: Codable, Equatable, Sendable {
     public var url: String
     /// Off sends nothing
     public var enabled: Bool
+    /// The event types it is sent, from `/events/types`. Empty means every type, including any added later
+    public var events: [String]
     /// Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=<hex HMAC-SHA256 of "<Deadair-Webhook-Timestamp>.<body>">`
     public var secret: String
 
-    public init(name: String, url: String, enabled: Bool, secret: String) {
+    public init(name: String, url: String, enabled: Bool, events: [String], secret: String) {
         self.name = name
         self.url = url
         self.enabled = enabled
+        self.events = events
         self.secret = secret
     }
 
@@ -439,6 +759,7 @@ public struct EventDestinationCreatedInput: Codable, Equatable, Sendable {
         case name = "name"
         case url = "url"
         case enabled = "enabled"
+        case events = "events"
         case secret = "secret"
     }
 
@@ -447,6 +768,7 @@ public struct EventDestinationCreatedInput: Codable, Equatable, Sendable {
         self.name = try container.decode(String.self, forKey: .name)
         self.url = try container.decode(String.self, forKey: .url)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.events = try container.decode([String].self, forKey: .events)
         self.secret = try container.decode(String.self, forKey: .secret)
     }
 
@@ -455,6 +777,7 @@ public struct EventDestinationCreatedInput: Codable, Equatable, Sendable {
         try container.encode(self.name, forKey: .name)
         try container.encode(self.url, forKey: .url)
         try container.encode(self.enabled, forKey: .enabled)
+        try container.encode(self.events, forKey: .events)
         try container.encode(self.secret, forKey: .secret)
     }
 }
@@ -592,9 +915,20 @@ public struct EventTypeList: Codable, Equatable, Sendable {
     }
 }
 
+/// Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count
+public enum EventDestinationDisabledReason: String, Codable, CaseIterable, Sendable {
+    case failing = "failing"
+}
+
 /// `dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down
 public enum EventDeliveryOutcome: String, Codable, CaseIterable, Sendable {
     case delivered = "delivered"
     case failed = "failed"
     case dropped = "dropped"
+}
+
+/// A podcast episode as published, or something the station reads out itself
+public enum ProgrammeStartedDataSource: String, Codable, CaseIterable, Sendable {
+    case podcast = "podcast"
+    case narration = "narration"
 }

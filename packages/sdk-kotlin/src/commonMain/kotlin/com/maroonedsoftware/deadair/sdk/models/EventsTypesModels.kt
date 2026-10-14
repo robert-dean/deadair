@@ -20,6 +20,16 @@ data class EventDestination(
     val url: String,
     /** Off sends nothing */
     val enabled: Boolean,
+    /** The event types it is sent, from `/events/types`. Empty means every type, including any added later */
+    val events: List<String>,
+    /** Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off */
+    val consecutiveFailures: Long,
+    /** Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count */
+    val disabledReason: EventDestinationDisabledReason? = null,
+    val lastDeliveredAt: Instant? = null,
+    val lastFailedAt: Instant? = null,
+    /** What went wrong last time, in the station's words */
+    val lastFailure: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
 )
@@ -33,6 +43,8 @@ data class EventDestinationInput(
     val url: String,
     /** Off sends nothing */
     val enabled: Boolean,
+    /** The event types it is sent, from `/events/types`. Empty means every type, including any added later */
+    val events: List<String>,
 )
 
 /** A new event destination */
@@ -42,6 +54,8 @@ data class EventDestinationCreate(
     val url: String,
     /** Defaults to on */
     val enabled: Boolean? = null,
+    /** The event types to send it. Absent or empty means every type */
+    val events: List<String>? = null,
 )
 
 /** Changes to an event destination. Only what is sent changes */
@@ -49,7 +63,10 @@ data class EventDestinationCreate(
 data class EventDestinationUpdate(
     val name: String? = null,
     val url: String? = null,
+    /** Turning a destination back on also clears why the station turned it off, and its count of failures */
     val enabled: Boolean? = null,
+    /** Empty means every type */
+    val events: List<String>? = null,
 )
 
 /** The secret deliveries to a destination are signed with. Shown only when it is made, so keep it */
@@ -95,6 +112,68 @@ data class EventStation(
     val name: String,
 )
 
+/** `data` of `track.started`: a record began playing, as listeners heard it */
+@Serializable
+data class TrackStartedData(
+    /** The running order's id for this play */
+    val itemId: String,
+    val title: String,
+    /** The credit as the release writes it */
+    val artists: List<String>,
+    /** The credit as one line, for showing */
+    val artist: String,
+    val album: String? = null,
+    val year: Long? = null,
+    /** The station's catalog id, where the record is in the catalog */
+    val trackId: Uuid? = null,
+    val durationMs: Long? = null,
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    val endsAt: String? = null,
+    /** The cover as the station serves it publicly, or the station's logo. Absent when the station has no public address */
+    val artworkUrl: String? = null,
+)
+
+/** `data` of `talk.started`: the station began speaking, in a break or a bulletin */
+@Serializable
+data class TalkStartedData(
+    val itemId: String,
+    val segmentId: Uuid,
+    /** What sort of break: `talkbreak`, `news`, `weather`, `welcome` and so on */
+    val kind: String,
+    /** What a listener may be told it is, where the writer said */
+    val label: String? = null,
+    val durationMs: Long? = null,
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    val endsAt: String? = null,
+)
+
+/** `data` of `production.started`: a produced piece, such as a phone-in or a guest, began. Sent once per production */
+@Serializable
+data class ProductionStartedData(
+    val itemId: String,
+    val productionId: Uuid,
+    /** What sort of production: `callin`, `visit`, `banter` and so on */
+    val kind: String,
+    val title: String,
+    val durationMs: Long? = null,
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    val endsAt: String? = null,
+)
+
+/** `data` of `programme.started`: a programme the station carries began, a podcast episode or a reading */
+@Serializable
+data class ProgrammeStartedData(
+    val itemId: String,
+    val segmentId: Uuid,
+    /** A podcast episode as published, or something the station reads out itself */
+    val source: ProgrammeStartedDataSource,
+    val show: String? = null,
+    val episode: String,
+    val durationMs: Long? = null,
+    /** When it should finish, as an ISO-8601 instant in UTC */
+    val endsAt: String? = null,
+)
+
 /** Every event destination, oldest first */
 @Serializable
 data class EventDestinationList(
@@ -117,6 +196,16 @@ data class EventDestinationCreated(
     val url: String,
     /** Off sends nothing */
     val enabled: Boolean,
+    /** The event types it is sent, from `/events/types`. Empty means every type, including any added later */
+    val events: List<String>,
+    /** Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off */
+    val consecutiveFailures: Long,
+    /** Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count */
+    val disabledReason: EventDestinationDisabledReason? = null,
+    val lastDeliveredAt: Instant? = null,
+    val lastFailedAt: Instant? = null,
+    /** What went wrong last time, in the station's words */
+    val lastFailure: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     /** Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=<hex HMAC-SHA256 of "<Deadair-Webhook-Timestamp>.<body>">` */
@@ -132,6 +221,8 @@ data class EventDestinationCreatedInput(
     val url: String,
     /** Off sends nothing */
     val enabled: Boolean,
+    /** The event types it is sent, from `/events/types`. Empty means every type, including any added later */
+    val events: List<String>,
     /** Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=<hex HMAC-SHA256 of "<Deadair-Webhook-Timestamp>.<body>">` */
     val secret: String,
 )
@@ -173,6 +264,13 @@ data class EventTypeList(
     val types: List<EventType>,
 )
 
+/** Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count */
+@Serializable
+enum class EventDestinationDisabledReason {
+    @SerialName("failing")
+    FAILING,
+}
+
 /** `dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down */
 @Serializable
 enum class EventDeliveryOutcome {
@@ -182,4 +280,13 @@ enum class EventDeliveryOutcome {
     FAILED,
     @SerialName("dropped")
     DROPPED,
+}
+
+/** A podcast episode as published, or something the station reads out itself */
+@Serializable
+enum class ProgrammeStartedDataSource {
+    @SerialName("podcast")
+    PODCAST,
+    @SerialName("narration")
+    NARRATION,
 }

@@ -1,6 +1,8 @@
-import { Registry } from 'injectkit';
+import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { EventAnnouncer } from './event.announcer.js';
+import { EventDeliverer } from './event.deliverer.js';
 import { EventDestinationsRepository } from './event.destinations.repository.js';
 import { EventDestinationsService } from './event.destinations.service.js';
 import { WebhookSender, WebhookSenderOptions } from './webhook.sender.js';
@@ -23,8 +25,20 @@ export const EventsModule: ServerKitModule = {
             .useFactory(() => new WebhookSenderOptions())
             .asSingleton();
         registry.register(WebhookSender).useClass(WebhookSender).asSingleton();
+        registry.register(EventDeliverer).useClass(EventDeliverer).asSingleton();
+        registry.register(EventAnnouncer).useClass(EventAnnouncer).asSingleton();
+        // `EventsDeliverJob` is registered by `JobsModule`, which walks `JobMappings`, like every job.
         registry.register(EventDestinationsRepository).useClass(EventDestinationsRepository).asScoped();
         // Scoped: it answers the console's routes and reads the request's actor.
         registry.register(EventDestinationsService).useClass(EventDestinationsService).asScoped();
+    },
+
+    ready: async (container: Container, signal: AbortSignal) => {
+        if (signal.aborted) return;
+        container.get(EventAnnouncer).start();
+    },
+
+    shutdown: async (container: Container) => {
+        container.get(EventAnnouncer).stop();
     },
 };

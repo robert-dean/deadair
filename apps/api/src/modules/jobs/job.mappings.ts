@@ -40,6 +40,8 @@ import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job
 import { SweepOrphansJob } from '#modules/storage/sweep.orphans.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 import { MessagingAnnounceJob } from '#modules/messaging/messaging.announce.job.js';
+import { EventsDeliverJob } from '#modules/events/events.deliver.job.js';
+import { DELIVER_RETRY_LIMIT } from '#modules/events/event.deliverer.js';
 import { RequestsTickJob } from '#modules/requests/requests.tick.job.js';
 import { RefreshNarrationsJob } from '#modules/narrations/refresh.narrations.job.js';
 import { RenderPieceJob } from '#modules/narrations/render.piece.job.js';
@@ -667,6 +669,20 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: MessagingAnnounceJob,
         policy: {
             retryLimit: 3,
+            retryDelay: Duration.fromObject({ seconds: 15 }),
+            retryBackoff: true,
+            expiresIn: Duration.fromObject({ minutes: 1 }),
+        },
+    },
+
+    // No cron: sent once per event destination as something goes to air. Retried by the broker, as
+    // `messaging.announce` is and for its reason, and the job itself drops an event once it has stopped
+    // being true, so a retry can never turn a light on for a record that has finished. Only the last
+    // attempt at an event counts toward switching a destination off; see `EventDeliverer`.
+    'events.deliver': {
+        job: EventsDeliverJob,
+        policy: {
+            retryLimit: DELIVER_RETRY_LIMIT,
             retryDelay: Duration.fromObject({ seconds: 15 }),
             retryBackoff: true,
             expiresIn: Duration.fromObject({ minutes: 1 }),

@@ -6,10 +6,9 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { httpError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { DESTINATION_TEST, eventTypes } from './event.catalogue.js';
+import { DESTINATION_TEST, eventTypes, isSubscribable } from './event.catalogue.js';
 import { EventDestinationsRepository, type EventDestinationRow } from './event.destinations.repository.js';
-import { eventEnvelope, type EventStation } from './event.envelope.js';
+import { eventEnvelope, eventStation } from './event.envelope.js';
 import type {
     EventDeliveryList,
     EventDestination,
@@ -52,7 +51,7 @@ export class EventDestinationsService {
     ) {}
 
     async listTypes(): Promise<EventTypeList> {
-        return { types: eventTypes(this.station()) };
+        return { types: eventTypes(eventStation(this.identity, this.config)) };
     }
 
     async list(): Promise<EventDestinationList> {
@@ -62,6 +61,7 @@ export class EventDestinationsService {
     async create(body: EventDestinationCreate): Promise<EventDestinationCreated> {
         const { actorId } = this.authz.requireUser();
         assertUsableUrl(body.url);
+        const events = subscription(body.events);
 
         const secret = mintSecret();
         const row = await this.repository.create({
@@ -69,6 +69,7 @@ export class EventDestinationsService {
             url: body.url.trim(),
             secretSealed: this.encryption.encrypt(secret),
             enabled: body.enabled ?? true,
+            events,
             createdBy: actorId,
         });
         return { ...toDestination(row), secret };
@@ -76,11 +77,13 @@ export class EventDestinationsService {
 
     async update(id: string, body: EventDestinationUpdate): Promise<EventDestination> {
         if (body.url !== undefined) assertUsableUrl(body.url);
+        const events = body.events === undefined ? undefined : subscription(body.events);
 
         const row = await this.repository.update(id, {
             ...(body.name === undefined ? {} : { name: body.name.trim() }),
             ...(body.url === undefined ? {} : { url: body.url.trim() }),
             ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
+            ...(events === undefined ? {} : { events }),
         });
         return toDestination(row ?? notFound(id));
     }
@@ -106,7 +109,7 @@ export class EventDestinationsService {
      */
     async test(id: string): Promise<EventTestResult> {
         const destination = (await this.repository.get(id)) ?? notFound(id);
-        const envelope = eventEnvelope(DESTINATION_TEST, { destinationId: id }, this.station(), DateTime.now());
+        const envelope = eventEnvelope(DESTINATION_TEST, { destinationId: id }, eventStation(this.identity, this.config), DateTime.now());
 
         const delivery = await this.sender.send({ url: destination.url, secret: this.encryption.decrypt(destination.secretSealed) }, envelope);
 
@@ -134,11 +137,6 @@ export class EventDestinationsService {
         const rows = await this.repository.listDeliveries(id);
         return { deliveries: rows.map(({ destinationId: _, ...row }) => row) };
     }
-
-    /** Which station this is, as every envelope says it. The name is the stream's title, as listeners see it. */
-    private station(): EventStation {
-        return { key: this.identity.stationKey, name: String(this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title)) };
-    }
 }
 
 const toDestination = (row: EventDestinationRow): EventDestination => ({
@@ -146,9 +144,28 @@ const toDestination = (row: EventDestinationRow): EventDestination => ({
     name: row.name,
     url: row.url,
     enabled: row.enabled,
+    events: row.events,
+    consecutiveFailures: row.consecutiveFailures,
+    ...(row.disabledReason === undefined ? {} : { disabledReason: row.disabledReason }),
+    ...(row.lastDeliveredAt === undefined ? {} : { lastDeliveredAt: row.lastDeliveredAt }),
+    ...(row.lastFailedAt === undefined ? {} : { lastFailedAt: row.lastFailedAt }),
+    ...(row.lastFailure === undefined ? {} : { lastFailure: row.lastFailure }),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
 });
+
+/**
+ * The event types a destination asks for, checked against the catalogue and with repeats removed.
+ * Absent or empty is every type. A name the station does not send is refused rather than stored,
+ * because a typo kept would be a subscription that silently never fires.
+ */
+function subscription(events: readonly string[] | undefined): string[] {
+    const wanted = [...new Set((events ?? []).map(type => type.trim()))];
+    const unknown = wanted.filter(type => !isSubscribable(type));
+    if (unknown.length > 0)
+        throw httpError(400).withDetails({ message: `the station sends no event called ${unknown.map(type => `"${type}"`).join(', ')}` });
+    return wanted;
+}
 
 function assertUsableUrl(url: string): void {
     const problem = webhookUrlProblem(url.trim());

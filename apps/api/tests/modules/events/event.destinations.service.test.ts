@@ -30,6 +30,8 @@ const row = (overrides: Partial<EventDestinationRow> = {}): EventDestinationRow 
     url: 'http://192.168.1.20:8123/api/webhook/hall',
     secretSealed: encryption.encrypt('deadair_dest_kept'),
     enabled: true,
+    events: [],
+    consecutiveFailures: 0,
     createdAt: DateTime.fromISO('2026-10-14T10:00:00Z'),
     updatedAt: DateTime.fromISO('2026-10-14T10:00:00Z'),
     ...overrides,
@@ -72,6 +74,7 @@ describe('creating a destination', () => {
             url: 'http://192.168.1.20:8123/api/webhook/hall',
             secretSealed: `sealed(${created.secret})`,
             enabled: true,
+            events: [],
             createdBy: 'op-1',
         });
         expect(created).not.toHaveProperty('secretSealed');
@@ -83,6 +86,25 @@ describe('creating a destination', () => {
         await expect(service.create({ name: 'x', url: 'ftp://hub.local/hook' })).rejects.toMatchObject({ statusCode: 400 });
         await expect(service.create({ name: 'x', url: 'https://user:pass@hooks.example.com/' })).rejects.toMatchObject({ statusCode: 400 });
         expect(repository.create).not.toHaveBeenCalled();
+    });
+});
+
+describe('which events a destination asks for', () => {
+    it('keeps the types it names, without repeats', async () => {
+        const { service, repository } = build();
+
+        await service.create({ name: 'x', url: 'http://hub.local/hook', events: ['talk.started', 'talk.started', 'production.started'] });
+
+        expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ events: ['talk.started', 'production.started'] }));
+    });
+
+    it('refuses a type the station does not send, and the test event, which only a test sends', async () => {
+        const { service } = build();
+
+        await expect(service.create({ name: 'x', url: 'http://hub.local/hook', events: ['track.stared'] })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+        await expect(service.update('dest-1', { events: ['destination.test'] })).rejects.toMatchObject({ statusCode: 400 });
     });
 });
 
@@ -171,7 +193,8 @@ describe('the event types', () => {
 
         const { types } = await service.listTypes();
 
-        expect(types.map(type => type.type)).toEqual([DESTINATION_TEST]);
-        expect(types[0]).toMatchObject({ subscribable: false, example: { type: DESTINATION_TEST, station: { key: 'main', name: 'Dead Air' } } });
+        expect(types.map(type => type.type)).toEqual(['track.started', 'talk.started', 'production.started', 'programme.started', DESTINATION_TEST]);
+        expect(types.at(-1)).toMatchObject({ subscribable: false, example: { type: DESTINATION_TEST, station: { key: 'main', name: 'Dead Air' } } });
+        expect(types.filter(type => type.subscribable)).toHaveLength(4);
     });
 });

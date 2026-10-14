@@ -21,6 +21,8 @@ enum class ActivityModule {
     PLUGINS,
     @SerialName("storage")
     STORAGE,
+    @SerialName("events")
+    EVENTS,
 }
 
 /**

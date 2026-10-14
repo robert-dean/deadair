@@ -32,6 +32,9 @@ public enum ActivityModule
 
     [JsonStringEnumMemberName("storage")]
     Storage,
+
+    [JsonStringEnumMemberName("events")]
+    Events,
 }
 
 /// <summary>

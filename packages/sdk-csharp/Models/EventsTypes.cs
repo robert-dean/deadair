@@ -29,6 +29,32 @@ public sealed record EventDestination
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
 
+    /// <summary>The event types it is sent, from `/events/types`. Empty means every type, including any added later</summary>
+    [JsonPropertyName("events")]
+    public required List<string> Events { get; init; }
+
+    /// <summary>Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off</summary>
+    [JsonPropertyName("consecutiveFailures")]
+    public required long ConsecutiveFailures { get; init; }
+
+    /// <summary>Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count</summary>
+    [JsonPropertyName("disabledReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EventDestinationDisabledReason? DisabledReason { get; init; }
+
+    [JsonPropertyName("lastDeliveredAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastDeliveredAt { get; init; }
+
+    [JsonPropertyName("lastFailedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastFailedAt { get; init; }
+
+    /// <summary>What went wrong last time, in the station's words</summary>
+    [JsonPropertyName("lastFailure")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastFailure { get; init; }
+
     [JsonPropertyName("createdAt")]
     public required DateTimeOffset CreatedAt { get; init; }
 
@@ -50,6 +76,10 @@ public sealed record EventDestinationInput
     /// <summary>Off sends nothing</summary>
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
+
+    /// <summary>The event types it is sent, from `/events/types`. Empty means every type, including any added later</summary>
+    [JsonPropertyName("events")]
+    public required List<string> Events { get; init; }
 }
 
 /// <summary>A new event destination</summary>
@@ -65,6 +95,11 @@ public sealed record EventDestinationCreate
     [JsonPropertyName("enabled")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Enabled { get; init; }
+
+    /// <summary>The event types to send it. Absent or empty means every type</summary>
+    [JsonPropertyName("events")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Events { get; init; }
 }
 
 /// <summary>Changes to an event destination. Only what is sent changes</summary>
@@ -78,9 +113,15 @@ public sealed record EventDestinationUpdate
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Url { get; init; }
 
+    /// <summary>Turning a destination back on also clears why the station turned it off, and its count of failures</summary>
     [JsonPropertyName("enabled")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Enabled { get; init; }
+
+    /// <summary>Empty means every type</summary>
+    [JsonPropertyName("events")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Events { get; init; }
 }
 
 /// <summary>The secret deliveries to a destination are signed with. Shown only when it is made, so keep it</summary>
@@ -158,6 +199,136 @@ public sealed record EventStation
     public required string Name { get; init; }
 }
 
+/// <summary>`data` of `track.started`: a record began playing, as listeners heard it</summary>
+public sealed record TrackStartedData
+{
+    /// <summary>The running order's id for this play</summary>
+    [JsonPropertyName("itemId")]
+    public required string ItemId { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>The credit as the release writes it</summary>
+    [JsonPropertyName("artists")]
+    public required List<string> Artists { get; init; }
+
+    /// <summary>The credit as one line, for showing</summary>
+    [JsonPropertyName("artist")]
+    public required string Artist { get; init; }
+
+    [JsonPropertyName("album")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Album { get; init; }
+
+    [JsonPropertyName("year")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Year { get; init; }
+
+    /// <summary>The station's catalog id, where the record is in the catalog</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? TrackId { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    /// <summary>When it should finish, as an ISO-8601 instant in UTC</summary>
+    [JsonPropertyName("endsAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndsAt { get; init; }
+
+    /// <summary>The cover as the station serves it publicly, or the station's logo. Absent when the station has no public address</summary>
+    [JsonPropertyName("artworkUrl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ArtworkUrl { get; init; }
+}
+
+/// <summary>`data` of `talk.started`: the station began speaking, in a break or a bulletin</summary>
+public sealed record TalkStartedData
+{
+    [JsonPropertyName("itemId")]
+    public required string ItemId { get; init; }
+
+    [JsonPropertyName("segmentId")]
+    public required Guid SegmentId { get; init; }
+
+    /// <summary>What sort of break: `talkbreak`, `news`, `weather`, `welcome` and so on</summary>
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    /// <summary>What a listener may be told it is, where the writer said</summary>
+    [JsonPropertyName("label")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Label { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    /// <summary>When it should finish, as an ISO-8601 instant in UTC</summary>
+    [JsonPropertyName("endsAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndsAt { get; init; }
+}
+
+/// <summary>`data` of `production.started`: a produced piece, such as a phone-in or a guest, began. Sent once per production</summary>
+public sealed record ProductionStartedData
+{
+    [JsonPropertyName("itemId")]
+    public required string ItemId { get; init; }
+
+    [JsonPropertyName("productionId")]
+    public required Guid ProductionId { get; init; }
+
+    /// <summary>What sort of production: `callin`, `visit`, `banter` and so on</summary>
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    /// <summary>When it should finish, as an ISO-8601 instant in UTC</summary>
+    [JsonPropertyName("endsAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndsAt { get; init; }
+}
+
+/// <summary>`data` of `programme.started`: a programme the station carries began, a podcast episode or a reading</summary>
+public sealed record ProgrammeStartedData
+{
+    [JsonPropertyName("itemId")]
+    public required string ItemId { get; init; }
+
+    [JsonPropertyName("segmentId")]
+    public required Guid SegmentId { get; init; }
+
+    /// <summary>A podcast episode as published, or something the station reads out itself</summary>
+    [JsonPropertyName("source")]
+    public required ProgrammeStartedDataSource Source { get; init; }
+
+    [JsonPropertyName("show")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Show { get; init; }
+
+    [JsonPropertyName("episode")]
+    public required string Episode { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    /// <summary>When it should finish, as an ISO-8601 instant in UTC</summary>
+    [JsonPropertyName("endsAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndsAt { get; init; }
+}
+
 /// <summary>Every event destination, oldest first</summary>
 public sealed record EventDestinationList
 {
@@ -190,6 +361,32 @@ public sealed record EventDestinationCreated
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
 
+    /// <summary>The event types it is sent, from `/events/types`. Empty means every type, including any added later</summary>
+    [JsonPropertyName("events")]
+    public required List<string> Events { get; init; }
+
+    /// <summary>Deliveries in a row that did not arrive. Any delivery that arrives sets it back to nothing; at twenty the station turns the destination off</summary>
+    [JsonPropertyName("consecutiveFailures")]
+    public required long ConsecutiveFailures { get; init; }
+
+    /// <summary>Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count</summary>
+    [JsonPropertyName("disabledReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EventDestinationDisabledReason? DisabledReason { get; init; }
+
+    [JsonPropertyName("lastDeliveredAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastDeliveredAt { get; init; }
+
+    [JsonPropertyName("lastFailedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastFailedAt { get; init; }
+
+    /// <summary>What went wrong last time, in the station's words</summary>
+    [JsonPropertyName("lastFailure")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastFailure { get; init; }
+
     [JsonPropertyName("createdAt")]
     public required DateTimeOffset CreatedAt { get; init; }
 
@@ -215,6 +412,10 @@ public sealed record EventDestinationCreatedInput
     /// <summary>Off sends nothing</summary>
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
+
+    /// <summary>The event types it is sent, from `/events/types`. Empty means every type, including any added later</summary>
+    [JsonPropertyName("events")]
+    public required List<string> Events { get; init; }
 
     /// <summary>Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=&lt;hex HMAC-SHA256 of "&lt;Deadair-Webhook-Timestamp&gt;.&lt;body&gt;"&gt;`</summary>
     [JsonPropertyName("secret")]
@@ -276,6 +477,14 @@ public sealed record EventTypeList
     public required List<EventType> Types { get; init; }
 }
 
+/// <summary>Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<EventDestinationDisabledReason>))]
+public enum EventDestinationDisabledReason
+{
+    [JsonStringEnumMemberName("failing")]
+    Failing,
+}
+
 /// <summary>`dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<EventDeliveryOutcome>))]
 public enum EventDeliveryOutcome
@@ -288,4 +497,15 @@ public enum EventDeliveryOutcome
 
     [JsonStringEnumMemberName("dropped")]
     Dropped,
+}
+
+/// <summary>A podcast episode as published, or something the station reads out itself</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ProgrammeStartedDataSource>))]
+public enum ProgrammeStartedDataSource
+{
+    [JsonStringEnumMemberName("podcast")]
+    Podcast,
+
+    [JsonStringEnumMemberName("narration")]
+    Narration,
 }

@@ -23,7 +23,7 @@ No guests ship with the station. Write them with "New caller or guest…", then 
 
 ## Banter between co-hosts
 
-On a show with [co-hosts](./programme.md#co-hosts), a **banter** is the presenters trading lines for a few minutes: the host brings the others in by name, they react to each other, and the host hands back to the music. Put a `banter` band on the format clock to have a few a show. One asked for on a night with nobody beside the host fails, and Productions says why.
+On a show with [co-hosts](./programme.md#co-hosts), a **banter** is the presenters trading lines for a few minutes: the host brings the others in by name, they react to each other, and the host hands back to the music. A show with co-hosts gets one every half hour without asking, the first as soon as it can be made; **Minutes between banters** under **Settings**, **Breaks** changes the spacing, and 0 turns them off. A show told not to talk gets none. Put a `banter` band on the format clock to have one at a set time as well; the band is passed over on a show with nobody beside the host. One asked for by hand on such a night fails, and Productions says why.
 
 ## Three ways to take a call
 

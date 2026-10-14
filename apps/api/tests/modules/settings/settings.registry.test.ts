@@ -112,6 +112,7 @@ describe('the settings registry', () => {
             ROTATION_KEYS.welcome,
             ROTATION_KEYS.changeovers,
             ROTATION_KEYS.callinEveryMinutes,
+            ROTATION_KEYS.banterEveryMinutes,
             'rotation.breakWords',
             'rotation.storyWords',
         ]) {

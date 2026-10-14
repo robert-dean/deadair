@@ -93,6 +93,15 @@ export interface ResolvedRules {
      */
     callinEveryMinutes: number;
     /**
+     * Minutes of airtime between one banter and the next on a show with co-hosts. `0` is none.
+     *
+     * Not a switch a broadcast answers, unlike {@link callins}: a show that names co-hosts has
+     * already said it wants presenters trading lines, and making it ask a second time is the feature
+     * that is inert until somebody finds a setting. Only a rotation that talks gets one, since a
+     * banter is the presenters talking (`resolveRules`), and only a co-hosted one (`ProductionScheduler`).
+     */
+    banterEveryMinutes: number;
+    /**
      * Minutes of airtime between one break and the next OF THE SAME KIND. `0` is `breaks: false`.
      *
      * Minutes rather than records, which is what this counted until it was measured. Four records
@@ -192,6 +201,9 @@ export const DEFAULT_RULES: ResolvedRules = {
     // break spacing takes and no more — and a phone-in every quarter of an hour is a phone-in show,
     // which is a thing to ask for rather than to arrive at.
     callinEveryMinutes: 30,
+    // Half an hour, the call spacing's figure and for its reason: a banter is a few minutes of talk,
+    // and presenters trading lines every quarter of an hour is a talk show.
+    banterEveryMinutes: 30,
     // OFF. A station making a noise between records it did not make before is something an operator
     // turns on having heard one, not something an upgrade does to them.
     jingleEveryMinutes: 0,
@@ -228,6 +240,7 @@ export const ROTATION_KEYS = {
     welcome: 'rotation.welcome',
     changeovers: 'rotation.changeovers',
     callinEveryMinutes: 'rotation.callinEveryMinutes',
+    banterEveryMinutes: 'rotation.banterEveryMinutes',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
     jingleEveryMinutes: 'rotation.jingleEveryMinutes',
     crossfade: 'rotation.crossfade',
@@ -303,6 +316,7 @@ export function stationRules(config: AppConfig): ResolvedRules {
         // because how often a show that takes calls takes one is the station's house style.
         callins: DEFAULT_RULES.callins,
         callinEveryMinutes: number(ROTATION_KEYS.callinEveryMinutes, DEFAULT_RULES.callinEveryMinutes),
+        banterEveryMinutes: number(ROTATION_KEYS.banterEveryMinutes, DEFAULT_RULES.banterEveryMinutes),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
         jingleEveryMinutes: number(ROTATION_KEYS.jingleEveryMinutes, DEFAULT_RULES.jingleEveryMinutes),
         crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
@@ -339,6 +353,7 @@ export const NO_RULES: ResolvedRules = {
     jingleEveryMinutes: 0,
     callins: false,
     callinEveryMinutes: 0,
+    banterEveryMinutes: 0,
     crossfade: false,
     mixInSimilar: false,
     mixInEvery: 0,
@@ -417,6 +432,10 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         changeovers: talk.changeovers,
         callins: overrides?.callins ?? base.callins,
         callinEveryMinutes: overrides?.callinEveryMinutes ?? base.callinEveryMinutes,
+        // No per-lineup override: a show asks for banter by naming co-hosts. From the mode's own
+        // baseline rather than `talk`, so a setlist told to talk still keeps its sequence, and gated
+        // on `breaks`, since a broadcast told to stay quiet has said its presenters do not talk.
+        banterEveryMinutes: (overrides?.breaks ?? base.breaks) ? base.banterEveryMinutes : 0,
         breakEveryMinutes: overrides?.breakEveryMinutes ?? talk.breakEveryMinutes,
         // No per-lineup override, `maxPerAlbum`'s call: `StationLineupRules` carries none and adding
         // one would change a stored shape. `breaks` above still gates it per broadcast.

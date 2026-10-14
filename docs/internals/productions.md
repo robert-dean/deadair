@@ -96,6 +96,21 @@ beat wraps up and hands back to the music. The caster reads the co-hosts off the
 broadcast the banter airs in (tonight's, which is where a visiting co-host's night is stamped) and
 throws, as a visit does, when nobody presents beside the host. `banter` is a default production kind
 and always a dialogue kind; a `banter` band on the format clock is how a station asks for a few a show.
+**The scheduler passes a `banter` band over on a show with nobody beside the host** (`coHosted` on
+`BroadcastContext`, from the running order's co-hosts): the band is station-wide, and commissioning it
+anyway left a failed row on Productions every hour it came round. It is asked again every pass, so a
+slot inside the read-ahead is still commissioned once a co-hosted show is the one on. A banter asked
+for by hand on such a night still fails at the caster, which says why.
+
+**A show with co-hosts gets a banter without a band**, every `rotation.banterEveryMinutes` (thirty by
+default, `0` for none), on the standing call-in's terms (`ProductionScheduler.standingBanter` through
+`keepUp`): spaced from the last banter this BROADCAST aired, the first as soon as it can be made, none
+while one is still being made. It is not a switch a broadcast answers, unlike `callins`, because naming
+co-hosts is already the show asking for presenters trading lines, and a second switch is a feature that
+is inert until somebody finds it. `resolveRules` zeroes it for a setlist, a feature and any broadcast
+with `breaks` off, since a banter is the presenters talking. `standingIn` counts a band's banters too,
+so a station with both does not get two back to back, and taking `banter` out of
+`render.productionKinds` stops this as it stops the band.
 
 ## Commissioning one
 

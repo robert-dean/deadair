@@ -1060,6 +1060,17 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Airtime between one call ending and the next being asked for, on a show that takes calls. Whether a show takes them is its own choice, made where it is put on air, in a schedule block or for what plays between blocks. A call is a short programme rather than a break: your host takes it, a caller answers, and the few turns go into the running order as one block, each in its own voice. Its own number rather than the break spacing, because a call runs minutes where a break runs seconds. The first call of a show is not made to wait — the count starts once one has aired.',
     },
     {
+        group: 'breaks',
+        key: ROTATION_KEYS.banterEveryMinutes,
+        label: 'Minutes between banters',
+        type: 'number',
+        default: DEFAULT_RULES.banterEveryMinutes,
+        min: 0,
+        max: 720,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Airtime between one banter ending and the next being asked for, on a show with co-hosts. A banter is the presenters trading lines for a few minutes, made as a short programme like a call. A show gets them by having co-hosts, so a show presented by one host never does, and a show told not to talk does not either. The first banter of a show is not made to wait. 0 turns them off; a banter band on the format clock still makes one at its time.',
+    },
+    {
         group: 'phrasings',
         key: WELCOME_KEYS.templates,
         label: 'What the station says to a new listener',

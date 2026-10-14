@@ -35,7 +35,7 @@ A block can have **guest hosts** who sit in for its own host on some nights. A g
 
 ## Co-hosts
 
-A block can have **co-hosts** who present beside its host: every night, on fixed nights, or as a **visitor** who turns up at random (about one night in however many you choose, with a gap between visits). Up to three are on any one night. On a show with co-hosts the talk breaks go round them, each said by whoever was heard from least recently, and every presenter knows who else is on. Put a `banter` band on the format clock for a few minutes of the presenters trading lines. **Today** names tonight's co-hosts beside the host once their night is on.
+A block can have **co-hosts** who present beside its host: every night, on fixed nights, or as a **visitor** who turns up at random (about one night in however many you choose, with a gap between visits). Up to three are on any one night. On a show with co-hosts the talk breaks go round them, each said by whoever was heard from least recently, and every presenter knows who else is on. Every half hour or so the presenters trade lines for a few minutes in a [banter](./phone-ins.md#banter-between-co-hosts), with no format clock rule needed. **Today** names tonight's co-hosts beside the host once their night is on.
 
 ## Specials
 

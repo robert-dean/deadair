@@ -287,6 +287,9 @@ export class TrackAudioService {
     /** Fetches in flight, by source id. The value is shared: everybody waiting gets the same bytes. */
     private readonly inFlight = new Map<string, Promise<ServedAudio | undefined>>();
 
+    /** Who is told when a record fetched from its provider is on disk. See {@link onKept}. */
+    private readonly keptListeners = new Set<(sourceId: string) => void>();
+
     /** Records no sweep may touch, and when that was last said. See {@link protect}. */
     private protected: { sourceIds: Set<string>; at: number } = { sourceIds: new Set(), at: 0 };
 
@@ -381,6 +384,32 @@ export class TrackAudioService {
         });
 
         return served !== undefined;
+    }
+
+    /**
+     * Be told each time a record fetched from its provider is on disk, by its `track_sources.id`.
+     *
+     * After the row says so, never before: a listener reads the row to find the bytes, and the
+     * request desk is the one that does, to place a request that was waiting for this record rather
+     * than leaving it for the next minute's tick. Not on a cache hit, which brings nothing new here.
+     *
+     * Called synchronously from whichever fetch got the record, a live request for the bytes among
+     * them, so a listener must not throw or block: one with work to do hands it off and returns, as
+     * `Rundown.onAired` asks of its own. A throw is caught all the same, so it cannot cost the fetch.
+     */
+    onKept(listener: (sourceId: string) => void): () => void {
+        this.keptListeners.add(listener);
+        return () => this.keptListeners.delete(listener);
+    }
+
+    private announceKept(sourceId: string): void {
+        for (const listener of this.keptListeners) {
+            try {
+                listener(sourceId);
+            } catch (error) {
+                this.logger.warn(`playout: a listener for a kept record threw (${causeText(error)})`);
+            }
+        }
     }
 
     /**
@@ -591,6 +620,7 @@ export class TrackAudioService {
             const served = await this.keep(source, fetched);
 
             await this.record(source.sourceId, served, fetched);
+            this.announceKept(source.sourceId);
 
             return served;
         } catch (error) {

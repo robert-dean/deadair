@@ -249,6 +249,42 @@ describe('TrackAudioService.ensure', () => {
         });
     });
 
+    it('says a fetched record is kept once its row says so', async () => {
+        const { service, recordSuccess } = build({ source: BINDING });
+        respondWith(RECORD, { contentType: 'audio/mpeg' });
+        const kept = vi.fn(() => expect(recordSuccess).toHaveBeenCalled());
+        service.onKept(kept);
+
+        await service.ensure(SOURCE_ID);
+
+        expect(kept).toHaveBeenCalledExactlyOnceWith(SOURCE_ID);
+    });
+
+    it('says nothing of a record it already held, or one it could not get', async () => {
+        const checksum = await store.write(RECORD, 'ogg');
+        const held = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+        const refused = build({ source: BINDING });
+        const kept = vi.fn();
+        held.service.onKept(kept);
+        refused.service.onKept(kept);
+
+        await held.service.ensure(SOURCE_ID);
+        respondWith(undefined, { status: 500 });
+        await refused.service.ensure(SOURCE_ID);
+
+        expect(kept).not.toHaveBeenCalled();
+    });
+
+    it('serves the record even when a listener for it throws', async () => {
+        const { service } = build({ source: BINDING });
+        respondWith(RECORD, { contentType: 'audio/mpeg' });
+        service.onKept(() => {
+            throw new Error('listener broke');
+        });
+
+        expect((await service.ensure(SOURCE_ID))?.body).toEqual(RECORD);
+    });
+
     it('reads the extension off the content type, parameters and all', async () => {
         const { service, recordSuccess } = build({ source: BINDING });
         respondWith(RECORD, { contentType: 'AUDIO/X-FLAC; charset=binary' });

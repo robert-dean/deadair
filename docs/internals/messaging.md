@@ -214,8 +214,14 @@ one refusal is overruled once. A request show's follow-on run is still chosen by
 **Placed by the director, and only with its bytes here.** `insertRequested` puts the record in the first
 quiet gap near the head (see `director.md`), never beside another request. A record whose audio is not local
 is fetched (`playout.cache_track`) and the request waits `pending`; so does one that found no gap. The
-`requests.tick` cron offers pending requests again every minute and lets go of any not placed within the
-hour, or placed and not heard within three. The aired edge (`RequestAiredWatch`, on `Rundown.onAired`)
+moment a fetched record is on disk (`TrackAudioService.onKept`), `RequestAudioWatch` offers every pending
+request again, because the order moves on at each boundary and a request placed a minute late can land
+a record later than it had to. The `requests.tick` cron offers them again every minute too, which is the
+whole retry for one that found no gap, and lets go of any not placed within the hour, or placed and not
+heard within three. **One placement of a request at a time** (`RequestPlacements`, a singleton because the
+desk is scoped), and only while its row still says `pending`: the record is posted to the director before
+the row moves to `queued`, so two placements that overlapped, or one working from a list read a moment
+earlier, used to put it into the order twice. The aired edge (`RequestAiredWatch`, on `Rundown.onAired`)
 marks a request heard by its RECORD, since the rundown's items do not carry the request id.
 
 **On a request show, a placed request changes what follows it.** The desk sends `director.follow_request`

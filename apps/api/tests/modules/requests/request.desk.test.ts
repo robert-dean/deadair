@@ -584,6 +584,17 @@ describe('the tick', () => {
         expect(director.applyEdit).not.toHaveBeenCalled();
     });
 
+    it('places the waiting requests again on demand, and lets none of them go', async () => {
+        const world: World = { audio: 'remote' };
+        const { desk, table } = build(world);
+        const row = await desk.submit(chat(), TEARDROP);
+        world.audio = 'local';
+
+        expect(await desk.placePending()).toBe(1);
+        expect(table.rows.find(candidate => candidate.id === row.id)?.status).toBe('queued');
+        expect(await desk.placePending()).toBe(0);
+    });
+
     it('writes off a queued request that never aired', async () => {
         const { desk, table } = build();
         const row = await desk.submit(app(), TEARDROP);

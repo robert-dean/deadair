@@ -77,8 +77,8 @@ export type PlaceOutcome = 'queued' | 'waiting' | 'declined';
  * A request is placed by posting `insertRequested`, never by writing the order: the director is the
  * only writer of what airs. It is posted only with the record's audio already on this machine, so it
  * never holds the commit pass behind a download. A record that is not here yet is fetched and the
- * request waits as `pending`; `RequestsTickJob` offers it again, as it does one that found no quiet
- * place near the head of the order.
+ * request waits as `pending`; `RequestAudioWatch` offers it again the moment the fetch lands, and
+ * `RequestsTickJob` every minute, as it does one that found no quiet place near the head of the order.
  *
  * ## Two at once
  *
@@ -298,6 +298,18 @@ export class RequestDesk {
                 continue;
             }
 
+            if (request.status === 'pending' && (await this.place(request)) === 'queued') placed += 1;
+        }
+        return placed;
+    }
+
+    /**
+     * Offer every pending request to the running order again, without letting any go. Answers how
+     * many were placed. Run by `RequestAudioWatch` when a record's audio arrives.
+     */
+    async placePending(): Promise<number> {
+        let placed = 0;
+        for (const request of await this.repository.open(this.identity.stationKey)) {
             if (request.status === 'pending' && (await this.place(request)) === 'queued') placed += 1;
         }
         return placed;

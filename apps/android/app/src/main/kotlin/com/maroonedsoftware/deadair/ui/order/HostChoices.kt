@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.order
 
 import com.maroonedsoftware.deadair.sdk.models.Persona
 import com.maroonedsoftware.deadair.sdk.models.PersonaKind
+import com.maroonedsoftware.deadair.sdk.models.PersonaKinds
 
 /**
  * One persona the broadcast could be handed to.
@@ -23,15 +24,19 @@ data class HostChoice(
 )
 
 /**
- * Who this broadcast could be handed to.
+ * Whether this persona can present: whether its `kinds` hold `host`.
  *
- * Callers are left out. A caller phones IN to a production and is cast per programme; the contract
- * says one can never be put on air, so offering one would be offering a refusal. An absent kind is
- * a host, which is what the contract says and what most stored personas leave blank.
+ * A character may do several jobs, and presenting is the `host` one whatever else it does. A station
+ * from before `kinds` sends one `kind`, and there an absent kind is a host, which is what the contract
+ * says and what most stored personas left blank. Anything else, a caller, a guest or the newsreader,
+ * cannot be put on air, so offering one would be offering a refusal.
  */
+fun Persona.presents(): Boolean = kinds?.contains(PersonaKinds.HOST) ?: (kind == null || kind == PersonaKind.HOST)
+
+/** Who this broadcast could be handed to: everybody who {@link presents}. */
 fun hostChoicesOf(personas: List<Persona>, currentId: String?): List<HostChoice> =
     personas
-        .filter { it.kind != PersonaKind.CALLER }
+        .filter { it.presents() }
         .sortedBy { it.label.lowercase() }
         .map { persona ->
             HostChoice(

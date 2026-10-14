@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.order
 
 import com.maroonedsoftware.deadair.sdk.models.Persona
 import com.maroonedsoftware.deadair.sdk.models.PersonaKind
+import com.maroonedsoftware.deadair.sdk.models.PersonaKinds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -9,8 +10,14 @@ import org.junit.Test
 
 /** Who a broadcast may be handed to, and what each of them is called. */
 class HostChoicesTest {
-    private fun persona(id: String, label: String, kind: PersonaKind? = null, djName: String? = null, defaultHost: Boolean = false) =
-        Persona(id = id, key = id, kind = kind, label = label, style = "warm", djName = djName, defaultHost = defaultHost, presenting = defaultHost)
+    private fun persona(
+        id: String,
+        label: String,
+        kind: PersonaKind? = null,
+        djName: String? = null,
+        defaultHost: Boolean = false,
+        kinds: List<PersonaKinds>? = null,
+    ) = Persona(id = id, key = id, kind = kind, kinds = kinds, label = label, style = "warm", djName = djName, defaultHost = defaultHost, presenting = defaultHost)
 
     @Test
     fun `a caller is never offered, because one can never be put on air`() {
@@ -23,6 +30,25 @@ class HostChoicesTest {
     fun `an absent kind is a host, which is what most stored personas leave blank`() {
         assertEquals(1, hostChoicesOf(listOf(persona("a", "Cass", kind = null)), currentId = null).size)
         assertEquals(1, hostChoicesOf(listOf(persona("a", "Cass", kind = PersonaKind.HOST)), currentId = null).size)
+    }
+
+    @Test
+    fun `a guest or the newsreader is never offered either, since neither presents`() {
+        val personas = listOf(persona("a", "Cass"), persona("b", "Chef", kind = PersonaKind.GUEST), persona("c", "Walter", kind = PersonaKind.NEWSREADER))
+
+        assertEquals(listOf("Cass"), hostChoicesOf(personas, currentId = null).map { it.name })
+    }
+
+    @Test
+    fun `the kinds decide when the station sends them, so a host who also drops by is offered`() {
+        val personas =
+            listOf(
+                persona("a", "Peter", kind = PersonaKind.HOST, kinds = listOf(PersonaKinds.HOST, PersonaKinds.GUEST)),
+                persona("b", "Chef", kind = PersonaKind.GUEST, kinds = listOf(PersonaKinds.GUEST)),
+                persona("c", "Walter", kind = PersonaKind.NEWSREADER, kinds = listOf(PersonaKinds.NEWSREADER)),
+            )
+
+        assertEquals(listOf("Peter"), hostChoicesOf(personas, currentId = null).map { it.name })
     }
 
     @Test

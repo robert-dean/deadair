@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.64.0] — 2026-10-14
+
+- A never-play rule can refuse live recordings: `field: version` with `value: live`. It reads the version markers on a record's title and album ("War Pigs - Live", anything from "Live in Nottingham"), never the word wherever it appears, so "Live Wire" and "Live And Let Die" still play. The console offers it as **Live recordings** beside Genre and Tag under Programme, Leans and rules. Like every never-play rule it is absolute, and can hold only for some schedule blocks, hours, seasons or modes.
+
 ## [0.63.0] — 2026-10-14
 
 - A schedule slot, and a broadcast put on air by hand, can name moods to steer away from with `avoidMoods`. A record a model judged to be in one is half as likely to be picked for the whole of the slot, and never kept off the air for it: the judgement is right about half the time, so refusing a record outright stays a never-play rule's job. The console's slot editor sets them under **Steers away from**, and the desktop app keeps a slot's avoided moods when it saves the slot.
@@ -1405,7 +1409,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.63.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.64.0...HEAD
+[0.64.0]: https://github.com/robert-dean/deadair/compare/v0.63.0...v0.64.0
 [0.63.0]: https://github.com/robert-dean/deadair/compare/v0.62.1...v0.63.0
 [0.62.1]: https://github.com/robert-dean/deadair/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/robert-dean/deadair/compare/v0.61.0...v0.62.0

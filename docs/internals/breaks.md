@@ -449,7 +449,9 @@ sentence (name a record, THEN say what you make of it), and `BreakPromptShape.mu
 the named half checkable: `named-nothing` declines a script that carries neither title nor artist of
 anything it was shown. It is on the talk break ALONE — a welcome frequently has no record and a
 bulletin's job is the stories — and `namedRecordIn` is deliberately generous (title, title with any
-parenthetical dropped, or artist), because what is being caught is a break about no record at all and
+parenthetical dropped, or artist, including the short forms a presenter actually says: "the Stones",
+"White Stripes", "Petty", counted only when capitalised so "the doors open" does not name The Doors),
+because what is being caught is a break about no record at all and
 every refusal costs the station the model's sentence. It reads the TIDIED script, so whatever the tidying
 deletes is a name it cannot see: a title in markdown italics was refused as naming nothing until
 `speakableScript` stopped deleting `*...*` runs whole (`render.md` § "Speech, voices and cues").

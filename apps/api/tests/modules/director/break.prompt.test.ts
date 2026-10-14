@@ -1713,6 +1713,41 @@ describe('readAnswer, against the records it was shown', () => {
             expect(readAnswer('Here comes Megadeth’s “Hangar 18.”', { names: [maiden] })).toBeUndefined();
         });
     });
+
+    // All three refused on air as naming neither record. A presenter drops "The" and calls a solo
+    // artist by their surname, and the check wanted the whole name.
+    describe('an artist named the way a presenter says it', () => {
+        const stones = { title: 'Gimme Shelter', artist: 'The Rolling Stones' };
+        const stripes = { title: 'Seven Nation Army', artist: 'The White Stripes' };
+        const petty = { title: 'Free Fallin’', artist: 'Tom Petty' };
+
+        it('accepts a band by the last word of its name', () => {
+            expect(readAnswer('That Stones track still has the best opening on the radio.', { names: [stones] })).toBeDefined();
+        });
+
+        it('accepts a band without its leading "The"', () => {
+            expect(readAnswer('White Stripes is up next, and that riff is two people pretending to be ten.', { names: [stripes] })).toBeDefined();
+        });
+
+        it('accepts a solo artist by surname, possessive included', () => {
+            expect(readAnswer('That Petty track never once wasted a chorus.', { names: [petty] })).toBeDefined();
+            expect(readAnswer('Petty’s voice was half sneer, half shrug.', { names: [petty] })).toBeDefined();
+        });
+
+        it('still refuses a short form said as an ordinary word', () => {
+            // "Doors" names The Doors; "both doors open at eight" names nothing. The capital is what
+            // tells the two apart.
+            const doors = { title: 'Riders on the Storm', artist: 'The Doors' };
+            expect(readAnswer('Tonight both doors open at eight, friend.', { names: [doors] })).toBeUndefined();
+            expect(readAnswer('That Doors record sounds like rain on a windscreen.', { names: [doors] })).toBeDefined();
+        });
+
+        it('never counts a short form too slight to be a name', () => {
+            // "The Who" shortens to "Who", and every question would name them.
+            const who = { title: 'Baba O’Riley', artist: 'The Who' };
+            expect(readAnswer('Who remembers the summer this came out?', { names: [who] })).toBeUndefined();
+        });
+    });
 });
 
 // Measured on air on 19 August, segment `e26a93f0`, labelled `Talk break: Madhouse into Run to the

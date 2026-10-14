@@ -68,7 +68,14 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'Grow the station',
             collapsed: false,
-            items: ['tutorials/another-music-source', 'tutorials/news-and-weather', 'tutorials/carry-a-podcast', 'tutorials/speakers', 'tutorials/chat-platforms'],
+            items: [
+                'tutorials/another-music-source',
+                'tutorials/news-and-weather',
+                'tutorials/carry-a-podcast',
+                'tutorials/speakers',
+                'tutorials/chat-platforms',
+                'tutorials/home-assistant',
+            ],
         },
         {
             type: 'category',

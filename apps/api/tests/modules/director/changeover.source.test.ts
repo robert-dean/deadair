@@ -15,6 +15,7 @@ const persona = (id: string): Persona =>
 const source = (known: readonly string[] = ['p-default', 'p-dave', 'p-ruth']) => {
     const personas = {
         presenting: vi.fn(async (id: string | undefined) => (id !== undefined && known.includes(id) ? persona(id) : persona('p-default'))),
+        find: vi.fn(async (id: string) => (known.includes(id) ? persona(id) : undefined)),
     };
     return { source: new ChangeoverSource(personas as never), personas };
 };
@@ -45,6 +46,31 @@ describe('ChangeoverSource', () => {
         const change = await changeovers.changeoverFor('changeover', { outgoingPersonaId: 'p-ruth', incomingShow: 'Afternoons' }, persona('p-ruth'));
 
         expect(change).toEqual({ incomingShow: 'Afternoons' });
+    });
+
+    it('thanks every co-host of the show that ended beside its host', async () => {
+        const { source: changeovers } = source(['p-default', 'p-wayne', 'p-garth', 'p-sonny']);
+
+        const change = await changeovers.changeoverFor(
+            'changeover',
+            changeoverContext({ outgoingPersonaId: 'p-wayne', outgoingCoHostPersonaIds: ['p-garth'], outgoingShow: "Wayne's World" }),
+            persona('p-sonny'),
+        );
+
+        expect(change).toEqual({ outgoing: persona('p-wayne'), outgoingCoHosts: [persona('p-garth')], outgoingShow: "Wayne's World" });
+    });
+
+    it('thanks a co-host who is leaving even when the lead carries on, and nobody who is presenting now', async () => {
+        const { source: changeovers } = source(['p-default', 'p-wayne', 'p-garth', 'p-cassandra']);
+
+        const change = await changeovers.changeoverFor(
+            'changeover',
+            changeoverContext({ outgoingPersonaId: 'p-wayne', outgoingCoHostPersonaIds: ['p-garth', 'p-wayne', 'p-gone'] }),
+            persona('p-wayne'),
+        );
+
+        // Wayne is carrying on and the roster no longer knows `p-gone`, so Garth is the one thanked.
+        expect(change).toEqual({ outgoingCoHosts: [persona('p-garth')] });
     });
 
     it('compares a broadcast that named nobody as the station’s own host', async () => {
@@ -80,5 +106,9 @@ describe('changeoverContext', () => {
             [CHANGEOVER_CONTEXT.incomingShow]: 'Afternoons',
         });
         expect(changeoverContext({ outgoingShow: '' })).toEqual({});
+        expect(changeoverContext({ outgoingCoHostPersonaIds: [' p-garth ', ''] })).toEqual({
+            [CHANGEOVER_CONTEXT.outgoingCoHostPersonaIds]: 'p-garth',
+        });
+        expect(changeoverContext({ outgoingCoHostPersonaIds: [] })).toEqual({});
     });
 });

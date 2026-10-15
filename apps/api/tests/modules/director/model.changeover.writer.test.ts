@@ -70,6 +70,30 @@ describe('ModelChangeoverWriter', () => {
         expect(said).toContain('"Afternoons", and you are presenting it');
     });
 
+    it('tells the model to thank every host of a co-hosted show', async () => {
+        const { writer, converse } = build();
+        const garth = { ...dave, id: 'p-garth', key: 'garth', label: 'Garth', djName: 'Garth' } as Persona;
+        const wayne = { ...dave, id: 'p-wayne', key: 'wayne', label: 'Wayne', djName: 'Wayne' } as Persona;
+
+        await writer.write({
+            kind: CHANGEOVER_KIND,
+            station: 'Deadair',
+            changeover: { outgoing: wayne, outgoingCoHosts: [garth], outgoingShow: "Wayne's World", incomingShow: 'Throwback Thursday' },
+        });
+
+        expect(turn(sent(converse), 'user')).toContain('presented by Wayne and Garth, together. Thank all 2 of them.');
+        expect(turn(sent(converse), 'system')).toContain('Leave none of them out');
+    });
+
+    it('tells the model to thank a co-host who is leaving when the lead carries on', async () => {
+        const { writer, converse } = build();
+        const garth = { ...dave, id: 'p-garth', key: 'garth', label: 'Garth', djName: 'Garth' } as Persona;
+
+        await writer.write({ kind: CHANGEOVER_KIND, station: 'Deadair', changeover: { outgoingCoHosts: [garth], incomingShow: 'Afternoons' } });
+
+        expect(turn(sent(converse), 'user')).toContain('You presented it with Garth, who is not on the show starting now. Thank them.');
+    });
+
     it('tells the model there is nobody to thank when the same host carries on', async () => {
         const { writer, converse } = build();
 

@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
+import { BreakWriter, type BreakChangeover, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
     parseTemplates,
     TEMPLATE_KEYS,
@@ -55,6 +55,31 @@ import { stationLanguage } from '#modules/stream/stream.settings.js';
 /** The kind of segment this writes. The same string as `segments.kind`. */
 export const CHANGEOVER_KIND = 'changeover';
 
+/**
+ * Everybody a changeover thanks, by on-air name: the outgoing host, then the co-hosts beside them.
+ *
+ * One place, so the model and the floor cannot thank different people. Empty is the same host
+ * carrying on alone, which thanks nobody.
+ */
+export function thankedAt(change: BreakChangeover | undefined): string[] {
+    const names = [change?.outgoing, ...(change?.outgoingCoHosts ?? [])].flatMap(persona => {
+        const name = (persona?.djName ?? '').trim();
+        return name.length === 0 ? [] : [name];
+    });
+
+    return [...new Set(names)];
+}
+
+/**
+ * Names as one phrase, "Wayne and Garth", in the station's language.
+ *
+ * `Intl.ListFormat` rather than an English "and", because the floor's phrasings are in whatever
+ * language the station broadcasts in and a name list is the one part of them it fills itself.
+ */
+export function spokenNames(names: readonly string[], language?: string): string {
+    return new Intl.ListFormat(language ?? 'en', { style: 'long', type: 'conjunction' }).format(names);
+}
+
 /** What `segments.writer` records for anything written here. */
 export const CHANGEOVER_WRITER = 'deterministic';
 
@@ -80,7 +105,8 @@ export const CHANGEOVER_KEYS = {
 export const CHANGEOVER_TEMPLATES: readonly string[] = [
     // A different host, thanked by name. Picked first whenever the outgoing host has a name to say.
     'Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].',
-    '[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.',
+    // Not "{{outgoing.name}} has handed over": the name can be two people, and the verb would not agree.
+    '[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.',
     // A show starting, whoever is presenting it. What a host carrying on into their own next show says.
     'That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].',
     '[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.',
@@ -122,7 +148,10 @@ export class ChangeoverWriter extends BreakWriter {
 
         const change = request.changeover;
         const dj = (request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, '')).trim();
-        const outgoing = change?.outgoing?.djName?.trim();
+        // Read here rather than further down, because the names are joined in it.
+        const language = stationLanguage(this.config);
+        const thanked = thankedAt(change);
+        const outgoing = thanked.length === 0 ? undefined : spokenNames(thanked, language);
 
         // No `previous` and no `next`, deliberately and even when there are some. See the note on the
         // class: the record behind belonged to the other show, and the one ahead is not this piece's
@@ -133,13 +162,12 @@ export class ChangeoverWriter extends BreakWriter {
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
             ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
-            ...(outgoing === undefined || outgoing.length === 0 ? {} : { outgoing }),
+            ...(outgoing === undefined ? {} : { outgoing }),
             ...(change?.outgoingShow === undefined ? {} : { outgoingShow: change.outgoingShow }),
             ...(change?.incomingShow === undefined ? {} : { show: change.incomingShow }),
         };
 
         // Read per changeover rather than held, so an operator editing them hears it at the next one.
-        const language = stationLanguage(this.config);
         const templates = parseTemplates(this.config.get(CHANGEOVER_KEYS.templates, ''), CHANGEOVER_TEMPLATES, language);
         this.complainAboutTypos(templates);
 

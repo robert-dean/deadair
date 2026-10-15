@@ -206,6 +206,12 @@ export interface BreakChangeover {
      * writer must not thank anybody in: thanking yourself on air is the mistake this shape rules out.
      */
     outgoing?: Persona;
+    /**
+     * Who presented the programme that has just ended BESIDE {@link outgoing}'s host, less anybody
+     * presenting now, in the order the show named them. Present even when {@link outgoing} is not: a
+     * lead who carries on into their next show still thanks the co-host who is leaving.
+     */
+    outgoingCoHosts?: readonly Persona[];
     /** The name of the show that has just ended, when it was a block of the timetable. */
     outgoingShow?: string;
     /** The name of the show starting now, and absent when the station has moved to its sustaining source. */

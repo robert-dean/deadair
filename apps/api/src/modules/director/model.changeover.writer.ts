@@ -19,7 +19,7 @@ import {
 } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { CHANGEOVER_KIND } from './changeover.writer.js';
+import { CHANGEOVER_KIND, spokenNames, thankedAt } from './changeover.writer.js';
 import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
@@ -46,19 +46,28 @@ export const CHANGEOVER_SHAPE: BreakPromptShape = {
     job: 'You mark the moment one show on this station ends and the next begins. It is read aloud exactly as you write it.',
     showsPrevious: false,
     rules: [
-        'Say which show is starting and that you are presenting it. When somebody else presented the show before, thank them once, by ' +
-            'the name you were given and no other. When it was you, do not thank anybody: you are carrying on.',
+        'Say which show is starting and that you are presenting it. When somebody else presented the show before, thank everybody you ' +
+            'were told presented it, once and together, by the names you were given and no other. Leave none of them out. When it was ' +
+            'only you, do not thank anybody: you are carrying on.',
         'This is about the shows, not the records. Do not say what the last show played or what is coming up next.',
     ],
     opening: (request, settings) => {
         const change = request.changeover;
-        const outgoing = change?.outgoing?.djName?.trim();
+        const lead = change?.outgoing?.djName?.trim();
+        const thanked = thankedAt(change);
+        // English whatever the station speaks: this is the prompt, and the model writes the words.
+        const names = spokenNames(thanked);
 
         return [
             change?.outgoingShow === undefined ? 'A programme on this station has just ended.' : `The show "${change.outgoingShow}" has just ended.`,
-            outgoing === undefined || outgoing.length === 0
+            thanked.length === 0
                 ? 'You presented it yourself, or nobody named presented it, so there is nobody to thank.'
-                : `It was presented by ${outgoing}.`,
+                : lead === undefined || lead.length === 0
+                  ? // The lead carries on and a co-host does not: thank the one leaving, not yourself.
+                    `You presented it with ${names}, who ${thanked.length === 1 ? 'is' : 'are'} not on the show starting now. Thank ${thanked.length === 1 ? 'them' : 'each of them'}.`
+                  : thanked.length === 1
+                    ? `It was presented by ${names}.`
+                    : `It was presented by ${names}, together. Thank all ${thanked.length} of them.`,
             change?.incomingShow === undefined
                 ? 'Nothing is scheduled now, so the station carries on with its own music. Do not name a show starting.'
                 : `The show starting now is "${change.incomingShow}", and you are presenting it.`,

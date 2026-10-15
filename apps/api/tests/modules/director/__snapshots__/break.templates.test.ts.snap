@@ -339,13 +339,13 @@ exports[`the shipped pools, word for word > renders the changeover pool exactly 
     {
       "rendered": {
         "opening": "",
-        "refrain": " has handed over to ",
+        "refrain": " here, taking over from ",
         "saysNext": false,
         "saysPrevious": false,
-        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
-        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+        "script": "Good morning. Sam here, taking over from Alex for Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
       },
-      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
     },
     {
       "rendered": {
@@ -404,13 +404,13 @@ exports[`the shipped pools, word for word > renders the changeover pool exactly 
     {
       "rendered": {
         "opening": "",
-        "refrain": " has handed over to ",
+        "refrain": " here, taking over from ",
         "saysNext": false,
         "saysPrevious": false,
-        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
-        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+        "script": "Good morning. Sam here, taking over from Alex for Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
       },
-      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
     },
     {
       "rendered": {
@@ -469,13 +469,13 @@ exports[`the shipped pools, word for word > renders the changeover pool exactly 
     {
       "rendered": {
         "opening": "",
-        "refrain": " has handed over to ",
+        "refrain": " here, taking over from ",
         "saysNext": false,
         "saysPrevious": false,
-        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
-        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+        "script": "Good morning. Sam here, taking over from Alex for Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
       },
-      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
     },
     {
       "rendered": {
@@ -534,13 +534,13 @@ exports[`the shipped pools, word for word > renders the changeover pool exactly 
     {
       "rendered": {
         "opening": "",
-        "refrain": " has handed over to ",
+        "refrain": " here, taking over from ",
         "saysNext": false,
         "saysPrevious": false,
-        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
-        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+        "script": "Good morning. Sam here, taking over from Alex for Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
       },
-      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
     },
     {
       "rendered": {
@@ -592,7 +592,7 @@ exports[`the shipped pools, word for word > renders the changeover pool exactly 
     },
     {
       "rendered": "not used",
-      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
     },
     {
       "rendered": "not used",
@@ -632,13 +632,13 @@ exports[`the shipped pools, word for word > renders the changeover pool exactly 
     {
       "rendered": {
         "opening": "",
-        "refrain": " has handed over to ",
+        "refrain": " here, taking over from ",
         "saysNext": false,
         "saysPrevious": false,
-        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on Deadair (Deluxe Edition).",
-        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+        "script": "Good morning. Sam here, taking over from Alex for Breakfast, on Deadair (Deluxe Edition).",
+        "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
       },
-      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      "template": "[[{{greeting}}. ]]{{dj.name}} here, taking over from {{outgoing.name}}[[ for {{show.name}}]], on {{station.name}}.",
     },
     {
       "rendered": {

@@ -44,15 +44,16 @@ plugin that can write, it already does.
 
 ## 3. Turn on the jobs
 
-Open **Settings → Words**. Each job has a switch and a model. An empty model means the plugin's
-default.
+Open **Settings → Words**. Each job has a switch and a list of models, tried in order: if the first
+fails before it answers, the next one is asked. Add models from the picker under each list. An empty
+list means the plugin's default.
 
 | Switch | What it does | Turn it on for |
 | --- | --- | --- |
 | **Let a model write the talk breaks** | The presenter's words between records. | Every station with a model. |
 | **Let a model choose what plays** | Reads a show's brief and picks records against it. | [Make a show](./make-a-show.md). Without it a brief is ignored. |
 | **Let a model find trivia in the articles** | Facts about records, each checked against its source. | Breaks with something to say about a record. |
-| **Model for writing a character** | Used by **Write me one** on a character. No switch: pressing the button is the switch. | [Write a character](./write-a-character.md). A slower, more careful model is fine here. |
+| **Models for writing a character** | Used by **Write me one** on a character. No switch: pressing the button is the switch. | [Write a character](./write-a-character.md). A slower, more careful model is fine here. |
 
 The other switches (moods, what records are about, reading a character back, thinking up stories) run
 at night in the background. Leave them off until the station is settled.

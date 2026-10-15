@@ -1005,6 +1005,13 @@ export const settings = {
             moveDown: 'Move {{name}} down',
             remove: 'Remove {{name}}',
         },
+        models: {
+            empty: 'None listed, so the station asks the default model, {{model}}.',
+            emptyUnknown: "None listed, so the station asks the language model plugin's own default.",
+            add: 'Add a model to {{setting}}',
+            placeholder: 'Pick a model, or type provider:model',
+            addButton: 'Add',
+        },
         bytes: {
             noLimit: 'No limit',
         },

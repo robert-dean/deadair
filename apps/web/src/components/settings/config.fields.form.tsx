@@ -41,6 +41,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
+import { isModelList, ModelListField } from './model.list.field';
 import classes from './config.fields.form.module.css';
 
 /**
@@ -942,6 +943,34 @@ export function ConfigFieldsForm({
             }
             case 'list': {
                 const { error: fieldError } = form.getInputProps(name);
+                // A list of models is chosen rather than typed into, so it is a list box of its own.
+                // Its rows are still this form's rows, under the one cell name a one-column list has.
+                if (isModelList(field)) {
+                    const column = columnsOf(field)[0]!;
+                    const cell = cellNameOf(0);
+                    return (
+                        <ModelListField
+                            key={field.key}
+                            field={field}
+                            models={rowsOf(form.getValues()[name])
+                                .map(row => row[cell]?.trim() ?? '')
+                                .filter(model => model.length > 0)}
+                            options={columnOptionsFor(field, column)}
+                            {...(inForce(field) === undefined ? {} : { defaultModel: inForce(field)! })}
+                            error={typeof fieldError === 'string' ? fieldError : undefined}
+                            disabled={pending}
+                            onAdd={model => {
+                                form.insertListItem(name, { ...emptyRow(columnsOf(field)), [cell]: model });
+                            }}
+                            onRemove={index => {
+                                form.removeListItem(name, index);
+                            }}
+                            onMove={(index, by) => {
+                                form.reorderListItem(name, { from: index, to: index + by });
+                            }}
+                        />
+                    );
+                }
                 return (
                     <RowsField
                         key={field.key}

@@ -13,6 +13,7 @@ import {
     DEFAULT_MAX_WORDS,
     liftDelivery,
     maxWordsFor,
+    namedRecordIn,
     offeredDeliveries,
     overusedWords,
     permittedYears,
@@ -1746,6 +1747,40 @@ describe('readAnswer, against the records it was shown', () => {
             // "The Who" shortens to "Who", and every question would name them.
             const who = { title: 'Baba O’Riley', artist: 'The Who' };
             expect(readAnswer('Who remembers the summer this came out?', { names: [who] })).toBeUndefined();
+        });
+    });
+
+    // Measured on 15 October: 4 of 7 rehearsals of one persona were refused as naming neither record
+    // for writing the first artist as it is said. `bareWords` drops the ampersand and splits "M.G.s"
+    // into three words, so the record and the script never met.
+    describe('a name written the way it is said', () => {
+        const onions = { title: 'Green Onions', artist: 'Booker T. & the M.G.s' };
+        const sunshine = { title: 'Ain’t No Sunshine', artist: 'Bill Withers' };
+        const names = [onions, sunshine];
+
+        it('accepts "and" for an ampersand and an abbreviation without its dots', () => {
+            expect(readAnswer('That Booker T and the MGs groove was smooth.', { names })).toBeDefined();
+            expect(readAnswer('Booker T. and the MGs, ya dig.', { names })).toBeDefined();
+            expect(readAnswer('Booker T and the M.G.s, for real.', { names })).toBeDefined();
+        });
+
+        it('names the record those spellings belong to', () => {
+            expect(namedRecordIn('That Booker T and the MGs groove was smooth.', names)).toBe(onions);
+        });
+
+        it('accepts an ampersand for an "and" the other way round', () => {
+            // A title, so no short form of the artist can carry it.
+            const zeppelin = { title: 'Rock and Roll', artist: 'Led Zeppelin' };
+            expect(readAnswer('Here is Rock & roll, as loud as it gets.', { names: [zeppelin] })).toBeDefined();
+        });
+
+        it('accepts the name written as the record writes it, as before', () => {
+            expect(readAnswer('Booker T. & the M.G.s, ya dig.', { names })).toBeDefined();
+        });
+
+        it('still refuses a break that only brushes past the name', () => {
+            // A first name and an "and" are not the band: the spelling is what moved, not the bar.
+            expect(readAnswer('Booker played it smooth and the gang loved it.', { names })).toBeUndefined();
         });
     });
 });

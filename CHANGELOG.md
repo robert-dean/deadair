@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.68.1] — 2026-10-15
+
+- A change of programme thanks every host of the show that ended, not only its lead. The co-hosts presenting beside them ride the changeover request, the model is told to thank all of them, and the station's own lines join their names ("Wayne and Garth") in the station's language. A co-host leaving while the lead carries on is thanked too, and nobody presenting the new show is.
+
 ## [0.68.0] — 2026-10-15
 
 - Mail: a station can write its own invitation email. Settings → Mail has two new fields: "Invitation subject" and "Invitation message". The message is written in markdown and can use `{{station}}`, `{{role}}`, `{{inviter}}`, `{{link}}`, `{{until}}`, `{{androidApp}}`, `{{iosApp}}` and `{{guide}}`. A message is refused when it is saved if:
@@ -1454,7 +1458,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.68.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.68.1...HEAD
+[0.68.1]: https://github.com/robert-dean/deadair/compare/v0.68.0...v0.68.1
 [0.68.0]: https://github.com/robert-dean/deadair/compare/v0.67.1...v0.68.0
 [0.67.1]: https://github.com/robert-dean/deadair/compare/v0.67.0...v0.67.1
 [0.67.0]: https://github.com/robert-dean/deadair/compare/v0.66.0...v0.67.0

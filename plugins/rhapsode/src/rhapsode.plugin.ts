@@ -252,14 +252,15 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         );
 
         const engineOptions = engines.map(engine => ({ value: engine.id, label: engine.displayName || engine.id }));
-        // Labelled with the engine they belong to, because a voice id is only unique within one and
+        // Labelled with the engines they belong to, because a voice id is only unique within one and
         // these are one flat list: two engines may both hold a `default`, and they are not the same
-        // voice.
-        const voiceOptions = held.flatMap(({ engine, voices }) =>
-            voices.map(voice => ({ value: voice.id, label: `${voice.label || voice.id} (${engine.id})` })),
+        // voice. One entry per id all the same, naming every engine that holds it, since the cell
+        // stores the id alone and a list with one value twice is one the console will not draw.
+        const voiceOptions = byValue(
+            held.flatMap(({ engine, voices }) => voices.map(voice => ({ value: voice.id, label: voice.label || voice.id, engine: engine.id }))),
         );
-        const variantOptions = held.flatMap(({ engine, variants }) =>
-            variants.map(variant => ({ value: variant, label: `${variant} (${engine.id})` })),
+        const variantOptions = byValue(
+            held.flatMap(({ engine, variants }) => variants.map(variant => ({ value: variant, label: variant, engine: engine.id }))),
         );
 
         return {
@@ -607,3 +608,19 @@ const keepAliveOf = (value: unknown): number | undefined => {
     // something its residency manager has a use for, and anything below -1 is a typo for "never".
     return Math.max(MIN_KEEP_ALIVE_SECONDS, Math.round(parsed));
 };
+
+/**
+ * One option per value, labelled with every engine that holds it, in the order they were listed.
+ *
+ * The label is the first engine's: two engines holding the same id may name it differently, and the
+ * id is what the cell stores either way.
+ */
+function byValue(held: readonly { value: string; label: string; engine: string }[]): ConfigFieldOption[] {
+    const merged = new Map<string, { label: string; engines: string[] }>();
+    for (const { value, label, engine } of held) {
+        const entry = merged.get(value);
+        if (entry === undefined) merged.set(value, { label, engines: [engine] });
+        else if (!entry.engines.includes(engine)) entry.engines.push(engine);
+    }
+    return [...merged].map(([value, { label, engines }]) => ({ value, label: `${label} (${engines.join(', ')})` }));
+}

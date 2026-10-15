@@ -123,3 +123,23 @@ export function colorOf(slotId: string): string {
 
     return SLOT_COLORS[hash % SLOT_COLORS.length]!;
 }
+
+/**
+ * The station's clock `elapsedMs` after it last said `now`, as the same `YYYY-MM-DD HH:mm:ss`
+ * reading.
+ *
+ * For the schedule grid's now line, its today column and its Today button, which otherwise read the
+ * BROWSER's clock: an operator a few zones from the station saw the line at the wrong hour, and near
+ * midnight in the wrong column. The station says its own now every half minute, so this carries the
+ * last answer forward by however long ago it came rather than asking the browser's zone anything.
+ * Through `Date.UTC` for {@link addDays}'s reason, so the browser's daylight saving has no say.
+ */
+export function stationClockAt(now: string, elapsedMs: number): string {
+    const moved = new Date(instantOf(now) + Math.max(0, elapsedMs));
+
+    const pad = (value: number, width = 2) => String(value).padStart(width, '0');
+    return (
+        `${pad(moved.getUTCFullYear(), 4)}-${pad(moved.getUTCMonth() + 1)}-${pad(moved.getUTCDate())} ` +
+        `${pad(moved.getUTCHours())}:${pad(moved.getUTCMinutes())}:${pad(moved.getUTCSeconds())}`
+    );
+}

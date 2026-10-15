@@ -14,7 +14,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
 import { OverrunPanel } from './overrun.panel';
-import { colorOf, weekdayOf } from './schedule.day';
+import { colorOf, stationClockAt, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, resizedEnd, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RulesPanel } from './rules.panel';
@@ -210,6 +210,11 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             if (next === 'day' || next === 'week') setView(next);
         },
         viewSelectProps: { views: ['day', 'week'] as const },
+        // The now line, the today column and the Today button all read this, and without it they
+        // read the browser's clock: an operator in another zone than the station's saw the line at
+        // the wrong hour. The station's own now, carried forward from when it was last asked. Absent
+        // only until that first answer, when the grid has nothing drawn to put a line on anyway.
+        ...(current.data === undefined ? {} : { getCurrentTime: () => stationClockAt(current.data.now, Date.now() - current.dataUpdatedAt) }),
         // The hour down the side, on the operator's clock.
         slotLabelFormat: dayjsClock().hour,
         // The package answers a `YYYY-MM-DD HH:mm:ss` stamp, and the API takes a date alone (and

@@ -162,6 +162,78 @@ public struct SigninProviderCheck: Codable, Equatable, Sendable {
     }
 }
 
+/// Which invitation to preview
+public struct InvitationPreviewQuery: Codable, Equatable, Sendable {
+    /// The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two
+    public var role: InvitationPreviewQueryRole
+
+    public init(role: InvitationPreviewQueryRole) {
+        self.role = role
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case role = "role"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.role = try container.decode(InvitationPreviewQueryRole.self, forKey: .role)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.role, forKey: .role)
+    }
+}
+
+/// An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one
+public struct InvitationPreview: Codable, Equatable, Sendable {
+    /// The subject line
+    public var subject: String
+    /// The whole HTML part, as a document
+    public var html: String
+    /// The plain-text part
+    public var text: String
+    /// Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead
+    public var ownWording: Bool
+    /// Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved
+    public var problem: String?
+
+    public init(subject: String, html: String, text: String, ownWording: Bool, problem: String? = nil) {
+        self.subject = subject
+        self.html = html
+        self.text = text
+        self.ownWording = ownWording
+        self.problem = problem
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case subject = "subject"
+        case html = "html"
+        case text = "text"
+        case ownWording = "ownWording"
+        case problem = "problem"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.subject = try container.decode(String.self, forKey: .subject)
+        self.html = try container.decode(String.self, forKey: .html)
+        self.text = try container.decode(String.self, forKey: .text)
+        self.ownWording = try container.decode(Bool.self, forKey: .ownWording)
+        self.problem = try container.decodeIfPresent(String.self, forKey: .problem)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.subject, forKey: .subject)
+        try container.encode(self.html, forKey: .html)
+        try container.encode(self.text, forKey: .text)
+        try container.encode(self.ownWording, forKey: .ownWording)
+        try container.encodeIfPresent(self.problem, forKey: .problem)
+    }
+}
+
 /// A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 /// and shared deliberately: a plugin's settings form and the station's are the same problem, and the
 /// console renders both with one component
@@ -361,5 +433,52 @@ public struct StationSettings: Codable, Equatable, Sendable {
         try container.encode(self.values, forKey: .values)
         try container.encode(self.configured, forKey: .configured)
         try container.encode(self.derived, forKey: .derived)
+    }
+}
+
+/// The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two
+public enum InvitationPreviewQueryRole: Codable, CaseIterable, Hashable, Sendable {
+    case listener
+    case admin
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [InvitationPreviewQueryRole] = [.listener, .admin]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .listener: return "listener"
+        case .admin: return "admin"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "listener": self = .listener
+        case "admin": self = .admin
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "InvitationPreviewQueryRole.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }

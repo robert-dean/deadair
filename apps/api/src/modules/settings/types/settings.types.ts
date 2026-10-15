@@ -51,6 +51,38 @@ export const SigninProviderCheck = z.strictObject({
 export type SigninProviderCheck = z.infer<typeof SigninProviderCheck>;
 
 /**
+ * Which invitation to preview
+ * generated from [InvitationPreviewQuery](../../../../data/contracts/settings/settings.types.ck)
+ */
+export const InvitationPreviewQuery = z.strictObject({
+    role: z
+        .enum(['listener', 'admin'])
+        .describe("The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two"),
+});
+export type InvitationPreviewQuery = z.infer<typeof InvitationPreviewQuery>;
+
+/**
+ * An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one
+ * generated from [InvitationPreview](../../../../data/contracts/settings/settings.types.ck)
+ */
+export const InvitationPreview = z.strictObject({
+    subject: z.string().max(2000).describe('The subject line'),
+    html: z.string().max(500000).describe('The whole HTML part, as a document'),
+    text: z.string().max(500000).describe('The plain-text part'),
+    ownWording: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            "Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead",
+        ),
+    problem: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe('Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved'),
+});
+export type InvitationPreview = z.infer<typeof InvitationPreview>;
+
+/**
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
  * console renders both with one component

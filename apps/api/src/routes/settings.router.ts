@@ -1,7 +1,14 @@
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { MailService } from '#src/modules/mail/mail.service.js';
 import { SettingsService } from '#src/modules/settings/settings.service.js';
 import { SigninProviderCheckService } from '#src/modules/authentication/signin.provider.check.service.js';
-import { SigninProvidersCheck, StationSettings, StationSettingsInput } from '../modules/settings/types/settings.types.js';
+import {
+    InvitationPreview,
+    InvitationPreviewQuery,
+    SigninProvidersCheck,
+    StationSettings,
+    StationSettingsInput,
+} from '../modules/settings/types/settings.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -44,6 +51,21 @@ SettingsRouter.put('/settings', requirePolicy({ policy: 'platform.manage' }), bo
 SettingsRouter.get('/settings/signin/check', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(SigninProviderCheckService);
     const result: SigninProvidersCheck = await service.check();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Renders the invitation email as it would be sent now, in the station's saved wording, with sample values in place of a real link, inviter and date
+ * from [settings.ck](../../data/contracts/settings/settings.ck) `GET /settings/mail/invitation/preview`
+ */
+SettingsRouter.get('/settings/mail/invitation/preview', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, InvitationPreviewQuery.strict());
+
+    const service = ctx.container.get(MailService);
+    const result: InvitationPreview = await service.previewInvitation(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

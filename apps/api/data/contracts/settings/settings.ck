@@ -5,6 +5,7 @@ options {
     services: {
         SettingsService: "#src/modules/settings/settings.service.js"
         SigninProviderCheckService: "#src/modules/authentication/signin.provider.check.service.js"
+        MailService: "#src/modules/mail/mail.service.js"
     }
     security: {
         # The floor for every operation in this file. The READ end, deliberately, because this file
@@ -66,6 +67,25 @@ operation /settings/signin/check: {
         response: {
             200: {
                 application/json: SigninProvidersCheck
+            }
+        }
+    }
+}
+
+operation /settings/mail/invitation/preview: {
+    get: { # Renders the invitation email as it would be sent now, in the station's saved wording, with sample values in place of a real link, inviter and date
+        name: Preview invitation
+        mcp: exclude
+        service: MailService.previewInvitation
+        security: {
+            # Above the read floor: the wording is an operator's draft, and only an operator can
+            # change what it says.
+            policy: platform.manage
+        }
+        query: InvitationPreviewQuery
+        response: {
+            200: {
+                application/json: InvitationPreview
             }
         }
     }

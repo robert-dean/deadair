@@ -78,6 +78,28 @@ data class SigninProviderCheck(
     val problem: String? = null,
 )
 
+/** Which invitation to preview */
+@Serializable
+data class InvitationPreviewQuery(
+    /** The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two */
+    val role: InvitationPreviewQueryRole,
+)
+
+/** An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one */
+@Serializable
+data class InvitationPreview(
+    /** The subject line */
+    val subject: String,
+    /** The whole HTML part, as a document */
+    val html: String,
+    /** The plain-text part */
+    val text: String,
+    /** Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead */
+    val ownWording: Boolean,
+    /** Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved */
+    val problem: String? = null,
+)
+
 /**
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
@@ -137,4 +159,25 @@ data class StationSettings(
     val configured: Map<String, Boolean>,
     /** One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's, each model setting from the model plugin's own default. Also the sign-in redirect address, for the `note` that shows it, since a note holds no value of its own. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed */
     val derived: Map<String, String>,
+)
+
+/** The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two */
+@Serializable(with = InvitationPreviewQueryRoleSerializer::class)
+enum class InvitationPreviewQueryRole {
+    LISTENER,
+    ADMIN,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [InvitationPreviewQueryRole] by its wire spelling. A spelling it does not know reads as [InvitationPreviewQueryRole.UNKNOWN]. */
+object InvitationPreviewQueryRoleSerializer : SdkEnumSerializer<InvitationPreviewQueryRole>(
+    "InvitationPreviewQueryRole",
+    InvitationPreviewQueryRole.UNKNOWN,
+    InvitationPreviewQueryRole.LISTENER to "listener",
+    InvitationPreviewQueryRole.ADMIN to "admin",
 )

@@ -788,6 +788,20 @@ export const settings = {
             failureMessage: 'The settings could not be saved.',
         },
     },
+    invitationPreview: {
+        title: 'What an invitation looks like',
+        intro: 'The invitation email as the station would send it now, with a sample link, sender and date. It shows what is saved, so save the form above to see a change here.',
+        role: { label: 'Invitation for', listener: 'Listener', admin: 'Admin' },
+        failed: {
+            title: 'No preview',
+            fallback: 'The station could not draw the invitation.',
+        },
+        unusable: 'Your saved wording is not being used',
+        wording: { yours: 'Your wording', station: "The station's own wording" },
+        subject: 'Subject:',
+        tab: { email: 'Email', text: 'Plain text' },
+        frameTitle: 'Invitation email preview',
+    },
     signinCheck: {
         title: 'Do they answer?',
         intro: 'The station asks each provider for its sign-in details, the way the sign-in page will, whenever this list is saved.',
@@ -825,8 +839,8 @@ export const settings = {
         },
         mail: {
             label: 'Mail',
-            hint: 'Where it sends sign-in codes from',
-            blurb: 'The mail server the station signs people in through. Without one it cannot send a code or a sign-in link, and it says so rather than failing quietly.',
+            hint: 'Where it sends sign-in codes and invitations from',
+            blurb: 'The mail server the station signs people in through and sends invitations from, and what an invitation says. Without a server it cannot send a code or a sign-in link, and it says so rather than failing quietly.',
         },
         appearance: {
             label: 'Appearance',

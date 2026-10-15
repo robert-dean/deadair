@@ -51,6 +51,23 @@ export function useUpdateSettings() {
 }
 
 /**
+ * The invitation as the station would email it now, for one role.
+ *
+ * `wording` is the saved subject and message, which is what makes a save ask again; `undefined`
+ * asks nothing, for a station whose mail fields are not showing yet.
+ */
+export function useInvitationPreview(role: 'listener' | 'admin', wording: { subject: string; body: string } | undefined) {
+    return useQuery({
+        queryKey: queryKeys.settings.invitationPreview(role, wording?.subject ?? '', wording?.body ?? ''),
+        queryFn: () => sdk.settings.previewInvitation({ role }),
+        enabled: wording !== undefined,
+        staleTime: Infinity,
+        refetchOnWindowFocus: false,
+        retry: false,
+    });
+}
+
+/**
  * Whether each identity provider in the sign-in settings answers as one.
  *
  * Asked once per stored provider list and not again on focus or on a timer, because every ask

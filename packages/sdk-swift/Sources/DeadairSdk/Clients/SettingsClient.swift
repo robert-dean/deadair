@@ -33,4 +33,13 @@ public final class SettingsClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(SigninProvidersCheck.self, from: response)
     }
+
+    /// Preview invitation
+    /// Renders the invitation email as it would be sent now, in the station's saved wording, with sample values in place of a real link, inviter and date
+    public func previewInvitation(query: InvitationPreviewQuery? = nil) async throws -> InvitationPreview {
+        var request = SdkRequest(method: "GET", path: ["settings", "mail", "invitation", "preview"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(InvitationPreview.self, from: response)
+    }
 }

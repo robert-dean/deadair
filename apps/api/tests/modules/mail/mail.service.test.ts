@@ -12,6 +12,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { MailService } from '../../../src/modules/mail/mail.service.js';
 import { MailTransport } from '../../../src/modules/mail/mail.transport.js';
 import { MAIL_KEYS } from '../../../src/modules/mail/mail.settings.js';
+import { INVITATION_KEYS } from '../../../src/modules/mail/mail.invitation.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 
 const build = (rows: Record<string, string>) => {
@@ -102,5 +103,94 @@ describe('sending station mail', () => {
     it('assertConfigured throws the same 503 send would, and nothing when it can', async () => {
         expect(await statusOf(Promise.resolve().then(() => build({}).service.assertConfigured()))).toBe(503);
         expect(() => build(CONFIGURED).service.assertConfigured()).not.toThrow();
+    });
+});
+
+describe("sending an invitation in the operator's words", () => {
+    const INVITATION = {
+        to: 'someone@example.com',
+        template: 'Invitation',
+        data: { link: 'https://x.test/invite#t', role: 'listener', until: 'soon' },
+    } as const;
+
+    it('uses the subject and body the station has saved', async () => {
+        const { service, transport } = build({
+            ...CONFIGURED,
+            [INVITATION_KEYS.subject]: 'Tune in to {{station}}',
+            [INVITATION_KEYS.body]: 'Pull up a chair. [Join]({{link}})',
+        });
+
+        await service.send(INVITATION);
+
+        expect(transport.send).toHaveBeenCalledWith(
+            expect.objectContaining({ subject: 'Tune in to Deadair', text: 'Pull up a chair. Join (https://x.test/invite#t)' }),
+            expect.anything(),
+            expect.any(String),
+        );
+    });
+
+    // A row that reached the table some other way than the settings page, which refuses this.
+    it("sends the station's own body, and says why, when the saved one cannot be used", async () => {
+        const { service, transport, logger } = build({ ...CONFIGURED, [INVITATION_KEYS.body]: 'No link in here.' });
+
+        await service.send(INVITATION);
+
+        expect(transport.send).toHaveBeenCalledWith(
+            expect.objectContaining({ text: expect.stringContaining('Make your account') }),
+            expect.anything(),
+            expect.any(String),
+        );
+        expect(logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('wording cannot be used'),
+            expect.objectContaining({ key: INVITATION_KEYS.body }),
+        );
+    });
+
+    it('leaves the other messages alone whatever the invitation says', async () => {
+        const { service, transport, logger } = build({ ...CONFIGURED, [INVITATION_KEYS.body]: 'No link in here.' });
+
+        await service.send(MESSAGE);
+
+        expect(transport.send).toHaveBeenCalledWith(
+            expect.objectContaining({ subject: expect.stringContaining('sign-in code') }),
+            expect.anything(),
+            expect.any(String),
+        );
+        expect(logger.warn).not.toHaveBeenCalled();
+    });
+});
+
+describe('previewing the invitation', () => {
+    it("renders the station's own wording with sample values, without a mail server", async () => {
+        const { service } = build({});
+
+        const preview = await service.previewInvitation({ role: 'admin' });
+
+        expect(preview.subject).toBe('You are invited to run Deadair');
+        expect(preview.html).toContain('<!DOCTYPE html>');
+        expect(preview.text).toContain('https://your-station.example/invite#sample');
+        expect(preview.text).toContain('docs/tutorials/first-hour');
+        expect(preview.ownWording).toBe(false);
+        expect(preview.problem).toBeUndefined();
+    });
+
+    it('renders the saved wording and says it did', async () => {
+        const { service } = build({ [INVITATION_KEYS.body]: 'Hello, new {{role}}. [Join]({{link}})' });
+
+        const preview = await service.previewInvitation({ role: 'listener' });
+
+        expect(preview.text).toBe('Hello, new listener. Join (https://your-station.example/invite#sample)');
+        expect(preview.ownWording).toBe(true);
+    });
+
+    it('says why saved wording cannot be used, and shows what would go instead', async () => {
+        const { service, logger } = build({ [INVITATION_KEYS.body]: 'No link in here.' });
+
+        const preview = await service.previewInvitation({ role: 'listener' });
+
+        expect(preview.problem).toContain('{{link}}');
+        expect(preview.ownWording).toBe(false);
+        expect(preview.text).toContain('Make your account');
+        expect(logger.warn).not.toHaveBeenCalled();
     });
 });

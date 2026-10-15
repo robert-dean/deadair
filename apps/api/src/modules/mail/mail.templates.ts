@@ -1,3 +1,5 @@
+import { renderInvitation, type InvitationWording } from './mail.invitation.js';
+
 /**
  * Every message the station sends, and what each one needs to say it.
  *
@@ -36,6 +38,15 @@ export type MailMessage = {
     [T in MailTemplate]: { to: string; template: T; data: MailTemplateMap[T] };
 }[MailTemplate];
 
+/**
+ * What the operator has written in place of the station's own words. Only the invitation is
+ * offered: the rest are security notices, and {@link renderInvitation} says why that is where it
+ * stops.
+ */
+export interface MailWording {
+    invitation?: InvitationWording;
+}
+
 /** What a transport puts on the wire. Rendered, addressed, and free of any template vocabulary. */
 export interface MailEnvelope {
     to: string;
@@ -53,12 +64,12 @@ export interface MailEnvelope {
  * the one that always arrives intact. The HTML is the same words in a readable size — no images, no
  * tracking, no external stylesheet, nothing that a mail client will strip or a proxy will fetch.
  */
-export function renderMail(message: MailMessage, stationName: string): MailEnvelope {
-    const rendered = body(message, stationName);
+export function renderMail(message: MailMessage, stationName: string, wording: MailWording = {}): MailEnvelope {
+    const rendered = body(message, stationName, wording);
     return { to: message.to, subject: rendered.subject, text: rendered.text, html: wrap(rendered.subject, rendered.html) };
 }
 
-function body(message: MailMessage, stationName: string): { subject: string; text: string; html: string } {
+function body(message: MailMessage, stationName: string, wording: MailWording): { subject: string; text: string; html: string } {
     switch (message.template) {
         case 'SignInCode': {
             const { code, minutes } = message.data;
@@ -120,29 +131,8 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
                 ].join(''),
             };
         }
-        case 'Invitation': {
-            const { link, role, inviter, until } = message.data;
-            const who = inviter ? `${inviter} has invited you` : 'You have been invited';
-            const what = role === 'admin' ? `to run ${stationName}` : `to listen to ${stationName}`;
-            return {
-                subject: role === 'admin' ? `You are invited to run ${stationName}` : `You are invited to ${stationName}`,
-                text: [
-                    `${who} ${what}. Open this link to make your account:`,
-                    '',
-                    link,
-                    '',
-                    `You will choose a password and set up an authenticator app or a passkey. The link works once, until ${until}.`,
-                    '',
-                    'If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.',
-                ].join('\n'),
-                html: [
-                    `<p>${escapeHtml(who)} ${escapeHtml(what)}.</p>`,
-                    `<p><a href="${escapeHtml(link)}" style="font-size:16px">Make your account</a></p>`,
-                    `<p>You will choose a password and set up an authenticator app or a passkey. The link works once, until ${escapeHtml(until)}.</p>`,
-                    '<p>If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.</p>',
-                ].join(''),
-            };
-        }
+        case 'Invitation':
+            return renderInvitation(message.data, stationName, wording.invitation);
         case 'SecondFactorReset': {
             return {
                 subject: `Your second step on ${stationName} was reset`,

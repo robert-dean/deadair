@@ -26,6 +26,7 @@ import { StorageCard } from './storage.card';
 import { ConnectedAppsCard } from './connected.apps.card';
 import { OAuthClientsCard } from './oauth.clients.card';
 import { SigninCheckCard } from './signin.check.card';
+import { InvitationPreviewCard } from './invitation.preview.card';
 
 /**
  * One section of Settings, as its own page.
@@ -84,6 +85,20 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
                         <OAuthClientsCard />
                     </Stack>
                 </Stack>
+            </Stack>
+        );
+
+    // Mail is the server and the invitation's wording, so the invitation as it would be sent sits
+    // under the form, the way the sign-in check sits under the providers.
+    if (section.id === 'mail')
+        return (
+            <Stack gap="lg">
+                <SettingsGroupPage
+                    group={section.group}
+                    label={section.label}
+                    header={<SectionHeader title={section.label} blurb={section.blurb} />}
+                />
+                <InvitationPreviewCard />
             </Stack>
         );
 

@@ -49,6 +49,32 @@ export interface SigninProviderCheck {
 }
 
 /**
+ * Which invitation to preview
+ * generated from [InvitationPreviewQuery](../../../../../apps/api/data/contracts/settings/settings.types.ck)
+ */
+export interface InvitationPreviewQuery {
+    /** The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two */
+    role: 'listener' | 'admin';
+}
+
+/**
+ * An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one
+ * generated from [InvitationPreview](../../../../../apps/api/data/contracts/settings/settings.types.ck)
+ */
+export interface InvitationPreview {
+    /** The subject line */
+    subject: string;
+    /** The whole HTML part, as a document */
+    html: string;
+    /** The plain-text part */
+    text: string;
+    /** Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead */
+    ownWording: boolean;
+    /** Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved */
+    problem?: string;
+}
+
+/**
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
  * console renders both with one component

@@ -125,4 +125,36 @@ describe('rendering a message', () => {
         expect(envelope.html).not.toContain('<b>@');
         expect(envelope.html).toContain('&lt;b&gt;@x.test');
     });
+
+    it('links the invitation in the HTML and leaves no placeholder in either part', () => {
+        const envelope = renderMail(
+            { to: 'a@b.c', template: 'Invitation', data: { link: 'https://x.test/invite#di_abc', role: 'listener', until: '20 October 2026' } },
+            STATION,
+        );
+
+        expect(envelope.html).toContain('<a href="https://x.test/invite#di_abc">Make your account</a>');
+        expect(envelope.text).toContain('You have been invited to listen to Dead Air.');
+        expect(`${envelope.html}${envelope.text}`).not.toContain('{{');
+    });
+
+    it('points a new listener at the Android app and the listening guide, and leaves out an app that is in no store', () => {
+        const envelope = renderMail(
+            { to: 'a@b.c', template: 'Invitation', data: { link: 'https://x.test/invite#t', role: 'listener', until: 'soon' } },
+            STATION,
+        );
+
+        expect(envelope.html).toContain('href="https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair"');
+        expect(envelope.text).toContain('https://deadair.radio/docs/features/listening');
+        expect(envelope.text).not.toContain('App Store');
+    });
+
+    it('points a new admin at the first-hour tutorial instead', () => {
+        const envelope = renderMail(
+            { to: 'a@b.c', template: 'Invitation', data: { link: 'https://x.test/invite#t', role: 'admin', until: 'soon' } },
+            STATION,
+        );
+
+        expect(envelope.text).toContain('https://deadair.radio/docs/tutorials/first-hour');
+        expect(envelope.text).not.toContain('docs/features/listening');
+    });
 });

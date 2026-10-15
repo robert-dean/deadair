@@ -9,7 +9,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { parseSetting, serializeSetting } from '../../../src/modules/settings/setting.values.js';
 import { settingIsOn } from '../../../src/modules/shared/setting.flags.js';
-import type { SettingDescriptor } from '../../../src/modules/settings/settings.registry.js';
+import { findDescriptor, type SettingDescriptor } from '../../../src/modules/settings/settings.registry.js';
 
 const descriptor = (overrides: Partial<SettingDescriptor>): SettingDescriptor =>
     ({ group: 'station', key: 'test.key', label: 'Test', type: 'string', ...overrides }) as SettingDescriptor;
@@ -145,5 +145,23 @@ describe('serializeSetting', () => {
         const result = serializeSetting(descriptor({ type: 'number', label: 'Bitrate (kbps)' }), 'loud');
 
         expect('rejected' in result && result.rejected.message).toContain('Bitrate (kbps)');
+    });
+});
+
+describe('a setting whose text has rules of its own', () => {
+    const body = findDescriptor('mail.invitation.body')!;
+
+    it('refuses an invitation body with no link, saying why', () => {
+        const result = serializeSetting(body, 'Welcome!');
+
+        expect(result).toEqual({ rejected: { key: 'mail.invitation.body', message: expect.stringContaining('{{link}}') } });
+    });
+
+    it('stores one that can be sent', () => {
+        expect(serializeSetting(body, '  [Join]({{link}})  ')).toEqual({ value: '[Join]({{link}})' });
+    });
+
+    it("lets it be cleared, which is how the station's own wording comes back", () => {
+        expect(serializeSetting(body, '')).toEqual({ value: '' });
     });
 });

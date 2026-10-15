@@ -1,5 +1,6 @@
 import { flagIsOn } from '#modules/shared/setting.flags.js';
 import type { SettingDescriptor } from './settings.registry.js';
+import { settingTextProblem } from './setting.checks.js';
 
 /**
  * What a setting is worth, once it has been read back out of a text column.
@@ -104,6 +105,8 @@ export function serializeSetting(descriptor: SettingDescriptor, submitted: unkno
 
         default: {
             const value = String(submitted ?? '').trim();
+            const problem = settingTextProblem(descriptor.key, value);
+            if (problem !== undefined) return reject(`"${descriptor.label}" cannot be saved: ${problem}`);
             return requiredOr(descriptor, reject, { value });
         }
     }

@@ -119,6 +119,14 @@ function fill(token: Token, values: MailValues): void {
     for (const child of token.children ?? []) fill(child, values);
 }
 
+/**
+ * `source` with its placeholders filled, and nothing else done to it: for a subject line, which is
+ * a header rather than markdown and is escaped by the transport.
+ */
+export function fillPlaceholders(source: string, values: MailValues): string {
+    return substitute(source, values);
+}
+
 function substitute(content: string, values: MailValues): string {
     return content.replace(PLACEHOLDER, (whole, name: string) => {
         const value = values[name];

@@ -126,6 +126,7 @@ import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
+import { INVITATION_KEYS } from '#modules/mail/mail.invitation.js';
 import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS, SIGNIN_PROVIDER_PRESETS } from '#modules/authentication/signin.settings.js';
 import { OAUTH_DEFAULTS, OAUTH_KEYS } from '#modules/oauth/oauth.settings.js';
 import {
@@ -1989,6 +1990,35 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         dependsOn: MAIL_KEYS.host,
         help: 'The address sign-in emails come from. Needed as much as the server is: most providers refuse an envelope whose sender is not one of theirs.',
+    },
+    // The invitation's own words, the only message offered: `mail.invitation.ts` says why the
+    // sign-in messages are not. What a body may say is checked when it is saved, in
+    // `setting.checks.ts`, because the person who would otherwise find the mistake has no account.
+    {
+        group: 'mail',
+        key: INVITATION_KEYS.subject,
+        label: 'Invitation subject',
+        type: 'string',
+        default: '',
+        dependsOn: MAIL_KEYS.host,
+        placeholder: 'You are invited to {{station}}',
+        help: "The subject line of an emailed invitation. {{station}} is the station's name and {{role}} is listener or admin. Empty uses the station's own.",
+    },
+    {
+        group: 'mail',
+        key: INVITATION_KEYS.body,
+        label: 'Invitation message',
+        type: 'text',
+        default: '',
+        dependsOn: MAIL_KEYS.host,
+        placeholder: 'Welcome to {{station}}!\n\n[Make your account]({{link}})\n\nThe link works once, until {{until}}.',
+        help:
+            'What an emailed invitation says, in markdown: **bold**, *italic*, lists, headings and [links](https://example.com). ' +
+            'It has to include {{link}}, the link that makes the account. It can also use {{station}}, {{role}} (listener or admin), ' +
+            '{{inviter}} (who sent it), {{until}} (when the link stops working), {{androidApp}} and {{iosApp}} (the phone apps) and ' +
+            '{{guide}} (the deadair guide for their role). A paragraph or list item whose placeholder has nothing to fill it is left out, ' +
+            'so a line with {{iosApp}} appears once the iPhone app is in the App Store. HTML and images are shown as typed rather than drawn. ' +
+            "Empty uses the station's own.",
     },
 
     // ── sign-in ────────────────────────────────────────────────────────────────

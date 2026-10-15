@@ -7,6 +7,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { MailTransport } from './mail.transport.js';
 import { MailMessage, renderMail } from './mail.templates.js';
 import { resolveMailSettings } from './mail.settings.js';
+import { INVITATION_KEYS, invitationBodyProblem, invitationSubjectProblem, type InvitationWording } from './mail.invitation.js';
 
 /**
  * What the station says when it has nowhere to send mail.
@@ -72,7 +73,7 @@ export class MailService {
             throw httpError(503).withDetails({ message: NOT_CONFIGURED });
         }
 
-        const envelope = renderMail(message, this.stationName());
+        const envelope = renderMail(message, this.stationName(), message.template === 'Invitation' ? { invitation: this.invitationWording() } : {});
 
         await this.transport.send(envelope, settings, this.stationName());
 
@@ -80,6 +81,28 @@ export class MailService {
         // one-time code or a link that is one, and both are credentials for the length of their
         // challenge.
         this.logger.info('mail: sent', { template: message.template, to: message.to });
+    }
+
+    /**
+     * The invitation in the operator's words, half by half, where they wrote some.
+     *
+     * Checked again here although it was checked when it was saved, because a row can arrive by
+     * another road (psql, a restored backup, a rule that tightened since). A half that fails is sent
+     * in the station's own words and logged, on the resolver rule: a stored setting that will not
+     * load must not stop the invitation behind it.
+     */
+    private invitationWording(): InvitationWording {
+        const read = (key: string, problem: (value: string) => string | undefined): string | undefined => {
+            const value = this.config.has(key) ? String(this.config.get(key, '')).trim() : '';
+            if (value === '') return undefined;
+            const why = problem(value);
+            if (why === undefined) return value;
+            this.logger.warn("mail: the invitation's own wording cannot be used, so the station's is sent instead", { key, why });
+            return undefined;
+        };
+        const subject = read(INVITATION_KEYS.subject, invitationSubjectProblem);
+        const body = read(INVITATION_KEYS.body, invitationBodyProblem);
+        return { ...(subject === undefined ? {} : { subject }), ...(body === undefined ? {} : { body }) };
     }
 
     /**

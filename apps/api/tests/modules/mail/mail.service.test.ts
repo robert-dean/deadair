@@ -12,6 +12,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { MailService } from '../../../src/modules/mail/mail.service.js';
 import { MailTransport } from '../../../src/modules/mail/mail.transport.js';
 import { MAIL_KEYS } from '../../../src/modules/mail/mail.settings.js';
+import { INVITATION_KEYS } from '../../../src/modules/mail/mail.invitation.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 
 const build = (rows: Record<string, string>) => {
@@ -102,5 +103,59 @@ describe('sending station mail', () => {
     it('assertConfigured throws the same 503 send would, and nothing when it can', async () => {
         expect(await statusOf(Promise.resolve().then(() => build({}).service.assertConfigured()))).toBe(503);
         expect(() => build(CONFIGURED).service.assertConfigured()).not.toThrow();
+    });
+});
+
+describe("sending an invitation in the operator's words", () => {
+    const INVITATION = {
+        to: 'someone@example.com',
+        template: 'Invitation',
+        data: { link: 'https://x.test/invite#t', role: 'listener', until: 'soon' },
+    } as const;
+
+    it('uses the subject and body the station has saved', async () => {
+        const { service, transport } = build({
+            ...CONFIGURED,
+            [INVITATION_KEYS.subject]: 'Tune in to {{station}}',
+            [INVITATION_KEYS.body]: 'Pull up a chair. [Join]({{link}})',
+        });
+
+        await service.send(INVITATION);
+
+        expect(transport.send).toHaveBeenCalledWith(
+            expect.objectContaining({ subject: 'Tune in to Deadair', text: 'Pull up a chair. Join (https://x.test/invite#t)' }),
+            expect.anything(),
+            expect.any(String),
+        );
+    });
+
+    // A row that reached the table some other way than the settings page, which refuses this.
+    it("sends the station's own body, and says why, when the saved one cannot be used", async () => {
+        const { service, transport, logger } = build({ ...CONFIGURED, [INVITATION_KEYS.body]: 'No link in here.' });
+
+        await service.send(INVITATION);
+
+        expect(transport.send).toHaveBeenCalledWith(
+            expect.objectContaining({ text: expect.stringContaining('Make your account') }),
+            expect.anything(),
+            expect.any(String),
+        );
+        expect(logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('wording cannot be used'),
+            expect.objectContaining({ key: INVITATION_KEYS.body }),
+        );
+    });
+
+    it('leaves the other messages alone whatever the invitation says', async () => {
+        const { service, transport, logger } = build({ ...CONFIGURED, [INVITATION_KEYS.body]: 'No link in here.' });
+
+        await service.send(MESSAGE);
+
+        expect(transport.send).toHaveBeenCalledWith(
+            expect.objectContaining({ subject: expect.stringContaining('sign-in code') }),
+            expect.anything(),
+            expect.any(String),
+        );
+        expect(logger.warn).not.toHaveBeenCalled();
     });
 });

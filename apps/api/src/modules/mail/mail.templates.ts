@@ -1,4 +1,4 @@
-import { renderMailMarkdown } from './mail.markdown.js';
+import { renderInvitation, type InvitationWording } from './mail.invitation.js';
 
 /**
  * Every message the station sends, and what each one needs to say it.
@@ -38,6 +38,15 @@ export type MailMessage = {
     [T in MailTemplate]: { to: string; template: T; data: MailTemplateMap[T] };
 }[MailTemplate];
 
+/**
+ * What the operator has written in place of the station's own words. Only the invitation is
+ * offered: the rest are security notices, and {@link renderInvitation} says why that is where it
+ * stops.
+ */
+export interface MailWording {
+    invitation?: InvitationWording;
+}
+
 /** What a transport puts on the wire. Rendered, addressed, and free of any template vocabulary. */
 export interface MailEnvelope {
     to: string;
@@ -55,12 +64,12 @@ export interface MailEnvelope {
  * the one that always arrives intact. The HTML is the same words in a readable size — no images, no
  * tracking, no external stylesheet, nothing that a mail client will strip or a proxy will fetch.
  */
-export function renderMail(message: MailMessage, stationName: string): MailEnvelope {
-    const rendered = body(message, stationName);
+export function renderMail(message: MailMessage, stationName: string, wording: MailWording = {}): MailEnvelope {
+    const rendered = body(message, stationName, wording);
     return { to: message.to, subject: rendered.subject, text: rendered.text, html: wrap(rendered.subject, rendered.html) };
 }
 
-function body(message: MailMessage, stationName: string): { subject: string; text: string; html: string } {
+function body(message: MailMessage, stationName: string, wording: MailWording): { subject: string; text: string; html: string } {
     switch (message.template) {
         case 'SignInCode': {
             const { code, minutes } = message.data;
@@ -122,22 +131,8 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
                 ].join(''),
             };
         }
-        case 'Invitation': {
-            const { link, role, inviter, until } = message.data;
-            const rendered = renderMailMarkdown(invitationBody(role, inviter !== undefined), {
-                station: stationName,
-                link,
-                until,
-                ...(inviter === undefined ? {} : { inviter }),
-                androidApp: LISTENER_APPS.android,
-                iosApp: LISTENER_APPS.ios,
-                guide: GUIDES[role],
-            });
-            return {
-                subject: role === 'admin' ? `You are invited to run ${stationName}` : `You are invited to ${stationName}`,
-                ...rendered,
-            };
-        }
+        case 'Invitation':
+            return renderInvitation(message.data, stationName, wording.invitation);
         case 'SecondFactorReset': {
             return {
                 subject: `Your second step on ${stationName} was reset`,
@@ -157,48 +152,6 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
         }
     }
 }
-
-/**
- * The invitation as markdown, which is the form an operator's own wording will take.
- *
- * The first one moved onto {@link renderMailMarkdown} because it is the one message that is a
- * welcome rather than a security notice, and so the one worth letting a station write for itself.
- * The rest stay as they are: their warnings do work, and a sign-in message the operator can reword
- * is a phishing template with the station's name on it.
- */
-function invitationBody(role: 'admin' | 'listener', named: boolean): string {
-    const who = named ? '{{inviter}} has invited you' : 'You have been invited';
-    const what = role === 'admin' ? 'to run {{station}}' : 'to listen to {{station}}';
-    const guide =
-        role === 'admin'
-            ? '[Your first hour on air]({{guide}}) walks through getting the station playing and talking.'
-            : '[How listening works]({{guide}}), on the deadair site.';
-    return [
-        `${who} ${what}.`,
-        '[Make your account]({{link}})',
-        'You will choose a password and set up an authenticator app or a passkey. The link works once, until {{until}}.',
-        'Then you can listen on your phone:',
-        '- [Android, on Google Play]({{androidApp}})\n- [iPhone, on the App Store]({{iosApp}})',
-        guide,
-        'If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.',
-    ].join('\n\n');
-}
-
-/**
- * Where the listener apps are published. `undefined` is an app that is not in a store yet, and the
- * invitation leaves its line out until it is: the iPhone app is built from `apps/ios` and is not on
- * the App Store, so filling this in is what puts it in every invitation sent afterwards.
- */
-const LISTENER_APPS: { android: string | undefined; ios: string | undefined } = {
-    android: 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair',
-    ios: undefined,
-};
-
-/** The page on the deadair site for somebody just arriving in each role. */
-const GUIDES: Record<'admin' | 'listener', string> = {
-    admin: 'https://deadair.radio/docs/tutorials/first-hour',
-    listener: 'https://deadair.radio/docs/features/listening',
-};
 
 /**
  * The document around a rendered body.

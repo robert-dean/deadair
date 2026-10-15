@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.69.1] — 2026-10-15
+
+- The Rhapsode settings page draws again when two engines hold a voice (or a build) with the same id: it is offered once, labelled with every engine that holds it, and the station drops a repeated value from any plugin's suggestions rather than letting it fail the whole page.
+
 ## [0.69.0] — 2026-10-15
 
 - Each job a model does (talk breaks, choosing records, reading articles, judging moods, saying what a record is about, the two persona passes, writing a character, and now productions) names a list of models, tried in order, rather than one. If a model fails before it answers, because its server is down, it answers an error, it times out or it has been retired, the station asks the next one on the list straight away, and asks the failed one last for the next minute so a dead server is not tried on every call. Settings → Words shows each list as a list box: add from every model your providers offer, move a model up or down, or remove it. Every model you had set becomes a list of one, and an empty list still means the plugin's default.
@@ -1464,7 +1468,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.69.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.69.1...HEAD
+[0.69.1]: https://github.com/robert-dean/deadair/compare/v0.69.0...v0.69.1
 [0.69.0]: https://github.com/robert-dean/deadair/compare/v0.68.1...v0.69.0
 [0.68.1]: https://github.com/robert-dean/deadair/compare/v0.68.0...v0.68.1
 [0.68.0]: https://github.com/robert-dean/deadair/compare/v0.67.1...v0.68.0

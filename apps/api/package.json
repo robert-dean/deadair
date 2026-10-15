@@ -70,6 +70,7 @@
         "koa": "^3.2.1",
         "kysely": "^0.29.6",
         "luxon": "^3.7.2",
+        "markdown-it": "^15.0.2",
         "multicast-dns": "^7.2.5",
         "nodemailer": "^10.0.16",
         "pg": "^8.23.1",

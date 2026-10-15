@@ -1,3 +1,5 @@
+import { renderMailMarkdown } from './mail.markdown.js';
+
 /**
  * Every message the station sends, and what each one needs to say it.
  *
@@ -122,25 +124,15 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
         }
         case 'Invitation': {
             const { link, role, inviter, until } = message.data;
-            const who = inviter ? `${inviter} has invited you` : 'You have been invited';
-            const what = role === 'admin' ? `to run ${stationName}` : `to listen to ${stationName}`;
+            const rendered = renderMailMarkdown(invitationBody(role, inviter !== undefined), {
+                station: stationName,
+                link,
+                until,
+                ...(inviter === undefined ? {} : { inviter }),
+            });
             return {
                 subject: role === 'admin' ? `You are invited to run ${stationName}` : `You are invited to ${stationName}`,
-                text: [
-                    `${who} ${what}. Open this link to make your account:`,
-                    '',
-                    link,
-                    '',
-                    `You will choose a password and set up an authenticator app or a passkey. The link works once, until ${until}.`,
-                    '',
-                    'If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.',
-                ].join('\n'),
-                html: [
-                    `<p>${escapeHtml(who)} ${escapeHtml(what)}.</p>`,
-                    `<p><a href="${escapeHtml(link)}" style="font-size:16px">Make your account</a></p>`,
-                    `<p>You will choose a password and set up an authenticator app or a passkey. The link works once, until ${escapeHtml(until)}.</p>`,
-                    '<p>If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.</p>',
-                ].join(''),
+                ...rendered,
             };
         }
         case 'SecondFactorReset': {
@@ -161,6 +153,25 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
             };
         }
     }
+}
+
+/**
+ * The invitation as markdown, which is the form an operator's own wording will take.
+ *
+ * The first one moved onto {@link renderMailMarkdown} because it is the one message that is a
+ * welcome rather than a security notice, and so the one worth letting a station write for itself.
+ * The rest stay as they are: their warnings do work, and a sign-in message the operator can reword
+ * is a phishing template with the station's name on it.
+ */
+function invitationBody(role: 'admin' | 'listener', named: boolean): string {
+    const who = named ? '{{inviter}} has invited you' : 'You have been invited';
+    const what = role === 'admin' ? 'to run {{station}}' : 'to listen to {{station}}';
+    return [
+        `${who} ${what}.`,
+        '[Make your account]({{link}})',
+        'You will choose a password and set up an authenticator app or a passkey. The link works once, until {{until}}.',
+        'If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.',
+    ].join('\n\n');
 }
 
 /**

@@ -125,4 +125,15 @@ describe('rendering a message', () => {
         expect(envelope.html).not.toContain('<b>@');
         expect(envelope.html).toContain('&lt;b&gt;@x.test');
     });
+
+    it('links the invitation in the HTML and leaves no placeholder in either part', () => {
+        const envelope = renderMail(
+            { to: 'a@b.c', template: 'Invitation', data: { link: 'https://x.test/invite#di_abc', role: 'listener', until: '20 October 2026' } },
+            STATION,
+        );
+
+        expect(envelope.html).toContain('<a href="https://x.test/invite#di_abc">Make your account</a>');
+        expect(envelope.text).toContain('You have been invited to listen to Dead Air.');
+        expect(`${envelope.html}${envelope.text}`).not.toContain('{{');
+    });
 });

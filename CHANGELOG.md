@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.69.0] — 2026-10-15
+
+- Each job a model does (talk breaks, choosing records, reading articles, judging moods, saying what a record is about, the two persona passes, writing a character, and now productions) names a list of models, tried in order, rather than one. If a model fails before it answers, because its server is down, it answers an error, it times out or it has been retired, the station asks the next one on the list straight away, and asks the failed one last for the next minute so a dead server is not tried on every call. Settings → Words shows each list as a list box: add from every model your providers offer, move a model up or down, or remove it. Every model you had set becomes a list of one, and an empty list still means the plugin's default.
+- A talk break that writes a band the way it is said now counts as naming it. "Booker T and the MGs" names Booker T. & the M.G.s: an ampersand and "and" are the same word, and an abbreviation with its dots dropped is the same name. Before, such a break was refused as naming neither record and the station's own template line aired in its place, which happened to 4 of 7 rehearsals of one persona.
+- The timetable's now line, its today column and its **Today** button follow the station's clock rather than the browser's. An operator in a different time zone from the station saw the line at the wrong hour, and near midnight the wrong day marked as today.
+
 ## [0.68.1] — 2026-10-15
 
 - A change of programme thanks every host of the show that ended, not only its lead. The co-hosts presenting beside them ride the changeover request, the model is told to thank all of them, and the station's own lines join their names ("Wayne and Garth") in the station's language. A co-host leaving while the lead carries on is thanked too, and nobody presenting the new show is.
@@ -1458,7 +1464,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.68.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.69.0...HEAD
+[0.69.0]: https://github.com/robert-dean/deadair/compare/v0.68.1...v0.69.0
 [0.68.1]: https://github.com/robert-dean/deadair/compare/v0.68.0...v0.68.1
 [0.68.0]: https://github.com/robert-dean/deadair/compare/v0.67.1...v0.68.0
 [0.67.1]: https://github.com/robert-dean/deadair/compare/v0.67.0...v0.67.1

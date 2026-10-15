@@ -14,6 +14,7 @@ import { LlmService } from '../../../src/modules/llm/llm.service.js';
 import { ToolRegistry } from '../../../src/modules/llm/llm.tools.js';
 import { LLM_PLUGIN_KEY } from '../../../src/modules/llm/llm.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import { ModelHealth } from '../../../src/modules/llm/model.health.js';
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as never;
 
@@ -65,6 +66,7 @@ function serviceFor(records: PluginRecord[], settings: Record<string, string> = 
         new ToolRegistry([], logger()),
         config,
         logger(),
+        new ModelHealth(),
     );
     return { service, set, gate };
 }

@@ -15,6 +15,7 @@ import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 import { LlmService } from '../../../src/modules/llm/llm.service.js';
 import { ToolRegistry } from '../../../src/modules/llm/llm.tools.js';
 import { SCRIPT_HISTORY_KEYS } from '../../../src/modules/render/script.history.settings.js';
+import { ModelHealth } from '../../../src/modules/llm/model.health.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
@@ -644,6 +645,7 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
             new ToolRegistry([], logger as never),
             config,
             logger as never,
+            new ModelHealth(),
         );
         return await service.converse({ messages: [{ role: 'user', content: 'a beat' }] }, { tools: false }).catch((error: unknown) => error);
     }

@@ -18,6 +18,7 @@ import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 import { LlmService, usageSpentBefore } from '../../../src/modules/llm/llm.service.js';
 import { ToolRegistry, type StationTool, type ToolSource } from '../../../src/modules/llm/llm.tools.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import { ModelHealth } from '../../../src/modules/llm/model.health.js';
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as never;
 
@@ -90,7 +91,15 @@ function serviceFor(record: PluginRecord, tools: StationTool[] = []) {
     const { config } = settingsConfig({});
     const gate = new LlmGate(logger());
     const registry = new ToolRegistry(tools.length > 0 ? [source(tools)] : [], logger());
-    const service = new LlmService({ list: () => [record] } as unknown as PluginRegistry, passthroughInvoker(), gate, registry, config, logger());
+    const service = new LlmService(
+        { list: () => [record] } as unknown as PluginRegistry,
+        passthroughInvoker(),
+        gate,
+        registry,
+        config,
+        logger(),
+        new ModelHealth(),
+    );
 
     return { service, gate };
 }
@@ -153,6 +162,7 @@ describe('a conversation with no tools involved', () => {
             new ToolRegistry([], logger()),
             config,
             logger(),
+            new ModelHealth(),
         );
 
         await expect(service.converse(ask())).rejects.toSatisfy(error => isPluginError(error) && error.code === 'unavailable');

@@ -21,6 +21,7 @@ import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import { ModelHealth } from '../../../src/modules/llm/model.health.js';
 
 class StubWriter extends BreakWriter {
     constructor(
@@ -484,6 +485,7 @@ describe('BreakWriterRegistry: what a failed model attempt spent', () => {
             new ToolRegistry([], logger() as never),
             config,
             logger() as never,
+            new ModelHealth(),
         );
 
         return new ModelTalkBreakWriter(llm, new SaidLog(), config, logger() as never);

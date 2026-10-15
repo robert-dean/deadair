@@ -70,6 +70,8 @@ export interface PlanRequest {
     seedArtistKey?: string;
     /** The broadcast this is for, so a mode- or slot-scoped never-play rule holds. See `PickBroadcast`. */
     broadcast?: PickBroadcast;
+    /** For a show that has not started yet. See `SetInputs.ahead`. */
+    ahead?: true;
     /**
      * The calling job's signal. Handed to the generators, and read between the steps here: a run that
      * has been stopped is given no second attempt and resolves nothing, because resolving takes
@@ -193,6 +195,7 @@ export const planRecords = async (
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
             ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
             ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
+            ...(request.ahead ? { ahead: true as const } : {}),
             ...(request.signal === undefined ? {} : { signal: request.signal }),
         });
 

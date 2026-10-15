@@ -112,6 +112,12 @@ export interface SetInputs {
      */
     broadcast?: PickBroadcast;
     /**
+     * These records open a show that has not started yet (`PrepareSlotJob`), so nothing has aired in
+     * it and the broadcast on air, if any, is the one before it. A generator that seeds from what
+     * aired must not read that broadcast as this one's. Only ever `true` or absent.
+     */
+    ahead?: true;
+    /**
      * Aborted when the job asking has been stopped: pg-boss reclaiming a run past its time limit, or
      * the runner shutting down. Whatever a generator would name after that is going nowhere, so one
      * that holds something expensive (the model, above all) hands this on and lets go. One that does

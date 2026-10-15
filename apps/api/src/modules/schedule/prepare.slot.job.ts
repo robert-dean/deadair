@@ -100,6 +100,9 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             ...(slot.era === undefined ? {} : { era: slot.era }),
             ...(slot.moods === undefined ? {} : { mood: slot.moods[0]! }),
             broadcast: { mode: slot.mode, slotId },
+            // The show has not started, so the broadcast on air is the last one and nothing in it is
+            // this show's to seed from. See `SimilarSetGenerator.seeds`.
+            ahead: true,
             // Whatever the station is airing now, so the next show does not open on a record the last
             // one is about to play. What has already aired is the repeat window's business.
             avoidSongKeys: songKeysOf(lineup?.all() ?? []),

@@ -224,6 +224,35 @@ describe('seeding', () => {
         expect(recentArtists).toHaveBeenCalledWith(expect.any(Number), expect.any(String), 'show-4');
     });
 
+    // Measured on the live station, 2026-10-15: Banjo Breakdown was prepared while The Boneyard was
+    // still the broadcast, its brief named nobody the library held, and it seeded from Suffocation
+    // and aired Nile in a bluegrass hour.
+    it('seeds a show prepared ahead from nothing that aired, since the broadcast on air is the one before it', async () => {
+        const { generator, recentArtists, similarTo } = build({ broadcast: 'boneyard', seeds: ['Suffocation'], named: [] });
+
+        const picks = await generator.generate(inputs({ brief: 'Bluegrass: Bill Monroe, Flatt & Scruggs', ahead: true }));
+
+        expect(picks).toEqual([]);
+        expect(recentArtists).not.toHaveBeenCalled();
+        expect(similarTo).not.toHaveBeenCalled();
+    });
+
+    it('seeds an unbriefed show prepared ahead from nothing either, rather than from the station', async () => {
+        const { generator, recentArtists } = build({ broadcast: 'boneyard', seeds: ['Suffocation'] });
+
+        expect(await generator.generate(inputs({ ahead: true }))).toEqual([]);
+        expect(recentArtists).not.toHaveBeenCalled();
+    });
+
+    it('still seeds a show prepared ahead from the acts its brief names, which nothing had to air', async () => {
+        const { generator, recentArtists, similarTo } = build({ broadcast: 'boneyard', named: ['Bill Monroe', 'Flatt & Scruggs'] });
+
+        await generator.generate(inputs({ brief: 'Bluegrass: Bill Monroe, Flatt & Scruggs', ahead: true }));
+
+        expect(recentArtists).not.toHaveBeenCalled();
+        expect(similarTo.mock.calls.map(([ref]) => ref.name)).toContain('Bill Monroe');
+    });
+
     it('reads a brief of nothing but spaces as no brief at all', async () => {
         const { generator, recentArtists } = build({ broadcast: 'show-3' });
 

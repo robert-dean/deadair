@@ -107,7 +107,13 @@ describe('PrepareSlotJob', () => {
         await run();
 
         expect(generate).toHaveBeenCalledWith(
-            expect.objectContaining({ brief: 'glam rock', era: { from: 1970, to: 1979 }, broadcast: { mode: 'rotation', slotId: 'glam' } }),
+            expect.objectContaining({
+                brief: 'glam rock',
+                era: { from: 1970, to: 1979 },
+                broadcast: { mode: 'rotation', slotId: 'glam' },
+                // The show has not started, so nothing may seed from the broadcast on air now.
+                ahead: true,
+            }),
         );
         expect(prepared.save).toHaveBeenCalledWith('glam', '2026-10-09', expect.any(Array));
         expect(prepared.save.mock.calls[0]?.[2].length).toBeGreaterThan(0);

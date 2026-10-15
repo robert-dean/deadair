@@ -41,8 +41,10 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  * station's.** What excuses
  * this binding from `ignoresBrief` is that its seeds actually aired, so under a brief it draws from
  * the brief's own results — true while an hour has been running, and false at the moment the brief
- * changes, when play history is entirely the previous one. See {@link SimilarSetGenerator.seeds},
- * which carries what that cost on air.
+ * changes, when play history is entirely the previous one. **A show prepared ahead
+ * (`SetInputs.ahead`) seeds from nothing but the acts its brief names**, since the broadcast on air
+ * while it is chosen is the show before it. See {@link SimilarSetGenerator.seeds}, which carries what
+ * both cost on air.
  *
  * ## It names records and decides nothing
  *
@@ -255,6 +257,17 @@ export class SimilarSetGenerator extends SetGenerator {
         if (briefed) {
             const named = await this.briefArtists.named(inputs.brief);
             if (named.length > 0) return named.slice(0, MAX_SEEDS).map(artist => artist.name);
+        }
+
+        // A show prepared AHEAD has aired nothing, and the broadcast on air while it is chosen is the
+        // previous show, so every read below answers that show's records. Measured on the live
+        // station, 2026-10-15: Banjo Breakdown, prepared at 06:57 while The Boneyard was still the
+        // broadcast, seeded from Suffocation and opened its hour with Nile. Its brief named nobody
+        // the library held, so the guard above did not apply. Nothing, briefed or not: the first
+        // refill after the show opens seeds from its own records.
+        if (inputs.ahead) {
+            this.logger.debug('director: the show has not started, so nothing it aired can seed neighbours');
+            return [];
         }
 
         const broadcast = this.identity.current();

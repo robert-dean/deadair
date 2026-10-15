@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.12.2] — 2026-10-14
+
+- The host picker offers only characters who can present. It used to leave out callers alone, so a guest or the newsreader could be picked and refused; now it reads each character's `kinds`, so a host who also drops by somebody else's show is still offered, and anybody who cannot host is not.
+
 ## [0.12.1] — 2026-10-14
 
 - A value a newer station sends that this version of the app does not know, such as a new kind of activity or a new reason the station is quiet, no longer stops a screen from loading. The app shows it as unknown, or leaves it out where nothing sensible can be said, and carries on.

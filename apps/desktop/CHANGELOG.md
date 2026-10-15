@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.13.3] — 2026-10-14
+
+- Characters who do several jobs are handled whole. The host pickers offer only characters who can present, so a guest or the newsreader is no longer offered and refused; the roster lists the newsreader and guests under headings of their own; a character's ties read "Drops by" for somebody who drops by rather than rings in; and saving a character keeps every job it has, so a host who also drops by stays one.
+
 ## [0.13.2] — 2026-10-14
 
 - A schedule block that plays a playlist can pick it up where it left off. Switch on **Pick the playlist up where it left off** in the slot editor, and each time the block opens it starts with the record after the last one from its playlist that aired, rather than from the top, so a long playlist on a short block gets all the way through over several nights. An operator's takeover ending in the middle of the block no longer starts the playlist over. The editor shows the record the block will open on next, and **Start from the top** sends it back to the beginning; a record taken off the playlist, or choosing a different playlist, starts it from the top too. Through the API it is `resumePlaylist` on a slot, with `GET` and `DELETE /schedule/{id}/playlist-position`. The desktop app keeps the setting when it saves a slot.
@@ -144,7 +148,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.3...HEAD
+[0.13.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.2...desktop-v0.13.3
 [0.13.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.1...desktop-v0.13.2
 [0.13.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.0...desktop-v0.13.1
 [0.13.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.12.0...desktop-v0.13.0

@@ -91,7 +91,7 @@ const optional = <K extends string>(key: K, value: string | undefined): Partial<
  * Who may be named in front of a script as its speaker, as a field on an answer guard.
  *
  * The presenter's on-air name and console label, the station's own name for its presenter, and, at a
- * changeover, the outgoing host's: a model writing a handover as a scene is the one most likely to
+ * changeover, the outgoing hosts': a model writing a handover as a scene is the one most likely to
  * put a name and a colon in front of it. See `SpeakableOptions.speakers`.
  */
 export function speakerGuard(
@@ -107,6 +107,7 @@ export function speakerGuard(
         config.get(TEMPLATE_KEYS.djName, ''),
         outgoing?.djName,
         outgoing?.label,
+        ...(request.changeover?.outgoingCoHosts ?? []).flatMap(persona => [persona.djName, persona.label]),
         ...(request.coPresenters ?? []),
     ]
         .map(name => name?.trim() ?? '')

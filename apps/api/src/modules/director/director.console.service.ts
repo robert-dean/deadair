@@ -612,6 +612,10 @@ export class DirectorConsoleService {
                 reason: incomingShow === undefined ? 'the timetable ran out' : `the timetable moved on to ${incomingShow}`,
                 context: changeoverContext({
                     ...(outgoing.personaId === undefined ? {} : { outgoingPersonaId: outgoing.personaId }),
+                    // Everybody who presented it is thanked, not only its lead. See `ChangeoverSource`.
+                    ...(outgoing.coHostPersonaIds === undefined || outgoing.coHostPersonaIds.length === 0
+                        ? {}
+                        : { outgoingCoHostPersonaIds: outgoing.coHostPersonaIds }),
                     ...(outgoingShow === undefined ? {} : { outgoingShow }),
                     ...(incomingShow === undefined ? {} : { incomingShow }),
                 }),

@@ -48,6 +48,20 @@ describe('ChangeoverWriter', () => {
         for (const script of said) expect(script).toContain('Dave');
     });
 
+    it('thanks every host of a co-hosted show, and in a sentence that agrees with two of them', async () => {
+        const said = await everything(
+            asking({
+                changeover: { outgoing: persona('p-wayne', 'Wayne'), outgoingCoHosts: [persona('p-garth', 'Garth')], outgoingShow: "Wayne's World" },
+            }),
+        );
+
+        expect(said.length).toBeGreaterThan(0);
+        for (const script of said) {
+            expect(script).toContain('Wayne and Garth');
+            expect(script).not.toMatch(/Garth has/);
+        }
+    });
+
     it('never thanks anybody when the same host carries on into their next show', async () => {
         // No `outgoing` is how the source says "the same host": a host thanking themselves on air is
         // the mistake the shape rules out, and the writer must not reach for a name it was not given.

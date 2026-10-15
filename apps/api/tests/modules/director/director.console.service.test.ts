@@ -2484,6 +2484,33 @@ describe('DirectorConsoleService marking a change of programme', () => {
         );
     });
 
+    it('carries the outgoing show’s co-hosts, so the changeover can thank them too', async () => {
+        const wayne = new StationLineup({
+            name: "Wayne's World",
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            personaId: 'p-wayne',
+            coHostPersonaIds: ['p-garth'],
+            slotId: 'slot-wayne',
+            placedBy: 'schedule',
+        });
+        const { service, director } = build({ order: wayne });
+
+        await service.putOnAir({ brief: 'the usual', personaId: 'p-sonny' }, { id: 'slot-throwback', label: 'Throwback Thursday' } as never);
+
+        expect(director.requestBreak).toHaveBeenCalledWith(
+            expect.objectContaining({
+                context: {
+                    outgoingPersonaId: 'p-wayne',
+                    outgoingCoHostPersonaIds: 'p-garth',
+                    outgoingShow: "Wayne's World",
+                    incomingShow: 'Throwback Thursday',
+                },
+            }),
+        );
+    });
+
     it('asks after the new order is in place, so the break belongs to the broadcast that airs it', async () => {
         const { service, director } = build({ order: breakfast() });
         const calls: string[] = [];

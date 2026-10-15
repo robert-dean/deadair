@@ -91,6 +91,9 @@ function sanitizeSuggestions(suggested: unknown): Record<string, ConfigFieldOpti
             if (typeof entry !== 'object' || entry === null) continue;
             const { value, label } = entry as Partial<ConfigFieldOption>;
             if (typeof value !== 'string' || value.length === 0) continue;
+            // The first of a repeated value wins: the console's selects refuse a list holding one
+            // twice, and refuse it by failing the whole settings page rather than the one field.
+            if (options.some(option => option.value === value)) continue;
             // A missing label is the ordinary case for a list of ids, not a fault.
             options.push({ value, label: typeof label === 'string' && label.length > 0 ? label : value });
         }

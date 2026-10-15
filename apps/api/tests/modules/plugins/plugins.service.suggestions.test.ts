@@ -114,6 +114,19 @@ describe('making a plugin answer renderable', () => {
         expect(result.fields.model).toEqual([{ value: 'ok', label: 'ok' }]);
     });
 
+    it('keeps the first of a repeated value, since the console will not draw a list holding one twice', async () => {
+        const service = suggesting({
+            voice: [{ value: 'rockzo', label: 'Rockzo (kokoro)' }, { value: 'gravel' }, { value: 'rockzo', label: 'Rockzo (chatterbox)' }],
+        });
+
+        const result = await service.suggestPluginConfigOptions(PLUGIN_ID);
+
+        expect(result.fields.voice).toEqual([
+            { value: 'rockzo', label: 'Rockzo (kokoro)' },
+            { value: 'gravel', label: 'gravel' },
+        ]);
+    });
+
     it('leaves out a field whose options were all unusable, rather than reporting it empty', async () => {
         const service = suggesting({ model: [{ value: '' }] });
 

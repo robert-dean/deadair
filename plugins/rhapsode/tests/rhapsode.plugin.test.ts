@@ -770,6 +770,31 @@ describe('suggestConfigOptions', () => {
         ]);
     });
 
+    it('offers a voice several engines hold once, naming all of them, since the console refuses a value twice', async () => {
+        const { plugin } = await started({
+            ...both,
+            voices: {
+                kokoro: [{ id: 'rockzo', label: 'Rockzo', spec: 'x' }],
+                chatterbox: [
+                    { id: 'rockzo', label: 'rockzo', spec: 'y' },
+                    { id: 'gravel', label: 'Gravel', spec: 'z' },
+                ],
+            },
+            capabilities: {
+                kokoro: capabilities({ variants: { default: variant() } }),
+                chatterbox: capabilities({ variants: { default: variant() } }),
+            },
+        });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested['voices.voice']).toEqual([
+            { value: 'rockzo', label: 'Rockzo (kokoro, chatterbox)' },
+            { value: 'gravel', label: 'Gravel (chatterbox)' },
+        ]);
+        expect(suggested['voices.variant']).toEqual([{ value: 'default', label: 'default (kokoro, chatterbox)' }]);
+    });
+
     it('offers every build each engine could load', async () => {
         const { plugin } = await started(both);
 

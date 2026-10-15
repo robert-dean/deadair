@@ -74,6 +74,26 @@ describe('the timetable grid', () => {
         expect(screen.getByText('LateNite')).toBeInTheDocument();
     });
 
+    describe('the station’s clock rather than the browser’s', () => {
+        beforeEach(() => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(new Date(2026, 7, 19, 12, 0, 0));
+        });
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('marks the station’s today, not the browser’s, when handed its clock', () => {
+            // The page passes `getCurrentTime` from `/schedule/current`; without it the package reads
+            // the browser's date, and an operator a zone away saw the wrong column marked.
+            const { container } = render(<WeekView date="2026-08-17" highlightToday getCurrentTime={() => '2026-08-21 10:00:00'} events={[]} />);
+
+            const labelled = [...container.querySelectorAll('[data-today][aria-label]')].map(marked => marked.getAttribute('aria-label'));
+            expect(labelled).not.toHaveLength(0);
+            expect(labelled.every(label => label?.includes('2026-08-21'))).toBe(true);
+        });
+    });
+
     describe('dragging a block that ends at midnight', () => {
         let restore: () => void;
         beforeEach(() => {

@@ -68,3 +68,17 @@ contract SigninProvidersCheck: {
     providers: array(SigninProviderCheck) # In the order the rows are listed
     unusable: array(string(max=2000)) # One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address
 }
+
+# Which invitation to preview
+contract InvitationPreviewQuery: {
+    role: enum(listener, admin) # The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two
+}
+
+# An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one
+contract InvitationPreview: {
+    subject: string(max=2000) # The subject line
+    html: string(max=500000) # The whole HTML part, as a document
+    text: string(max=500000) # The plain-text part
+    ownWording: boolean # Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead
+    problem?: string(max=2000) # Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved
+}

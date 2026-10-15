@@ -59,4 +59,18 @@ public sealed class SettingsClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<SigninProvidersCheck>(response);
     }
+
+    /// <summary>
+    /// Preview invitation
+    /// Renders the invitation email as it would be sent now, in the station's saved wording, with sample values in place of a real link, inviter and date
+    /// </summary>
+    public async Task<InvitationPreview> PreviewInvitationAsync(InvitationPreviewQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("settings", "mail", "invitation", "preview"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<InvitationPreview>(response);
+    }
 }

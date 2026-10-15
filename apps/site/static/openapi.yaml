@@ -5843,6 +5843,27 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/SigninProvidersCheck'
+    '/settings/mail/invitation/preview':
+        get:
+            operationId: previewInvitation
+            summary: 'Preview invitation'
+            description: "Renders the invitation email as it would be sent now, in the station's saved wording, with sample values in place of a real link, inviter and date"
+            parameters:
+                - name: role
+                  in: query
+                  required: true
+                  description: "The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two"
+                  schema:
+                      type: string
+                      enum: [listener, admin]
+                      description: "The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationPreview'
     '/logs':
         get:
             operationId: listSources
@@ -15388,6 +15409,39 @@ components:
                     description: 'One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address'
             required: [providers, unusable]
             description: 'Every identity provider row the station could read, and the ones it could not use at all'
+        InvitationPreviewQuery:
+            type: object
+            properties:
+                role:
+                    type: string
+                    enum: [listener, admin]
+                    description: "The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two"
+            required: [role]
+            description: 'Which invitation to preview'
+        InvitationPreview:
+            type: object
+            properties:
+                subject:
+                    type: string
+                    maxLength: 2000
+                    description: 'The subject line'
+                html:
+                    type: string
+                    maxLength: 500000
+                    description: 'The whole HTML part, as a document'
+                text:
+                    type: string
+                    maxLength: 500000
+                    description: 'The plain-text part'
+                ownWording:
+                    type: boolean
+                    description: "Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead"
+                problem:
+                    type: string
+                    maxLength: 2000
+                    description: 'Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved'
+            required: [subject, html, text, ownWording]
+            description: 'An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one'
         Pagination:
             type: object
             properties:

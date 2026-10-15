@@ -120,6 +120,11 @@ export const queryKeys = {
          * not, which matters because every check reaches out to each issuer.
          */
         signinCheck: (providers: string) => ['settings', 'signin-check', providers] as const,
+        /**
+         * The invitation as it would be emailed, keyed on the saved wording as well as the role, so a
+         * save that changes either half is a new key and so a new render.
+         */
+        invitationPreview: (role: string, subject: string, body: string) => ['settings', 'invitation-preview', role, subject, body] as const,
     },
     /**
      * What the station is using the disk for. One key: the API answers with every store at once,

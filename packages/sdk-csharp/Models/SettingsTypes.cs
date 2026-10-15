@@ -173,6 +173,39 @@ public sealed record SigninProviderCheck
     public string? Problem { get; init; }
 }
 
+/// <summary>Which invitation to preview</summary>
+public sealed record InvitationPreviewQuery
+{
+    /// <summary>The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two</summary>
+    [JsonPropertyName("role")]
+    public required InvitationPreviewQueryRole Role { get; init; }
+}
+
+/// <summary>An invitation as it would be emailed now, with a sample link, inviter and date in place of a real one</summary>
+public sealed record InvitationPreview
+{
+    /// <summary>The subject line</summary>
+    [JsonPropertyName("subject")]
+    public required string Subject { get; init; }
+
+    /// <summary>The whole HTML part, as a document</summary>
+    [JsonPropertyName("html")]
+    public required string Html { get; init; }
+
+    /// <summary>The plain-text part</summary>
+    [JsonPropertyName("text")]
+    public required string Text { get; init; }
+
+    /// <summary>Whether the station's saved subject or message was used. False when neither is set, or when what is saved cannot be used and the station's own wording is shown instead</summary>
+    [JsonPropertyName("ownWording")]
+    public required bool OwnWording { get; init; }
+
+    /// <summary>Why the saved wording cannot be used, in a sentence. Absent when it can, or when nothing is saved</summary>
+    [JsonPropertyName("problem")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Problem { get; init; }
+}
+
 /// <summary>
 /// A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 /// and shared deliberately: a plugin's settings form and the station's are the same problem, and the
@@ -297,4 +330,61 @@ public sealed record StationSettings
     /// <summary>One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's, each model setting from the model plugin's own default. Also the sign-in redirect address, for the `note` that shows it, since a note holds no value of its own. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed</summary>
     [JsonPropertyName("derived")]
     public required Dictionary<string, string> Derived { get; init; }
+}
+
+/// <summary>The role the invitation would be for. Its subject, its guide link and the station's own wording differ between the two</summary>
+[JsonConverter(typeof(InvitationPreviewQueryRoleConverter))]
+public enum InvitationPreviewQueryRole
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("listener")]
+    Listener,
+
+    [JsonStringEnumMemberName("admin")]
+    Admin,
+}
+
+/// <summary>
+/// Reads and writes <see cref="InvitationPreviewQueryRole"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="InvitationPreviewQueryRole.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class InvitationPreviewQueryRoleConverter : JsonConverter<InvitationPreviewQueryRole>
+{
+    public override InvitationPreviewQueryRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for InvitationPreviewQueryRole, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, InvitationPreviewQueryRole value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override InvitationPreviewQueryRole ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, InvitationPreviewQueryRole value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static InvitationPreviewQueryRole FromWire(string? text) => text switch
+    {
+        "listener" => InvitationPreviewQueryRole.Listener,
+        "admin" => InvitationPreviewQueryRole.Admin,
+        _ => InvitationPreviewQueryRole.Unknown,
+    };
+
+    private static string ToWire(InvitationPreviewQueryRole value) => value switch
+    {
+        InvitationPreviewQueryRole.Listener => "listener",
+        InvitationPreviewQueryRole.Admin => "admin",
+        _ => throw new JsonException($"InvitationPreviewQueryRole.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

@@ -159,3 +159,38 @@ describe("sending an invitation in the operator's words", () => {
         expect(logger.warn).not.toHaveBeenCalled();
     });
 });
+
+describe('previewing the invitation', () => {
+    it("renders the station's own wording with sample values, without a mail server", async () => {
+        const { service } = build({});
+
+        const preview = await service.previewInvitation({ role: 'admin' });
+
+        expect(preview.subject).toBe('You are invited to run Deadair');
+        expect(preview.html).toContain('<!DOCTYPE html>');
+        expect(preview.text).toContain('https://your-station.example/invite#sample');
+        expect(preview.text).toContain('docs/tutorials/first-hour');
+        expect(preview.ownWording).toBe(false);
+        expect(preview.problem).toBeUndefined();
+    });
+
+    it('renders the saved wording and says it did', async () => {
+        const { service } = build({ [INVITATION_KEYS.body]: 'Hello, new {{role}}. [Join]({{link}})' });
+
+        const preview = await service.previewInvitation({ role: 'listener' });
+
+        expect(preview.text).toBe('Hello, new listener. Join (https://your-station.example/invite#sample)');
+        expect(preview.ownWording).toBe(true);
+    });
+
+    it('says why saved wording cannot be used, and shows what would go instead', async () => {
+        const { service, logger } = build({ [INVITATION_KEYS.body]: 'No link in here.' });
+
+        const preview = await service.previewInvitation({ role: 'listener' });
+
+        expect(preview.problem).toContain('{{link}}');
+        expect(preview.ownWording).toBe(false);
+        expect(preview.text).toContain('Make your account');
+        expect(logger.warn).not.toHaveBeenCalled();
+    });
+});

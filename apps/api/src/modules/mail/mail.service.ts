@@ -7,6 +7,9 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { MailTransport } from './mail.transport.js';
 import { MailMessage, renderMail } from './mail.templates.js';
 import { resolveMailSettings } from './mail.settings.js';
+import { DateTime } from 'luxon';
+import { INVITATION_LIFETIME } from '#modules/users/invitation.token.js';
+import type { InvitationPreview, InvitationPreviewQuery } from '#modules/settings/types/settings.types.js';
 import { INVITATION_KEYS, invitationBodyProblem, invitationSubjectProblem, type InvitationWording } from './mail.invitation.js';
 
 /**
@@ -21,6 +24,9 @@ import { INVITATION_KEYS, invitationBodyProblem, invitationSubjectProblem, type 
  * where only a network tab would find it. `details.message` is the established key for a sentence
  * that is about the request rather than about a field — see `startStepUpChallenge`.
  */
+/** Where a preview's link points. Not an address anything answers at, so a click on it goes nowhere. */
+const SAMPLE_INVITATION_LINK = 'https://your-station.example/invite#sample';
+
 const NOT_CONFIGURED = 'Email is not configured. Set a mail server under Settings → Mail.';
 
 /**
@@ -73,7 +79,11 @@ export class MailService {
             throw httpError(503).withDetails({ message: NOT_CONFIGURED });
         }
 
-        const envelope = renderMail(message, this.stationName(), message.template === 'Invitation' ? { invitation: this.invitationWording() } : {});
+        const envelope = renderMail(
+            message,
+            this.stationName(),
+            message.template === 'Invitation' ? { invitation: this.invitationWordingToSend() } : {},
+        );
 
         await this.transport.send(envelope, settings, this.stationName());
 
@@ -84,25 +94,62 @@ export class MailService {
     }
 
     /**
-     * The invitation in the operator's words, half by half, where they wrote some.
+     * The invitation as it would be sent now, with sample values where a real one has a link, an
+     * inviter and a date. Renders whether or not a mail server is set, since the wording is worth
+     * checking before the server is.
+     */
+    async previewInvitation(query: InvitationPreviewQuery): Promise<InvitationPreview> {
+        const { wording, problems } = this.invitationWording();
+        const until = DateTime.utc().plus(INVITATION_LIFETIME[query.role]).setLocale('en-GB').toFormat('d LLLL yyyy');
+        const envelope = renderMail(
+            {
+                to: 'preview@example.com',
+                template: 'Invitation',
+                data: { link: SAMPLE_INVITATION_LINK, role: query.role, inviter: 'admin@example.com', until },
+            },
+            this.stationName(),
+            { invitation: wording },
+        );
+        return {
+            subject: envelope.subject,
+            html: envelope.html,
+            text: envelope.text,
+            ownWording: wording.subject !== undefined || wording.body !== undefined,
+            ...(problems.length === 0 ? {} : { problem: problems.map(({ why }) => why).join('; ') }),
+        };
+    }
+
+    /**
+     * The invitation in the operator's words, half by half, where they wrote some, and why any half
+     * they wrote cannot be used.
      *
      * Checked again here although it was checked when it was saved, because a row can arrive by
      * another road (psql, a restored backup, a rule that tightened since). A half that fails is sent
-     * in the station's own words and logged, on the resolver rule: a stored setting that will not
-     * load must not stop the invitation behind it.
+     * in the station's own words, on the resolver rule: a stored setting that will not load must not
+     * stop the invitation behind it.
      */
-    private invitationWording(): InvitationWording {
+    private invitationWording(): { wording: InvitationWording; problems: { key: string; why: string }[] } {
+        const problems: { key: string; why: string }[] = [];
         const read = (key: string, problem: (value: string) => string | undefined): string | undefined => {
             const value = this.config.has(key) ? String(this.config.get(key, '')).trim() : '';
             if (value === '') return undefined;
             const why = problem(value);
             if (why === undefined) return value;
-            this.logger.warn("mail: the invitation's own wording cannot be used, so the station's is sent instead", { key, why });
+            problems.push({ key, why });
             return undefined;
         };
         const subject = read(INVITATION_KEYS.subject, invitationSubjectProblem);
         const body = read(INVITATION_KEYS.body, invitationBodyProblem);
-        return { ...(subject === undefined ? {} : { subject }), ...(body === undefined ? {} : { body }) };
+        return { wording: { ...(subject === undefined ? {} : { subject }), ...(body === undefined ? {} : { body }) }, problems };
+    }
+
+    /** {@link invitationWording} for a real send, which logs what it could not use. */
+    private invitationWordingToSend(): InvitationWording {
+        const { wording, problems } = this.invitationWording();
+        for (const { key, why } of problems) {
+            this.logger.warn("mail: the invitation's own wording cannot be used, so the station's is sent instead", { key, why });
+        }
+        return wording;
     }
 
     /**

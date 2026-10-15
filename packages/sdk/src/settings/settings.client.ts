@@ -1,6 +1,12 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { SigninProvidersCheck, StationSettings, StationSettingsInput } from './types/settings.types.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type {
+    InvitationPreview,
+    InvitationPreviewQuery,
+    SigninProvidersCheck,
+    StationSettings,
+    StationSettingsInput,
+} from './types/settings.types.js';
 
 export class SettingsClient {
     constructor(private fetch: SdkFetch) {}
@@ -34,5 +40,17 @@ export class SettingsClient {
     async checkSignInProviders(): Promise<SigninProvidersCheck> {
         const result = await this.fetch(`/settings/signin/check`, { method: 'GET' });
         return await parseJson<SigninProvidersCheck>(result);
+    }
+
+    /**
+     * @name Preview invitation
+     * @description Renders the invitation email as it would be sent now, in the station's saved wording, with sample values in place of a real link, inviter and date
+     */
+    async previewInvitation(query?: InvitationPreviewQuery): Promise<InvitationPreview> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/settings/mail/invitation/preview${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<InvitationPreview>(result);
     }
 }

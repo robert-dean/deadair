@@ -8,6 +8,7 @@ import { MusicSearchTool } from './music.search.tool.js';
 import { ProviderSearch } from './provider.search.js';
 import { ChartsTool } from './charts.tool.js';
 import { LlmGate } from './llm.gate.js';
+import { ModelHealth } from './model.health.js';
 import { LlmService } from './llm.service.js';
 import { NewsTool } from './news.tool.js';
 import { SimilarArtistsTool } from './similar.artists.tool.js';
@@ -54,6 +55,8 @@ export const LlmModule: ServerKitModule = {
         // get a gate of its own and two concurrent requests would overlap on the model exactly as
         // if there were no gate at all — while every test of the gate in isolation still passed.
         registry.register(LlmGate).useClass(LlmGate).asSingleton();
+        // Which models failed lately, a fact about the station's model hosts rather than any caller. See `ModelHealth`.
+        registry.register(ModelHealth).useClass(ModelHealth).asSingleton();
 
         // Scoped with the plugin registry and invoker it reads, like every other capability
         // consumer here. The fan-out is its own thing rather than the tool's body, because reaching

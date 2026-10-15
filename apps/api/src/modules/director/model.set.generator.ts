@@ -24,6 +24,7 @@ import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 import { BriefArtists } from './brief.artists.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model choosing what the station plays, with the catalog draw underneath it.
@@ -286,7 +287,10 @@ export class ModelSetGenerator extends SetGenerator {
         await this.rememberAired();
 
         const steer = await this.rules.steer();
-        const model = this.config.get(MODEL_GENERATOR_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_GENERATOR_KEYS.model);
+        const model = models[0] ?? '';
         // Read per refill like the two above it, so an operator raising the ceiling after a run of
         // `length` finishes gets the new one on the next refill rather than at the next restart.
         const answerCeiling = maxOutputTokens(this.config);
@@ -349,6 +353,7 @@ export class ModelSetGenerator extends SetGenerator {
                 // the next pass for whatever is still missing, and `CatalogSetGenerator` is underneath
                 // it either way.
                 {
+                    models,
                     budgetMs: BUDGET_MS,
                     maxWaitMs: MAX_WAIT_MS,
                     maxToolSteps: MAX_TOOL_STEPS,

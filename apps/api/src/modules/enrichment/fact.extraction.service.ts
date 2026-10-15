@@ -8,6 +8,7 @@ import { extractPrompt, readClaims, verified, verifyPrompt, type ExtractionSubje
 import { FactRepository, type FactSubjectType, type FactWrite, type PendingDocument } from './fact.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * The model pass's settings, keyed like every other model-driven feature.
@@ -263,7 +264,10 @@ export class FactExtractionService {
      * means the same thing about the claim.
      */
     private async modelClaimsFor(document: PendingDocument, stop?: AbortSignal): Promise<{ claims: FactWrite[]; yielded: boolean }> {
-        const model = this.config.get(MODEL_FACTS_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_FACTS_KEYS.model);
+        const model = models[0] ?? '';
         const subject: ExtractionSubject = {
             kind: SUBJECT_KIND[document.subject.type],
             name: document.name,
@@ -273,7 +277,7 @@ export class FactExtractionService {
         const started = Date.now();
         const answer = await this.llm.converse(
             { messages: extractPrompt(subject, document.text), ...(model.length === 0 ? {} : { model }), reasoningEffort: 'low' },
-            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
+            { models, budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
         );
 
         const found = readClaims(answer.text, document.text);
@@ -296,7 +300,7 @@ export class FactExtractionService {
 
             let holds: boolean;
             try {
-                holds = await this.supported(claim.claim, claim.quote, model);
+                holds = await this.supported(claim.claim, claim.quote, models);
             } catch (error) {
                 // The verifier could not be reached, which is NOT a claim that failed verification.
                 // `supported` answers `false` for everything else on the argument that a broken
@@ -353,7 +357,8 @@ export class FactExtractionService {
      * A failure answers `false`. The verifier being broken must not become a
      * route by which unverified claims reach the table.
      */
-    private async supported(claim: string, quote: string, model: string): Promise<boolean> {
+    private async supported(claim: string, quote: string, models: readonly string[]): Promise<boolean> {
+        const model = models[0] ?? '';
         try {
             const answer = await this.llm.converse(
                 {
@@ -362,7 +367,7 @@ export class FactExtractionService {
                     maxOutputTokens: VERIFY_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
                 },
-                { budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
+                { models, budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
             );
 
             // A verifier that said NOTHING is broken, not unconvinced, and the two have to look

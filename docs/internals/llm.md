@@ -48,14 +48,29 @@ and `shared/config.rows.ts` are that, and the rule the whole file keeps is that 
 never in the row: it is merged back exactly once, in memory, so a plugin's own schema can judge a
 form that has one.
 
-**Nobody has to TYPE a qualified name**, which is what makes refusing the unqualified form fair. The six
-writer settings — the talk break, the set generator, fact extraction, the two persona passes and the persona
-writer — declare `optionsFrom: 'llm.models'`, which the console resolves by asking whichever plugin
-`llm.pluginId` names for its `model` suggestions: the same call that plugin's own settings form makes, so one
-cache entry serves both. That makes them autocompletes over every model on every configured provider,
-labelled `model · provider`. They stay FREE TEXT with suggestions rather than becoming closed lists, because
-empty means "the plugin's own default" and a model behind a proxy that does not list itself has to stay
-reachable.
+**Every kind of call names its models as an ordered list, and nobody has to TYPE one.** The nine
+model settings (the talk break, the set generator, fact extraction, the two lyric passes, the two persona
+passes, the persona writer and productions) are each a `list` with one `model` column whose
+`optionsFrom: 'llm.models'` the console resolves by asking whichever plugin `llm.pluginId` names for its
+`model` suggestions: the same call that plugin's own settings form makes, so one cache entry serves all of
+them. The console draws them as a list box: the models in the order they are tried, each moved, removed or
+added from every model on every configured provider, labelled `model · provider`, with free text still
+accepted for a model behind a proxy that does not list itself. An empty list means the plugin's own
+default, as an empty setting always did. `modelList` reads one, and also reads a bare `provider:model` as a
+list of one, the shape every one of them had before migration `0104` rewrote them.
+
+**A model that fails before it answers hands the call to the next one on the list.** `LlmService.converse`
+takes `models` in its options and asks them in turn inside the one gate admission, on the same budget and
+the same abort signal, so failing over never holds a second slot or outlives the caller's deadline. It moves
+on for any failure that is the model's and not the station's (a 5xx, a refused connection, a timeout, a
+retired model, a missing key) and never for a preemption or a spent budget. And **only on the first
+generation**: once a model has answered a step, the transcript carries what its provider signed (below),
+which another provider cannot read, so a later failure ends the conversation exactly as it did before there
+was a list. `ModelHealth` remembers a model that failed for a minute and asks it last meanwhile, so the calls
+queued behind a dead server go straight to the next one rather than each paying for finding out; a success
+clears it, and when every model on a list is marked they are tried in the order written, because a mark is a
+guess about now and the list is an instruction. Every hand-over is a warning in the log naming the model,
+its error code and the next one, and `LlmConversation.model` records the model that actually answered.
 
 **A signed thinking block is part of the conversation, and the transcript carries it.** Anthropic refuses a
 tool round trip whose earlier turns arrive without their thinking signatures, and Gemini wants its thought

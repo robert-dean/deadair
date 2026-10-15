@@ -22,6 +22,7 @@ import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBrea
 import { CHANGEOVER_KIND, spokenNames, thankedAt } from './changeover.writer.js';
 import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model marking a change of programme, with the station's own words underneath it.
@@ -116,7 +117,10 @@ export class ModelChangeoverWriter extends BreakWriter {
         // behind, and nothing in a shape can hide the one ahead. See the note on the class.
         const { previous: _previous, next: _next, ...request } = asked;
 
-        const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
+        const model = models[0] ?? '';
         // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: the number the model is
         // told has to be the number the guard refuses at.
         const settings: PromptSettings = {
@@ -139,6 +143,7 @@ export class ModelChangeoverWriter extends BreakWriter {
             // changeover is asked for with the new show's first record already on its way.
             {
                 tools: false,
+                models,
                 budgetMs: BUDGET_MS,
                 maxWaitMs: patienceFor(request.airsAt),
                 ...(request.priority === undefined ? {} : { priority: request.priority }),

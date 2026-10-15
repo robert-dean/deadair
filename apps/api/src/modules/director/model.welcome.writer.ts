@@ -22,6 +22,7 @@ import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBrea
 import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model greeting somebody who has just tuned in, with the station's own words underneath it.
@@ -125,7 +126,10 @@ export class ModelWelcomeWriter extends BreakWriter {
             return undefined;
         }
 
-        const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
+        const model = models[0] ?? '';
         // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: a persona's latitude
         // decides the word ceiling now that `WELCOME_SHAPE` offers one, and the number the model is
         // told has to be the number the guard refuses at. One `maxWordsFor` call over one object.
@@ -155,6 +159,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             // and the one thing a greeting must not be is late.
             {
                 tools: false,
+                models,
                 budgetMs: BUDGET_MS,
                 // Derived from when this break is due rather than fixed: see `patienceFor`.
                 maxWaitMs: patienceFor(request.airsAt),

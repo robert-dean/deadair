@@ -23,6 +23,8 @@ import { LlmGate } from './llm.gate.js';
 import { explainDefaultGenerator, explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
 import { ToolRegistry, type StationTool } from './llm.tools.js';
 import { strayToolCall } from './stray.tool.call.js';
+import { ModelHealth } from './model.health.js';
+import { errorText } from '#modules/shared/error.text.js';
 import { recordSpan, spanError } from '#modules/shared/trace.spans.js';
 
 /**
@@ -213,6 +215,16 @@ export interface LlmConverseOptions extends LlmCallOptions {
     maxToolSteps?: number;
 
     /**
+     * The models to ask, in the order the operator prefers them, each `provider:model`.
+     *
+     * Wins over `request.model` when it names any. Empty or absent means the request's own model,
+     * which is the plugin's default when that is absent too. A model that fails before it has
+     * answered anything hands the conversation to the next one, inside the same admission; see
+     * {@link LlmService.converse}.
+     */
+    models?: readonly string[];
+
+    /**
      * Whether the model's words are an ANSWER, asked of the caller because only it can tell.
      *
      * The loop ends when a generation comes back with no tool calls, because that is what an answer
@@ -346,6 +358,41 @@ function spending(error: unknown, usage: LlmUsage): unknown {
 }
 
 /**
+ * Errors a conversation threw from its FIRST generation, before the model had answered anything.
+ *
+ * The one failure {@link LlmService.converse} may hand to the next model on the list. Later than that
+ * the transcript carries what this provider signed (`providerState`), which another provider cannot
+ * read, so a failure mid-conversation ends it exactly as it always has. A side table for
+ * {@link spentBeforeFailing}'s reason: the error is thrown as it came.
+ */
+const failedBeforeAnswering = new WeakSet<object>();
+
+/** Note that `error` came from a conversation's first generation, and hand it back. */
+function beforeAnswering(error: unknown): unknown {
+    if (typeof error === 'object' && error !== null) failedBeforeAnswering.add(error);
+    return error;
+}
+
+/**
+ * The models a conversation may ask, in the order given: `models` when it names any, otherwise the
+ * request's own model, which `undefined` leaves to the plugin's default. Trimmed and each named once.
+ */
+function candidatesOf(model: string | undefined, models: readonly string[] | undefined): (string | undefined)[] {
+    const named = [...new Set((models ?? []).map(entry => entry.trim()).filter(entry => entry.length > 0))];
+    if (named.length > 0) return named;
+
+    const own = model?.trim();
+    return [own === undefined || own.length === 0 ? undefined : own];
+}
+
+/** A failure's code for a log line, when it has one. */
+function codeOf(error: unknown): string | undefined {
+    return typeof error === 'object' && error !== null && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined;
+}
+
+/**
  * Asking a model for words.
  *
  * The one place that knows how, so everything downstream (a break writer, a set generator, a show)
@@ -374,6 +421,7 @@ export class LlmService {
         private readonly tools: ToolRegistry,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly health: ModelHealth,
     ) {}
 
     /**
@@ -547,19 +595,38 @@ export class LlmService {
      * does this instead of calling, and without the rescue the conversation ends on a question, one
      * step short of the answer it was about to give. `strayToolCall` holds the bar, which is high on
      * purpose. The rescue is not offered on the last step, where withdrawing the tools is the point.
+     *
+     * ## A model that fails before answering hands over to the next one
+     *
+     * A caller may name several models (`options.models`), in the order the operator prefers them.
+     * When the first generation fails, for any reason that is not the station's own (a preemption or
+     * the budget is never a model's fault), the next model on the list is asked the same question,
+     * inside the same admission and on the same budget. Only before the model has answered anything:
+     * after that the transcript carries what this provider signed, which another cannot read, so a
+     * later failure ends the conversation as it always has. A model that failed is remembered by
+     * {@link ModelHealth} for a minute and asked last meanwhile, so the calls behind it do not each pay
+     * for finding out.
      */
     async converse(request: LlmRequest, options: LlmConverseOptions = {}): Promise<LlmConversation> {
         const plugin = this.generator();
         if (plugin === undefined) throw new PluginError(`llm: ${this.explainGenerator()}`).withCode('unavailable');
 
         const maxSteps = options.maxToolSteps ?? MAX_TOOL_STEPS;
-        const tools = await this.toolsFor(plugin, request, options);
+        const candidates = this.health.ordered(candidatesOf(request.model, options.models));
+        // What each model may call, worked out before the slot is taken, as it always was: a model's
+        // tool support is per model, so the next one on the list may be offered more or less.
+        const asking = await Promise.all(
+            candidates.map(async model => {
+                const asked = model === undefined ? request : { ...request, model };
+                return { model, asked, tools: await this.toolsFor(plugin, asked, options) };
+            }),
+        );
 
         // Blank is not an answer under any caller's format, which is the whole of what the host can
         // judge on its own. Anything narrower is the caller's to say. See `answersWith`.
         const answers = options.answersWith ?? ((text: string) => text.trim().length > 0);
 
-        return await this.gate.hold(async signal => await this.runConversation(plugin, request, tools, maxSteps, answers, signal), {
+        return await this.gate.hold(async signal => await this.askInTurn(plugin, asking, maxSteps, answers, signal), {
             budgetMs: options.budgetMs ?? GENERATION_BUDGET_MS,
             ...(options.maxWaitMs === undefined ? {} : { maxWaitMs: options.maxWaitMs }),
             ...(options.priority === undefined ? {} : { priority: options.priority }),
@@ -588,6 +655,44 @@ export class LlmService {
         const offered = await this.tools.tools();
         if (options.onlyTools === undefined) return offered;
         return new Map([...offered].filter(([name]) => options.onlyTools!.includes(name)));
+    }
+
+    /**
+     * Each model in turn until one answers, inside the gate. See {@link converse}.
+     *
+     * Moves on only when a model failed on the conversation's FIRST generation and the slot is still
+     * this caller's. Every other way out, an answer, a preemption, a failure after the model had
+     * answered, or the last model failing too, leaves exactly as a conversation with one model does.
+     */
+    private async askInTurn(
+        plugin: LlmPlugin,
+        asking: readonly { model: string | undefined; asked: LlmRequest; tools: Map<string, StationTool> }[],
+        maxSteps: number,
+        answers: (text: string) => boolean,
+        signal: AbortSignal,
+    ): Promise<LlmConversation> {
+        for (let index = 0; ; index++) {
+            const { model, asked, tools } = asking[index]!;
+            try {
+                const conversation = await this.runConversation(plugin, asked, tools, maxSteps, answers, signal);
+                if (model !== undefined) this.health.clear(model);
+                return conversation;
+            } catch (error) {
+                const handOver = !signal.aborted && typeof error === 'object' && error !== null && failedBeforeAnswering.has(error);
+                if (handOver && model !== undefined) this.health.markDown(model);
+
+                const next = asking[index + 1];
+                if (!handOver || next === undefined) throw error;
+
+                this.logger.warn('llm: a model failed before answering; asking the next one on the list', {
+                    plugin: plugin.record.id,
+                    failed: model ?? 'the default model',
+                    code: codeOf(error),
+                    error: errorText(error),
+                    next: next.model ?? 'the default model',
+                });
+            }
+        }
     }
 
     /** The loop itself, inside the gate. */
@@ -640,7 +745,7 @@ export class LlmService {
                 // with what the earlier steps cost noted beside it: a refill that searched three
                 // times and then hit a provider error was billed for three generations, and the row
                 // recording it should not read as free. See {@link usageSpentBefore}.
-                if (!signal.aborted) throw spending(error, usage);
+                if (!signal.aborted) throw step === 0 ? beforeAnswering(spending(error, usage)) : spending(error, usage);
 
                 const stopped = stoppedBy(signal);
                 this.logger.info(

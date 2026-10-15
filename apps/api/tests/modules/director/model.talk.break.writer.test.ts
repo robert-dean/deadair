@@ -342,6 +342,16 @@ describe('ModelTalkBreakWriter', () => {
         expect(unnamed.converse).toHaveBeenCalledWith(expect.not.objectContaining({ model: expect.anything() }), expect.anything());
     });
 
+    it('hands over every model on the list, in the order the operator put them', async () => {
+        const listed = build({ values: { [MODEL_WRITER_KEYS.model]: '[{"model":"local:qwen"},{"model":"cloud:sonnet"}]' } });
+        await listed.writer.write({ kind: TALK_BREAK_KIND, previous });
+
+        expect(listed.converse).toHaveBeenCalledWith(
+            expect.objectContaining({ model: 'local:qwen' }),
+            expect.objectContaining({ models: ['local:qwen', 'cloud:sonnet'] }),
+        );
+    });
+
     describe('the forward claim', () => {
         it('claims the next record when it was given one', async () => {
             // Told what plays next means allowed to name it, so assume it did: over-stamping costs a

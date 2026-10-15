@@ -99,6 +99,7 @@ import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.
 import { PERSONA_NOTES_DEFAULT, PERSONA_NOTES_KEYS } from '#modules/personas/persona.distil.service.js';
 import { PERSONA_STORIES_DEFAULT, PERSONA_STORIES_KEYS } from '#modules/personas/persona.story.pass.service.js';
 import { PERSONA_MODEL_KEY } from '#modules/personas/persona.writer.js';
+import { MODEL_LIST_COLUMN } from '#modules/llm/model.list.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
     ANALYSIS_LOCAL_PACE_KEY,
@@ -156,6 +157,7 @@ import {
     MIN_GAP_MS,
     MIN_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
+    PRODUCTION_MODEL_KEY,
 } from '#modules/productions/production.settings.js';
 import {
     AAC_BITRATES,
@@ -1525,12 +1527,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: MODEL_WRITER_KEYS.model,
-        label: 'Model for a talk break',
-        type: 'string',
+        label: 'Models for a talk break',
+        type: 'list',
         default: '',
         dependsOn: MODEL_WRITER_KEYS.enabled,
-        optionsFrom: 'llm.models',
-        help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',
@@ -1579,12 +1581,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: MODEL_GENERATOR_KEYS.model,
-        label: 'Model for choosing records',
-        type: 'string',
+        label: 'Models for choosing records',
+        type: 'list',
         dependsOn: MODEL_GENERATOR_KEYS.enabled,
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',
@@ -1609,12 +1611,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: MODEL_FACTS_KEYS.model,
-        label: 'Model for reading articles',
-        type: 'string',
+        label: 'Models for reading articles',
+        type: 'list',
         dependsOn: MODEL_FACTS_KEYS.enabled,
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',
@@ -1627,12 +1629,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: LYRIC_MOODS_KEYS.model,
-        label: 'Model for judging moods',
-        type: 'string',
+        label: 'Models for judging moods',
+        type: 'list',
         dependsOn: LYRIC_MOODS_KEYS.enabled,
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Nothing is waiting on a mood, so a slower and more careful model costs you nothing here. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Nothing is waiting on a mood, so a slower and more careful model costs you nothing here. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',
@@ -1645,12 +1647,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: LYRIC_SUBJECT_KEYS.model,
-        label: 'Model for saying what records are about',
-        type: 'string',
+        label: 'Models for saying what records are about',
+        type: 'list',
         dependsOn: LYRIC_SUBJECT_KEYS.enabled,
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Nothing is waiting on these either, so a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Nothing is waiting on these either, so a slower and more careful model costs you nothing. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',
@@ -1663,12 +1665,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: PERSONA_NOTES_KEYS.model,
-        label: 'Model for reading a character back',
-        type: 'string',
+        label: 'Models for reading a character back',
+        type: 'list',
         dependsOn: PERSONA_NOTES_KEYS.enabled,
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Nothing is waiting on this, so it is another place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Nothing is waiting on this, so it is another place a slower and more careful model costs you nothing. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',
@@ -1681,12 +1683,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: PERSONA_STORIES_KEYS.model,
-        label: 'Model for thinking one up',
-        type: 'string',
+        label: 'Models for thinking one up',
+        type: 'list',
         dependsOn: PERSONA_STORIES_KEYS.enabled,
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Nothing is waiting on this either, so a slower and more careful model costs you nothing — and this is the one pass that uses the station's own search tools, which a stronger model drives better. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Nothing is waiting on this either, so a slower and more careful model costs you nothing — and this is the one pass that uses the station's own search tools, which a stronger model drives better. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     // Declared here at last. It has been read since `persona.writer.ts` was written and never
     // appeared on this page, so the only way to set it was by hand in the settings table — which
@@ -1695,11 +1697,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'llm',
         key: PERSONA_MODEL_KEY,
-        label: 'Model for writing a character',
-        type: 'string',
+        label: 'Models for writing a character',
+        type: 'list',
         default: '',
-        optionsFrom: 'llm.models',
-        help: "Used when you press Write on a persona. Nothing is on air waiting for it and what it produces is edited before anything is said, so a slower and more careful model is the right trade. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Used when you press Write on a persona. Nothing is on air waiting for it and what it produces is edited before anything is said, so a slower and more careful model is the right trade. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: PRODUCTION_MODEL_KEY,
+        label: 'Models for writing a production',
+        type: 'list',
+        default: '',
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "A feature, a phone-in or a stretch of banter between co-hosts. Each is written ahead of when it airs, so nothing is waiting on it. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',

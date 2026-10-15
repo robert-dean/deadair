@@ -30,6 +30,7 @@ import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBrea
 import type { StationDay } from '#modules/almanac/almanac.day.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model writing the station's talk breaks, with the station's own words underneath it.
@@ -197,7 +198,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             return undefined;
         }
 
-        const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
+        const model = models[0] ?? '';
         // Held rather than passed inline, because the guard below has to be built from the SAME
         // settings: a persona's latitude decides the word ceiling, and the number the model is told
         // and the number it is refused at have to come from one `maxWordsFor` call over one object.
@@ -257,6 +261,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 // here would buy a fact the station was not asked for at the cost of another whole
                 // generation, and the one thing this must not do is be slow.
                 tools: false,
+                models,
                 budgetMs: BUDGET_MS,
                 // Derived from when this break is due rather than fixed: see `patienceFor`.
                 maxWaitMs: patienceFor(request.airsAt),

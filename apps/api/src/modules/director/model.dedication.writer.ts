@@ -19,6 +19,7 @@ import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBrea
 import { DEDICATION_KIND, DEDICATION_LABEL, dedicationOf, type DedicationParts } from './dedication.writer.js';
 import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A presenter passing on a listener's dedication, with the station's own two names underneath it.
@@ -127,7 +128,10 @@ export class ModelDedicationWriter extends BreakWriter {
             return undefined;
         }
 
-        const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
+        const model = models[0] ?? '';
         const settings: PromptSettings = {
             ...stationPromptSettings(this.config, request),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
@@ -146,6 +150,7 @@ export class ModelDedicationWriter extends BreakWriter {
             // anything that fetches.
             {
                 tools: false,
+                models,
                 budgetMs: BUDGET_MS,
                 maxWaitMs: patienceFor(request.airsAt),
                 ...(request.priority === undefined ? {} : { priority: request.priority }),

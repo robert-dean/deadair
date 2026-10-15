@@ -40,19 +40,71 @@ export function placeholdersIn(source: string): string[] {
 }
 
 /**
+ * What fills the placeholders. A name present with the value `undefined` is one the message knows
+ * about and has nothing for today, such as an app that is not in a store yet: the paragraph, heading
+ * or list item naming it is left out, rather than sent as a sentence with a hole in it. A name not
+ * present at all is a mistake, and throws.
+ */
+export type MailValues = Readonly<Record<string, string | undefined>>;
+
+/**
  * Render `source` with its placeholders filled from `values`.
  *
- * A placeholder with no value throws: the built-in templates are checked by their tests, and a
+ * A placeholder nothing fills throws: the built-in templates are checked by their tests, and a
  * message with `{{link}}` left in it is the one that cannot be acted on, by the one person who then
  * has no way to say so.
  */
-export function renderMailMarkdown(source: string, values: Readonly<Record<string, string>>): RenderedMarkdown {
-    const tokens = md.parse(source, {});
+export function renderMailMarkdown(source: string, values: MailValues): RenderedMarkdown {
+    const tokens = withoutUnfilled(md.parse(source, {}), values);
     for (const token of tokens) fill(token, values);
     return { html: md.renderer.render(tokens, md.options, {}), text: toText(tokens) };
 }
 
-function fill(token: Token, values: Readonly<Record<string, string>>): void {
+/**
+ * `tokens` less every block that names a placeholder whose value is `undefined`.
+ *
+ * The block is the innermost list item around the placeholder, or else the paragraph or heading
+ * it is written in, so a missing app costs its own bullet and nothing beside it. A list left with
+ * no items goes too, since an empty `<ul>` is a gap in the message with nothing to say why.
+ */
+function withoutUnfilled(tokens: Token[], values: MailValues): Token[] {
+    const unfilled = (source: string) => placeholdersIn(source).some(name => Object.hasOwn(values, name) && values[name] === undefined);
+    const doomed = new Set<number>();
+    const open: number[] = [];
+    tokens.forEach((token, index) => {
+        if (token.nesting === 1) open.push(index);
+        else if (token.nesting === -1) open.pop();
+        else if (token.type === 'inline' && unfilled(token.content)) {
+            const item = [...open].reverse().find(at => tokens[at]!.type === 'list_item_open');
+            doomed.add(item ?? open.at(-1) ?? index);
+        } else if ((token.type === 'code_block' || token.type === 'fence') && unfilled(token.content)) doomed.add(index);
+    });
+    if (doomed.size === 0) return tokens;
+
+    let kept: Token[] = [];
+    for (let index = 0; index < tokens.length; index++) {
+        if (!doomed.has(index)) {
+            kept.push(tokens[index]!);
+            continue;
+        }
+        // Skip to the token that closes this one; a self-contained token closes itself.
+        for (let depth = tokens[index]!.nesting; depth > 0;) depth += tokens[++index]!.nesting;
+    }
+    // An emptied list is an open followed directly by its close. Repeat, since emptying an inner
+    // list can empty the item, and so the list, around it.
+    for (let before = -1; before !== kept.length;) {
+        before = kept.length;
+        kept = kept.filter((token, index) => !isEmptyPair(token, kept[index + 1]) && !isEmptyPair(kept[index - 1], token));
+    }
+    return kept;
+}
+
+function isEmptyPair(open: Token | undefined, close: Token | undefined): boolean {
+    if (!open || !close || open.nesting !== 1 || close.nesting !== -1) return false;
+    return ['bullet_list', 'ordered_list', 'list_item'].some(kind => open.type === `${kind}_open` && close.type === `${kind}_close`);
+}
+
+function fill(token: Token, values: MailValues): void {
     if (token.type === 'text' || token.type === 'code_inline' || token.type === 'code_block' || token.type === 'fence') {
         token.content = substitute(token.content, values);
     }
@@ -67,7 +119,7 @@ function fill(token: Token, values: Readonly<Record<string, string>>): void {
     for (const child of token.children ?? []) fill(child, values);
 }
 
-function substitute(content: string, values: Readonly<Record<string, string>>): string {
+function substitute(content: string, values: MailValues): string {
     return content.replace(PLACEHOLDER, (whole, name: string) => {
         const value = values[name];
         if (value === undefined) throw new Error(`the message names ${whole}, and nothing fills it`);

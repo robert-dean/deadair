@@ -66,6 +66,35 @@ describe('placeholders', () => {
         expect(() => renderMailMarkdown('Open {{link}}', {})).toThrow(/\{\{link\}\}/);
     });
 
+    it('leaves out a paragraph whose placeholder is known and empty, and only that paragraph', () => {
+        const { html, text } = renderMailMarkdown('Hello.\n\nGet it [here]({{app}}).\n\nBye.', { app: undefined });
+
+        expect(html).toBe('<p>Hello.</p>\n<p>Bye.</p>\n');
+        expect(text).toBe('Hello.\n\nBye.');
+    });
+
+    it('leaves out only the list item naming an empty placeholder', () => {
+        const { html } = renderMailMarkdown('- [Android]({{android}})\n- [iPhone]({{ios}})', { android: 'https://x.test/a', ios: undefined });
+
+        expect(html).toBe('<ul>\n<li><a href="https://x.test/a">Android</a></li>\n</ul>\n');
+    });
+
+    it('leaves out a list whose every item went', () => {
+        const { html } = renderMailMarkdown('Before.\n\n- {{a}}\n- {{b}}\n  - {{a}}\n\nAfter.', { a: undefined, b: undefined });
+
+        expect(html).toBe('<p>Before.</p>\n<p>After.</p>\n');
+    });
+
+    it('leaves out a nested item without its parent', () => {
+        const { text } = renderMailMarkdown('- kept\n  - {{gone}}\n  - also kept', { gone: undefined });
+
+        expect(text).toBe('- kept\n\n  - also kept');
+    });
+
+    it('still throws for a placeholder that is not known at all', () => {
+        expect(() => renderMailMarkdown('Get it [here]({{app}}).', { other: undefined })).toThrow(/\{\{app\}\}/);
+    });
+
     it('lists the placeholders a source names, once each', () => {
         expect(placeholdersIn('{{a}} and {{b}}, then {{a}} again, and {{ not one }}')).toEqual(['a', 'b']);
     });

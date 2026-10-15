@@ -129,6 +129,9 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
                 link,
                 until,
                 ...(inviter === undefined ? {} : { inviter }),
+                androidApp: LISTENER_APPS.android,
+                iosApp: LISTENER_APPS.ios,
+                guide: GUIDES[role],
             });
             return {
                 subject: role === 'admin' ? `You are invited to run ${stationName}` : `You are invited to ${stationName}`,
@@ -166,13 +169,36 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
 function invitationBody(role: 'admin' | 'listener', named: boolean): string {
     const who = named ? '{{inviter}} has invited you' : 'You have been invited';
     const what = role === 'admin' ? 'to run {{station}}' : 'to listen to {{station}}';
+    const guide =
+        role === 'admin'
+            ? '[Your first hour on air]({{guide}}) walks through getting the station playing and talking.'
+            : '[How listening works]({{guide}}), on the deadair site.';
     return [
         `${who} ${what}.`,
         '[Make your account]({{link}})',
         'You will choose a password and set up an authenticator app or a passkey. The link works once, until {{until}}.',
+        'Then you can listen on your phone:',
+        '- [Android, on Google Play]({{androidApp}})\n- [iPhone, on the App Store]({{iosApp}})',
+        guide,
         'If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.',
     ].join('\n\n');
 }
+
+/**
+ * Where the listener apps are published. `undefined` is an app that is not in a store yet, and the
+ * invitation leaves its line out until it is: the iPhone app is built from `apps/ios` and is not on
+ * the App Store, so filling this in is what puts it in every invitation sent afterwards.
+ */
+const LISTENER_APPS: { android: string | undefined; ios: string | undefined } = {
+    android: 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair',
+    ios: undefined,
+};
+
+/** The page on the deadair site for somebody just arriving in each role. */
+const GUIDES: Record<'admin' | 'listener', string> = {
+    admin: 'https://deadair.radio/docs/tutorials/first-hour',
+    listener: 'https://deadair.radio/docs/features/listening',
+};
 
 /**
  * The document around a rendered body.

@@ -9,6 +9,20 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.68.0] — 2026-10-15
+
+- Mail: a station can write its own invitation email. Settings → Mail has two new fields: "Invitation subject" and "Invitation message". The message is written in markdown and can use `{{station}}`, `{{role}}`, `{{inviter}}`, `{{link}}`, `{{until}}`, `{{androidApp}}`, `{{iosApp}}` and `{{guide}}`. A message is refused when it is saved if:
+
+  - it leaves out `{{link}}`
+  - it names a placeholder that doesn't exist
+  - it uses a placeholder as a link that isn't an address
+  - its link shares a line that can be left out
+
+  A paragraph or list item whose placeholder has nothing to fill it is left out, so a line about the iPhone app appears once it is in the App Store. Leaving either field empty keeps the station's own wording. A stored message that cannot be used (one seeded by hand, say) is replaced by the station's own, and the log says why.
+- Mail: Settings → Mail shows the invitation email as the station would send it now, under the form. It uses a sample link, sender and date, and has a switch between the listener and admin versions. The email is drawn in a sandboxed frame with a tab for its plain text, and saving new wording updates it. If the saved wording cannot be used, it says why instead of only writing a line to the log. Behind it is a new route, `GET /settings/mail/invitation/preview`, which needs `platform.manage`.
+- Mail: the invitation email is written in markdown and rendered by a locked-down renderer. Raw HTML in it shows as text, it has no images, and its links can go only to `https`, `http` or `mailto` addresses. The wording is unchanged. The plain-text version now puts the link's address after "Make your account" instead of on a line by itself. This is groundwork for letting a station write its own invitation.
+- Mail: the invitation email now links to the Android app on Google Play and to a guide on the deadair site. A listener gets "How listening works" and an admin gets "Your first hour on air". The iPhone app gets its own line once it is on the App Store. Until then the line is left out instead of being sent without a link.
+
 ## [0.67.1] — 2026-10-15
 
 - Director: a show prepared before it starts no longer borrows "sounds like" picks from the show before it. The opening records are chosen a few minutes ahead, while the previous show is still on air, and the similar-artists walk seeded from that show's records whenever the new brief named nobody the library held. A bluegrass morning prepared after a night of heavy metal opened with Nile. A show prepared ahead now seeds only from the acts its brief names, and otherwise leaves its first refill to seed from its own records.
@@ -1440,7 +1454,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.67.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.68.0...HEAD
+[0.68.0]: https://github.com/robert-dean/deadair/compare/v0.67.1...v0.68.0
 [0.67.1]: https://github.com/robert-dean/deadair/compare/v0.67.0...v0.67.1
 [0.67.0]: https://github.com/robert-dean/deadair/compare/v0.66.0...v0.67.0
 [0.66.0]: https://github.com/robert-dean/deadair/compare/v0.65.0...v0.66.0

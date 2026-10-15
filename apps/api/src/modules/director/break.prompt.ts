@@ -2063,19 +2063,46 @@ const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined
  * Or the artist the way a presenter actually SAYS it, which is {@link shortArtistNames}: "that
  * Stones track", "White Stripes is up next", "that Petty track" were all refused as naming neither
  * record while naming one plainly.
+ *
+ * And both sides are read a second time as they are said ({@link asSaid}), so "Booker T and the MGs" names Booker T. &
+ * the M.G.s. The written form is tried as well rather than replaced, so nothing that matched before
+ * stops matching.
  */
 export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[], language?: string): BreakTrack | undefined {
-    const spoken = ` ${bareWords(script)} `;
-    const capitalised = ` ${bareWords(capitalisedOnly(script))} `;
     const says = language === undefined ? saysName : saysNameInflected;
+    const readings = [script, asSaid(script)].map(text => ({
+        spoken: ` ${bareWords(text)} `,
+        capitalised: ` ${bareWords(capitalisedOnly(text))} `,
+    }));
 
-    return records.find(
-        record =>
-            record !== undefined &&
-            (identifiersOf(record).some(candidate => says(spoken, candidate)) ||
-                shortArtistNames(record.artist).some(candidate => says(capitalised, candidate))),
-    );
+    return records.find(record => {
+        if (record === undefined) return false;
+        const said = { ...record, title: asSaid(record.title), artist: asSaid(record.artist) };
+        return [record, said].some(
+            (form, index) =>
+                identifiersOf(form).some(candidate => says(readings[index]!.spoken, candidate)) ||
+                shortArtistNames(form.artist).some(candidate => says(readings[index]!.capitalised, candidate)),
+        );
+    });
 }
+
+/**
+ * A name the way it is SAID rather than written: an ampersand as "and", and the dots taken out of an
+ * abbreviation, so "M.G.s" is "MGs" and "Booker T." is "Booker T".
+ *
+ * Measured on the live station on 15 October: every rehearsal runs Green Onions by Booker T. & the
+ * M.G.s into Ain't No Sunshine, and 4 of 7 of one persona's were refused as naming neither record for
+ * "Booker T and the MGs". {@link bareWords} drops the `&` outright and turns each dot into a word
+ * break, so the record read `booker t the m g s` and the script `booker t and the mgs`. A presenter
+ * writing the band as it is spoken is naming it, and a refusal there costs the model's whole break.
+ *
+ * Applied to the script and to the record alike, so it is only a change of spelling: "and" between
+ * two names is never a name by itself, and a dotted abbreviation is only ever joined into the letters
+ * it already had. Kept out of `bareWords` itself because {@link withoutRecordNames} walks the text by
+ * the same word boundaries `bareWords` draws and would cut the wrong span.
+ */
+const asSaid = (text: string): string =>
+    text.replace(/\s*&\s*/g, ' and ').replace(/(?<![\p{L}\p{N}'])(?:\p{L}\.)+\p{L}*/gu, abbreviation => abbreviation.replaceAll('.', ''));
 
 /**
  * The shorter names an artist goes by on air: without a leading "The", and by the last word alone.

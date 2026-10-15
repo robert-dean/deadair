@@ -18,6 +18,7 @@ import { PERSONA_NOTES_KEYS } from '../../../src/modules/personas/persona.distil
 import { PERSONA_STORIES_KEYS } from '../../../src/modules/personas/persona.story.pass.service.js';
 import { PERSONA_MODEL_KEY } from '../../../src/modules/personas/persona.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import { PRODUCTION_MODEL_KEY } from '../../../src/modules/productions/production.settings.js';
 
 describe('derivedSettings', () => {
     it('answers the deployed address for a public URL nobody set', () => {
@@ -98,7 +99,7 @@ describe('derivedSettings', () => {
 
 describe('derivedModels', () => {
     it('finds every model setting in the registry, and nothing that is not one', () => {
-        // Read off the registry by the suggestion list the eight share, so this is the check that the
+        // Read off the registry by the suggestion list the nine share, so this is the check that the
         // property still picks out exactly them.
         expect([...MODEL_SETTING_KEYS].sort()).toEqual(
             [
@@ -110,6 +111,7 @@ describe('derivedModels', () => {
                 PERSONA_MODEL_KEY,
                 LYRIC_MOODS_KEYS.model,
                 LYRIC_SUBJECT_KEYS.model,
+                PRODUCTION_MODEL_KEY,
             ].sort(),
         );
     });

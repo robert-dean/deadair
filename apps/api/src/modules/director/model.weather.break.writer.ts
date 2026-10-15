@@ -10,6 +10,7 @@ import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, typ
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model giving the weather, with the station's own report underneath it.
@@ -123,7 +124,10 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             return undefined;
         }
 
-        const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
+        const model = models[0] ?? '';
         const messages = breakPrompt(
             request,
             {
@@ -146,6 +150,7 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             // underneath it would contradict.
             {
                 tools: false,
+                models,
                 budgetMs: BUDGET_MS,
                 // Derived from when this break is due rather than fixed: see `patienceFor`.
                 maxWaitMs: patienceFor(request.airsAt),

@@ -43,6 +43,8 @@ import { coerceOutline, priorityForSlot, type Production, type ProductionPass, t
 import { firstPass, nextPass, runsPass } from './production.passes.js';
 import { ProductionRepository } from './production.repository.js';
 import { spokenTitle } from './production.scheduler.js';
+import { modelList } from '#modules/llm/model.list.js';
+import { PRODUCTION_MODEL_KEY } from './production.settings.js';
 
 /**
  * How long before its slot a production stops being background work.
@@ -156,6 +158,11 @@ export interface ProducePayload {
  */
 @Injectable()
 export class ProduceProductionJob extends PlainJob<ProducePayload> {
+    /** The models a production may be written by, in the operator's order. Empty means the plugin's default. See `modelList`. */
+    private get models(): string[] {
+        return modelList(this.config, PRODUCTION_MODEL_KEY);
+    }
+
     constructor(
         private readonly productions: ProductionRepository,
         private readonly segments: SegmentRepository,
@@ -291,7 +298,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
                 const answer = await this.llm.converse(
                     { messages: researchPrompt({ subject, source, text: chunk }), maxOutputTokens: RESEARCH_OUTPUT_TOKENS, reasoningEffort: 'low' },
-                    { budgetMs: RESEARCH_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                    { models: this.models, budgetMs: RESEARCH_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
                 );
                 read += 1;
                 fromSource = gather(fromSource, readNotes(answer.text, chunk), MAX_NOTES_PER_SOURCE);
@@ -429,7 +436,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     // default rather than pinned low, which is the one call in this file where thinking
                     // buys something.
                 },
-                { budgetMs: OUTLINE_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                { models: this.models, budgetMs: OUTLINE_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );
 
         // Asked again before giving up, which is worth one call and is not free. The measured reason
@@ -585,7 +592,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             const ask = async () =>
                 await this.llm.converse(
                     { messages: prompt, maxOutputTokens: BEAT_OUTPUT_TOKENS, reasoningEffort: 'low' },
-                    { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                    { models: this.models, budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
                 );
 
             const label = `${claimed.title} (${beat.ordinal + 1}/${plan.beats.length})`;
@@ -804,7 +811,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
                 },
-                { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                { models: this.models, budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );
 
             const rewritten = speakable(

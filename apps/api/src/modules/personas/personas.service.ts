@@ -34,6 +34,7 @@ import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * Everybody a fresh station starts with: the hosts, then the people who ring in.
@@ -289,7 +290,10 @@ export class PersonasService {
     async generate(body: PersonaRequest): Promise<GeneratedPersona> {
         if (!this.llm.canGenerate()) throw httpError(503).withDetails({ message: this.llm.explainGenerator() });
 
-        const model = this.config.get(PERSONA_MODEL_KEY, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, PERSONA_MODEL_KEY);
+        const model = models[0] ?? '';
         const result = await this.llm.converse(
             {
                 messages: personaPrompt(body.description, stationLanguage(this.config)),
@@ -307,6 +311,7 @@ export class PersonasService {
                 // Nothing to look up: a character is invented rather than researched, and a tool round
                 // trip here would spend another whole generation on nothing.
                 tools: false,
+                models,
                 budgetMs: BUDGET_MS,
                 maxWaitMs: MAX_WAIT_MS,
             },

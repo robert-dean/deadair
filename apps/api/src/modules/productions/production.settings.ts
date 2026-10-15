@@ -26,6 +26,14 @@ export const PRODUCTION_KEYS = {
 } as const;
 
 /**
+ * Which models write a production, in the order to ask them. In `llm`, beside every other kind of
+ * call's list, rather than among the keys above: it is a choice about the model, read the same way
+ * as the others (`modelList`). Empty means the plugin's own default, which is all a production ever
+ * had before it had a list.
+ */
+export const PRODUCTION_MODEL_KEY = 'llm.productionModel';
+
+/**
  * How much silence goes between two beats when they are joined, in milliseconds.
  *
  * The one number this whole join exists to make settable. Before it, the pause between two turns of

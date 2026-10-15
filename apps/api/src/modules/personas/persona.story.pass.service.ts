@@ -16,6 +16,7 @@ import { characterFault, growthOf, ruleTexts } from './persona.sheet.js';
 import type { Persona } from './persona.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { MAX_PROPOSALS, MIN_RECAP_TELLINGS, readProposals, readRecaps, recapPrompt, storyPrompt, type ExistingStory } from './persona.story.model.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * The story pass's settings, keyed like every other model-driven feature.
@@ -205,7 +206,10 @@ export class PersonaStoryPassService {
                 ...(story.kind === 'arc' ? { beats: story.beats.filter(beat => beat.state !== 'rejected').map(beat => beat.beat) } : {}),
             }));
 
-        const model = this.config.get(PERSONA_STORIES_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, PERSONA_STORIES_KEYS.model);
+        const model = models[0] ?? '';
         const started = Date.now();
 
         // What this character has actually said lately, so the pass can NOTICE a running thing
@@ -236,7 +240,7 @@ export class PersonaStoryPassService {
             // only the station's own. See the class note: a character's past is worth having only
             // where it is about records this station actually holds, and that is a question the model
             // has to go and ask of the library rather than of the world.
-            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, onlyTools: STORY_PASS_TOOLS },
+            { models, budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, onlyTools: STORY_PASS_TOOLS },
         );
 
         const proposals = readProposals(answer.text, existing, MAX_PROPOSALS, corpus);
@@ -347,7 +351,7 @@ export class PersonaStoryPassService {
             ...(answer.usage === undefined ? {} : { tokens: answer.usage.totalTokens ?? answer.usage.outputTokens }),
         });
 
-        await this.recap(personaKey, model);
+        await this.recap(personaKey, models);
 
         return { stories: wroteStories + wroteBeats, details: wroteDetails };
     }
@@ -367,7 +371,8 @@ export class PersonaStoryPassService {
      * Best-effort and last: a pass that proposed good material and could not summarise anything has
      * still done its job.
      */
-    private async recap(personaKey: string, model: string): Promise<void> {
+    private async recap(personaKey: string, models: readonly string[]): Promise<void> {
+        const model = models[0] ?? '';
         try {
             const bits = await this.stories.recappable(personaKey, MIN_RECAP_TELLINGS);
             if (bits.length === 0) return;
@@ -381,7 +386,7 @@ export class PersonaStoryPassService {
                 // Tools OFF, unlike the proposal turn above. There is nothing to look up: every word
                 // this may use is already in front of it, and a search here could only add something
                 // the station never said.
-                { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, tools: false },
+                { models, budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, tools: false },
             );
 
             for (const written of readRecaps(answer.text, bits)) {

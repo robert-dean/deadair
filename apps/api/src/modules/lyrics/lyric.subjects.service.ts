@@ -15,6 +15,7 @@ import {
     MOODS_WAIT_MS,
 } from './lyric.moods.service.js';
 import { readSubject, subjectPrompt, SUBJECT_VERSION } from './lyric.subject.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 export interface SubjectsPassSummary {
     written: number;
@@ -46,7 +47,10 @@ export class LyricSubjectsService {
     async writePending(limit: number, signal?: AbortSignal, priority: readonly string[] = []): Promise<SubjectsPassSummary> {
         const summary: SubjectsPassSummary = { written: 0, unplaced: 0, refused: 0, yielded: false };
         const searchable = this.search.hasSearch();
-        const model = this.config.get(LYRIC_SUBJECT_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, LYRIC_SUBJECT_KEYS.model);
+        const model = models[0] ?? '';
 
         for (const candidate of await this.labels.listTracksNeedingSubjects(SUBJECT_VERSION, limit, searchable, priority)) {
             if (signal?.aborted) break;
@@ -56,6 +60,7 @@ export class LyricSubjectsService {
                 answer = await this.llm.converse(
                     { messages: subjectPrompt(candidate, searchable), ...(model.length === 0 ? {} : { model }), reasoningEffort: 'low' },
                     {
+                        models,
                         budgetMs: MOODS_BUDGET_MS,
                         maxWaitMs: MOODS_WAIT_MS,
                         priority: MOODS_PRIORITY,

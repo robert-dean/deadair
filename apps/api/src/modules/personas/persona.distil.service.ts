@@ -9,6 +9,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { distilPrompt, readNotes, verified, verifyPrompt, MAX_SCRIPTS, MIN_SCRIPTS, type ModelNote } from './persona.notes.model.js';
 import { PersonaNotesRepository, type PersonaNoteWrite } from './persona.notes.repository.js';
 import { PersonaRepository } from './persona.repository.js';
+import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * The distil pass's settings, keyed like every other model-driven feature.
@@ -180,13 +181,16 @@ export class PersonaDistilService {
             return undefined;
         }
 
-        const model = this.config.get(PERSONA_NOTES_KEYS.model, '').trim();
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, PERSONA_NOTES_KEYS.model);
+        const model = models[0] ?? '';
         const scripts = said.map(row => row.script);
         const started = Date.now();
 
         const answer = await this.llm.converse(
             { messages: distilPrompt({ label, style }, scripts), ...(model.length === 0 ? {} : { model }), reasoningEffort: 'low' },
-            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
+            { models, budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
         );
 
         const found = readNotes(answer.text, scripts);
@@ -195,7 +199,7 @@ export class PersonaDistilService {
         for (const note of found) {
             if (stop?.aborted) break;
 
-            const write = await this.judge(personaKey, note, said, model);
+            const write = await this.judge(personaKey, note, said, models);
             if (write !== undefined) writes.push(write);
         }
 
@@ -237,9 +241,9 @@ export class PersonaDistilService {
         personaKey: string,
         note: ModelNote,
         said: readonly { id: string; script: string }[],
-        model: string,
+        models: readonly string[],
     ): Promise<PersonaNoteWrite | undefined> {
-        if (note.kind === 'said' && !(await this.supported(note.note, note.quote, model))) return undefined;
+        if (note.kind === 'said' && !(await this.supported(note.note, note.quote, models))) return undefined;
 
         // Which attempt the quote came from, for the console's link back. Best-effort: the quote has
         // already been checked against the whole corpus, so failing to attribute it to one row is a
@@ -270,7 +274,8 @@ export class PersonaDistilService {
      * an honest disagreement about every one either. Both halves are the fact pass's, and the second
      * is there because the first alone hid a broken verifier on this station for months.
      */
-    private async supported(note: string, quote: string, model: string): Promise<boolean> {
+    private async supported(note: string, quote: string, models: readonly string[]): Promise<boolean> {
+        const model = models[0] ?? '';
         try {
             const answer = await this.llm.converse(
                 {
@@ -279,7 +284,7 @@ export class PersonaDistilService {
                     maxOutputTokens: VERIFY_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
                 },
-                { budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
+                { models, budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
             );
 
             if (answer.text.trim().length === 0) {

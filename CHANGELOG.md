@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.67.1] — 2026-10-15
+
+- Director: a show prepared before it starts no longer borrows "sounds like" picks from the show before it. The opening records are chosen a few minutes ahead, while the previous show is still on air, and the similar-artists walk seeded from that show's records whenever the new brief named nobody the library held. A bluegrass morning prepared after a night of heavy metal opened with Nile. A show prepared ahead now seeds only from the acts its brief names, and otherwise leaves its first refill to seed from its own records.
+
 ## [0.67.0] — 2026-10-14
 
 - A character can now be several kinds at once. Each persona has `kinds`, the set of things it may be cast as (`host`, `caller`, `guest`, `newsreader`), alongside the single `kind` it had before, so one character can host a show and drop by somebody else's without being written twice. Anybody with `host` can present; anybody with `caller` or `guest` can be cast into a phone-in or a visit, and their ties to hosts work as they always did; the newsreader may host too, and still reads every bulletin alone. Nobody is cast onto a show they are presenting that night. `kind` is still answered and still accepted: it is the kind in the set that ranks highest, host first, so a client built before `kinds` reads the answer it always did, and a client that sends only `kind` gets a character of that one kind.
@@ -1436,7 +1440,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.67.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.67.1...HEAD
+[0.67.1]: https://github.com/robert-dean/deadair/compare/v0.67.0...v0.67.1
 [0.67.0]: https://github.com/robert-dean/deadair/compare/v0.66.0...v0.67.0
 [0.66.0]: https://github.com/robert-dean/deadair/compare/v0.65.0...v0.66.0
 [0.65.0]: https://github.com/robert-dean/deadair/compare/v0.64.0...v0.65.0

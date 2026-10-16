@@ -31,6 +31,16 @@ If the console is open at `localhost`, it says so beside the link: nobody else c
 
 **Send again** makes a new link for the same address and role, and the old one stops working; use it for a link that ran out or was lost. **Withdraw** stops a link working at once. Nothing is deleted either way: every invitation stays in the list with where it stands, so the list is also a record of who invited whom.
 
+### The invitation email
+
+An emailed invitation says who invited them and to what, links to the page that makes the account, says when the link stops working, and points a listener at the phone apps and [how listening works](./listening.md) and an admin at [the first hour](../tutorials/first-hour.md). You can word it yourself under **Settings → Mail**: **Invitation subject** and **Invitation message**, the message in markdown (bold, italic, lists, headings and links). Left empty, each uses the station's own.
+
+The message has to include `{{link}}`, the link that makes the account. It can also use `{{station}}`, `{{role}}` (listener or admin), `{{inviter}}` (who sent it), `{{until}}` (when the link stops working), `{{androidApp}}` and `{{iosApp}}` (the phone apps) and `{{guide}}` (the deadair guide for their role). The subject can use `{{station}}` and `{{role}}`. A paragraph or list item whose placeholder has nothing to fill it is left out, so a line naming `{{iosApp}}` appears only once the iPhone app is in the App Store. HTML and images are shown as typed rather than drawn, and a link can only be a web or mail address.
+
+A message is checked when you save it rather than when it is sent, because the person who would find the mistake has no account yet. It is refused when it leaves out `{{link}}`, names a placeholder nothing fills, uses one as a link that is not an address, or puts the link on a line that could be left out. **What an invitation looks like**, under the form, draws the email as the station would send it now, for either role, with a sample link, sender and date, and its plain-text version beside it. It shows what is saved, so save the form to see a change.
+
+Only the invitation can be reworded. The other messages (a sign-in code or link, confirming an address, a second step reset) stay as the station writes them, because their warnings do work, and a sign-in email anybody can reword is a phishing template with your station's name on it.
+
 ## Accepting an invitation
 
 The link opens a page of its own, not the console. Nothing happens until the person presses **Accept the invitation**, so a mail scanner or a chat app's link preview that opens the link uses nothing up.

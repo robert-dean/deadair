@@ -1,10 +1,12 @@
 ---
 title: Podcasts
 sidebar_position: 6.5
-description: "How the station carries somebody else's programme: subscribe to a podcast, put a syndicated rule on the format clock, and the newest episode airs at that time with your presenter handing over to it."
+description: "How the station carries somebody else's programme, and makes shows of its own: subscribe to a podcast and put it on the format clock, or keep a show the station writes and speaks an episode of whenever you ask."
 ---
 
 The station can carry a programme it did not make. Subscribe to a podcast, put a `syndicated` rule on the format clock about that show, and at that time the station airs the show's newest episode, whole, with your presenter handing over to it. It is the opposite of a [production](./phone-ins.md#other-productions), which the station writes and speaks itself; a `podcast` rule on the clock still means one of those. Between the two sits a [reading](./narrations.md): somebody else's words, in the station's own voice.
+
+The same tab also keeps [shows of your own](#shows-the-station-makes): a podcast the station writes and speaks, an episode at a time, whenever you ask for one.
 
 ## Subscribing
 
@@ -34,6 +36,24 @@ The station's clock counts the episode's length, so a bulletin at the top of the
 ## The Podcasts tab
 
 The Podcasts tab lists the episodes the station knows about, newest first, and what it has done with each: not fetched, fetching, ready to air, aired, or could not fetch, with the reason. "Fetch now" asks for an episode's audio ahead of the clock, and "Try again" retries one that failed. The station tries a failed fetch three times on its own before it waits for you.
+
+## Shows the station makes
+
+**Your shows**, at the top of the Podcasts tab, are podcasts the station makes for itself: something to fall asleep to, or the day's news taken slowly. A show is a recipe, and every episode of it is a [production](./phone-ins.md#other-productions), written and spoken by the station and listed on the Productions tab like any other.
+
+**New show** starts one, from a blank form or a template (**Wind-down** or **News in depth**). A show has:
+
+- a name, and a description for you that is never read out;
+- **What it is about**: the subject an episode is planned from when you ask for one without a topic of its own;
+- **News it reads**: news feeds, for a show about the day's stories, and **Hours back** (a day when left empty);
+- **Research each episode on your trusted sites**, which sends an episode handed nothing to read to the sites you trust in the web search plugin;
+- a presenter, a length in minutes and how much to write it, each the station's default when left empty.
+
+**Make an episode** asks for one. Give it a topic, or leave that empty for the show's own subject. Give it something to read first, either the address of a page or pasted text such as an article, a chapter or your own notes, and the episode states as fact only what it can find in that. Give it an **Air at** time and it waits, ready, for the first gap in the running order at or after that time; leave it empty and it airs as soon as it is made. An episode is written and spoken over the next few minutes, and appears under its show as it goes.
+
+What an episode may state as fact depends on what it was given. A page or pasted text wins over everything else. Otherwise a show that reads the news reads the newest stories on its feeds within its window (at most six), and an episode is refused when those feeds have nothing that recent. Otherwise, with research on, it searches your trusted sites for its subject and fails, saying so, when none of them has anything. A production given something to read and finding nothing in it fails rather than being written from general knowledge, because that would be a different programme from the one you asked for. A story you keep off the air is kept out of an episode too.
+
+An episode airs at the time it was given, not through the format clock: a show of your own needs no `syndicated` rule. **Delete** removes the show and keeps its episodes on the Productions page, and any still being made carry on.
 
 ## What it will not carry
 

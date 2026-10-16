@@ -52,6 +52,7 @@ Each of these adds one thing to a station that is already on air, and none depen
 ## More
 
 - [Produce a segment](./produce-a-segment.md): a short programme the station writes and voices itself,
-  a listener's call, and a guest in the studio.
+  a show of your own it makes episodes of, a listener's call, a guest in the studio, and the news on
+  demand.
 - [Throw a party](./throw-a-party.md): a code on the TV, and guests asking for records from their
   phones with no account.

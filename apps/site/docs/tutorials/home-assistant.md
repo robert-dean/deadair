@@ -44,6 +44,8 @@ Between them the first five always say what is on air, so a light needs no "ende
 something is the next thing starting. **Settings → Event destinations** lists every type with an
 example, and so does `GET /api/events/types`.
 
+[Event destinations](../features/events.md) is the reference for all of it: every event, the log, retries and signatures.
+
 ## 1. Make a webhook in Home Assistant
 
 In Home Assistant, create an automation and give it a **Webhook** trigger.

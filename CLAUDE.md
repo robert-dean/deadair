@@ -41,6 +41,7 @@ was shipped first and was wrong.
 | signing in through an identity provider, the allowlist, linked sign-ins, apps connecting over OAuth, the MCP endpoint | [`docs/internals/authentication.md`](docs/internals/authentication.md) |
 | the station on chat platforms (Telegram, Discord, Slack and the like), chat commands, the poller, listener requests | [`docs/internals/messaging.md`](docs/internals/messaging.md) |
 | event destinations: the station POSTing signed events to an operator's own servers (Home Assistant and the like), their secrets, the delivery log | [`docs/internals/events.md`](docs/internals/events.md) |
+| the station's numbers over time: the metrics recorder, the minute flush, rollups and retention | [`docs/internals/metrics.md`](docs/internals/metrics.md) |
 | the Dockerfile, the image variants, CI | [`docs/internals/deployment.md`](docs/internals/deployment.md) |
 
 Each of those is sectioned, so the answer to one question is a heading rather than a file. Several

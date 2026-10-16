@@ -183,6 +183,17 @@ export class AudienceWatch {
     }
 
     /**
+     * The audience as last measured, or `undefined` before anything has been.
+     *
+     * For the trend, where zero and "not yet known" are different points: a chart that drew boot as an
+     * empty room would show a dip at every deploy. {@link listenerCount} folds the two together because
+     * its readers cannot draw the difference.
+     */
+    measuredListenerCount(): number | undefined {
+        return this.count;
+    }
+
+    /**
      * Whether the station has an audience, INCLUDING the linger window.
      *
      * Not simply `listenerCount() > 0`: see {@link AUDIENCE_LINGER_MS}. A reading

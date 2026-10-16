@@ -173,6 +173,7 @@ import {
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
 import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
+import { MAX_METRICS_RETENTION_DAYS, METRICS_DEFAULTS, METRICS_KEYS } from '#modules/metrics/metrics.settings.js';
 import { MAX_OPEN_REQUESTS, MAX_REQUEST_COOLDOWN_MINUTES, REQUESTS_DEFAULTS, REQUESTS_KEYS } from '#modules/requests/requests.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
@@ -576,6 +577,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: ACTIVITY_DEFAULTS.retentionDays,
         help: 'How long the station remembers its own moments: going on and off air, every time a gate silenced it, every gap that outlived the loop meant to close it. Zero keeps all of it. What aired and what the station wrote have their own lifetimes and are not touched by this.',
+    },
+    {
+        group: 'housekeeping',
+        key: METRICS_KEYS.minuteRetentionDays,
+        label: 'Keep minute-by-minute trends for (days)',
+        type: 'number',
+        default: METRICS_DEFAULTS.minuteRetentionDays,
+        min: 0,
+        max: MAX_METRICS_RETENTION_DAYS,
+        help: 'How long the station keeps its numbers at the minute: listeners, how long its work took, what it asked the model for. Trends over a day or two are drawn from these. Zero keeps all of them.',
+    },
+    {
+        group: 'housekeeping',
+        key: METRICS_KEYS.hourRetentionDays,
+        label: 'Keep hourly trends for (days)',
+        type: 'number',
+        default: METRICS_DEFAULTS.hourRetentionDays,
+        min: 0,
+        max: MAX_METRICS_RETENTION_DAYS,
+        help: 'How long the station keeps the same numbers by the hour, which is what trends over weeks and months are drawn from. The default is just over a year, so a month can be read against the same month last year. Zero keeps all of them.',
     },
     {
         group: 'housekeeping',

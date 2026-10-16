@@ -34,6 +34,8 @@ import { PersonaAuditionJob } from '#modules/personas/persona.audition.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
+import { PruneMetricsJob } from '#modules/metrics/prune.metrics.job.js';
+import { RollupMetricsJob } from '#modules/metrics/rollup.metrics.job.js';
 import { ExpireOAuthClientsJob } from '#modules/oauth/expire.oauth.clients.job.js';
 import { CheckReleasesJob } from '#modules/station/check.releases.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
@@ -577,6 +579,24 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'activity.prune_events': {
         job: PruneActivityJob,
         cron: '53 4 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Hourly, at :09, folding the last three complete hours of minute samples into hour rows. Three
+    // rather than one because the fold is idempotent and going back is cheap: a minute the flusher
+    // wrote after the hour turned is picked up, and an hour missed during a deploy is folded rather
+    // than lost when its minutes are swept. NO retry: the next run covers this one's hours anyway.
+    'metrics.rollup': {
+        job: RollupMetricsJob,
+        cron: '9 * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Nightly and NO retry, on the prune jobs' argument. Before the activity sweep at 04:53 for no
+    // reason but its own minute; the two touch different tables.
+    'metrics.prune': {
+        job: PruneMetricsJob,
+        cron: '47 4 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 

@@ -47,6 +47,7 @@ import { McpModule } from './mcp/mcp.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
 import { EventsModule } from './events/events.module.js';
 import { OutputsModule } from './outputs/outputs.module.js';
+import { MetricsModule } from './metrics/metrics.module.js';
 import { RequestsModule } from './requests/requests.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -90,6 +91,11 @@ const ordered: ServerKitModule[] = [
     // nothing.
     HealthModule,
     DataModule,
+    // Right after DataModule, which registers the database and the heartbeat it needs, and EARLY so it
+    // tears down LATE: its shutdown writes the last partial minute, which has to come after every
+    // producer below has stopped observing and before DataConnectionsModule closes the pools. Producers
+    // register their gauges on its recorder from their own ready(), so nothing here knows about them.
+    MetricsModule,
     CryptoModule,
     AuthenticationModule,
     PermissionsModule,

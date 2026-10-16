@@ -55,6 +55,17 @@ describe('the module list', () => {
         expect(tearsDownBefore('Topics', 'Podcasts')).toBe(true);
     });
 
+    it('writes the last minute of metrics after every producer stops and before the pools close', () => {
+        // The flusher's shutdown writes whatever the recorder still holds. A producer tearing down
+        // after it would observe into a buffer nobody drains again; the pools closing before it would
+        // leave that last write nothing to write to.
+        for (const producer of ['Playout', 'Jobs', 'Plugins', 'Station', 'Llm']) {
+            expect(tearsDownBefore(producer, 'Metrics'), `${producer} must stop before the last metrics flush`).toBe(true);
+        }
+        expect(tearsDownBefore('Metrics', 'Connections')).toBe(true);
+        expect(tearsDownBefore('Metrics', 'Data')).toBe(true);
+    });
+
     it('registers MCP last, since it composes everything and nothing resolves it', () => {
         expect(tearsDownBefore('Mcp', 'Station')).toBe(true);
     });

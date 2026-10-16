@@ -2,8 +2,13 @@ import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { MetricsRecorder } from '@maroonedsoftware/telemetry';
+import { onSpan } from '#modules/shared/trace.spans.js';
 import { MetricsFlusher } from './metrics.flusher.js';
 import { MetricsRepository } from './metrics.repository.js';
+import { observeSpan } from './span.metrics.js';
+
+/** Stops reading spans at shutdown, before the last flush. */
+let stopSpans: (() => void) | undefined;
 
 /**
  * The station's numbers over time: one recorder every producer observes into, and the loop that
@@ -28,10 +33,16 @@ export const MetricsModule: ServerKitModule = {
 
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
+        // Work durations, model tokens and failures, read off the spans every timed call already
+        // files. Registered in ready rather than setup so nothing is counted before the flusher runs.
+        const recorder = container.get(MetricsRecorder);
+        stopSpans = onSpan(span => observeSpan(recorder, span));
         container.get(MetricsFlusher).start();
     },
 
     shutdown: async (container: Container) => {
+        stopSpans?.();
+        stopSpans = undefined;
         await container.get(MetricsFlusher).stop();
     },
 };

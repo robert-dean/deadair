@@ -11,7 +11,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { flushSpans, MAX_TRACE_FILES, recordSpan, setTraceRoot, spanError } from '../../../src/modules/shared/trace.spans.js';
+import {
+    flushSpans,
+    MAX_TRACE_FILES,
+    onSpan,
+    recordSpan,
+    setTraceRoot,
+    spanError,
+    type RecordedSpan,
+} from '../../../src/modules/shared/trace.spans.js';
 import { runInTrace } from '../../../src/modules/shared/trace.context.js';
 
 let root: string;
@@ -149,5 +157,58 @@ describe('spanError', () => {
 
     it('describes a thrown non-Error rather than dropping it', () => {
         expect(spanError('just a string')).toBe('just a string');
+    });
+});
+
+describe('onSpan', () => {
+    it('tells a listener about a span inside a decision, with the decision it belongs to', async () => {
+        const seen: RecordedSpan[] = [];
+        const stop = onSpan(span => seen.push(span));
+
+        await runInTrace({ id: 'job-1', kind: 'catalog.sync', parent: 'job-0' }, async () => {
+            recordSpan({ op: 'plugin.invoke', target: 'spotify search', ms: 40, outcome: 'ok' });
+        });
+        stop();
+
+        expect(seen).toHaveLength(1);
+        expect(seen[0]).toMatchObject({ op: 'plugin.invoke', ms: 40, trace: { id: 'job-1', kind: 'catalog.sync', parent: 'job-0' } });
+        expect(seen[0]?.endedAt).toEqual(expect.any(Number));
+    });
+
+    it('tells a listener about a span outside any decision too, which the file never records', async () => {
+        const seen: RecordedSpan[] = [];
+        const stop = onSpan(span => seen.push(span));
+
+        recordSpan({ op: 'plugin.invoke', ms: 5, outcome: 'failed', error: 'timeout' });
+        stop();
+
+        expect(seen[0]?.trace).toBeUndefined();
+        expect(await written()).toEqual([]);
+    });
+
+    it('swallows a listener that throws, and still writes the span and tells the others', async () => {
+        const seen: RecordedSpan[] = [];
+        const stopBroken = onSpan(() => {
+            throw new Error('somebody else’s bug');
+        });
+        const stop = onSpan(span => seen.push(span));
+
+        await runInTrace({ id: 'job-2', kind: 'k' }, async () => {
+            expect(() => recordSpan({ op: 'job.run', ms: 1, outcome: 'ok' })).not.toThrow();
+        });
+        stopBroken();
+        stop();
+
+        expect(seen).toHaveLength(1);
+        expect(await written()).toHaveLength(1);
+    });
+
+    it('stops telling a listener once it unsubscribes', () => {
+        const seen: RecordedSpan[] = [];
+        onSpan(span => seen.push(span))();
+
+        recordSpan({ op: 'job.run', ms: 1, outcome: 'ok' });
+
+        expect(seen).toEqual([]);
     });
 });

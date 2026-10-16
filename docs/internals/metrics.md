@@ -35,6 +35,31 @@ something got slow.
 where the work happens. Names live in `metric.names.ts`, so the producer and the route that reads a
 metric back cannot drift apart over a typo.
 
+## Where the numbers come from
+
+**Work durations, model tokens and failures are read off the trace spans, so no call site measures
+anything twice.** `recordSpan` (`shared/trace.spans.ts`) is where the job runner, the plugin invoker
+and the model loop already time their work, and `onSpan` lets the metrics module hear every span as it
+is filed. `span.metrics.ts` turns `job.run` into `work.job.ms` by queue, `plugin.invoke` into
+`work.plugin.ms` by plugin and method, and `llm.generate` into `model.call.ms` and the three
+`model.tokens.*` counters by decision kind and model. Any failed span of those three adds one to
+`work.failed`. A model call that never answered adds its time and its failure and no tokens, which is
+the case the span exists to keep.
+
+**A listener hears spans the file never records.** The file keeps only work inside a decision; a
+timer's plugin call has no decision to belong to and is still worth counting, so a listener is told
+about every span and work outside one is labelled `kind: none`. A listener runs synchronously inside
+`recordSpan`, so it observes into memory and nothing more, and one that throws is swallowed.
+
+**What Check-up shows as now is kept as gauges, read the way Check-up reads it**
+(`station/station.gauges.ts`): the library's total, cached and measured counts every five minutes
+from one shared query, the model's waiting depth every minute, and the station's media on disk every
+fifteen, because that one walks three directories. Registered by `StationModule`, which already reads
+all of them, so none of the owning modules has to know a trend exists.
+
+**There is no money.** Tokens are counted and cost is not, because nothing in the station knows a
+price. Turning one into the other needs per-model prices, which is its own idea.
+
 ## The flusher
 
 **A module-owned loop, not a cron job**, because what it drains is in this process's memory: a

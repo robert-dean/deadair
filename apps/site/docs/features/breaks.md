@@ -37,7 +37,7 @@ A model can be given tools to search the library, the news and the web, though n
 
 "The feeds a bulletin reads" under Settings, Bulletins is an ordered list. Empty, every feed is read. Filled in, only those feeds are, one story from each in turn, so a publisher posting twenty times a day cannot crowd out one posting three times.
 
-A bulletin never repeats a story while it is fresh (twelve hours by default), and when everything fresh has been read it is skipped. It is not shown notes about the next record, because a bulletin finishing a note it half understood is how this station once aired false discography. It reports in its own words and keeps the facts, never reads a headline and then restates it, and stops when the stories stop. The floor under it reads the headlines as published.
+A bulletin never repeats a story while it is fresh (twelve hours by default), and when everything fresh has been read it is skipped. It is not shown notes about the next record, because a bulletin finishing a note it half understood is how this station once aired false discography. It reports in its own words and keeps the facts, never reads a headline and then restates it, and stops when the stories stop. The floor under it reads the headlines as published. A bulletin read by a character says who is reading it, and the reader may close on their own sign-off, one line before handing back; a fixed sign-off belongs in the character's quirks rather than its samples, because a script that repeats a sample is refused as a quotation.
 
 News categories under Voice, Subjects let a band on the format clock ask for a subject; a bulletin whose category matches nothing is skipped rather than aired under the wrong name. A category marked off air is withheld everywhere, which is how a publisher's deals desk stays out of your news.
 
@@ -80,6 +80,12 @@ Both pictures can be replaced with your own under **Settings**, **Artwork**, and
 ## The record of what was written
 
 Every attempt to write a break is kept: the words or why there were none, the writer, the model, the character, the records either side. A model that declined and the floor that covered for it are two rows, because the second alone reads as a station that never had a model. Rows are kept for ninety days by default (Settings, Voice and audio). The prompt and the raw answer are kept only while "Keep the prompt and the raw answer" is on under Settings, Words, which is meant for an evening of tuning.
+
+## Asking for one now
+
+The format clock decides when the station talks, but an operator can ask it to say something now: the news, the weather or a word from the host. **Say something** does it from the listener apps signed in as the operator (in the Up next menu on Android, under **Manage** on the iPhone, and beside **Take a call** on the desktop app's desk), and so can Claude or anything else with an [API key](../develop/api.md) (`POST /api/director/air/breaks`). A request from the apps goes between the record on air and the one after, once it has been written and spoken. Through the API it can also ask for This day in history, a story or a jingle, for a news category or a place by its key, and for how soon: at the first moment there is time to write it, after this record, within a few records, or at the next ordinary slot.
+
+The station may decline, and says why rather than failing: breaks are off, there is no voice, nothing on the station writes that kind, the same request was taken a moment ago (a double press asks once), or the running order has no room. Accepted is not the same as aired: a bulletin with no story left unread is still passed over when it is written, as one the clock asked for would be.
 
 ## In the console
 

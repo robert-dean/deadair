@@ -23,7 +23,7 @@ A **guest** is somebody who drops by the studio for a short chat with the host: 
 
 One character can do several of these jobs. **What they do**, near the top of a character's editor, has a box for each: **Hosts**, **Rings in**, **Reads the news** and **Drops by**. Tick as many as you like, and it stays one character, with one sheet, one voice and one notebook. A host who also drops by can guest-host one show and visit another. A character who only rings in or drops by has no phrasings and no picture, because those belong to whoever presents. Nobody is cast into a phone-in or a visit on a show they are presenting that night, and only one character can read the news.
 
-A new character can start from a description, which a model turns into a sheet you edit before saving. The roster exports to a file and imports from one. Nine hosts and five callers ship, each with its own voice, and "Restore built-ins" puts back any that are missing.
+A new character can start from a description, which a model turns into a sheet you edit before saving. The roster exports to a file and imports from one. A file matches characters by their key, and a file from another station can carry a different character that happens to share a key with one of yours, so an import leaves a character you already have alone unless you say otherwise: before anything is written it lists which are already here, with **Skip** or **Replace** on each. Nine hosts and five callers ship, each with its own voice, and "Restore built-ins" puts back any that are missing.
 
 ## Keeping a model in character
 

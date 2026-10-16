@@ -44,6 +44,7 @@ const sidebars: SidebarsConfig = {
                 'features/languages',
                 'features/listening',
                 'features/connect-claude',
+                'features/events',
             ],
         },
         'licensing',

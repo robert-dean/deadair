@@ -1,13 +1,14 @@
 ---
 title: Produce a segment
-description: Have the station write and voice a short programme of its own, take a call from a listener, or bring a guest into the studio.
+description: Have the station write and voice a short programme of its own, keep a show it makes an episode of whenever you ask, take a call from a listener, bring a guest into the studio, or say something now.
 ---
 
 # Produce a segment
 
 A break is one presenter saying a few sentences. A production is longer: a short programme in
 several beats, planned, written and spoken over a few minutes, then aired as one piece. By the end of
-this page you will have asked for one, and put a caller and a guest on air from the Desk.
+this page you will have asked for one, kept a show of your own on the Podcasts tab, put a caller and a
+guest on air from the Desk, and asked the station for the news between two records.
 
 [Phone-ins](../features/phone-ins.md) explains how calls and visits are cast and shaped.
 
@@ -32,7 +33,17 @@ station; guests you write yourself ([Write a character](./write-a-character.md))
    **What it should be about** is the field that matters. The planning pass works from it, so write it
    the way you would brief a producer: the angle, the story, what to leave out. The title matters much
    less.
-3. Press **Ask for it**.
+3. Optionally, give it something to go on. Without anything, it talks from general knowledge and keeps
+   the specifics vague.
+
+   | Field | What it does |
+   | --- | --- |
+   | **Notes** | One fact per line, such as `The TR-808 came out in 1980.` It states nothing as fact that the notes do not give. |
+   | **Sources** | **Add a source**, then an **Address** for a web page, or the text pasted in. The station reads them first and states only what it can find in them. |
+   | **Research it on your trusted sites** | With nothing to read, it searches the sites you trust in the web search plugin for its subject instead. |
+   | **Air at** | A time to hold it for. Empty airs it as soon as it is made. |
+
+4. Press **Ask for it**.
 
 Nothing is made while you wait. The production appears in the list and moves through **queued**,
 **planning it**, **writing it**, **checking it**, **speaking it** and **joining it up** to **ready**.
@@ -44,6 +55,26 @@ When every beat has been spoken it goes into the running order and shows **in th
 **To make them regularly,** add a band to the format clock instead (Programme → Today → **Add band**)
 with `podcast` as the **Sort of break**. One is commissioned ahead of every time the band comes round.
 See [Make a show](./make-a-show.md#3-give-the-hour-a-shape-optional).
+
+## Make a show of your own
+
+A production you want again and again, such as something to fall asleep to, can be kept as a show, so
+each episode is one button.
+
+1. Open **Library → Podcasts**. **Your shows** is at the top.
+2. Press **New show**, and under **Start from** pick **Wind-down**. It fills in a name and **What it
+   is about**; change either.
+3. Pick a **Presenter**, and **Minutes** if you want a length other than the station's default.
+4. Press **Make the show**.
+5. Press **Make an episode** on the show. Leave **What this one is about** empty for the show's own
+   subject, or give this one a topic. Paste an article under **Something to read first**, or give
+   **A page to read first**, and the episode states as fact only what it finds there.
+6. Set **Air at** to tonight at eleven, and press **Make it**.
+
+**You should see** the episode under the show, moving through the same states as any production. Once
+it is **ready** it waits for the first gap at or after eleven. The **News in depth** template is the
+same thing with **News it reads** filled in: each episode reads the newest stories on the feeds you
+pick. See [shows the station makes](../features/podcasts.md#shows-the-station-makes).
 
 ## Take a call
 
@@ -70,6 +101,19 @@ The host welcomes them, they talk, and the host thanks them at the end. A statio
 cannot make one, and Productions says so. Write a guest first with **New caller or guest…** → **New
 guest** on Voice → Characters.
 
+## Ask for the news now
+
+The format clock decides when the station talks, but the operator can ask it for the news, the
+weather or a word from the host now, from a listener app signed in as the operator.
+
+1. Open **Say something**: in the Up next menu on Android, under **Manage** on the iPhone, or beside
+   **Take a call** on the desktop app's desk.
+2. Pick **The news**.
+
+**You should see** an answer straight away. Accepted, the bulletin is written and spoken, and goes in
+after the record on air. Declined, the app says why: breaks are off, there is no voice, nothing writes
+that kind, or it was asked for a moment ago. See [asking for a break now](../features/breaks.md#asking-for-one-now).
+
 ## With Claude
 
 Productions are a good fit for asking Claude, because the hard part is the brief. With Claude
@@ -80,6 +124,7 @@ connected and allowed to **Read and manage** ([how](./connect-a-model.md#connect
 > first and show it to me.
 
 Claude writes the brief, asks the station for the production, and can tell you how far along it is.
+"Ask the station for the weather after this record" works the same way.
 
 ## If it goes wrong
 

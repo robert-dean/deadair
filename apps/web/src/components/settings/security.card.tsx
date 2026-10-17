@@ -26,6 +26,7 @@ import { notifyDone, notifySaved } from '../shared/notify';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { LinkedSigninsCard } from './linked.signins.card';
+import { PasswordCard } from './password.card';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
 
 /** What a factor is called in the list. The API's labels are for authenticators; the rest are what they are. */
@@ -109,6 +110,7 @@ export function SecurityCard() {
                 </Stack>
             </Card>
 
+            {factors.data ? <PasswordCard hasPassword={factors.data.some(factor => factor.method === 'password')} gate={gate} /> : undefined}
             {factors.data ? <LinkedSigninsCard factors={factors.data} gate={gate} /> : undefined}
             {factors.data ? <EnrolAuthenticatorCard gate={gate} /> : undefined}
             {factors.data && passkeysAvailable() ? <EnrolPasskeyCard gate={gate} /> : undefined}

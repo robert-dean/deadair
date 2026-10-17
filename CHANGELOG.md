@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.70.2] — 2026-10-17
+
+- A new setting, "How hard the production model thinks" (`llm.productionReasoning`), sets the reasoning effort for writing and re-drafting each turn of a production, the way `llm.breakReasoning` already does for breaks. It defaults to A little, which is what every turn asked for until now. On a model that thinks at length even then, every phone-in and co-host banter failed as "came back empty twice" because one turn ran out of time or room before it said anything. Not at all fixes that.
+
 ## [0.70.1] — 2026-10-17
 
 - Dependency updates: `@maroonedsoftware/comms` 0.3.0, `koa` 4.1.3, `servercore` 0.4.1, `discord` 2.1.1, `slack` 3.3.1, `telegram` 2.1.1 and `rhapsode-sdk` 0.1.27. The `comms` release only adds two optional fields to an incoming event, so nothing the station does changes.
@@ -1483,7 +1487,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.70.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.70.2...HEAD
+[0.70.2]: https://github.com/robert-dean/deadair/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/robert-dean/deadair/compare/v0.70.0...v0.70.1
 [0.70.0]: https://github.com/robert-dean/deadair/compare/v0.69.1...v0.70.0
 [0.69.1]: https://github.com/robert-dean/deadair/compare/v0.69.0...v0.69.1

@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-10-17
+
+- Sign-in has "Forgot your password?": it asks the station to email a link to the address typed, which opens the station in a browser to choose a new password, and the app then says to check that inbox. With no address typed it asks for one first. A station that has sent that address enough links, or cannot send email at all, is said plainly.
+
 ## [0.12.2] — 2026-10-14
 
 - The host picker offers only characters who can present. It used to leave out callers alone, so a guest or the newsreader could be picked and refused; now it reads each character's `kinds`, so a host who also drops by somebody else's show is still offered, and anybody who cannot host is not.

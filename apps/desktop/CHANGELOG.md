@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-10-17
+
+- Sign-in has "Forgot your password?": it asks the station to email a link to the address typed, which opens the station in a browser to choose a new password, and the panel then says to check that inbox. With no address typed it asks for one first. A station that has sent that address enough links, or cannot send email at all, is said plainly.
+
 ## [0.13.3] — 2026-10-14
 
 - Characters who do several jobs are handled whole. The host pickers offer only characters who can present, so a guest or the newsreader is no longer offered and refused; the roster lists the newsreader and guests under headings of their own; a character's ties read "Drops by" for somebody who drops by rather than rings in; and saving a character keeps every job it has, so a host who also drops by stays one.
@@ -148,7 +152,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.0...HEAD
+[0.14.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.3...desktop-v0.14.0
 [0.13.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.2...desktop-v0.13.3
 [0.13.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.1...desktop-v0.13.2
 [0.13.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.0...desktop-v0.13.1

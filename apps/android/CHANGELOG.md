@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-10-17
+
+- Signing in answers an emailed code as well as an authenticator code. An account whose second factor is email (with or without a passkey beside it) is sent a code and can ask for it again, instead of being told to sign in on the console, and an account with both an authenticator and email can choose "Email me a code instead".
+
 ## [0.20.0] — 2026-10-17
 
 - Sign-in has "Forgot your password?": it asks the station to email a link to the address typed, which opens the station in a browser to choose a new password, and the app then says to check that inbox. With no address typed it asks for one first. A station that has sent that address enough links, or cannot send email at all, is said plainly.
@@ -255,7 +259,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.20.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.21.0...HEAD
+[0.21.0]: https://github.com/robert-dean/deadair/compare/android-v0.20.0...android-v0.21.0
 [0.20.0]: https://github.com/robert-dean/deadair/compare/android-v0.19.2...android-v0.20.0
 [0.19.2]: https://github.com/robert-dean/deadair/compare/android-v0.19.1...android-v0.19.2
 [0.19.1]: https://github.com/robert-dean/deadair/compare/android-v0.19.0...android-v0.19.1

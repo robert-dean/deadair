@@ -15513,6 +15513,7 @@ components:
                 - housekeeping
                 - mail
                 - signin
+                - telemetry
                 - rotation
                 - breaks
                 - bulletins

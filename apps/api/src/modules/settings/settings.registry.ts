@@ -173,7 +173,7 @@ import {
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
 import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
-import { MAX_METRICS_RETENTION_DAYS, METRICS_DEFAULTS, METRICS_KEYS } from '#modules/metrics/metrics.settings.js';
+import { MAX_METRICS_RETENTION_DAYS, METRICS_DEFAULTS, METRICS_KEYS, OTLP_DEFAULTS, OTLP_KEYS } from '#modules/metrics/metrics.settings.js';
 import { MAX_OPEN_REQUESTS, MAX_REQUEST_COOLDOWN_MINUTES, REQUESTS_DEFAULTS, REQUESTS_KEYS } from '#modules/requests/requests.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
@@ -248,6 +248,7 @@ export const SETTING_GROUPS = [
     'housekeeping',
     'mail',
     'signin',
+    'telemetry',
     'rotation',
     'breaks',
     'bulletins',
@@ -597,6 +598,35 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: 0,
         max: MAX_METRICS_RETENTION_DAYS,
         help: 'How long the station keeps the same numbers by the hour, which is what trends over weeks and months are drawn from. The default is just over a year, so a month can be read against the same month last year. Zero keeps all of them.',
+    },
+    {
+        group: 'telemetry',
+        key: OTLP_KEYS.endpoint,
+        label: 'OTLP collector',
+        type: 'url',
+        default: OTLP_DEFAULTS.endpoint,
+        placeholder: 'http://collector:4318',
+        help: 'Where to send the station’s numbers over OpenTelemetry (OTLP over HTTP), for Grafana, Honeycomb, Datadog or your own collector. The address without a path: the station adds /v1/metrics itself. Leave empty to send nothing; the Trends tab works either way.',
+    },
+    {
+        group: 'telemetry',
+        key: OTLP_KEYS.headers,
+        label: 'Headers',
+        type: 'secret',
+        dependsOn: OTLP_KEYS.endpoint,
+        // Usually a token, and sent to that collector, so a save moving the collector elsewhere has
+        // to type it again rather than hand the stored one to whatever the new address answers with.
+        sentTo: OTLP_KEYS.endpoint,
+        help: 'Sent with every request, written the way OTEL_EXPORTER_OTLP_HEADERS is: name=value pairs separated by commas, such as Authorization=Bearer abc123. Leave empty for a collector that takes none.',
+    },
+    {
+        group: 'telemetry',
+        key: OTLP_KEYS.exportMetrics,
+        label: 'Send metrics',
+        type: 'boolean',
+        default: OTLP_DEFAULTS.exportMetrics,
+        dependsOn: OTLP_KEYS.endpoint,
+        help: 'Each minute’s listeners, work, model and library numbers, the same ones the Trends tab draws. Durations go as histograms, tokens and failures as counters, the rest as gauges, all with delta temporality.',
     },
     {
         group: 'housekeeping',

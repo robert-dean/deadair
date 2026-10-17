@@ -27,6 +27,7 @@ export type SettingsSectionId =
     | 'security'
     | 'people'
     | 'events'
+    | 'telemetry'
     | 'rotation'
     | 'breaks'
     | 'bulletins'
@@ -161,6 +162,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // After People, being the other way something outside the console reaches the station's doings:
     // not a person signing in, but a server of the operator's own being told what goes on air.
     section('events'),
+    // Beside Events, being the third thing that leaves the station for a server of the operator's
+    // own: not what goes on air, but its numbers, sent to whatever collector they already run.
+    blurbed('telemetry', { group: 'telemetry' }),
     // Rotation was one section holding what the station plays, how often it talks, what goes into a
     // bulletin and every word it says around them: forty-two fields and six boxes of phrasings under
     // one save. Split along `SettingGroup` in `settings.types.ck`, as Station was; the phrasings went
@@ -204,6 +208,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/security'
     | '/settings/people'
     | '/settings/events'
+    | '/settings/telemetry'
     | '/settings/rotation'
     | '/settings/breaks'
     | '/settings/bulletins'
@@ -226,6 +231,7 @@ export const SETTINGS_ROUTES: Record<
     security: '/settings/security',
     people: '/settings/people',
     events: '/settings/events',
+    telemetry: '/settings/telemetry',
     rotation: '/settings/rotation',
     breaks: '/settings/breaks',
     bulletins: '/settings/bulletins',

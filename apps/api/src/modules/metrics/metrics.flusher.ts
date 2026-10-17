@@ -5,6 +5,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { MetricsRepository } from './metrics.repository.js';
+import { OtlpExport } from './otlp.export.js';
 
 /** How often the recorder is drained into the table: once a minute, its bucket width. */
 export const METRICS_FLUSH_MS = 60_000;
@@ -37,6 +38,7 @@ export class MetricsFlusher {
         private readonly container: Container,
         private readonly recorder: MetricsRecorder,
         private readonly heartbeat: Heartbeat,
+        private readonly otlp: OtlpExport,
         private readonly logger: Logger,
     ) {
         recorder.onGaugeError = (name, error) => this.logger.debug(`metrics: gauge ${name} could not be read: ${errorText(error)}`);
@@ -59,6 +61,7 @@ export class MetricsFlusher {
         this.timer = undefined;
         await this.flushing;
         await this.flush();
+        await this.otlp.close();
         this.heartbeat.forget(METRICS_FLUSH_HEARTBEAT);
     }
 
@@ -76,16 +79,26 @@ export class MetricsFlusher {
             const buckets = this.recorder.drain();
             if (buckets.length === 0) return;
 
-            await inScope(this.container, scope => scope.get(MetricsRepository).upsertMinutes(buckets));
-            if (this.failingSince !== undefined) {
-                this.logger.info('metrics: writing again', { gapMs: Date.now() - this.failingSince });
-                this.failingSince = undefined;
+            try {
+                await inScope(this.container, scope => scope.get(MetricsRepository).upsertMinutes(buckets));
+                if (this.failingSince !== undefined) {
+                    this.logger.info('metrics: writing again', { gapMs: Date.now() - this.failingSince });
+                    this.failingSince = undefined;
+                }
+            } catch (error) {
+                if (this.failingSince === undefined) {
+                    this.failingSince = Date.now();
+                    this.logger.warn(`metrics: could not write this minute, and will drop each one until it can: ${errorText(error)}`);
+                }
             }
+
+            // After the table, and whether or not the table took it: a collector is a second
+            // destination for the same minute, and one being down must not cost the other.
+            await this.otlp.exportMetrics(buckets);
         } catch (error) {
-            if (this.failingSince === undefined) {
-                this.failingSince = Date.now();
-                this.logger.warn(`metrics: could not write this minute, and will drop each one until it can: ${errorText(error)}`);
-            }
+            // Only the gauges can land here, and `sampleGauges` swallows its readers' throws, so
+            // this is the loop's own safety net rather than an expected path.
+            this.logger.warn(`metrics: the flush failed: ${errorText(error)}`);
         } finally {
             this.heartbeat.beat(METRICS_FLUSH_HEARTBEAT);
         }

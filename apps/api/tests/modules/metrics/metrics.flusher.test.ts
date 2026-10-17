@@ -20,8 +20,9 @@ function harness() {
     const recorder = new MetricsRecorder();
     const heartbeat = new Heartbeat();
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const flusher = new MetricsFlusher(container, recorder, heartbeat, logger as never);
-    return { flusher, recorder, repository, written, heartbeat, logger, scope };
+    const otlp = { exportMetrics: vi.fn(async () => {}), close: vi.fn(async () => {}) };
+    const flusher = new MetricsFlusher(container, recorder, heartbeat, otlp as never, logger as never);
+    return { flusher, recorder, repository, written, heartbeat, logger, scope, otlp };
 }
 
 describe('MetricsFlusher', () => {
@@ -85,8 +86,18 @@ describe('MetricsFlusher', () => {
         expect(heartbeat.stalledFor(METRICS_FLUSH_HEARTBEAT)).toBe(0);
     });
 
+    it('hands the same minute to the OTLP export after the table, and even when the table failed', async () => {
+        const { flusher, recorder, repository, otlp } = harness();
+        repository.upsertMinutes.mockRejectedValueOnce(new Error('down'));
+        recorder.observe('a', 1);
+
+        await flusher.flush();
+
+        expect(otlp.exportMetrics).toHaveBeenCalledWith([expect.objectContaining({ name: 'a' })]);
+    });
+
     it('writes the last partial minute on stop, and stops being watched', async () => {
-        const { flusher, recorder, written, heartbeat } = harness();
+        const { flusher, recorder, written, heartbeat, otlp } = harness();
         flusher.start();
         recorder.observe('a', 1);
 
@@ -94,6 +105,7 @@ describe('MetricsFlusher', () => {
 
         expect(written).toHaveLength(1);
         expect(heartbeat.stalledFor(METRICS_FLUSH_HEARTBEAT)).toBeUndefined();
+        expect(otlp.close).toHaveBeenCalled();
     });
 
     it('logs a gauge that cannot be read at debug, and samples the rest', async () => {

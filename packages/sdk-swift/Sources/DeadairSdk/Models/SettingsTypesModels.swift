@@ -8,6 +8,7 @@ public enum SettingGroup: Codable, CaseIterable, Hashable, Sendable {
     case housekeeping
     case mail
     case signin
+    case telemetry
     case rotation
     case breaks
     case bulletins
@@ -25,7 +26,7 @@ public enum SettingGroup: Codable, CaseIterable, Hashable, Sendable {
     case unknown
 
     /// The members the contract declares. `unknown` is not one of them.
-    public static let allCases: [SettingGroup] = [.station, .stream, .housekeeping, .mail, .signin, .rotation, .breaks, .bulletins, .playout, .render, .llm, .analysis, .schedule, .personas, .phrasings, .providers]
+    public static let allCases: [SettingGroup] = [.station, .stream, .housekeeping, .mail, .signin, .telemetry, .rotation, .breaks, .bulletins, .playout, .render, .llm, .analysis, .schedule, .personas, .phrasings, .providers]
 
     /// The wire spelling, or `nil` for `unknown`, which has none.
     public var rawValue: String? {
@@ -35,6 +36,7 @@ public enum SettingGroup: Codable, CaseIterable, Hashable, Sendable {
         case .housekeeping: return "housekeeping"
         case .mail: return "mail"
         case .signin: return "signin"
+        case .telemetry: return "telemetry"
         case .rotation: return "rotation"
         case .breaks: return "breaks"
         case .bulletins: return "bulletins"
@@ -58,6 +60,7 @@ public enum SettingGroup: Codable, CaseIterable, Hashable, Sendable {
         case "housekeeping": self = .housekeeping
         case "mail": self = .mail
         case "signin": self = .signin
+        case "telemetry": self = .telemetry
         case "rotation": self = .rotation
         case "breaks": self = .breaks
         case "bulletins": self = .bulletins

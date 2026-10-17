@@ -36,6 +36,9 @@ public enum SettingGroup
     [JsonStringEnumMemberName("signin")]
     Signin,
 
+    [JsonStringEnumMemberName("telemetry")]
+    Telemetry,
+
     [JsonStringEnumMemberName("rotation")]
     Rotation,
 
@@ -102,6 +105,7 @@ public sealed class SettingGroupConverter : JsonConverter<SettingGroup>
         "housekeeping" => SettingGroup.Housekeeping,
         "mail" => SettingGroup.Mail,
         "signin" => SettingGroup.Signin,
+        "telemetry" => SettingGroup.Telemetry,
         "rotation" => SettingGroup.Rotation,
         "breaks" => SettingGroup.Breaks,
         "bulletins" => SettingGroup.Bulletins,
@@ -123,6 +127,7 @@ public sealed class SettingGroupConverter : JsonConverter<SettingGroup>
         SettingGroup.Housekeeping => "housekeeping",
         SettingGroup.Mail => "mail",
         SettingGroup.Signin => "signin",
+        SettingGroup.Telemetry => "telemetry",
         SettingGroup.Rotation => "rotation",
         SettingGroup.Breaks => "breaks",
         SettingGroup.Bulletins => "bulletins",

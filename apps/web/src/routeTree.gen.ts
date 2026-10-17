@@ -52,6 +52,7 @@ import { Route as SettingsSigninRouteImport } from './routes/settings/signin'
 import { Route as SettingsStationRouteImport } from './routes/settings/station'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsStreamRouteImport } from './routes/settings/stream'
+import { Route as SettingsTelemetryRouteImport } from './routes/settings/telemetry'
 import { Route as StationPlaylistsIdRouteImport } from './routes/station-playlists/$id'
 import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
 import { Route as CatalogArtistsArtistIdRouteImport } from './routes/catalog/artists/$artistId'
@@ -276,6 +277,11 @@ const SettingsStreamRoute = SettingsStreamRouteImport.update({
   path: '/settings/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsTelemetryRoute = SettingsTelemetryRouteImport.update({
+  id: '/settings/telemetry',
+  path: '/settings/telemetry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StationPlaylistsIdRoute = StationPlaylistsIdRouteImport.update({
   id: '/station-playlists/$id',
   path: '/station-playlists/$id',
@@ -358,6 +364,7 @@ export interface FileRoutesByFullPath {
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/stream': typeof SettingsStreamRoute
+  '/settings/telemetry': typeof SettingsTelemetryRoute
   '/station-playlists/$id': typeof StationPlaylistsIdRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
@@ -411,6 +418,7 @@ export interface FileRoutesByTo {
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/stream': typeof SettingsStreamRoute
+  '/settings/telemetry': typeof SettingsTelemetryRoute
   '/station-playlists/$id': typeof StationPlaylistsIdRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
@@ -465,6 +473,7 @@ export interface FileRoutesById {
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/stream': typeof SettingsStreamRoute
+  '/settings/telemetry': typeof SettingsTelemetryRoute
   '/station-playlists/$id': typeof StationPlaylistsIdRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
@@ -520,6 +529,7 @@ export interface FileRouteTypes {
     | '/settings/station'
     | '/settings/storage'
     | '/settings/stream'
+    | '/settings/telemetry'
     | '/station-playlists/$id'
     | '/catalog/'
     | '/playlists/'
@@ -573,6 +583,7 @@ export interface FileRouteTypes {
     | '/settings/station'
     | '/settings/storage'
     | '/settings/stream'
+    | '/settings/telemetry'
     | '/station-playlists/$id'
     | '/catalog'
     | '/playlists'
@@ -626,6 +637,7 @@ export interface FileRouteTypes {
     | '/settings/station'
     | '/settings/storage'
     | '/settings/stream'
+    | '/settings/telemetry'
     | '/station-playlists/$id'
     | '/catalog/'
     | '/playlists/'
@@ -680,6 +692,7 @@ export interface RootRouteChildren {
   SettingsStationRoute: typeof SettingsStationRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsStreamRoute: typeof SettingsStreamRoute
+  SettingsTelemetryRoute: typeof SettingsTelemetryRoute
   StationPlaylistsIdRoute: typeof StationPlaylistsIdRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
@@ -997,6 +1010,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/telemetry': {
+      id: '/settings/telemetry'
+      path: '/settings/telemetry'
+      fullPath: '/settings/telemetry'
+      preLoaderRoute: typeof SettingsTelemetryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/station-playlists/$id': {
       id: '/station-playlists/$id'
       path: '/station-playlists/$id'
@@ -1096,6 +1116,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsStationRoute: SettingsStationRoute,
   SettingsStorageRoute: SettingsStorageRoute,
   SettingsStreamRoute: SettingsStreamRoute,
+  SettingsTelemetryRoute: SettingsTelemetryRoute,
   StationPlaylistsIdRoute: StationPlaylistsIdRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,

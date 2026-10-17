@@ -122,3 +122,27 @@ accents failed the lightness band, which is why these are tokens rather than `ph
 
 **recharts is in the Trends route's own chunk**, through the router's automatic code splitting, so no
 other page pays for it.
+
+## Sending them on: OTLP
+
+**The same minute goes to a collector, not a second measurement.** When `metrics.otlpEndpoint` is set
+(Settings, Telemetry), `MetricsFlusher` hands each drained minute to `OtlpExport` after writing it to
+the table, and the export sends it through `@maroonedsoftware/telemetry/otlp`'s bridge to an
+`OTLPMetricExporter` (OTLP over HTTP with JSON, at `<endpoint>/v1/metrics`). No `MeterProvider` sits
+in between: the buckets are already aggregates. Durations go as histograms (count, sum, min, max),
+tokens and failures as monotonic counters, the rest as gauges, all with **delta** temporality, so a
+collector feeding Prometheus needs its `deltatocumulative` processor. The resource is
+`service.name=deadair`, `service.instance.id=<station key>`.
+
+**Off until an endpoint is set, read on every flush.** Naming, changing or clearing the endpoint takes
+effect within a minute with no restart; the exporter is rebuilt only when the endpoint or its headers
+change.
+
+**The headers are a secret tied to the endpoint** (`sentTo`), written as `OTEL_EXPORTER_OTLP_HEADERS`
+is. `OtlpExport` is a singleton and `EncryptionProvider` is scoped, which InjectKit refuses to wire
+directly (it failed the boot the first time), so the headers are decrypted in a scope of their own,
+and only when the stored value changes.
+
+**A collector that is down never costs the table its minute**, and the export never throws: it is
+logged when it goes and when it comes back, by its address and never its headers, and the minutes in
+between are dropped rather than queued, on the flusher's own rule.

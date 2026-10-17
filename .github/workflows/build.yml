@@ -701,7 +701,8 @@ jobs:
                       const text = readFileSync("plugin.js", "utf8");
                       // What ws reaches for inside a try and runs without.
                       const optional = new Set(["bufferutil", "utf-8-validate"]);
-                      const named = [...text.matchAll(/(?:\bfrom\s*|\bimport\(\s*|__require\(\s*)["\x27]([^"\x27.][^"\x27]*)["\x27]/g)].map(m => m[1]);
+                      // A `from` right after a quote or a dot is a key or a name (the SDK writes `o["from"]` and "Query.from"), never an import.
+                      const named = [...text.matchAll(/(?:(?<!["\x27.])\bfrom\s*|\bimport\(\s*|__require\(\s*)["\x27]([^"\x27.][^"\x27]*)["\x27]/g)].map(m => m[1]);
                       const strays = [...new Set(named)].filter(name => !builtinModules.includes(name.replace(/^node:/, "")) && !optional.has(name));
                       if (strays.length > 0) {
                           console.log(`::error::the bundle reaches for packages it did not inline: ${strays.join(", ")}`);

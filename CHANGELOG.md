@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.71.0] — 2026-10-17
+
+- Sign-in and security has a password card: change your password with the current one, or add one to an account that signs in without. Every other device is signed out, the re-verify dialog opens first when an authenticator or passkey is enrolled, and a wrong current password or a weak new one is said on its own field.
+- The sign-in page has "Forgot your password?": it emails a link to the address typed above, which signs the person in and opens Sign-in and security at a "Choose a new password" card that does not ask for the old one. If the link was opened too long ago to stand in for the old password, the card asks for it after all and says why.
+- A sign-in link can be asked for as a password reset: `POST /auth/login/start` with `grant_type: 'link'` takes `purpose: 'reset'`, which emails "Reset your password" instead of "Sign in" and lands the person on the password form once the link has signed them in. The limit on how often an address can be mailed, and the answer for an address with no account, are the sign-in link's own.
+- `PUT /auth/password` sets or changes the signed-in person's own password (`sdk.authentication.factors.setPassword`). It needs the current password when there is one, unless a sign-in link was used in the last ten minutes, and a recent authenticator or passkey once one is enrolled. Every other session of the account is signed out, and each of its email addresses gets a notice that the password changed.
+
 ## [0.70.2] — 2026-10-17
 
 - A new setting, "How hard the production model thinks" (`llm.productionReasoning`), sets the reasoning effort for writing and re-drafting each turn of a production, the way `llm.breakReasoning` already does for breaks. It defaults to A little, which is what every turn asked for until now. On a model that thinks at length even then, every phone-in and co-host banter failed as "came back empty twice" because one turn ran out of time or room before it said anything. Not at all fixes that.
@@ -1487,7 +1494,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.70.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.71.0...HEAD
+[0.71.0]: https://github.com/robert-dean/deadair/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/robert-dean/deadair/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/robert-dean/deadair/compare/v0.70.0...v0.70.1
 [0.70.0]: https://github.com/robert-dean/deadair/compare/v0.69.1...v0.70.0

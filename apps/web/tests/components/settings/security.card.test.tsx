@@ -10,10 +10,11 @@ const listFactors = vi.fn();
 const registerFactor = vi.fn();
 const verifyFactorRegistration = vi.fn();
 const removeFactor = vi.fn();
+const setPassword = vi.fn();
 const startMFAChallenge = vi.fn();
 const requestToken = vi.fn();
 const listSignInProviders = vi.fn(async (): Promise<unknown[]> => []);
-const search: { linked?: string; link_error?: string } = {};
+const search: { linked?: string; link_error?: string; reset?: boolean } = {};
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -25,6 +26,7 @@ vi.mock('../../../src/api/client', () => ({
                 registerFactor: (...args: unknown[]) => registerFactor(...args),
                 verifyFactorRegistration: (...args: unknown[]) => verifyFactorRegistration(...args),
                 removeFactor: (...args: unknown[]) => removeFactor(...args),
+                setPassword: (...args: unknown[]) => setPassword(...args),
                 startMFAChallenge: (...args: unknown[]) => startMFAChallenge(...args),
             },
         },
@@ -44,11 +46,13 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 afterEach(() => {
-    for (const mock of [listFactors, registerFactor, verifyFactorRegistration, removeFactor, startMFAChallenge, requestToken]) mock.mockReset();
+    for (const mock of [listFactors, registerFactor, verifyFactorRegistration, removeFactor, setPassword, startMFAChallenge, requestToken])
+        mock.mockReset();
     listSignInProviders.mockReset();
     listSignInProviders.mockResolvedValue([]);
     delete search.linked;
     delete search.link_error;
+    delete search.reset;
     vi.unstubAllGlobals();
     clearSession();
 });
@@ -383,5 +387,160 @@ describe('SecurityCard, linked sign-ins', () => {
 
         expect(await screen.findByText('Authelia now signs you in to this account.')).toBeInTheDocument();
         expect(screen.getByText(/already belongs to a different account/)).toBeInTheDocument();
+    });
+});
+
+const refused = (details: Record<string, string>) =>
+    new SdkError(400, 'Bad Request', { statusCode: 400, message: 'Bad Request', details }, new Headers());
+
+describe('SecurityCard, the password', () => {
+    it('changes the password with the current one, then clears the form', async () => {
+        listFactors.mockResolvedValue([PASSWORD, EMAIL]);
+        setPassword.mockResolvedValue(undefined);
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('Current password'), 'the old one');
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        await waitFor(() => {
+            expect(setPassword).toHaveBeenCalledWith({ password: 'a long new passphrase', currentPassword: 'the old one' });
+        });
+        await waitFor(() => {
+            expect(screen.getByLabelText('Current password')).toHaveValue('');
+        });
+    });
+
+    it('offers to add one, with no current password to ask for, on an account that has none', async () => {
+        listFactors.mockResolvedValue([EMAIL]);
+        setPassword.mockResolvedValue(undefined);
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        expect(await screen.findByText('Add a password')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument();
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Add password' }));
+
+        await waitFor(() => {
+            expect(setPassword).toHaveBeenCalledWith({ password: 'a long new passphrase' });
+        });
+    });
+
+    it('refuses two new passwords that differ without asking the station', async () => {
+        listFactors.mockResolvedValue([PASSWORD]);
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('Current password'), 'the old one');
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'something else entirely');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        expect(await screen.findByText('The two new passwords are not the same')).toBeInTheDocument();
+        expect(setPassword).not.toHaveBeenCalled();
+    });
+
+    it('says the current password is wrong on its own field', async () => {
+        listFactors.mockResolvedValue([PASSWORD]);
+        setPassword.mockRejectedValue(refused({ currentPassword: 'that is not the current password' }));
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('Current password'), 'a guess');
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        expect(await screen.findByText('That is not your current password')).toBeInTheDocument();
+        expect(screen.queryByText('Password not changed')).not.toBeInTheDocument();
+    });
+
+    it("shows the strength checker's sentence on the new password, or the console's own when it had none", async () => {
+        listFactors.mockResolvedValue([PASSWORD]);
+        setPassword
+            .mockRejectedValueOnce(refused({ password: 'This is a top-100 common password.' }))
+            .mockRejectedValueOnce(refused({ password: '' }));
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('Current password'), 'the old one');
+        await user.type(screen.getByLabelText('New password'), 'password1');
+        await user.type(screen.getByLabelText('New password again'), 'password1');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+        expect(await screen.findByText('This is a top-100 common password.')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+        expect(await screen.findByText('That password is too easy to guess')).toBeInTheDocument();
+    });
+
+    it('re-verifies with a code when the API asks, then changes it', async () => {
+        listFactors.mockResolvedValue([PASSWORD, PHONE]);
+        setPassword.mockRejectedValueOnce(stepUpDenied()).mockResolvedValueOnce(undefined);
+        startMFAChallenge.mockResolvedValue({
+            result: 'mfa_required',
+            challenge_id: 'mfa-9',
+            factors: [{ method: 'authenticator', method_id: 'totp-1', kind: 'possession', label: 'Phone' }],
+        });
+        requestToken.mockResolvedValue({ result: 'token', ...TOKEN });
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('Current password'), 'the old one');
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        expect(await screen.findByText('Confirm it is you')).toBeInTheDocument();
+        await user.type(await screen.findByLabelText('Authenticator code'), '123456');
+
+        await waitFor(() => {
+            expect(setPassword).toHaveBeenCalledTimes(2);
+        });
+    });
+});
+
+describe('SecurityCard, arriving from a reset link', () => {
+    it('asks for a new password only, and sends no current one', async () => {
+        search.reset = true;
+        listFactors.mockResolvedValue([PASSWORD, EMAIL]);
+        setPassword.mockResolvedValue(undefined);
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        expect(await screen.findByText('Choose a new password')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument();
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        await waitFor(() => {
+            expect(setPassword).toHaveBeenCalledWith({ password: 'a long new passphrase' });
+        });
+        // Done: an ordinary card again, which asks for the current password next time.
+        expect(await screen.findByText('Change your password')).toBeInTheDocument();
+        expect(screen.getByLabelText('Current password')).toBeInTheDocument();
+    });
+
+    it('brings the current password back, saying why, when the link was opened too long ago', async () => {
+        search.reset = true;
+        listFactors.mockResolvedValue([PASSWORD, EMAIL]);
+        setPassword.mockRejectedValue(refused({ currentPassword: 'the current password is needed to change it' }));
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        expect(await screen.findByLabelText('Current password')).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                'That link was opened too long ago to stand in for it. Enter your current password, or sign out and ask for another link.',
+            ),
+        ).toBeInTheDocument();
     });
 });

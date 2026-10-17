@@ -167,6 +167,45 @@ and the sixth try said whether the account existed. The cost of the per-caller k
 a guesser spread over many addresses gets five tries from each, which is what the Argon2 cost and
 the rate limiter in front are for.
 
+## Changing a password
+
+**`PUT /auth/password` is the one way to change a password, and it asks for the current one.**
+`PasswordChangeService` (`password.change.service.ts`) is a route of its own rather than another arm
+of `POST /auth/factors/register`, because that one creates a password and answers 409 when there is
+one. A replacement goes through the library's `updatePasswordFactor`, which refuses any of the last
+ten (`changePassword` does not); an account with no password gets one through `createPasswordFactor`
+with nothing to prove. Once an authenticator or a passkey is enrolled, `StrongFactorGate` asks for it
+too, exactly as enrolling anything does.
+
+**A sign-in link used in the last ten minutes stands in for the current password.** Proving the inbox
+is what a reset is, so the reset flow can be a sign-in link that lands on the password form rather
+than a second kind of token with its own store, limiter and enumeration answers. It grants nothing a
+sign-in link did not: whoever can read the inbox can already sign in, and an account with a strong
+factor is asked for it at that sign-in and again here. The check reads the session's own factors
+for an `email` one authenticated inside `LINK_STANDS_IN_FOR`, so an emailed second-step code counts
+as well, which is right: that session proved the password a moment before.
+
+**A wrong current password answers 400, not the library's 401.** The route is reached signed in, and
+the console reads a 401 as a session that has ended. The 429 after too many wrong ones is passed
+through unchanged, from the same caller-keyed limiter sign-in spends from.
+
+**Every other session is signed out and every address is told.** The caller's own session stays, so
+the page that asked is still signed in when the answer arrives. The `PasswordChanged` notice goes to
+each active email factor after the commit, on the second-step reset notice's rule: a refused send is
+logged and never undoes the change, and a station with no mail server changes the password anyway.
+
+## Resetting a password
+
+**A reset link is a sign-in link with `purpose: 'reset'`**, asked for at `POST /auth/login/start` with
+`grant_type: 'link'`. `handleLinkStartLogin` issues the same `magiclink` challenge, spends from the same
+`SignInMailLimiter` bucket and gives an address with no account the same synthetic answer; only the
+template (`PasswordReset`) and the link's `redirect`, `PASSWORD_RESET_LANDING`, differ. Redeeming it is an
+ordinary link sign-in through `issueOrChallenge`, so an enrolled authenticator or passkey is still asked
+for, and the session it makes is the one `PUT /auth/password` lets set a password without the old one.
+A separate reset token with its own store was the obvious design and is the one not built: it would
+have needed its own limiter, its own enumeration answer and its own MFA story, each of which the
+sign-in link already got right once.
+
 ## The Google variables
 
 `GOOGLE_OIDC_CLIENT_ID`, `GOOGLE_OIDC_CLIENT_SECRET` and `GOOGLE_OIDC_ISSUER` used to build the only

@@ -828,6 +828,12 @@ export type ApiKeyIssued = z.infer<typeof ApiKeyIssued>;
  */
 export const LinkAuthenticationLoginStart = BaseAuthenticationLoginStartWithEmail.extend({
     grant_type: z.literal('link').describe('The grant type for the request'),
+    purpose: z
+        .enum(['signin', 'reset'])
+        .optional()
+        .describe(
+            'What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin`',
+        ),
 });
 export type LinkAuthenticationLoginStart = z.infer<typeof LinkAuthenticationLoginStart>;
 

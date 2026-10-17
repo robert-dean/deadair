@@ -34,6 +34,19 @@ export const PasswordFactorRegistration = z.strictObject({
 export type PasswordFactorRegistration = z.infer<typeof PasswordFactorRegistration>;
 
 /**
+ * generated from [PasswordChange](../../../../data/contracts/authentication/registration.types.ck)
+ */
+export const PasswordChange = z.strictObject({
+    password: z.string().min(8).max(256).describe('The new password'),
+    currentPassword: z
+        .string()
+        .max(256)
+        .optional()
+        .describe('The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes'),
+});
+export type PasswordChange = z.infer<typeof PasswordChange>;
+
+/**
  * generated from [EmailFactorRegistration](../../../../data/contracts/authentication/registration.types.ck)
  */
 export const EmailFactorRegistration = z.strictObject({

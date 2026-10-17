@@ -1,6 +1,6 @@
 ---
 title: 'AuthenticatorFactorRegistrationVerification'
-sidebar_position: 84
+sidebar_position: 85
 mdx:
     format: 'md'
 ---

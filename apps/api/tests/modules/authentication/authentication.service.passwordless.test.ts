@@ -92,6 +92,12 @@ const build = (options: { factorExists?: boolean; active?: boolean; spaBaseUrl?:
             grant_type: 'link',
             email: EMAIL,
         });
+    const startReset = () =>
+        (service as never as { handleLinkStartLogin: (r: unknown) => Promise<{ challengeId: string; expiresAt: DateTime }> }).handleLinkStartLogin({
+            grant_type: 'link',
+            email: EMAIL,
+            purpose: 'reset',
+        });
     const startCode = () =>
         (service as never as { handleCodeStartLogin: (r: unknown) => Promise<{ challengeId: string; expiresAt: DateTime }> }).handleCodeStartLogin({
             grant_type: 'code',
@@ -101,7 +107,7 @@ const build = (options: { factorExists?: boolean; active?: boolean; spaBaseUrl?:
     const redeemLink = (link = 'magic-token-abc') =>
         (service as never as { handleLink: (r: unknown) => Promise<unknown> }).handleLink({ grant_type: 'link', challenge_id: CHALLENGE_ID, link });
 
-    return { startLink, startCode, redeemLink, emailFactorService, mailService, signInMailLimiter, pkceProvider, mfaOrchestrator };
+    return { startLink, startReset, startCode, redeemLink, emailFactorService, mailService, signInMailLimiter, pkceProvider, mfaOrchestrator };
 };
 
 const statusOf = async (promise: Promise<unknown>): Promise<number | undefined> => {
@@ -145,6 +151,48 @@ describe('starting a magic-link sign-in', () => {
         const { startLink } = build({ spaBaseUrl: '' });
 
         expect(await statusOf(startLink())).toBe(500);
+    });
+});
+
+describe('asking for a password reset', () => {
+    it('emails the same link, worded as a reset, landing on the password form', async () => {
+        const { startReset, mailService } = build();
+
+        await startReset();
+
+        const redirect = encodeURIComponent('/settings/security?reset=1');
+        expect(mailService.send).toHaveBeenCalledWith({
+            to: EMAIL,
+            template: 'PasswordReset',
+            data: {
+                link: `https://radio.example.com/auth/callback?token=magic-token-abc&challenge_id=${CHALLENGE_ID}&redirect=${redirect}`,
+                minutes: 30,
+            },
+        });
+    });
+
+    it('issues an ordinary magic-link challenge, so redeeming it is a sign-in with its MFA policy', async () => {
+        const { startReset, emailFactorService } = build();
+
+        await startReset();
+
+        expect(emailFactorService.issueEmailChallenge).toHaveBeenCalledWith(ACTOR_ID, 'email-1', 'magiclink');
+    });
+
+    it('answers an address with no account in the same shape, and sends nothing', async () => {
+        const { startReset, mailService, signInMailLimiter } = build({ factorExists: false });
+
+        const answer = await startReset();
+
+        expect(answer.challengeId).toHaveLength(43);
+        expect(mailService.send).not.toHaveBeenCalled();
+        expect(signInMailLimiter.consume).toHaveBeenCalledWith(EMAIL);
+    });
+
+    it('spends from the same allowance as a sign-in link, so asking for both is no way round it', async () => {
+        const { startReset } = build({ limited: true });
+
+        expect(await statusOf(startReset())).toBe(429);
     });
 });
 

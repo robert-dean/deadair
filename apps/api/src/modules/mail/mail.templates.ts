@@ -9,20 +9,24 @@ import { renderInvitation, type InvitationWording } from './mail.invitation.js';
  * ships an email with `{code}` in it to the one person who cannot then sign in to report it.
  *
  * Most are the same sentence to a person waiting on a screen: here is a code, or here is a link. The
- * other two are about an account: an invitation to make one, and a notice that its second step was
- * reset. There is no marketing here and there is not going to be.
+ * rest are about an account: an invitation to make one, and notices that its second step was reset
+ * or its password changed. There is no marketing here and there is not going to be.
  */
 export type MailTemplateMap = {
     /** A second factor at sign-in: the password was right and this proves the inbox. */
     SignInCode: { code: string; minutes: number };
     /** A first factor at sign-in: no password at all, the inbox is the whole proof. */
     SignInLink: { link: string; minutes: number };
+    /** The same link, asked for from "Forgot your password?": it signs the person in and lands on the password form. */
+    PasswordReset: { link: string; minutes: number };
     /** Proof an address exists before it is attached to an account. */
     VerifyEmail: { code: string; minutes: number };
     /** An admin invited this address into a role. `until` is already a date a person reads, such as `15 October 2026`. */
     Invitation: { link: string; role: 'admin' | 'listener'; inviter?: string; until: string };
     /** An admin removed this account's authenticator apps and passkeys. Sent so a reset nobody asked for is noticed. */
     SecondFactorReset: Record<string, never>;
+    /** The account's password was set or changed. `added` when it had none before. Sent so a change nobody asked for is noticed. */
+    PasswordChanged: { added: boolean };
 };
 
 export type MailTemplate = keyof MailTemplateMap;
@@ -112,6 +116,28 @@ function body(message: MailMessage, stationName: string, wording: MailWording): 
                 ].join(''),
             };
         }
+        case 'PasswordReset': {
+            const { link, minutes } = message.data;
+            return {
+                subject: `Reset your ${stationName} password`,
+                text: [
+                    `Open this link to choose a new password for ${stationName}:`,
+                    '',
+                    link,
+                    '',
+                    `It signs you in, expires in ${plural(minutes, 'minute')}, and works once.`,
+                    '',
+                    'If you did not ask for this, ignore it: your password has not changed. Anybody who can',
+                    'read this message can use the link, so do not forward it.',
+                ].join('\n'),
+                html: [
+                    `<p>Open this link to choose a new password for ${escapeHtml(stationName)}:</p>`,
+                    `<p><a href="${escapeHtml(link)}" style="font-size:16px">Choose a new password</a></p>`,
+                    `<p>It signs you in, expires in ${escapeHtml(plural(minutes, 'minute'))}, and works once.</p>`,
+                    '<p>If you did not ask for this, ignore it: your password has not changed. Anybody who can read this message can use the link, so do not forward it.</p>',
+                ].join(''),
+            };
+        }
         case 'VerifyEmail': {
             const { code, minutes } = message.data;
             return {
@@ -147,6 +173,26 @@ function body(message: MailMessage, stationName: string, wording: MailWording): 
                     `<p>An admin of ${escapeHtml(stationName)} removed the authenticator apps and passkeys on your account and signed you out everywhere.</p>`,
                     '<p>Sign in with your password and set up a new one from Sign-in and security.</p>',
                     '<p>If you did not ask for this, tell whoever runs the station.</p>',
+                ].join(''),
+            };
+        }
+        case 'PasswordChanged': {
+            const what = message.data.added
+                ? `A password was added to your account on ${stationName}`
+                : `The password on your ${stationName} account was changed`;
+            return {
+                subject: message.data.added ? `A password was added to your ${stationName} account` : `Your ${stationName} password was changed`,
+                text: [
+                    `${what}, and every other device signed in to it was signed out.`,
+                    '',
+                    'If this was you, there is nothing to do.',
+                    '',
+                    'If it was not, somebody can sign in as you. Tell whoever runs the station.',
+                ].join('\n'),
+                html: [
+                    `<p>${escapeHtml(what)}, and every other device signed in to it was signed out.</p>`,
+                    '<p>If this was you, there is nothing to do.</p>',
+                    '<p>If it was not, somebody can sign in as you. Tell whoever runs the station.</p>',
                 ].join(''),
             };
         }

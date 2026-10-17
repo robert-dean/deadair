@@ -1646,6 +1646,11 @@ public sealed record LinkAuthenticationLoginStart : AuthenticationLoginStart
     /// <summary>User's email address</summary>
     [JsonPropertyName("email")]
     public required string Email { get; init; }
+
+    /// <summary>What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin`</summary>
+    [JsonPropertyName("purpose")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinkAuthenticationLoginStartPurpose? Purpose { get; init; }
 }
 
 public sealed record CodeAuthenticationLoginStart : AuthenticationLoginStart
@@ -1890,6 +1895,63 @@ public sealed record SimpleClientExtensionResultsCredProps
     /// <summary>Whether the client supports the rk extension</summary>
     [JsonPropertyName("rk")]
     public required bool Rk { get; init; }
+}
+
+/// <summary>What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin`</summary>
+[JsonConverter(typeof(LinkAuthenticationLoginStartPurposeConverter))]
+public enum LinkAuthenticationLoginStartPurpose
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("signin")]
+    Signin,
+
+    [JsonStringEnumMemberName("reset")]
+    Reset,
+}
+
+/// <summary>
+/// Reads and writes <see cref="LinkAuthenticationLoginStartPurpose"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="LinkAuthenticationLoginStartPurpose.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class LinkAuthenticationLoginStartPurposeConverter : JsonConverter<LinkAuthenticationLoginStartPurpose>
+{
+    public override LinkAuthenticationLoginStartPurpose Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for LinkAuthenticationLoginStartPurpose, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, LinkAuthenticationLoginStartPurpose value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override LinkAuthenticationLoginStartPurpose ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, LinkAuthenticationLoginStartPurpose value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static LinkAuthenticationLoginStartPurpose FromWire(string? text) => text switch
+    {
+        "signin" => LinkAuthenticationLoginStartPurpose.Signin,
+        "reset" => LinkAuthenticationLoginStartPurpose.Reset,
+        _ => LinkAuthenticationLoginStartPurpose.Unknown,
+    };
+
+    private static string ToWire(LinkAuthenticationLoginStartPurpose value) => value switch
+    {
+        LinkAuthenticationLoginStartPurpose.Signin => "signin",
+        LinkAuthenticationLoginStartPurpose.Reset => "reset",
+        _ => throw new JsonException($"LinkAuthenticationLoginStartPurpose.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 [JsonConverter(typeof(AuthenticationLoginStartConverter))]

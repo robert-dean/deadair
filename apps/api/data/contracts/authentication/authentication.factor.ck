@@ -6,6 +6,7 @@ options {
     services: {
         AuthenticationService: "#src/modules/authentication/authentication.service.js"
         AuthenticationRegistrationService: "#src/modules/authentication/authentication.registration.service.js"
+        PasswordChangeService: "#src/modules/authentication/password.change.service.js"
     }
     security: {
         # The floor for every operation in this file, cascading file -> route -> operation: an
@@ -42,6 +43,20 @@ operation /auth/factors/register: {
             201: {
                 application/json: AuthenticationFactorRegistrationResponse
             }
+        }
+    }
+}
+
+operation /auth/password: {
+    put: { # Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told.
+        name: Set password
+        mcp: exclude
+        service: PasswordChangeService.setPassword
+        request: {
+            application/json: PasswordChange
+        }
+        response: {
+            204:
         }
     }
 }

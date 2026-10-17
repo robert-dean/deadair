@@ -86,6 +86,10 @@ export const auth = {
         staffOnly: 'Station controls are staff only.',
         timedOut: 'That sign-in timed out. Enter your password again.',
         linkHint: 'Open the link on any device. It works once, and it expires.',
+        resetOnItsWay: 'If that address has an account here, a link to choose a new password is on its way.',
+        resetHint:
+            'The link signs you in and opens the password form. It works once, and it expires. Your password stays as it is until you choose a new one.',
+        forgotPassword: 'Forgot your password?',
         usePassword: 'Use a password instead',
         startAgain: 'Start again',
         providerFailedTitle: 'Could not start that sign-in',

@@ -22,6 +22,7 @@ import { ROW_ID_KEY, rowSecretKey } from '@deadair/plugin-sdk';
 
 import { AuthenticationModule } from '../../../src/modules/authentication/authentication.module.js';
 import { MailService } from '../../../src/modules/mail/mail.service.js';
+import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { PlatformRoleService } from '../../../src/modules/permissions/platform.role.service.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
@@ -42,6 +43,7 @@ const FOREIGN: Identifier<unknown>[] = [
     PolicyService,
     AuthorizationContext,
     MailService,
+    AfterCommit,
     PlatformRoleService,
     ServerKitContext,
 ];

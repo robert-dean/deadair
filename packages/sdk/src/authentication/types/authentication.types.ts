@@ -1041,6 +1041,8 @@ export function reviveApiKeyIssued(raw: ApiKeyIssued): ApiKeyIssued {
 export interface LinkAuthenticationLoginStart extends Omit<BaseAuthenticationLoginStartWithEmail, 'grant_type'> {
     /** The grant type for the request */
     grant_type: 'link';
+    /** What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin` */
+    purpose?: 'signin' | 'reset';
 }
 
 /**

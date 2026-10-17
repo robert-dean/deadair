@@ -1,6 +1,6 @@
 ---
 title: 'FidoFactorRegistration'
-sidebar_position: 71
+sidebar_position: 72
 mdx:
     format: 'md'
 ---

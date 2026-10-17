@@ -103,6 +103,13 @@ type ActorType = 'user' | 'system' | 'vendor';
 // than per instance — otherwise every unknown-email request would pay an extra hash and become
 // its own, inverted timing oracle.
 const DUMMY_VERIFY_PASSWORD = 'timing-equalization-dummy-password';
+
+/**
+ * Where a password-reset link lands once it has signed the person in: the password form, told it
+ * was reached by a reset. `PUT /auth/password` lets a session that used a link moments ago set a new
+ * password without the old one, which is the whole of the reset.
+ */
+export const PASSWORD_RESET_LANDING = '/settings/security?reset=1';
 let dummyPasswordHashPromise: Promise<{ hash: string; salt: string }> | undefined;
 
 /**
@@ -620,6 +627,11 @@ export class AuthenticationService {
      * the token. Both halves are needed: the token is the one-time secret and the challenge id is
      * what it is bound to, which is what makes a link that crosses devices work — somebody opening
      * their mail on a phone and finishing on a laptop has no per-device verifier to resolve it from.
+     *
+     * A `reset` is the same link with other words and a landing page. Nothing about it is a second
+     * kind of token: the same limiter, the same answer for an address with no account, the same
+     * challenge redeemed through the same grant and the same MFA policy. That sameness is the point,
+     * because every one of those properties had to be got right once already.
      */
     private async handleLinkStartLogin(request: LinkAuthenticationLoginStart): Promise<AuthenticationLoginStartResponse> {
         await this.signInMailLimiter.consume(request.email);
@@ -632,13 +644,15 @@ export class AuthenticationService {
 
         const challenge = await this.emailFactorService.issueEmailChallenge(factor.actorId, factor.id, 'magiclink');
 
+        const reset = request.purpose === 'reset';
         const link = new URL(`${this.spaBaseUrl()}/auth/callback`);
         link.searchParams.set('token', challenge.code);
         link.searchParams.set('challenge_id', challenge.challengeId);
+        if (reset) link.searchParams.set('redirect', PASSWORD_RESET_LANDING);
 
         await this.mailService.send({
             to: request.email,
-            template: 'SignInLink',
+            template: reset ? 'PasswordReset' : 'SignInLink',
             data: { link: link.toString(), minutes: expirationMinutes(this.emailFactorServiceOptions.magiclinkExpiration) },
         });
 

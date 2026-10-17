@@ -2802,17 +2802,21 @@ public struct LinkAuthenticationLoginStart: Codable, Equatable, Sendable {
     public var clientId: UUID?
     /// User's email address
     public var email: String
+    /// What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin`
+    public var purpose: LinkAuthenticationLoginStartPurpose?
 
-    public init(grantType: String = "link", clientId: UUID? = nil, email: String) {
+    public init(grantType: String = "link", clientId: UUID? = nil, email: String, purpose: LinkAuthenticationLoginStartPurpose? = nil) {
         self.grantType = grantType
         self.clientId = clientId
         self.email = email
+        self.purpose = purpose
     }
 
     private enum CodingKeys: String, CodingKey {
         case grantType = "grant_type"
         case clientId = "client_id"
         case email = "email"
+        case purpose = "purpose"
     }
 
     public init(from decoder: Decoder) throws {
@@ -2823,6 +2827,7 @@ public struct LinkAuthenticationLoginStart: Codable, Equatable, Sendable {
         }
         self.clientId = try container.decodeIfPresent(UUID.self, forKey: .clientId)
         self.email = try container.decode(String.self, forKey: .email)
+        self.purpose = try container.decodeIfPresent(LinkAuthenticationLoginStartPurpose.self, forKey: .purpose)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2830,6 +2835,7 @@ public struct LinkAuthenticationLoginStart: Codable, Equatable, Sendable {
         try container.encode(self.grantType, forKey: .grantType)
         try container.encodeIfPresent(self.clientId, forKey: .clientId)
         try container.encode(self.email, forKey: .email)
+        try container.encodeIfPresent(self.purpose, forKey: .purpose)
     }
 }
 
@@ -3093,6 +3099,53 @@ public struct SimpleClientExtensionResultsCredProps: Codable, Equatable, Sendabl
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.rk, forKey: .rk)
+    }
+}
+
+/// What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin`
+public enum LinkAuthenticationLoginStartPurpose: Codable, CaseIterable, Hashable, Sendable {
+    case signin
+    case reset
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [LinkAuthenticationLoginStartPurpose] = [.signin, .reset]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .signin: return "signin"
+        case .reset: return "reset"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "signin": self = .signin
+        case "reset": self = .reset
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "LinkAuthenticationLoginStartPurpose.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

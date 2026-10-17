@@ -34,6 +34,16 @@ export interface PasswordFactorRegistration {
 }
 
 /**
+ * generated from [PasswordChange](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
+ */
+export interface PasswordChange {
+    /** The new password */
+    password: string;
+    /** The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes */
+    currentPassword?: string;
+}
+
+/**
  * generated from [EmailFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface EmailFactorRegistration {

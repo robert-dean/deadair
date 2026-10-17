@@ -48,6 +48,19 @@ public sealed class AuthenticationFactorClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Set password
+    /// Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told.
+    /// </summary>
+    public async Task SetPasswordAsync(PasswordChange body, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("auth", "password"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Verify factor registration
     /// Verify an authentication factor registration
     /// </summary>

@@ -34,6 +34,7 @@ const ANY_SESSION_REVIEWED = new Map([
     ['POST /auth/factors/verify', 'verifyFactorRegistration: requireAuthentication'],
     ['POST /auth/mfa/start', 'startFactorChallenge: needs a pending sign-in challenge id'],
     ['DELETE /auth/factors/:method/:methodId', 'removeFactor: requireAuthentication'],
+    ['PUT /auth/password', 'setPassword: requireAuthentication'],
 ]);
 
 interface Route {

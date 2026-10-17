@@ -305,3 +305,43 @@ describe('LoginPage identity providers', () => {
         expect(await screen.findByText('Could not start that sign-in')).toBeTruthy();
     });
 });
+
+describe('LoginPage, forgotten password', () => {
+    it('asks for the sign-in link as a reset, with nothing but the address, and says what is coming', async () => {
+        startLogin.mockResolvedValue({ grant_type: 'link', challengeId: 'c', expiresAt: '2026-10-17T20:00:00Z' });
+        render(<LoginPage />);
+        const user = setupUser();
+
+        await user.type(screen.getByLabelText('Email'), 'admin@example.com');
+        await user.click(screen.getByRole('button', { name: 'Forgot your password?' }));
+
+        await vi.waitFor(() => {
+            expect(startLogin).toHaveBeenCalledWith({ grant_type: 'link', email: 'admin@example.com', purpose: 'reset' });
+        });
+        expect(await screen.findByText('If that address has an account here, a link to choose a new password is on its way.')).toBeInTheDocument();
+    });
+
+    it('asks for the address first rather than sending to nobody', async () => {
+        render(<LoginPage />);
+        const user = setupUser();
+
+        await user.click(screen.getByRole('button', { name: 'Forgot your password?' }));
+
+        expect(await screen.findByText('Enter your email address')).toBeInTheDocument();
+        expect(startLogin).not.toHaveBeenCalled();
+    });
+
+    it('still asks for a plain sign-in link with no purpose', async () => {
+        startLogin.mockResolvedValue({ grant_type: 'link', challengeId: 'c', expiresAt: '2026-10-17T20:00:00Z' });
+        render(<LoginPage />);
+        const user = setupUser();
+
+        await user.type(screen.getByLabelText('Email'), 'admin@example.com');
+        await user.click(screen.getByRole('button', { name: 'Email me a sign-in link' }));
+
+        await vi.waitFor(() => {
+            expect(startLogin).toHaveBeenCalledWith({ grant_type: 'link', email: 'admin@example.com' });
+        });
+        expect(await screen.findByText('If that address has an account here, a sign-in link is on its way.')).toBeInTheDocument();
+    });
+});

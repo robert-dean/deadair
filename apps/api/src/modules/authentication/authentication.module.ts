@@ -65,6 +65,7 @@ import { LoginActivityRepository } from './repositories/login.activity.repositor
 import { SessionsService } from './sessions.service.js';
 import { DeadairEmailFactorRepository } from './repositories/email.factor.repository.js';
 import { AuthenticationRegistrationService } from './authentication.registration.service.js';
+import { PasswordChangeService } from './password.change.service.js';
 import { DeadairJwtAuthenticationIssuer } from './issuers/jwt.authentication.issuer.js';
 import { DeadairFidoFactorRepository } from './repositories/fido.factor.repository.js';
 import { PasskeyRelyingParty } from './passkey.relying.party.js';
@@ -333,6 +334,7 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry.register(AuthenticationService).useClass(AuthenticationService).asScoped();
         registry.register(AuthenticationRegistrationService).useClass(AuthenticationRegistrationService).asScoped();
+        registry.register(PasswordChangeService).useClass(PasswordChangeService).asScoped();
 
         registry.register(ActorsRepository).useClass(ActorsRepository).asScoped();
         registry.register(ResponseCookieJar).useClass(ResponseCookieJar).asScoped();

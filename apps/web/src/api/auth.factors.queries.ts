@@ -172,6 +172,25 @@ export function useRemoveFactor() {
 }
 
 /**
+ * Sets or changes the signed-in account's own password.
+ *
+ * `currentPassword` goes only when the account has one. Behind the step-up gate once an authenticator
+ * or a passkey is enrolled, so the caller runs it through `useStepUpGate().run`. The API signs every
+ * other session out, and the factor list is refetched because an account that had no password now has one.
+ */
+export function useSetPassword() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: ({ password, currentPassword }: { password: string; currentPassword?: string }) =>
+            sdk.authentication.factors.setPassword({ password, ...(currentPassword ? { currentPassword } : {}) }),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.auth.factors() });
+        },
+    });
+}
+
+/**
  * Starts linking an identity provider to the signed-in account, and answers where the browser goes.
  *
  * Behind the same step-up gate as any other enrolment, so the caller runs it through

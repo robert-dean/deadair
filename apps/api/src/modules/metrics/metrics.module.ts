@@ -5,6 +5,7 @@ import { MetricsRecorder } from '@maroonedsoftware/telemetry';
 import { onSpan } from '#modules/shared/trace.spans.js';
 import { MetricsFlusher } from './metrics.flusher.js';
 import { MetricsRepository } from './metrics.repository.js';
+import { MetricsService } from './metrics.service.js';
 import { observeSpan } from './span.metrics.js';
 
 /** Stops reading spans at shutdown, before the last flush. */
@@ -29,6 +30,8 @@ export const MetricsModule: ServerKitModule = {
         registry.register(MetricsRecorder).useClass(MetricsRecorder).asSingleton();
         registry.register(MetricsFlusher).useClass(MetricsFlusher).asSingleton();
         registry.register(MetricsRepository).useClass(MetricsRepository).asScoped();
+        // Scoped: it answers the console's routes.
+        registry.register(MetricsService).useClass(MetricsService).asScoped();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

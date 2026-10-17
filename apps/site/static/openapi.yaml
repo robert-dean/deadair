@@ -2201,9 +2201,59 @@ paths:
             responses:
                 '204':
                     description: 'No content'
-    '/narrations/series':
+    '/metrics/series':
         get:
             operationId: readSeries
+            summary: 'Read metric series'
+            description: 'Trends over a range, at minute resolution for two days or less and hourly beyond'
+            parameters:
+                - name: names
+                  in: query
+                  required: true
+                  description: 'Comma-separated metric names, at most twenty: `station.listeners,work.job.ms`'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 1000
+                      description: 'Comma-separated metric names, at most twenty: `station.listeners,work.job.ms`'
+                - name: from
+                  in: query
+                  required: true
+                  description: 'The start of the range, inclusive'
+                  schema:
+                      type: string
+                      format: date-time
+                      description: 'The start of the range, inclusive'
+                - name: to
+                  in: query
+                  required: true
+                  description: 'The end of the range, exclusive. At most four hundred days after `from`'
+                  schema:
+                      type: string
+                      format: date-time
+                      description: 'The end of the range, exclusive. At most four hundred days after `from`'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/MetricSeriesPage'
+    '/metrics/names':
+        get:
+            operationId: readNames
+            summary: 'Read metric names'
+            description: 'Every metric the station holds, with its labels and when it was last measured'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/MetricNames'
+    '/narrations/series':
+        get:
+            operationId: listSeries
             summary: 'List series'
             description: 'Every series every installed narration plugin offers'
             responses:
@@ -10254,6 +10304,128 @@ components:
                         '$ref': '#/components/schemas/MessagingLink'
             required: [links]
             description: 'Every chat account linked to the signed-in station account, newest first'
+        MetricResolution:
+            type: string
+            enum: [minute, hour]
+            description: 'How wide one point is. Chosen by the station from the range asked for: minutes for two days or less, hours beyond'
+        MetricSeriesQuery:
+            type: object
+            properties:
+                names:
+                    type: string
+                    minLength: 1
+                    maxLength: 1000
+                    description: 'Comma-separated metric names, at most twenty: `station.listeners,work.job.ms`'
+                from:
+                    type: string
+                    format: date-time
+                    description: 'The start of the range, inclusive'
+                to:
+                    type: string
+                    format: date-time
+                    description: 'The end of the range, exclusive. At most four hundred days after `from`'
+            required: [names, from, to]
+            description: 'The trends to read, over one range'
+        MetricPoint:
+            type: object
+            properties:
+                at:
+                    type: string
+                    format: date-time
+                    description: 'The start of the minute or hour'
+                count:
+                    type: number
+                    minimum: 0
+                    description: 'How many observations were folded in'
+                sum:
+                    type: number
+                    description: "Their total: a counter's value, or with `count` a duration's mean"
+                min:
+                    type: number
+                    description: 'The smallest observation'
+                max:
+                    type: number
+                    description: "The largest observation: a duration's worst"
+                last:
+                    type: number
+                    description: "The latest observation: a gauge's value"
+            required: [at, count, sum, min, max, last]
+            description: 'One series over one minute or hour'
+        MetricSeries:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                labels:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: 'What tells this series from the metric''s others: `{ "queue": "catalog.sync" }`. Empty for a metric with one series'
+                source:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                    description: '`station` for what the station measured itself, `otlp` for what another service sent it'
+                points:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MetricPoint'
+                    description: 'Only the buckets that hold something. A gap is a stretch nothing was measured, which a chart should draw as a gap'
+            required: [name, labels, source, points]
+            description: 'One metric and one set of labels, its points oldest first'
+        MetricSeriesPage:
+            type: object
+            properties:
+                resolution:
+                    '$ref': '#/components/schemas/MetricResolution'
+                    description: 'The width the points were read at'
+                from:
+                    type: string
+                    format: date-time
+                to:
+                    type: string
+                    format: date-time
+                series:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MetricSeries'
+                    description: 'Empty when nothing was measured in the range, which is not an error'
+            required: [resolution, from, to, series]
+        MetricName:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                source:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                labelKeys:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    description: 'Every label any of its series carries, sorted'
+                lastSeen:
+                    type: string
+                    format: date-time
+                    description: 'The newest point held for it, at either resolution'
+            required: [name, source, labelKeys, lastSeen]
+            description: 'A metric the station holds, for a picker'
+        MetricNames:
+            type: object
+            properties:
+                names:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MetricName'
+                    description: 'Sorted by name'
+            required: [names]
         StationSeries:
             type: object
             properties:

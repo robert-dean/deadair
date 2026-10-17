@@ -18,6 +18,7 @@ import com.maroonedsoftware.deadair.sdk.clients.EventsClient
 import com.maroonedsoftware.deadair.sdk.clients.HistoryClient
 import com.maroonedsoftware.deadair.sdk.clients.LanguagesClient
 import com.maroonedsoftware.deadair.sdk.clients.MessagingClient
+import com.maroonedsoftware.deadair.sdk.clients.MetricsClient
 import com.maroonedsoftware.deadair.sdk.clients.NarrationsClient
 import com.maroonedsoftware.deadair.sdk.clients.NewsClient
 import com.maroonedsoftware.deadair.sdk.clients.NowplayingClient
@@ -73,6 +74,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val history: HistoryClient = HistoryClient(http)
     val languages: LanguagesClient = LanguagesClient(http)
     val messaging: MessagingClient = MessagingClient(http)
+    val metrics: MetricsClient = MetricsClient(http)
     val narrations: NarrationsClient = NarrationsClient(http)
     val news: NewsClient = NewsClient(http)
     val nowplaying: NowplayingClient = NowplayingClient(http)

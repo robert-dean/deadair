@@ -10,6 +10,7 @@ import { EventsClient } from './events/events.client.js';
 import { HistoryClient } from './history/history.client.js';
 import { LanguagesClient } from './languages/languages.client.js';
 import { MessagingClient } from './messaging/messaging.client.js';
+import { MetricsClient } from './metrics/metrics.client.js';
 import { NarrationsClient } from './narrations/narrations.client.js';
 import { NewsClient } from './news/news.client.js';
 import { NowplayingClient } from './nowplaying/nowplaying.client.js';
@@ -43,6 +44,7 @@ export class DeadairSdk {
     readonly history: HistoryClient;
     readonly languages: LanguagesClient;
     readonly messaging: MessagingClient;
+    readonly metrics: MetricsClient;
     readonly narrations: NarrationsClient;
     readonly news: NewsClient;
     readonly nowplaying: NowplayingClient;
@@ -77,6 +79,7 @@ export class DeadairSdk {
         this.history = new HistoryClient(sdkFetch);
         this.languages = new LanguagesClient(sdkFetch);
         this.messaging = new MessagingClient(sdkFetch);
+        this.metrics = new MetricsClient(sdkFetch);
         this.narrations = new NarrationsClient(sdkFetch);
         this.news = new NewsClient(sdkFetch);
         this.nowplaying = new NowplayingClient(sdkFetch);

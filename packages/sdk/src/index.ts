@@ -23,6 +23,8 @@ export * from './languages/languages.client.js';
 export * from './languages/types/index.js';
 export * from './messaging/messaging.client.js';
 export * from './messaging/types/index.js';
+export * from './metrics/metrics.client.js';
+export * from './metrics/types/index.js';
 export * from './narrations/narrations.client.js';
 export * from './narrations/types/index.js';
 export * from './news/news.client.js';

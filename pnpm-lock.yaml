@@ -115,8 +115,8 @@ importers:
         specifier: ^0.1.6
         version: 0.1.6(@maroonedsoftware/logger@1.1.9)
       '@maroonedsoftware/telemetry':
-        specifier: ^0.1.0
-        version: 0.1.0(@opentelemetry/api@1.9.0)(kysely@0.29.6)
+        specifier: ^0.1.1
+        version: 0.1.1(@opentelemetry/api@1.9.0)(kysely@0.29.6)
       '@maroonedsoftware/utilities':
         specifier: ^1.11.5
         version: 1.11.5
@@ -3452,8 +3452,8 @@ packages:
       '@maroonedsoftware/comms':
         optional: true
 
-  '@maroonedsoftware/telemetry@0.1.0':
-    resolution: {integrity: sha512-ednvEkueoYgn7V5GMxCf4kaiGkzlErCL31sajzfb7stQcQXoRsmuFIhf0yHJ9+Trbqkqa8xh4PaqA1Buoe/5fA==}
+  '@maroonedsoftware/telemetry@0.1.1':
+    resolution: {integrity: sha512-3LS3Ii/XJZMGfOZMhses5Yg/xzbkkN5M2grtwcnmt/gbOLsvzS1QFl6SftEOM4jyEp6g4Dko5qZwYvA1Gx9R2Q==}
     engines: {node: '>=22'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
@@ -14507,7 +14507,7 @@ snapshots:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
       '@maroonedsoftware/comms': 0.2.11
 
-  '@maroonedsoftware/telemetry@0.1.0(@opentelemetry/api@1.9.0)(kysely@0.29.6)':
+  '@maroonedsoftware/telemetry@0.1.1(@opentelemetry/api@1.9.0)(kysely@0.29.6)':
     dependencies:
       injectkit: 1.7.1
       luxon: 3.7.2

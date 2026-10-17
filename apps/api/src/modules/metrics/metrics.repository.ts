@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely } from 'kysely';
 import { DateTime, Duration } from 'luxon';
 import type { MetricBucket, MetricResolution } from '@maroonedsoftware/telemetry';
-import { MetricsStore } from '@maroonedsoftware/telemetry/kysely';
+import { MetricsStore, type MetricName, type MetricSeries, type MetricSeriesQuery } from '@maroonedsoftware/telemetry/kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 
@@ -19,12 +19,11 @@ export type MetricSource = 'station' | 'otlp';
  */
 @Injectable()
 export class MetricsRepository extends DataRepository {
-    private readonly store: MetricsStore;
+    private readonly store: MetricsStore<DB>;
 
     constructor(db: Kysely<DB>, identity: StationIdentity) {
         super(db);
-        // TEMPORARY until @maroonedsoftware/telemetry 0.1.1, whose MetricsStore is generic over DB.
-        this.store = new MetricsStore(db as unknown as Kysely<unknown>, {
+        this.store = new MetricsStore(db, {
             table: 'deadair.metric_samples',
             scope: { station_key: identity.stationKey },
         });
@@ -58,5 +57,15 @@ export class MetricsRepository extends DataRepository {
     async pruneOlderThanDays(resolution: MetricResolution, days: number, now: DateTime = DateTime.now()): Promise<number> {
         if (days <= 0) return 0;
         return this.store.prune(resolution, Duration.fromObject({ days }), now);
+    }
+
+    /** Series over a range at one resolution, under the station's key. */
+    series(query: MetricSeriesQuery): Promise<MetricSeries[]> {
+        return this.store.series(query);
+    }
+
+    /** Every metric name held under the station's key. */
+    names(): Promise<MetricName[]> {
+        return this.store.names();
     }
 }

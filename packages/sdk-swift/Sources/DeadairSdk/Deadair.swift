@@ -23,6 +23,7 @@ public final class Deadair: Sendable {
     public let history: HistoryClient
     public let languages: LanguagesClient
     public let messaging: MessagingClient
+    public let metrics: MetricsClient
     public let narrations: NarrationsClient
     public let news: NewsClient
     public let nowplaying: NowplayingClient
@@ -71,6 +72,7 @@ public final class Deadair: Sendable {
         self.history = HistoryClient(http: http)
         self.languages = LanguagesClient(http: http)
         self.messaging = MessagingClient(http: http)
+        self.metrics = MetricsClient(http: http)
         self.narrations = NarrationsClient(http: http)
         self.news = NewsClient(http: http)
         self.nowplaying = NowplayingClient(http: http)

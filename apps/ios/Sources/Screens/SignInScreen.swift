@@ -19,7 +19,9 @@ struct SignInScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let challenge = account.challenge {
+                if let address = account.resetSentTo {
+                    resetSent(address)
+                } else if let challenge = account.challenge {
                     codeStep(challenge)
                 } else {
                     passwordStep
@@ -85,6 +87,10 @@ struct SignInScreen: View {
             }
 
             submitButton(String(localized: "Sign in"))
+
+            // Asks for nothing but the address above: the password is what it is instead of.
+            Button(String(localized: "Forgot your password?"), action: askForReset)
+                .frame(maxWidth: .infinity)
         }
         .disabled(account.busy)
         // Focused on arrival: the page exists to be typed into.
@@ -111,6 +117,23 @@ struct SignInScreen: View {
         .onAppear { focus = .code }
     }
 
+    /// After "Forgot your password?": where the link went, and the way back to the form. The link
+    /// opens the station's web console rather than this app, so the words say what happens after it.
+    private func resetSent(_ address: String) -> some View {
+        Group {
+            Text(String(localized: "Check your inbox")).font(.title2)
+            Text(String(localized: "If \(address) has an account on this station, a link to choose a new password is on its way. It opens the station in your browser. Then come back and sign in here with the new password."))
+                .foregroundStyle(.secondary)
+            Button {
+                account = account.startingAgain()
+            } label: {
+                Text(String(localized: "Back to sign in")).frame(maxWidth: .infinity, minHeight: 52)
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+        }
+    }
+
     private var password: Binding<String> {
         Binding(get: { account.password }, set: { account = account.typingPassword($0) })
     }
@@ -127,6 +150,18 @@ struct SignInScreen: View {
         .buttonStyle(.borderedProminent)
         .buttonBorderShape(.capsule)
         .disabled(!account.canSubmit)
+    }
+
+    /// "Forgot your password?": a reset link to the address typed, from the STORED station, for the
+    /// reason `submit` uses it.
+    private func askForReset() {
+        guard let station = model.settings.settings.station else { return }
+        account = account.askingReset()
+        guard account.busy else { return }
+        let email = account.email.trimmingCharacters(in: .whitespaces)
+        Task {
+            account = account.afterReset(await model.session.askForReset(station, email: email))
+        }
     }
 
     private func submit() {

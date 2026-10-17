@@ -102,4 +102,39 @@ struct AccountStateTests {
     @Test func startingAgainKeepsTheEmailAndNothingElse() {
         #expect(challenged.startingAgain() == AccountState(email: "operator@example.com"))
     }
+
+    // MARK: A forgotten password
+
+    @Test func aResetNeedsOnlyTheAddressAndSaysSoWhenThereIsNone() {
+        #expect(AccountState().askingReset().error == .resetNeedsEmail)
+        #expect(!AccountState().askingReset().busy)
+
+        let asking = AccountState(email: "operator@example.com").askingReset()
+        #expect(asking.busy)
+        #expect(asking.error == nil)
+    }
+
+    @Test func aResetIsNotAskedTwiceWhileTheStationIsAnswering() {
+        #expect(typed.askingReset() == typed)
+    }
+
+    @Test func aSentLinkLeavesTheFormForTheInboxKeepingTheAddressForComingBack() {
+        let sent = AccountState(email: " operator@example.com ", password: "half typed", busy: true).afterReset(.sent)
+
+        #expect(sent.resetSentTo == "operator@example.com")
+        #expect(sent.email == " operator@example.com ")
+        #expect(sent.password.isEmpty)
+        #expect(!sent.busy)
+        #expect(sent.startingAgain() == AccountState(email: " operator@example.com "))
+    }
+
+    @Test func aRefusedResetSaysWhyAndKeepsWhatWasTyped() {
+        #expect(typed.afterReset(.tooMany).error == .resetTooMany)
+        #expect(typed.afterReset(.noMail).error == .resetNoMail)
+        let failed = typed.afterReset(.failed("timeout"))
+        #expect(failed.error == .couldNotReachToReset)
+        #expect(failed.password == "hunter2")
+        #expect(!failed.busy)
+        #expect(failed.resetSentTo == nil)
+    }
 }

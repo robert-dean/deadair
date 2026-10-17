@@ -285,4 +285,38 @@ struct SessionManagerTests {
 
         #expect(manager.state == .signedOut)
     }
+
+    // MARK: A forgotten password
+
+    @Test func asksTheStationForASignInLinkWordedAsAResetWithNoBearer() async {
+        let fake = FakeStation { _ in .json(#"{"grant_type":"link","challengeId":"c-1","expiresAt":"2026-10-17T20:00:00Z"}"#) }
+        let manager = manager(MemorySessionStorage(), fake)
+
+        #expect(await manager.askForReset(station(), email: "operator@example.com") == .sent)
+
+        let request = fake.requests.first
+        #expect(fake.requests.count == 1)
+        #expect(request?.path.hasSuffix("/auth/login/start") == true)
+        #expect(request?.authorization == nil)
+        #expect(request?.body.contains(#""grant_type":"link""#) == true)
+        #expect(request?.body.contains(#""purpose":"reset""#) == true)
+        #expect(request?.body.contains("operator@example.com") == true)
+    }
+
+    @Test func saysWhenTheAddressHasBeenSentEnoughAndWhenTheStationCannotSendAtAll() async {
+        let limited = manager(MemorySessionStorage(), FakeStation { _ in .empty(429) })
+        let noMail = manager(MemorySessionStorage(), FakeStation { _ in .empty(503) })
+
+        #expect(await limited.askForReset(station(), email: "operator@example.com") == .tooMany)
+        #expect(await noMail.askForReset(station(), email: "operator@example.com") == .noMail)
+    }
+
+    @Test func reportsAStationItCannotReachAsAFailureRatherThanASentLink() async {
+        let manager = manager(MemorySessionStorage(), FakeStation { _ in .unreachable })
+
+        guard case .failed = await manager.askForReset(station(), email: "operator@example.com") else {
+            Issue.record("an unreachable station was not reported as a failure")
+            return
+        }
+    }
 }

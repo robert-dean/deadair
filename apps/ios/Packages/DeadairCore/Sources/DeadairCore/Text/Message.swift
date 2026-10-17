@@ -63,6 +63,10 @@ public enum Message: Equatable, Sendable {
     case signInExpired
     case factorRefused
     case noRefreshToken
+    case resetNeedsEmail
+    case resetTooMany
+    case resetNoMail
+    case couldNotReachToReset
 
     // MARK: The schedule
 

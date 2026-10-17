@@ -45,6 +45,10 @@ extension Message {
         case .signInExpired: String(localized: "That sign-in expired. Enter your password again.")
         case .factorRefused: String(localized: "The station refused that authenticator. Start again.")
         case .noRefreshToken: String(localized: "The station issued a session that cannot be renewed, so it was not kept.")
+        case .resetNeedsEmail: String(localized: "Enter your email address first.")
+        case .resetTooMany: String(localized: "That address has been sent enough links for now. Try again in a few minutes.")
+        case .resetNoMail: String(localized: "The station cannot send email, so it cannot send a link. Ask whoever runs it.")
+        case .couldNotReachToReset: String(localized: "Could not reach the station to send a link.")
 
         case .onAir: String(localized: "On air")
         case .dueNow: String(localized: "Due now")

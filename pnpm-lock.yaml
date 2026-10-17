@@ -73,8 +73,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0(ioredis@6.0.0)
       '@maroonedsoftware/comms':
-        specifier: ^0.2.11
-        version: 0.2.11
+        specifier: ^0.3.0
+        version: 0.3.0
       '@maroonedsoftware/encryption':
         specifier: ^0.5.13
         version: 0.5.13
@@ -686,8 +686,8 @@ importers:
   plugins/discord:
     dependencies:
       '@maroonedsoftware/discord':
-        specifier: ^2.1.0
-        version: 2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)
+        specifier: ^2.1.1
+        version: 2.1.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -940,8 +940,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/rhapsode-sdk':
-        specifier: ^0.1.26
-        version: 0.1.26
+        specifier: ^0.1.27
+        version: 0.1.27
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -976,8 +976,8 @@ importers:
   plugins/slack:
     dependencies:
       '@maroonedsoftware/slack':
-        specifier: ^3.3.0
-        version: 3.3.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)
+        specifier: ^3.3.1
+        version: 3.3.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -1020,8 +1020,8 @@ importers:
   plugins/telegram:
     dependencies:
       '@maroonedsoftware/telegram':
-        specifier: ^2.1.0
-        version: 2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)
+        specifier: ^2.1.1
+        version: 2.1.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -3359,16 +3359,16 @@ packages:
       ioredis:
         optional: true
 
-  '@maroonedsoftware/comms@0.2.11':
-    resolution: {integrity: sha512-CpS21jH3+2IAcQkF1E6pAtEnmEyrjH/3ENtDEruTr/7FpwmmEv3cQcxk2hNADERFRRuWOPR0ESAtU8iqXbuF/g==}
+  '@maroonedsoftware/comms@0.3.0':
+    resolution: {integrity: sha512-Ou4YViiSIOXCC572dM4ZnHNFICvO2BUYl/0siHMHrO4upxTH1JV3uCIiEi8MuTD1FTtgL5lMh0UVrbL47JmRsA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/discord@2.1.0':
-    resolution: {integrity: sha512-yg2IojqcQMRSCvPIbaqFelQ9anw7GWO1FKrkfTCBP+qJ8U65doEDncYB3M4r7wXHNp7pjMXXuY83+VN6MF14vA==}
+  '@maroonedsoftware/discord@2.1.1':
+    resolution: {integrity: sha512-io8ugfiEJ8q5I4n+nNS0wO6nrjHXvSxlpSGdV7lQugNKzxtjRUK61tGxyUL5xgvUUQ4sISlvCFY03rXWVoMq8Q==}
     engines: {node: '>=22'}
     peerDependencies:
       '@maroonedsoftware/cache': 0.5.0
-      '@maroonedsoftware/comms': 0.2.11
+      '@maroonedsoftware/comms': 0.3.0
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
@@ -3443,8 +3443,8 @@ packages:
     resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.26':
-    resolution: {integrity: sha512-LC4Z5ZBlGftfMrctN5ThFjEfDWkh1On6l1MIIMIxKIWFTmpGgFHavR+5LGL2HrBFLp0r6HAdrrwDETxXGpudBw==}
+  '@maroonedsoftware/rhapsode-sdk@0.1.27':
+    resolution: {integrity: sha512-nhqNs/Rfh+WHR/PN3f4qgNPYzJpsVdo2dobh57yi9UmInUz1zjUJboHi5QAnJGdApbIbsfln5iE0b04kD/L0Zw==}
 
   '@maroonedsoftware/servercore@0.4.1':
     resolution: {integrity: sha512-X+GyadVe4N6qh/C14Vzp/E8P1pRriTy0aZCNChPMA8a9Nn3GSgNUoWhE7fCFtc34Qo23JG1NKGmAv4x0sv/tPQ==}
@@ -3464,24 +3464,24 @@ packages:
       '@maroonedsoftware/logger':
         optional: true
 
-  '@maroonedsoftware/slack@3.3.0':
-    resolution: {integrity: sha512-Kd6uv9ZmtsGJ5hHYqIqpebbpHONVIj4NOoXqH9pej+KwrOgEpYpalWcIp5boKK6pymB//yS5F7OK1WctYtWMcg==}
+  '@maroonedsoftware/slack@3.3.1':
+    resolution: {integrity: sha512-BLA2VxUqEIo+rn1bkiNLrsV33ugTuvFFbNCLINP1J6Bwu6kfXhrdGUIzlHyLlp5gF0S7+3WFlNxSogt0ECLqBA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@maroonedsoftware/cache': 0.5.0
-      '@maroonedsoftware/comms': 0.2.11
+      '@maroonedsoftware/comms': 0.3.0
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
       '@maroonedsoftware/comms':
         optional: true
 
-  '@maroonedsoftware/telegram@2.1.0':
-    resolution: {integrity: sha512-LG6c/7yFi0QN6Js4tcy3dQVauz03+/fQtJsBCzD3ZtAOgDJ3quTHalc0WT/6CsqMbyfo112S6kGECtXLDHZBLw==}
+  '@maroonedsoftware/telegram@2.1.1':
+    resolution: {integrity: sha512-x8zMeU/+pggR2LiqFwzGTvLdLa71L9Rg+GZ4Ax3oXCEYL/o3E0AuFcjM0c01DQA31V3MUXbM4Ml8QPpyodFqsA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@maroonedsoftware/cache': 0.5.0
-      '@maroonedsoftware/comms': 0.2.11
+      '@maroonedsoftware/comms': 0.3.0
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
@@ -5241,9 +5241,6 @@ packages:
 
   '@types/node@17.0.45':
     resolution: {integrity: sha512-w+tIMs3rq2afQdsPJlODhoUEKzFP1ayaoyl1CcnwtIlsVe7K7bA1NGm4s3PraqTLlXnbIN84zuBlxBWo1u9BLw==}
-
-  '@types/node@26.1.2':
-    resolution: {integrity: sha512-Vu4a5UFA9rIIFJ7rB/Vaafh9lrCQszopTCx6KjFboXTGQbPNasehVR5TEiithSDGyd1DEiUByggTZsg8jukeIg==}
 
   '@types/node@26.6.4':
     resolution: {integrity: sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg==}
@@ -10502,9 +10499,6 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  undici-types@8.3.0:
-    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
-
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
@@ -14582,13 +14576,13 @@ snapshots:
     optionalDependencies:
       ioredis: 6.0.0
 
-  '@maroonedsoftware/comms@0.2.11':
+  '@maroonedsoftware/comms@0.3.0':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
       injectkit: 1.7.1
 
-  '@maroonedsoftware/discord@2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)':
+  '@maroonedsoftware/discord@2.1.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
@@ -14597,7 +14591,7 @@ snapshots:
       luxon: 3.7.2
     optionalDependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
-      '@maroonedsoftware/comms': 0.2.11
+      '@maroonedsoftware/comms': 0.3.0
 
   '@maroonedsoftware/encryption@0.5.13':
     dependencies:
@@ -14698,7 +14692,7 @@ snapshots:
       injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.26': {}
+  '@maroonedsoftware/rhapsode-sdk@0.1.27': {}
 
   '@maroonedsoftware/servercore@0.4.1(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
@@ -14730,7 +14724,7 @@ snapshots:
     optionalDependencies:
       '@maroonedsoftware/logger': 1.1.9
 
-  '@maroonedsoftware/slack@3.3.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)':
+  '@maroonedsoftware/slack@3.3.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
@@ -14740,9 +14734,9 @@ snapshots:
       luxon: 3.7.2
     optionalDependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
-      '@maroonedsoftware/comms': 0.2.11
+      '@maroonedsoftware/comms': 0.3.0
 
-  '@maroonedsoftware/telegram@2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)':
+  '@maroonedsoftware/telegram@2.1.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
@@ -14750,7 +14744,7 @@ snapshots:
       injectkit: 1.7.1
     optionalDependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
-      '@maroonedsoftware/comms': 0.2.11
+      '@maroonedsoftware/comms': 0.3.0
 
   '@maroonedsoftware/telemetry@0.1.1(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace@2.12.0(@opentelemetry/api@1.9.1))(kysely@0.29.6)':
     dependencies:
@@ -15553,7 +15547,7 @@ snapshots:
 
   '@slack/logger@5.0.0':
     dependencies:
-      '@types/node': 26.1.2
+      '@types/node': 26.6.4
 
   '@slack/types@3.1.0': {}
 
@@ -15561,7 +15555,7 @@ snapshots:
     dependencies:
       '@slack/logger': 5.0.0
       '@slack/types': 3.1.0
-      '@types/node': 26.1.2
+      '@types/node': 26.6.4
       '@types/retry': 0.12.5
       eventemitter3: 5.0.4
       p-queue: 6.6.2
@@ -16318,10 +16312,6 @@ snapshots:
       '@types/node': 26.6.4
 
   '@types/node@17.0.45': {}
-
-  '@types/node@26.1.2':
-    dependencies:
-      undici-types: 8.3.0
 
   '@types/node@26.6.4':
     dependencies:
@@ -22439,8 +22429,6 @@ snapshots:
       has-bigints: 1.1.0
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
-
-  undici-types@8.3.0: {}
 
   undici-types@8.9.0: {}
 

@@ -95,3 +95,30 @@ swept a week later.
 
 **`metrics.prune` sweeps nightly**, each resolution to its own window, so a station keeping every hour
 forever still sweeps its minutes, which is the case that matters for disk.
+
+## Reading them back: the Trends tab
+
+**`GET /metrics/series` picks the resolution, not the caller**: minutes for two days or less, hours
+beyond, because the minute rows are gone after a week anyway and a month of minutes is forty thousand
+points a chart draws as a smear. It refuses a read it could not answer sensibly (no names, more than
+twenty, an empty or backwards range, or one longer than the hour rows are kept) rather than answering
+it slowly.
+
+**The console folds whatever comes back into at most 120 points per chart**
+(`apps/web/src/components/trends/trends.data.ts`), in whole multiples of the stored resolution so a
+stored point never straddles two bins, and keeps every bin of the window, empty ones included. Charts
+draw with `connectNulls={false}`, so a stretch nothing was measured is a gap: the station was down,
+not quiet.
+
+**Each section reads its own query**, on Check-up's rule that one dead reader costs one box and not the
+page. The work section is two ranked tables rather than a chart, because "which queue took the time"
+is a ranking and a line per queue would need a colour per queue.
+
+**Two series colours per theme, picked by measurement.** `--da-series-a` and `--da-series-b` in
+`tokens.css` are the accent's hue and grape (the station's own, which already marks the model's work),
+at steps run through the categorical palette checks against each theme's panel. The dark themes' `.4`
+accents failed the lightness band, which is why these are tokens rather than `phosphor.4`.
+`tests/themes.test.ts` holds each to 3:1 against its panel. Status colours are never series colours.
+
+**recharts is in the Trends route's own chunk**, through the router's automatic code splitting, so no
+other page pays for it.

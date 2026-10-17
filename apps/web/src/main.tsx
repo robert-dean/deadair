@@ -47,6 +47,7 @@ import '@fontsource/space-mono/700.css';
 // which builds on core, and each expects the one below it to have been laid down first. Loaded out
 // of order the timetable renders unstyled rather than merely differently.
 import '@mantine/core/styles.css';
+import '@mantine/charts/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/schedule/styles.css';
 import '@mantine/dropzone/styles.css';

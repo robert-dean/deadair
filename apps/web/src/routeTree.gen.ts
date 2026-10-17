@@ -23,6 +23,7 @@ import { Route as PodcastsRouteImport } from './routes/podcasts'
 import { Route as ReleasesRouteImport } from './routes/releases'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as TracesRouteImport } from './routes/traces'
+import { Route as TrendsRouteImport } from './routes/trends'
 import { Route as VoiceRouteImport } from './routes/voice'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
@@ -128,6 +129,11 @@ const ScheduleRoute = ScheduleRouteImport.update({
 const TracesRoute = TracesRouteImport.update({
   id: '/traces',
   path: '/traces',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrendsRoute = TrendsRouteImport.update({
+  id: '/trends',
+  path: '/trends',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VoiceRoute = VoiceRouteImport.update({
@@ -327,6 +333,7 @@ export interface FileRoutesByFullPath {
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
+  '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
@@ -379,6 +386,7 @@ export interface FileRoutesByTo {
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
+  '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
@@ -432,6 +440,7 @@ export interface FileRoutesById {
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
+  '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
@@ -486,6 +495,7 @@ export interface FileRouteTypes {
     | '/releases'
     | '/schedule'
     | '/traces'
+    | '/trends'
     | '/voice'
     | '/auth/callback'
     | '/oauth/authorize'
@@ -538,6 +548,7 @@ export interface FileRouteTypes {
     | '/releases'
     | '/schedule'
     | '/traces'
+    | '/trends'
     | '/voice'
     | '/auth/callback'
     | '/oauth/authorize'
@@ -590,6 +601,7 @@ export interface FileRouteTypes {
     | '/releases'
     | '/schedule'
     | '/traces'
+    | '/trends'
     | '/voice'
     | '/auth/callback'
     | '/oauth/authorize'
@@ -643,6 +655,7 @@ export interface RootRouteChildren {
   ReleasesRoute: typeof ReleasesRoute
   ScheduleRoute: typeof ScheduleRoute
   TracesRoute: typeof TracesRoute
+  TrendsRoute: typeof TrendsRoute
   VoiceRoute: typeof VoiceRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   OauthAuthorizeRoute: typeof OauthAuthorizeRoute
@@ -779,6 +792,13 @@ declare module '@tanstack/react-router' {
       path: '/traces'
       fullPath: '/traces'
       preLoaderRoute: typeof TracesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trends': {
+      id: '/trends'
+      path: '/trends'
+      fullPath: '/trends'
+      preLoaderRoute: typeof TrendsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/voice': {
@@ -1051,6 +1071,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReleasesRoute: ReleasesRoute,
   ScheduleRoute: ScheduleRoute,
   TracesRoute: TracesRoute,
+  TrendsRoute: TrendsRoute,
   VoiceRoute: VoiceRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   OauthAuthorizeRoute: OauthAuthorizeRoute,

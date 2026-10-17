@@ -1,0 +1,62 @@
+/**
+ * Trends, the Check-up tab that draws the station's numbers over time.
+ */
+export const trends = {
+    title: 'Trends',
+    description:
+        'The station’s numbers over time. It measures them once a minute and keeps a week of minutes and a year of hours, so a range of two days or less is drawn by the minute and anything longer by the hour.',
+    range: {
+        label: 'Range',
+        '6h': '6 hours',
+        '24h': '24 hours',
+        '7d': '7 days',
+        '30d': '30 days',
+        '1y': 'A year',
+    },
+    section: {
+        audience: 'Audience',
+        model: 'The model',
+        work: 'Work',
+        library: 'Library and disk',
+        failed: 'This could not be read. The rest of the page still can.',
+        reading: 'Reading…',
+        empty: 'Nothing was measured in this range yet. The station starts keeping these the moment it is running, so a new install fills this in a minute at a time.',
+    },
+    audience: {
+        series: 'Listening',
+        now: 'Now',
+        peak: 'Most at once',
+        average: 'On average',
+        chartLabel: 'How many were listening over the range',
+    },
+    model: {
+        input: 'Tokens read',
+        output: 'Tokens written',
+        calls: 'Calls',
+        failed: 'Failed',
+        meanCall: 'Average call',
+        chartLabel: 'Tokens the model read and wrote over the range',
+    },
+    work: {
+        jobs: 'Jobs, by the time they took',
+        plugins: 'Plugin calls, by the time they took',
+        column: {
+            queue: 'Job',
+            plugin: 'Plugin',
+            runs: 'Runs',
+            calls: 'Calls',
+            mean: 'Average',
+            worst: 'Longest',
+            failed: 'Failed',
+        },
+        pluginCall: '{{plugin}} · {{op}}',
+    },
+    library: {
+        total: 'In the library',
+        cached: 'Cached',
+        measured: 'Measured',
+        disk: 'On disk',
+        chartLabel: 'How much of the library is cached and measured over the range',
+        diskLabel: 'How much disk the station’s media took over the range',
+    },
+} as const;

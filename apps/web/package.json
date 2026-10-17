@@ -23,6 +23,7 @@
         "@fontsource/newsreader": "^5.3.0",
         "@fontsource/public-sans": "^5.3.0",
         "@fontsource/space-mono": "^5.3.0",
+        "@mantine/charts": "9.7.1",
         "@mantine/core": "^9.7.1",
         "@mantine/dates": "9.7.1",
         "@mantine/dropzone": "9.7.1",
@@ -42,7 +43,8 @@
         "qrcode.react": "^4.2.0",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
-        "react-i18next": "^17.0.16"
+        "react-i18next": "^17.0.16",
+        "recharts": "^3.10.1"
     },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",

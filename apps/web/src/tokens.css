@@ -20,6 +20,15 @@
  */
 
 :root {
+    /* The two series a trend chart draws, when it draws two: the accent's hue and the station's own
+       (grape, which already marks the model's work). Their own steps rather than the theme's `.4`,
+       because the accent is tuned to glow on a dark desk and a chart fill at that lightness swamps
+       the line beside it. Each theme's pair was run through the categorical palette checks against
+       its own panel (lightness band, chroma, colour-blind separation, contrast) and passes all of
+       them; a new theme picks its pair the same way rather than borrowing these. */
+    --da-series-a: #0b9459;
+    --da-series-b: #9a72f5;
+
     /* Carbon surfaces, darkest first. The layering is the depth model: content sits on panels,
        panels sit on the desk, and nothing casts a shadow to say so. */
     --da-bg: #0c0e0d;
@@ -122,6 +131,10 @@
  * room, and a paper theme that made it maroon would be a theme with an opinion about the studio.
  */
 :root[data-da-theme='white'] {
+    /* The trend chart's pair, checked against white paper. See `--da-series-a` on carbon. */
+    --da-series-a: #0e7247;
+    --da-series-b: #6537c9;
+
     --da-bg: #f4f1ea;
     --da-panel: #ffffff;
     --da-raised: #efebe1;
@@ -171,6 +184,10 @@
  * the other is how a console ends up with its own text on somebody else's panels.
  */
 :root[data-da-theme='neon'] {
+    /* The trend chart's pair, checked against neon's panel. See `--da-series-a` on carbon. */
+    --da-series-a: #a08f00;
+    --da-series-b: #e800b8;
+
     --da-bg: #060a0c;
     --da-panel: #0d1316;
     --da-raised: #141c20;

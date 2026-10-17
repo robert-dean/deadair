@@ -24,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TOKENS_CSS_PATH = path.join(__dirname, '../src/tokens.css');
 const tokensCss = fs.readFileSync(TOKENS_CSS_PATH, 'utf-8');
 
-const TOKEN_NAMES = ['--da-bg', '--da-panel', '--da-text-dimmed', '--da-text-secondary'] as const;
+const TOKEN_NAMES = ['--da-bg', '--da-panel', '--da-text-dimmed', '--da-text-secondary', '--da-series-a', '--da-series-b'] as const;
 type TokenName = (typeof TOKEN_NAMES)[number];
 
 /** The carbon block is the unqualified `:root`; the other two are keyed on the theme attribute. */
@@ -79,6 +79,9 @@ function contrastRatio(a: string, b: string): number {
 
 const AA_TEXT_CONTRAST = 4.5;
 
+/** WCAG 2.1's floor for a graphical object, which is what a chart's line or fill is. */
+const AA_GRAPHIC_CONTRAST = 3;
+
 describe('theme tokens: WCAG AA text contrast', () => {
     describe.each(THEME_ORDER)('%s', themeId => {
         const tokens = readThemeTokens(themeId);
@@ -101,6 +104,15 @@ describe('theme tokens: WCAG AA text contrast', () => {
                 ratioAgainstPanel,
                 `${themeId}'s ${tokenName} (${textColor}) measures ${ratioAgainstPanel.toFixed(2)}:1 against --da-panel (${tokens['--da-panel']}), under the 4.5:1 AA floor`,
             ).toBeGreaterThanOrEqual(AA_TEXT_CONTRAST);
+        });
+
+        // A trend chart's two series sit on a card, which is `--da-panel`. A line or fill is a
+        // graphical object rather than text, so the floor is 3:1. The fuller categorical checks
+        // (lightness band, colour-blind separation) were run when the pair was picked and are
+        // recorded beside the tokens; this keeps the one a palette edit is most likely to break.
+        it.each(['--da-series-a', '--da-series-b'] as const)('%s clears 3:1 against --da-panel', tokenName => {
+            const ratio = contrastRatio(tokens[tokenName], tokens['--da-panel']);
+            expect(ratio, `${themeId}'s ${tokenName} measures ${ratio.toFixed(2)}:1 against --da-panel`).toBeGreaterThanOrEqual(AA_GRAPHIC_CONTRAST);
         });
     });
 });

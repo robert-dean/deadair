@@ -186,12 +186,11 @@ points were dropped by the cap or were a kind the receiver does not read (expone
 summaries). OTLP senders log a partial success rather than retrying, which is what a point dropped
 on purpose should cause.
 
-**A chunked request is refused with 411 until ServerKit's body gate counts it as a body.** The OTel
-JS exporters stream their body with `Transfer-Encoding: chunked` and no `Content-Length`, and the
-gate decided "is there a body" from the length alone. The fix is in ServerKit
-(`fix(servercore): count a chunked request body as a body`); until a deadair release picks it up,
-senders that declare a length (the OTel Collector's `otlphttp` exporter, Go and Python SDKs) work and
-the JS SDK does not.
+**A chunked request is a body.** The OTel JS exporters stream their body with
+`Transfer-Encoding: chunked` and no `Content-Length`, and ServerKit's body gate used to decide "is
+there a body" from the length alone, answering 411 to every one of them. servercore 0.4.1 and koa
+4.1.3 count a chunked body as a body; do not pin either below that, or the JS SDK stops being able to
+send here while every sender that declares a length keeps working, which is a failure nobody notices.
 
 **The Trends tab's Received section** lists `source: 'otlp'` names from `GET /metrics/names` and draws
 one at a time, read as an average, total or largest by the operator's choice, since the station cannot

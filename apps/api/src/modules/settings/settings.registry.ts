@@ -156,8 +156,10 @@ import {
     MAX_PRODUCTION_MINUTES,
     MIN_GAP_MS,
     MIN_PRODUCTION_MINUTES,
+    DEFAULT_PRODUCTION_REASONING,
     PRODUCTION_KEYS,
     PRODUCTION_MODEL_KEY,
+    PRODUCTION_REASONING_KEY,
 } from '#modules/productions/production.settings.js';
 import {
     AAC_BITRATES,
@@ -1800,6 +1802,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
         help: "A feature, a phone-in or a stretch of banter between co-hosts. Each is written ahead of when it airs, so nothing is waiting on it. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: PRODUCTION_REASONING_KEY,
+        label: 'How hard the production model thinks',
+        type: 'select',
+        default: DEFAULT_PRODUCTION_REASONING,
+        options: [
+            { value: 'none', label: 'Not at all' },
+            { value: 'low', label: 'A little' },
+            { value: 'medium', label: 'Some' },
+            { value: 'high', label: 'A lot' },
+        ],
+        help: 'Each turn of a production is a few lines written one at a time, and a production airs only if every turn is written. Some models think at length even on A little and run out of time or room before they say anything, which fails the whole production as "came back empty twice"; Not at all is the fix for those. Only reaches the model if the language model plugin\'s own effort setting is Auto.',
     },
     {
         group: 'llm',

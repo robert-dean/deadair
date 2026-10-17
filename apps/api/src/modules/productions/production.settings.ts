@@ -10,6 +10,7 @@
  * cannot be a constant without a code change per station.
  */
 
+import type { LlmReasoningEffort } from '@deadair/plugin-sdk';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { WritingMode } from './production.js';
 import { isWritingMode } from './production.passes.js';
@@ -32,6 +33,39 @@ export const PRODUCTION_KEYS = {
  * had before it had a list.
  */
 export const PRODUCTION_MODEL_KEY = 'llm.productionModel';
+
+/**
+ * How hard the model thinks before it writes a beat. In `llm` beside the model list, for
+ * `llm.breakReasoning`'s reason: it is a fact about the operator's model, not about this code.
+ *
+ * Every beat and every re-draft sent `low` as a literal, and on the station's own model that was the
+ * whole of why no production aired. Measured live between 2026-10-14 and 2026-10-17: all 37
+ * productions failed, 30 of them with a beat that "came back empty twice". The beats that were
+ * written spent 2,666 to 7,295 output tokens on a line of about thirty words, nearly all of it
+ * reasoning (8,000 to 21,000 characters). The ones that were not either hit `BEAT_OUTPUT_TOKENS`
+ * exactly with no text, or ran past `BEAT_BUDGET_MS` mid-thought. A production needs every one of
+ * seven or eleven beats inside one retry each, which at those odds is none of them. The breaks had
+ * already been through this and fixed it with a setting; productions never got it.
+ */
+export const PRODUCTION_REASONING_KEY = 'llm.productionReasoning';
+
+/** The efforts an operator can give the production model. The SDK's own vocabulary, so it is also what is sent. */
+export const PRODUCTION_REASONING_EFFORTS = ['none', 'low', 'medium', 'high'] as const satisfies readonly LlmReasoningEffort[];
+
+/** `low`, which is what every beat asked for before this was a setting, so a station that sets nothing is unchanged. */
+export const DEFAULT_PRODUCTION_REASONING: LlmReasoningEffort = 'low';
+
+/**
+ * How hard the production model thinks, from the operator's setting, or the default.
+ *
+ * Trimmed and checked against the vocabulary rather than passed through: a setting is a string, and
+ * one typed wrong by hand must cost the station its preference, never send the provider a value it
+ * rejects.
+ */
+export function productionReasoning(config: AppConfig): LlmReasoningEffort {
+    const set = String(config.get(PRODUCTION_REASONING_KEY, DEFAULT_PRODUCTION_REASONING) ?? '').trim();
+    return (PRODUCTION_REASONING_EFFORTS as readonly string[]).includes(set) ? (set as LlmReasoningEffort) : DEFAULT_PRODUCTION_REASONING;
+}
 
 /**
  * How much silence goes between two beats when they are joined, in milliseconds.

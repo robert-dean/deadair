@@ -1,6 +1,6 @@
 ---
 title: 'PhoneFactorRegistrationVerification'
-sidebar_position: 82
+sidebar_position: 83
 mdx:
     format: 'md'
 ---

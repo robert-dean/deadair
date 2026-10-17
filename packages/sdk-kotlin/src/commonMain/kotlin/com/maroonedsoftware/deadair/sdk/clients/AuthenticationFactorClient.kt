@@ -9,6 +9,7 @@ import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorRegistrationV
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationToken
 import com.maroonedsoftware.deadair.sdk.models.FactorChallengeStartRequest
 import com.maroonedsoftware.deadair.sdk.models.FactorChallengeStartResponse
+import com.maroonedsoftware.deadair.sdk.models.PasswordChange
 import com.maroonedsoftware.deadair.sdk.models.StepUpStartRequest
 import com.maroonedsoftware.deadair.sdk.models.StepUpStartResponse
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
@@ -37,6 +38,17 @@ class AuthenticationFactorClient(private val http: SdkHttp) {
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
+    }
+
+    /**
+     * Set password
+     * Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told.
+     */
+    suspend fun setPassword(body: PasswordChange) {
+        http.execute(HttpMethod.Put) {
+            path("auth", "password")
+            jsonBody(body, "application/json")
+        }
     }
 
     /**

@@ -15,6 +15,11 @@ contract PasswordFactorRegistration: {
     value: string(min=8, max=256) # The password
 }
 
+contract PasswordChange: {
+    password: string(min=8, max=256) # The new password
+    currentPassword?: string(max=256) # The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes
+}
+
 contract EmailFactorRegistration: {
     method: literal("email") # The method of the factor
     value: email # The email address

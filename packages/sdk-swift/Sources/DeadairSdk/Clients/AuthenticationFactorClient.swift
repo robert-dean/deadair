@@ -26,6 +26,14 @@ public final class AuthenticationFactorClient: Sendable {
         return try http.decodeJSON(AuthenticationFactorRegistrationResponse.self, from: response)
     }
 
+    /// Set password
+    /// Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told.
+    public func setPassword(body: PasswordChange) async throws {
+        var request = SdkRequest(method: "PUT", path: ["auth", "password"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        _ = try await http.execute(request)
+    }
+
     /// Verify factor registration
     /// Verify an authentication factor registration
     public func verifyFactorRegistration(body: AuthenticationFactorRegistrationVerification) async throws -> AuthenticationToken {

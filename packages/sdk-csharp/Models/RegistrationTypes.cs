@@ -37,6 +37,18 @@ public sealed record PasswordFactorRegistration : AuthenticationFactorRegistrati
     public required string Value { get; init; }
 }
 
+public sealed record PasswordChange
+{
+    /// <summary>The new password</summary>
+    [JsonPropertyName("password")]
+    public required string Password { get; init; }
+
+    /// <summary>The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes</summary>
+    [JsonPropertyName("currentPassword")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CurrentPassword { get; init; }
+}
+
 public sealed record EmailFactorRegistration : AuthenticationFactorRegistration
 {
     /// <summary>The method of the factor</summary>

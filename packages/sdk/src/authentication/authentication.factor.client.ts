@@ -12,6 +12,7 @@ import type {
     AuthenticationFactorRegistration,
     AuthenticationFactorRegistrationResponse,
     AuthenticationFactorRegistrationVerification,
+    PasswordChange,
 } from './types/registration.types.js';
 import { reviveAuthenticationFactorRegistrationResponse } from './types/registration.types.js';
 import type { SdkFetch } from '../sdk-options.js';
@@ -43,6 +44,18 @@ export class AuthenticationFactorsClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return reviveAuthenticationFactorRegistrationResponse(await parseJson<AuthenticationFactorRegistrationResponse>(result));
+    }
+
+    /**
+     * @name Set password
+     * @description Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told.
+     */
+    async setPassword(body: PasswordChange): Promise<void> {
+        await this.fetch(`/auth/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
     }
 
     /**

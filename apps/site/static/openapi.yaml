@@ -547,6 +547,20 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/AuthenticationFactorRegistrationResponse'
+    '/auth/password':
+        put:
+            operationId: setPassword
+            summary: 'Set password'
+            description: "Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told."
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PasswordChange'
+            responses:
+                '204':
+                    description: 'No content'
     '/auth/factors/verify':
         post:
             operationId: verifyFactorRegistration
@@ -7777,6 +7791,19 @@ components:
                     maxLength: 256
                     description: 'The password'
             required: [method, value]
+        PasswordChange:
+            type: object
+            properties:
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The new password'
+                currentPassword:
+                    type: string
+                    maxLength: 256
+                    description: 'The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes'
+            required: [password]
         EmailFactorRegistration:
             type: object
             properties:

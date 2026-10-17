@@ -38,6 +38,14 @@ data class PasswordFactorRegistration(
 ) : AuthenticationFactorRegistration
 
 @Serializable
+data class PasswordChange(
+    /** The new password */
+    val password: String,
+    /** The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes */
+    val currentPassword: String? = null,
+)
+
+@Serializable
 data class EmailFactorRegistration(
     /** The method of the factor */
     val method: String = "email",

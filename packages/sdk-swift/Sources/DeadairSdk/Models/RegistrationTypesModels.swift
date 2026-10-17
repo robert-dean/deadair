@@ -71,6 +71,35 @@ public struct PasswordFactorRegistration: Codable, Equatable, Sendable {
     }
 }
 
+public struct PasswordChange: Codable, Equatable, Sendable {
+    /// The new password
+    public var password: String
+    /// The password it replaces. Needed when the account has one, unless a sign-in link was used in the last ten minutes
+    public var currentPassword: String?
+
+    public init(password: String, currentPassword: String? = nil) {
+        self.password = password
+        self.currentPassword = currentPassword
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case password = "password"
+        case currentPassword = "currentPassword"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.password = try container.decode(String.self, forKey: .password)
+        self.currentPassword = try container.decodeIfPresent(String.self, forKey: .currentPassword)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.password, forKey: .password)
+        try container.encodeIfPresent(self.currentPassword, forKey: .currentPassword)
+    }
+}
+
 public struct EmailFactorRegistration: Codable, Equatable, Sendable {
     /// The method of the factor
     public var method: String

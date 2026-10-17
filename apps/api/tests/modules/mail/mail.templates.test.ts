@@ -23,6 +23,8 @@ const messages: MailMessage[] = [
         data: { link: 'https://radio.example.com/invite#di_abc', role: 'listener', inviter: 'admin@example.com', until: '20 October 2026' },
     },
     { to: 'someone@example.com', template: 'SecondFactorReset', data: {} },
+    { to: 'someone@example.com', template: 'PasswordChanged', data: { added: false } },
+    { to: 'someone@example.com', template: 'PasswordChanged', data: { added: true } },
 ];
 
 describe('rendering a message', () => {

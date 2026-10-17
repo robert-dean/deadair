@@ -18,6 +18,7 @@ import { OAuthAuthorizationServer } from '@maroonedsoftware/authentication';
 import { AuthenticationModule } from '../../../src/modules/authentication/authentication.module.js';
 import { OAuthModule } from '../../../src/modules/oauth/oauth.module.js';
 import { MailService } from '../../../src/modules/mail/mail.service.js';
+import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
 import { PlatformRoleService } from '../../../src/modules/permissions/platform.role.service.js';
@@ -42,6 +43,7 @@ const FOREIGN: Identifier<unknown>[] = [
     PolicyService,
     AuthorizationContext,
     MailService,
+    AfterCommit,
     PermissionsService,
     PlatformRoleService,
     ServerKitContext,

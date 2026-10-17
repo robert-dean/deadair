@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { AuthenticationRegistrationService } from '#src/modules/authentication/authentication.registration.service.js';
 import { AuthenticationService } from '#src/modules/authentication/authentication.service.js';
+import { PasswordChangeService } from '#src/modules/authentication/password.change.service.js';
 import {
     AuthenticationFactor,
     AuthenticationFactorMethod,
@@ -15,6 +16,7 @@ import {
     AuthenticationFactorRegistration,
     AuthenticationFactorRegistrationResponse,
     AuthenticationFactorRegistrationVerification,
+    PasswordChange,
 } from '../modules/authentication/types/registration.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
@@ -49,6 +51,19 @@ AuthenticationFactorRouter.post('/auth/factors/register', requirePolicy({ policy
     ctx.status = 201;
     ctx.type = 'application/json';
     ctx.body = result;
+});
+
+/**
+ * Set or change the caller's own password. Needs the current one when there is one, unless a sign-in link was used in the last ten minutes, and a recent strong-factor verification once an authenticator or passkey is enrolled. Every other session of the account is signed out, and the account's email addresses are told.
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck) `PUT /auth/password`
+ */
+AuthenticationFactorRouter.put('/auth/password', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PasswordChange);
+
+    const service = ctx.container.get(PasswordChangeService);
+    await service.setPassword(body);
+
+    ctx.status = 204;
 });
 
 /**

@@ -50,6 +50,8 @@ fun SignInScreen(
     onPasswordChange: (String) -> Unit,
     onCodeChange: (String) -> Unit,
     onSignIn: () -> Unit,
+    /** "Forgot your password?": a reset link to the address typed. */
+    onForgotPassword: () -> Unit,
     onStartAgain: () -> Unit,
 ) {
     Scaffold { padding ->
@@ -64,8 +66,9 @@ fun SignInScreen(
                 IconButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp)) {
                     Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
                 }
-                // The code step has its own heading; this one belongs to the first.
-                if (account.challenge == null) {
+                // The code step and the check-your-inbox state have headings of their own; this one
+                // belongs to the first step.
+                if (account.challenge == null && account.resetSentTo == null) {
                     Text(
                         stringResource(R.string.sign_in_to, station),
                         style = MaterialTheme.typography.headlineMedium,
@@ -79,6 +82,7 @@ fun SignInScreen(
                     onPasswordChange = onPasswordChange,
                     onCodeChange = onCodeChange,
                     onSignIn = onSignIn,
+                    onForgotPassword = onForgotPassword,
                     onStartAgain = onStartAgain,
                 )
             }

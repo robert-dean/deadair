@@ -107,6 +107,14 @@ sealed interface Message {
 
     data object NoRefreshToken : Message
 
+    data object ResetNeedsEmail : Message
+
+    data object ResetTooMany : Message
+
+    data object ResetNoMail : Message
+
+    data object CouldNotReachToReset : Message
+
     // ── The schedule ──────────────────────────────────────────────────────────────────────
     data object OnAir : Message
 

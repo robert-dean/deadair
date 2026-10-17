@@ -5,6 +5,8 @@ import com.maroonedsoftware.deadair.sdk.models.AuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenIssued
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenResponse
 import com.maroonedsoftware.deadair.sdk.models.AuthenticatorAuthenticationRequest
+import com.maroonedsoftware.deadair.sdk.models.LinkAuthenticationLoginStart
+import com.maroonedsoftware.deadair.sdk.models.LinkAuthenticationLoginStartPurpose
 import com.maroonedsoftware.deadair.sdk.models.MfaChallengeFactor
 import com.maroonedsoftware.deadair.sdk.models.MfaRequiredResponse
 import com.maroonedsoftware.deadair.sdk.models.PasswordAuthenticationRequest
@@ -29,6 +31,24 @@ import kotlinx.coroutines.sync.withLock
 class NotSignedInException : Exception("Not signed in to this station")
 
 /** What came of offering an email and a password, or a code against a pending challenge. */
+/**
+ * What the station said to "Forgot your password?".
+ *
+ * [Sent] is the same answer whether or not the address has an account, because the station gives
+ * the same answer either way: it will not say who has an account, so neither can this app.
+ */
+sealed interface ResetResult {
+    data object Sent : ResetResult
+
+    /** The address has been sent enough for now. The station decides how long that lasts. */
+    data object TooMany : ResetResult
+
+    /** The station has no mail server to send through, so no link can reach anybody. */
+    data object NoMail : ResetResult
+
+    data class Failed(val message: String?) : ResetResult
+}
+
 sealed interface SignInResult {
     data object Ok : SignInResult
 
@@ -157,6 +177,27 @@ class SessionManager(
 
         return accept(station, email, answer)
     }
+
+    /**
+     * Ask the station to email a password-reset link to [email].
+     *
+     * The link is the station's ordinary sign-in link worded as a reset: it signs the person in on
+     * the station's web console and opens the password form there, so nothing about it comes back
+     * to this app. After choosing a new password they sign in here with it as usual.
+     */
+    suspend fun askForReset(station: StationUrl, email: String): ResetResult =
+        try {
+            sdkFor(station) { emptyMap() }.authentication.startLogin(LinkAuthenticationLoginStart(email = email, purpose = LinkAuthenticationLoginStartPurpose.RESET))
+            ResetResult.Sent
+        } catch (error: SdkError) {
+            when (error.status) {
+                TOO_MANY_REQUESTS -> ResetResult.TooMany
+                SERVICE_UNAVAILABLE -> ResetResult.NoMail
+                else -> ResetResult.Failed(error.message)
+            }
+        } catch (error: Exception) {
+            ResetResult.Failed(error.message)
+        }
 
     /**
      * Answer a pending challenge with a code from an authenticator app.
@@ -357,6 +398,8 @@ class SessionManager(
         const val AUTHORIZATION = "Authorization"
         const val UNAUTHORIZED = 401
         const val FORBIDDEN = 403
+        const val TOO_MANY_REQUESTS = 429
+        const val SERVICE_UNAVAILABLE = 503
         val CLIENT_ERRORS = 400..499
 
         /** A grant the station will not honour, and one it read and rejected. Both are retyped. */

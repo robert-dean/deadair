@@ -91,22 +91,44 @@ fun SignInForm(
     onPasswordChange: (String) -> Unit,
     onCodeChange: (String) -> Unit,
     onSignIn: () -> Unit,
+    onForgotPassword: () -> Unit,
     onStartAgain: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         // Once the station has asked for a second factor the password step is over, and its
         // fields go with it: leaving them on screen invites a retype of something that was
         // accepted a moment ago, and there is nothing left to send them to.
-        if (account.challenge != null) {
-            SecondFactor(account, onCodeChange, onSignIn, onStartAgain)
-        } else {
-            PasswordForm(account, onEmailChange, onPasswordChange, onSignIn)
+        when {
+            account.resetSentTo != null -> ResetSent(account.resetSentTo, onStartAgain)
+            account.challenge != null -> SecondFactor(account, onCodeChange, onSignIn, onStartAgain)
+            else -> PasswordForm(account, onEmailChange, onPasswordChange, onSignIn, onForgotPassword)
         }
     }
 }
 
+/**
+ * After "Forgot your password?": where the link went, and the way back to the form.
+ *
+ * The link opens the station's web console rather than this app, so the copy says what happens
+ * after it: choose the password there, then sign in here with it.
+ */
 @Composable
-private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onSignIn: () -> Unit) {
+private fun ResetSent(address: String, onBack: () -> Unit) {
+    Text(stringResource(R.string.reset_sent_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+    Text(stringResource(R.string.reset_sent_detail, address), style = MaterialTheme.typography.bodyMedium)
+    OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
+        Text(stringResource(R.string.back_to_sign_in))
+    }
+}
+
+@Composable
+private fun PasswordForm(
+    account: AccountState,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSignIn: () -> Unit,
+    onForgotPassword: () -> Unit,
+) {
     val focus = LocalFocusManager.current
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocus() }
@@ -161,6 +183,11 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
         } else {
             Text(stringResource(R.string.sign_in))
         }
+    }
+
+    // Asks for nothing but the address above: the password is what it is instead of.
+    TextButton(onClick = onForgotPassword, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.forgot_password))
     }
 }
 

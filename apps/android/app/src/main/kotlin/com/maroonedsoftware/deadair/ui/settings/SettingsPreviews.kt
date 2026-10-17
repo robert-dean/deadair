@@ -122,6 +122,7 @@ private fun SignIn(account: AccountState) {
             onPasswordChange = {},
             onCodeChange = {},
             onSignIn = {},
+            onForgotPassword = {},
             onStartAgain = {},
         )
     }
@@ -130,6 +131,10 @@ private fun SignIn(account: AccountState) {
 @PreviewLightDark
 @Composable
 private fun SignInPreview() = SignIn(AccountState())
+
+@PreviewLightDark
+@Composable
+private fun ResetSentPreview() = SignIn(AccountState(email = "operator@example.com", resetSentTo = "operator@example.com"))
 
 @PreviewLightDark
 @Composable

@@ -14,6 +14,7 @@ import type { Production } from '../../../src/modules/productions/production.js'
 import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 import { LlmService } from '../../../src/modules/llm/llm.service.js';
 import { ToolRegistry } from '../../../src/modules/llm/llm.tools.js';
+import { PRODUCTION_REASONING_KEY } from '../../../src/modules/productions/production.settings.js';
 import { SCRIPT_HISTORY_KEYS } from '../../../src/modules/render/script.history.settings.js';
 import { ModelHealth } from '../../../src/modules/llm/model.health.js';
 
@@ -495,7 +496,7 @@ describe('weather in a phone-in', () => {
         { role: 'caller', name: 'Dale' },
     ] as never;
 
-    async function corrections(scripts: readonly string[], over: Partial<Production> = {}) {
+    async function redraft(scripts: readonly string[], over: Partial<Production> = {}, values: Record<string, string> = {}) {
         const beats = scripts.map((script, index) => ({ id: `beat-${index}`, script, label: 'Phone-in', pads: [], productionOrdinal: index }));
         const productions = {
             claim: vi.fn(async () => production({ state: 'checking', writingMode: 'polished', plan: PLAN, casting: CAST, ...over })),
@@ -504,8 +505,8 @@ describe('weather in a phone-in', () => {
         const segments = { beatsOf: vi.fn(async () => beats), writeScript: vi.fn(async () => {}) } as never;
         const personas = { presenting: vi.fn(async () => undefined), find: vi.fn(async () => undefined) } as never;
         const speech = { cues: vi.fn(async () => []) } as never;
-        const converse = vi.fn(async (_conversation: { messages: { content: string }[] }) => ({ text: 'Rewritten.' }));
-        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+        const converse = vi.fn(async (_conversation: { messages: { content: string }[]; reasoningEffort?: string }) => ({ text: 'Rewritten.' }));
+        const config = { get: (key: string, fallback: unknown) => (key in values ? values[key] : fallback) } as unknown as AppConfig;
 
         const job = new ProduceProductionJob(
             productions,
@@ -532,10 +533,27 @@ describe('weather in a phone-in', () => {
         const check = (job as unknown as { check: (input: Production) => Promise<boolean> }).check.bind(job);
         await check(production({ state: 'checking' }));
 
+        return converse.mock.calls.map(([conversation]) => conversation);
+    }
+
+    async function corrections(scripts: readonly string[], over: Partial<Production> = {}) {
+        const asked = await redraft(scripts, over);
+
         // Every re-draft's prompt. Beats this short are all re-drafted for their length, so a test
         // asks what each one was TOLD rather than whether it was re-drafted at all.
-        return converse.mock.calls.map(([conversation]) => conversation.messages.map(message => message.content).join('\n'));
+        return asked.map(conversation => conversation.messages.map(message => message.content).join('\n'));
     }
+
+    it('asks for each re-draft with the effort the operator set for productions', async () => {
+        const scripts = ['Dale, you are on the air.', 'Thanks Max.', 'Do ring again soon, Dale.'];
+
+        const unset = await redraft(scripts);
+        const none = await redraft(scripts, {}, { [PRODUCTION_REASONING_KEY]: 'none' });
+
+        expect(unset.length).toBeGreaterThan(0);
+        expect(unset.every(conversation => conversation.reasoningEffort === 'low')).toBe(true);
+        expect(none.every(conversation => conversation.reasoningEffort === 'none')).toBe(true);
+    });
 
     it("tells the host to drop weather nobody gave the call, and leaves the caller's own alone", async () => {
         const told = await corrections([
@@ -662,6 +680,23 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
         const user = String(converse.mock.calls[0]?.[0].messages[1]?.content);
         expect(user).toContain('What this beat covers:\n- The TR-808 came out in 1980.');
         expect(user).toContain('These notes are everything the station knows about this.');
+    });
+
+    it('asks for a beat with the effort the operator set for productions, and `low` when nobody did', async () => {
+        // The live failure: every beat sent `low`, the station's model spent its whole allowance
+        // thinking at it, and not one production in two weeks aired.
+        const stop = () =>
+            vi.fn(async (_request: { reasoningEffort?: string }) => {
+                throw new Error('stop after the first beat');
+            });
+        const unset = stop();
+        const none = stop();
+
+        await draftWith(unset as never);
+        await draftWith(none as never, { [PRODUCTION_REASONING_KEY]: 'none' });
+
+        expect(unset.mock.calls[0]?.[0].reasoningEffort).toBe('low');
+        expect(none.mock.calls[0]?.[0].reasoningEffort).toBe('none');
     });
 
     it('asks a beat of a production with no notes exactly what it always did', async () => {

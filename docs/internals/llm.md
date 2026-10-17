@@ -125,6 +125,17 @@ think by default. The plugin's own effort setting still wins unless it is Auto, 
 says so. The record-choosing model keeps its own room (`llm.setMaxTokens`) and its own `low`: an hour of
 programming is a research task, and a link is not.
 
+**A production's beats got the same setting two weeks later, for the same reason.** Every beat and every
+re-draft in `produce.production.job.ts` still sent `low` as a literal, and on the same model a thirty-word turn
+spent 2,666 to 7,295 output tokens, nearly all of it reasoning. The turns that were not written either hit
+`BEAT_OUTPUT_TOKENS` exactly with no text or ran past `BEAT_BUDGET_MS` mid-thought, and since a production
+airs only when every turn is written, all 37 commissioned between 2026-10-14 and 2026-10-17 failed, 30 of them
+as "came back empty twice". `llm.productionReasoning` holds it now, read through `productionReasoning` in
+`production.settings.ts`, default `low` so a station that sets nothing is unchanged. It is its own key rather
+than a second reader of `llm.breakReasoning` because a production is written ahead of time on its own model
+list (`llm.productionModel`), and an operator may well want a thinking model there and none on the links. The
+outline and research passes keep their `low`: they plan and read, which is what reasoning is for.
+
 **When the model is the problem, the station says so in two places, because the floor hides it
 otherwise.** Every break falls through to its deterministic writer when the model fails, which keeps the
 station on air and is exactly why a model that has gone quietly can go unnoticed for an evening. So the

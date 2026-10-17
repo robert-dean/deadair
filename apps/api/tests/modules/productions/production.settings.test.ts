@@ -10,6 +10,7 @@ import {
     DEFAULT_DIALOGUE_MINUTES_MAX,
     DEFAULT_DIALOGUE_MINUTES_MIN,
     DEFAULT_GAP_MS,
+    DEFAULT_PRODUCTION_REASONING,
     DEFAULT_TARGET_MINUTES_MAX,
     DEFAULT_TARGET_MINUTES_MIN,
     dialogueKinds,
@@ -17,6 +18,8 @@ import {
     MAX_GAP_MS,
     MAX_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
+    PRODUCTION_REASONING_KEY,
+    productionReasoning,
     stationGapMs,
     stationTargetMs,
 } from '../../../src/modules/productions/production.settings.js';
@@ -159,5 +162,22 @@ describe('the pause between joined beats', () => {
 
     it('falls back on something unparseable rather than joining with a NaN gap', () => {
         expect(stationGapMs(config({ [PRODUCTION_KEYS.gapMs]: 'a beat' }))).toBe(DEFAULT_GAP_MS);
+    });
+});
+
+describe('how hard the production model thinks', () => {
+    it('is `low` when nobody has said, which is what every beat asked for before this was a setting', () => {
+        expect(DEFAULT_PRODUCTION_REASONING).toBe('low');
+        expect(productionReasoning(config())).toBe('low');
+    });
+
+    it('reads `none`, the effort that lets a model which thinks at length write a beat at all', () => {
+        expect(productionReasoning(config({ [PRODUCTION_REASONING_KEY]: 'none' }))).toBe('none');
+        expect(productionReasoning(config({ [PRODUCTION_REASONING_KEY]: ' high ' }))).toBe('high');
+    });
+
+    it('falls back on a value nothing recognises rather than sending the provider one it would refuse', () => {
+        expect(productionReasoning(config({ [PRODUCTION_REASONING_KEY]: 'loads' }))).toBe(DEFAULT_PRODUCTION_REASONING);
+        expect(productionReasoning(config({ [PRODUCTION_REASONING_KEY]: '' }))).toBe(DEFAULT_PRODUCTION_REASONING);
     });
 });

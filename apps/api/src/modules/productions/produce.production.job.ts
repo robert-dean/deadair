@@ -44,7 +44,7 @@ import { firstPass, nextPass, runsPass } from './production.passes.js';
 import { ProductionRepository } from './production.repository.js';
 import { spokenTitle } from './production.scheduler.js';
 import { modelList } from '#modules/llm/model.list.js';
-import { PRODUCTION_MODEL_KEY } from './production.settings.js';
+import { PRODUCTION_MODEL_KEY, productionReasoning } from './production.settings.js';
 
 /**
  * How long before its slot a production stops being background work.
@@ -86,8 +86,9 @@ export const WAIT_MS = 60_000;
  * found in this tree (the fact verifier at 8 tokens, `MAX_OUTPUT_TOKENS` in the break writer, and
  * here), which is why it is written down rather than tuned quietly.
  *
- * `reasoningEffort: 'low'` is already set on the beat calls and does NOT make this unnecessary — the
- * 7,864 characters above were produced with it on.
+ * `reasoningEffort: 'low'` does NOT make this unnecessary: the 7,864 characters above were produced
+ * with it on. The beat calls read their effort from `llm.productionReasoning` now (see
+ * `productionReasoning`), and `none` is what stops a model like that one spending this at all.
  */
 export const OUTLINE_OUTPUT_TOKENS = 8_000;
 export const BEAT_OUTPUT_TOKENS = 8_000;
@@ -591,7 +592,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
             const ask = async () =>
                 await this.llm.converse(
-                    { messages: prompt, maxOutputTokens: BEAT_OUTPUT_TOKENS, reasoningEffort: 'low' },
+                    { messages: prompt, maxOutputTokens: BEAT_OUTPUT_TOKENS, reasoningEffort: productionReasoning(this.config) },
                     { models: this.models, budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
                 );
 
@@ -809,7 +810,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...this.home(),
                     }),
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
-                    reasoningEffort: 'low',
+                    reasoningEffort: productionReasoning(this.config),
                 },
                 { models: this.models, budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );

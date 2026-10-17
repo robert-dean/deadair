@@ -46,3 +46,17 @@ contract MetricName: { # A metric the station holds, for a picker
 contract MetricNames: {
     names: array(MetricName) # Sorted by name
 }
+
+# An OTLP/HTTP metrics export, sent as JSON. Only the top level is checked here; the station reads the rest itself and counts what it cannot use rather than refusing the whole request
+contract mode(loose) OtlpMetricsExport: {
+    resourceMetrics: array(object, max=1000)
+}
+
+contract OtlpPartialSuccess: { # OTLP's answer when some points were not taken
+    rejectedDataPoints: string # How many, as OTLP writes a 64-bit count: a digit string
+    errorMessage: string(max=500)
+}
+
+contract OtlpExportResponse: { # OTLP's answer to an export. Empty when every point was taken
+    partialSuccess?: OtlpPartialSuccess
+}

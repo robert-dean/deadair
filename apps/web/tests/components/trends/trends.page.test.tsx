@@ -12,9 +12,10 @@ import { TrendsPage } from '../../../src/components/trends/trends.page';
 import { render, screen } from '../../utils/render';
 
 const readMetricSeries = vi.fn();
+const readMetricNames = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { metrics: { readMetricSeries: (query: unknown) => readMetricSeries(query) } },
+    sdk: { metrics: { readMetricSeries: (query: unknown) => readMetricSeries(query), readMetricNames: () => readMetricNames() } },
 }));
 
 const from = DateTime.fromISO('2026-10-17T00:00:00Z', { zone: 'utc' });
@@ -23,6 +24,7 @@ const point = (minutes: number, value: number) => ({ at: from.plus({ minutes }),
 
 /** Answers each section with something drawable, keyed on the first metric it asks for. */
 function allWell() {
+    readMetricNames.mockResolvedValue({ names: [] });
     readMetricSeries.mockImplementation(async ({ names }: { names: string }) => {
         if (names.startsWith('station.listeners'))
             return page([{ name: 'station.listeners', labels: {}, source: 'station', points: [point(0, 9), point(1, 4)] }]);
@@ -89,9 +91,34 @@ describe('TrendsPage', () => {
     });
 
     it('says a new install has nothing yet, rather than drawing empty axes', async () => {
+        readMetricNames.mockResolvedValue({ names: [] });
         readMetricSeries.mockResolvedValue(page([]));
         render(<TrendsPage />);
 
         expect(await screen.findAllByText(/Nothing was measured in this range yet/)).toHaveLength(4);
+    });
+
+    it('draws nothing for received metrics until another service has sent some', async () => {
+        allWell();
+        render(<TrendsPage />);
+
+        await screen.findByText('catalog.sync');
+        expect(screen.queryByText('From your other services')).not.toBeInTheDocument();
+    });
+
+    it('draws the first metric another service sent, reading only the rows it sent', async () => {
+        allWell();
+        readMetricNames.mockResolvedValue({
+            names: [
+                { name: 'station.listeners', source: 'station', labelKeys: [], lastSeen: from },
+                { name: 'queue.depth', source: 'otlp', labelKeys: ['service.name'], lastSeen: from },
+            ],
+        });
+        render(<TrendsPage />);
+
+        expect(await screen.findByText('From your other services')).toBeInTheDocument();
+        // The select's own input and the hidden one it submits both hold the value.
+        expect((await screen.findAllByDisplayValue('queue.depth')).length).toBeGreaterThan(0);
+        expect(readMetricSeries.mock.calls.map(([query]) => (query as { names: string }).names)).toContain('queue.depth');
     });
 });

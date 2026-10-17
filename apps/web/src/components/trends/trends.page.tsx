@@ -1,11 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, BarChart, LineChart } from '@mantine/charts';
-import { Card, Group, SegmentedControl, SimpleGrid, Stack, Table, Text } from '@mantine/core';
+import { Card, Group, Select, SegmentedControl, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import type { MetricSeries, MetricSeriesPage } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 
-import { useMetricSeries } from '../../api/metrics.queries';
+import { useMetricNames, useMetricSeries } from '../../api/metrics.queries';
 import { useSignedIn } from '../../auth/session.store';
 import { formatCount, hourCycle, perLocale } from '../../i18n/format.locale';
 import { Eyebrow } from '../shared/eyebrow';
@@ -51,7 +51,7 @@ function chartRows(bins: readonly Bin[][], keys: readonly string[], value: (bin:
     const rows = first.map((bin, index) => {
         const { tick, full } = labelsFor(bin.at, range);
         ticks.set(full, tick);
-        const row: Record<string, string | number | null> = { when: full };
+        const row: ChartRow = { when: full };
         keys.forEach((key, k) => {
             const own = bins[k]?.[index];
             row[key] = own === undefined ? null : (value(own) ?? null);
@@ -59,6 +59,28 @@ function chartRows(bins: readonly Bin[][], keys: readonly string[], value: (bin:
         return row;
     });
     return { rows, tickFormatter: (full: string) => ticks.get(full) ?? full };
+}
+
+type ChartRow = Record<string, string | number | null>;
+
+/**
+ * A dot for a reading with nothing measured either side of it, and nothing for the rest.
+ *
+ * Gaps are kept (`connectNulls={false}`) so a stretch the station was down is drawn as one, and dots
+ * are off so a dense line stays a line. Together those make a lone reading, a line from a point to
+ * itself, invisible: the first minute on a new install, a gauge read every fifteen minutes on a range
+ * drawn by the minute, a service that sent once. This draws exactly those.
+ */
+function isolatedDot(rows: readonly ChartRow[], color: string | undefined) {
+    // Recharts wants an element for every point, so a point that is not lone gets an empty group.
+    return function IsolatedDot(props: { cx?: number; cy?: number; index?: number; dataKey?: unknown }) {
+        const key = String(props.dataKey);
+        const index = props.index ?? -1;
+        const here = rows[index]?.[key];
+        const lone = here != null && rows[index - 1]?.[key] == null && rows[index + 1]?.[key] == null;
+        if (!lone || props.cx === undefined || props.cy === undefined) return <g key={`${key}-${index}`} />;
+        return <circle key={`${key}-${index}`} cx={props.cx} cy={props.cy} r={4} fill={color} stroke="var(--da-panel)" strokeWidth={2} />;
+    };
 }
 
 /**
@@ -118,6 +140,7 @@ export function TrendsPage() {
             <Section title={t('section.library')} query={library}>
                 {page => <Library page={page} range={range} />}
             </Section>
+            <Received range={range} signedIn={signedIn} />
         </Stack>
     );
 }
@@ -197,6 +220,7 @@ function Audience({ page, range }: { page: MetricSeriesPage; range: TrendRange }
                 series={[{ name: 'listening', label: t('audience.series'), color: SERIES_A }]}
                 curveType="linear"
                 connectNulls={false}
+                areaProps={series => ({ dot: isolatedDot(rows, series.color) })}
                 withDots={false}
                 strokeWidth={2}
                 fillOpacity={0.2}
@@ -363,6 +387,7 @@ function Library({ page, range }: { page: MetricSeriesPage; range: TrendRange })
                 strokeWidth={2}
                 curveType="linear"
                 connectNulls={false}
+                lineProps={series => ({ dot: isolatedDot(library.rows, series.color) })}
                 gridAxis="x"
                 tickLine="none"
                 xAxisProps={{ tickFormatter: library.tickFormatter, minTickGap: 32 }}
@@ -380,6 +405,7 @@ function Library({ page, range }: { page: MetricSeriesPage; range: TrendRange })
                 fillOpacity={0.2}
                 curveType="linear"
                 connectNulls={false}
+                areaProps={series => ({ dot: isolatedDot(disk.rows, series.color) })}
                 gridAxis="x"
                 tickLine="none"
                 xAxisProps={{ tickFormatter: disk.tickFormatter, minTickGap: 32 }}
@@ -387,5 +413,85 @@ function Library({ page, range }: { page: MetricSeriesPage; range: TrendRange })
                 valueFormatter={value => formatBytes(value)}
             />
         </SimpleGrid>
+    );
+}
+
+/** The chart key a received metric is drawn under. A data key, not a word anybody reads. */
+const RECEIVED_KEY = 'value';
+
+/** How a received metric is read: a gauge or a duration by its average, a counter by its total. */
+type Reading = 'mean' | 'total' | 'largest';
+
+const READ: Record<Reading, (bin: Bin) => number | undefined> = {
+    mean: bin => meanOf(bin.point),
+    total: bin => bin.point?.sum,
+    largest: bin => bin.point?.max,
+};
+
+/**
+ * Metrics another service sent over OTLP, one at a time.
+ *
+ * Drawn only once something has been received, so a station that never turned receiving on never
+ * sees an empty box for it. The station does not know what kind a received metric is (a gauge, a
+ * counter, a duration all arrive as the same five numbers), so the operator says how to read it.
+ * Every label set of the metric is folded into one line, as the station's own charts are.
+ */
+function Received({ range, signedIn }: { range: TrendRange; signedIn: boolean }) {
+    const { t } = useTranslation('trends');
+    const names = useMetricNames(signedIn);
+    const received = useMemo(() => (names.data?.names ?? []).filter(name => name.source === 'otlp').map(name => name.name), [names.data]);
+    const [chosen, setChosen] = useState<string | undefined>();
+    const [reading, setReading] = useState<Reading>('mean');
+    const name = chosen !== undefined && received.includes(chosen) ? chosen : received[0];
+    const series = useMetricSeries(name === undefined ? [] : [name], range, signedIn && name !== undefined);
+
+    if (name === undefined) return null;
+
+    return (
+        <Section title={t('section.received')} query={series}>
+            {page => {
+                const own = page.series.filter(s => s.source === 'otlp');
+                const { rows, tickFormatter } = chartRows([bins(page, own)], [RECEIVED_KEY], READ[reading], range);
+                return (
+                    <Stack gap="md">
+                        <Text size="sm" c="dimmed">
+                            {t('received.hint')}
+                        </Text>
+                        <Group gap="md" align="end" wrap="wrap">
+                            <Select
+                                label={t('received.metric')}
+                                data={received}
+                                value={name}
+                                onChange={value => setChosen(value ?? undefined)}
+                                allowDeselect={false}
+                                searchable
+                            />
+                            <SegmentedControl
+                                aria-label={t('received.reading')}
+                                value={reading}
+                                onChange={value => setReading(value as Reading)}
+                                data={(['mean', 'total', 'largest'] as const).map(value => ({ value, label: t(`received.${value}`) }))}
+                            />
+                        </Group>
+                        <LineChart
+                            h={CHART_HEIGHT}
+                            data={rows}
+                            dataKey="when"
+                            aria-label={t('received.chartLabel')}
+                            series={[{ name: RECEIVED_KEY, label: t('received.series'), color: SERIES_A }]}
+                            withDots={false}
+                            strokeWidth={2}
+                            curveType="linear"
+                            connectNulls={false}
+                            lineProps={series => ({ dot: isolatedDot(rows, series.color) })}
+                            gridAxis="x"
+                            tickLine="none"
+                            xAxisProps={{ tickFormatter, minTickGap: 32 }}
+                            valueFormatter={value => formatCount(Math.round(value * 100) / 100)}
+                        />
+                    </Stack>
+                );
+            }}
+        </Section>
     );
 }

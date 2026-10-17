@@ -173,7 +173,17 @@ import {
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
 import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
-import { MAX_METRICS_RETENTION_DAYS, METRICS_DEFAULTS, METRICS_KEYS, OTLP_DEFAULTS, OTLP_KEYS } from '#modules/metrics/metrics.settings.js';
+import {
+    MAX_METRICS_RETENTION_DAYS,
+    MAX_OTLP_SERIES_PER_NAME,
+    METRICS_DEFAULTS,
+    METRICS_KEYS,
+    MIN_OTLP_SERIES_PER_NAME,
+    OTLP_DEFAULTS,
+    OTLP_KEYS,
+    OTLP_RECEIVE_DEFAULTS,
+    OTLP_RECEIVE_KEYS,
+} from '#modules/metrics/metrics.settings.js';
 import { MAX_OPEN_REQUESTS, MAX_REQUEST_COOLDOWN_MINUTES, REQUESTS_DEFAULTS, REQUESTS_KEYS } from '#modules/requests/requests.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
@@ -636,6 +646,25 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: OTLP_DEFAULTS.exportTraces,
         dependsOn: OTLP_KEYS.endpoint,
         help: 'What each decision did and how long it took, the same spans Check-up’s What it cost tab reads: every job as a trace, with its plugin and model calls inside it, and a link to the job that queued it. Work a console request caused is a trace of its own. Sent once a minute, with the metrics.',
+    },
+    {
+        group: 'telemetry',
+        key: OTLP_RECEIVE_KEYS.receive,
+        label: 'Take metrics from other services',
+        type: 'boolean',
+        default: OTLP_RECEIVE_DEFAULTS.receive,
+        help: 'Lets your other services send their metrics here over OTLP, to be kept and drawn on the Trends tab beside the station’s own. Point them at this station’s address followed by /api/otlp, using OTLP over HTTP with JSON (OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/json), with an operator’s API key as an Authorization: Bearer header. Off, the address answers as though it did not exist.',
+    },
+    {
+        group: 'telemetry',
+        key: OTLP_RECEIVE_KEYS.maxSeriesPerName,
+        label: 'Series kept per metric',
+        type: 'number',
+        default: OTLP_RECEIVE_DEFAULTS.maxSeriesPerName,
+        min: MIN_OTLP_SERIES_PER_NAME,
+        max: MAX_OTLP_SERIES_PER_NAME,
+        dependsOn: OTLP_RECEIVE_KEYS.receive,
+        help: 'How many different sets of labels one received metric may have. Beyond it, new ones are refused and the sender is told how many, so a service that labels every request with its id cannot fill the disk.',
     },
     {
         group: 'housekeeping',

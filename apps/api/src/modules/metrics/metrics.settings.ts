@@ -13,6 +13,7 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { resolveRetentionDays } from '#modules/shared/retention.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { numberOr } from '#modules/shared/setting.numbers.js';
 
 /** The `deadair.settings` keys. */
 export const METRICS_KEYS = {
@@ -138,4 +139,36 @@ const safeDecode = (value: string): string => {
 export function otlpSignalUrl(endpoint: string, signal: 'metrics' | 'traces'): string {
     const path = `/v1/${signal}`;
     return endpoint.endsWith(path) ? endpoint : `${endpoint}${path}`;
+}
+
+/**
+ * Whether the station takes other services' metrics over OTLP, and how many series of each it keeps.
+ *
+ * Off by default: a route that writes rows into the station's table is something an operator turns
+ * on, and until they do it answers 404. The cap is per metric name and lasts for the life of the
+ * process, so a sender that puts a request id in an attribute costs at most that many series rather
+ * than a row per id per minute.
+ */
+export const OTLP_RECEIVE_KEYS = {
+    receive: 'metrics.otlpReceive',
+    maxSeriesPerName: 'metrics.otlpMaxSeriesPerName',
+} as const;
+
+export const OTLP_RECEIVE_DEFAULTS = {
+    receive: false,
+    maxSeriesPerName: 50,
+} as const;
+
+export const MIN_OTLP_SERIES_PER_NAME = 1;
+export const MAX_OTLP_SERIES_PER_NAME = 1000;
+
+/** Whether receiving is switched on. */
+export function otlpReceiveIsOn(config: AppConfig): boolean {
+    return settingIsOn(config, OTLP_RECEIVE_KEYS.receive, OTLP_RECEIVE_DEFAULTS.receive);
+}
+
+/** The series cap, clamped to its declared range on the resolver rule. */
+export function resolveOtlpMaxSeriesPerName(config: AppConfig): number {
+    const value = numberOr(config, OTLP_RECEIVE_KEYS.maxSeriesPerName, OTLP_RECEIVE_DEFAULTS.maxSeriesPerName);
+    return Math.min(MAX_OTLP_SERIES_PER_NAME, Math.max(MIN_OTLP_SERIES_PER_NAME, Math.round(value)));
 }

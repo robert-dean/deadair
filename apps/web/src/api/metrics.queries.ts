@@ -33,3 +33,20 @@ export function useMetricSeries(names: readonly string[], range: TrendRange, ena
         enabled,
     });
 }
+
+/**
+ * How often the list of metrics the station holds is re-read: a new sender is a rare event, and the
+ * list only feeds a picker.
+ */
+const NAMES_STALE_MS = 5 * 60_000;
+
+/** Every metric the station holds, with where it came from. Feeds the Received picker. */
+export function useMetricNames(enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.metrics.names(),
+        queryFn: () => sdk.metrics.readMetricNames(),
+        staleTime: NAMES_STALE_MS,
+        refetchInterval: NAMES_STALE_MS,
+        enabled,
+    });
+}

@@ -4,6 +4,7 @@ import { AuthenticationSessionsRouter } from './authentication.sessions.router.j
 import { AuthenticationApikeysRouter } from './authentication.apikeys.router.js';
 import { ActivityRouter } from './activity.router.js';
 import { MetricsRouter } from './metrics.router.js';
+import { MetricsOtlpRouter } from './metrics.otlp.router.js';
 import { HistoryRouter } from './history.router.js';
 import { ArtBreaksRouter } from './art.breaks.router.js';
 import { ArtPersonasRouter } from './art.personas.router.js';
@@ -70,6 +71,7 @@ export const routers = [
     ArtRouter,
     ActivityRouter,
     MetricsRouter,
+    MetricsOtlpRouter,
     HistoryRouter,
     CatalogRouter,
     ChartsRouter,

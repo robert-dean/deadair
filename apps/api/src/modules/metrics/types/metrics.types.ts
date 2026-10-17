@@ -59,6 +59,25 @@ export const MetricName = z.strictObject({
 export type MetricName = z.infer<typeof MetricName>;
 
 /**
+ * An OTLP/HTTP metrics export, sent as JSON. Only the top level is checked here; the station reads the rest itself and counts what it cannot use rather than refusing the whole request
+ * generated from [OtlpMetricsExport](../../../../data/contracts/metrics/metrics.types.ck)
+ */
+export const OtlpMetricsExport = z.looseObject({
+    resourceMetrics: z.array(z.record(z.string(), z.unknown())).max(1000),
+});
+export type OtlpMetricsExport = z.infer<typeof OtlpMetricsExport>;
+
+/**
+ * OTLP's answer when some points were not taken
+ * generated from [OtlpPartialSuccess](../../../../data/contracts/metrics/metrics.types.ck)
+ */
+export const OtlpPartialSuccess = z.strictObject({
+    rejectedDataPoints: z.string().describe('How many, as OTLP writes a 64-bit count: a digit string'),
+    errorMessage: z.string().max(500),
+});
+export type OtlpPartialSuccess = z.infer<typeof OtlpPartialSuccess>;
+
+/**
  * One metric and one set of labels, its points oldest first
  * generated from [MetricSeries](../../../../data/contracts/metrics/metrics.types.ck)
  */
@@ -81,6 +100,15 @@ export const MetricNames = z.strictObject({
     names: z.array(MetricName).describe('Sorted by name'),
 });
 export type MetricNames = z.infer<typeof MetricNames>;
+
+/**
+ * OTLP's answer to an export. Empty when every point was taken
+ * generated from [OtlpExportResponse](../../../../data/contracts/metrics/metrics.types.ck)
+ */
+export const OtlpExportResponse = z.strictObject({
+    partialSuccess: OtlpPartialSuccess.optional(),
+});
+export type OtlpExportResponse = z.infer<typeof OtlpExportResponse>;
 
 /**
  * generated from [MetricSeriesPage](../../../../data/contracts/metrics/metrics.types.ck)

@@ -4,6 +4,7 @@ package com.maroonedsoftware.deadair.sdk.models
 import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /** How wide one point is. Chosen by the station from the range asked for: minutes for two days or less, hours beyond */
 @Serializable(with = MetricResolutionSerializer::class)
@@ -65,6 +66,20 @@ data class MetricName(
     val lastSeen: Instant,
 )
 
+/** An OTLP/HTTP metrics export, sent as JSON. Only the top level is checked here; the station reads the rest itself and counts what it cannot use rather than refusing the whole request */
+@Serializable
+data class OtlpMetricsExport(
+    val resourceMetrics: List<JsonElement>,
+)
+
+/** OTLP's answer when some points were not taken */
+@Serializable
+data class OtlpPartialSuccess(
+    /** How many, as OTLP writes a 64-bit count: a digit string */
+    val rejectedDataPoints: String,
+    val errorMessage: String,
+)
+
 /** One metric and one set of labels, its points oldest first */
 @Serializable
 data class MetricSeries(
@@ -81,6 +96,12 @@ data class MetricSeries(
 data class MetricNames(
     /** Sorted by name */
     val names: List<MetricName>,
+)
+
+/** OTLP's answer to an export. Empty when every point was taken */
+@Serializable
+data class OtlpExportResponse(
+    val partialSuccess: OtlpPartialSuccess? = null,
 )
 
 @Serializable

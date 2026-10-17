@@ -82,6 +82,24 @@ export function reviveMetricName(raw: MetricName): MetricName {
 }
 
 /**
+ * An OTLP/HTTP metrics export, sent as JSON. Only the top level is checked here; the station reads the rest itself and counts what it cannot use rather than refusing the whole request
+ * generated from [OtlpMetricsExport](../../../../../apps/api/data/contracts/metrics/metrics.types.ck)
+ */
+export interface OtlpMetricsExport {
+    resourceMetrics: Record<string, unknown>[];
+}
+
+/**
+ * OTLP's answer when some points were not taken
+ * generated from [OtlpPartialSuccess](../../../../../apps/api/data/contracts/metrics/metrics.types.ck)
+ */
+export interface OtlpPartialSuccess {
+    /** How many, as OTLP writes a 64-bit count: a digit string */
+    rejectedDataPoints: string;
+    errorMessage: string;
+}
+
+/**
  * One metric and one set of labels, its points oldest first
  * generated from [MetricSeries](../../../../../apps/api/data/contracts/metrics/metrics.types.ck)
  */
@@ -125,6 +143,14 @@ export function reviveMetricNames(raw: MetricNames): MetricNames {
         }
     }
     return raw;
+}
+
+/**
+ * OTLP's answer to an export. Empty when every point was taken
+ * generated from [OtlpExportResponse](../../../../../apps/api/data/contracts/metrics/metrics.types.ck)
+ */
+export interface OtlpExportResponse {
+    partialSuccess?: OtlpPartialSuccess;
 }
 
 /**

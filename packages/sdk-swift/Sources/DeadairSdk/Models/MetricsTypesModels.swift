@@ -178,6 +178,58 @@ public struct MetricName: Codable, Equatable, Sendable {
     }
 }
 
+/// An OTLP/HTTP metrics export, sent as JSON. Only the top level is checked here; the station reads the rest itself and counts what it cannot use rather than refusing the whole request
+public struct OtlpMetricsExport: Codable, Equatable, Sendable {
+    public var resourceMetrics: [JSONValue]
+
+    public init(resourceMetrics: [JSONValue]) {
+        self.resourceMetrics = resourceMetrics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case resourceMetrics = "resourceMetrics"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.resourceMetrics = try container.decode([JSONValue].self, forKey: .resourceMetrics)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.resourceMetrics, forKey: .resourceMetrics)
+    }
+}
+
+/// OTLP's answer when some points were not taken
+public struct OtlpPartialSuccess: Codable, Equatable, Sendable {
+    /// How many, as OTLP writes a 64-bit count: a digit string
+    public var rejectedDataPoints: String
+    public var errorMessage: String
+
+    public init(rejectedDataPoints: String, errorMessage: String) {
+        self.rejectedDataPoints = rejectedDataPoints
+        self.errorMessage = errorMessage
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rejectedDataPoints = "rejectedDataPoints"
+        case errorMessage = "errorMessage"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.rejectedDataPoints = try container.decode(String.self, forKey: .rejectedDataPoints)
+        self.errorMessage = try container.decode(String.self, forKey: .errorMessage)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.rejectedDataPoints, forKey: .rejectedDataPoints)
+        try container.encode(self.errorMessage, forKey: .errorMessage)
+    }
+}
+
 /// One metric and one set of labels, its points oldest first
 public struct MetricSeries: Codable, Equatable, Sendable {
     public var name: String
@@ -239,6 +291,29 @@ public struct MetricNames: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.names, forKey: .names)
+    }
+}
+
+/// OTLP's answer to an export. Empty when every point was taken
+public struct OtlpExportResponse: Codable, Equatable, Sendable {
+    public var partialSuccess: OtlpPartialSuccess?
+
+    public init(partialSuccess: OtlpPartialSuccess? = nil) {
+        self.partialSuccess = partialSuccess
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case partialSuccess = "partialSuccess"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.partialSuccess = try container.decodeIfPresent(OtlpPartialSuccess.self, forKey: .partialSuccess)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.partialSuccess, forKey: .partialSuccess)
     }
 }
 

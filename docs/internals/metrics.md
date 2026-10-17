@@ -112,6 +112,12 @@ stored point never straddles two bins, and keeps every bin of the window, empty 
 draw with `connectNulls={false}`, so a stretch nothing was measured is a gap: the station was down,
 not quiet.
 
+**A lone reading gets a dot.** With gaps kept and dots off, a reading with nothing either side of it
+is a line from a point to itself and draws nothing: the first minute on a new install, a gauge read
+every fifteen minutes on a range drawn by the minute, a service that sent once. `isolatedDot` draws
+exactly those and nothing else, through Mantine's `lineProps`/`areaProps`, which it spreads after its
+own `dot`.
+
 **Each section reads its own query**, on Check-up's rule that one dead reader costs one box and not the
 page. The work section is two ranked tables rather than a chart, because "which queue took the time"
 is a ranking and a line per queue would need a colour per queue.
@@ -158,3 +164,35 @@ can already name it as their parent. A request has no root span, so its calls ar
 A decision a previous one queued carries a **link** to that one's root rather than a parent, because it
 is separate work in a separate trace, the edge Traces draws as an indented row. Work outside any
 decision is not sent, exactly as the file does not keep it.
+
+## Taking other services' metrics: OTLP in
+
+**`POST /otlp/v1/metrics` takes an OTLP/HTTP export sent as JSON, and answers 404 until
+`metrics.otlpReceive` is on.** Senders point at `<station>/api/otlp` with
+`OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/json` and an operator's API key as a Bearer header; the
+route is `platform.manage` because it writes rows into the station's own table. It is
+`operation(internal)`, so no SDK method: no console calls it. Protobuf is not read; a protobuf sender
+gets 415 from the contract's content type.
+
+**`OtlpIngest` is a singleton holding one `OtlpMetricsReceiver`** (from the telemetry package), because
+the receiver remembers each cumulative series' last value, which is how a running total becomes an
+increase, and the series it has admitted, which is how the cap (`metrics.otlpMaxSeriesPerName`,
+default 50; and 500 names overall) holds across requests. A receiver per request would turn every
+cumulative sum into nothing. Rows are written with `source: 'otlp'`, folded into minutes like a flush,
+so a sender exporting every ten seconds costs one row per series per minute.
+
+**The answer is OTLP's own**: `{}` when everything was taken, `partialSuccess` with a count when
+points were dropped by the cap or were a kind the receiver does not read (exponential histograms,
+summaries). OTLP senders log a partial success rather than retrying, which is what a point dropped
+on purpose should cause.
+
+**A chunked request is refused with 411 until ServerKit's body gate counts it as a body.** The OTel
+JS exporters stream their body with `Transfer-Encoding: chunked` and no `Content-Length`, and the
+gate decided "is there a body" from the length alone. The fix is in ServerKit
+(`fix(servercore): count a chunked request body as a body`); until a deadair release picks it up,
+senders that declare a length (the OTel Collector's `otlphttp` exporter, Go and Python SDKs) work and
+the JS SDK does not.
+
+**The Trends tab's Received section** lists `source: 'otlp'` names from `GET /metrics/names` and draws
+one at a time, read as an average, total or largest by the operator's choice, since the station cannot
+know whether a received metric is a gauge, a counter or a duration.

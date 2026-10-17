@@ -130,6 +130,24 @@ public sealed record MetricName
     public required DateTimeOffset LastSeen { get; init; }
 }
 
+/// <summary>An OTLP/HTTP metrics export, sent as JSON. Only the top level is checked here; the station reads the rest itself and counts what it cannot use rather than refusing the whole request</summary>
+public sealed record OtlpMetricsExport
+{
+    [JsonPropertyName("resourceMetrics")]
+    public required List<JsonElement> ResourceMetrics { get; init; }
+}
+
+/// <summary>OTLP's answer when some points were not taken</summary>
+public sealed record OtlpPartialSuccess
+{
+    /// <summary>How many, as OTLP writes a 64-bit count: a digit string</summary>
+    [JsonPropertyName("rejectedDataPoints")]
+    public required string RejectedDataPoints { get; init; }
+
+    [JsonPropertyName("errorMessage")]
+    public required string ErrorMessage { get; init; }
+}
+
 /// <summary>One metric and one set of labels, its points oldest first</summary>
 public sealed record MetricSeries
 {
@@ -154,6 +172,14 @@ public sealed record MetricNames
     /// <summary>Sorted by name</summary>
     [JsonPropertyName("names")]
     public required List<MetricName> Names { get; init; }
+}
+
+/// <summary>OTLP's answer to an export. Empty when every point was taken</summary>
+public sealed record OtlpExportResponse
+{
+    [JsonPropertyName("partialSuccess")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OtlpPartialSuccess? PartialSuccess { get; init; }
 }
 
 public sealed record MetricSeriesPage

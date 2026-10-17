@@ -44,7 +44,7 @@ export function resolveHourRetentionDays(config: AppConfig): number {
 }
 
 /**
- * Where the station sends its metrics over OTLP, if anywhere.
+ * Where the station sends its metrics and traces over OTLP, if anywhere.
  *
  * Off until an endpoint is set: an install that never names a collector pays for nothing, and one
  * that does gets the same minute buckets it keeps for itself, sent on, not a second measurement.
@@ -55,12 +55,15 @@ export const OTLP_KEYS = {
     endpoint: 'metrics.otlpEndpoint',
     headers: 'metrics.otlpHeaders',
     exportMetrics: 'metrics.otlpExportMetrics',
+    exportTraces: 'metrics.otlpExportTraces',
 } as const;
 
 export const OTLP_DEFAULTS = {
     endpoint: '',
     /** On, so naming an endpoint is all it takes. The switch is for sending traces without metrics. */
     exportMetrics: true,
+    /** On for the same reason. The switch is for a collector that bills by span, or keeps metrics only. */
+    exportTraces: true,
 } as const;
 
 /** What the OTLP export reads, or nothing when it has nowhere to send. */
@@ -69,6 +72,7 @@ export interface OtlpSettings {
     endpoint: string;
     headers: Record<string, string>;
     exportMetrics: boolean;
+    exportTraces: boolean;
 }
 
 /**
@@ -110,7 +114,12 @@ export function resolveOtlpSettings(config: AppConfig, decrypt: (raw: string) =>
         if (key.length > 0) headers[key] = safeDecode(value);
     }
 
-    return { endpoint, headers, exportMetrics: settingIsOn(config, OTLP_KEYS.exportMetrics, OTLP_DEFAULTS.exportMetrics) };
+    return {
+        endpoint,
+        headers,
+        exportMetrics: settingIsOn(config, OTLP_KEYS.exportMetrics, OTLP_DEFAULTS.exportMetrics),
+        exportTraces: settingIsOn(config, OTLP_KEYS.exportTraces, OTLP_DEFAULTS.exportTraces),
+    };
 }
 
 /** OTLP header values may be percent-encoded, as the OTel spec allows. A malformed one is kept as typed. */

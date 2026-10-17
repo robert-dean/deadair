@@ -20,7 +20,7 @@ function harness() {
     const recorder = new MetricsRecorder();
     const heartbeat = new Heartbeat();
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const otlp = { exportMetrics: vi.fn(async () => {}), close: vi.fn(async () => {}) };
+    const otlp = { export: vi.fn(async () => {}), close: vi.fn(async () => {}) };
     const flusher = new MetricsFlusher(container, recorder, heartbeat, otlp as never, logger as never);
     return { flusher, recorder, repository, written, heartbeat, logger, scope, otlp };
 }
@@ -39,12 +39,13 @@ describe('MetricsFlusher', () => {
         expect(recorder.pending).toBe(0);
     });
 
-    it('writes nothing when nothing was recorded, but still beats', async () => {
-        const { flusher, repository, heartbeat } = harness();
+    it('writes nothing when nothing was recorded, but still beats and still sends the held spans', async () => {
+        const { flusher, repository, heartbeat, otlp } = harness();
 
         await flusher.flush();
 
         expect(repository.upsertMinutes).not.toHaveBeenCalled();
+        expect(otlp.export).toHaveBeenCalledWith([]);
         expect(heartbeat.stalledFor(METRICS_FLUSH_HEARTBEAT)).toBe(0);
     });
 
@@ -93,7 +94,7 @@ describe('MetricsFlusher', () => {
 
         await flusher.flush();
 
-        expect(otlp.exportMetrics).toHaveBeenCalledWith([expect.objectContaining({ name: 'a' })]);
+        expect(otlp.export).toHaveBeenCalledWith([expect.objectContaining({ name: 'a' })]);
     });
 
     it('writes the last partial minute on stop, and stops being watched', async () => {

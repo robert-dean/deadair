@@ -40,8 +40,13 @@ export const MetricsModule: ServerKitModule = {
         if (signal.aborted) return;
         // Work durations, model tokens and failures, read off the spans every timed call already
         // files. Registered in ready rather than setup so nothing is counted before the flusher runs.
+        // The same listener holds each span for the OTLP export, which sends them with the minute.
         const recorder = container.get(MetricsRecorder);
-        stopSpans = onSpan(span => observeSpan(recorder, span));
+        const otlp = container.get(OtlpExport);
+        stopSpans = onSpan(span => {
+            observeSpan(recorder, span);
+            otlp.queueSpan(span);
+        });
         container.get(MetricsFlusher).start();
     },
 

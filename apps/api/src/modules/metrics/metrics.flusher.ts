@@ -77,24 +77,26 @@ export class MetricsFlusher {
         try {
             await this.recorder.sampleGauges();
             const buckets = this.recorder.drain();
-            if (buckets.length === 0) return;
 
-            try {
-                await inScope(this.container, scope => scope.get(MetricsRepository).upsertMinutes(buckets));
-                if (this.failingSince !== undefined) {
-                    this.logger.info('metrics: writing again', { gapMs: Date.now() - this.failingSince });
-                    this.failingSince = undefined;
-                }
-            } catch (error) {
-                if (this.failingSince === undefined) {
-                    this.failingSince = Date.now();
-                    this.logger.warn(`metrics: could not write this minute, and will drop each one until it can: ${errorText(error)}`);
+            if (buckets.length > 0) {
+                try {
+                    await inScope(this.container, scope => scope.get(MetricsRepository).upsertMinutes(buckets));
+                    if (this.failingSince !== undefined) {
+                        this.logger.info('metrics: writing again', { gapMs: Date.now() - this.failingSince });
+                        this.failingSince = undefined;
+                    }
+                } catch (error) {
+                    if (this.failingSince === undefined) {
+                        this.failingSince = Date.now();
+                        this.logger.warn(`metrics: could not write this minute, and will drop each one until it can: ${errorText(error)}`);
+                    }
                 }
             }
 
             // After the table, and whether or not the table took it: a collector is a second
-            // destination for the same minute, and one being down must not cost the other.
-            await this.otlp.exportMetrics(buckets);
+            // destination for the same minute, and one being down must not cost the other. Called
+            // with no buckets too, because the spans held since the last flush go out here as well.
+            await this.otlp.export(buckets);
         } catch (error) {
             // Only the gauges can land here, and `sampleGauges` swallows its readers' throws, so
             // this is the loop's own safety net rather than an expected path.

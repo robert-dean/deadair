@@ -606,7 +606,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'url',
         default: OTLP_DEFAULTS.endpoint,
         placeholder: 'http://collector:4318',
-        help: 'Where to send the station’s numbers over OpenTelemetry (OTLP over HTTP), for Grafana, Honeycomb, Datadog or your own collector. The address without a path: the station adds /v1/metrics itself. Leave empty to send nothing; the Trends tab works either way.',
+        help: 'Where to send the station’s numbers and traces over OpenTelemetry (OTLP over HTTP), for Grafana, Honeycomb, Datadog or your own collector. The address without a path: the station adds /v1/metrics and /v1/traces itself. Leave empty to send nothing; the Trends tab works either way.',
     },
     {
         group: 'telemetry',
@@ -627,6 +627,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: OTLP_DEFAULTS.exportMetrics,
         dependsOn: OTLP_KEYS.endpoint,
         help: 'Each minute’s listeners, work, model and library numbers, the same ones the Trends tab draws. Durations go as histograms, tokens and failures as counters, the rest as gauges, all with delta temporality.',
+    },
+    {
+        group: 'telemetry',
+        key: OTLP_KEYS.exportTraces,
+        label: 'Send traces',
+        type: 'boolean',
+        default: OTLP_DEFAULTS.exportTraces,
+        dependsOn: OTLP_KEYS.endpoint,
+        help: 'What each decision did and how long it took, the same spans Check-up’s What it cost tab reads: every job as a trace, with its plugin and model calls inside it, and a link to the job that queued it. Work a console request caused is a trace of its own. Sent once a minute, with the metrics.',
     },
     {
         group: 'housekeeping',

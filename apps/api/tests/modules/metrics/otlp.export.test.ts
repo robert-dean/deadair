@@ -9,7 +9,7 @@ import { aggregateOf, labelsKey, type MetricBucket } from '@maroonedsoftware/tel
 import { DateTime } from 'luxon';
 
 import { OTLP_KEYS, otlpSignalUrl, resolveOtlpSettings } from '../../../src/modules/metrics/metrics.settings.js';
-import { metricKind, OtlpExport } from '../../../src/modules/metrics/otlp.export.js';
+import { MAX_SPAN_BUFFER, metricKind, OtlpExport } from '../../../src/modules/metrics/otlp.export.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const config = (values: Record<string, string>): AppConfig =>
@@ -33,6 +33,7 @@ describe('resolveOtlpSettings', () => {
             endpoint: 'http://collector:4318',
             headers: { Authorization: 'Bearer abc', 'x-scope': 'team' },
             exportMetrics: true,
+            exportTraces: true,
         });
     });
 
@@ -96,7 +97,7 @@ describe('OtlpExport', () => {
         const fetch = vi.spyOn(globalThis, 'fetch');
         const otlp = new OtlpExport(container(), config({}), new StationIdentity(), logger() as never);
 
-        await otlp.exportMetrics([bucket()]);
+        await otlp.export([bucket()]);
 
         expect(fetch).not.toHaveBeenCalled();
         fetch.mockRestore();
@@ -111,12 +112,27 @@ describe('OtlpExport', () => {
             log as never,
         );
 
-        await expect(otlp.exportMetrics([bucket()])).resolves.toBeUndefined();
-        await expect(otlp.exportMetrics([bucket()])).resolves.toBeUndefined();
+        await expect(otlp.export([bucket()])).resolves.toBeUndefined();
+        await expect(otlp.export([bucket()])).resolves.toBeUndefined();
         await otlp.close();
 
         expect(log.warn).toHaveBeenCalledTimes(1);
         expect(log.warn.mock.calls[0]?.[0]).toContain('http://127.0.0.1:9');
         expect(log.warn.mock.calls[0]?.[0]).not.toContain('secret-token');
     }, 30_000);
+
+    it('holds spans inside a decision for the next flush, bounded, and lets go of them every flush', async () => {
+        const otlp = new OtlpExport(container(), config({}), new StationIdentity(), logger() as never);
+        const span = { op: 'plugin.invoke', ms: 5, outcome: 'ok' as const, endedAt: Date.now(), trace: { id: 'job-1', kind: 'catalog.sync' } };
+
+        otlp.queueSpan({ ...span, trace: undefined });
+        for (let i = 0; i < MAX_SPAN_BUFFER + 10; i += 1) otlp.queueSpan(span);
+        const held = otlp as unknown as { spans: unknown[]; droppedSpans: number };
+
+        expect(held.spans).toHaveLength(MAX_SPAN_BUFFER);
+        expect(held.droppedSpans).toBe(10);
+
+        await otlp.export([]);
+        expect(held.spans).toHaveLength(0);
+    });
 });

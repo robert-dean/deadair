@@ -125,7 +125,7 @@ accents failed the lightness band, which is why these are tokens rather than `ph
 **recharts is in the Trends route's own chunk**, through the router's automatic code splitting, so no
 other page pays for it.
 
-## Sending them on: OTLP
+## Sending them on: OTLP metrics and traces
 
 **The same minute goes to a collector, not a second measurement.** When `metrics.otlpEndpoint` is set
 (Settings, Telemetry), `MetricsFlusher` hands each drained minute to `OtlpExport` after writing it to
@@ -148,3 +148,13 @@ and only when the stored value changes.
 **A collector that is down never costs the table its minute**, and the export never throws: it is
 logged when it goes and when it comes back, by its address and never its headers, and the minutes in
 between are dropped rather than queued, on the flusher's own rule.
+
+**Traces are the trace file's spans, sent on.** The same `onSpan` listener that counts work hands each
+span to `OtlpExport.queueSpan`, which holds up to 5,000 between flushes (past that a span is counted and
+dropped) and sends them with the minute to `<endpoint>/v1/traces` (`metrics.otlpExportTraces`, on by
+default). `span.traces.ts` maps them: **each decision is a trace keyed by its own id; a job's `job.run`
+is the root**, given an id derived from the decision so the calls it made, which are filed BEFORE it,
+can already name it as their parent. A request has no root span, so its calls are the top of its trace.
+A decision a previous one queued carries a **link** to that one's root rather than a parent, because it
+is separate work in a separate trace, the edge Traces draws as an indented row. Work outside any
+decision is not sent, exactly as the file does not keep it.

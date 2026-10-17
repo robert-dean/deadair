@@ -11,6 +11,7 @@ export const SettingGroup = z.enum([
     'housekeeping',
     'mail',
     'signin',
+    'telemetry',
     'rotation',
     'breaks',
     'bulletins',

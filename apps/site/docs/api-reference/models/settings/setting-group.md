@@ -14,6 +14,7 @@ type SettingGroup =
     | 'housekeeping'
     | 'mail'
     | 'signin'
+    | 'telemetry'
     | 'rotation'
     | 'breaks'
     | 'bulletins'

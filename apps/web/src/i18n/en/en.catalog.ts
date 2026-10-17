@@ -31,6 +31,7 @@ import { segments } from './segments.catalog.ts';
 import { settings } from './settings.catalog.ts';
 import { shell } from './shell.catalog.ts';
 import { station } from './station.catalog.ts';
+import { trends } from './trends.catalog.ts';
 import { topics } from './topics.catalog.ts';
 import { voice } from './voice.catalog.ts';
 import { voices } from './voices.catalog.ts';
@@ -57,6 +58,7 @@ export const en = {
     schedule,
     programme,
     station,
+    trends,
     charts,
     onair,
     desk,

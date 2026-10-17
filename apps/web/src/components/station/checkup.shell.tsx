@@ -16,13 +16,14 @@ import { i18n } from '../../i18n/i18n.setup';
  */
 export const CHECKUP_TABS = [
     tab('machinery'),
+    tab('trends'),
     tab('history'),
     tab('cost'),
     tab('logs'),
     tab('releases'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function tab<TKey extends 'machinery' | 'history' | 'cost' | 'logs' | 'releases'>(key: TKey) {
+function tab<TKey extends 'machinery' | 'trends' | 'history' | 'cost' | 'logs' | 'releases'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -37,8 +38,9 @@ function tab<TKey extends 'machinery' | 'history' | 'cost' | 'logs' | 'releases'
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
 
 /** Where each tab goes, so the palette and the tab strip cannot disagree about it. */
-export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/activity' | '/traces' | '/logs' | '/releases'> = {
+export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/trends' | '/activity' | '/traces' | '/logs' | '/releases'> = {
     machinery: '/checkup',
+    trends: '/trends',
     history: '/activity',
     cost: '/traces',
     logs: '/logs',

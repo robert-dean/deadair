@@ -9,6 +9,7 @@ import { TracesService } from './traces.service.js';
 import { LogsService } from './logs.service.js';
 import { BundledChangelog, parseChangelog } from './station.changelog.js';
 import { StationReleasesService } from './station.releases.service.js';
+import { registerStationGauges } from './station.gauges.js';
 import { ReleaseWatch } from './station.release.watch.js';
 import { BuildRevision } from '#modules/shared/build.revision.js';
 
@@ -18,6 +19,9 @@ import { BuildRevision } from '#modules/shared/build.revision.js';
  * the variable anyway, on the convention its other shipped files follow.
  */
 const DEFAULT_CHANGELOG_PATH = '../../CHANGELOG.md';
+
+/** Unregisters the trend gauges at shutdown. */
+let stopGauges: (() => void) | undefined;
 
 /**
  * The station about itself, composed across everything else.
@@ -83,6 +87,14 @@ export const StationModule: ServerKitModule = {
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         void container.get(ReleaseWatch).check();
+        // What Check-up shows as NOW, kept as trends. Nothing is read here; the metrics flusher
+        // samples them on its own cadence.
+        stopGauges = registerStationGauges(container);
+    },
+
+    shutdown: async () => {
+        stopGauges?.();
+        stopGauges = undefined;
     },
 };
 

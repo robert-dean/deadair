@@ -36,6 +36,7 @@ public sealed class DeadairSdk : IDisposable
         History = new HistoryClient(Http);
         Languages = new LanguagesClient(Http);
         Messaging = new MessagingClient(Http);
+        Metrics = new MetricsClient(Http);
         Narrations = new NarrationsClient(Http);
         News = new NewsClient(Http);
         Nowplaying = new NowplayingClient(Http);
@@ -100,6 +101,8 @@ public sealed class DeadairSdk : IDisposable
     public LanguagesClient Languages { get; }
 
     public MessagingClient Messaging { get; }
+
+    public MetricsClient Metrics { get; }
 
     public NarrationsClient Narrations { get; }
 

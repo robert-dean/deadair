@@ -7,6 +7,7 @@ export const station = {
         title: 'Check-up',
         tabs: {
             machinery: { label: 'Machinery', hint: 'What every part of it is doing now' },
+            trends: { label: 'Trends', hint: 'How its numbers have moved over time' },
             history: { label: 'What it has been doing', hint: 'Everything that aired, wrote or failed' },
             cost: { label: 'What it cost', hint: 'Every call it made, and what it spent' },
             logs: { label: 'Logs', hint: 'The station’s own log, and the audio chain’s' },

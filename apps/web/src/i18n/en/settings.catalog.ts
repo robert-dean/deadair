@@ -837,6 +837,11 @@ export const settings = {
             hint: 'How long it keeps its own history',
             blurb: 'How long the station keeps its own history, and how much of a library sync it will trust before it refuses rather than throwing the rest away.',
         },
+        telemetry: {
+            label: 'Telemetry',
+            hint: 'Sending its numbers to your own collector',
+            blurb: 'The station keeps its own numbers for the Trends tab. Name an OpenTelemetry collector here and it sends the same numbers there too, once a minute, for a dashboard you already run.',
+        },
         mail: {
             label: 'Mail',
             hint: 'Where it sends sign-in codes and invitations from',

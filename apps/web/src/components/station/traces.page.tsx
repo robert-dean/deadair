@@ -13,21 +13,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { severityColor } from '../shared/status';
-
-/**
- * A duration where the interesting range spans four orders of magnitude.
- *
- * `formatDuration` next door is `m:ss` and is right for a record; it is useless here, where the
- * honest answers are "3ms" and "19.2s" on adjacent rows. Sub-second stays in milliseconds because a
- * plugin call that took 40ms and one that took 400 are a different conversation, and anything past a
- * second rounds to a tenth because nobody reading a 19-second generation cares about its last 43.
- */
-function formatSpent(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-
-    return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
-}
+import { formatSpent } from '../shared/format.spent';
 
 /**
  * What the station did, decision by decision, and what each one cost.

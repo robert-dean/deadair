@@ -3,6 +3,8 @@ import { AuthenticationRouter } from './authentication.router.js';
 import { AuthenticationSessionsRouter } from './authentication.sessions.router.js';
 import { AuthenticationApikeysRouter } from './authentication.apikeys.router.js';
 import { ActivityRouter } from './activity.router.js';
+import { MetricsRouter } from './metrics.router.js';
+import { MetricsOtlpRouter } from './metrics.otlp.router.js';
 import { HistoryRouter } from './history.router.js';
 import { ArtBreaksRouter } from './art.breaks.router.js';
 import { ArtPersonasRouter } from './art.personas.router.js';
@@ -68,6 +70,8 @@ export const routers = [
     ArtPersonasRouter,
     ArtRouter,
     ActivityRouter,
+    MetricsRouter,
+    MetricsOtlpRouter,
     HistoryRouter,
     CatalogRouter,
     ChartsRouter,

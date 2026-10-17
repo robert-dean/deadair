@@ -244,6 +244,12 @@ export const queryKeys = {
          */
         log: (id: string, level: string | undefined) => ['station', 'log', id, level ?? 'all'] as const,
     },
+    metrics: {
+        /** Trends over a range ending now. Keyed on the range rather than the instant: see `useMetricSeries`. */
+        series: (names: readonly string[], range: string) => ['metrics', 'series', names.join(','), range] as const,
+        /** Every metric held. One key: it is a reading of the whole table. */
+        names: () => ['metrics', 'names'] as const,
+    },
     playlists: {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,

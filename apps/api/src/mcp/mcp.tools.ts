@@ -12,6 +12,7 @@ import { registerEventsMcpCatalog, registerEventsMcpToolClasses } from './events
 import { registerHistoryMcpCatalog, registerHistoryMcpToolClasses } from './history.mcp.js';
 import { registerLanguagesMcpCatalog, registerLanguagesMcpToolClasses } from './languages.mcp.js';
 import { registerMessagingMcpCatalog, registerMessagingMcpToolClasses } from './messaging.mcp.js';
+import { registerMetricsMcpCatalog, registerMetricsMcpToolClasses } from './metrics.mcp.js';
 import { registerNarrationsMcpCatalog, registerNarrationsMcpToolClasses } from './narrations.mcp.js';
 import { registerNewsMcpCatalog, registerNewsMcpToolClasses } from './news.mcp.js';
 import { registerNowplayingMcpTools, registerNowplayingMcpCatalog, registerNowplayingMcpToolClasses } from './nowplaying.mcp.js';
@@ -82,6 +83,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerHistoryMcpCatalog(map, container);
     registerLanguagesMcpCatalog(map, container);
     registerMessagingMcpCatalog(map, container);
+    registerMetricsMcpCatalog(map, container);
     registerNarrationsMcpCatalog(map, container);
     registerNewsMcpCatalog(map, container);
     registerNowplayingMcpCatalog(map, container);
@@ -126,6 +128,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerHistoryMcpToolClasses(registry);
     registerLanguagesMcpToolClasses(registry);
     registerMessagingMcpToolClasses(registry);
+    registerMetricsMcpToolClasses(registry);
     registerNarrationsMcpToolClasses(registry);
     registerNewsMcpToolClasses(registry);
     registerNowplayingMcpToolClasses(registry);

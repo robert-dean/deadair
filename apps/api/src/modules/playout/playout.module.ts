@@ -2,6 +2,8 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { MetricsRecorder } from '@maroonedsoftware/telemetry';
+import { METRICS } from '#modules/metrics/metric.names.js';
 import { TrackAudioRepository } from './audio/track.audio.repository.js';
 import { TrackAudioService } from './audio/track.audio.service.js';
 import { TrackCachePlanner } from './audio/track.cache.planner.js';
@@ -29,6 +31,9 @@ import { Rundown } from './rundown.js';
  * env, exactly like `ART_DIR` and `SEGMENT_DIR` beside it.
  */
 const DEFAULT_TRACKS_DIR = './media/tracks';
+
+/** Unregisters the audience gauge at shutdown, so a stopped watch is not sampled as a reading. */
+let stopAudienceGauge: (() => void) | undefined;
 
 /**
  * The station's transport: the running order, and the loop that drains it into
@@ -164,6 +169,10 @@ export const PlayoutModule: ServerKitModule = {
         // on its reading: the mount it watches was pushed into the stats client by
         // StreamModule.ready, which has already run.
         container.get(AudienceWatch).start();
+        // The audience over time. Sampled by the metrics flusher once a minute, after the watch has
+        // started so the first sample can already be a reading.
+        const audience = container.get(AudienceWatch);
+        stopAudienceGauge = container.get(MetricsRecorder).gauge(METRICS.listeners, () => audience.measuredListenerCount());
 
         // After the plugins have loaded, which is all it reads on the edge.
         container.get(ProviderPlaybackReporter).start();
@@ -173,6 +182,8 @@ export const PlayoutModule: ServerKitModule = {
         container.get(AudioChainWatch).stop();
         container.get(PlayoutPusher).stop();
         container.get(AudienceWatch).stop();
+        stopAudienceGauge?.();
+        stopAudienceGauge = undefined;
         container.get(ProviderPlaybackReporter).stop();
     },
 };

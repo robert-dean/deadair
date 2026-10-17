@@ -30,6 +30,8 @@ export type JobNames =
     | 'render.prune_share_copies'
     | 'storage.sweep_orphans'
     | 'activity.prune_events'
+    | 'metrics.rollup'
+    | 'metrics.prune'
     | 'oauth.expire_clients'
     | 'station.check_releases'
     | 'scrobble.flush'

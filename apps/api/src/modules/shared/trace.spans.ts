@@ -88,6 +88,43 @@ export interface TraceSpan {
     detail?: Record<string, unknown>;
 }
 
+/**
+ * A span as a listener receives it: what the caller recorded, when, and the decision it ran inside.
+ *
+ * `trace` is absent for work outside any decision (a timer's plugin call, boot), which the file never
+ * records but a listener may still want to count.
+ */
+export interface RecordedSpan extends TraceSpan {
+    /** When the span was filed, which is when the call ended. Epoch milliseconds. */
+    endedAt: number;
+    trace?: { id: string; kind: string; parent?: string };
+}
+
+/** Something told about every span as it is filed. See {@link onSpan}. */
+export type SpanListener = (span: RecordedSpan) => void;
+
+const listeners = new Set<SpanListener>();
+
+/**
+ * Be told about every span, inside a decision or not, as it is filed.
+ *
+ * The seam the metrics module reads work durations, model tokens and failures off, so that no call
+ * site measures anything twice: every place that times its work already does it here. Module state
+ * on {@link setTraceRoot}'s argument.
+ *
+ * A listener runs synchronously inside {@link recordSpan}, so it must be cheap (an in-memory
+ * observation, never I/O), and one that throws is swallowed on this file's rule that nothing here may
+ * cost the caller its work.
+ *
+ * @returns A function that stops the listener.
+ */
+export function onSpan(listener: SpanListener): () => void {
+    listeners.add(listener);
+    return () => {
+        listeners.delete(listener);
+    };
+}
+
 let root: string | undefined;
 
 /**
@@ -122,6 +159,25 @@ let queue: Promise<void> = Promise.resolve();
  */
 export function recordSpan(span: TraceSpan): void {
     const trace = currentTrace();
+
+    if (listeners.size > 0) {
+        const recorded: RecordedSpan = {
+            ...span,
+            endedAt: Date.now(),
+            ...(trace === undefined
+                ? {}
+                : { trace: { id: trace.id, kind: trace.kind, ...(trace.parent === undefined ? {} : { parent: trace.parent }) } }),
+        };
+        for (const listener of listeners) {
+            try {
+                listener(recorded);
+            } catch {
+                // Swallowed in silence, like a failed write below: a listener is somebody else's
+                // bookkeeping, and the call this span describes has already happened.
+            }
+        }
+    }
+
     if (trace === undefined || root === undefined) return;
 
     // `parent` is carried on every span rather than written once per decision, which costs about

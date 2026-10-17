@@ -458,6 +458,21 @@ export interface DeadairMessagingLinkCodes {
   expiresAt: DateTime;
 }
 
+export interface DeadairMetricSamples {
+  bucket: DateTime;
+  count: number;
+  labels: Generated<Json>;
+  labelsKey: string;
+  last: number;
+  max: number;
+  min: number;
+  name: string;
+  resolution: "minute" | "hour";
+  source: Generated<string>;
+  stationKey: Generated<string>;
+  sum: number;
+}
+
 export interface DeadairNarrationPieces {
   airedAt: DateTime | null;
   artworkUrl: string | null;
@@ -1315,6 +1330,7 @@ export interface DB {
   "deadair.messagingCursors": DeadairMessagingCursors;
   "deadair.messagingIdentities": DeadairMessagingIdentities;
   "deadair.messagingLinkCodes": DeadairMessagingLinkCodes;
+  "deadair.metricSamples": DeadairMetricSamples;
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;

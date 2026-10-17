@@ -53,6 +53,10 @@ fun SignInScreen(
     /** "Forgot your password?": a reset link to the address typed. */
     onForgotPassword: () -> Unit,
     onStartAgain: () -> Unit,
+    /** "Email me a code instead", from the authenticator step. */
+    onUseEmail: () -> Unit,
+    /** "Send it again", for an emailed code. */
+    onSendAgain: () -> Unit,
 ) {
     Scaffold { padding ->
         Box(
@@ -84,6 +88,8 @@ fun SignInScreen(
                     onSignIn = onSignIn,
                     onForgotPassword = onForgotPassword,
                     onStartAgain = onStartAgain,
+                    onUseEmail = onUseEmail,
+                    onSendAgain = onSendAgain,
                 )
             }
         }

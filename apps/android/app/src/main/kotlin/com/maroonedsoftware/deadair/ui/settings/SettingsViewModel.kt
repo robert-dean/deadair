@@ -209,15 +209,47 @@ class SettingsViewModel(
 
         _account.value = current.copy(busy = true, error = null)
         viewModelScope.launch {
-            val challenge = current.challenge
+            val email = current.email.trim()
             val answer =
-                if (challenge == null) {
-                    sessions.signIn(station, current.email.trim(), current.password)
-                } else {
-                    sessions.completeSecondFactor(station, current.email.trim(), challenge.challengeId, challenge.methodId, current.code.trim())
+                when (val challenge = current.challenge) {
+                    null -> sessions.signIn(station, email, current.password)
+                    is SecondFactor.Authenticator ->
+                        sessions.completeSecondFactor(station, email, challenge.challengeId, challenge.methodId, current.code.trim())
+                    is SecondFactor.Email ->
+                        sessions.completeEmailCode(station, email, challenge.challengeId, challenge.emailChallengeId ?: return@launch, current.code.trim())
                 }
             _account.value = AccountState.from(_account.value, answer)
+            sendCodeIfNeeded()
         }
+    }
+
+    /** "Email me a code instead", from the authenticator step. */
+    fun useEmail() {
+        _account.value = AccountState.usingEmail(_account.value)
+        viewModelScope.launch { sendCodeIfNeeded() }
+    }
+
+    /** "Send it again", for an emailed code that has not arrived. */
+    fun sendCodeAgain() {
+        _account.value = AccountState.sendingAgain(_account.value)
+        viewModelScope.launch { sendCodeIfNeeded() }
+    }
+
+    /**
+     * Ask the station to email the code the screen is waiting on, if it is waiting on one.
+     *
+     * Driven by the state rather than by whoever called, so the three ways into it (a challenge that
+     * leads with email, choosing email, sending again) cannot disagree about when a send is due.
+     */
+    private suspend fun sendCodeIfNeeded() {
+        val station = settings.value?.station ?: return
+        val waiting = _account.value
+        if (!AccountState.needsCodeSent(waiting)) return
+        val challenge = waiting.challenge as? SecondFactor.Email ?: return
+        val result = sessions.sendEmailCode(station, challenge.challengeId)
+        // The challenge may have been abandoned while the send was in flight.
+        if (_account.value.challenge?.challengeId != challenge.challengeId) return
+        _account.value = AccountState.fromCodeSent(_account.value, result)
     }
 
     /**

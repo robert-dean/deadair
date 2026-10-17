@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui
 
+import com.maroonedsoftware.deadair.auth.CodeSendResult
 import com.maroonedsoftware.deadair.auth.ResetResult
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorKind
@@ -92,7 +93,7 @@ class AccountStateTest {
     fun `a challenge moves to the code step and drops the password`() {
         val next = AccountState.from(typed, SignInResult.SecondFactorNeeded("c_1", listOf(factor(AuthenticationFactorMethod.AUTHENTICATOR, "totp-1"))))
 
-        assertEquals(SecondFactor("c_1", "totp-1"), next.challenge)
+        assertEquals(SecondFactor.Authenticator("c_1", "totp-1"), next.challenge)
         assertEquals("operator@example.com", next.email)
         assertEquals("", next.password)
         assertFalse(next.busy)
@@ -111,13 +112,14 @@ class AccountStateTest {
                 listOf(factor(AuthenticationFactorMethod.EMAIL, "email-1"), factor(AuthenticationFactorMethod.AUTHENTICATOR, "totp-1")),
             )
 
-        assertEquals(SecondFactor("c_1", "totp-1"), AccountState.from(typed, challenge).challenge)
+        // The email factor rides along as the way out for somebody without their authenticator.
+        assertEquals(SecondFactor.Authenticator("c_1", "totp-1", SecondFactor.Email("c_1")), AccountState.from(typed, challenge).challenge)
     }
 
     @Test
     fun `says so when the account's second factor is not one this app can answer`() {
-        // Better than a code box that would refuse every code.
-        val challenge = SignInResult.SecondFactorNeeded("c_1", listOf(factor(AuthenticationFactorMethod.EMAIL, "email-1")))
+        // Better than a code box that would refuse every code. A passkey needs a WebAuthn assertion.
+        val challenge = SignInResult.SecondFactorNeeded("c_1", listOf(factor(AuthenticationFactorMethod.FIDO, "fido-1")))
 
         val next = AccountState.from(typed, challenge)
 
@@ -126,8 +128,92 @@ class AccountStateTest {
     }
 
     @Test
+    fun `an account with email and a passkey is sent a code rather than refused`() {
+        // The account that reported this: an email factor and a passkey, and no authenticator.
+        val challenge =
+            SignInResult.SecondFactorNeeded(
+                "c_1",
+                listOf(
+                    MfaChallengeFactor(AuthenticationFactorMethod.EMAIL, "email-1", AuthenticationFactorKind.POSSESSION, label = "o•••@example.com"),
+                    factor(AuthenticationFactorMethod.FIDO, "fido-1"),
+                ),
+            )
+
+        val next = AccountState.from(typed, challenge)
+
+        assertEquals(SecondFactor.Email("c_1", sentTo = "o•••@example.com"), next.challenge)
+        assertNull(next.error)
+        assertEquals("", next.password)
+        // Busy until the station says it sent one, and the view model sends it because of that.
+        assertTrue(AccountState.needsCodeSent(next))
+        assertFalse(next.copy(code = "123456").canSubmit)
+    }
+
+    @Test
+    fun `a sent code gives the box something to answer`() {
+        val sending = AccountState(email = "operator@example.com", challenge = SecondFactor.Email("c_1"), busy = true)
+
+        val next = AccountState.fromCodeSent(sending, CodeSendResult.Sent("e_1"))
+
+        assertEquals(SecondFactor.Email("c_1", emailChallengeId = "e_1"), next.challenge)
+        assertFalse(next.busy)
+        assertFalse(AccountState.needsCodeSent(next))
+        assertTrue(next.copy(code = "123456").canSubmit)
+    }
+
+    @Test
+    fun `a send that cannot happen says why, and an expired one ends the round`() {
+        val sending = AccountState(email = "operator@example.com", challenge = SecondFactor.Email("c_1"), busy = true)
+
+        assertEquals(Message.CodeNoMail, AccountState.fromCodeSent(sending, CodeSendResult.NoMail).error)
+        assertEquals(Message.CouldNotSendCode, AccountState.fromCodeSent(sending, CodeSendResult.Failed("boom")).error)
+        val expired = AccountState.fromCodeSent(sending, CodeSendResult.ChallengeExpired)
+        assertNull(expired.challenge)
+        assertEquals(Message.SignInExpired, expired.error)
+        assertEquals("operator@example.com", expired.email)
+    }
+
+    @Test
+    fun `a refused emailed code says to check the email rather than wait`() {
+        val challenged = AccountState(email = "operator@example.com", code = "000000", challenge = SecondFactor.Email("c_1", emailChallengeId = "e_1"), busy = true)
+
+        val next = AccountState.from(challenged, SignInResult.BadCredentials)
+
+        assertEquals(Message.EmailedCodeRefused, next.error)
+        assertEquals(challenged.challenge, next.challenge)
+        assertEquals("", next.code)
+    }
+
+    @Test
+    fun `choosing email keeps the challenge and asks for a send`() {
+        val email = SecondFactor.Email("c_1")
+        val challenged = AccountState(email = "operator@example.com", code = "12", challenge = SecondFactor.Authenticator("c_1", "totp-1", email))
+
+        val next = AccountState.usingEmail(challenged)
+
+        assertEquals(email, next.challenge)
+        assertEquals("", next.code)
+        assertTrue(AccountState.needsCodeSent(next))
+        // Without an email factor there is nothing to switch to.
+        val alone = AccountState(email = "operator@example.com", challenge = SecondFactor.Authenticator("c_1", "totp-1"))
+        assertEquals(alone, AccountState.usingEmail(alone))
+    }
+
+    @Test
+    fun `sending again waits for the new send before taking a code`() {
+        val sent = AccountState(email = "operator@example.com", code = "123456", challenge = SecondFactor.Email("c_1", emailChallengeId = "e_1"))
+
+        val again = AccountState.sendingAgain(sent)
+
+        assertTrue(AccountState.needsCodeSent(again))
+        assertFalse(again.canSubmit)
+        // Not twice while the station is answering.
+        assertEquals(again, AccountState.sendingAgain(again))
+    }
+
+    @Test
     fun `will not send a code shorter than the station will take`() {
-        val challenged = AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1"))
+        val challenged = AccountState(email = "operator@example.com", challenge = SecondFactor.Authenticator("c_1", "totp-1"))
 
         assertFalse(challenged.copy(code = "123").canSubmit)
         assertTrue(challenged.copy(code = "123456").canSubmit)
@@ -138,19 +224,19 @@ class AccountStateTest {
     fun `a refused code is not a refused password`() {
         // On the code step the email and password were accepted a moment ago, and saying they were
         // not sends somebody to check the one thing already known to be right.
-        val challenged = AccountState(email = "operator@example.com", code = "000000", challenge = SecondFactor("c_1", "totp-1"), busy = true)
+        val challenged = AccountState(email = "operator@example.com", code = "000000", challenge = SecondFactor.Authenticator("c_1", "totp-1"), busy = true)
 
         val next = AccountState.from(challenged, SignInResult.BadCredentials)
 
         assertEquals(Message.CodeRefused, next.error)
         assertEquals("", next.code)
         // Still on the code step: another code from the same authenticator will work.
-        assertEquals(SecondFactor("c_1", "totp-1"), next.challenge)
+        assertEquals(SecondFactor.Authenticator("c_1", "totp-1"), next.challenge)
     }
 
     @Test
     fun `an expired challenge and a refused factor both end the round`() {
-        val challenged = AccountState(email = "operator@example.com", code = "123456", challenge = SecondFactor("c_1", "totp-1"), busy = true)
+        val challenged = AccountState(email = "operator@example.com", code = "123456", challenge = SecondFactor.Authenticator("c_1", "totp-1"), busy = true)
 
         // Neither can be answered by trying harder, so the code box goes away rather than inviting
         // another attempt that cannot work.
@@ -167,7 +253,7 @@ class AccountStateTest {
 
     @Test
     fun `starting again keeps the email and nothing else`() {
-        val challenged = AccountState(email = "operator@example.com", code = "123456", challenge = SecondFactor("c_1", "totp-1"))
+        val challenged = AccountState(email = "operator@example.com", code = "123456", challenge = SecondFactor.Authenticator("c_1", "totp-1"))
 
         assertEquals(AccountState(email = "operator@example.com"), AccountState.startAgain(challenged))
     }

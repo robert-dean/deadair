@@ -5,6 +5,9 @@ import com.maroonedsoftware.deadair.sdk.models.AuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenIssued
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenResponse
 import com.maroonedsoftware.deadair.sdk.models.AuthenticatorAuthenticationRequest
+import com.maroonedsoftware.deadair.sdk.models.CodeAuthenticationRequest
+import com.maroonedsoftware.deadair.sdk.models.FactorChallengeEmailStart
+import com.maroonedsoftware.deadair.sdk.models.FactorChallengeEmailStartResponse
 import com.maroonedsoftware.deadair.sdk.models.LinkAuthenticationLoginStart
 import com.maroonedsoftware.deadair.sdk.models.LinkAuthenticationLoginStartPurpose
 import com.maroonedsoftware.deadair.sdk.models.MfaChallengeFactor
@@ -30,7 +33,6 @@ import kotlinx.coroutines.sync.withLock
 /** Nothing is signed in, so the call that needed a session was never made. */
 class NotSignedInException : Exception("Not signed in to this station")
 
-/** What came of offering an email and a password, or a code against a pending challenge. */
 /**
  * What the station said to "Forgot your password?".
  *
@@ -49,6 +51,25 @@ sealed interface ResetResult {
     data class Failed(val message: String?) : ResetResult
 }
 
+/**
+ * What came of asking the station to email a code for a pending challenge.
+ *
+ * [Sent] carries the email challenge's id, which the code grant has to echo back: an emailed code
+ * is bound to the message the station sent rather than to an enrolled factor's method id.
+ */
+sealed interface CodeSendResult {
+    data class Sent(val emailChallengeId: String) : CodeSendResult
+
+    /** The pending sign-in expired before the code could be sent. Only the password step again can fix it. */
+    data object ChallengeExpired : CodeSendResult
+
+    /** The station has no mail server to send through. */
+    data object NoMail : CodeSendResult
+
+    data class Failed(val message: String?) : CodeSendResult
+}
+
+/** What came of offering an email and a password, or a code against a pending challenge. */
 sealed interface SignInResult {
     data object Ok : SignInResult
 
@@ -65,7 +86,7 @@ sealed interface SignInResult {
      * throwing: a client reading the status alone sees a successful sign-in with no token in it.
      * The challenge is satisfied by posting a proof grant carrying [challengeId], and [factors]
      * lists every factor that would satisfy it — of which this app can answer the authenticator
-     * and nothing else. See `authenticatorFactors`.
+     * and the emailed code. See `ChallengeFactors.kt`.
      */
     data class SecondFactorNeeded(val challengeId: String, val factors: List<MfaChallengeFactor>) : SignInResult
 
@@ -214,10 +235,49 @@ class SessionManager(
         challengeId: String,
         methodId: String,
         code: String,
-    ): SignInResult {
+    ): SignInResult = answerChallenge(station, email, AuthenticatorAuthenticationRequest(code = code, mfaChallengeId = challengeId, methodId = methodId))
+
+    /**
+     * Ask the station to email a one-time code for a pending challenge.
+     *
+     * Safe to call again: that is "Send it again", and the station re-sends the same code rather
+     * than suppressing it, because the reason somebody presses it is that the first never arrived.
+     */
+    suspend fun sendEmailCode(station: StationUrl, challengeId: String): CodeSendResult =
+        try {
+            when (val started = sdkFor(station) { emptyMap() }.authenticationFactor.startFactorChallenge(FactorChallengeEmailStart(mfaChallengeId = challengeId))) {
+                is FactorChallengeEmailStartResponse -> CodeSendResult.Sent(started.emailChallengeId)
+                else -> CodeSendResult.Failed("The station answered with a factor this app did not ask for")
+            }
+        } catch (error: SdkError) {
+            when (error.status) {
+                UNAUTHORIZED -> CodeSendResult.ChallengeExpired
+                SERVICE_UNAVAILABLE -> CodeSendResult.NoMail
+                else -> CodeSendResult.Failed(error.message)
+            }
+        } catch (error: Exception) {
+            CodeSendResult.Failed(error.message)
+        }
+
+    /**
+     * Answer a pending challenge with a code the station emailed.
+     *
+     * A different grant from the authenticator's: the code is bound to [emailChallengeId], the
+     * message [sendEmailCode] asked for, rather than to an enrolled factor.
+     */
+    suspend fun completeEmailCode(
+        station: StationUrl,
+        email: String,
+        challengeId: String,
+        emailChallengeId: String,
+        code: String,
+    ): SignInResult = answerChallenge(station, email, CodeAuthenticationRequest(code = code, mfaChallengeId = challengeId, challengeId = emailChallengeId))
+
+    /** Post a proof grant against a pending challenge, and read the station's refusal for what it is. */
+    private suspend fun answerChallenge(station: StationUrl, email: String, request: AuthenticationRequest): SignInResult {
         val answer =
             try {
-                requestToken(station, AuthenticatorAuthenticationRequest(code = code, mfaChallengeId = challengeId, methodId = methodId))
+                requestToken(station, request)
             } catch (error: SdkError) {
                 if (error.status !in CREDENTIAL_REFUSALS) return SignInResult.Failed(error.message)
                 // Three different refusals arrive as one status, and the station names which in

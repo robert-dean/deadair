@@ -101,9 +101,15 @@ sealed interface Message {
 
     data object CodeRefused : Message
 
+    data object EmailedCodeRefused : Message
+
     data object SignInExpired : Message
 
     data object FactorRefused : Message
+
+    data object CouldNotSendCode : Message
+
+    data object CodeNoMail : Message
 
     data object NoRefreshToken : Message
 

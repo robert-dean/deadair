@@ -50,12 +50,12 @@ describe('RollupMetricsJob', () => {
     });
 
     it('folds the last few complete hours, oldest first, and never the one still running', async () => {
-        const metrics = { rollupHour: vi.fn(async () => 2) };
+        const metrics = { rollupHour: vi.fn(async (_hour: DateTime) => 2) };
         const job = new RollupMetricsJob(metrics as never, { id: 'job-1' } as never, {} as never, logger() as never);
 
         await job.run();
 
-        const hours = metrics.rollupHour.mock.calls.map(([hour]) => (hour as DateTime).toISO());
+        const hours = metrics.rollupHour.mock.calls.map(([hour]) => hour.toISO());
         expect(hours).toEqual(['2026-10-16T09:00:00.000Z', '2026-10-16T10:00:00.000Z', '2026-10-16T11:00:00.000Z']);
         expect(hours).toHaveLength(ROLLUP_HOURS);
     });

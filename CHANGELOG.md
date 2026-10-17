@@ -9,6 +9,17 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.70.0] — 2026-10-17
+
+- The station keeps its numbers over time. Its listener count is recorded once a minute into a new `metric_samples` table, folded into hourly rows every hour, and kept for a week at the minute and thirteen months by the hour. Both windows are housekeeping settings, and zero keeps everything. Nothing reads the table yet: the trends page and the work, model and backlog numbers come next.
+- The station can send its numbers to your own OpenTelemetry collector. Settings has a Telemetry section: name a collector (OTLP over HTTP), add any headers it needs (kept encrypted, like a password), and each minute's listeners, work, model and library numbers go there as well as to the Trends tab. A collector that is down is logged once and never holds up the station.
+- The station can keep your other services' metrics beside its own. Turn on "Take metrics from other services" under Settings, Telemetry, and point an OpenTelemetry exporter (OTLP over HTTP, JSON) at the station's address followed by `/api/otlp` with an operator's API key. What arrives is kept like the station's own numbers and drawn on the Trends tab under "From your other services", one metric at a time. Each metric keeps at most 50 label sets by default, so a service that labels every request cannot fill the disk. The Trends charts also draw a lone reading as a dot rather than leaving it invisible.
+- The station can send its traces to the same OpenTelemetry collector as its metrics: every job as a trace, with the plugin and model calls it made inside it and a link to the job that queued it, sent once a minute. On whenever a collector is named, with its own switch under Settings, Telemetry.
+- The station's numbers can be read back: `GET /metrics/series` answers any of them over a range, by the minute for two days or less and by the hour beyond, and `GET /metrics/names` lists every metric it holds with its labels. Both need a signed-in listener or operator, like Check-up. The SDKs carry them as `sdk.metrics.readMetricSeries` and `sdk.metrics.readMetricNames`.
+- Check-up has a Trends tab: the station's numbers over 6 hours, a day, a week, a month or a year. It shows how many were listening (now, at most and on average), how many tokens the model read and wrote and how often a call failed, which job queues and plugin calls took the time, and how the library's cached and measured counts and the media on disk have grown. A stretch the station was not running shows as a gap, and each section loads on its own, so one that cannot be read leaves the rest of the page working.
+- The station's numbers now include its work and its model: how long each job queue, plugin call and model call took, how many tokens each kind of decision asked the model for, how many of them failed, and, as they change over the day, the library's size, cached and measured counts, the model's queue and the media on disk. They are read off the timings the station already kept, so nothing is measured twice.
+- Services using OpenTelemetry's JavaScript SDK can now send their metrics to the station. Its exporter streams each request without a declared length, and the station refused those with 411; it now takes them like any other.
+
 ## [0.69.1] — 2026-10-15
 
 - The Rhapsode settings page draws again when two engines hold a voice (or a build) with the same id: it is offered once, labelled with every engine that holds it, and the station drops a repeated value from any plugin's suggestions rather than letting it fail the whole page.
@@ -1468,7 +1479,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.69.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.70.0...HEAD
+[0.70.0]: https://github.com/robert-dean/deadair/compare/v0.69.1...v0.70.0
 [0.69.1]: https://github.com/robert-dean/deadair/compare/v0.69.0...v0.69.1
 [0.69.0]: https://github.com/robert-dean/deadair/compare/v0.68.1...v0.69.0
 [0.68.1]: https://github.com/robert-dean/deadair/compare/v0.68.0...v0.68.1

@@ -382,6 +382,7 @@ private fun Listener(
                             onPasswordChange = model::onPasswordChange,
                             onCodeChange = model::onCodeChange,
                             onSignIn = model::signIn,
+                            onForgotPassword = model::askForReset,
                             onStartAgain = model::startAgain,
                         )
                     }

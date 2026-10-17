@@ -182,6 +182,16 @@
     <string name="account_second_factor_unsupported">This account\'s second factor is not one this app can answer. Sign in on the console instead.</string>
     <string name="account_no_refresh_token">The station issued no refresh token</string>
 
+    <!-- A forgotten password -->
+    <string name="forgot_password">Forgot your password?</string>
+    <string name="reset_sent_title">Check your inbox</string>
+    <string name="reset_sent_detail">If %1$s has an account on this station, a link to choose a new password is on its way. It opens the station in your browser. Then come back and sign in here with the new password.</string>
+    <string name="back_to_sign_in">Back to sign in</string>
+    <string name="reset_needs_email">Enter your email address first</string>
+    <string name="reset_too_many">That address has been sent enough links for now. Try again in a few minutes.</string>
+    <string name="reset_no_mail">The station cannot send email, so it cannot send a link. Ask whoever runs it.</string>
+    <string name="reset_could_not_reach">Could not reach the station to send a link</string>
+
     <!-- The second factor -->
     <string name="second_factor_title">One more step</string>
     <string name="second_factor_detail">Enter the code from your authenticator app.</string>

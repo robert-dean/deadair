@@ -453,4 +453,39 @@ class SessionManagerTest {
 
         assertEquals(SessionState.SignedOut, manager.state.first())
     }
+
+    // ── A forgotten password ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `asks the station for a sign-in link worded as a reset, with no bearer`() = runTest {
+        val (manager, engine) = managerOver(FakeStore(null), backgroundScope) {
+            json("""{"grant_type":"link","challengeId":"c-1","expiresAt":"2026-10-17T20:00:00Z"}""")
+        }
+
+        assertEquals(ResetResult.Sent, manager.askForReset(station, "operator@example.com"))
+
+        val request = engine.requestHistory.single()
+        assertTrue(request.url.encodedPath.endsWith("/auth/login/start"))
+        assertNull(request.headers[HttpHeaders.Authorization])
+        val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+        assertTrue(body, body.contains(""""grant_type":"link""""))
+        assertTrue(body, body.contains(""""email":"operator@example.com""""))
+        assertTrue(body, body.contains(""""purpose":"reset""""))
+    }
+
+    @Test
+    fun `says when the address has been sent enough, and when the station cannot send at all`() = runTest {
+        val (limited, _) = managerOver(FakeStore(null), backgroundScope) { respondError(HttpStatusCode.TooManyRequests) }
+        val (noMail, _) = managerOver(FakeStore(null), backgroundScope) { respondError(HttpStatusCode.ServiceUnavailable) }
+
+        assertEquals(ResetResult.TooMany, limited.askForReset(station, "operator@example.com"))
+        assertEquals(ResetResult.NoMail, noMail.askForReset(station, "operator@example.com"))
+    }
+
+    @Test
+    fun `reports a station it cannot reach as a failure rather than a sent link`() = runTest {
+        val (manager, _) = managerOver(FakeStore(null), backgroundScope) { throw IOException("no route") }
+
+        assertTrue(manager.askForReset(station, "operator@example.com") is ResetResult.Failed)
+    }
 }

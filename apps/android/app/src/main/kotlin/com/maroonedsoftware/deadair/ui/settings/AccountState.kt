@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import com.maroonedsoftware.deadair.auth.ResetResult
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.auth.authenticatorFactors
 import com.maroonedsoftware.deadair.ui.text.Message
@@ -37,6 +38,11 @@ data class AccountState(
     val challenge: SecondFactor? = null,
     val busy: Boolean = false,
     val error: Message? = null,
+    /**
+     * The address a password-reset link was asked for, once the station has answered. Set, the
+     * screen says to check that inbox instead of drawing the form.
+     */
+    val resetSentTo: String? = null,
 ) {
     /**
      * Enough typed to be worth sending. Not validation: the station decides, and it is the only one
@@ -73,6 +79,32 @@ data class AccountState(
          * than inviting another code that cannot work.
          */
         fun startAgain(current: AccountState): AccountState = AccountState(email = current.email)
+
+        /**
+         * Asking for a password-reset link: busy, or told why not.
+         *
+         * Only the address is needed, the password being what this is instead of. With none typed
+         * the answer is to type one, decided here rather than by sending a blank address to the
+         * station to be told so.
+         */
+        fun askingReset(current: AccountState): AccountState =
+            when {
+                current.busy -> current
+                current.email.isBlank() -> current.copy(error = Message.ResetNeedsEmail)
+                else -> current.copy(busy = true, error = null)
+            }
+
+        /**
+         * What the fields show once the station has answered a reset request. Sent leaves the form
+         * for the check-your-inbox state, keeping the email for when they come back to sign in.
+         */
+        fun fromReset(current: AccountState, result: ResetResult): AccountState =
+            when (result) {
+                ResetResult.Sent -> AccountState(email = current.email, resetSentTo = current.email.trim())
+                ResetResult.TooMany -> current.copy(busy = false, error = Message.ResetTooMany)
+                ResetResult.NoMail -> current.copy(busy = false, error = Message.ResetNoMail)
+                is ResetResult.Failed -> current.copy(busy = false, error = Message.CouldNotReachToReset)
+            }
 
         /**
          * Turn the station's answer into what the fields show next.

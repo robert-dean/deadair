@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui
 
+import com.maroonedsoftware.deadair.auth.ResetResult
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorKind
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorMethod
@@ -169,5 +170,48 @@ class AccountStateTest {
         val challenged = AccountState(email = "operator@example.com", code = "123456", challenge = SecondFactor("c_1", "totp-1"))
 
         assertEquals(AccountState(email = "operator@example.com"), AccountState.startAgain(challenged))
+    }
+
+    // ── A forgotten password ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a reset needs only the address, and says so when there is none`() {
+        assertEquals(Message.ResetNeedsEmail, AccountState.askingReset(AccountState()).error)
+        assertFalse(AccountState.askingReset(AccountState()).busy)
+
+        val asking = AccountState.askingReset(AccountState(email = "operator@example.com"))
+        assertTrue(asking.busy)
+        assertNull(asking.error)
+    }
+
+    @Test
+    fun `a reset is not asked twice while the station is answering`() {
+        val busy = AccountState(email = "operator@example.com", busy = true)
+
+        assertEquals(busy, AccountState.askingReset(busy))
+    }
+
+    @Test
+    fun `a sent link leaves the form for the inbox, keeping the address for coming back`() {
+        val sent = AccountState.fromReset(AccountState(email = " operator@example.com ", password = "half typed", busy = true), ResetResult.Sent)
+
+        assertEquals("operator@example.com", sent.resetSentTo)
+        assertEquals(" operator@example.com ", sent.email)
+        assertEquals("", sent.password)
+        assertFalse(sent.busy)
+        assertEquals(AccountState(email = " operator@example.com "), AccountState.startAgain(sent))
+    }
+
+    @Test
+    fun `a refused reset says why and keeps what was typed`() {
+        val asking = AccountState(email = "operator@example.com", password = "x", busy = true)
+
+        assertEquals(Message.ResetTooMany, AccountState.fromReset(asking, ResetResult.TooMany).error)
+        assertEquals(Message.ResetNoMail, AccountState.fromReset(asking, ResetResult.NoMail).error)
+        val failed = AccountState.fromReset(asking, ResetResult.Failed("timeout"))
+        assertEquals(Message.CouldNotReachToReset, failed.error)
+        assertEquals("x", failed.password)
+        assertFalse(failed.busy)
+        assertNull(failed.resetSentTo)
     }
 }

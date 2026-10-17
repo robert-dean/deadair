@@ -221,6 +221,23 @@ class SettingsViewModel(
     }
 
     /**
+     * "Forgot your password?": ask the station to email a reset link to the address typed.
+     *
+     * The STORED station, for the reason [signIn] gives. The link opens the station's web console,
+     * so all this screen does afterwards is say to check the inbox.
+     */
+    fun askForReset() {
+        val station = settings.value?.station ?: return
+        val asking = AccountState.askingReset(_account.value)
+        _account.value = asking
+        if (!asking.busy) return
+        viewModelScope.launch {
+            val answer = sessions.askForReset(station, asking.email.trim())
+            _account.value = AccountState.fromReset(_account.value, answer)
+        }
+    }
+
+    /**
      * Abandon a pending challenge and go back to the password step.
      *
      * Nothing is told to the station: an MFA challenge is short-lived and single-use, and there is

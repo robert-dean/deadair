@@ -13,7 +13,7 @@
         <TextBlock Classes="dimmed" TextWrapping="Wrap"
                    Text="Listening needs no account. This is for the desk." />
 
-        <StackPanel Spacing="8" IsVisible="{Binding !NeedsCode}">
+        <StackPanel Spacing="8" IsVisible="{Binding ShowsPasswordStep}">
             <TextBox x:Name="EmailBox" Text="{Binding Email}" PlaceholderText="you@example.com" IsEnabled="{Binding !Busy}" />
             <!--
                 The reveal is here because a password almost never gets TYPED into this box. No
@@ -46,9 +46,20 @@
                      MaxLength="6" IsEnabled="{Binding !Busy}" />
         </StackPanel>
 
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <!-- After "Forgot your password?". The link opens the station's web console, not this app, so
+             the words say what to do after it, and Back returns to the form with the email kept. -->
+        <StackPanel Spacing="8" IsVisible="{Binding ResetSent}">
+            <TextBlock Text="Check your inbox" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ResetSentWords}" TextWrapping="Wrap" Classes="dimmed" />
+            <Button Classes="ghost" Content="Back to sign in" Command="{Binding CancelCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding !ResetSent}">
             <Button Classes="ghost" Content="Back" Command="{Binding CancelCommand}" IsVisible="{Binding NeedsCode}"
                     HorizontalAlignment="Left" />
+            <!-- Asks for nothing but the address above: the password is what it is instead of. -->
+            <Button Classes="ghost" Content="Forgot your password?" Command="{Binding ForgotPasswordCommand}"
+                    IsVisible="{Binding !NeedsCode}" IsEnabled="{Binding !Busy}" HorizontalAlignment="Left" />
             <Button Grid.Column="1" Classes="primary" Content="Sign in" Command="{Binding SubmitCommand}"
                     IsEnabled="{Binding !Busy}" />
         </Grid>

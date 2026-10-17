@@ -227,6 +227,7 @@ internal static class Pages
         yield return ("sidebar-update", Rail(operatorSignedIn: false, update: true), 1180, 720);
         yield return ("login", SignIn(revealed: false), 1180, 720);
         yield return ("login-revealed", SignIn(revealed: true), 1180, 720);
+        yield return ("login-reset-sent", ResetSent(), 1180, 720);
 
         // The first thing anybody sees, and the one frame with no shell behind it. The second has
         // the keyboard in the box, which is the only way to look at a focus ring.
@@ -787,6 +788,22 @@ internal static class Pages
         }
 
         return view;
+    }
+
+    /// <summary>
+    /// The sign-in step after "Forgot your password?": the check-your-inbox panel in place of the form,
+    /// with an address long enough to wrap.
+    /// </summary>
+    private static SetupView ResetSent()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        shell.Login.Email = "operator@example.com";
+        shell.Login.ResetSentTo = "operator@example.com";
+
+        var setup = new SetupViewModel(Fakes.Settings(), new StationProbe(new HttpClient(new AnswersAsAStation())));
+        setup.OpenSignIn("Deadair");
+
+        return new SetupView { DataContext = setup, Tag = shell };
     }
 
     /// <summary>What a first run opens on: the mark, the name and Find your station.</summary>

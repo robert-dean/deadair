@@ -95,6 +95,40 @@ public sealed class SessionManager : IDisposable
         }
     }
 
+    /// <summary>Asks the station to email a password-reset link to <paramref name="email"/>.</summary>
+    /// <remarks>
+    /// The link is the station's ordinary sign-in link worded as a reset: it signs the person in on the
+    /// station's web console and opens the password form there, so nothing about it comes back to this
+    /// app. After choosing a new password they sign in here with it as usual.
+    /// </remarks>
+    public async Task<ResetResult> AskForResetAsync(string email, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var sdk = Sdk();
+            await sdk.Authentication.StartLoginAsync(
+                new LinkAuthenticationLoginStart { Email = email, Purpose = LinkAuthenticationLoginStartPurpose.Reset },
+                cancellationToken).ConfigureAwait(false);
+            return new ResetResult.Sent();
+        }
+        catch (SdkException failure) when (failure.Status == 429)
+        {
+            return new ResetResult.TooMany();
+        }
+        catch (SdkException failure) when (failure.Status == 503)
+        {
+            return new ResetResult.NoMail();
+        }
+        catch (SdkException failure)
+        {
+            return new ResetResult.Failed(ApiError.Message(failure));
+        }
+        catch (HttpRequestException failure)
+        {
+            return new ResetResult.Failed(failure.Message);
+        }
+    }
+
     /// <summary>Answers a second-factor challenge with a code from an authenticator app.</summary>
     public async Task<SignInResult> CompleteSecondFactorAsync(
         string email,

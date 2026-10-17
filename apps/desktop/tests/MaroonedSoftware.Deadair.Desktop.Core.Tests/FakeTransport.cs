@@ -53,6 +53,9 @@ public sealed class FakeTransport : HttpMessageHandler
     /// </remarks>
     public (string Error, HttpStatusCode Status)? TokenRefusal { get; set; }
 
+    /// <summary>Makes `POST /auth/login/start` fail to connect, as an unreachable station does.</summary>
+    public bool LoginStartUnreachable { get; set; }
+
     /// <summary>How many token exchanges have happened.</summary>
     public int Exchanges => _exchanges;
 
@@ -83,6 +86,16 @@ public sealed class FakeTransport : HttpMessageHandler
         if (path.EndsWith("/auth/token", StringComparison.Ordinal))
         {
             return Token(body);
+        }
+
+        if (path.EndsWith("/auth/login/start", StringComparison.Ordinal))
+        {
+            if (LoginStartUnreachable)
+            {
+                throw new HttpRequestException("Connection refused");
+            }
+
+            return Json("""{"grant_type":"link","challengeId":"c_1","expiresAt":"2026-10-17T20:00:00.000Z"}""");
         }
 
         if (path.EndsWith("/auth/session", StringComparison.Ordinal))

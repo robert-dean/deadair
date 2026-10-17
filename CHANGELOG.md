@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.70.1] — 2026-10-17
+
+- Dependency updates: `@maroonedsoftware/comms` 0.3.0, `koa` 4.1.3, `servercore` 0.4.1, `discord` 2.1.1, `slack` 3.3.1, `telegram` 2.1.1 and `rhapsode-sdk` 0.1.27. The `comms` release only adds two optional fields to an incoming event, so nothing the station does changes.
+
 ## [0.70.0] — 2026-10-17
 
 - The station keeps its numbers over time. Its listener count is recorded once a minute into a new `metric_samples` table, folded into hourly rows every hour, and kept for a week at the minute and thirteen months by the hour. Both windows are housekeeping settings, and zero keeps everything. Nothing reads the table yet: the trends page and the work, model and backlog numbers come next.
@@ -1479,7 +1483,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.70.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.70.1...HEAD
+[0.70.1]: https://github.com/robert-dean/deadair/compare/v0.70.0...v0.70.1
 [0.70.0]: https://github.com/robert-dean/deadair/compare/v0.69.1...v0.70.0
 [0.69.1]: https://github.com/robert-dean/deadair/compare/v0.69.0...v0.69.1
 [0.69.0]: https://github.com/robert-dean/deadair/compare/v0.68.1...v0.69.0

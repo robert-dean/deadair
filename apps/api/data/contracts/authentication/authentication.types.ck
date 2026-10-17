@@ -170,6 +170,7 @@ contract BaseAuthenticationLoginStartWithEmail: BaseAuthenticationLoginStart & {
 
 contract LinkAuthenticationLoginStart: BaseAuthenticationLoginStartWithEmail & {
     grant_type: literal("link") # The grant type for the request
+    purpose?: enum(signin, reset) # What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin`
 }
 
 contract CodeAuthenticationLoginStart: BaseAuthenticationLoginStartWithEmail & {

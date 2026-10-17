@@ -194,6 +194,18 @@ the page that asked is still signed in when the answer arrives. The `PasswordCha
 each active email factor after the commit, on the second-step reset notice's rule: a refused send is
 logged and never undoes the change, and a station with no mail server changes the password anyway.
 
+## Resetting a password
+
+**A reset link is a sign-in link with `purpose: 'reset'`**, asked for at `POST /auth/login/start` with
+`grant_type: 'link'`. `handleLinkStartLogin` issues the same `magiclink` challenge, spends from the same
+`SignInMailLimiter` bucket and gives an address with no account the same synthetic answer; only the
+template (`PasswordReset`) and the link's `redirect`, `PASSWORD_RESET_LANDING`, differ. Redeeming it is an
+ordinary link sign-in through `issueOrChallenge`, so an enrolled authenticator or passkey is still asked
+for, and the session it makes is the one `PUT /auth/password` lets set a password without the old one.
+A separate reset token with its own store was the obvious design and is the one not built: it would
+have needed its own limiter, its own enumeration answer and its own MFA story, each of which the
+sign-in link already got right once.
+
 ## The Google variables
 
 `GOOGLE_OIDC_CLIENT_ID`, `GOOGLE_OIDC_CLIENT_SECRET` and `GOOGLE_OIDC_ISSUER` used to build the only

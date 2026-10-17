@@ -17,6 +17,8 @@ export type MailTemplateMap = {
     SignInCode: { code: string; minutes: number };
     /** A first factor at sign-in: no password at all, the inbox is the whole proof. */
     SignInLink: { link: string; minutes: number };
+    /** The same link, asked for from "Forgot your password?": it signs the person in and lands on the password form. */
+    PasswordReset: { link: string; minutes: number };
     /** Proof an address exists before it is attached to an account. */
     VerifyEmail: { code: string; minutes: number };
     /** An admin invited this address into a role. `until` is already a date a person reads, such as `15 October 2026`. */
@@ -111,6 +113,28 @@ function body(message: MailMessage, stationName: string, wording: MailWording): 
                     `<p><a href="${escapeHtml(link)}" style="font-size:16px">Sign in to ${escapeHtml(stationName)}</a></p>`,
                     `<p>It expires in ${escapeHtml(plural(minutes, 'minute'))}, and works once.</p>`,
                     '<p>If you did not ask to sign in, ignore this. Anybody who can read this message can use the link, so do not forward it.</p>',
+                ].join(''),
+            };
+        }
+        case 'PasswordReset': {
+            const { link, minutes } = message.data;
+            return {
+                subject: `Reset your ${stationName} password`,
+                text: [
+                    `Open this link to choose a new password for ${stationName}:`,
+                    '',
+                    link,
+                    '',
+                    `It signs you in, expires in ${plural(minutes, 'minute')}, and works once.`,
+                    '',
+                    'If you did not ask for this, ignore it: your password has not changed. Anybody who can',
+                    'read this message can use the link, so do not forward it.',
+                ].join('\n'),
+                html: [
+                    `<p>Open this link to choose a new password for ${escapeHtml(stationName)}:</p>`,
+                    `<p><a href="${escapeHtml(link)}" style="font-size:16px">Choose a new password</a></p>`,
+                    `<p>It signs you in, expires in ${escapeHtml(plural(minutes, 'minute'))}, and works once.</p>`,
+                    '<p>If you did not ask for this, ignore it: your password has not changed. Anybody who can read this message can use the link, so do not forward it.</p>',
                 ].join(''),
             };
         }

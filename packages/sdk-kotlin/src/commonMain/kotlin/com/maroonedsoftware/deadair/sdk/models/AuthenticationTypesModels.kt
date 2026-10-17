@@ -906,6 +906,8 @@ data class LinkAuthenticationLoginStart(
     @SerialName("client_id") val clientId: Uuid? = null,
     /** User's email address */
     val email: String,
+    /** What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin` */
+    val purpose: LinkAuthenticationLoginStartPurpose? = null,
 ) : AuthenticationLoginStart
 
 @Serializable
@@ -1045,6 +1047,27 @@ object PublicKeyCredentialAuthenticatorAttachmentSerializer : SdkEnumSerializer<
 data class SimpleClientExtensionResultsCredProps(
     /** Whether the client supports the rk extension */
     val rk: Boolean,
+)
+
+/** What the link is for. `reset` words the email as a password reset and lands the person on the password form once signed in; the link and what it proves are the same. Absent means `signin` */
+@Serializable(with = LinkAuthenticationLoginStartPurposeSerializer::class)
+enum class LinkAuthenticationLoginStartPurpose {
+    SIGNIN,
+    RESET,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [LinkAuthenticationLoginStartPurpose] by its wire spelling. A spelling it does not know reads as [LinkAuthenticationLoginStartPurpose.UNKNOWN]. */
+object LinkAuthenticationLoginStartPurposeSerializer : SdkEnumSerializer<LinkAuthenticationLoginStartPurpose>(
+    "LinkAuthenticationLoginStartPurpose",
+    LinkAuthenticationLoginStartPurpose.UNKNOWN,
+    LinkAuthenticationLoginStartPurpose.SIGNIN to "signin",
+    LinkAuthenticationLoginStartPurpose.RESET to "reset",
 )
 
 @Serializable(with = AuthenticationLoginStartSerializer::class)

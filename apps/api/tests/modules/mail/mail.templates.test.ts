@@ -16,6 +16,11 @@ const messages: MailMessage[] = [
         template: 'SignInLink',
         data: { link: 'https://radio.example.com/auth/callback?token=t&challenge_id=c', minutes: 30 },
     },
+    {
+        to: 'someone@example.com',
+        template: 'PasswordReset',
+        data: { link: 'https://radio.example.com/auth/callback?token=t&challenge_id=c&redirect=%2Fsettings%2Fsecurity%3Freset%3D1', minutes: 30 },
+    },
     { to: 'someone@example.com', template: 'VerifyEmail', data: { code: '654321', minutes: 10 } },
     {
         to: 'someone@example.com',
@@ -55,6 +60,14 @@ describe('rendering a message', () => {
         const envelope = renderMail({ to: 'a@b.c', template: 'SignInLink', data: { link, minutes: 30 } }, STATION);
 
         expect(envelope.text).toContain(link);
+    });
+
+    it('puts the reset link in the text part, and says the password has not changed', () => {
+        const link = 'https://radio.example.com/auth/callback?token=abc&challenge_id=def&redirect=%2Fsettings%2Fsecurity%3Freset%3D1';
+        const envelope = renderMail({ to: 'a@b.c', template: 'PasswordReset', data: { link, minutes: 30 } }, STATION);
+
+        expect(envelope.text).toContain(link);
+        expect(envelope.text).toContain('your password has not changed');
     });
 
     it('says how long the code lasts, and counts in the right number', () => {

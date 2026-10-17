@@ -124,6 +124,8 @@ private fun SignIn(account: AccountState) {
             onSignIn = {},
             onForgotPassword = {},
             onStartAgain = {},
+            onUseEmail = {},
+            onSendAgain = {},
         )
     }
 }
@@ -142,9 +144,23 @@ private fun SignInRefusedPreview() = SignIn(AccountState(email = "operator@examp
 
 @PreviewLightDark
 @Composable
-private fun SecondFactorPreview() = SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1")))
+private fun SecondFactorPreview() = SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor.Authenticator("c_1", "totp-1")))
+
+@PreviewLightDark
+@Composable
+private fun SecondFactorWithEmailPreview() =
+    SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor.Authenticator("c_1", "totp-1", SecondFactor.Email("c_1", "o•••@example.com"))))
+
+@PreviewLightDark
+@Composable
+private fun EmailedCodePreview() =
+    SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor.Email("c_1", "o•••@example.com", emailChallengeId = "e_1")))
+
+@PreviewLightDark
+@Composable
+private fun EmailSendingPreview() = SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor.Email("c_1"), busy = true))
 
 @PreviewLightDark
 @Composable
 private fun CodeRefusedPreview() =
-    SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1"), error = Message.CodeRefused))
+    SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor.Authenticator("c_1", "totp-1"), error = Message.CodeRefused))

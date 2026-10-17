@@ -1,19 +1,39 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import com.maroonedsoftware.deadair.auth.CodeSendResult
 import com.maroonedsoftware.deadair.auth.ResetResult
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.auth.authenticatorFactors
+import com.maroonedsoftware.deadair.auth.emailFactor
 import com.maroonedsoftware.deadair.ui.text.Message
 
 /**
- * The challenge a code is being typed against.
+ * The challenge a code is being typed against, and where the code comes from.
  *
- * Both halves, because the station needs both: the challenge says which pending sign-in this is,
- * and the method id says which enrolled authenticator the six digits are supposed to be from. TOTP
- * has no other binding to the actor at initial login, so a code sent without the right method id is
- * refused — and refused in a way that reads at the keyboard exactly like a wrong code.
+ * Every arm carries the challenge, which says which pending sign-in this is. What else it needs
+ * depends on the factor, because the station binds the two kinds of code differently.
  */
-data class SecondFactor(val challengeId: String, val methodId: String)
+sealed interface SecondFactor {
+    val challengeId: String
+
+    /**
+     * A code from an authenticator app. The method id says which enrolled authenticator the six
+     * digits are supposed to be from: TOTP has no other binding to the actor at initial login, so a
+     * code sent without the right method id is refused — and refused in a way that reads at the
+     * keyboard exactly like a wrong code.
+     *
+     * [email] is set when the account can also be sent a code, for somebody whose authenticator is
+     * on a phone they do not have with them.
+     */
+    data class Authenticator(override val challengeId: String, val methodId: String, val email: Email? = null) : SecondFactor
+
+    /**
+     * A code the station emails. [emailChallengeId] is the message's id, which the code grant echoes
+     * back, and is absent until the station has said it sent one: there is nothing to type before
+     * that. [sentTo] is the station's label for the address, usually masked, when it gave one.
+     */
+    data class Email(override val challengeId: String, val sentTo: String? = null, val emailChallengeId: String? = null) : SecondFactor
+}
 
 /**
  * The sign-in fields, as the settings screen shows them.
@@ -56,6 +76,7 @@ data class AccountState(
         get() =
             when {
                 busy -> false
+                challenge is SecondFactor.Email && challenge.emailChallengeId == null -> false
                 challenge != null -> code.length >= CODE_LENGTH
                 else -> email.isNotBlank() && password.isNotEmpty()
             }
@@ -79,6 +100,47 @@ data class AccountState(
          * than inviting another code that cannot work.
          */
         fun startAgain(current: AccountState): AccountState = AccountState(email = current.email)
+
+        /** Whether the screen is waiting on an email code to be sent, which the view model then asks for. */
+        fun needsCodeSent(state: AccountState): Boolean {
+            val challenge = state.challenge
+            return state.busy && challenge is SecondFactor.Email && challenge.emailChallengeId == null
+        }
+
+        /**
+         * "Email me a code instead", from the authenticator step. Busy, because the send is next;
+         * the challenge stays the same one, so nothing about the password step is repeated.
+         */
+        fun usingEmail(current: AccountState): AccountState {
+            val challenge = current.challenge
+            if (current.busy || challenge !is SecondFactor.Authenticator) return current
+            val email = challenge.email ?: return current
+            return current.copy(code = "", challenge = email, busy = true, error = null)
+        }
+
+        /**
+         * "Send it again": the same challenge, asked for once more. The message id is dropped until
+         * the station answers, so nothing is submitted against a send that is still in flight.
+         */
+        fun sendingAgain(current: AccountState): AccountState {
+            val challenge = current.challenge
+            if (current.busy || challenge !is SecondFactor.Email) return current
+            return current.copy(challenge = challenge.copy(emailChallengeId = null), busy = true, error = null)
+        }
+
+        /**
+         * What the code step shows once the station has answered a send. Sent gives the box
+         * something to type against; an expired challenge ends the round, as it does on the code.
+         */
+        fun fromCodeSent(current: AccountState, result: CodeSendResult): AccountState {
+            val challenge = current.challenge as? SecondFactor.Email ?: return current.copy(busy = false)
+            return when (result) {
+                is CodeSendResult.Sent -> current.copy(challenge = challenge.copy(emailChallengeId = result.emailChallengeId), busy = false, error = null)
+                CodeSendResult.ChallengeExpired -> startAgain(current).copy(error = Message.SignInExpired)
+                CodeSendResult.NoMail -> current.copy(busy = false, error = Message.CodeNoMail)
+                is CodeSendResult.Failed -> current.copy(busy = false, error = Message.CouldNotSendCode)
+            }
+        }
 
         /**
          * Asking for a password-reset link: busy, or told why not.
@@ -118,21 +180,29 @@ data class AccountState(
                 SignInResult.Ok -> AccountState()
 
                 is SignInResult.SecondFactorNeeded -> {
-                    // The AUTHENTICATOR out of the challenge, never its first entry: a challenge
-                    // lists every enrolled factor in enrolment order, and this app can answer only
-                    // the one a code box fits.
-                    val factor = authenticatorFactors(result.factors).firstOrNull()
-                    if (factor == null) {
+                    // The AUTHENTICATOR out of the challenge first, never its first entry: a
+                    // challenge lists every enrolled factor in enrolment order. An authenticator
+                    // costs nothing to offer, where choosing email sends a message, so email leads
+                    // only when there is no authenticator.
+                    val authenticator = authenticatorFactors(result.factors).firstOrNull()
+                    val email = emailFactor(result.factors)?.let { SecondFactor.Email(result.challengeId, sentTo = it.label) }
+                    val challenge =
+                        when {
+                            authenticator != null -> SecondFactor.Authenticator(result.challengeId, authenticator.methodId, email)
+                            else -> email
+                        }
+                    if (challenge == null) {
                         // Saying so beats a code box that would refuse every code.
                         current.copy(password = "", busy = false, error = Message.SecondFactorUnsupported)
                     } else {
                         // The password step is done, so the password goes; the email stays, because
-                        // it is shown above the code box as whose sign-in this is.
+                        // it is shown above the code box as whose sign-in this is. An email factor
+                        // stays busy, because the send that gives it something to type is next.
                         current.copy(
                             password = "",
                             code = "",
-                            challenge = SecondFactor(result.challengeId, factor.methodId),
-                            busy = false,
+                            challenge = challenge,
+                            busy = challenge is SecondFactor.Email,
                             error = null,
                         )
                     }
@@ -145,7 +215,10 @@ data class AccountState(
                     if (current.challenge == null) {
                         current.copy(password = "", busy = false, error = Message.BadCredentials)
                     } else {
-                        current.copy(code = "", busy = false, error = Message.CodeRefused)
+                        // An authenticator's next code is half a minute away; an emailed one is
+                        // the same code until it is sent again, so the advice differs.
+                        val refused = if (current.challenge is SecondFactor.Email) Message.EmailedCodeRefused else Message.CodeRefused
+                        current.copy(code = "", busy = false, error = refused)
                     }
 
                 // Neither of these can be answered by trying harder, so the code box goes away

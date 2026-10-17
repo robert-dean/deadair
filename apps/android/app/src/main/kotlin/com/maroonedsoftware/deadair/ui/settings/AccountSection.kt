@@ -93,6 +93,10 @@ fun SignInForm(
     onSignIn: () -> Unit,
     onForgotPassword: () -> Unit,
     onStartAgain: () -> Unit,
+    /** "Email me a code instead", from the authenticator step. */
+    onUseEmail: () -> Unit,
+    /** "Send it again", for an emailed code. */
+    onSendAgain: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         // Once the station has asked for a second factor the password step is over, and its
@@ -100,7 +104,7 @@ fun SignInForm(
         // accepted a moment ago, and there is nothing left to send them to.
         when {
             account.resetSentTo != null -> ResetSent(account.resetSentTo, onStartAgain)
-            account.challenge != null -> SecondFactor(account, onCodeChange, onSignIn, onStartAgain)
+            account.challenge != null -> CodeStep(account, account.challenge, onCodeChange, onSignIn, onStartAgain, onUseEmail, onSendAgain)
             else -> PasswordForm(account, onEmailChange, onPasswordChange, onSignIn, onForgotPassword)
         }
     }
@@ -203,21 +207,44 @@ private val AuthenticatorOtpCode = ContentType("2faAppOTPCode")
  *
  * A separate step rather than a third field on the form, because it is a separate exchange: the
  * password has already been spent, and what is being answered is a challenge with its own clock.
- * Start again is on the screen for somebody who cannot reach their authenticator, and is the only
- * way out that does not involve waiting for the challenge to expire.
+ * Start again is on the screen for somebody who cannot reach their code, and is the only way out
+ * that does not involve waiting for the challenge to expire.
+ *
+ * The same box for both kinds of code. What differs is the sentence above it, its label, and the
+ * one extra button each has: an emailed code can be sent again, and an authenticator step can turn
+ * into an emailed one when the account has both.
  */
 @Composable
-private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, onSubmit: () -> Unit, onStartAgain: () -> Unit) {
+private fun CodeStep(
+    account: AccountState,
+    challenge: SecondFactor,
+    onCodeChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onStartAgain: () -> Unit,
+    onUseEmail: () -> Unit,
+    onSendAgain: () -> Unit,
+) {
+    val emailed = challenge as? SecondFactor.Email
+    val sending = emailed != null && emailed.emailChallengeId == null
     Text(stringResource(R.string.second_factor_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-    Text(stringResource(R.string.second_factor_detail), style = MaterialTheme.typography.bodyMedium)
+    Text(
+        when {
+            emailed == null -> stringResource(R.string.second_factor_detail)
+            sending -> stringResource(R.string.second_factor_email_sending)
+            emailed.sentTo != null -> stringResource(R.string.second_factor_email_sent_to, emailed.sentTo)
+            else -> stringResource(R.string.second_factor_email_sent)
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    )
 
     val focus = LocalFocusManager.current
     val box = remember { FocusRequester() }
-    LaunchedEffect(Unit) { box.requestFocus() }
+    LaunchedEffect(challenge::class) { box.requestFocus() }
     PillTextField(
         value = account.code,
         onValueChange = onCodeChange,
-        label = { Text(stringResource(R.string.authenticator_code)) },
+        label = { Text(stringResource(if (emailed != null) R.string.emailed_code else R.string.authenticator_code)) },
         enabled = !account.busy,
         isError = account.error != null,
         // Announced when it lands: the field the operator was in has just been emptied under
@@ -226,9 +253,10 @@ private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, 
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSubmit() else focus.clearFocus() }),
         // Two hints, because they reach two different sources. The SMS one offers a code from a
-        // notification. The authenticator-app one is what a password manager holding the account's
-        // TOTP secret (1Password, Bitwarden, Google's) looks for before it offers to fill the code
-        // itself; the SMS hint alone left this box empty for exactly the factor it asks for.
+        // notification, which is also where an emailed code turns up. The authenticator-app one is
+        // what a password manager holding the account's TOTP secret (1Password, Bitwarden, Google's)
+        // looks for before it offers to fill the code itself; the SMS hint alone left this box empty
+        // for exactly the factor it asks for.
         modifier = Modifier.fillMaxWidth().focusRequester(box).semantics { contentType = ContentType.SmsOtpCode + AuthenticatorOtpCode },
     )
 
@@ -238,6 +266,17 @@ private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, 
         } else {
             Text(stringResource(R.string.sign_in))
         }
+    }
+
+    when {
+        emailed != null ->
+            TextButton(onClick = onSendAgain, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.send_again))
+            }
+        challenge is SecondFactor.Authenticator && challenge.email != null ->
+            TextButton(onClick = onUseEmail, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.use_email_instead))
+            }
     }
 
     TextButton(onClick = onStartAgain, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {

@@ -346,7 +346,7 @@ before: credentials belong to a station, so there is nothing to sign in to until
 is. That button keeps the station and pushes the sign-in page onto the stack under Setup, so backing
 out of it lands on Now playing rather than on the address again. In practice the credentials are the operator's. Onboarding writes only the `admin` tuple, and the one
 path that makes a `listener` account is signing in through an identity provider, which leaves it with no
-password, and this app signs in with a password and an authenticator code
+password, and this app signs in with a password and then an authenticator code or an emailed one
 (`docs/internals/authentication.md`). So a control meant for listeners, Request among them, is drawn for any
 signed-in account and is verified with the operator's.
 

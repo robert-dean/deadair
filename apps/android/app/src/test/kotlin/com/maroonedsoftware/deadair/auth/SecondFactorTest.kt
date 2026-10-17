@@ -107,11 +107,18 @@ class SecondFactorTest {
 
     @Test
     fun `answers nothing when the account has no authenticator`() {
-        // A phone or email factor needs a challenge started against it first, and FIDO needs an
-        // assertion this app cannot produce. An empty answer is what lets the screen say so.
+        // An email factor is answered by a different grant, after a send, so it is not one of these.
         val factors = listOf(MfaChallengeFactor(AuthenticationFactorMethod.EMAIL, "email-1", AuthenticationFactorKind.POSSESSION))
 
         assertTrue(authenticatorFactors(factors).isEmpty())
+        assertEquals("email-1", emailFactor(factors)?.methodId)
+    }
+
+    @Test
+    fun `finds no email factor where there is none`() {
+        val factors = listOf(MfaChallengeFactor(AuthenticationFactorMethod.FIDO, "fido-1", AuthenticationFactorKind.POSSESSION))
+
+        assertNull(emailFactor(factors))
     }
 
     // ── Reading which refusal it was ────────────────────────────────────────────────────
@@ -163,6 +170,65 @@ class SecondFactorTest {
             assertTrue(body.contains("mfa_challenge_id=c_1"))
             assertTrue(body.contains("method_id=totp-1"))
             assertTrue(body.contains("code=123456"))
+        }
+    }
+
+    @Test
+    fun `asks the station to email a code for the challenge`() {
+        runTest {
+            val (manager, engine) =
+                managerOver(FakeStore(), backgroundScope) {
+                    json("""{"method":"email","email_challenge_id":"e_1","expires_at":"2026-09-08T12:10:00Z"}""")
+                }
+
+            assertEquals(CodeSendResult.Sent("e_1"), manager.sendEmailCode(station, "c_1"))
+
+            val request = engine.requestHistory.single()
+            assertTrue(request.url.encodedPath.endsWith("/auth/factors/start"))
+            val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            assertTrue(body.contains("\"method\":\"email\""))
+            assertTrue(body.contains("\"mfa_challenge_id\":\"c_1\""))
+        }
+    }
+
+    @Test
+    fun `a send against a spent challenge, or a station with no mail, says which`() {
+        runTest {
+            val (expired, _) = managerOver(FakeStore(), backgroundScope) { refusal("invalid_challenge") }
+            assertEquals(CodeSendResult.ChallengeExpired, expired.sendEmailCode(station, "c_1"))
+
+            val (noMail, _) = managerOver(FakeStore(), backgroundScope) { json("""{"message":"mail is not configured"}""", HttpStatusCode.ServiceUnavailable) }
+            assertEquals(CodeSendResult.NoMail, noMail.sendEmailCode(station, "c_1"))
+        }
+    }
+
+    @Test
+    fun `an emailed code is answered with the code grant and the message it came in`() {
+        runTest {
+            val store = FakeStore()
+            val (manager, engine) =
+                managerOver(store, backgroundScope) { request ->
+                    if (request.url.encodedPath.endsWith("/auth/session")) json("""{"actorId":"u-1","roles":["admin"]}""")
+                    else json(tokenBody, HttpStatusCode.Created)
+                }
+
+            assertEquals(SignInResult.Ok, manager.completeEmailCode(station, "operator@example.com", "c_1", "e_1", "123456"))
+            assertEquals("access-9", store.state.value?.accessToken)
+
+            val body = (engine.requestHistory.first().body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            assertTrue(body.contains("grant_type=code"))
+            assertTrue(body.contains("mfa_challenge_id=c_1"))
+            assertTrue(body.contains("challenge_id=e_1"))
+            assertTrue(body.contains("code=123456"))
+        }
+    }
+
+    @Test
+    fun `a wrong emailed code is reported as a wrong code`() {
+        runTest {
+            val (manager, _) = managerOver(FakeStore(), backgroundScope) { refusal("invalid_grant") }
+
+            assertEquals(SignInResult.BadCredentials, manager.completeEmailCode(station, "operator@example.com", "c_1", "e_1", "000000"))
         }
     }
 

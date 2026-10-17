@@ -12,6 +12,12 @@ import { MetricsFlusher, METRICS_FLUSH_HEARTBEAT } from '../../../src/modules/me
 import { MetricsRepository } from '../../../src/modules/metrics/metrics.repository.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 
+/**
+ * When the flush loop last completed a pass. Asserted as present rather than as a stall of 0ms, which
+ * a busy runner turns into 1ms between the beat and the assertion.
+ */
+const lastBeat = (heartbeat: Heartbeat) => heartbeat.all().find(reading => reading.name === METRICS_FLUSH_HEARTBEAT)?.lastBeat;
+
 function harness() {
     const written: MetricBucket[][] = [];
     const repository = { upsertMinutes: vi.fn(async (buckets: MetricBucket[]) => (written.push(buckets), buckets.length)) };
@@ -46,7 +52,7 @@ describe('MetricsFlusher', () => {
 
         expect(repository.upsertMinutes).not.toHaveBeenCalled();
         expect(otlp.export).toHaveBeenCalledWith([]);
-        expect(heartbeat.stalledFor(METRICS_FLUSH_HEARTBEAT)).toBe(0);
+        expect(lastBeat(heartbeat)).toBeDefined();
     });
 
     it('drops a minute it could not write, rather than keeping it to write later', async () => {
@@ -84,7 +90,7 @@ describe('MetricsFlusher', () => {
 
         await flusher.flush();
 
-        expect(heartbeat.stalledFor(METRICS_FLUSH_HEARTBEAT)).toBe(0);
+        expect(lastBeat(heartbeat)).toBeDefined();
     });
 
     it('hands the same minute to the OTLP export after the table, and even when the table failed', async () => {

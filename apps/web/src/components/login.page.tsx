@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Center, Divider, Group, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Button, Card, Center, Divider, Group, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -91,21 +91,22 @@ export function LoginPage({ redirect }: LoginPageProps) {
     const challenge = login.data?.result === 'mfa_required' ? login.data : undefined;
     const error = login.error ? signInError(login.error) : undefined;
     const linkSent = magicLink.isSuccess;
+    const resetSent = linkSent && magicLink.variables?.purpose === 'reset';
 
     /**
-     * Ask for a sign-in link.
+     * Ask for a sign-in link, or for the same link as a password reset.
      *
      * Validates the email field alone: the password is what this is an alternative to, so requiring
      * it to be filled in first would defeat the point.
      */
-    function requestLink(): void {
+    function requestLink(purpose?: 'reset'): void {
         setNotice(undefined);
         const email = form.getValues().email.trim();
         if (email.length === 0) {
             form.setFieldError('email', t('login.emailRequired'));
             return;
         }
-        magicLink.mutate({ email });
+        magicLink.mutate({ email, ...(purpose ? { purpose } : {}) });
     }
 
     /**
@@ -146,7 +147,13 @@ export function LoginPage({ redirect }: LoginPageProps) {
                         <Stack gap="xxxs" align="center">
                             <Title order={2}>{challenge ? t('step.title') : linkSent ? t('login.checkInbox') : t('login.signIn')}</Title>
                             <Text c="dimmed" size="sm">
-                                {challenge ? t('step.subtitle') : linkSent ? t('login.linkOnItsWay') : t('login.staffOnly')}
+                                {challenge
+                                    ? t('step.subtitle')
+                                    : resetSent
+                                      ? t('login.resetOnItsWay')
+                                      : linkSent
+                                        ? t('login.linkOnItsWay')
+                                        : t('login.staffOnly')}
                             </Text>
                         </Stack>
                     </Stack>
@@ -164,7 +171,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                         />
                     ) : linkSent ? (
                         <Stack gap="md">
-                            <Text size="sm">{t('login.linkHint')}</Text>
+                            <Text size="sm">{resetSent ? t('login.resetHint') : t('login.linkHint')}</Text>
                             <Button
                                 variant="default"
                                 onClick={() => {
@@ -206,13 +213,28 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                     key={form.key('email')}
                                     {...emailInput}
                                 />
-                                <PasswordInput
-                                    label={t('login.password')}
-                                    autoComplete="current-password"
-                                    disabled={login.isPending}
-                                    key={form.key('password')}
-                                    {...passwordInput}
-                                />
+                                <Stack gap="xxs">
+                                    <PasswordInput
+                                        label={t('login.password')}
+                                        autoComplete="current-password"
+                                        disabled={login.isPending}
+                                        key={form.key('password')}
+                                        {...passwordInput}
+                                    />
+                                    {/* The same link as "Email me a sign-in link", worded as a reset and
+                                        landing on the password form, so it too asks only for the address. */}
+                                    <Group justify="flex-end">
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="sm"
+                                            disabled={login.isPending || magicLink.isPending}
+                                            onClick={() => requestLink('reset')}
+                                        >
+                                            {t('login.forgotPassword')}
+                                        </Anchor>
+                                    </Group>
+                                </Stack>
                                 <Button type="submit" loading={login.isPending} fullWidth>
                                     {t('login.signIn')}
                                 </Button>
@@ -222,9 +244,9 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                     <Button
                                         variant="subtle"
                                         size="compact-sm"
-                                        loading={magicLink.isPending}
+                                        loading={magicLink.isPending && magicLink.variables?.purpose !== 'reset'}
                                         disabled={login.isPending}
-                                        onClick={requestLink}
+                                        onClick={() => requestLink()}
                                     >
                                         {t('login.emailLink')}
                                     </Button>

@@ -43,15 +43,17 @@ export function useLoginMutation() {
  * the previous user's state.
  */
 /**
- * Asks the station to email a sign-in link.
+ * Asks the station to email a sign-in link, or the same link worded as a password reset.
  *
  * Answers the same shape whether or not the address has an account, deliberately — the API refuses
- * to say, so the console has nothing to branch on and shows "check your inbox" either way.
+ * to say, so the console has nothing to branch on and shows "check your inbox" either way. A reset
+ * link signs the person in like any other and lands on the password form.
  */
 export function useMagicLinkMutation() {
     return useMutation({
         retry: false,
-        mutationFn: ({ email }: { email: string }) => sdk.authentication.startLogin({ grant_type: 'link', email }),
+        mutationFn: ({ email, purpose }: { email: string; purpose?: 'signin' | 'reset' }) =>
+            sdk.authentication.startLogin({ grant_type: 'link', email, ...(purpose ? { purpose } : {}) }),
     });
 }
 

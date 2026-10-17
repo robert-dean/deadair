@@ -14,7 +14,7 @@ const setPassword = vi.fn();
 const startMFAChallenge = vi.fn();
 const requestToken = vi.fn();
 const listSignInProviders = vi.fn(async (): Promise<unknown[]> => []);
-const search: { linked?: string; link_error?: string } = {};
+const search: { linked?: string; link_error?: string; reset?: boolean } = {};
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -52,6 +52,7 @@ afterEach(() => {
     listSignInProviders.mockResolvedValue([]);
     delete search.linked;
     delete search.link_error;
+    delete search.reset;
     vi.unstubAllGlobals();
     clearSession();
 });
@@ -499,5 +500,47 @@ describe('SecurityCard, the password', () => {
         await waitFor(() => {
             expect(setPassword).toHaveBeenCalledTimes(2);
         });
+    });
+});
+
+describe('SecurityCard, arriving from a reset link', () => {
+    it('asks for a new password only, and sends no current one', async () => {
+        search.reset = true;
+        listFactors.mockResolvedValue([PASSWORD, EMAIL]);
+        setPassword.mockResolvedValue(undefined);
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        expect(await screen.findByText('Choose a new password')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument();
+        await user.type(screen.getByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        await waitFor(() => {
+            expect(setPassword).toHaveBeenCalledWith({ password: 'a long new passphrase' });
+        });
+        // Done: an ordinary card again, which asks for the current password next time.
+        expect(await screen.findByText('Change your password')).toBeInTheDocument();
+        expect(screen.getByLabelText('Current password')).toBeInTheDocument();
+    });
+
+    it('brings the current password back, saying why, when the link was opened too long ago', async () => {
+        search.reset = true;
+        listFactors.mockResolvedValue([PASSWORD, EMAIL]);
+        setPassword.mockRejectedValue(refused({ currentPassword: 'the current password is needed to change it' }));
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.type(await screen.findByLabelText('New password'), 'a long new passphrase');
+        await user.type(screen.getByLabelText('New password again'), 'a long new passphrase');
+        await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+        expect(await screen.findByLabelText('Current password')).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                'That link was opened too long ago to stand in for it. Enter your current password, or sign out and ask for another link.',
+            ),
+        ).toBeInTheDocument();
     });
 });

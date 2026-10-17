@@ -731,6 +731,9 @@ export const settings = {
         password: {
             changeTitle: 'Change your password',
             addTitle: 'Add a password',
+            resetTitle: 'Choose a new password',
+            resetIntro: 'You signed in with the link from your email, so the old password is not needed. Choosing one signs out every other device.',
+            resetExpired: 'That link was opened too long ago to stand in for it. Enter your current password, or sign out and ask for another link.',
             changeIntro: 'Changing it signs you out everywhere else, and the station emails your addresses to say so.',
             addIntro:
                 'You sign in without one today. A password is what the phone and desktop apps sign in with, together with an authenticator code.',

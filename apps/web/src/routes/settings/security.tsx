@@ -3,15 +3,18 @@ import { createFileRoute } from '@tanstack/react-router';
 import { SettingsSectionPage } from '../../components/settings/settings.page';
 import { SettingsShell } from '../../components/settings/settings.shell';
 
-/** What a provider hands back after linking: the provider's name, or why it was refused. */
+/** What a provider hands back after linking (the provider's name, or why it was refused), and `reset` on arrival from a password-reset link. */
 export interface SecuritySearch {
     linked?: string;
     link_error?: string;
+    reset?: boolean;
 }
 
 function validateSearch(search: Record<string, unknown>): SecuritySearch {
-    const take = (key: keyof SecuritySearch): string | undefined => (typeof search[key] === 'string' ? search[key] : undefined);
-    return { linked: take('linked'), link_error: take('link_error') };
+    const take = (key: 'linked' | 'link_error'): string | undefined => (typeof search[key] === 'string' ? search[key] : undefined);
+    // The router reads `?reset=1` as JSON, so it arrives as the number; the string is accepted too.
+    const reset = search.reset === 1 || search.reset === '1' || search.reset === true;
+    return { linked: take('linked'), link_error: take('link_error'), ...(reset ? { reset } : {}) };
 }
 
 export const Route = createFileRoute('/settings/security')({ component: SecuritySettingsRoute, validateSearch });

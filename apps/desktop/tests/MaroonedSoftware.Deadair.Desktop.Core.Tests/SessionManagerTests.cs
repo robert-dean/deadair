@@ -204,4 +204,44 @@ public class SessionManagerTests
         Assert.False(state.IsOperator);
         Assert.Empty(state.Roles);
     }
+
+    [Fact]
+    public async Task AsksForAResetAsASignInLinkWithThePurposeAndNoBearer()
+    {
+        var (session, _, transport) = Build();
+        await session.AttachAsync(Station(Origin), TestContext.Current.CancellationToken);
+
+        var result = await session.AskForResetAsync("operator@example.com", TestContext.Current.CancellationToken);
+
+        Assert.IsType<ResetResult.Sent>(result);
+        var request = Assert.Single(transport.Seen);
+        Assert.EndsWith("/auth/login/start", request.Path, StringComparison.Ordinal);
+        Assert.Null(request.Authorization);
+        Assert.Contains("\"grant_type\":\"link\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("\"purpose\":\"reset\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains("operator@example.com", request.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaysWhenTheAddressHasBeenSentEnough_AndWhenTheStationCannotSendAtAll()
+    {
+        var (session, _, transport) = Build();
+        await session.AttachAsync(Station(Origin), TestContext.Current.CancellationToken);
+
+        transport.AnswerOnce(System.Net.HttpStatusCode.TooManyRequests);
+        Assert.IsType<ResetResult.TooMany>(await session.AskForResetAsync("operator@example.com", TestContext.Current.CancellationToken));
+
+        transport.AnswerOnce(System.Net.HttpStatusCode.ServiceUnavailable);
+        Assert.IsType<ResetResult.NoMail>(await session.AskForResetAsync("operator@example.com", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ReportsAStationItCannotReachAsAFailure_RatherThanASentLink()
+    {
+        var (session, _, transport) = Build();
+        await session.AttachAsync(Station(Origin), TestContext.Current.CancellationToken);
+        transport.LoginStartUnreachable = true;
+
+        Assert.IsType<ResetResult.Failed>(await session.AskForResetAsync("operator@example.com", TestContext.Current.CancellationToken));
+    }
 }

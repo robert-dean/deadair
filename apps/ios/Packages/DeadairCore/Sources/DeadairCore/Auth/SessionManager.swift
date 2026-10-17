@@ -6,6 +6,23 @@ import Observation
 public struct NotSignedIn: Error, Equatable {}
 
 /// What came of offering an email and a password, or a code against a pending challenge.
+/// What the station said to "Forgot your password?". `apps/android`'s `ResetResult`.
+///
+/// `sent` is the same answer whether or not the address has an account, because the station gives
+/// the same answer either way: it will not say who has an account, so neither can this app.
+public enum ResetResult: Equatable, Sendable {
+    case sent
+
+    /// The address has been sent enough for now. The station decides how long that lasts.
+    case tooMany
+
+    /// The station has no mail server to send through, so no link can reach anybody.
+    case noMail
+
+    /// Anything else. Carries the diagnostic, never shown.
+    case failed(String?)
+}
+
 public enum SignInResult: Equatable, Sendable {
     case ok
 
@@ -118,6 +135,25 @@ public final class SessionManager: OperatorSession {
             return .failed(String(describing: error))
         }
         return await accept(station, email: email, answer: answer)
+    }
+
+    /// Ask the station to email a password-reset link to `email`.
+    ///
+    /// The link is the station's ordinary sign-in link worded as a reset: it signs the person in on
+    /// the station's web console and opens the password form there, so nothing about it comes back
+    /// to this app. After choosing a new password they sign in here with it as usual.
+    public func askForReset(_ station: StationUrl, email: String) async -> ResetResult {
+        do {
+            let request = LinkAuthenticationLoginStart(email: email, purpose: .reset)
+            _ = try await sdkFor(station) { [:] }.authentication.startLogin(body: .linkAuthenticationLoginStart(request))
+            return .sent
+        } catch let error as SdkError where error.status == 429 {
+            return .tooMany
+        } catch let error as SdkError where error.status == 503 {
+            return .noMail
+        } catch {
+            return .failed(String(describing: error))
+        }
     }
 
     /// Answer a pending challenge with a code from an authenticator app.

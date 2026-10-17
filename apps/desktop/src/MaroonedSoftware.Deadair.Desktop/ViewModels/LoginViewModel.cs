@@ -44,7 +44,33 @@ public sealed partial class LoginViewModel(SessionManager session) : ObservableO
 
     /// <summary>True once the station has asked for a second factor.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsPasswordStep))]
     private bool _needsCode;
+
+    /// <summary>
+    /// The address a password-reset link was asked for, once the station has answered. Set, the panel
+    /// says to check that inbox instead of drawing the form.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResetSent))]
+    [NotifyPropertyChangedFor(nameof(ShowsPasswordStep))]
+    [NotifyPropertyChangedFor(nameof(ResetSentWords))]
+    private string? _resetSentTo;
+
+    /// <summary>True once a reset link has been asked for and the station has taken the request.</summary>
+    public bool ResetSent => ResetSentTo is not null;
+
+    /// <summary>The email and password fields: neither on the code step nor after a reset was asked for.</summary>
+    public bool ShowsPasswordStep => !NeedsCode && !ResetSent;
+
+    /// <summary>
+    /// Where the link went and what happens next. It opens the station's web console rather than this
+    /// app, so the words say to choose the password there and come back.
+    /// </summary>
+    public string ResetSentWords => ResetSentTo is null
+        ? string.Empty
+        : $"If {ResetSentTo} has an account on this station, a link to choose a new password is on its way. "
+            + "It opens the station in your browser. Then come back and sign in here with the new password.";
 
     public event Action? SignedIn;
 
@@ -129,10 +155,59 @@ public sealed partial class LoginViewModel(SessionManager session) : ObservableO
         }
     }
 
-    /// <summary>Goes back to the password step, for somebody who cannot reach their authenticator.</summary>
+    /// <summary>
+    /// "Forgot your password?": asks the station to email a reset link to the address typed.
+    /// </summary>
+    /// <remarks>
+    /// Only the address is needed, the password being what this is instead of, so with none typed the
+    /// answer is to type one rather than to send a blank address to the station to be told so.
+    /// </remarks>
+    [RelayCommand]
+    private async Task ForgotPasswordAsync(CancellationToken cancellationToken)
+    {
+        var email = Email.Trim();
+        if (email.Length == 0)
+        {
+            Problem = "Enter your email address first.";
+            return;
+        }
+
+        Problem = null;
+        Busy = true;
+
+        try
+        {
+            switch (await session.AskForResetAsync(email, cancellationToken).ConfigureAwait(true))
+            {
+                case ResetResult.Sent:
+                    Password = string.Empty;
+                    ResetSentTo = email;
+                    break;
+                case ResetResult.TooMany:
+                    Problem = "That address has been sent enough links for now. Try again in a few minutes.";
+                    break;
+                case ResetResult.NoMail:
+                    Problem = "The station cannot send email, so it cannot send a link. Ask whoever runs it.";
+                    break;
+                case ResetResult.Failed:
+                    Problem = "Could not reach the station to send a link.";
+                    break;
+            }
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Goes back to the password step, for somebody who cannot reach their authenticator, or who has
+    /// read the check-your-inbox panel.
+    /// </summary>
     [RelayCommand]
     private void Cancel()
     {
+        ResetSentTo = null;
         NeedsCode = false;
         Code = string.Empty;
         Problem = null;

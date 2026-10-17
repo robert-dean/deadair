@@ -27,14 +27,26 @@ public struct AccountState: Equatable, Sendable {
     public var challenge: SecondFactor?
     public var busy = false
     public var error: Message?
+    /// The address a password-reset link was asked for, once the station has answered. Set, the
+    /// page says to check that inbox instead of drawing the form.
+    public var resetSentTo: String?
 
-    public init(email: String = "", password: String = "", code: String = "", challenge: SecondFactor? = nil, busy: Bool = false, error: Message? = nil) {
+    public init(
+        email: String = "",
+        password: String = "",
+        code: String = "",
+        challenge: SecondFactor? = nil,
+        busy: Bool = false,
+        error: Message? = nil,
+        resetSentTo: String? = nil
+    ) {
         self.email = email
         self.password = password
         self.code = code
         self.challenge = challenge
         self.busy = busy
         self.error = error
+        self.resetSentTo = resetSentTo
     }
 
     /// The shortest code the station's contract will take.
@@ -59,6 +71,27 @@ public struct AccountState: Equatable, Sendable {
     /// Back to the password step, keeping the email: for somebody who cannot reach their
     /// authenticator, and for every outcome that leaves nothing to answer.
     public func startingAgain() -> AccountState { AccountState(email: email) }
+
+    /// Asking for a password-reset link: busy, or told why not.
+    ///
+    /// Only the address is needed, the password being what this is instead of. With none typed the
+    /// answer is to type one, decided here rather than by sending a blank address to be told so.
+    public func askingReset() -> AccountState {
+        if busy { return self }
+        if email.trimmingCharacters(in: .whitespaces).isEmpty { return with { $0.error = .resetNeedsEmail } }
+        return with { $0.busy = true; $0.error = nil }
+    }
+
+    /// What the fields show once the station has answered a reset request. Sent leaves the form for
+    /// the check-your-inbox state, keeping the email for when they come back to sign in.
+    public func afterReset(_ result: ResetResult) -> AccountState {
+        switch result {
+        case .sent: return AccountState(email: email, resetSentTo: email.trimmingCharacters(in: .whitespaces))
+        case .tooMany: return with { $0.busy = false; $0.error = .resetTooMany }
+        case .noMail: return with { $0.busy = false; $0.error = .resetNoMail }
+        case .failed: return with { $0.busy = false; $0.error = .couldNotReachToReset }
+        }
+    }
 
     /// Turn the station's answer into what the fields show next.
     ///

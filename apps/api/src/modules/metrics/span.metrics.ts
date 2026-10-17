@@ -5,6 +5,28 @@ import { METRICS } from './metric.names.js';
 /** The `kind` label for work outside any decision: a timer's plugin call, a boot step. */
 export const UNTRACED_KIND = 'none';
 
+/** The `kind` label for work a console or API request caused. */
+export const REQUEST_KIND = 'request';
+
+/**
+ * Whether a decision is an HTTP request. A request's trace kind is its method and path
+ * (`authorization.context.middleware.ts`), and the path carries ids.
+ */
+export const isRequestKind = (kind: string): boolean => /^[A-Z]+ \//.test(kind);
+
+/**
+ * The `kind` label a span's decision is counted under.
+ *
+ * A job's kind is its queue name, one of a closed set, and is kept. A request's is its method and
+ * path, `POST /director/air/items/<id>/skip-to`, which would make every id in a URL a new series per
+ * minute, so every request is counted as one kind. Which route it was is what Traces is for.
+ */
+export function kindLabel(span: Pick<RecordedSpan, 'trace'>): string {
+    const kind = span.trace?.kind;
+    if (kind === undefined) return UNTRACED_KIND;
+    return isRequestKind(kind) ? REQUEST_KIND : kind;
+}
+
 const tokens = (detail: Record<string, unknown> | undefined, key: string): number | undefined => {
     const value = detail?.[key];
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -24,10 +46,12 @@ const tokens = (detail: Record<string, unknown> | undefined, key: string): numbe
  *   duration and its failure are still counted, which is the case the span exists for.
  * - Any failed span counts once in `work.failed`, by `op` and decision kind.
  *
+ * The decision kind is {@link kindLabel}'s, so a request counts as `request` and never as its URL.
+ *
  * Spans of any other `op` are not counted: a new one is added here when somebody wants its trend.
  */
 export function observeSpan(recorder: MetricsRecorder, span: RecordedSpan): void {
-    const kind = span.trace?.kind ?? UNTRACED_KIND;
+    const kind = kindLabel(span);
 
     switch (span.op) {
         case 'job.run':

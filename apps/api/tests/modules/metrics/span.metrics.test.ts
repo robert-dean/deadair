@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { MetricsRecorder } from '@maroonedsoftware/telemetry';
 
 import { METRICS } from '../../../src/modules/metrics/metric.names.js';
-import { observeSpan, UNTRACED_KIND } from '../../../src/modules/metrics/span.metrics.js';
+import { observeSpan, REQUEST_KIND, UNTRACED_KIND } from '../../../src/modules/metrics/span.metrics.js';
 import type { RecordedSpan } from '../../../src/modules/shared/trace.spans.js';
 
 const span = (overrides: Partial<RecordedSpan>): RecordedSpan => ({
@@ -78,5 +78,16 @@ describe('observeSpan', () => {
 
     it('counts nothing for an op it does not know, even a failed one', () => {
         expect(observed(span({ op: 'something.new', outcome: 'failed' }))).toEqual({});
+    });
+
+    it('counts work a request caused under one kind, never under its URL, which carries ids', () => {
+        const metrics = observed(
+            span({ op: 'llm.generate', target: 'm', trace: { id: 'r-1', kind: 'POST /director/air/items/8f1c/skip-to' } }),
+            span({ op: 'llm.generate', target: 'm', outcome: 'failed', trace: { id: 'r-2', kind: 'POST /director/air/items/77aa/skip-to' } }),
+        );
+
+        expect(Object.keys(metrics).sort()).toEqual(
+            [`${METRICS.modelMs} {"kind":"${REQUEST_KIND}","model":"m"}`, `${METRICS.failed} {"kind":"${REQUEST_KIND}","op":"llm.generate"}`].sort(),
+        );
     });
 });

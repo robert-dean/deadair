@@ -42,7 +42,9 @@ anything twice.** `recordSpan` (`shared/trace.spans.ts`) is where the job runner
 and the model loop already time their work, and `onSpan` lets the metrics module hear every span as it
 is filed. `span.metrics.ts` turns `job.run` into `work.job.ms` by queue, `plugin.invoke` into
 `work.plugin.ms` by plugin and method, and `llm.generate` into `model.call.ms` and the three
-`model.tokens.*` counters by decision kind and model. Any failed span of those three adds one to
+`model.tokens.*` counters by decision kind and model. The decision kind is a job's queue name; **a request counts as
+`request`**, because its trace kind is its method and path and a path carries ids, which would make
+every id a new series per minute. Any failed span of those three adds one to
 `work.failed`. A model call that never answered adds its time and its failure and no tokens, which is
 the case the span exists to keep.
 

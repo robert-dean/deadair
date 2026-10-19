@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.72.1] — 2026-10-19
+
+- The station's audio is back on Liquidsoap 2.4.5. On 2.4.6, everything on the station skipped: the stream switched between the running order and the station ident thousands of times a minute and fell further and further behind.
+- A call-in or co-host banter left half-written by a restart no longer blocks every later one for its broadcast. The hour a production stays fit to air now retires it whatever state it was left in, so a row stuck in `drafting` (or any earlier stage) with no job behind it is failed after its hour and the show's next call or banter is commissioned on the same pass. Readings are still exempt.
+
 ## [0.72.0] — 2026-10-19
 
 - Voice, Pronunciations: every entry has a play button that speaks the word the way that entry says it, so a respelling can be judged before it airs. It works for proposals and turned-down entries as well as active ones, and beside the Written and Said fields for one still being typed or edited. Pick the voice to hear them in at the top of the page, or leave it on the plugin's default. The route is `POST /pronunciations/sample` with the written form, the spoken form and an optional voice; it is in every SDK.
@@ -1503,7 +1508,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.72.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.72.1...HEAD
+[0.72.1]: https://github.com/robert-dean/deadair/compare/v0.72.0...v0.72.1
 [0.72.0]: https://github.com/robert-dean/deadair/compare/v0.71.0...v0.72.0
 [0.71.0]: https://github.com/robert-dean/deadair/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/robert-dean/deadair/compare/v0.70.1...v0.70.2

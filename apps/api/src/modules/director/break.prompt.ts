@@ -712,6 +712,45 @@ export const WORDS_PER_SECOND = 2.6;
 const latitudeIn = (settings: PromptSettings, shape: BreakPromptShape): PersonaLatitude | undefined =>
     shape.allowsLatitude === true ? latitudeOf(settings.persona) : undefined;
 
+/**
+ * What the user turn says about the notes, by rung.
+ *
+ * Keyed on the rung by NAME, so a rung added later falls to the ordinary paragraph until it is given
+ * one of its own. What every paragraph shares is kept word for word: never read out as it stands, and
+ * anything a note mentions that is not one of the records is background.
+ *
+ * `always` is shown ONE note, chosen in code (`BreakRequestBuilder`, through `factForBreak`), so its
+ * paragraph says "the note" and asks for it outright. The optionality the ordinary paragraph states
+ * first is the thing this rung exists to take away from the model, and saying both would be the
+ * hedge `keen` had to be swapped in to cure.
+ */
+function notesParagraph(trivia: PersonaTrivia | undefined): string {
+    switch (trivia) {
+        case 'keen':
+            return (
+                'The notes are things the station knows to be true, and they are what your break is made of. Pick the one that tells ' +
+                'the best story about a record, or two if they tell the same story, and tell it as yourself: who made it, where it ' +
+                'came from, what happened to it. Never read a note out as it stands. A year, a name or a chart position is worth ' +
+                'saying when it is part of the story, and only exactly as the note gives it. Anything a note mentions that is not one ' +
+                'of the records above is background, never something to cue or play.'
+            );
+        case 'always':
+            return (
+                'The note is something the station knows to be true, and this link carries it. Say it as yourself, in your own words, ' +
+                'beside whatever else you would say about the music. Never read it out as it stands, and a year, a name or a figure only ' +
+                'exactly as the note gives it. Anything the note mentions that is not one of the records above is background, never ' +
+                'something to cue or play.'
+            );
+        default:
+            return (
+                'The notes are things the station knows to be true, offered in case one is worth saying. ' +
+                'You do not have to use any of them, and most breaks are better without one: a note earns its place only if you can ' +
+                'say it as yourself. Never more than one, never read out as it stands, never a date or a credit for its own sake. ' +
+                'Anything a note mentions that is not one of the records above is background, never something to cue or play.'
+            );
+    }
+}
+
 /** {@link latitudeIn} for {@link PersonaSheet.trivia}, on the same terms. See {@link BreakPromptShape.allowsTrivia}. */
 const triviaIn = (settings: PromptSettings, shape: BreakPromptShape): PersonaTrivia | undefined =>
     shape.allowsTrivia === true ? triviaOf(settings.persona) : undefined;
@@ -1171,18 +1210,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             // which is the failure the rung exists to fix. What the two share is kept word for word:
             // never read out as it stands, and anything a note mentions that is not one of the
             // records is background.
-            // Keyed on the rung by NAME rather than on whether one is set, so a rung added later
-            // falls to the ordinary paragraph until it is given one of its own.
-            triviaIn(settings, shape) === 'keen'
-                ? 'The notes are things the station knows to be true, and they are what your break is made of. Pick the one that tells ' +
-                      'the best story about a record, or two if they tell the same story, and tell it as yourself: who made it, where it ' +
-                      'came from, what happened to it. Never read a note out as it stands. A year, a name or a chart position is worth ' +
-                      'saying when it is part of the story, and only exactly as the note gives it. Anything a note mentions that is not one ' +
-                      'of the records above is background, never something to cue or play.'
-                : 'The notes are things the station knows to be true, offered in case one is worth saying. ' +
-                      'You do not have to use any of them, and most breaks are better without one: a note earns its place only if you can ' +
-                      'say it as yourself. Never more than one, never read out as it stands, never a date or a credit for its own sake. ' +
-                      'Anything a note mentions that is not one of the records above is background, never something to cue or play.',
+            notesParagraph(triviaIn(settings, shape)),
         );
     }
 

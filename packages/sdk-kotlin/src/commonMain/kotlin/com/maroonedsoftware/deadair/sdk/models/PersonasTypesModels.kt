@@ -359,7 +359,7 @@ data class Persona(
     val storytelling: PersonaStorytelling? = null,
     /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
     val growth: PersonaGrowth? = null,
-    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
     val trivia: PersonaTrivia? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
@@ -419,7 +419,7 @@ data class PersonaInput(
     val storytelling: PersonaStorytelling? = null,
     /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
     val growth: PersonaGrowth? = null,
-    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
     val trivia: PersonaTrivia? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
@@ -998,11 +998,12 @@ object PersonaGrowthSerializer : SdkEnumSerializer<PersonaGrowth>(
     PersonaGrowth.SELF_DIRECTED to "self-directed",
 )
 
-/** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+/** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
 @Serializable(with = PersonaTriviaSerializer::class)
 enum class PersonaTrivia {
     KEEN,
     NEVER,
+    ALWAYS,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -1017,6 +1018,7 @@ object PersonaTriviaSerializer : SdkEnumSerializer<PersonaTrivia>(
     PersonaTrivia.UNKNOWN,
     PersonaTrivia.KEEN to "keen",
     PersonaTrivia.NEVER to "never",
+    PersonaTrivia.ALWAYS to "always",
 )
 
 /** How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself */
@@ -1136,6 +1138,7 @@ object PersonaDraftViewStorytellingSerializer : SdkEnumSerializer<PersonaDraftVi
 enum class PersonaDraftViewTrivia {
     KEEN,
     NEVER,
+    ALWAYS,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -1150,6 +1153,7 @@ object PersonaDraftViewTriviaSerializer : SdkEnumSerializer<PersonaDraftViewTriv
     PersonaDraftViewTrivia.UNKNOWN,
     PersonaDraftViewTrivia.KEEN to "keen",
     PersonaDraftViewTrivia.NEVER to "never",
+    PersonaDraftViewTrivia.ALWAYS to "always",
 )
 
 /** `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet */

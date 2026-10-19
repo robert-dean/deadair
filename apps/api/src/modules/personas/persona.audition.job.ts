@@ -284,6 +284,19 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
             const rung = triviaOf(persona);
             // A presenter never handed the notes is auditioned without them, as it would air.
             if (rung === 'never') return undefined;
+            // And one at `always` with the one fact the break would carry, unstamped.
+            if (rung === 'always') {
+                const chosen = await this.enrichment.factForBreak(
+                    transition.previous.trackId,
+                    transition.next.trackId,
+                    rotationOf(`${auditionId}:${ordinal}`),
+                    {
+                        stamp: false,
+                    },
+                );
+                if (chosen === undefined) return undefined;
+                return chosen.trackId === transition.next.trackId ? { next: [chosen.fact] } : { previous: [chosen.fact] };
+            }
             const budget = rung === undefined ? undefined : TRIVIA_FACT_BUDGET[rung];
             const found = await this.enrichment.factsForTracks(ids, rotationOf(`${auditionId}:${ordinal}`), {
                 stamp: false,

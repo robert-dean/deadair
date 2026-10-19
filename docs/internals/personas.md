@@ -529,6 +529,19 @@ rung reads and shows as ordinary under a `never` presenter. Three places key on 
 reason (the shape's `triviaRules`, the notes paragraph, both consoles' readouts), so a rung added later falls
 to the ordinary behaviour until it is given its own.
 
+**`always` is the middle the field was missing: a presenter with patter of its own, who should still say
+something true about the music every time.** The ordinary break offers notes a model mostly declines, and
+`keen` makes them the whole break. At `always` CODE chooses one fact for the break,
+`EnrichmentReadService.factForBreak`: a sourced claim about the next record, then one about the previous
+record, then a provider line, next before previous, with only the chosen claim stamped. It goes on the record
+it is about and the other record is shown none, since a second record's notes beside it would be the list
+this rung replaces. The prompt carries `TRIVIA_INSTRUCTIONS.always` in the system turn, the ceiling rises to
+`TRIVIA_MAX_WORDS.always`, and `notesParagraph` asks for "the note" outright rather than offering it, because
+the optionality the ordinary paragraph states first is exactly what this rung takes away from the model. The
+story-first rules stay `keen`'s. A break whose records the station knows nothing about is shown no note and
+written as an ordinary link. Whether the fact was actually said is measured rather than refused; see
+`breaks.md` § "A claim needs its evidence".
+
 ## Hearing a character before it goes on air
 
 **A rehearsal is one break; an AUDITION is a playlist.** `POST /personas/{id}/rehearse` writes a single break

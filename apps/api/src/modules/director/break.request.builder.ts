@@ -111,18 +111,22 @@ const TRIVIA_KINDS = new Set<string>(
  *
  * `budget` absent is the ordinary read. `withhold` is a presenter at `never`: the facts are read
  * unstamped, so the break still knows whether there was anything to say, and then kept from the
- * prompt. A kind that does not offer the rung reads as ordinary whoever is presenting.
+ * prompt. `one` is a presenter at `always`: code chooses the single fact the break carries
+ * (`factForBreak`) rather than offering a list. A kind that does not offer the rung reads as ordinary
+ * whoever is presenting.
  */
 interface FactPlan {
     budget?: FactBudget;
     withhold: boolean;
+    one: boolean;
 }
 
 function factPlan(persona: Persona | undefined, kind: string): FactPlan {
     const rung = TRIVIA_KINDS.has(kind) ? triviaOf(persona) : undefined;
-    if (rung === 'never') return { withhold: true };
+    if (rung === 'never') return { withhold: true, one: false };
+    if (rung === 'always') return { withhold: false, one: true };
     const budget = rung === undefined ? undefined : TRIVIA_FACT_BUDGET[rung];
-    return budget === undefined ? { withhold: false } : { budget, withhold: false };
+    return budget === undefined ? { withhold: false, one: false } : { budget, withhold: false, one: false };
 }
 
 /** Takes the notes off both records, for a presenter at `never`. See {@link factPlan}. */
@@ -561,6 +565,20 @@ export class BreakRequestBuilder {
         if (trackIds.length === 0) return;
 
         try {
+            if (plan.one) {
+                // One fact for the whole break, on the record it is about, and the other shown none:
+                // a second record's notes beside it would be the list this rung exists to replace.
+                const chosen = await this.enrichment.factForBreak(
+                    neighbours.previous?.track.trackId,
+                    neighbours.next?.track.trackId,
+                    rotationOf(segmentId),
+                );
+                const side =
+                    chosen === undefined ? undefined : [neighbours.next, neighbours.previous].find(side => side?.track.trackId === chosen.trackId);
+                if (chosen !== undefined && side !== undefined) side.track = { ...side.track, facts: [chosen.fact] };
+                return;
+            }
+
             const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId), {
                 ...(plan.budget === undefined ? {} : { budget: plan.budget }),
                 // Nothing is rested for a presenter who will not be shown it.

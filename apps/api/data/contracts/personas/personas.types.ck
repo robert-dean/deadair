@@ -28,7 +28,7 @@ contract Persona: {
     chattiness?: enum(reserved, sparing, ordinary, chatty, relentless) # How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree
     storytelling?: enum(never, occasionally, often) # How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says
     growth?: enum(proposes, self-directed) # Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is
-    trivia?: enum(keen, never) # How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says
+    trivia?: enum(keen, never, always) # How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
     templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's own five
     hosts?: array(string(min=1, max=100)) # The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties
@@ -74,7 +74,7 @@ contract PersonaDraftView: {
     latitude?: enum(loose, unleashed)
     chattiness?: enum(reserved, sparing, ordinary, chatty, relentless)
     storytelling?: enum(never, occasionally, often)
-    trivia?: enum(keen, never)
+    trivia?: enum(keen, never, always)
     samples?: array(string(min=1, max=500))
     templates?: string(max=20000)
 }

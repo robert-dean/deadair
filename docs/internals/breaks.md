@@ -314,7 +314,8 @@ preference order, is the ordinary budget and the notes paragraph calls them opti
 `trivia: 'keen'` is handed four, one each about the recording, its record and its artist before a second about
 any, and a notes paragraph that asks for the story they tell. Spreading gives up the rule that a claim outranks
 a provider line ACROSS levels (within a level it still does), which is the trade a keen presenter is asking for:
-a note about each thing rather than the best two about the take. A persona at `trivia: 'never'` is handed none:
+a note about each thing rather than the best two about the take. A persona at `trivia: 'always'` is handed exactly one for the whole break, chosen in code
+(`factForBreak`) and asked for outright. A persona at `trivia: 'never'` is handed none:
 the facts are read unstamped, so nothing rests, and withheld before the prompt. `personas.md` § "How much
 rope" has the rest.
 

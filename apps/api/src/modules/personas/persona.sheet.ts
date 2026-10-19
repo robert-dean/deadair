@@ -430,8 +430,10 @@ export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
  * the notes are the break. `never` is below, and it exists because the ordinary break's "optional"
  * turned out to be something a model reads as an offer to take, so a character that is better without
  * trivia has to be told so in code, by never being handed the notes, rather than in the prompt.
+ * `always` sits between the ordinary break and `keen`, and it is the same idea pointed the other way:
+ * code chooses ONE fact for the break, and the prompt asks for it beside the presenter's own patter.
  */
-export const PERSONA_TRIVIA = ['keen', 'never'] as const;
+export const PERSONA_TRIVIA = ['keen', 'never', 'always'] as const;
 
 export type PersonaTrivia = (typeof PERSONA_TRIVIA)[number];
 
@@ -451,6 +453,11 @@ export const TRIVIA_INSTRUCTIONS: Partial<Record<PersonaTrivia, string>> = {
         'The story behind the record is what you are for. Who made it, where it came from, what happened to it after: you build a ' +
         'break out of what the station tells you about a record, and you land on the record itself. Only ever the story you were ' +
         'given, never one you remember.',
+    // Said whether or not this break found a fact, for `keen`'s reason: it is who the presenter is.
+    // "Only the note you were given" is restated here for the same reason `keen` restates it.
+    always:
+        'You always have one thing to tell the listener about the music, and you work it into the link beside whatever else you would ' +
+        'say, in your own words. Only ever the note you were given, never one you remember.',
     // `never` says nothing: a line about notes in a prompt that is shown none is a line about nothing,
     // and naming trivia to a model is the surest way to have it reach for some.
 };
@@ -464,6 +471,9 @@ export const TRIVIA_INSTRUCTIONS: Partial<Record<PersonaTrivia, string>> = {
  */
 export const TRIVIA_MAX_WORDS: Partial<Record<PersonaTrivia, number>> = {
     keen: 70,
+    // One fact said in a sentence of its own, plus the link the presenter would have made anyway, does
+    // not fit the station's forty. Less than `keen`'s seventy, because this is not a story.
+    always: 55,
 };
 
 /**
@@ -476,6 +486,7 @@ export const TRIVIA_MAX_WORDS: Partial<Record<PersonaTrivia, number>> = {
  */
 export const TRIVIA_FACT_BUDGET: Partial<Record<PersonaTrivia, { limit: number; spread: boolean }>> = {
     keen: { limit: 4, spread: true },
+    // `always` reads no budget at all: it asks `factForBreak` for the one fact the break carries.
     // `never` reads the ordinary budget, unstamped, and is shown none of it: the read is how the break
     // still knows whether the station had anything to say, which is what a story is offered on.
 };
@@ -498,6 +509,13 @@ export const TRIVIA_FACT_BUDGET: Partial<Record<PersonaTrivia, { limit: number; 
  * (a story is offered on that), and then withheld before the prompt: no notes, no notes paragraph,
  * and no year out of a note counted as one the break may say. Nothing is stamped, so the notes rest
  * for whoever is presenting next rather than for a character that was never going to use them.
+ *
+ * ## `always`, which chooses rather than offers
+ *
+ * One fact for the whole break, chosen in code (`EnrichmentReadService.factForBreak`: a sourced claim
+ * about the next record first) and put on the record it is about, the other record shown none. The
+ * prompt adds `always`'s line to the system turn and swaps the notes paragraph for one asking for that
+ * note, and the ceiling rises to {@link TRIVIA_MAX_WORDS}. The story-first rules stay `keen`'s alone.
  *
  * ## What it does not move
  *
@@ -782,7 +800,7 @@ export interface PersonaSheet {
     growth?: PersonaGrowth;
     /**
      * How much this character leans on what the station knows about a record, or absent for the
-     * station's ordinary discipline: `keen` above it, `never` below.
+     * station's ordinary discipline: `keen` and `always` above it, `never` below.
      *
      * Read through {@link triviaOf}, where the rung is argued. It is `latitude`'s kind of field rather
      * than `storytelling`'s: a permission the shape can veto, reaching the facts read, the word ceiling

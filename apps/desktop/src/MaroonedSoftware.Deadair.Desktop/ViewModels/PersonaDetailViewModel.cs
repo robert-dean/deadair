@@ -271,6 +271,7 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
     public static IReadOnlyList<DialOption> TriviaOptions { get; } =
     [
         new(string.Empty, "The station's usual: a note now and then"),
+        new("always", "Always: one fact in every link"),
         new("keen", "Keen: the story behind every record"),
         new("never", "Never: none of it, just the reaction"),
     ];

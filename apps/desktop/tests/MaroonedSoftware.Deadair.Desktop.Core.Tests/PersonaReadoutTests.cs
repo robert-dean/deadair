@@ -29,6 +29,10 @@ public class PersonaReadoutTests
     }
 
     [Fact]
+    public void AnAlwaysPresenterWorksOneFactIntoEveryLink() =>
+        Assert.Contains("into every link", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "always"), StringComparison.Ordinal);
+
+    [Fact]
     public void ANeverPresenterSaysItIsNotToldWhatTheStationKnows() =>
         Assert.Contains("never told what the station knows", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "never"), StringComparison.Ordinal);
 

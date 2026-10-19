@@ -307,7 +307,7 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock Classes="help" Text="Keen presenters are handed more of what the station has learned about a record, and asked to build each link out of the story. Never keeps it from them altogether, for a character whose job is a reaction. They can still only say what a note says." />
+                            <TextBlock Classes="help" Text="Keen presenters are handed more of what the station has learned about a record, and asked to build each link out of the story. Always hands them one fact for every link, to say beside their own patter. Never keeps it from them altogether, for a character whose job is a reaction. They can still only say what a note says." />
                         </StackPanel>
 
                         <StackPanel Classes="field">

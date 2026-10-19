@@ -1110,25 +1110,34 @@ export class DirectorService {
 
             await inScope(this.container, async scope => {
                 const productions = scope.get(ProductionRepository);
-                const waiting = (await productions.unfinished()).filter(
-                    production => production.state === 'rendering' || production.state === 'ready',
-                );
+                const waiting: Production[] = [];
+                for (const production of await productions.unfinished()) {
+                    // Too old to air, whatever state it reached, and checked BEFORE the filter to the
+                    // two states this pass places from. A programme that missed its hour says things
+                    // about the time of day that are no longer true, and one that has sat unfinished
+                    // since yesterday was never going to be the right thing to put on. A reading is
+                    // exempt: it is carried to the slot an operator gave it, and its words are an
+                    // author's, not the station's. See `production.shelf.ts`.
+                    //
+                    // Every unsettled state rather than only `rendering` and `ready`, because a pass
+                    // that dies takes nothing with it but its job: on 19 October a restart killed a
+                    // banter's draft pass, its job (no retry, by design) could not record the failure
+                    // against a pool already torn down, and the row sat in `drafting` with nothing to
+                    // move it. `standingIn` counts every unsettled row as one coming, so that broadcast
+                    // was never commissioned another. Failing it here, ahead of `ripen` below, is what
+                    // frees the standing rule on the same pass.
+                    if (!isNarrationKind(production.kind) && productionExpired(production, Date.now())) {
+                        if (await productions.fail(production.id, EXPIRED_PRODUCTION)) this.reportExpiredProduction(production.id, production.title);
+                        continue;
+                    }
+                    if (production.state === 'rendering' || production.state === 'ready') waiting.push(production);
+                }
                 if (waiting.length === 0) return;
 
                 const segments = scope.get(SegmentRepository);
                 let placed = 0;
 
                 for (const production of waiting) {
-                    // Too old to air, whatever state it reached. A programme that missed its hour
-                    // says things about the time of day that are no longer true, and one that has
-                    // sat unfinished since yesterday was never going to be the right thing to put on.
-                    // A reading is exempt: it is carried to the slot an operator gave it, and its
-                    // words are an author's, not the station's. See `production.shelf.ts`.
-                    if (!isNarrationKind(production.kind) && productionExpired(production, Date.now())) {
-                        if (await productions.fail(production.id, EXPIRED_PRODUCTION)) this.reportExpiredProduction(production.id, production.title);
-                        continue;
-                    }
-
                     const beats = await segments.beatsOf(production.id);
                     if (beats.length === 0) continue;
 

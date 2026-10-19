@@ -194,7 +194,7 @@ FROM tts-${WITH_TTS} AS tts
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # The station.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
-FROM ${BASE_REGISTRY}/savonet/liquidsoap:v2.4.5
+FROM ${BASE_REGISTRY}/savonet/liquidsoap:v2.4.6
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive

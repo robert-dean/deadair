@@ -23,7 +23,7 @@ import tempfile
 import numpy as np
 
 RATE = 44_100
-IMAGE = "savonet/liquidsoap:v2.4.5"
+IMAGE = "savonet/liquidsoap:v2.4.6"
 HERE = os.path.dirname(os.path.abspath(__file__))
 TONES = {"a": 400.0, "b": 1300.0, "c": 2700.0, "d": 5300.0, "e": 3700.0}
 # The last one is stamped 8.0 out of d and 0.1 into e, the two sides disagreeing. The right answer

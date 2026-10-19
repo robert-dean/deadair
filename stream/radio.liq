@@ -307,7 +307,7 @@ station_id = metadata.map(bed_label, insert_missing=true, mksafe(single("/radio/
 # request.queue wraps a request.dynamic (prefetch defaults to 1), so a pushed item is resolved —
 # for an http uri, curl-downloaded — while the previous one is still playing.
 #
-# NOTE: written for Liquidsoap 2.4.5 (the pinned image, stream/Dockerfile). `q.length` counts
+# NOTE: written for Liquidsoap 2.4 (2.4.6 is the pinned image, stream/Dockerfile). `q.length` counts
 # both the pending queue and the resolved-but-not-yet-playing one, and EXCLUDES what is on air,
 # which is exactly the depth the app tops up against. Clearing it goes through `drop_queued` below,
 # which removes per request rather than replacing the queue: see there for why the obvious

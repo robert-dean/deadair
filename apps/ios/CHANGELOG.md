@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-10-19
+
+- Signing in answers an emailed code as well as an authenticator code. An account whose second factor is email (with or without a passkey beside it) is sent a code and can ask for it again, instead of being told to sign in from the console, and an account with both an authenticator and email can choose "Email me a code instead".
+
 ## [0.13.1] — 2026-10-19
 
 - "Forgot your password?" with an address the station cannot read as one now says "That is not an email address. Check what you typed." It used to say the station could not be reached, which sent somebody to check their network instead of their spelling.

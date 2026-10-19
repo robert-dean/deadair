@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-10-19
+
+- Signing in answers an emailed code as well as an authenticator code. An account whose second factor is email (with or without a passkey beside it) is sent a code and can ask for it again, instead of being told to sign in on the web console, and an account with both an authenticator and email can choose "Email me a code instead". A passkey or phone factor alone is still refused, with words that no longer suggest email is the problem.
+
 ## [0.14.1] — 2026-10-19
 
 - "Forgot your password?" with an address the station cannot read as one now says "That is not an email address. Check what you typed." It used to say the station could not be reached, which sent somebody to check their network instead of their spelling.
@@ -156,7 +160,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.15.0...HEAD
+[0.15.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.1...desktop-v0.15.0
 [0.14.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.0...desktop-v0.14.1
 [0.14.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.3...desktop-v0.14.0
 [0.13.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.2...desktop-v0.13.3

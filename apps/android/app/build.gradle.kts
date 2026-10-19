@@ -155,6 +155,9 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.work.runtime)
+    // A passkey as the second step of signing in.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
     // The system output switcher and the selected route's name, for Now playing's output button.
     implementation(libs.androidx.mediarouter)
     implementation(libs.bundles.media3)

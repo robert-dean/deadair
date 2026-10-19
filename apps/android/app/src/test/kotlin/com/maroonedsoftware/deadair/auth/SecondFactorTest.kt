@@ -17,7 +17,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,6 +83,7 @@ class SecondFactorTest {
     private fun managerOver(
         store: SessionStorage,
         scope: CoroutineScope,
+        appOrigin: String? = APP,
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): Pair<SessionManager, MockEngine> {
         val engine = MockEngine(handler)
@@ -88,6 +93,7 @@ class SecondFactorTest {
                 settings = MutableStateFlow(ListenerSettings(station = station)),
                 sdkFor = { target, headers -> DeadairSdk(SdkConfig(baseUrl = target.apiBase, headers = headers, httpClient = HttpClient(engine))) },
                 scope = scope,
+                appOrigin = { appOrigin },
             )
         return manager to engine
     }
@@ -272,5 +278,90 @@ class SecondFactorTest {
 
             assertEquals(SignInResult.BadCredentials, manager.completeSecondFactor(station, "operator@example.com", "c_1", "totp-1", "123456"))
         }
+    }
+
+    // ── A passkey ───────────────────────────────────────────────────────────────────────
+
+    private val fidoStartBody =
+        """
+        {"method":"fido","fido_challenge_id":"f_1","expires_at":"2026-09-08T12:05:00Z",
+         "assertion":{"challenge":"ab+c/d==","rpId":"radio.example.com","timeout":300000,"userVerification":"preferred",
+                      "allowCredentials":[{"type":"public-key","id":"Y3+/ZA=="}]}}
+        """.trimIndent()
+
+    @Test
+    fun `starts a passkey assertion naming this app's origin, and hands Credential Manager the WebAuthn form`() {
+        runTest {
+            val (manager, engine) = managerOver(FakeStore(), backgroundScope) { json(fidoStartBody) }
+
+            val started = manager.startPasskey(station, "c_1") as PasskeyStartResult.Started
+
+            assertEquals("f_1", started.fidoChallengeId)
+            assertTrue(started.requestJson, started.requestJson.contains(""""challenge":"ab-c_d""""))
+            assertTrue(started.requestJson, started.requestJson.contains(""""rpId":"radio.example.com""""))
+            val request = engine.requestHistory.single()
+            assertTrue(request.url.encodedPath.endsWith("/auth/factors/start"))
+            assertEquals(APP, request.headers[APP_ORIGIN_HEADER])
+            val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            assertTrue(body.contains("\"method\":\"fido\""))
+            assertTrue(body.contains("\"mfa_challenge_id\":\"c_1\""))
+        }
+    }
+
+    @Test
+    fun `a station that will not start one for this build, or a build with no origin, is not offered one`() {
+        runTest {
+            val (refused, _) = managerOver(FakeStore(), backgroundScope) { json("""{"message":"no"}""", HttpStatusCode.BadRequest) }
+            assertEquals(PasskeyStartResult.NotOffered, refused.startPasskey(station, "c_1"))
+
+            val (unread, engine) = managerOver(FakeStore(), backgroundScope, appOrigin = null) { json(fidoStartBody) }
+            assertEquals(PasskeyStartResult.NotOffered, unread.startPasskey(station, "c_1"))
+            assertTrue(engine.requestHistory.isEmpty())
+
+            val (expired, _) = managerOver(FakeStore(), backgroundScope) { refusal("invalid_challenge") }
+            assertEquals(PasskeyStartResult.ChallengeExpired, expired.startPasskey(station, "c_1"))
+        }
+    }
+
+    @Test
+    fun `a signed assertion is answered with the fido grant, as JSON, because a form cannot carry the credential`() {
+        runTest {
+            val store = FakeStore()
+            val (manager, engine) =
+                managerOver(store, backgroundScope) { request ->
+                    if (request.url.encodedPath.endsWith("/auth/session")) json("""{"actorId":"u-1","roles":["admin"]}""")
+                    else json(tokenBody, HttpStatusCode.Created)
+                }
+
+            assertEquals(SignInResult.Ok, manager.completePasskey(station, "operator@example.com", "c_1", "f_1", ASSERTION))
+            assertEquals("access-9", store.state.value?.accessToken)
+
+            val request = engine.requestHistory.first()
+            assertTrue(request.url.encodedPath.endsWith("/auth/token"))
+            assertEquals(ContentType.Application.Json, request.body.contentType?.withoutParameters())
+            val body = Json.parseToJsonElement((request.body as TextContent).text).jsonObject
+            assertEquals("fido", body["grant_type"]?.jsonPrimitive?.content)
+            assertEquals("f_1", body["challenge_id"]?.jsonPrimitive?.content)
+            assertEquals("c_1", body["mfa_challenge_id"]?.jsonPrimitive?.content)
+            assertEquals("sig", body["credential"]?.jsonObject?.get("response")?.jsonObject?.get("signature")?.jsonPrimitive?.content)
+        }
+    }
+
+    @Test
+    fun `a passkey the station refused is reported as refused credentials`() {
+        runTest {
+            val (manager, _) = managerOver(FakeStore(), backgroundScope) { refusal("invalid_credentials") }
+
+            assertEquals(SignInResult.BadCredentials, manager.completePasskey(station, "operator@example.com", "c_1", "f_1", ASSERTION))
+        }
+    }
+
+    private companion object {
+        const val APP = "android:apk-key-hash:vuXmYzBIDw7kPaxYVK4_gYc0UCP_FrqHxFVXLzNcy0k"
+
+        /** What Credential Manager answers, less `clientExtensionResults`, which a provider may leave out. */
+        const val ASSERTION =
+            """{"id":"cred","rawId":"cred","type":"public-key","authenticatorAttachment":"platform",""" +
+                """"response":{"clientDataJSON":"cd","authenticatorData":"ad","signature":"sig","userHandle":"uh"}}"""
     }
 }

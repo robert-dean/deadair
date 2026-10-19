@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -46,7 +47,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.auth.PasskeyAnswer
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.auth.askForPasskey
 import com.maroonedsoftware.deadair.ui.PillTextField
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.PillHeight
@@ -97,6 +100,10 @@ fun SignInForm(
     onUseEmail: () -> Unit,
     /** "Send it again", for an emailed code. */
     onSendAgain: () -> Unit,
+    /** "Use a passkey instead", from the authenticator step. */
+    onUsePasskey: () -> Unit,
+    /** What the phone's passkey prompt answered. */
+    onPasskeyAnswer: (PasskeyAnswer) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         // Once the station has asked for a second factor the password step is over, and its
@@ -104,9 +111,70 @@ fun SignInForm(
         // accepted a moment ago, and there is nothing left to send them to.
         when {
             account.resetSentTo != null -> ResetSent(account.resetSentTo, onStartAgain)
-            account.challenge != null -> CodeStep(account, account.challenge, onCodeChange, onSignIn, onStartAgain, onUseEmail, onSendAgain)
+            account.challenge is SecondFactor.Passkey -> PasskeyStep(account, account.challenge, onSignIn, onStartAgain, onUseEmail, onPasskeyAnswer)
+            account.challenge != null ->
+                CodeStep(account, account.challenge, onCodeChange, onSignIn, onStartAgain, onUseEmail, onSendAgain, onUsePasskey)
             else -> PasswordForm(account, onEmailChange, onPasswordChange, onSignIn, onForgotPassword)
         }
+    }
+}
+
+/**
+ * The passkey step: the phone's own prompt does the asking, so all this draws is what is happening
+ * and the ways out.
+ *
+ * The prompt is raised from here rather than from the view model because Credential Manager draws
+ * it over an activity, and only the composition has one. It is raised once per started assertion,
+ * keyed on the request, so a recomposition never asks twice; a closed prompt leaves the button to
+ * ask again.
+ */
+@Composable
+private fun PasskeyStep(
+    account: AccountState,
+    challenge: SecondFactor.Passkey,
+    onAskAgain: () -> Unit,
+    onStartAgain: () -> Unit,
+    onUseEmail: () -> Unit,
+    onPasskeyAnswer: (PasskeyAnswer) -> Unit,
+) {
+    val context = LocalContext.current
+    val due = AccountState.passkeyPromptDue(account)
+    LaunchedEffect(challenge.requestJson, due) {
+        val request = challenge.requestJson
+        if (due && request != null) onPasskeyAnswer(askForPasskey(context, request))
+    }
+
+    Text(stringResource(R.string.second_factor_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+    Text(
+        stringResource(if (account.busy) R.string.second_factor_passkey_waiting else R.string.second_factor_passkey),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    )
+    account.error?.let {
+        Text(
+            it.resolve(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+    }
+
+    Button(onClick = onAskAgain, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
+        if (account.busy) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+        } else {
+            Text(stringResource(R.string.use_passkey))
+        }
+    }
+
+    if (challenge.email != null) {
+        TextButton(onClick = onUseEmail, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.use_email_instead))
+        }
+    }
+
+    TextButton(onClick = onStartAgain, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.start_again))
     }
 }
 
@@ -223,6 +291,7 @@ private fun CodeStep(
     onStartAgain: () -> Unit,
     onUseEmail: () -> Unit,
     onSendAgain: () -> Unit,
+    onUsePasskey: () -> Unit,
 ) {
     val emailed = challenge as? SecondFactor.Email
     val sending = emailed != null && emailed.emailChallengeId == null
@@ -273,10 +342,18 @@ private fun CodeStep(
             TextButton(onClick = onSendAgain, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.send_again))
             }
-        challenge is SecondFactor.Authenticator && challenge.email != null ->
-            TextButton(onClick = onUseEmail, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.use_email_instead))
+        challenge is SecondFactor.Authenticator -> {
+            if (challenge.passkey != null) {
+                TextButton(onClick = onUsePasskey, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.use_passkey_instead))
+                }
             }
+            if (challenge.email != null) {
+                TextButton(onClick = onUseEmail, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.use_email_instead))
+                }
+            }
+        }
     }
 
     TextButton(onClick = onStartAgain, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {

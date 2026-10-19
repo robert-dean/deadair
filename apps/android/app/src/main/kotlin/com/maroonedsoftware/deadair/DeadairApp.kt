@@ -8,6 +8,7 @@ import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.auth.SessionStore
+import com.maroonedsoftware.deadair.auth.signingOrigin
 import com.maroonedsoftware.deadair.catalog.CatalogActions
 import com.maroonedsoftware.deadair.director.BreakActions
 import com.maroonedsoftware.deadair.director.OrderActions
@@ -76,6 +77,9 @@ class AppGraph(private val application: Application) {
 
     val session: SessionStore = SessionStore(application)
 
+    /** This build's WebAuthn origin, read from its signing certificate the first time a passkey asks. */
+    private val appOrigin: String? by lazy { signingOrigin(application) }
+
     /**
      * The signed-in half, which most installs never use. It holds the refresh lock, so there is one
      * of it: two would be two callers able to spend the same single-use refresh token.
@@ -86,6 +90,7 @@ class AppGraph(private val application: Application) {
             settings = settings.settings,
             sdkFor = HttpClients::sdkFor,
             scope = scope,
+            appOrigin = { appOrigin },
         )
 
     /** What the station has played. Behind the session, like the schedule beside it. */

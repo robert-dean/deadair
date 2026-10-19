@@ -1,10 +1,13 @@
 package com.maroonedsoftware.deadair.ui.settings
 
 import com.maroonedsoftware.deadair.auth.CodeSendResult
+import com.maroonedsoftware.deadair.auth.PasskeyAnswer
+import com.maroonedsoftware.deadair.auth.PasskeyStartResult
 import com.maroonedsoftware.deadair.auth.ResetResult
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.auth.authenticatorFactors
 import com.maroonedsoftware.deadair.auth.emailFactor
+import com.maroonedsoftware.deadair.auth.passkeyFactor
 import com.maroonedsoftware.deadair.ui.text.Message
 
 /**
@@ -23,9 +26,10 @@ sealed interface SecondFactor {
      * keyboard exactly like a wrong code.
      *
      * [email] is set when the account can also be sent a code, for somebody whose authenticator is
-     * on a phone they do not have with them.
+     * on a phone they do not have with them, and [passkey] when it has a passkey.
      */
-    data class Authenticator(override val challengeId: String, val methodId: String, val email: Email? = null) : SecondFactor
+    data class Authenticator(override val challengeId: String, val methodId: String, val email: Email? = null, val passkey: Passkey? = null) :
+        SecondFactor
 
     /**
      * A code the station emails. [emailChallengeId] is the message's id, which the code grant echoes
@@ -33,6 +37,34 @@ sealed interface SecondFactor {
      * that. [sentTo] is the station's label for the address, usually masked, when it gave one.
      */
     data class Email(override val challengeId: String, val sentTo: String? = null, val emailChallengeId: String? = null) : SecondFactor
+
+    /**
+     * A passkey, answered through Credential Manager rather than typed. Three exchanges rather than
+     * one, and [step] says which is due: the station starts an assertion, the phone asks the person
+     * for their passkey, and the station checks what the phone signed. [fidoChallengeId] and
+     * [requestJson] are the started assertion, absent until the station has answered.
+     *
+     * [email] is set when the account can also be sent a code, for a phone with no passkey on it.
+     */
+    data class Passkey(
+        override val challengeId: String,
+        val email: Email? = null,
+        val step: PasskeyStep = PasskeyStep.STARTING,
+        val fidoChallengeId: String? = null,
+        val requestJson: String? = null,
+    ) : SecondFactor
+}
+
+/** Which of a passkey's three exchanges is next, while the sign-in is busy. */
+enum class PasskeyStep {
+    /** Asking the station to start an assertion. */
+    STARTING,
+
+    /** The phone's passkey prompt is up. */
+    ASKING,
+
+    /** The station is checking the signed assertion. */
+    CHECKING,
 }
 
 /**
@@ -76,6 +108,8 @@ data class AccountState(
         get() =
             when {
                 busy -> false
+                // Nothing to type: the button asks for the passkey again.
+                challenge is SecondFactor.Passkey -> true
                 challenge is SecondFactor.Email && challenge.emailChallengeId == null -> false
                 challenge != null -> code.length >= CODE_LENGTH
                 else -> email.isNotBlank() && password.isNotEmpty()
@@ -108,14 +142,78 @@ data class AccountState(
         }
 
         /**
-         * "Email me a code instead", from the authenticator step. Busy, because the send is next;
-         * the challenge stays the same one, so nothing about the password step is repeated.
+         * "Email me a code instead", from the authenticator or the passkey step. Busy, because the
+         * send is next; the challenge stays the same one, so nothing about the password step is
+         * repeated.
          */
         fun usingEmail(current: AccountState): AccountState {
+            if (current.busy) return current
+            val email =
+                when (val challenge = current.challenge) {
+                    is SecondFactor.Authenticator -> challenge.email
+                    is SecondFactor.Passkey -> challenge.email
+                    else -> null
+                } ?: return current
+            return current.copy(code = "", challenge = email, busy = true, error = null)
+        }
+
+        /** "Use a passkey instead", from the authenticator step. Busy, because the station starts one next. */
+        fun usingPasskey(current: AccountState): AccountState {
             val challenge = current.challenge
             if (current.busy || challenge !is SecondFactor.Authenticator) return current
-            val email = challenge.email ?: return current
-            return current.copy(code = "", challenge = email, busy = true, error = null)
+            val passkey = challenge.passkey ?: return current
+            return current.copy(code = "", challenge = passkey, busy = true, error = null)
+        }
+
+        /**
+         * "Use your passkey", once a prompt was closed or refused: start the assertion again. The
+         * station hands back the one it started while it is still live, so this costs nothing.
+         */
+        fun askingPasskeyAgain(current: AccountState): AccountState {
+            val challenge = current.challenge
+            if (current.busy || challenge !is SecondFactor.Passkey) return current
+            return current.copy(challenge = challenge.copy(step = PasskeyStep.STARTING, fidoChallengeId = null, requestJson = null), busy = true, error = null)
+        }
+
+        /** Whether the station is to be asked to start a passkey assertion, which the view model then does. */
+        fun needsPasskeyStarted(state: AccountState): Boolean {
+            val challenge = state.challenge
+            return state.busy && challenge is SecondFactor.Passkey && challenge.step == PasskeyStep.STARTING
+        }
+
+        /** Whether the passkey prompt is due, which the screen raises because it needs the activity. */
+        fun passkeyPromptDue(state: AccountState): Boolean {
+            val challenge = state.challenge
+            return state.busy && challenge is SecondFactor.Passkey && challenge.step == PasskeyStep.ASKING && challenge.requestJson != null
+        }
+
+        /** What the passkey step shows once the station has answered a start. */
+        fun fromPasskeyStarted(current: AccountState, result: PasskeyStartResult): AccountState {
+            val challenge = current.challenge as? SecondFactor.Passkey ?: return current.copy(busy = false)
+            return when (result) {
+                is PasskeyStartResult.Started ->
+                    current.copy(
+                        challenge = challenge.copy(step = PasskeyStep.ASKING, fidoChallengeId = result.fidoChallengeId, requestJson = result.requestJson),
+                        error = null,
+                    )
+                PasskeyStartResult.ChallengeExpired -> startAgain(current).copy(error = Message.SignInExpired)
+                PasskeyStartResult.NotOffered -> current.copy(busy = false, error = Message.PasskeyNotOffered)
+                is PasskeyStartResult.Failed -> current.copy(busy = false, error = Message.CouldNotStartPasskey)
+            }
+        }
+
+        /**
+         * What the passkey step shows once the prompt has answered. A signed assertion stays busy,
+         * because the station checks it next; a closed prompt is a choice and says nothing.
+         */
+        fun fromPasskeyAnswer(current: AccountState, answer: PasskeyAnswer): AccountState {
+            val challenge = current.challenge as? SecondFactor.Passkey ?: return current.copy(busy = false)
+            return when (answer) {
+                is PasskeyAnswer.Answered -> current.copy(challenge = challenge.copy(step = PasskeyStep.CHECKING), error = null)
+                PasskeyAnswer.Cancelled -> current.copy(busy = false, error = null)
+                PasskeyAnswer.NoPasskey -> current.copy(busy = false, error = Message.NoPasskeyOnPhone)
+                is PasskeyAnswer.Failed -> current.copy(busy = false, error = Message.PasskeyFailed)
+            }
         }
 
         /**
@@ -185,11 +283,15 @@ data class AccountState(
                     // challenge lists every enrolled factor in enrolment order. An authenticator
                     // costs nothing to offer, where choosing email sends a message, so email leads
                     // only when there is no authenticator.
+                    // A passkey comes before email for the same reason: a prompt on this phone costs
+                    // nothing, and it is one touch.
                     val authenticator = authenticatorFactors(result.factors).firstOrNull()
                     val email = emailFactor(result.factors)?.let { SecondFactor.Email(result.challengeId, sentTo = it.label) }
+                    val passkey = passkeyFactor(result.factors)?.let { SecondFactor.Passkey(result.challengeId, email) }
                     val challenge =
                         when {
-                            authenticator != null -> SecondFactor.Authenticator(result.challengeId, authenticator.methodId, email)
+                            authenticator != null -> SecondFactor.Authenticator(result.challengeId, authenticator.methodId, email, passkey)
+                            passkey != null -> passkey
                             else -> email
                         }
                     if (challenge == null) {
@@ -198,12 +300,13 @@ data class AccountState(
                     } else {
                         // The password step is done, so the password goes; the email stays, because
                         // it is shown above the code box as whose sign-in this is. An email factor
-                        // stays busy, because the send that gives it something to type is next.
+                        // stays busy, because the send that gives it something to type is next, and a
+                        // passkey for the start that gives the prompt something to ask.
                         current.copy(
                             password = "",
                             code = "",
                             challenge = challenge,
-                            busy = challenge is SecondFactor.Email,
+                            busy = challenge is SecondFactor.Email || challenge is SecondFactor.Passkey,
                             error = null,
                         )
                     }
@@ -218,7 +321,12 @@ data class AccountState(
                     } else {
                         // An authenticator's next code is half a minute away; an emailed one is
                         // the same code until it is sent again, so the advice differs.
-                        val refused = if (current.challenge is SecondFactor.Email) Message.EmailedCodeRefused else Message.CodeRefused
+                        val refused =
+                            when (current.challenge) {
+                                is SecondFactor.Email -> Message.EmailedCodeRefused
+                                is SecondFactor.Passkey -> Message.PasskeyRefused
+                                else -> Message.CodeRefused
+                            }
                         current.copy(code = "", busy = false, error = refused)
                     }
 

@@ -126,6 +126,8 @@ private fun SignIn(account: AccountState) {
             onStartAgain = {},
             onUseEmail = {},
             onSendAgain = {},
+            onUsePasskey = {},
+            onPasskeyAnswer = {},
         )
     }
 }
@@ -133,6 +135,11 @@ private fun SignIn(account: AccountState) {
 @PreviewLightDark
 @Composable
 private fun SignInPreview() = SignIn(AccountState())
+
+@PreviewLightDark
+@Composable
+private fun PasskeyPreview() =
+    SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor.Passkey("c_1", email = SecondFactor.Email("c_1"))))
 
 @PreviewLightDark
 @Composable

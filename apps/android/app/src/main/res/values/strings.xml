@@ -187,7 +187,7 @@
     <string name="signed_in_listener">Signed in to this station as a listener</string>
     <string name="account_bad_credentials">That email and password did not work</string>
     <string name="account_could_not_reach">Could not reach the station to sign in</string>
-    <string name="account_second_factor_unsupported">This account\'s second factor is one this app cannot use, such as a passkey. Sign in on the console instead.</string>
+    <string name="account_second_factor_unsupported">This account\'s second factor is one this app cannot use. Sign in on the console instead.</string>
     <string name="account_no_refresh_token">The station issued no refresh token</string>
 
     <!-- A forgotten password -->
@@ -215,6 +215,15 @@
     <string name="account_emailed_code_refused">That code was not accepted. Check the latest email, or send it again.</string>
     <string name="account_could_not_send_code">Could not send a code to your email. Try again.</string>
     <string name="account_code_no_mail">The station cannot send email, so it cannot send a code. Ask whoever runs it.</string>
+    <string name="second_factor_passkey">Use the passkey you saved for this station.</string>
+    <string name="second_factor_passkey_waiting">Waiting for your passkey.</string>
+    <string name="use_passkey">Use your passkey</string>
+    <string name="use_passkey_instead">Use a passkey instead</string>
+    <string name="account_passkey_not_offered">This station\'s passkeys cannot be used from this app. Use another way to sign in, or the console.</string>
+    <string name="account_could_not_start_passkey">Could not reach the station to use your passkey. Try again.</string>
+    <string name="account_no_passkey_on_phone">There is no passkey for this station on this phone.</string>
+    <string name="account_passkey_failed">Your passkey could not be used. Try again.</string>
+    <string name="account_passkey_refused">The station did not accept that passkey. Try again, or start again.</string>
     <string name="start_again">Start again</string>
     <string name="account_code_refused">That code was not accepted. Wait for the next one and try again.</string>
     <string name="account_sign_in_expired">That sign-in took too long and has expired. Start again.</string>

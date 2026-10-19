@@ -8,6 +8,9 @@ import com.maroonedsoftware.deadair.sdk.models.AuthenticatorAuthenticationReques
 import com.maroonedsoftware.deadair.sdk.models.CodeAuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.FactorChallengeEmailStart
 import com.maroonedsoftware.deadair.sdk.models.FactorChallengeEmailStartResponse
+import com.maroonedsoftware.deadair.sdk.models.FactorChallengeFidoStart
+import com.maroonedsoftware.deadair.sdk.models.FactorChallengeFidoStartResponse
+import com.maroonedsoftware.deadair.sdk.models.FidoAuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.LinkAuthenticationLoginStart
 import com.maroonedsoftware.deadair.sdk.models.LinkAuthenticationLoginStartPurpose
 import com.maroonedsoftware.deadair.sdk.models.MfaChallengeFactor
@@ -17,6 +20,7 @@ import com.maroonedsoftware.deadair.sdk.models.RefreshTokenAuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.runtime.SdkError
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.station.StationUrl
+import io.ktor.http.HttpMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -165,6 +169,11 @@ class SessionManager(
      */
     private val sdkFor: (StationUrl, suspend () -> Map<String, String>) -> DeadairSdk,
     scope: CoroutineScope,
+    /**
+     * This build's WebAuthn origin (`appOrigin` in `Passkeys.kt`), or null when it could not be
+     * read. A function because reading it asks the package manager, and only a passkey needs it.
+     */
+    private val appOrigin: () -> String? = { null },
 ) : OperatorSession {
     private val refreshLock = Mutex()
 
@@ -281,11 +290,64 @@ class SessionManager(
         code: String,
     ): SignInResult = answerChallenge(station, email, CodeAuthenticationRequest(code = code, mfaChallengeId = challengeId, challengeId = emailChallengeId))
 
+    /**
+     * Ask the station to start a passkey assertion for a pending challenge.
+     *
+     * The app names its own origin in [APP_ORIGIN_HEADER], because it sends no `Origin` and the
+     * station has to fix the origin the assertion will carry before it is made. The station answers
+     * with its public host as the relying party, the host the passkey was made at in the console,
+     * and refuses with a 400 when it is not published over https or does not vouch for this build.
+     */
+    suspend fun startPasskey(station: StationUrl, challengeId: String): PasskeyStartResult {
+        val origin = appOrigin() ?: return PasskeyStartResult.NotOffered
+        return try {
+            when (val started = sdkFor(station) { mapOf(APP_ORIGIN_HEADER to origin) }.authenticationFactor.startFactorChallenge(FactorChallengeFidoStart(mfaChallengeId = challengeId))) {
+                is FactorChallengeFidoStartResponse -> PasskeyStartResult.Started(started.fidoChallengeId, passkeyRequestJson(started.assertion))
+                else -> PasskeyStartResult.Failed("The station answered with a factor this app did not ask for")
+            }
+        } catch (error: SdkError) {
+            when (error.status) {
+                UNAUTHORIZED -> PasskeyStartResult.ChallengeExpired
+                BAD_REQUEST -> PasskeyStartResult.NotOffered
+                else -> PasskeyStartResult.Failed(error.message)
+            }
+        } catch (error: Exception) {
+            PasskeyStartResult.Failed(error.message)
+        }
+    }
+
+    /**
+     * Answer a pending challenge with the assertion Credential Manager produced.
+     *
+     * [fidoChallengeId] is the assertion [startPasskey] started, which the `fido` grant echoes back
+     * beside the sign-in's own challenge.
+     */
+    suspend fun completePasskey(
+        station: StationUrl,
+        email: String,
+        challengeId: String,
+        fidoChallengeId: String,
+        authenticationResponseJson: String,
+    ): SignInResult {
+        val credential =
+            try {
+                passkeyCredential(authenticationResponseJson)
+            } catch (error: Exception) {
+                return SignInResult.Failed(error.message)
+            }
+        return answerChallenge(
+            station,
+            email,
+            FidoAuthenticationRequest(credential = credential, challengeId = fidoChallengeId, mfaChallengeId = challengeId),
+            asJson = true,
+        )
+    }
+
     /** Post a proof grant against a pending challenge, and read the station's refusal for what it is. */
-    private suspend fun answerChallenge(station: StationUrl, email: String, request: AuthenticationRequest): SignInResult {
+    private suspend fun answerChallenge(station: StationUrl, email: String, request: AuthenticationRequest, asJson: Boolean = false): SignInResult {
         val answer =
             try {
-                requestToken(station, request)
+                if (asJson) requestTokenAsJson(station, request) else requestToken(station, request)
             } catch (error: SdkError) {
                 if (error.status !in CREDENTIAL_REFUSALS) return SignInResult.Failed(error.message)
                 // Three different refusals arrive as one status, and the station names which in
@@ -327,6 +389,24 @@ class SessionManager(
     /** Unauthenticated, because none of the grants that reach it have a session yet by definition. */
     private suspend fun requestToken(station: StationUrl, request: AuthenticationRequest): AuthenticationTokenResponse =
         sdkFor(station) { emptyMap() }.authentication.requestToken(request)
+
+    /**
+     * The same request as a JSON body, for a grant form encoding cannot carry.
+     *
+     * The generated client always form-encodes `/auth/token`, the first of the two bodies the
+     * contract accepts, and a form field holds text: the `fido` grant's `credential` is an object,
+     * which went as JSON text in one field and was refused as `{"credential":"Expected object"}`.
+     * So this one goes through the SDK's own runtime with the contract's other body.
+     */
+    private suspend fun requestTokenAsJson(station: StationUrl, request: AuthenticationRequest): AuthenticationTokenResponse {
+        val http = sdkFor(station) { emptyMap() }.http
+        val response =
+            http.execute(HttpMethod.Post) {
+                path("auth", "token")
+                jsonBody<AuthenticationRequest>(request, "application/json")
+            }
+        return http.decodeJson(response)
+    }
 
     /**
      * Ask the station which platform roles this account holds, and remember the answer.

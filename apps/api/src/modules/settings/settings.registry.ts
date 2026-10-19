@@ -638,7 +638,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: OTLP_DEFAULTS.exportMetrics,
         dependsOn: OTLP_KEYS.endpoint,
-        help: 'Each minute’s listeners, work, model and library numbers, the same ones the Trends tab draws. Durations go as histograms, tokens and failures as counters, the rest as gauges, all with delta temporality.',
+        help: 'Each minute’s listeners, work, model and library numbers, the same ones the Trends tab draws. Durations go as histograms, tokens and failures as counters, the rest as gauges. Counters and histograms are running totals (cumulative), so Prometheus takes them as they arrive.',
     },
     {
         group: 'telemetry',

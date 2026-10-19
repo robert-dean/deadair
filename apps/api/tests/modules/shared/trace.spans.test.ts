@@ -6,6 +6,7 @@
 // caller's problem. Hence the two rules asserted here that look like paranoia and are not: it never
 // throws, and it never makes a caller wait.
 
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -117,9 +118,10 @@ describe('recordSpan', () => {
         // for a disk write.
         await runInTrace({ id: 'job-1', kind: 'k' }, async () => {
             recordSpan({ op: 'plugin.invoke', ms: 1, outcome: 'ok' });
-            // Nothing on disk yet, and the caller has already carried on.
-            const dir = await readdir(join(root, 'traces')).catch(() => []);
-            expect(dir).toEqual([]);
+            // Nothing on disk yet, and the caller has already carried on. Checked synchronously: the
+            // write is a queued continuation, so it cannot run before this line, where an awaited
+            // `readdir` could lose the race to it on a loaded machine.
+            expect(existsSync(join(root, 'traces'))).toBe(false);
         });
 
         expect(await written()).toHaveLength(1);

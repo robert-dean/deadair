@@ -46,7 +46,9 @@ is filed. `span.metrics.ts` turns `job.run` into `work.job.ms` by queue, `plugin
 `request`**, because its trace kind is its method and path and a path carries ids, which would make
 every id a new series per minute. Any failed span of those three adds one to
 `work.failed`. A model call that never answered adds its time and its failure and no tokens, which is
-the case the span exists to keep.
+the case the span exists to keep. **`model.call.ms` is labelled by `outcome` as well**, and Trends
+averages only the `ok` series: one 120 s timeout among twenty 3 s answers read as a 9 s model, and a
+down model's instant refusals read as a fast one. The count of calls still takes both.
 
 **A listener hears spans the file never records.** The file keeps only work inside a decision; a
 timer's plugin call has no decision to belong to and is still worth counting, so a listener is told

@@ -241,7 +241,10 @@ function Model({ page, range }: { page: MetricSeriesPage; range: TrendRange }) {
     const calls = total(named(page.series, TREND_METRICS.modelMs));
     const failed = total(named(page.series, TREND_METRICS.failed).filter(s => s.labels.op === 'llm.generate'));
     const { rows, tickFormatter } = chartRows([input, output], ['input', 'output'], bin => bin.point?.sum, range);
-    const meanCall = meanOf(calls);
+    // How long the model takes to answer, so only the calls it answered: a timeout would drag the mean
+    // up by minutes and a down model's instant refusals would pull it down. A minute filed before calls
+    // carried an outcome has none, and is read as it always was.
+    const meanCall = meanOf(total(named(page.series, TREND_METRICS.modelMs).filter(s => s.labels.outcome !== 'failed')));
 
     return (
         <Stack gap="md">

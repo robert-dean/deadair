@@ -281,12 +281,11 @@ export function usePasskeyChallengeMutation() {
             const started = await sdk.authentication.factors.startFactorChallenge({ method: 'fido', mfa_challenge_id: challengeId });
             if (started.method !== 'fido') throw new Error('The station answered with a factor this console did not ask for.');
             const credential = await assertPasskey(started.assertion);
-            return await sdk.authentication.requestToken({
-                grant_type: 'fido',
-                mfa_challenge_id: challengeId,
-                challenge_id: started.fido_challenge_id,
-                credential,
-            });
+            // JSON, never the client's form default: form encoding flattens the nested credential to "[object Object]".
+            return await sdk.authentication.requestToken(
+                { grant_type: 'fido', mfa_challenge_id: challengeId, challenge_id: started.fido_challenge_id, credential },
+                { contentType: 'application/json' },
+            );
         },
         onSuccess: (response: AuthenticationTokenResponseOutput) => {
             if (response.result === 'token') {

@@ -981,6 +981,7 @@ export interface DeadairScriptHistory {
   createdAt: Generated<DateTime>;
   delivery: string | null;
   durationMs: number | null;
+  factUsed: boolean | null;
   id: Generated<string>;
   kind: string;
   label: string | null;

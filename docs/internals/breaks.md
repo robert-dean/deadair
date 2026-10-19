@@ -320,6 +320,24 @@ and as `never` on the rest. A persona at `trivia: 'never'` is handed none:
 the facts are read unstamped, so nothing rests, and withheld before the prompt. `personas.md` § "How much
 rope" has the rest.
 
+**Whether a break said the fact it was asked for is MEASURED, and nothing refuses over it yet.**
+`script_history.fact_used` is set on every attempt that produced words under a presenter handed one fact
+(`always`, or a `sometimes` link that drew one), by the station's own read-back, `mentionsFact`
+(`fact.mentions.ts`): the script counts as having said the fact when it carries one of the fact's names or
+digit figures, the records' own titles and artists excluded since a link names those anyway. Null everywhere
+else, and null for a fact with nothing distinctive to look for, because a guess there would be a number about
+the guess. It undercounts: a figure said in words ("nineteen seventy-two") reads as not said. A refusal that
+asks again (a `missing-fact` fault in `RETRYABLE_FAULTS`) is the obvious next step and is deliberately not
+built until this rate has been read on air, on the `invented-chart` argument above: a check that refuses
+needs its false-refusal rate known first. The rate, per presenter, over a week:
+
+```sql
+select persona_key, count(*) filter (where fact_used) as said, count(*) filter (where not fact_used) as skipped
+from deadair.script_history
+where fact_used is not null and outcome = 'written' and created_at > now() - interval '7 days'
+group by persona_key;
+```
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next

@@ -245,7 +245,7 @@ export class BreakRequestBuilder {
      * The request for this break, and the story it was handed, which the caller spends once its
      * words have won. Nothing in here can fail the break: every read is best-effort.
      */
-    async build(input: BreakRequestInput): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory }> {
+    async build(input: BreakRequestInput): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string }> {
         const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority } = input;
 
         const zone = stationZone(this.config);
@@ -276,7 +276,7 @@ export class BreakRequestBuilder {
         // presenter keen on the story behind a record is handed more of it, and one at `never` none.
         // See `factPlan`.
         const facts = factPlan(persona, kind, turn);
-        await this.attachFacts(turn, neighbours, facts);
+        const handedFact = await this.attachFacts(turn, neighbours, facts);
         // Read before a `never` presenter's notes are withheld, because whether a story fills the
         // silence is a question about what the station knows, not about what this break is shown.
         const nothingKnown = nothingKnownAbout(neighbours);
@@ -418,7 +418,9 @@ export class BreakRequestBuilder {
             ...(airsAt === undefined ? {} : { airsAt: airsAt }),
         };
 
-        return { request, ...(chosen === undefined ? {} : { chosen }) };
+        // The one fact a presenter at `always` was asked for, so the job can read back whether it was
+        // said. Not on the request: no writer needs to be told which of its notes was the asked-for one.
+        return { request, ...(chosen === undefined ? {} : { chosen }), ...(handedFact === undefined ? {} : { handedFact }) };
     }
 
     /**
@@ -560,10 +562,11 @@ export class BreakRequestBuilder {
         }
     }
 
-    private async attachFacts(segmentId: string, neighbours: Neighbours, plan: FactPlan): Promise<void> {
+    /** Puts what the station knows on each record. Answers the one fact handed over under {@link FactPlan.one}. */
+    private async attachFacts(segmentId: string, neighbours: Neighbours, plan: FactPlan): Promise<string | undefined> {
         const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side !== undefined);
         const trackIds = sides.map(side => side.track.trackId).filter((trackId): trackId is string => trackId !== undefined);
-        if (trackIds.length === 0) return;
+        if (trackIds.length === 0) return undefined;
 
         try {
             if (plan.one) {
@@ -576,8 +579,9 @@ export class BreakRequestBuilder {
                 );
                 const side =
                     chosen === undefined ? undefined : [neighbours.next, neighbours.previous].find(side => side?.track.trackId === chosen.trackId);
-                if (chosen !== undefined && side !== undefined) side.track = { ...side.track, facts: [chosen.fact] };
-                return;
+                if (chosen === undefined || side === undefined) return undefined;
+                side.track = { ...side.track, facts: [chosen.fact] };
+                return chosen.fact;
             }
 
             const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId), {
@@ -592,6 +596,7 @@ export class BreakRequestBuilder {
         } catch (error) {
             this.logger.warn(`director: could not read what the station knows about these records (${errorText(error)})`);
         }
+        return undefined;
     }
 
     /**

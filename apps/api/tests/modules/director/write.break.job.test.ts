@@ -1695,6 +1695,14 @@ describe('WriteBreakJob', () => {
             expect(logger.warn).toHaveBeenCalledOnce();
         });
 
+        it('records nothing about a fact being said where none was asked for', async () => {
+            const { job, history } = harness({ lineup: withIds(), facts: new Map([['track-a', ['Born in New Malden in 1948.']]]) });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordAll.mock.calls[0]?.[0]?.[0]).not.toHaveProperty('factUsed');
+        });
+
         it('keeps the facts a writer was shown on the record of the write', async () => {
             // A break that said nothing interesting and a break that was TOLD nothing interesting
             // read identically from the script, and the tables cannot answer it afterwards.
@@ -1821,6 +1829,24 @@ describe('WriteBreakJob', () => {
                         },
                     }),
                 );
+            });
+
+            it('records whether the script said the fact it was asked for', async () => {
+                const fact = { trackId: 'track-b', fact: 'Pink Moon was recorded with John Wood at Sound Techniques.' };
+                // What the registry hands back when the model wrote these words.
+                const spoke = (script: string) => ({
+                    written: { script, label: 'talking' },
+                    writer: 'model',
+                    attempts: [{ writer: 'model', outcome: 'written' as const, written: { script, label: 'talking' }, durationMs: 1 }],
+                });
+                const said = harness({ lineup: withIds(), persona: always, fact, written: spoke('Cut with John Wood, this one. Pink Moon.') });
+                const skipped = harness({ lineup: withIds(), persona: always, fact, written: spoke('Here is Pink Moon.') });
+
+                await said.job.run({ segmentId: 'seg-1' });
+                await skipped.job.run({ segmentId: 'seg-1' });
+
+                expect(said.history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({ factUsed: true });
+                expect(skipped.history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({ factUsed: false });
             });
 
             it('shows neither record a note when the station had nothing to say', async () => {

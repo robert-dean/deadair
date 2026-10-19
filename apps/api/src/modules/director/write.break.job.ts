@@ -25,6 +25,7 @@ import { songKey } from './rotation.keys.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { BreakRequestBuilder, type ChosenStory, type Neighbour, type Neighbours } from './break.request.builder.js';
+import { mentionsFact } from './fact.mentions.js';
 
 export interface WriteBreakPayload {
     /**
@@ -183,7 +184,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // Everything the station knows about the moment, read once for whichever writer takes it.
         // The story comes back beside the request because it is SPENT here, once a writer has won
         // and the words are this segment's. See `BreakRequestBuilder`.
-        const { request: built, chosen } = await this.builder.build({
+        const {
+            request: built,
+            chosen,
+            handedFact,
+        } = await this.builder.build({
             kind: segment.kind,
             turn: segment.id,
             neighbours,
@@ -201,7 +206,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
 
         // Before the row is touched, and before any early return below, so an attempt is recorded
         // whichever way this goes. What the station TRIED is as much of the record as what it said.
-        await this.remember(segmentId, segment.kind, neighbours, result, persona?.key);
+        await this.remember(segmentId, segment.kind, neighbours, result, persona?.key, handedFact);
 
         if (!isWritten(result)) {
             // Not an error and not logged as one: a break nothing had anything to say for is a break
@@ -602,8 +607,22 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * whose model breaks are all being refused is exactly the thing this column exists to make
      * visible, and stamping only the winner would hide it behind the floor.
      */
-    private async remember(segmentId: string, kind: string, neighbours: Neighbours, result: BreakWriteResult, personaKey?: string): Promise<void> {
+    private async remember(
+        segmentId: string,
+        kind: string,
+        neighbours: Neighbours,
+        result: BreakWriteResult,
+        personaKey?: string,
+        handedFact?: string,
+    ): Promise<void> {
         if (result.attempts.length === 0) return;
+
+        // A link names its records anyway, so their names are no evidence the fact was said.
+        const recordNames = [neighbours.previous, neighbours.next].flatMap(side => (side === undefined ? [] : [side.track.title, side.track.artist]));
+        const factUsedBy = (script: string | undefined): { factUsed?: boolean } => {
+            const used = handedFact === undefined || script === undefined ? undefined : mentionsFact(script, handedFact, recordNames);
+            return used === undefined ? {} : { factUsed: used };
+        };
 
         try {
             await this.history.recordAll(
@@ -620,6 +639,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                     ...(attempt.written?.delivery === undefined ? {} : { delivery: attempt.written.delivery }),
 
                     ...(attempt.reason === undefined ? {} : { reason: attempt.reason }),
+                    // Read back by the station, for a presenter asked for one fact. See `mentionsFact`.
+                    ...factUsedBy(attempt.written?.script),
                     // Whatever the writer wanted kept about how it got there: the model, the token
                     // counts, and — only while the operator has asked for them — the prompt and the
                     // answer before the station tidied it.

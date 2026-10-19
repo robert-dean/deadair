@@ -51,7 +51,7 @@ describe('observeSpan', () => {
         );
         const labels = '{"kind":"director.write_break","model":"anthropic:claude"}';
 
-        expect(metrics[`${METRICS.modelMs} ${labels}`]?.sum).toBe(3000);
+        expect(metrics[`${METRICS.modelMs} {"kind":"director.write_break","model":"anthropic:claude","outcome":"ok"}`]?.sum).toBe(3000);
         expect(metrics[`${METRICS.modelInputTokens} ${labels}`]?.sum).toBe(1200);
         expect(metrics[`${METRICS.modelOutputTokens} ${labels}`]?.sum).toBe(80);
         expect(metrics[`${METRICS.modelReasoningTokens} ${labels}`]?.sum).toBe(0);
@@ -64,7 +64,7 @@ describe('observeSpan', () => {
 
         expect(Object.keys(metrics).sort()).toEqual(
             [
-                `${METRICS.modelMs} {"kind":"director.write_break","model":"m"}`,
+                `${METRICS.modelMs} {"kind":"director.write_break","model":"m","outcome":"failed"}`,
                 `${METRICS.failed} {"kind":"director.write_break","op":"llm.generate"}`,
             ].sort(),
         );
@@ -87,7 +87,11 @@ describe('observeSpan', () => {
         );
 
         expect(Object.keys(metrics).sort()).toEqual(
-            [`${METRICS.modelMs} {"kind":"${REQUEST_KIND}","model":"m"}`, `${METRICS.failed} {"kind":"${REQUEST_KIND}","op":"llm.generate"}`].sort(),
+            [
+                `${METRICS.modelMs} {"kind":"${REQUEST_KIND}","model":"m","outcome":"ok"}`,
+                `${METRICS.modelMs} {"kind":"${REQUEST_KIND}","model":"m","outcome":"failed"}`,
+                `${METRICS.failed} {"kind":"${REQUEST_KIND}","op":"llm.generate"}`,
+            ].sort(),
         );
     });
 });

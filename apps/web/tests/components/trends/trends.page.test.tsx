@@ -76,6 +76,26 @@ describe('TrendsPage', () => {
         expect(screen.getAllByText('4.0s')).toHaveLength(2);
     });
 
+    it('averages only the model calls that answered, and counts them all', async () => {
+        allWell();
+        const answer = readMetricSeries.getMockImplementation();
+        readMetricSeries.mockImplementation(async (query: { names: string }) => {
+            if (!query.names.startsWith('model.')) return answer?.(query);
+            const labels = { kind: 'director.write_break', model: 'm' };
+            return page([
+                { name: 'model.call.ms', labels: { ...labels, outcome: 'ok' }, source: 'station', points: [point(0, 3000), point(1, 5000)] },
+                { name: 'model.call.ms', labels: { ...labels, outcome: 'failed' }, source: 'station', points: [point(2, 120000)] },
+            ]);
+        });
+        render(<TrendsPage />);
+
+        // A timeout among two answers would read as a 42.7 s model; the answers took 4 s on average.
+        expect(await screen.findByText('Average call')).toBeInTheDocument();
+        expect(screen.getAllByText('4.0s')).toHaveLength(3);
+        expect(screen.queryByText('42.7s')).not.toBeInTheDocument();
+        expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
     it('loses only the section whose reading failed', async () => {
         allWell();
         const answer = readMetricSeries.getMockImplementation();

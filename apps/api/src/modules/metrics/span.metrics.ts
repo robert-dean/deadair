@@ -43,7 +43,10 @@ const tokens = (detail: Record<string, unknown> | undefined, key: string): numbe
  * - `plugin.invoke` is one plugin call, labelled by plugin and method (the target is `"<plugin> <op>"`).
  * - `llm.generate` is one model call, labelled by the kind of decision it served and the model, and
  *   carries the tokens the model reported. A call that never answered reports none and adds none; its
- *   duration and its failure are still counted, which is the case the span exists for.
+ *   duration and its failure are still counted, which is the case the span exists for. Its duration
+ *   is labelled by `outcome` too, because a mean across both answers neither question: one 120 s
+ *   timeout among twenty 3 s answers reads as a 9 s model, and a down model's instant refusals read
+ *   as a fast one. The tokens carry no outcome, since a failed call adds none to split.
  * - Any failed span counts once in `work.failed`, by `op` and decision kind.
  *
  * The decision kind is {@link kindLabel}'s, so a request counts as `request` and never as its URL.
@@ -64,7 +67,7 @@ export function observeSpan(recorder: MetricsRecorder, span: RecordedSpan): void
         }
         case 'llm.generate': {
             const labels = { kind, model: span.target ?? 'unknown' };
-            recorder.observe(METRICS.modelMs, span.ms, labels);
+            recorder.observe(METRICS.modelMs, span.ms, { ...labels, outcome: span.outcome });
             const input = tokens(span.detail, 'inputTokens');
             const output = tokens(span.detail, 'outputTokens');
             const reasoning = tokens(span.detail, 'reasoningTokens');

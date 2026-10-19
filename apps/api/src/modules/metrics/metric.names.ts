@@ -20,7 +20,7 @@ export const METRICS = {
     /** Work that failed, by `op` (`job.run`, `plugin.invoke`, `llm.generate`) and the decision `kind`. Counts. */
     failed: 'work.failed',
 
-    /** How long a model call held, by the decision `kind` and the `model`. */
+    /** How long a model call held, by the decision `kind`, the `model` and its `outcome` (`ok` or `failed`). */
     modelMs: 'model.call.ms',
     /** Tokens a model read, by `kind` and `model`. A counter: read its sum. */
     modelInputTokens: 'model.tokens.input',

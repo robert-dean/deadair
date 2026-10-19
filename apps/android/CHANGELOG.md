@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.21.1] — 2026-10-19
+
+- "Forgot your password?" with an address the station cannot read as one now says "That is not an email address. Check what you typed." It used to say the station could not be reached, which sent somebody to check their network instead of their spelling.
+
 ## [0.21.0] — 2026-10-17
 
 - Signing in answers an emailed code as well as an authenticator code. An account whose second factor is email (with or without a passkey beside it) is sent a code and can ask for it again, instead of being told to sign in on the console, and an account with both an authenticator and email can choose "Email me a code instead".
@@ -259,7 +263,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.21.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.21.1...HEAD
+[0.21.1]: https://github.com/robert-dean/deadair/compare/android-v0.21.0...android-v0.21.1
 [0.21.0]: https://github.com/robert-dean/deadair/compare/android-v0.20.0...android-v0.21.0
 [0.20.0]: https://github.com/robert-dean/deadair/compare/android-v0.19.2...android-v0.20.0
 [0.19.2]: https://github.com/robert-dean/deadair/compare/android-v0.19.1...android-v0.19.2

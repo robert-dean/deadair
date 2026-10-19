@@ -332,6 +332,20 @@ python3 stream/voice.check.py
 python3 stream/voice.check.py --segment break.mp3
 ```
 
+`playout.check.py` runs the WHOLE of `radio.liq` rather than an excerpt of it, in the image
+`stream/Dockerfile` pins, so moving the pin is enough to point it at the new version. It takes the
+lease, pushes three records stamped the way the app stamps a hard join, and checks that the first
+one aired, that `cross` analysed both boundaries, and that the script logged a handful of switch
+lines rather than hundreds. Liquidsoap 2.4.6 fails it: the bed flapped on every frame, which took
+the station off air on 2026-10-19 while every excerpt passed (see
+[the version section](#liquidsoap-version-and-what-to-check-after-a-bump)). It needs only Docker
+and `python3`; `--image` tries a candidate before the pin moves:
+
+```
+python3 stream/playout.check.py
+python3 stream/playout.check.py --image savonet/liquidsoap:v2.4.6
+```
+
 `liveboundary.check.py` is the third, and it measures the real mount rather than a render: capture
 the stream with a listener connected (the connection is what holds the audience gate open), log
 `GET /nowplaying` alongside it, and it reports the level across each join and how abruptly the
@@ -941,11 +955,29 @@ each one a transition that built fresh sources, where 2.4.5 had never logged mor
 minute. The output clock fell behind (`we must catchup 6.10 seconds!` and rising) and everything
 on the mount skipped. The first record went out alongside `cross` reporting
 `End of track reached while buffering next track data` and `Source created multiple tracks in a
-single frame!`, so the suspect is the `cross` state machine running against the 0.1 s hard-join
-buffer, possibly through 2.4.6's `sequence` change (savonet/liquidsoap#5296). The `.check.py`
-harnesses all passed on 2.4.6. None of them airs a queued record through `cross` into the `bed`
-fallback with the gate open, so none of them could have caught this. Before bumping again, run a
-pushed record through the full `radio.liq` and count `switch.1` lines in the log.
+single frame!`.
+
+**The cause is `normalize`'s zero lookahead under `cross`, not the transition.** `normalize` wraps
+its input in `delay_line(lookahead, …)`, and `lookahead` defaults to 0. A `delay_line(0.)` below
+`cross` makes `cross` ready and not ready on alternate frames on 2.4.6, so the fallback above it
+switches every 20 ms. Narrowed on 2026-10-19 against both images: `request.queue` →
+`delay_line(0.)` → `cross` → `fallback(track_sensitive=false)` is enough, two sines stand in for
+the queue just as well, and the flap is the same at every `cross` duration tried (0.02 s to 1 s).
+Any nonzero delay is quiet, one frame included, and so is the same chain without `cross`. Every
+other operator between the queue and `cross` here (`amplify`, `metadata.map`, `compress`) is quiet
+on its own. The likely upstream change is 2.4.6's fix for unbounded buffer growth
+(savonet/liquidsoap#5287): `delay_line` now truncates its buffer to its delay plus one frame, which
+for a zero delay is a single frame, and `cross`'s child clock reads past it. The `sequence` fix
+(savonet/liquidsoap#5296) was the first suspect and is not involved: on air the flap began at 11:40:23, the
+moment the first record was ready, and `cross` did not reach its first boundary until 11:42:10, so
+the transition and its `sequence` cannot have started it. That is not filed upstream yet.
+Passing `lookahead=0.02` to `normalize` makes the full script quiet on 2.4.6 (three switch lines
+and both boundaries crossed, against 1,201 lines and none), so that is the change to make with the
+next bump if upstream has not fixed it by then.
+
+The `.check.py` harnesses all passed on 2.4.6, because each runs an excerpt and none had
+`normalize`, `cross` and the bed fallback in one graph. `playout.check.py` runs the whole script
+and is the one that fails on 2.4.6 (see [Checking it](#checking-it)). Run it before moving the pin.
 
 **Liquidsoap logs to stdout and only to stdout**, so every one of those findings needed
 `docker compose logs`. That is a wall for anything without the Docker socket — see

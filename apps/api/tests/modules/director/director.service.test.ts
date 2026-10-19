@@ -2822,6 +2822,45 @@ describe('DirectorService and a production past its shelf life', () => {
         expect(jobs.send).not.toHaveBeenCalledWith('render.stitch_production', { productionId: 'prod-1' });
     });
 
+    // On 19 October a restart killed a banter's draft pass, its job could not record the failure, and
+    // the row sat in `drafting` with nothing to move it: `standingIn` read it as one coming, so the
+    // broadcast was never commissioned another.
+    it.each(['planned', 'researching', 'outlining', 'drafting', 'checking', 'stitching'])(
+        'fails one orphaned in %s past its hour, so it stops standing in for the next',
+        async state => {
+            const { director, productions, seed } = build({
+                productions: [{ id: 'prod-1', kind: 'banter', title: 'Dead air', state, createdAt: TWO_HOURS_AGO() }],
+            });
+            await seed();
+            await director.start();
+            await settle();
+
+            expect(productions.fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('too long ago to air'));
+        },
+    );
+
+    it('leaves one still being written within its hour alone', async () => {
+        const { director, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'banter', title: 'Live wire', state: 'drafting', createdAt: Date.now() - 20 * 60_000 }],
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.fail).not.toHaveBeenCalled();
+    });
+
+    it('leaves an unfinished reading alone however old it is', async () => {
+        const { director, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'narration', title: 'Chapter one', state: 'drafting', createdAt: TWO_HOURS_AGO() }],
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.fail).not.toHaveBeenCalled();
+    });
+
     it('still places one made within the hour', async () => {
         const { director, lineup, productions, seed } = build({
             productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready', createdAt: Date.now() - 20 * 60_000 }],

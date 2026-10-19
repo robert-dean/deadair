@@ -14,8 +14,13 @@
  * - **pg-boss runs stay short**, so `expiresIn` stays a number that means something. One job for a
  *   whole production would need an enormous one, and a wedged run would then be unreclaimable for
  *   hours.
- * - **A restart resumes**, because the row says which pass finished. There is no checkpoint table:
- *   the thing being checkpointed is the checkpoint.
+ * - **A restart BETWEEN passes resumes**, because the row says which pass finished and the next
+ *   pass's job is already queued. There is no checkpoint table: the thing being checkpointed is the
+ *   checkpoint. A restart DURING a pass does not: the job dies with the process, it has no retry
+ *   (see `job.mappings.ts`), and nothing re-sends it, so the row sits in the state the pass claimed.
+ *   The shelf life (`director/production.shelf.ts`) is what retires it, an hour after it was made,
+ *   and a re-send is deliberately not built: the job may legitimately run for two hours, a draft
+ *   re-run writes every beat again, and the `drafting → drafting` claim would let it.
  * - **The model is genuinely free between passes**, which is what makes the gate's tiers work at
  *   all. A tier that only applies between admissions needs there to BE admissions, and a production
  *   wrapped in one `gate.hold` would hold the station's only model for the whole show — every break

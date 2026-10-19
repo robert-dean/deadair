@@ -17,7 +17,7 @@ import { TopicResearcher } from './topic.researcher.js';
  * Nothing in either of those reaches forward into this.
  *
  * It owns no loop and starts nothing. A production is made entirely by jobs, each running one pass,
- * because that is what makes a restart resumable and what leaves the station's one model slot free
+ * because that is what makes a restart between passes resumable and what leaves the station's one model slot free
  * between passes — see `production.passes.ts`.
  */
 export const ProductionsModule: ServerKitModule = {

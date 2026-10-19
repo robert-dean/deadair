@@ -144,7 +144,9 @@ export interface ProducePayload {
  *
  * Not one job for the whole production, and the three reasons are the whole argument for the shape.
  * pg-boss runs stay short, so `expiresIn` keeps meaning something and a wedged run is reclaimable. A
- * restart resumes, because the row says which pass finished and nothing is held in memory. And the
+ * restart between passes resumes, because the row says which pass finished and nothing is held in
+ * memory; one that kills a pass mid-run leaves the row where it was until the shelf life retires it
+ * (see `production.passes.ts`). And the
  * station's one model slot is genuinely FREE between passes — which is what makes the gate's tiers
  * work at all, since a tier that only applies between admissions needs there to be admissions. A
  * production wrapped in a single `gate.hold` would hold the model for the whole programme and every

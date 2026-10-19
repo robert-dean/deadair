@@ -34,6 +34,7 @@ class ReconnectPolicyTest {
         backoff: Backoff = Backoff(),
         offlineLimitMs: Long = 15 * 60_000L,
         restart: () -> Unit = {},
+        note: (ReconnectNote) -> Unit = {},
     ) = ReconnectPolicy(
         backoff = backoff,
         // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
@@ -44,6 +45,7 @@ class ReconnectPolicyTest {
         stop = stop,
         restart = restart,
         offlineLimitMs = offlineLimitMs,
+        note = note,
     )
 
     @Test
@@ -497,6 +499,62 @@ class ReconnectPolicyTest {
 
         assertEquals(0, restarts)
         assertEquals(0, reconnects)
+    }
+
+    @Test
+    fun `notes a retry when it is scheduled and again when it fires`() = runTest {
+        val notes = mutableListOf<ReconnectNote>()
+        val policy = policy(wantsPlay = { true }, note = { notes += it })
+
+        policy.onPlayerError(error())
+        assertEquals(listOf(ReconnectNote.RetryIn(1_000)), notes)
+
+        advanceTimeBy(1_001)
+        assertEquals(listOf(ReconnectNote.RetryIn(1_000), ReconnectNote.Retrying), notes)
+    }
+
+    @Test
+    fun `notes a restart when a playing stream's network moves, and nothing when the same one returns`() = runTest {
+        val notes = mutableListOf<ReconnectNote>()
+        val policy = policy(wantsPlay = { true }, note = { notes += it })
+
+        policy.onNetwork(WIFI)
+        policy.onNetwork(WIFI)
+        assertEquals(emptyList<ReconnectNote>(), notes)
+
+        policy.onNetwork(CELL)
+        assertEquals(listOf(ReconnectNote.Restarted), notes)
+    }
+
+    @Test
+    fun `notes a drop held for the network, and the reconnect when one arrives`() = runTest {
+        val notes = mutableListOf<ReconnectNote>()
+        val policy = policy(wantsPlay = { true }, note = { notes += it })
+        policy.onNetwork(WIFI)
+
+        policy.onNetwork(null)
+        policy.onPlayerError(error())
+        policy.onPlayerError(error())
+        policy.onNetwork(CELL)
+
+        assertEquals(listOf(ReconnectNote.AwaitingNetwork, ReconnectNote.Reconnected), notes)
+    }
+
+    @Test
+    fun `notes why it stopped`() = runTest {
+        val notes = mutableListOf<ReconnectNote>()
+        val spent = policy(wantsPlay = { true }, backoff = Backoff(giveUpAfterMs = 0), note = { notes += it })
+
+        spent.onPlayerError(error())
+        assertEquals(ReconnectNote.GaveUpRetrying, notes.last())
+
+        notes.clear()
+        val offline = policy(wantsPlay = { true }, offlineLimitMs = 60_000, note = { notes += it })
+        offline.onNetwork(WIFI)
+        offline.onNetwork(null)
+        offline.onPlayerError(error())
+        advanceTimeBy(60_001)
+        assertEquals(listOf(ReconnectNote.AwaitingNetwork, ReconnectNote.GaveUpWaiting), notes)
     }
 
     private companion object {

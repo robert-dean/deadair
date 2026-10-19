@@ -62,6 +62,9 @@ class PlaybackLog(private val player: Player, private val journal: (String) -> U
         journal(if (playWhenReady) "play uri=${playing()}" else "stop reason=${stopReason(reason)}")
     }
 
+    /** A line from beside the player (the reconnect policy's decisions), written the same two ways. */
+    fun note(line: String) = write(Log.INFO, line)
+
     private fun playing(): Uri? = player.currentMediaItem?.localConfiguration?.uri?.buildUpon()?.clearQuery()?.fragment(null)?.build()
 
     private fun write(priority: Int, line: String, error: Throwable? = null) {
@@ -69,16 +72,17 @@ class PlaybackLog(private val player: Player, private val journal: (String) -> U
         journal(line)
     }
 
-    private companion object {
+    companion object {
+        /** The one logcat tag for everything that says why the audio stopped, wherever it is written from. */
         const val TAG = "deadair.playback"
 
         /** `Outer: message <- Inner: message`, so the cause that matters is on the grepped line. */
-        fun causes(error: Throwable): String =
+        private fun causes(error: Throwable): String =
             generateSequence(error) { it.cause?.takeIf { cause -> cause !== it } }
                 .take(6)
                 .joinToString(" <- ") { "${it.javaClass.simpleName}: ${it.message}" }
 
-        fun stopReason(reason: Int): String =
+        private fun stopReason(reason: Int): String =
             when (reason) {
                 Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST -> "listener"
                 Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS -> "audio-focus"

@@ -113,6 +113,7 @@ class PlaybackConductor(
                     player.play()
                 }
             },
+            note = { playbackLog.note(it.line) },
         )
     /**
      * Mirrors `player.playWhenReady`, so the poll below can be gated on it. A separate listener

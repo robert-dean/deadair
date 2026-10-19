@@ -7,6 +7,47 @@ import androidx.media3.common.Player
 typealias Cancel = () -> Unit
 
 /**
+ * A decision [ReconnectPolicy] made, for the playback journal. The policy acts on the player
+ * without leaving any other trace, so a restart on a network change was invisible after the fact:
+ * no error, no stall, just a second of silence the listener heard.
+ */
+sealed interface ReconnectNote {
+    /** One line for the journal. */
+    val line: String
+
+    /** The default network changed under a stream that had not failed, so it was connected again on the new one. */
+    data object Restarted : ReconnectNote {
+        override val line = "policy restart: the network moved"
+    }
+
+    /** A drop that was waiting or retrying was tried at once, because a network arrived. */
+    data object Reconnected : ReconnectNote {
+        override val line = "policy reconnect: a network arrived"
+    }
+
+    data class RetryIn(val waitMs: Long) : ReconnectNote {
+        override val line = "policy retry in ${waitMs}ms"
+    }
+
+    data object Retrying : ReconnectNote {
+        override val line = "policy retry now"
+    }
+
+    /** A drop with no network, held until one comes back. */
+    data object AwaitingNetwork : ReconnectNote {
+        override val line = "policy waiting for a network"
+    }
+
+    data object GaveUpRetrying : ReconnectNote {
+        override val line = "policy stop: out of retries"
+    }
+
+    data object GaveUpWaiting : ReconnectNote {
+        override val line = "policy stop: no network for too long"
+    }
+}
+
+/**
  * Decides whether and when to try the stream again, from the player's own events.
  *
  * Pure Kotlin: `schedule` is injected rather than a `Handler`, so this runs and is tested on the
@@ -41,6 +82,8 @@ class ReconnectPolicy(
     /** Connect again from scratch, for a stream that has not failed but is on the wrong network. */
     private val restart: () -> Unit = reconnect,
     private val offlineLimitMs: Long = OFFLINE_LIMIT_MS,
+    /** Told each decision as it is made, for the playback journal. Decides nothing. */
+    private val note: (ReconnectNote) -> Unit = {},
 ) : Player.Listener {
     private var pending: Cancel? = null
 
@@ -89,9 +132,13 @@ class ReconnectPolicy(
         when {
             waiting || retrying -> {
                 backoff.reset()
+                note(ReconnectNote.Reconnected)
                 reconnect()
             }
-            moved -> restart()
+            moved -> {
+                note(ReconnectNote.Restarted)
+                restart()
+            }
         }
     }
 
@@ -155,10 +202,14 @@ class ReconnectPolicy(
      */
     private fun waitForNetwork() {
         if (awaitingNetwork != null) return
+        note(ReconnectNote.AwaitingNetwork)
         awaitingNetwork =
             schedule(offlineLimitMs) {
                 awaitingNetwork = null
-                if (wantsPlay()) stop()
+                if (wantsPlay()) {
+                    note(ReconnectNote.GaveUpWaiting)
+                    stop()
+                }
             }
     }
 
@@ -184,15 +235,20 @@ class ReconnectPolicy(
         // answering is the bad case: the retries end after five minutes and the requests do not
         // end at all.
         if (wait == null) {
+            note(ReconnectNote.GaveUpRetrying)
             stop()
             return
         }
+        note(ReconnectNote.RetryIn(wait))
         pending =
             schedule(wait) {
                 // Fired, so no longer pending: a network lost while this attempt connects is the
                 // attempt's own failure to report, not a retry to hold back.
                 pending = null
-                if (wantsPlay()) reconnect()
+                if (wantsPlay()) {
+                    note(ReconnectNote.Retrying)
+                    reconnect()
+                }
             }
     }
 

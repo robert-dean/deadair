@@ -32,7 +32,7 @@ RUN cd /src && CGO_ENABLED=0 go build -v -o /out/deadair-shim ./cmd/deadair-shim
 # `float_of_string(default=null, …)` raises rather than returning null, which killed the clock thread
 # from inside the crossfade transition for a day. See stream/README.md for all four and for the
 # checks to run after a bump.
-FROM savonet/liquidsoap:v2.4.6
+FROM savonet/liquidsoap:v2.4.5
 # Root so we can drop the binary in and prepare the log dir. Liquidsoap runs fine as root for a
 # local/personal station; the process only reads config and pushes to Icecast.
 USER root

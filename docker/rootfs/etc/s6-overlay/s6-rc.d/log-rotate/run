@@ -11,7 +11,7 @@
 #
 # ── copytruncate, and why it is not optional ───────────────────────────────────
 # Neither process reopens its log. Liquidsoap sets `settings.log.file.append` and has no reopen
-# signal (2.4 has no rotation setting of any kind), and the shim's supervisor holds a single
+# signal (2.4.5 has no rotation setting of any kind), and the shim's supervisor holds a single
 # `>>` redirection across every restart of the binary. So a rotation that RENAMES the file leaves
 # both writing to an inode with no name, which looks exactly like a log that stopped: the console
 # shows a file frozen at the moment of the rotation, and the bytes go nowhere for ever. Copying the

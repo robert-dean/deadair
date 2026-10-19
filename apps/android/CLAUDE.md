@@ -371,9 +371,26 @@ before: credentials belong to a station, so there is nothing to sign in to until
 is. That button keeps the station and pushes the sign-in page onto the stack under Setup, so backing
 out of it lands on Now playing rather than on the address again. In practice the credentials are the operator's. Onboarding writes only the `admin` tuple, and the one
 path that makes a `listener` account is signing in through an identity provider, which leaves it with no
-password, and this app signs in with a password and then an authenticator code or an emailed one
-(`docs/internals/authentication.md`). So a control meant for listeners, Request among them, is drawn for any
+password, and this app signs in with a password and then an authenticator code, an emailed one or a
+passkey (`docs/internals/authentication.md`). So a control meant for listeners, Request among them, is drawn for any
 signed-in account and is verified with the operator's.
+
+**A passkey is three exchanges, and the prompt is raised by the screen, not the view model.** The
+station starts an assertion (`SessionManager.startPasskey`, naming this build's own WebAuthn origin in
+`x-deadair-app-origin`, read once from the signing certificate by `signingOrigin`), Credential Manager
+asks for the passkey (`askForPasskey`, which draws over an ACTIVITY, so `PasskeyStep` raises it from a
+`LaunchedEffect` keyed on the started request), and the station checks the signed assertion with the
+`fido` grant. `SecondFactor.Passkey.step` says which is due, so a recomposition never raises the prompt
+twice and a closed prompt is a choice that says nothing. Order is authenticator, then passkey, then
+email: a prompt costs nothing where choosing email sends a message. Two things that look like tidying
+and are not: `/auth/token`'s `fido` grant goes as JSON through `sdk.http` rather than the generated
+`requestToken`, which form-encodes it and cannot carry the credential object; and the station's
+challenge is standard base64 where Credential Manager wants base64url, which `passkeyRequestJson`
+converts (`PasskeysTest`). **It needs a station published over https whose
+`/.well-known/assetlinks.json` names this build's certificate**, so a debug build works only once its
+fingerprint is in the station's `signin.androidCertificates`, and an emulator with no Google account has
+no passkey provider at all: there the prompt offers only another device, which is the emulator, not the
+code.
 
 **The refresh is single-flight, and that is not tidiness.** The station's refresh tokens are
 single-use and rotating, and presenting a spent one revokes every token descended from that sign-in

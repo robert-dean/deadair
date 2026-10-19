@@ -5,7 +5,7 @@ import Testing
 /// The sign-in fields, and what they say after each answer. `AccountStateTest.kt`, case for case.
 struct AccountStateTests {
     private let typed = AccountState(email: "operator@example.com", password: "hunter2", busy: true)
-    private let challenged = AccountState(email: "operator@example.com", code: "123456", challenge: SecondFactor(challengeId: "c_1", methodId: "totp-1"), busy: true)
+    private let challenged = AccountState(email: "operator@example.com", code: "123456", challenge: SecondFactor.authenticator(challengeId: "c_1", methodId: "totp-1"), busy: true)
 
     private func factor(_ method: AuthenticationFactorMethod, _ id: String) -> MfaChallengeFactor {
         MfaChallengeFactor(method: method, methodId: id, kind: .possession)
@@ -58,24 +58,100 @@ struct AccountStateTests {
     @Test func aChallengeMovesToTheCodeStepAndDropsThePassword() {
         let next = typed.after(.secondFactorNeeded(challengeId: "c_1", factors: [factor(.authenticator, "totp-1")]))
 
-        #expect(next == AccountState(email: "operator@example.com", challenge: SecondFactor(challengeId: "c_1", methodId: "totp-1")))
+        #expect(next == AccountState(email: "operator@example.com", challenge: SecondFactor.authenticator(challengeId: "c_1", methodId: "totp-1")))
     }
 
     @Test func theCodeGoesAgainstTheAuthenticatorNotWhicheverFactorIsListedFirst() {
         let next = typed.after(.secondFactorNeeded(challengeId: "c_1", factors: [factor(.email, "email-1"), factor(.authenticator, "totp-1")]))
 
-        #expect(next.challenge == SecondFactor(challengeId: "c_1", methodId: "totp-1"))
+        // The email factor rides along as the way out for somebody without their authenticator.
+        #expect(next.challenge == .authenticator(challengeId: "c_1", methodId: "totp-1", email: EmailCode(challengeId: "c_1")))
     }
 
     @Test func saysSoWhenTheAccountsSecondFactorIsNotOneThisAppCanAnswer() {
-        let next = typed.after(.secondFactorNeeded(challengeId: "c_1", factors: [factor(.email, "email-1")]))
+        // Better than a code box that would refuse every code. A passkey needs a WebAuthn assertion.
+        let next = typed.after(.secondFactorNeeded(challengeId: "c_1", factors: [factor(.fido, "fido-1"), factor(.phone, "phone-1")]))
 
         #expect(next.challenge == nil)
         #expect(next.error == .secondFactorUnsupported)
     }
 
+    @Test func anAccountWithEmailAndAPasskeyIsSentACodeRatherThanRefused() {
+        // The account that reported this: an email factor and a passkey, and no authenticator.
+        let factors = [MfaChallengeFactor(method: .email, methodId: "email-1", kind: .possession, label: "o•••@example.com"), factor(.fido, "fido-1")]
+
+        let next = typed.after(.secondFactorNeeded(challengeId: "c_1", factors: factors))
+
+        #expect(next.challenge == .email(EmailCode(challengeId: "c_1", sentTo: "o•••@example.com")))
+        #expect(next.error == nil)
+        #expect(next.password == "")
+        // Busy until the station says it sent one, and the page sends it because of that.
+        #expect(next.needsCodeSent)
+        #expect(!next.typingCode("123456").canSubmit)
+    }
+
+    @Test func aSentCodeGivesTheBoxSomethingToAnswer() {
+        let sending = AccountState(email: "operator@example.com", challenge: .email(EmailCode(challengeId: "c_1")), busy: true)
+
+        let next = sending.afterCodeSent(.sent(emailChallengeId: "e_1"))
+
+        #expect(next.challenge == .email(EmailCode(challengeId: "c_1", emailChallengeId: "e_1")))
+        #expect(!next.busy)
+        #expect(!next.needsCodeSent)
+        #expect(next.typingCode("123456").canSubmit)
+    }
+
+    @Test func aSendThatCannotHappenSaysWhyAndAnExpiredOneEndsTheRound() {
+        let sending = AccountState(email: "operator@example.com", challenge: .email(EmailCode(challengeId: "c_1")), busy: true)
+
+        #expect(sending.afterCodeSent(.noMail).error == .codeNoMail)
+        #expect(!sending.afterCodeSent(.noMail).busy)
+        #expect(sending.afterCodeSent(.failed("boom")).error == .couldNotSendCode)
+        #expect(sending.afterCodeSent(.challengeExpired) == AccountState(email: "operator@example.com", error: .signInExpired))
+    }
+
+    @Test func aRefusedEmailedCodeSaysToCheckTheEmailRatherThanWait() {
+        let emailed = SecondFactor.email(EmailCode(challengeId: "c_1", emailChallengeId: "e_1"))
+        let challenged = AccountState(email: "operator@example.com", code: "000000", challenge: emailed, busy: true)
+
+        let next = challenged.after(.badCredentials)
+
+        #expect(next.error == .emailedCodeRefused)
+        #expect(next.challenge == emailed)
+        #expect(next.code == "")
+    }
+
+    @Test func choosingEmailKeepsTheChallengeAndAsksForASend() {
+        let email = EmailCode(challengeId: "c_1")
+        let challenged = AccountState(email: "operator@example.com", code: "12", challenge: .authenticator(challengeId: "c_1", methodId: "totp-1", email: email))
+
+        let next = challenged.usingEmail()
+
+        #expect(next.challenge == .email(email))
+        #expect(next.code == "")
+        #expect(next.needsCodeSent)
+        // Without an email factor there is nothing to switch to.
+        let alone = AccountState(email: "operator@example.com", challenge: .authenticator(challengeId: "c_1", methodId: "totp-1"))
+        #expect(alone.usingEmail() == alone)
+    }
+
+    @Test func sendingAgainWaitsForTheNewSendBeforeTakingACode() {
+        let sent = AccountState(email: "operator@example.com", code: "123456", challenge: .email(EmailCode(challengeId: "c_1", emailChallengeId: "e_1")))
+
+        let again = sent.sendingAgain()
+
+        #expect(again.needsCodeSent)
+        #expect(!again.canSubmit)
+        // Not twice while the station is answering.
+        #expect(again.sendingAgain() == again)
+    }
+
+    @Test func anAuthenticatorStepNeverAsksForASend() {
+        #expect(!challenged.needsCodeSent)
+    }
+
     @Test func willNotSendACodeShorterThanTheStationWillTake() {
-        var state = AccountState(email: "operator@example.com", challenge: SecondFactor(challengeId: "c_1", methodId: "totp-1"))
+        var state = AccountState(email: "operator@example.com", challenge: SecondFactor.authenticator(challengeId: "c_1", methodId: "totp-1"))
 
         state.code = "123"
         #expect(!state.canSubmit)
@@ -91,7 +167,7 @@ struct AccountStateTests {
         #expect(next.error == .codeRefused)
         #expect(next.code == "")
         // Still on the code step: another code from the same authenticator will work.
-        #expect(next.challenge == SecondFactor(challengeId: "c_1", methodId: "totp-1"))
+        #expect(next.challenge == .authenticator(challengeId: "c_1", methodId: "totp-1"))
     }
 
     @Test func anExpiredChallengeAndARefusedFactorBothEndTheRound() {

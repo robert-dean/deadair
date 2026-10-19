@@ -98,8 +98,8 @@ could use any of the passkey routes.
 
 **WebAuthn needs a secure context**, so a station opened over plain `http://` on a LAN address offers
 no passkey anywhere: `passkeysAvailable()` in the console is false there and every passkey control is
-hidden rather than failing. The phone apps answer authenticator codes (`ChallengeFactors.kt`,
-`AccountState.swift`), and the Android app answers emailed codes too, sending one through
+hidden rather than failing. The phone apps answer authenticator codes and emailed codes
+(`ChallengeFactors.kt`, `AccountState.swift`), sending an emailed one through
 `POST /auth/factors/start` and redeeming it with the `code` grant, as the console does. Neither
 answers a passkey, so a passkey is a browser second step and the invite page says so.
 
@@ -150,7 +150,7 @@ provider, and no email address the station could mail a sign-in link to (an emai
 while mail is configured). An account created through a provider starts out exactly like that.
 
 **An account with no password cannot use the listener apps**, which sign in with a password and then
-a code (an authenticator's, or on Android an emailed one). Password sign-in stays.
+a code (an authenticator's or an emailed one). Password sign-in stays.
 
 ## Password lockout
 

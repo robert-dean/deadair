@@ -60,8 +60,11 @@ public enum Message: Equatable, Sendable {
     case couldNotReachToSignIn
     case secondFactorUnsupported
     case codeRefused
+    case emailedCodeRefused
     case signInExpired
     case factorRefused
+    case couldNotSendCode
+    case codeNoMail
     case noRefreshToken
     case resetNeedsEmail
     case resetNotAnAddress

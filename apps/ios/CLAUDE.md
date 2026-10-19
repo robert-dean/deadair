@@ -466,7 +466,16 @@ replan or put the station on air, open and read and press nothing.
 
 **The second factor is answered against the AUTHENTICATOR**, picked out of the challenge's factors,
 never its first entry, and the three refusals that share one 401 are told apart by
-`WWW-Authenticate`. Both are the desktop app's shipped bug.
+`WWW-Authenticate`. Both are the desktop app's shipped bug. **Or by an emailed code**, Android's
+#670 decision for decision: email leads only when there is no authenticator (choosing it sends a
+message, an authenticator costs nothing), and "Email me a code instead" is offered beside one. The
+send is `POST /auth/factors/start` and the answer the `code` grant carrying the email challenge's id;
+`AccountState.needsCodeSent` is the one thing that says a send is due. A passkey or phone factor
+alone is still refused. Verified on the simulator against a local station and a mailpit
+(2026-10-19): email alone sent at once and named the masked address, a wrong code (the station's
+400 `invalid code`) said to check the latest email, Send it again sent a second, and its code signed
+in; with an authenticator enrolled the authenticator led, sent nothing, and "Email me a code
+instead" sent one and signed in. The 401 and 503 on the send are tested, not seen.
 
 ```bash
 apps/ios/Packages/DeadairCore/test.sh

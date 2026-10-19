@@ -16,6 +16,11 @@ public enum ResetResult: Equatable, Sendable {
     /// The address has been sent enough for now. The station decides how long that lasts.
     case tooMany
 
+    /// The station read what was typed and it is not an email address. A 400 is the only thing the
+    /// route refuses that way, and "could not reach the station" about a typo sends somebody to check
+    /// their network instead of their spelling.
+    case notAnAddress
+
     /// The station has no mail server to send through, so no link can reach anybody.
     case noMail
 
@@ -147,6 +152,8 @@ public final class SessionManager: OperatorSession {
             let request = LinkAuthenticationLoginStart(email: email, purpose: .reset)
             _ = try await sdkFor(station) { [:] }.authentication.startLogin(body: .linkAuthenticationLoginStart(request))
             return .sent
+        } catch let error as SdkError where error.status == 400 {
+            return .notAnAddress
         } catch let error as SdkError where error.status == 429 {
             return .tooMany
         } catch let error as SdkError where error.status == 503 {

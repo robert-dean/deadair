@@ -129,6 +129,7 @@ struct AccountStateTests {
     }
 
     @Test func aRefusedResetSaysWhyAndKeepsWhatWasTyped() {
+        #expect(typed.afterReset(.notAnAddress).error == .resetNotAnAddress)
         #expect(typed.afterReset(.tooMany).error == .resetTooMany)
         #expect(typed.afterReset(.noMail).error == .resetNoMail)
         let failed = typed.afterReset(.failed("timeout"))

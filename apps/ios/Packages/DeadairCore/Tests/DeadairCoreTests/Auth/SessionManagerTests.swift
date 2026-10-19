@@ -311,6 +311,12 @@ struct SessionManagerTests {
         #expect(await noMail.askForReset(station(), email: "operator@example.com") == .noMail)
     }
 
+    @Test func saysATypedAddressTheStationRefusedIsNotAnAddressRatherThanThatItCouldNotBeReached() async {
+        let manager = manager(MemorySessionStorage(), FakeStation { _ in .empty(400) })
+
+        #expect(await manager.askForReset(station(), email: "operator@") == .notAnAddress)
+    }
+
     @Test func reportsAStationItCannotReachAsAFailureRatherThanASentLink() async {
         let manager = manager(MemorySessionStorage(), FakeStation { _ in .unreachable })
 

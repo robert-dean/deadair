@@ -98,10 +98,16 @@ could use any of the passkey routes.
 
 **WebAuthn needs a secure context**, so a station opened over plain `http://` on a LAN address offers
 no passkey anywhere: `passkeysAvailable()` in the console is false there and every passkey control is
-hidden rather than failing. The phone apps answer authenticator codes and emailed codes
-(`ChallengeFactors.kt`, `AccountState.swift`), sending an emailed one through
-`POST /auth/factors/start` and redeeming it with the `code` grant, as the console does. Neither
+hidden rather than failing. The phone apps and the desktop app answer authenticator codes and
+emailed codes (`ChallengeFactors.kt`, `AccountState.swift`, and on the desktop
+`ChallengeFactors.Email` and `SessionManager.SendEmailCodeAsync`), sending an emailed one through
+`POST /auth/factors/start` and redeeming it with the `code` grant, as the console does. None of them
 answers a passkey, so a passkey is a browser second step and the invite page says so.
+
+**An emailed code signs in and never steps up.** `StrongFactorGate` excludes email, password and
+oidc from every step-up, so the desktop's step-up dialog asks only for an authenticator: an account
+whose only strong factor is a passkey makes those changes on the console, and one with nothing
+stronger than email is never asked.
 
 **The station sends a challenge as standard base64 and the browser writes it into clientData as
 base64url.** `auth/webauthn.ts` decodes either, and a scripted authenticator has to encode the same

@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.auth.PasskeyAnswer
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
@@ -57,6 +58,10 @@ fun SignInScreen(
     onUseEmail: () -> Unit,
     /** "Send it again", for an emailed code. */
     onSendAgain: () -> Unit,
+    /** "Use a passkey instead", from the authenticator step. */
+    onUsePasskey: () -> Unit,
+    /** What the phone's passkey prompt answered. */
+    onPasskeyAnswer: (PasskeyAnswer) -> Unit,
 ) {
     Scaffold { padding ->
         Box(
@@ -90,6 +95,8 @@ fun SignInScreen(
                     onStartAgain = onStartAgain,
                     onUseEmail = onUseEmail,
                     onSendAgain = onSendAgain,
+                    onUsePasskey = onUsePasskey,
+                    onPasskeyAnswer = onPasskeyAnswer,
                 )
             }
         }

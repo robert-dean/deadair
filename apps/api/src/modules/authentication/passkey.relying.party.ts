@@ -3,7 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { ServerKitContext } from '@maroonedsoftware/koa';
 import { ErrorCodes } from '@deadair/error-codes';
-import { STREAM_DEFAULTS, STREAM_KEYS, deployedOrigin, stationOrigin } from '#modules/stream/stream.settings.js';
+import { STREAM_DEFAULTS, STREAM_KEYS, deployedOrigin, resolvePublicUrl, stationOrigin } from '#modules/stream/stream.settings.js';
+import { ANDROID_FACET_PREFIX, androidCertificates } from './android.apps.js';
 
 /** Who a passkey is bound to, in the terms WebAuthn asks for: the host, and the full origin. */
 export interface RelyingParty {
@@ -11,6 +12,12 @@ export interface RelyingParty {
     rpOrigin: string;
     rpName: string;
 }
+
+/**
+ * The header a native app names its own WebAuthn origin in, since it sends no `Origin`: for the
+ * Android app, `android:apk-key-hash:` and the hash of the certificate it is signed with.
+ */
+export const APP_ORIGIN_HEADER = 'x-deadair-app-origin';
 
 /** A browser on the developer's own machine, which `pnpm dev` serves the console from. */
 const isLoopback = (origin: URL): boolean => origin.hostname === 'localhost' || origin.hostname === '127.0.0.1' || origin.hostname === '[::1]';
@@ -49,6 +56,47 @@ export class PasskeyRelyingParty {
             });
         }
         return { rpId: origin.hostname, rpOrigin: origin.origin, rpName: this.stationName() };
+    }
+
+    /**
+     * The relying party for an ASSERTION, which is the one thing a native app may ask for.
+     *
+     * A browser is answered exactly as {@link resolve} answers it. A request with no `Origin` that
+     * names an app origin in {@link APP_ORIGIN_HEADER} is answered with the station's public host as
+     * the relying party, which is the host the console registered the passkey at, and the app's own
+     * origin as the one the assertion must carry. That origin is held to the certificates the station
+     * vouches for in `assetlinks.json` (`android.apps.ts`), so an app can only name one Android would
+     * already have let it use the passkey under, and the verify then refuses an assertion whose
+     * `clientDataJSON` names anything else. Registration never comes here: a passkey is made in the
+     * console, at a web origin, and an app only proves one.
+     */
+    resolveForAssertion(): RelyingParty {
+        if (this.context.get('origin')) return this.resolve();
+        const appOrigin = this.context.get(APP_ORIGIN_HEADER).trim();
+        if (!appOrigin.startsWith(ANDROID_FACET_PREFIX)) return this.resolve();
+
+        const host = this.publicHost();
+        if (!host || !androidCertificates(this.config).some(certificate => certificate.facet === appOrigin)) {
+            throw httpError(400).withDetails({
+                code: ErrorCodes.PASSKEY_ORIGIN_REFUSED,
+                message: 'this app cannot use a passkey with this station',
+            });
+        }
+        return { rpId: host, rpOrigin: appOrigin, rpName: this.stationName() };
+    }
+
+    /**
+     * The host the station is published at, when it is published over https. Android looks a
+     * relying party up through Digital Asset Links, which reads `assetlinks.json` over https from
+     * the host itself, so a station on a plain-http LAN address has no relying party an app can use.
+     */
+    private publicHost(): string | undefined {
+        try {
+            const url = new URL(resolvePublicUrl(this.config));
+            return url.protocol === 'https:' ? url.hostname : undefined;
+        } catch {
+            return undefined;
+        }
     }
 
     /** The addresses a passkey may be bound to: every address the station was deployed or published at. */

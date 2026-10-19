@@ -100,6 +100,12 @@ export default defineConfig(({ mode }) => ({
                 target: API_TARGET,
                 changeOrigin: true,
             },
+            // Digital Asset Links, which Android reads to let the listener app use this host's
+            // passkeys. At the origin for the same reason; see docker/nginx.conf.
+            '/.well-known/assetlinks.json': {
+                target: API_TARGET,
+                changeOrigin: true,
+            },
             // A root-level `.m3u8`, which is the tidy public URL for the HLS output: `/live.m3u8`
             // beside `/live.mp3`. The REDIRECT to `/hls/` lives in the nginx snippet, because it
             // has to exist for the production edges too — so this hands the request to nginx and

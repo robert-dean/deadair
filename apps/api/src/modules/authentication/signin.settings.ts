@@ -19,6 +19,11 @@ export const SIGNIN_KEYS = {
      * console as a derived setting, from {@link oidcRedirectUri}.
      */
     redirectAddress: 'signin.redirectAddress',
+    /**
+     * `text`: signing certificates of Android builds, beyond the published app's, that may use the
+     * station's passkeys. See `android.apps.ts`.
+     */
+    androidCertificates: 'signin.androidCertificates',
 } as const;
 
 /** The cell keys of a provider row, shared by the registry's columns and the resolver below. */

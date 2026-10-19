@@ -1,12 +1,15 @@
 package com.maroonedsoftware.deadair.ui
 
 import com.maroonedsoftware.deadair.auth.CodeSendResult
+import com.maroonedsoftware.deadair.auth.PasskeyAnswer
+import com.maroonedsoftware.deadair.auth.PasskeyStartResult
 import com.maroonedsoftware.deadair.auth.ResetResult
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorKind
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorMethod
 import com.maroonedsoftware.deadair.sdk.models.MfaChallengeFactor
 import com.maroonedsoftware.deadair.ui.settings.AccountState
+import com.maroonedsoftware.deadair.ui.settings.PasskeyStep
 import com.maroonedsoftware.deadair.ui.settings.SecondFactor
 import com.maroonedsoftware.deadair.ui.text.Message
 import org.junit.Assert.assertEquals
@@ -118,8 +121,8 @@ class AccountStateTest {
 
     @Test
     fun `says so when the account's second factor is not one this app can answer`() {
-        // Better than a code box that would refuse every code. A passkey needs a WebAuthn assertion.
-        val challenge = SignInResult.SecondFactorNeeded("c_1", listOf(factor(AuthenticationFactorMethod.FIDO, "fido-1")))
+        // Better than a code box that would refuse every code.
+        val challenge = SignInResult.SecondFactorNeeded("c_1", listOf(factor(AuthenticationFactorMethod.PHONE, "phone-1")))
 
         val next = AccountState.from(typed, challenge)
 
@@ -128,25 +131,145 @@ class AccountStateTest {
     }
 
     @Test
-    fun `an account with email and a passkey is sent a code rather than refused`() {
-        // The account that reported this: an email factor and a passkey, and no authenticator.
+    fun `an account with email and a passkey is asked for the passkey, with email as the way out`() {
+        // The account that reported this: an email factor and a passkey, and no authenticator. A
+        // passkey prompt costs nothing, where choosing email sends a message.
+        val email = MfaChallengeFactor(AuthenticationFactorMethod.EMAIL, "email-1", AuthenticationFactorKind.POSSESSION, label = "o•••@example.com")
+        val challenge = SignInResult.SecondFactorNeeded("c_1", listOf(email, factor(AuthenticationFactorMethod.FIDO, "fido-1")))
+
+        val next = AccountState.from(typed, challenge)
+
+        assertEquals(SecondFactor.Passkey("c_1", email = SecondFactor.Email("c_1", sentTo = "o•••@example.com")), next.challenge)
+        assertNull(next.error)
+        assertEquals("", next.password)
+        // Busy until the station has started the assertion, and the view model starts it because of that.
+        assertTrue(AccountState.needsPasskeyStarted(next))
+        assertFalse(AccountState.passkeyPromptDue(next))
+        assertFalse(AccountState.needsCodeSent(next))
+    }
+
+    @Test
+    fun `an account with only email is still sent a code`() {
         val challenge =
             SignInResult.SecondFactorNeeded(
                 "c_1",
-                listOf(
-                    MfaChallengeFactor(AuthenticationFactorMethod.EMAIL, "email-1", AuthenticationFactorKind.POSSESSION, label = "o•••@example.com"),
-                    factor(AuthenticationFactorMethod.FIDO, "fido-1"),
-                ),
+                listOf(MfaChallengeFactor(AuthenticationFactorMethod.EMAIL, "email-1", AuthenticationFactorKind.POSSESSION, label = "o•••@example.com")),
             )
 
         val next = AccountState.from(typed, challenge)
 
         assertEquals(SecondFactor.Email("c_1", sentTo = "o•••@example.com"), next.challenge)
-        assertNull(next.error)
-        assertEquals("", next.password)
-        // Busy until the station says it sent one, and the view model sends it because of that.
         assertTrue(AccountState.needsCodeSent(next))
         assertFalse(next.copy(code = "123456").canSubmit)
+    }
+
+    @Test
+    fun `an authenticator still leads, with the passkey and email offered beside it`() {
+        val challenge =
+            SignInResult.SecondFactorNeeded(
+                "c_1",
+                listOf(
+                    factor(AuthenticationFactorMethod.FIDO, "fido-1"),
+                    factor(AuthenticationFactorMethod.EMAIL, "email-1"),
+                    factor(AuthenticationFactorMethod.AUTHENTICATOR, "totp-1"),
+                ),
+            )
+
+        val next = AccountState.from(typed, challenge)
+
+        val email = SecondFactor.Email("c_1")
+        assertEquals(SecondFactor.Authenticator("c_1", "totp-1", email, SecondFactor.Passkey("c_1", email)), next.challenge)
+        assertFalse(next.busy)
+
+        val passkey = AccountState.usingPasskey(next.copy(code = "12"))
+        assertEquals(SecondFactor.Passkey("c_1", email), passkey.challenge)
+        assertEquals("", passkey.code)
+        assertTrue(AccountState.needsPasskeyStarted(passkey))
+    }
+
+    // ── A passkey ──────────────────────────────────────────────────────────────
+
+    private val starting = AccountState(email = "operator@example.com", challenge = SecondFactor.Passkey("c_1", SecondFactor.Email("c_1")), busy = true)
+
+    private fun asking() = AccountState.fromPasskeyStarted(starting, PasskeyStartResult.Started("f_1", """{"challenge":"abc"}"""))
+
+    @Test
+    fun `a started assertion puts the prompt up, once`() {
+        val next = asking()
+
+        assertEquals(
+            SecondFactor.Passkey("c_1", SecondFactor.Email("c_1"), PasskeyStep.ASKING, fidoChallengeId = "f_1", requestJson = """{"challenge":"abc"}"""),
+            next.challenge,
+        )
+        assertTrue(next.busy)
+        assertTrue(AccountState.passkeyPromptDue(next))
+        assertFalse(AccountState.needsPasskeyStarted(next))
+    }
+
+    @Test
+    fun `a signed assertion waits on the station, and the prompt is not raised again`() {
+        val next = AccountState.fromPasskeyAnswer(asking(), PasskeyAnswer.Answered("{}"))
+
+        assertTrue(next.busy)
+        assertEquals(PasskeyStep.CHECKING, (next.challenge as SecondFactor.Passkey).step)
+        assertFalse(AccountState.passkeyPromptDue(next))
+        assertFalse(AccountState.needsPasskeyStarted(next))
+    }
+
+    @Test
+    fun `a closed prompt says nothing and leaves the button to ask again`() {
+        val closed = AccountState.fromPasskeyAnswer(asking(), PasskeyAnswer.Cancelled)
+
+        assertFalse(closed.busy)
+        assertNull(closed.error)
+        assertTrue(closed.canSubmit)
+        assertFalse(AccountState.passkeyPromptDue(closed))
+
+        val again = AccountState.askingPasskeyAgain(closed)
+        assertTrue(AccountState.needsPasskeyStarted(again))
+        assertNull((again.challenge as SecondFactor.Passkey).requestJson)
+        // Not twice while the station is answering.
+        assertEquals(again, AccountState.askingPasskeyAgain(again))
+    }
+
+    @Test
+    fun `a phone with no passkey, or a prompt that failed, says which`() {
+        assertEquals(Message.NoPasskeyOnPhone, AccountState.fromPasskeyAnswer(asking(), PasskeyAnswer.NoPasskey).error)
+        assertEquals(Message.PasskeyFailed, AccountState.fromPasskeyAnswer(asking(), PasskeyAnswer.Failed("TYPE_UNKNOWN")).error)
+    }
+
+    @Test
+    fun `a station that will not start one for this app says so, and an expired sign-in ends the round`() {
+        val refused = AccountState.fromPasskeyStarted(starting, PasskeyStartResult.NotOffered)
+        assertEquals(Message.PasskeyNotOffered, refused.error)
+        assertFalse(refused.busy)
+
+        val expired = AccountState.fromPasskeyStarted(starting, PasskeyStartResult.ChallengeExpired)
+        assertNull(expired.challenge)
+        assertEquals(Message.SignInExpired, expired.error)
+
+        assertEquals(Message.CouldNotStartPasskey, AccountState.fromPasskeyStarted(starting, PasskeyStartResult.Failed(null)).error)
+    }
+
+    @Test
+    fun `a passkey the station refused is not a refused code`() {
+        val checking = AccountState.fromPasskeyAnswer(asking(), PasskeyAnswer.Answered("{}"))
+
+        val next = AccountState.from(checking, SignInResult.BadCredentials)
+
+        assertEquals(Message.PasskeyRefused, next.error)
+        assertFalse(next.busy)
+        assertTrue(next.challenge is SecondFactor.Passkey)
+    }
+
+    @Test
+    fun `email is the way out of a passkey step`() {
+        val closed = AccountState.fromPasskeyAnswer(asking(), PasskeyAnswer.Cancelled)
+
+        val next = AccountState.usingEmail(closed)
+
+        assertEquals(SecondFactor.Email("c_1"), next.challenge)
+        assertTrue(AccountState.needsCodeSent(next))
     }
 
     @Test

@@ -133,9 +133,9 @@ different caller on every request — rate limiting nobody at all, which is wors
 together. The compose edge takes the same include and expects a mounted file rather than an environment
 variable.
 
-**Two paths reach the API that are not under `/api/`.** Every edge (the image's nginx, both compose
-edges, Vite) forwards `/.well-known/oauth-` to the API with the path KEPT, where everything else it
-forwards has `/api` stripped. The station is its own OAuth authorization server for MCP clients, and its
+**Three paths reach the API that are not under `/api/`.** Every edge (the image's nginx, both compose
+edges, Vite) forwards `/.well-known/oauth-` and `/.well-known/assetlinks.json` to the API with the path
+KEPT, where everything else it forwards has `/api` stripped. The station is its own OAuth authorization server for MCP clients, and its
 issuer is the ORIGIN (`OAuthOptions`): RFC 8414 puts the issuer's metadata at
 `<origin>/.well-known/oauth-authorization-server`, and RFC 9728 puts the MCP endpoint's at
 `<origin>/.well-known/oauth-protected-resource/api/mcp`. An issuer under `/api` would be found only by a
@@ -143,6 +143,12 @@ client's third guess. Before the forward, both fell to the console's `try_files`
 `index.html`, which a client reads as a server that does not do OAuth. A reverse proxy an operator puts
 in front has to pass `/.well-known/` through too; `/.well-known/openid-configuration` is deliberately not
 served, since the station is not an OpenID provider.
+
+`assetlinks.json` is Digital Asset Links: Android's Credential Manager reads it from the station's own
+host before it lets the listener app use a passkey made there (`docs/internals/authentication.md` §
+"Passkeys"). It has to be the station that answers, because each station is on its operator's domain and
+no central site could vouch for all of them. It is always a JSON array, empty when the station names no
+certificate.
 
 **The console's security headers are set per location, and only on the console's two.**
 `nginx/snippets/console.headers.conf` holds the CSP, `X-Frame-Options`, `nosniff` and `Referrer-Policy`, and

@@ -168,6 +168,10 @@ export const segmentAudioExemption: TransactionExemption = ({ method, path }) =>
 export const oauthDiscoveryExemption: TransactionExemption = ({ method, path }) =>
     method === 'GET' && path.toLowerCase().startsWith('/.well-known/oauth-');
 
+// Read from the settings snapshot and nothing else, so a transaction would be a pooled connection
+// held for no query.
+export const assetLinksExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path.toLowerCase() === '/.well-known/assetlinks.json';
+
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
 export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
@@ -182,6 +186,7 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     voiceSampleExemption,
     speechPreviewExemption,
     oauthDiscoveryExemption,
+    assetLinksExemption,
 ];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>

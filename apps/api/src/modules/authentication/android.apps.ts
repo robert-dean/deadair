@@ -10,7 +10,7 @@ import { SIGNIN_KEYS } from './signin.settings.js';
  * only hand it to an app the host vouches for, in `/.well-known/assetlinks.json`, and the assertion
  * it produces names the app rather than a web page: its `clientDataJSON` origin is
  * `android:apk-key-hash:` followed by the base64url SHA-256 of the signing certificate. So the same
- * list of certificates is what it will vouch for there and what it accepts as an origin.
+ * list of certificates is both what the station publishes there and what it accepts as an origin.
  */
 
 /**
@@ -79,4 +79,18 @@ export function androidCertificates(config: AppConfig): AndroidCertificate[] {
         if (certificate && !seen.has(certificate.facet)) seen.set(certificate.facet, certificate);
     }
     return [...seen.values()];
+}
+
+/**
+ * The Digital Asset Links statements: every package may use the station's passkeys when signed
+ * with any of the certificates. An empty list when there is no certificate at all, which is a
+ * valid document saying nothing, rather than a 404 that a verifier might cache as an error.
+ */
+export function assetLinks(config: AppConfig): unknown[] {
+    const fingerprints = androidCertificates(config).map(certificate => certificate.fingerprint);
+    if (fingerprints.length === 0) return [];
+    return ANDROID_APP_PACKAGES.map(packageName => ({
+        relation: ['delegate_permission/common.get_login_creds'],
+        target: { namespace: 'android_app', package_name: packageName, sha256_cert_fingerprints: fingerprints },
+    }));
 }

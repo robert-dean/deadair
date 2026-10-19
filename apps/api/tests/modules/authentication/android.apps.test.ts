@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import { androidCertificates, facetOfCertificate, parseCertificate } from '../../../src/modules/authentication/android.apps.js';
+import { assetLinks, androidCertificates, facetOfCertificate, parseCertificate } from '../../../src/modules/authentication/android.apps.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 // The Android debug keystore's certificate on one machine, as keytool prints it.
@@ -43,5 +43,18 @@ describe('androidCertificates', () => {
         const config = settingsConfig({ 'signin.androidCertificates': `${HEX}\n  garbage \n${other}, ${FACET}` }).config;
 
         expect(androidCertificates(config).map(certificate => certificate.fingerprint)).toEqual([HEX, other]);
+    });
+});
+
+describe('assetLinks', () => {
+    it('lets both packages fetch login credentials when signed with any certificate', () => {
+        const links = assetLinks(settingsConfig({ 'signin.androidCertificates': HEX }).config);
+
+        expect(links).toEqual(
+            ['com.maroonedsoftware.deadair', 'com.maroonedsoftware.deadair.debug'].map(package_name => ({
+                relation: ['delegate_permission/common.get_login_creds'],
+                target: { namespace: 'android_app', package_name, sha256_cert_fingerprints: [HEX] },
+            })),
+        );
     });
 });

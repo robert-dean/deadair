@@ -292,6 +292,7 @@ class AccountStateTest {
     fun `a refused reset says why and keeps what was typed`() {
         val asking = AccountState(email = "operator@example.com", password = "x", busy = true)
 
+        assertEquals(Message.ResetNotAnAddress, AccountState.fromReset(asking, ResetResult.NotAnAddress).error)
         assertEquals(Message.ResetTooMany, AccountState.fromReset(asking, ResetResult.TooMany).error)
         assertEquals(Message.ResetNoMail, AccountState.fromReset(asking, ResetResult.NoMail).error)
         val failed = AccountState.fromReset(asking, ResetResult.Failed("timeout"))

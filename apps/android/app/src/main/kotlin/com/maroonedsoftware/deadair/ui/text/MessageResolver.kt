@@ -79,6 +79,7 @@ fun Message.resolve(): String =
         Message.CodeNoMail -> stringResource(R.string.account_code_no_mail)
         Message.NoRefreshToken -> stringResource(R.string.account_no_refresh_token)
         Message.ResetNeedsEmail -> stringResource(R.string.reset_needs_email)
+        Message.ResetNotAnAddress -> stringResource(R.string.reset_not_an_address)
         Message.ResetTooMany -> stringResource(R.string.reset_too_many)
         Message.ResetNoMail -> stringResource(R.string.reset_no_mail)
         Message.CouldNotReachToReset -> stringResource(R.string.reset_could_not_reach)

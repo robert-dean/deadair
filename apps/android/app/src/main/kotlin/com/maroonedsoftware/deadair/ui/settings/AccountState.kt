@@ -163,6 +163,7 @@ data class AccountState(
         fun fromReset(current: AccountState, result: ResetResult): AccountState =
             when (result) {
                 ResetResult.Sent -> AccountState(email = current.email, resetSentTo = current.email.trim())
+                ResetResult.NotAnAddress -> current.copy(busy = false, error = Message.ResetNotAnAddress)
                 ResetResult.TooMany -> current.copy(busy = false, error = Message.ResetTooMany)
                 ResetResult.NoMail -> current.copy(busy = false, error = Message.ResetNoMail)
                 is ResetResult.Failed -> current.copy(busy = false, error = Message.CouldNotReachToReset)

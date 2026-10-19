@@ -29,7 +29,7 @@ public abstract record SignInResult
     /// </summary>
     /// <remarks>
     /// Almost always a client bug rather than anything the operator did: it means the method id sent
-    /// with the code was not one of the challenge's eligible authenticators.
+    /// with the code was not one of the challenge's eligible factors.
     /// </remarks>
     public sealed record FactorRefused : SignInResult;
 
@@ -50,13 +50,19 @@ public abstract record SignInResult
 }
 
 /// <summary>
-/// Which of a challenge's factors this app can actually answer.
+/// Which of a challenge's factors this app can actually answer: an authenticator, or an emailed code.
 /// </summary>
 /// <remarks>
-/// <b>Only the authenticator.</b> A challenge lists every factor the account has enrolled, in
-/// enrolment order, so the first one is not reliably the one a code box can satisfy — and the station
-/// refuses a code sent with another factor's method id, as `invalid_factor`, which reads at the
-/// keyboard exactly like a mistyped code. The web console filters the same way.
+/// <para>
+/// A challenge lists every factor the account has enrolled, in enrolment order, so the first one is
+/// not reliably the one a code box can satisfy — and the station refuses a code sent with another
+/// factor's method id, as `invalid_factor`, which reads at the keyboard exactly like a mistyped code.
+/// So both are picked by METHOD, as the web console does.
+/// </para>
+/// <para>
+/// A passkey or a phone factor alone is still refused. FIDO needs a WebAuthn assertion this app has
+/// no way to produce, and that stays the console's job.
+/// </para>
 /// </remarks>
 public static class ChallengeFactors
 {
@@ -65,5 +71,18 @@ public static class ChallengeFactors
         ArgumentNullException.ThrowIfNull(factors);
 
         return factors.Where(factor => factor.Method == AuthenticationFactorMethod.Authenticator).ToList();
+    }
+
+    /// <summary>The challenge's email factor, if it has one: the other factor this app can answer.</summary>
+    /// <remarks>
+    /// An emailed code needs a challenge started against it first (<c>POST /auth/factors/start</c>),
+    /// which is what sends the message. Accounts with an email and a passkey and nothing else were
+    /// refused outright until this existed.
+    /// </remarks>
+    public static MfaChallengeFactor? Email(IReadOnlyList<MfaChallengeFactor> factors)
+    {
+        ArgumentNullException.ThrowIfNull(factors);
+
+        return factors.FirstOrDefault(factor => factor.Method == AuthenticationFactorMethod.Email);
     }
 }

@@ -228,6 +228,9 @@ internal static class Pages
         yield return ("login", SignIn(revealed: false), 1180, 720);
         yield return ("login-revealed", SignIn(revealed: true), 1180, 720);
         yield return ("login-reset-sent", ResetSent(), 1180, 720);
+        yield return ("login-code-email-offered", CodeStep(emailed: false, problem: null), 1180, 720);
+        yield return ("login-code-emailed", CodeStep(emailed: true, problem: null), 1180, 720);
+        yield return ("login-code-emailed-refused", CodeStep(emailed: true, problem: "That code was not accepted. Check the latest email, or send it again."), 820, 520);
 
         // The first thing anybody sees, and the one frame with no shell behind it. The second has
         // the keyboard in the box, which is the only way to look at a focus ring.
@@ -799,6 +802,24 @@ internal static class Pages
         var shell = Fakes.Shell(operatorSignedIn: false);
         shell.Login.Email = "operator@example.com";
         shell.Login.ResetSentTo = "operator@example.com";
+
+        var setup = new SetupViewModel(Fakes.Settings(), new StationProbe(new HttpClient(new AnswersAsAStation())));
+        setup.OpenSignIn("Deadair");
+
+        return new SetupView { DataContext = setup, Tag = shell };
+    }
+
+    /// <summary>
+    /// The code step of an account with an email factor: an authenticator offering "Email me a code
+    /// instead", or an emailed code already sent, naming the station's masked label for the address.
+    /// The refused frame is at the minimum window, where the problem line has least room.
+    /// </summary>
+    private static SetupView CodeStep(bool emailed, string? problem)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        shell.Login.Email = "operator@example.com";
+        shell.Login.PoseCodeStep("o***@example.com", emailed);
+        shell.Login.Problem = problem;
 
         var setup = new SetupViewModel(Fakes.Settings(), new StationProbe(new HttpClient(new AnswersAsAStation())));
         setup.OpenSignIn("Deadair");

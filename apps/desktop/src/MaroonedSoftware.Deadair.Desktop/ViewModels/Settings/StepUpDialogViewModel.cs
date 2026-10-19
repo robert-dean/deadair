@@ -26,6 +26,13 @@ public sealed record StepUpFactorViewModel(string MethodId, string Label);
 /// list is filtered by method (the bug that taught this is in this app's CLAUDE.md, under the second
 /// factor). An account with none is told so rather than shown a box no code can satisfy.
 /// </para>
+/// <para>
+/// <b>An emailed code is NOT offered here, although sign-in takes one.</b> Every step-up the station
+/// asks for is <c>StrongFactorGate</c>'s, which excludes email, password and a linked sign-in as the
+/// bootstrap factors: proving the inbox is exactly what a stolen session can still do. So an account
+/// whose only other factor is a passkey has to make these changes on the web console, and one with
+/// nothing stronger than email is never asked for a step-up at all.
+/// </para>
 /// </remarks>
 public sealed partial class StepUpDialogViewModel : DialogViewModel
 {
@@ -140,7 +147,9 @@ public sealed partial class StepUpDialogViewModel : DialogViewModel
         if (Factors.Count == 0)
         {
             _challengeId = null;
-            Problem = "This account has no authenticator this app can ask for. Enrol one under Sign-in and security first.";
+            // Enrolling an authenticator here would need this same step-up when a passkey is
+            // enrolled, so the way out is the console, which can use the passkey.
+            Problem = "This account has no authenticator this app can ask for. Make this change on the station's web console, which can use a passkey.";
         }
 
         Revalidate();

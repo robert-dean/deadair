@@ -40,10 +40,18 @@
         <!-- The second factor is a 200 rather than an error, so this is a continuation of the same
              sign-in and keeps the email rather than starting again. -->
         <StackPanel Spacing="8" IsVisible="{Binding NeedsCode}">
-            <TextBlock Text="Enter the code from your authenticator." FontSize="12" TextWrapping="Wrap"
+            <!-- Where the code comes from: the authenticator, or an email the station has just sent
+                 (named by the station's own, usually masked, label for the address). -->
+            <TextBlock Text="{Binding CodeWords}" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource DaTextSecondaryBrush}" />
             <TextBox x:Name="NeedsCodeBox" Text="{Binding Code}" PlaceholderText="000000" FontFamily="{DynamicResource DaFontMono}"
-                     MaxLength="6" IsEnabled="{Binding !Busy}" />
+                     MaxLength="6" IsEnabled="{Binding CanSubmit}" />
+            <!-- One extra way out each: an authenticator step turns into an emailed one when the
+                 account has both, and an emailed code can be sent again. -->
+            <Button Classes="ghost" Content="Email me a code instead" Command="{Binding UseEmailCommand}"
+                    IsVisible="{Binding CanUseEmail}" IsEnabled="{Binding !Busy}" HorizontalAlignment="Left" />
+            <Button Classes="ghost" Content="Send it again" Command="{Binding SendAgainCommand}"
+                    IsVisible="{Binding CanSendAgain}" IsEnabled="{Binding CanSubmit}" HorizontalAlignment="Left" />
         </StackPanel>
 
         <!-- After "Forgot your password?". The link opens the station's web console, not this app, so
@@ -61,7 +69,7 @@
             <Button Classes="ghost" Content="Forgot your password?" Command="{Binding ForgotPasswordCommand}"
                     IsVisible="{Binding !NeedsCode}" IsEnabled="{Binding !Busy}" HorizontalAlignment="Left" />
             <Button Grid.Column="1" Classes="primary" Content="Sign in" Command="{Binding SubmitCommand}"
-                    IsEnabled="{Binding !Busy}" />
+                    IsEnabled="{Binding CanSubmit}" />
         </Grid>
 
         <TextBlock Text="{Binding Problem}" TextWrapping="Wrap"

@@ -65,6 +65,8 @@ def main():
     p.add_argument('--status', default='completed', choices=['completed', 'draft', 'halted', 'inProgress'])
     p.add_argument('--version-code', type=int, default=None)
     p.add_argument('--user-fraction', type=float, default=None)
+    # Play refuses to send an edit to review on its own while it holds the app over a policy issue.
+    p.add_argument('--hold-for-review', action='store_true', help='commit without sending for review; send it from Publishing overview')
     args = p.parse_args()
 
     # Checked before any credentials are read, because the API's own refusal arrives after an edit
@@ -116,8 +118,10 @@ def main():
         session.put(f'{base}/{edit}/tracks/{args.to_track}', json={'track': args.to_track, 'releases': [release]}),
         f'Writing the {args.to_track} track',
     )
-    check(session.post(f'{base}/{edit}:commit'), 'Committing the edit')
-    print(f'done: {codes} is {target} on {args.to_track}')
+    commit = f'{base}/{edit}:commit' + ('?changesNotSentForReview=true' if args.hold_for_review else '')
+    check(session.post(commit), 'Committing the edit')
+    held = ', waiting to be sent for review from Publishing overview' if args.hold_for_review else ''
+    print(f'done: {codes} is {target} on {args.to_track}{held}')
 
 
 if __name__ == '__main__':

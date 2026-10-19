@@ -234,6 +234,13 @@ it with `inProgress` and a larger fraction, stop it where it stands with `halted
 with `completed`. Both modes refuse a fraction on any other status, and publish refuses `halted`,
 before anything is built.
 
+**`hold_for_review`** is for while Play holds the app over a policy issue. Play then refuses any edit
+that would go to review by itself, and the upload fails with "Changes cannot be sent for review
+automatically" after the whole build has run (first seen on 2026-10-19, under an Android Auto
+issue). Ticked, either mode commits the edit without sending it, and Publishing overview in the
+console sends it, together with whatever answer the policy issue needed. Leave it off otherwise, or
+every release waits on a click.
+
 It needs five repository secrets. Four come from the key you already have:
 
 ```

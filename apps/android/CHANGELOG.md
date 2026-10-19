@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.22.1] — 2026-10-19
+
+- Android Auto no longer says the app's content could not load when no station has been chosen yet. It now says to open deadair on the phone and choose one, with a button that does it.
+
 ## [0.22.0] — 2026-10-19
 
 - Settings → Listening has "Share playback log". The phone now keeps two days of what happened to the audio: plays and stops, errors, stalls, every change of network (wifi or cellular, validated or not) and every reconnect decision. The log never leaves the phone unless you send it from the share sheet, so a drop on a walk can be explained without a cable and `adb`.
@@ -267,7 +271,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.22.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.22.1...HEAD
+[0.22.1]: https://github.com/robert-dean/deadair/compare/android-v0.22.0...android-v0.22.1
 [0.22.0]: https://github.com/robert-dean/deadair/compare/android-v0.21.1...android-v0.22.0
 [0.21.1]: https://github.com/robert-dean/deadair/compare/android-v0.21.0...android-v0.21.1
 [0.21.0]: https://github.com/robert-dean/deadair/compare/android-v0.20.0...android-v0.21.0

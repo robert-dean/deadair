@@ -95,6 +95,10 @@
     <!-- The sleep timer: its button, its choices, and the line that counts down under the button -->
     <string name="sleep_timer">Sleep timer</string>
     <string name="sleep_timer_detail">Stops listening on this phone after a while.</string>
+    <string name="share_playback_log">Share playback log</string>
+    <string name="share_playback_log_detail">What happened to the audio on this phone over the last two days, for working out why it dropped. It stays here unless you send it.</string>
+    <string name="share_playback_log_empty">Nothing has been recorded yet. Play the station and it will be.</string>
+    <string name="share_playback_log_chooser">Send the playback log</string>
     <plurals name="sleep_minutes">
         <item quantity="one">%1$d minute</item>
         <item quantity="other">%1$d minutes</item>

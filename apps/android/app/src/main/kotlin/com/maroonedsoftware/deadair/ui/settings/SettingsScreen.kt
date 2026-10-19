@@ -32,6 +32,11 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -56,6 +61,7 @@ import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColor
+import kotlinx.coroutines.launch
 
 /**
  * The address, the format and the account, after first run.
@@ -112,6 +118,11 @@ fun SettingsScreen(
     onSleep: ((SleepRequest?) -> Unit)? = null,
     /** Open the desk. `null` for anyone the station does not call its operator, who gets no row. */
     onDesk: (() -> Unit)? = null,
+    /**
+     * Send the playback journal, answering `false` when there was nothing to send. `null` draws no
+     * row, which is what the previews pass.
+     */
+    onShareLog: (suspend () -> Boolean)? = null,
 ) {
     // Scroll first and the keyboard's inset inside it, so Sign in is never behind the keyboard. The
     // frame has already padded this by the bars and consumed their insets, so this adds only what
@@ -243,6 +254,8 @@ fun SettingsScreen(
                 )
             }
 
+            onShareLog?.let { ShareLogRow(it) }
+
             // Only where there are wallpaper colors to choose between. Below Android 12 the
             // station's palette is the only one, and a switch that changed nothing would be a lie.
             if (supportsDynamicColor) {
@@ -314,3 +327,32 @@ private fun describe(format: StreamFormat): Int =
         StreamFormat.OPUS -> R.string.format_opus
         StreamFormat.FLAC -> R.string.format_flac
     }
+
+/**
+ * Send what happened to playback on this phone, for working out why it dropped. Always offered,
+ * because the walk worth sending is one nobody switched anything on for.
+ *
+ * An empty journal says so in the row itself rather than in a snackbar, which this tab has none of,
+ * and goes back to its usual words on the next tap that finds something.
+ */
+@Composable
+private fun ShareLogRow(onShareLog: suspend () -> Boolean) {
+    val scope = rememberCoroutineScope()
+    var empty by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.share_playback_log)) },
+        supportingContent = { Text(stringResource(if (empty) R.string.share_playback_log_empty else R.string.share_playback_log_detail)) },
+        modifier =
+            Modifier.fillMaxWidth().clickable(enabled = !busy, role = Role.Button) {
+                busy = true
+                scope.launch {
+                    try {
+                        empty = !onShareLog()
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+    )
+}

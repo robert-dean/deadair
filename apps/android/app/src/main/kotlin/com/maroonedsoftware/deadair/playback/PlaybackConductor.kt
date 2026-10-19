@@ -191,8 +191,9 @@ class PlaybackConductor(
 
     fun start() {
         reportPlayback()
-        player.addListener(policy)
+        // The log before the policy, so the journal says what failed before what was done about it.
         player.addListener(playbackLog)
+        player.addListener(policy)
         player.addListener(playWhenReadyListener)
         player.addListener(metadataListener)
         network.onEach(policy::onNetwork).launchIn(scope)

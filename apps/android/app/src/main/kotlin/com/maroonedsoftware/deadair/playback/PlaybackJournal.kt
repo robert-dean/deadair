@@ -8,8 +8,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * What happened to playback, kept on the phone for long enough to be read after the fact.
@@ -55,6 +57,19 @@ class PlaybackJournal(
     fun record(event: String) {
         pending.trySend(format(now(), zone(), event))
     }
+
+    /**
+     * Everything kept, oldest first, for sending. Lines older than the limit that have not been
+     * trimmed yet are left out here too, as is a torn last line. Empty when nothing has been written.
+     */
+    suspend fun read(): List<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (file.isFile) trim(file.readLines(), now(), maxAgeMs, Int.MAX_VALUE) else emptyList()
+            } catch (_: IOException) {
+                emptyList()
+            }
+        }
 
     /** Keep what [trim] keeps, through a temporary file so a crash mid-write cannot lose the lot. */
     private fun rewrite() {

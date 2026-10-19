@@ -138,4 +138,25 @@ class PlaybackJournalTest {
 
             assertTrue(file.isDirectory)
         }
+
+    @Test
+    fun `reads back what is kept, oldest first, and nothing when nothing was written`() =
+        runTest {
+            val hour = 60 * 60_000L
+            val file = File(folder.root, "journal.txt")
+            val journal = journal(file, now = { at }, maxAgeMs = 2 * hour)
+
+            assertEquals(emptyList<String>(), journal.read())
+
+            file.writeText(
+                listOf(
+                    PlaybackJournal.format(at - 3 * hour, utc, "aged out"),
+                    PlaybackJournal.format(at - hour, utc, "play"),
+                    PlaybackJournal.format(at, utc, "stall"),
+                    "torn half a li",
+                ).joinToString("\n"),
+            )
+
+            assertEquals(listOf("play", "stall"), journal.read().map { it.substringAfter(' ') })
+        }
 }

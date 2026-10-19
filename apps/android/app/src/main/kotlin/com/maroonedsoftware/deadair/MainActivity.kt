@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.heard
+import com.maroonedsoftware.deadair.playback.JournalSharer
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.playOnOpen
 import com.maroonedsoftware.deadair.station.StationLink
@@ -284,6 +286,9 @@ private fun Listener(
                                 // Seeds the address field with the kept station the first time the
                                 // tab is drawn, and never over an edit in progress.
                                 LaunchedEffect(station.origin) { model.editExisting(station.origin) }
+                                val context = LocalContext.current
+                                val journalSharer = remember(context) { JournalSharer(context.applicationContext, graph.playbackJournal) }
+                                val sendLog = stringResource(R.string.share_playback_log_chooser)
                                 SettingsScreen(
                                     entry = entry,
                                     format = loaded.format,
@@ -339,6 +344,12 @@ private fun Listener(
                                         } else {
                                             null
                                         },
+                                    onShareLog = {
+                                        journalSharer.prepare()?.let { file ->
+                                            context.startActivity(journalSharer.chooser(file, sendLog))
+                                            true
+                                        } ?: false
+                                    },
                                 )
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },

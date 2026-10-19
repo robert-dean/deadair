@@ -63,7 +63,11 @@ aired first and ties in the brief's own order. Library artists found IN the brie
 parsed, because a brief is prose and the punctuation is one operator's; an act the library has never held
 is missed, and nothing downstream could look it up by name anyway. The model's user turn lists them in that
 order with how long ago each aired, and is told to search them in THAT order. A read that fails lists
-nothing, which is the prompt as it was.
+nothing, which is the prompt as it was. **An act the brief names only to rule out is not one of them**
+(`excludedByBrief`): "Britpop, but no Oasis" used to hand Oasis to the generator below as a lead, with no
+model reading the "no". A negating word opens a stretch that runs to the end of its sentence, a colon or
+a turning "but"; a negating word inside a library name ("No Doubt") is not one, and an act is dropped
+only when every mention of it is negated. The model still reads the brief's own prose.
 
 **`BriefArtistSetGenerator` plays the brief's neglected acts with no model in the room, and sits AHEAD of the
 model for its share.** The prompt line above only helps a model that finishes. This binding takes

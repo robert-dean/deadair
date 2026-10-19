@@ -29,6 +29,14 @@ import { PlayHistoryRepository } from './play.history.repository.js';
  * held is one nothing downstream could look up by name anyway. See {@link ArtistsRepository.namedIn}
  * for what that match does and does not tell apart.
  *
+ * ## An act the brief rules out is not a lead
+ *
+ * "Britpop, but no Oasis" names Oasis, and the library match finds it, so for as long as this read
+ * only names it handed Oasis to every caller as an act to programme — {@link BriefArtistSetGenerator}
+ * then aired its records, neglected longest first, for up to its share of every batch, with no model
+ * in the loop to read the "no". {@link excludedByBrief} drops an act whose every mention sits in a
+ * negated stretch of the brief. The model still reads the brief's own prose and the "no" in it.
+ *
  * ## Leads, never rules
  *
  * Nothing here decides what airs. Every caller hands on names, and `PickResolver` still judges each
@@ -64,7 +72,13 @@ export class BriefArtists {
         if (text.length === 0) return [];
 
         try {
-            const found = await this.artists.namedIn(text);
+            const named = await this.artists.namedIn(text);
+            const excluded = excludedByBrief(
+                text,
+                named.map(artist => artist.name),
+            );
+            if (excluded.size > 0) this.logger.debug(`director: the brief rules out ${[...excluded].join(', ')}; not leading with them`);
+            const found = named.filter(artist => !excluded.has(artist.name));
             if (found.length === 0) return [];
 
             const unique = [...new Map(found.map(artist => [artist.artistKey, artist])).values()];
@@ -100,4 +114,97 @@ export function orderByNeglect(artists: readonly BriefArtist[], brief: string): 
     const aired = (artist: BriefArtist): number => artist.lastAiredAt?.toMillis() ?? Number.NEGATIVE_INFINITY;
 
     return [...artists].sort((left, right) => aired(left) - aired(right) || position(left) - position(right));
+}
+
+/**
+ * The acts in `names` that `brief` names only to rule out.
+ *
+ * A negating word ("no", "not", "never", "nor", "neither", "without", "except", "excluding", "avoid",
+ * "anything but", "other than") opens a negated stretch, which runs to the end of its sentence, to a
+ * colon, or to a "but" that turns back ("Not Heart Of Glass, but Heart"). So "No classic rock, Queen
+ * or Kiss." rules out both acts, and "Bluegrass, not country: Bill Monroe, Flatt & Scruggs." rules out
+ * neither, because the colon is where the list the operator wants begins. A colon straight after the
+ * negating word ("Avoid: Oasis") is the list it opens instead, and does not end it.
+ *
+ * **A negating word inside one of the names is not one.** "No Doubt" is a band, and a brief listing it
+ * would otherwise rule out every act after it in the sentence; a full stop inside a name ("R.E.M.") is
+ * likewise not the end of one. An act is dropped only when EVERY mention of it is negated, so a brief
+ * that rules out a ballad by an act and asks for the act elsewhere still leads with it. Like
+ * {@link ArtistsRepository.namedIn}, the match is case-sensitive.
+ *
+ * Exported for the tests, since it is the whole of the decision and needs no database to check.
+ */
+export function excludedByBrief(brief: string, names: readonly string[]): Set<string> {
+    const mentions = names.flatMap(name => mentionsOf(brief, name).map(mention => ({ name, ...mention })));
+    const inAName = (at: number) => mentions.some(mention => at >= mention.start && at < mention.end);
+    const stretches = negatedStretches(brief, inAName);
+    const negated = (mention: { start: number; end: number }) =>
+        stretches.some(stretch => mention.start >= stretch.start && mention.end <= stretch.end);
+
+    const excluded = new Set<string>();
+    for (const name of names) {
+        const own = mentions.filter(mention => mention.name === name);
+        if (own.length > 0 && own.every(negated)) excluded.add(name);
+    }
+    return excluded;
+}
+
+const NOT_A_WORD_BEFORE = "(?<![\\p{L}\\p{N}'’])";
+const NOT_A_WORD_AFTER = "(?![\\p{L}\\p{N}'’])";
+
+/** "not only" and "not just" are a list getting longer, not one getting shorter. */
+const NEGATING = new RegExp(
+    `${NOT_A_WORD_BEFORE}(?:no|not(?!\\s+(?:only|just)${NOT_A_WORD_AFTER})|never|nor|neither|without|except|excluding|avoid|avoiding|(?:anything|everything)\\s+(?:but|except)|other\\s+than)${NOT_A_WORD_AFTER}`,
+    'giu',
+);
+const TURNING = new RegExp(`${NOT_A_WORD_BEFORE}but${NOT_A_WORD_AFTER}`, 'giu');
+const CLAUSE_END = /[.;:!?\n]/g;
+
+function negatedStretches(brief: string, inAName: (at: number) => boolean): { start: number; end: number }[] {
+    const stretches: { start: number; end: number }[] = [];
+    let from = 0;
+    while (from < brief.length) {
+        NEGATING.lastIndex = from;
+        const negation = NEGATING.exec(brief);
+        if (negation === null) break;
+        const opened = negation.index + negation[0].length;
+        if (inAName(negation.index)) {
+            from = opened;
+            continue;
+        }
+        const end = Math.min(nextClauseEnd(brief, opened, inAName), nextOutside(TURNING, brief, opened, inAName));
+        stretches.push({ start: negation.index, end });
+        from = Math.max(end, opened);
+    }
+    return stretches;
+}
+
+function nextClauseEnd(brief: string, opened: number, inAName: (at: number) => boolean): number {
+    CLAUSE_END.lastIndex = opened;
+    for (let end = CLAUSE_END.exec(brief); end !== null; end = CLAUSE_END.exec(brief)) {
+        if (inAName(end.index)) continue;
+        if (end[0] === ':' && brief.slice(opened, end.index).trim().length === 0) continue;
+        return end.index;
+    }
+    return brief.length;
+}
+
+function nextOutside(pattern: RegExp, brief: string, from: number, inAName: (at: number) => boolean): number {
+    pattern.lastIndex = from;
+    for (let found = pattern.exec(brief); found !== null; found = pattern.exec(brief)) {
+        if (!inAName(found.index)) return found.index;
+    }
+    return brief.length;
+}
+
+/** Where `name` appears in `brief` as whole words, its own whitespace matching any run of it. */
+function mentionsOf(brief: string, name: string): { start: number; end: number }[] {
+    const words = name
+        .trim()
+        .split(/\s+/u)
+        .filter(word => word.length > 0)
+        .map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (words.length === 0) return [];
+    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${words.join('\\s+')}(?![\\p{L}\\p{N}])`, 'gu');
+    return [...brief.matchAll(pattern)].map(match => ({ start: match.index, end: match.index + match[0].length }));
 }

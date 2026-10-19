@@ -898,8 +898,8 @@ docker compose restart liquidsoap
 
 ## Liquidsoap version (and what to check after a bump)
 
-`stream/Dockerfile` pins the base image; it is currently `savonet/liquidsoap:v2.4.6`, up from
-v2.4.5, which was up from v2.2.5. 2.4 buys async source callbacks (the playout `on_track` notify runs off the streaming
+`stream/Dockerfile` pins the base image; it is currently `savonet/liquidsoap:v2.4.5`, up from
+v2.2.5. 2.4 buys async source callbacks (the playout `on_track` notify runs off the streaming
 loop), `normalize_track_gain`, and `request.queue`'s script-level `push`/`queue`/`remove`/`length`
 methods (which the push model is built on), and it is BREAKING in FOUR places
 `radio.liq` touches: callbacks moved to source methods, the `annotate` protocol now checks
@@ -934,19 +934,18 @@ A 12-second run of `radio.liq` against the image logged three `lang.deprecated` 
 none after. The comment above `bus` about rebinding `radio` still holds: the inserts go to
 whichever source is named `radio`, so it must stay the fallback.
 
-**2.4.6 fixes two upstream bugs 2.4.5 had in this script's path.** The type unifier's reference
-chains grew without bound in a long-running process
-([savonet/liquidsoap#5257](https://github.com/savonet/liquidsoap/pull/5257)), which costs CPU over an
-uptime and is only reset by a restart, on a station that is meant to run unattended. And `sequence`
-dropped the first chunk of the incoming source when the outgoing one ended mid-frame
-(savonet/liquidsoap#5296), which is the hard-join branch of `playout_cross`: every record into a
-break, and every boundary too short to blend, lost up to a frame at the start of what followed.
-
-**The 2.4.6 image no longer carries deb-multimedia**, which 2.4.5's did (`dmo.sources`, and
-Liquidsoap linked its libavcodec and libfdk-aac). 2.4.6 links neither shared library and still
-encodes all four formats: the probe above answers OK for each on both arm64 and amd64, measured
-2026-10-19. What moves is the `ffmpeg` the production image installs for the measurement sidecar,
-from deb-multimedia's 7.1.4 to Debian's own 7.1.5. Same major, and the sidecar only decodes.
+**2.4.6 was tried on 2026-10-19 and rolled back the same morning.** On the live station, `bed`
+(the `fallback` over `playout_bed`, `music` and `station_id`) began switching between `playout_bed`
+and `station_id` on every frame from the first record it aired: around 3,000 switches a minute,
+each one a transition that built fresh sources, where 2.4.5 had never logged more than three in a
+minute. The output clock fell behind (`we must catchup 6.10 seconds!` and rising) and everything
+on the mount skipped. The first record went out alongside `cross` reporting
+`End of track reached while buffering next track data` and `Source created multiple tracks in a
+single frame!`, so the suspect is the `cross` state machine running against the 0.1 s hard-join
+buffer, possibly through 2.4.6's `sequence` change (savonet/liquidsoap#5296). The `.check.py`
+harnesses all passed on 2.4.6. None of them airs a queued record through `cross` into the `bed`
+fallback with the gate open, so none of them could have caught this. Before bumping again, run a
+pushed record through the full `radio.liq` and count `switch.1` lines in the log.
 
 **Liquidsoap logs to stdout and only to stdout**, so every one of those findings needed
 `docker compose logs`. That is a wall for anything without the Docker socket — see

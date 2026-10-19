@@ -16,7 +16,7 @@ import wave
 from array import array
 
 RATE = 44_100
-IMAGE = "savonet/liquidsoap:v2.4.6"
+IMAGE = "savonet/liquidsoap:v2.4.5"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 BED_HZ = 440.0

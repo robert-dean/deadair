@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.72.0] — 2026-10-19
+
+- Voice, Pronunciations: every entry has a play button that speaks the word the way that entry says it, so a respelling can be judged before it airs. It works for proposals and turned-down entries as well as active ones, and beside the Written and Said fields for one still being typed or edited. Pick the voice to hear them in at the top of the page, or leave it on the plugin's default. The route is `POST /pronunciations/sample` with the written form, the spoken form and an optional voice; it is in every SDK.
+- A brief that rules an act out ("Britpop, but no Oasis", "thrash, anything except Metallica") no longer gets that act programmed. The station read every act a brief named as one to play, so the act you excluded could take a share of every batch, longest-neglected first. Acts after "no", "not", "never", "without", "except", "avoid" and the like are now left out, up to the end of the sentence, a colon or a "but" that turns back. A band whose name has one of those words in it, such as No Doubt, is still read as a band.
+- The station's audio now runs on Liquidsoap 2.4.6. It fixes two bugs 2.4.5 had in the station's own path. A Liquidsoap left running for weeks no longer slowly climbs in CPU until a restart. And the start of a break, or of a record after a short join, no longer loses up to a frame of audio. The ffmpeg the image installs for measuring records is now Debian's 7.1.5 rather than deb-multimedia's 7.1.4.
+- Trends' "Average call" for the model now averages only the calls the model answered. A timeout used to count its full two minutes, so one among twenty quick answers read as a model three times slower than it was, and a model that was down and refusing instantly read as a fast one. "Calls" still counts both, and "Failed" beside it says how many did not answer. The station now labels each model call's duration with whether it answered.
+- The station's OTLP metrics now send counters and histograms as running totals (cumulative) rather than per-minute deltas. Every minute used to go out as two points over the same interval, because the flusher sends the still-open minute and then the rest of it, and a collector kept only one of them, so token, failure and duration counts read low. Prometheus now takes them with no `deltatocumulative` processor. Each station process also reports its own `service.instance.id` (a UUID made at boot) instead of the constant `main`, so a restart or a deploy's overlap is a new series rather than one whose total goes backwards; the station key moves to `deadair.station`.
+- A break written while no show is on air no longer counts a script you typed in yourself as something the station said recently. Those scripts were offered to the writer as phrasing it had already used, so its openings and favourite words were held against your words rather than its own.
+
 ## [0.71.0] — 2026-10-17
 
 - Sign-in and security has a password card: change your password with the current one, or add one to an account that signs in without. Every other device is signed out, the re-verify dialog opens first when an authenticator or passkey is enrolled, and a wrong current password or a weak new one is said on its own field.
@@ -1494,7 +1503,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.71.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.72.0...HEAD
+[0.72.0]: https://github.com/robert-dean/deadair/compare/v0.71.0...v0.72.0
 [0.71.0]: https://github.com/robert-dean/deadair/compare/v0.70.2...v0.71.0
 [0.70.2]: https://github.com/robert-dean/deadair/compare/v0.70.1...v0.70.2
 [0.70.1]: https://github.com/robert-dean/deadair/compare/v0.70.0...v0.70.1

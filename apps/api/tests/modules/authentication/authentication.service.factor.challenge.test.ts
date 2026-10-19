@@ -26,7 +26,7 @@ const build = () => {
     const fidoFactorService = {
         createFidoAuthorizationChallenge: vi.fn().mockResolvedValue({
             challengeId: 'fido-challenge',
-            assertion: { challenge: 'abc' },
+            assertion: { challenge: 'abc', rawChallenge: Buffer.from('abc') },
             expiresAt: '2026-01-01T00:00:00.000Z',
         }),
     };
@@ -85,5 +85,14 @@ describe('starting a factor challenge for a method that is not implemented', () 
             rpId: 'radio.example',
             rpOrigin: 'https://radio.example',
         });
+    });
+
+    it('sends the challenge once, as text, and never as a serialised Buffer a client cannot decode', async () => {
+        const { service } = build();
+
+        const result = await service.startFactorChallenge({ method: 'fido', mfa_challenge_id: CHALLENGE_ID });
+
+        expect(JSON.parse(JSON.stringify(result))).toMatchObject({ assertion: { challenge: 'abc' } });
+        expect(JSON.stringify(result)).not.toContain('rawChallenge');
     });
 });

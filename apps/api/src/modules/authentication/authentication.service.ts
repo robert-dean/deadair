@@ -86,6 +86,17 @@ type AuthenticationTokenInternal = AuthenticationTokenIssued | MfaRequiredRespon
 
 /** The factor methods the wire contract admits — deliberately narrower than ServerKit's union. */
 type MfaChallengeFactorMethod = MfaRequiredResponse['factors'][number]['method'];
+/**
+ * WebAuthn request options as a client is sent them: without `rawChallenge`, the library's Buffer
+ * copy of `challenge`. A Buffer goes over the wire as `{"type":"Buffer","data":[...]}`, which no
+ * client reads (the console decodes `challenge`) and which the Kotlin SDK, typing the field as
+ * bytes, cannot decode at all, so the whole start response failed there.
+ */
+function withoutRawChallenge<T extends { rawChallenge?: unknown }>(assertion: T): Omit<T, 'rawChallenge'> {
+    const { rawChallenge: _raw, ...rest } = assertion;
+    return rest;
+}
+
 type FactorChallengeStartInternal = FactorChallengeFidoStartResponse | FactorChallengeEmailStartResponse;
 type AuthenticateHandler = (request: BaseAuthenticationRequest) => Promise<AuthenticationTokenInternal>;
 type StartLoginHandler = (request: BaseAuthenticationLoginStart) => Promise<AuthenticationLoginStartResponse>;
@@ -920,7 +931,7 @@ export class AuthenticationService {
         return {
             method: 'fido',
             fidoChallengeId: challenge.challengeId,
-            assertion: challenge.assertion,
+            assertion: withoutRawChallenge(challenge.assertion),
             expiresAt: challenge.expiresAt,
         };
     }
@@ -1019,7 +1030,7 @@ export class AuthenticationService {
             grant_type: 'fido',
             challengeId: challenge.challengeId,
             expiresAt: challenge.expiresAt,
-            assertion: challenge.assertion,
+            assertion: withoutRawChallenge(challenge.assertion),
         };
     }
 

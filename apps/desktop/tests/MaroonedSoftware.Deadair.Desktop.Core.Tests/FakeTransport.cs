@@ -19,6 +19,7 @@ public sealed class FakeTransport : HttpMessageHandler
 {
     private readonly ConcurrentQueue<HttpStatusCode> _oneOffs = new();
     private int _exchanges;
+    private int _codesSent;
 
     public List<SeenRequest> Seen { get; } = [];
 
@@ -53,6 +54,15 @@ public sealed class FakeTransport : HttpMessageHandler
     /// </remarks>
     public (string Error, HttpStatusCode Status)? TokenRefusal { get; set; }
 
+    /// <summary>
+    /// What `POST /auth/factors/start` answers: 200 with an email challenge unless a test says
+    /// otherwise. Each send names a fresh message (`e_1`, `e_2`…), as the station's do.
+    /// </summary>
+    public HttpStatusCode FactorStartAnswers { get; set; } = HttpStatusCode.OK;
+
+    /// <summary>How many codes have been asked to be emailed.</summary>
+    public int CodesSent => _codesSent;
+
     /// <summary>Makes `POST /auth/login/start` fail to connect, as an unreachable station does.</summary>
     public bool LoginStartUnreachable { get; set; }
 
@@ -86,6 +96,17 @@ public sealed class FakeTransport : HttpMessageHandler
         if (path.EndsWith("/auth/token", StringComparison.Ordinal))
         {
             return Token(body);
+        }
+
+        if (path.EndsWith("/auth/factors/start", StringComparison.Ordinal))
+        {
+            if (FactorStartAnswers != HttpStatusCode.OK)
+            {
+                return new HttpResponseMessage(FactorStartAnswers) { Content = new StringContent("{}") };
+            }
+
+            var sent = Interlocked.Increment(ref _codesSent);
+            return Json($$"""{"method":"email","email_challenge_id":"e_{{sent}}","expires_at":"2026-10-19T20:10:00.000Z"}""");
         }
 
         if (path.EndsWith("/auth/login/start", StringComparison.Ordinal))

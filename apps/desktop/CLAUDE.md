@@ -1842,10 +1842,23 @@ false, or it would put the operator's desk back on a listener's screen.
 
 ## The second factor, and the bug that taught it
 
-**A challenge lists EVERY enrolled factor, in enrolment order, and only the authenticator can be
-answered here.** Taking the first entry works right up until an account has an email or phone factor
-enrolled before its authenticator, at which point the station refuses the code as `invalid_factor` —
-and it refuses every code, forever, for that account. Filter by method, as the web console does.
+**A challenge lists EVERY enrolled factor, in enrolment order, and only an authenticator or an
+emailed code can be answered here.** Taking the first entry works right up until an account has an
+email or phone factor enrolled before its authenticator, at which point the station refuses the code
+as `invalid_factor` — and it refuses every code, forever, for that account. Filter by method, as the
+web console does.
+
+**An emailed code is a different exchange, not a different method id** (2026-10-19, parity with the
+Android app). `SessionManager.SendEmailCodeAsync` asks `POST /auth/factors/start` to send one for the
+challenge, and the answer's `email_challenge_id` is what the `code` grant echoes back as
+`challenge_id`, beside `mfa_challenge_id`. A 401 on the send is the sign-in having expired (the
+challenge id is all it carries) and a 503 a station with no mail. `LoginViewModel` leads with an
+authenticator when there is one, because it sends nothing, and offers "Email me a code instead";
+email-only sends at once and offers "Send it again", each send answering with a new message id that
+replaces the last. Nothing can be submitted while a send is out. A wrong emailed code says to check
+the latest email rather than wait for the next code, which is an authenticator's advice. A passkey or
+phone factor alone is still refused, with a sentence naming a passkey rather than one implying email
+is the problem. Measured against a local station with a mail catcher, not the live one.
 
 **Three rejections arrive as one status, and the station names them in `WWW-Authenticate`.**
 `invalid_grant` is a wrong code, `invalid_challenge` is a sign-in that has expired, and
@@ -1878,13 +1891,17 @@ draw what the station already drew would be a dependency and a licence for nothi
 starts with the SHA-256 of a secret only this app holds (`Pkce`, the console's `pkce.ts`, tested
 against RFC 7636's own example) and finishes with the secret. Finishing answers with a token for THIS
 session that now carries the factor, and `SessionManager.AdoptAsync` takes it, which is what lets the
-next change pass the station's recent-factor gate without asking again. Email factors and linked
-sign-ins (an identity provider linked through the browser) are the console's and are not here yet.
+next change pass the station's recent-factor gate without asking again. Enrolling an email factor
+and linked sign-ins (an identity provider linked through the browser) are the console's and are not
+here yet.
 
 **A step-up answers `Notice.StepUpNeeded` by asking, and then tries the call again, once.**
 `OperatorActions.StepUp` is the seam (Core cannot draw), installed by `StepUpDialogViewModel.Install`
 from the Settings page's construction and posted to the UI thread, because the refusal arrives on
-whatever thread the call continued on. `DoAsync` goes through `RunAsync` so both kinds of call get
+whatever thread the call continued on. **It asks for an authenticator and never an emailed code**,
+although sign-in takes one: every step-up is `StrongFactorGate`'s, which excludes email, password and
+oidc, so an emailed code would be refused, and an account whose only strong factor is a passkey is
+sent to the console. `DoAsync` goes through `RunAsync` so both kinds of call get
 it. A second refusal after a good code is reported rather than asked about again, and declining says
 nothing at the foot of the page. With no hook installed the notice is said as before.
 

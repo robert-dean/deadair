@@ -134,23 +134,79 @@ public sealed class SessionManager : IDisposable
     }
 
     /// <summary>Answers a second-factor challenge with a code from an authenticator app.</summary>
-    public async Task<SignInResult> CompleteSecondFactorAsync(
+    public Task<SignInResult> CompleteSecondFactorAsync(
         string email,
         string challengeId,
         string methodId,
         string code,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        AnswerChallengeAsync(
+            email,
+            new AuthenticatorAuthenticationRequest { Code = code, MfaChallengeId = challengeId, MethodId = methodId },
+            cancellationToken);
+
+    /// <summary>Asks the station to email a one-time code for a pending sign-in challenge.</summary>
+    /// <remarks>
+    /// Safe to call again: that is "Send it again", and the station mails the same code again rather
+    /// than suppressing the second send, because the reason somebody presses it is that the first never
+    /// arrived (measured against a local station, 2026-10-19). Each send answers with its own message id.
+    /// A 401 is the pending sign-in having expired (the challenge id is the only credential this call
+    /// carries) and a 503 is a station with no mail server.
+    /// </remarks>
+    public async Task<CodeSendResult> SendEmailCodeAsync(string challengeId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var answer = await RequestTokenAsync(
-                new AuthenticatorAuthenticationRequest
-                {
-                    Code = code,
-                    MfaChallengeId = challengeId,
-                    MethodId = methodId,
-                },
+            using var sdk = Sdk();
+            var started = await sdk.AuthenticationFactor.StartFactorChallengeAsync(
+                new FactorChallengeEmailStart { MfaChallengeId = challengeId },
                 cancellationToken).ConfigureAwait(false);
+
+            return started is FactorChallengeEmailStartResponse email
+                ? new CodeSendResult.Sent(email.EmailChallengeId)
+                : new CodeSendResult.Failed("The station answered with a factor this app did not ask for.");
+        }
+        catch (SdkException failure) when (failure.Status == 401)
+        {
+            return new CodeSendResult.ChallengeExpired();
+        }
+        catch (SdkException failure) when (failure.Status == 503)
+        {
+            return new CodeSendResult.NoMail();
+        }
+        catch (SdkException failure)
+        {
+            return new CodeSendResult.Failed(ApiError.Message(failure));
+        }
+        catch (HttpRequestException failure)
+        {
+            return new CodeSendResult.Failed(failure.Message);
+        }
+    }
+
+    /// <summary>Answers a second-factor challenge with a code the station emailed.</summary>
+    /// <remarks>
+    /// A different grant from the authenticator's: the <c>code</c> grant, bound to
+    /// <paramref name="emailChallengeId"/> (the message <see cref="SendEmailCodeAsync"/> asked for)
+    /// rather than to an enrolled factor's method id.
+    /// </remarks>
+    public Task<SignInResult> CompleteEmailCodeAsync(
+        string email,
+        string challengeId,
+        string emailChallengeId,
+        string code,
+        CancellationToken cancellationToken = default) =>
+        AnswerChallengeAsync(
+            email,
+            new CodeAuthenticationRequest { Code = code, MfaChallengeId = challengeId, ChallengeId = emailChallengeId },
+            cancellationToken);
+
+    /// <summary>Posts a proof grant against a pending challenge, and reads the station's refusal for what it is.</summary>
+    private async Task<SignInResult> AnswerChallengeAsync(string email, AuthenticationRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var answer = await RequestTokenAsync(request, cancellationToken).ConfigureAwait(false);
 
             return await AcceptAsync(email, answer, cancellationToken).ConfigureAwait(false);
         }

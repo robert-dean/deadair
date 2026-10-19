@@ -10,7 +10,11 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Tests;
 public class WireTests
 {
     [Fact]
-    public void AKnownValueIsTheStationsWord() => Assert.Equal("keen", Wire.Name<PersonaTrivia>(PersonaTrivia.Keen));
+    public void AKnownValueIsTheStationsWord()
+    {
+        Assert.Equal("keen", Wire.Name<PersonaTrivia>(PersonaTrivia.Keen));
+        Assert.Equal(PersonaTrivia.Never, Wire.Parse<PersonaTrivia>("never"));
+    }
 
     [Fact]
     public void NoValueIsEmpty() => Assert.Equal(string.Empty, Wire.Name<PersonaTrivia>(null));

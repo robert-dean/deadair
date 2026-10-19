@@ -856,7 +856,7 @@ export function maxWordsFor(settings: PromptSettings, shape: BreakPromptShape): 
     const trivia = triviaIn(settings, shape);
     // Both rungs are floors under the station's own figure, and under each other: a keen presenter
     // with `unleashed` has the larger of the two rather than whichever was read last.
-    return Math.max(base, latitude === undefined ? 0 : LATITUDE_MAX_WORDS[latitude], trivia === undefined ? 0 : TRIVIA_MAX_WORDS[trivia]);
+    return Math.max(base, latitude === undefined ? 0 : LATITUDE_MAX_WORDS[latitude], trivia === undefined ? 0 : (TRIVIA_MAX_WORDS[trivia] ?? 0));
 }
 
 /**
@@ -961,7 +961,7 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // the system turn whether or not these two records carry any notes, because it is who the
         // presenter is rather than something about this moment; the user turn's notes paragraph is
         // what changes with the records.
-        ...(trivia === undefined ? [] : [TRIVIA_INSTRUCTIONS[trivia]]),
+        ...(trivia === undefined || TRIVIA_INSTRUCTIONS[trivia] === undefined ? [] : [TRIVIA_INSTRUCTIONS[trivia]]),
         shape.job,
         '',
         'Rules:',

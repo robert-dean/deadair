@@ -106,10 +106,32 @@ const TRIVIA_KINDS = new Set<string>(
     ).flatMap(([kind, shape]) => (shape.allowsTrivia === true ? [kind] : [])),
 );
 
-/** How much of what the station knows this break is handed about each record. */
-function factBudget(persona: Persona | undefined, kind: string): FactBudget | undefined {
-    const rung = triviaOf(persona);
-    return rung === undefined || !TRIVIA_KINDS.has(kind) ? undefined : TRIVIA_FACT_BUDGET[rung];
+/**
+ * How this break reads what the station knows about each record, and whether it is shown any of it.
+ *
+ * `budget` absent is the ordinary read. `withhold` is a presenter at `never`: the facts are read
+ * unstamped, so the break still knows whether there was anything to say, and then kept from the
+ * prompt. A kind that does not offer the rung reads as ordinary whoever is presenting.
+ */
+interface FactPlan {
+    budget?: FactBudget;
+    withhold: boolean;
+}
+
+function factPlan(persona: Persona | undefined, kind: string): FactPlan {
+    const rung = TRIVIA_KINDS.has(kind) ? triviaOf(persona) : undefined;
+    if (rung === 'never') return { withhold: true };
+    const budget = rung === undefined ? undefined : TRIVIA_FACT_BUDGET[rung];
+    return budget === undefined ? { withhold: false } : { budget, withhold: false };
+}
+
+/** Takes the notes off both records, for a presenter at `never`. See {@link factPlan}. */
+function withholdFacts(neighbours: Neighbours): void {
+    for (const side of [neighbours.previous, neighbours.next]) {
+        if (side?.track.facts === undefined) continue;
+        const { facts: _, ...rest } = side.track;
+        side.track = rest;
+    }
 }
 
 /** Whether every record this break was shown came with nothing to say about it. See {@link BreakRequestBuilder.story}. */
@@ -246,8 +268,14 @@ export class BreakRequestBuilder {
         // here would make the substrate depend on a setting.
         //
         // After the persona too, since how much a record brings is partly who is presenting: a
-        // presenter keen on the story behind a record is handed more of it. See `factBudget`.
-        await this.attachFacts(turn, neighbours, factBudget(persona, kind));
+        // presenter keen on the story behind a record is handed more of it, and one at `never` none.
+        // See `factPlan`.
+        const facts = factPlan(persona, kind);
+        await this.attachFacts(turn, neighbours, facts);
+        // Read before a `never` presenter's notes are withheld, because whether a story fills the
+        // silence is a question about what the station knows, not about what this break is shown.
+        const nothingKnown = nothingKnownAbout(neighbours);
+        if (facts.withhold) withholdFacts(neighbours);
         // Beside the facts and the same kind of thing: what the records are about, for a talk link,
         // with the records' own words kept back for the guard. Empty unless `breaks.aboutTheRecord` is on.
         const lyricGuard = await this.aboutTheRecords(kind, neighbours);
@@ -300,7 +328,7 @@ export class BreakRequestBuilder {
         // step, which is what let a break that was rewritten, failed, or claimed by something else
         // still count as a telling — `breaks.md` records what the same mistake cost the bulletin
         // that made it: three rewrites emptied the window and lost seven bulletins in two hours.
-        const chosen = await this.story(persona, kind, neighbours);
+        const chosen = await this.story(persona, kind, nothingKnown);
 
         const request: BreakWriteRequest = {
             kind: kind,
@@ -527,13 +555,17 @@ export class BreakRequestBuilder {
         }
     }
 
-    private async attachFacts(segmentId: string, neighbours: Neighbours, budget: FactBudget | undefined): Promise<void> {
+    private async attachFacts(segmentId: string, neighbours: Neighbours, plan: FactPlan): Promise<void> {
         const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side !== undefined);
         const trackIds = sides.map(side => side.track.trackId).filter((trackId): trackId is string => trackId !== undefined);
         if (trackIds.length === 0) return;
 
         try {
-            const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId), budget === undefined ? {} : { budget });
+            const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId), {
+                ...(plan.budget === undefined ? {} : { budget: plan.budget }),
+                // Nothing is rested for a presenter who will not be shown it.
+                ...(plan.withhold ? { stamp: false } : {}),
+            });
             for (const side of sides) {
                 const found = side.track.trackId === undefined ? undefined : facts.get(side.track.trackId);
                 if (found !== undefined && found.length > 0) side.track = { ...side.track, facts: found };
@@ -660,7 +692,7 @@ export class BreakRequestBuilder {
      * Best-effort, like the notebook and the facts: a story that could not be read costs the story
      * and never the break.
      */
-    private async story(persona: Persona | undefined, kind: string, neighbours: Neighbours): Promise<ChosenStory | undefined> {
+    private async story(persona: Persona | undefined, kind: string, nothingKnown: boolean): Promise<ChosenStory | undefined> {
         if (persona === undefined) return undefined;
 
         const mode = STORY_MODES.get(kind);
@@ -671,7 +703,7 @@ export class BreakRequestBuilder {
             if (rung === 'never') return undefined;
             // Every record the break was shown carries something to say, so there is no silence for
             // a story to fill. A break with no records at all is not one of these kinds.
-            if (rung === 'occasionally' && !nothingKnownAbout(neighbours)) return undefined;
+            if (rung === 'occasionally' && !nothingKnown) return undefined;
         }
 
         try {

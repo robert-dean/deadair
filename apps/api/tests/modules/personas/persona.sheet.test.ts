@@ -939,6 +939,7 @@ describe('triviaOf', () => {
 
     it('takes the rung when one is set', () => {
         expect(triviaOf({ trivia: 'keen' })).toBe('keen');
+        expect(triviaOf({ trivia: 'never' })).toBe('never');
     });
 
     it('falls back rather than trusting a hand-edited row', () => {

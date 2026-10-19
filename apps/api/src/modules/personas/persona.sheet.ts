@@ -426,10 +426,12 @@ export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
 /**
  * How much a character leans on what the station knows about a record. See {@link PersonaSheet.trivia}.
  *
- * One rung, above the station's ordinary discipline, for the reason `latitude` has two rather than a
- * rung at "none": the ordinary break is already the modest end, so there is nothing below it to name.
+ * Absent is the station's ordinary discipline, and the rungs sit either side of it. `keen` is above:
+ * the notes are the break. `never` is below, and it exists because the ordinary break's "optional"
+ * turned out to be something a model reads as an offer to take, so a character that is better without
+ * trivia has to be told so in code, by never being handed the notes, rather than in the prompt.
  */
-export const PERSONA_TRIVIA = ['keen'] as const;
+export const PERSONA_TRIVIA = ['keen', 'never'] as const;
 
 export type PersonaTrivia = (typeof PERSONA_TRIVIA)[number];
 
@@ -444,11 +446,13 @@ export const isPersonaTrivia = (value: unknown): value is PersonaTrivia => PERSO
  * is the one line in the prompt that asks for MORE facts, and a model reading "tell the story" with
  * nothing beside it reaches for the story it remembers.
  */
-export const TRIVIA_INSTRUCTIONS: Record<PersonaTrivia, string> = {
+export const TRIVIA_INSTRUCTIONS: Partial<Record<PersonaTrivia, string>> = {
     keen:
         'The story behind the record is what you are for. Who made it, where it came from, what happened to it after: you build a ' +
         'break out of what the station tells you about a record, and you land on the record itself. Only ever the story you were ' +
         'given, never one you remember.',
+    // `never` says nothing: a line about notes in a prompt that is shown none is a line about nothing,
+    // and naming trivia to a model is the surest way to have it reach for some.
 };
 
 /**
@@ -458,7 +462,7 @@ export const TRIVIA_INSTRUCTIONS: Record<PersonaTrivia, string> = {
  * Seventy, `loose`'s figure, because a story and a hand-over do not fit in forty and a
  * countdown's link has never been a monologue either.
  */
-export const TRIVIA_MAX_WORDS: Record<PersonaTrivia, number> = {
+export const TRIVIA_MAX_WORDS: Partial<Record<PersonaTrivia, number>> = {
     keen: 70,
 };
 
@@ -470,8 +474,10 @@ export const TRIVIA_MAX_WORDS: Record<PersonaTrivia, number> = {
  * `EnrichmentReadService`'s `FactBudget`, written out here rather than imported because this file
  * stays free of any module's imports; the job passes it straight through.
  */
-export const TRIVIA_FACT_BUDGET: Record<PersonaTrivia, { limit: number; spread: boolean }> = {
+export const TRIVIA_FACT_BUDGET: Partial<Record<PersonaTrivia, { limit: number; spread: boolean }>> = {
     keen: { limit: 4, spread: true },
+    // `never` reads the ordinary budget, unstamped, and is shown none of it: the read is how the break
+    // still knows whether the station had anything to say, which is what a story is offered on.
 };
 
 /**
@@ -485,6 +491,13 @@ export const TRIVIA_FACT_BUDGET: Record<PersonaTrivia, { limit: number; spread: 
  * that and "the story is what you are for" in one prompt hedges into neither. Each of those is read
  * through the shape's veto (`BreakPromptShape.allowsTrivia`), so a bulletin under a keen presenter is
  * still the bulletin it was.
+ *
+ * ## `never`, which is the same three places read the other way
+ *
+ * The facts are still read, unstamped, so the break knows whether the station had anything to say
+ * (a story is offered on that), and then withheld before the prompt: no notes, no notes paragraph,
+ * and no year out of a note counted as one the break may say. Nothing is stamped, so the notes rest
+ * for whoever is presenting next rather than for a character that was never going to use them.
  *
  * ## What it does not move
  *
@@ -769,7 +782,7 @@ export interface PersonaSheet {
     growth?: PersonaGrowth;
     /**
      * How much this character leans on what the station knows about a record, or absent for the
-     * station's ordinary discipline.
+     * station's ordinary discipline: `keen` above it, `never` below.
      *
      * Read through {@link triviaOf}, where the rung is argued. It is `latitude`'s kind of field rather
      * than `storytelling`'s: a permission the shape can veto, reaching the facts read, the word ceiling

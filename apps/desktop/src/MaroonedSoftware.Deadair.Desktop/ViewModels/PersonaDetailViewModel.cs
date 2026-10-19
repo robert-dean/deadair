@@ -272,6 +272,7 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
     [
         new(string.Empty, "The station's usual: a note now and then"),
         new("keen", "Keen: the story behind every record"),
+        new("never", "Never: none of it, just the reaction"),
     ];
 
     public static IReadOnlyList<DialOption> StorytellingOptions { get; } =

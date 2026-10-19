@@ -1561,7 +1561,7 @@ describe('breakPrompt', () => {
         it('takes the larger ceiling when a character carries both rungs', () => {
             const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: { ...keen, latitude: 'unleashed' as const } }));
 
-            expect(rules).toMatch(new RegExp(`under ${Math.max(TRIVIA_MAX_WORDS.keen, LATITUDE_MAX_WORDS.unleashed)} words`));
+            expect(rules).toMatch(new RegExp(`under ${Math.max(TRIVIA_MAX_WORDS.keen!, LATITUDE_MAX_WORDS.unleashed)} words`));
         });
 
         it('is not offered by a kind that did not ask for it', () => {
@@ -1577,6 +1577,14 @@ describe('breakPrompt', () => {
             const request = { kind: 'talkbreak', ...noted } as const;
 
             expect(prompt(request, { persona: { ...keen, trivia: 'obsessive' as never } })).toEqual(prompt(request, { persona: host }));
+        });
+
+        it('keeps the ordinary paragraph and ceiling for a rung that is not keen', () => {
+            // `never` is withheld its notes before the prompt is built (`BreakRequestBuilder`), so
+            // here it only has to ask for nothing keen's line asks for.
+            const request = { kind: 'talkbreak', ...noted } as const;
+
+            expect(prompt(request, { persona: { ...host, trivia: 'never' as const } })).toEqual(prompt(request, { persona: host }));
         });
     });
 });

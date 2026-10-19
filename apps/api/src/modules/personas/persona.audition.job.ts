@@ -282,9 +282,12 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
             // The keen presenter's wider read, exactly as `WriteBreakJob` asks for it: a transition
             // here IS an ordinary talk break, which is the one kind that offers the rung.
             const rung = triviaOf(persona);
+            // A presenter never handed the notes is auditioned without them, as it would air.
+            if (rung === 'never') return undefined;
+            const budget = rung === undefined ? undefined : TRIVIA_FACT_BUDGET[rung];
             const found = await this.enrichment.factsForTracks(ids, rotationOf(`${auditionId}:${ordinal}`), {
                 stamp: false,
-                ...(rung === undefined ? {} : { budget: TRIVIA_FACT_BUDGET[rung] }),
+                ...(budget === undefined ? {} : { budget }),
             });
             const previous = transition.previous.trackId === undefined ? undefined : found.get(transition.previous.trackId);
             const next = transition.next.trackId === undefined ? undefined : found.get(transition.next.trackId);

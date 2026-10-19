@@ -51,7 +51,12 @@ public static partial class PersonaReadout
         };
 
         // Material rather than manner, so a sentence of its own rather than another clause.
-        var lore = trivia == "keen" ? " It builds each link out of the story behind the record, from what the station knows about it." : string.Empty;
+        var lore = trivia switch
+        {
+            "keen" => " It builds each link out of the story behind the record, from what the station knows about it.",
+            "never" => " It is never told what the station knows about the records.",
+            _ => string.Empty,
+        };
 
         var stories = storytelling switch
         {

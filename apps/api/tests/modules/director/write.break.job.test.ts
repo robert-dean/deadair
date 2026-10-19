@@ -979,6 +979,21 @@ describe('WriteBreakJob', () => {
             expect(known.tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
         });
 
+        it('offers none by default to a presenter never handed the notes, when the station knew something', async () => {
+            // The notes are withheld from the prompt, and that must not read as the station knowing
+            // nothing: a story would then fill every link the presenter was kept from the facts on.
+            const { job, writers } = harness({
+                lineup: catalogued(),
+                persona: { ...persona(), trivia: 'never' } as Persona,
+                story,
+                facts: knownRecords,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+        });
+
         it('offers one at "often" even where both records carry notes', async () => {
             const { job, writers } = harness({ lineup: catalogued(), persona: persona('often'), story, facts: knownRecords });
 
@@ -1719,6 +1734,46 @@ describe('WriteBreakJob', () => {
 
             it('reads the ordinary budget for a presenter with a rung nobody recognises', async () => {
                 const { job, enrichment } = harness({ lineup: withIds(), persona: { ...keen, trivia: 'obsessive' } as unknown as Persona });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+            });
+        });
+
+        // The other end of the same field: a presenter whose job is a reaction, and who is better
+        // without the notes than with an invitation to use them.
+        describe('under a presenter never handed the notes', () => {
+            const never = { id: 'p-1', key: 'shockjock', label: 'Shock jock', style: 'a shock jock', defaultHost: true, trivia: 'never' } as Persona;
+            const known = new Map([
+                ['track-a', ['John Martyn was born in New Malden in 1948.']],
+                ['track-b', ['Nick Drake: English singer-songwriter.']],
+            ]);
+
+            it('reads the ordinary budget without resting any of it', async () => {
+                const { job, enrichment } = harness({ lineup: withIds(), persona: never, facts: known });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+            });
+
+            it('shows the writer neither record’s notes, and records none against the write', async () => {
+                const { job, writers, history } = harness({ lineup: withIds(), persona: never, facts: known });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' },
+                        next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b' },
+                    }),
+                );
+                expect(history.recordAll.mock.calls[0]?.[0]?.[0]?.previous).not.toHaveProperty('facts');
+            });
+
+            it('reads and shows as ordinary for a kind of break that does not offer the rung', async () => {
+                const { job, enrichment } = harness({ lineup: withIds(), persona: never, segment: planned({ kind: 'story' }), facts: known });
 
                 await job.run({ segmentId: 'seg-1' });
 

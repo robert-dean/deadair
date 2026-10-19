@@ -69,6 +69,14 @@ on:
                 description: 'promote only: which build. Blank takes whatever is on the source track'
                 type: string
                 default: ''
+            # While Play holds the app over a policy issue it refuses any edit that would go to
+            # review on its own ("Changes cannot be sent for review automatically"). Ticked, the
+            # edit is committed without sending it, and Publishing overview in the console sends
+            # it. First needed on 2026-10-19, under the Android Auto "App crashes" issue.
+            hold_for_review:
+                description: Commit without sending for review (send it from Publishing overview). Needed while Play holds the app over a policy issue
+                type: boolean
+                default: false
 
 concurrency:
     group: android-release
@@ -226,6 +234,7 @@ jobs:
                   status: ${{ env.STATUS }}
                   # Empty unless staged; the action reads an empty input as unset.
                   userFraction: ${{ env.STATUS == 'inProgress' && inputs.user_fraction || '' }}
+                  changesNotSentForReview: ${{ inputs.hold_for_review }}
 
     # Promotion touches no artifact, so this job is handed no signing key and builds nothing. It
     # needs the checkout only for the script, and not even a deep one: there is no version code to
@@ -260,4 +269,5 @@ jobs:
                       --to-track '${{ inputs.track }}' \
                       --status '${{ inputs.status }}' \
                       ${{ inputs.version_code != '' && format('--version-code {0}', inputs.version_code) || '' }} \
-                      ${USER_FRACTION:+--user-fraction "$USER_FRACTION"}
+                      ${USER_FRACTION:+--user-fraction "$USER_FRACTION"} \
+                      ${{ inputs.hold_for_review && '--hold-for-review' || '' }}

@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-10-19
+
+- Signing in can now finish with a passkey. When the account has one, the app asks for it with the phone's own passkey prompt after the password, with an emailed code or the authenticator still on offer beside it. It needs a station published over https, since that is where Android checks the app may use the station's passkeys.
+
 ## [0.22.1] — 2026-10-19
 
 - Android Auto no longer says the app's content could not load when no station has been chosen yet. It now says to open deadair on the phone and choose one, with a button that does it.
@@ -271,7 +275,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.22.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.23.0...HEAD
+[0.23.0]: https://github.com/robert-dean/deadair/compare/android-v0.22.1...android-v0.23.0
 [0.22.1]: https://github.com/robert-dean/deadair/compare/android-v0.22.0...android-v0.22.1
 [0.22.0]: https://github.com/robert-dean/deadair/compare/android-v0.21.1...android-v0.22.0
 [0.21.1]: https://github.com/robert-dean/deadair/compare/android-v0.21.0...android-v0.21.1

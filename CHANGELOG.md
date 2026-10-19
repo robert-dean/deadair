@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.73.0] — 2026-10-19
+
+- A passkey can now be answered from the Android app as well as the console. The station accepts an assertion that names the app's own signing certificate as its origin, when that certificate is the published app's or one listed under Settings, Sign-in, "Android builds that may use passkeys", and binds it to the station's public https address.
+- Signing in to the console with a passkey, and answering a second step with one, now work. The console sent the signed passkey form-encoded, which flattened it to nothing the station could read, so both were refused.
+
 ## [0.72.1] — 2026-10-19
 
 - The station's audio is back on Liquidsoap 2.4.5. On 2.4.6, everything on the station skipped: the stream switched between the running order and the station ident thousands of times a minute and fell further and further behind.
@@ -1508,7 +1513,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.72.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.73.0...HEAD
+[0.73.0]: https://github.com/robert-dean/deadair/compare/v0.72.1...v0.73.0
 [0.72.1]: https://github.com/robert-dean/deadair/compare/v0.72.0...v0.72.1
 [0.72.0]: https://github.com/robert-dean/deadair/compare/v0.71.0...v0.72.0
 [0.71.0]: https://github.com/robert-dean/deadair/compare/v0.70.2...v0.71.0

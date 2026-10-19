@@ -230,6 +230,26 @@ describe('SpeechService.speakAs', () => {
 
         expect(asked[0]?.text).toBe('Live on F M, twenty-four seven.');
     });
+
+    it("says a caller's own entry in place of the station's for the same word", async () => {
+        const { service, plugin, asked } = harness([{ written: 'Sade', spoken: 'Sayd' }]);
+        const samples = { writeStreamAs: vi.fn(async () => {}) } as unknown as VoiceSampleStore;
+
+        await service.speakAs(plugin, 'sample-key', samples, { text: 'Sade' }, {}, [{ written: 'sade', spoken: 'Shar-day' }]);
+
+        expect(asked[0]?.text).toBe('Shar-day');
+    });
+
+    it("holds a caller's entry out of the later passes, as the station's own are", async () => {
+        // The reason the sample route exists rather than previewing the spoken form as text: a
+        // stressed syllable in capitals would otherwise be read as an initialism.
+        const { service, plugin, asked } = harness();
+        const samples = { writeStreamAs: vi.fn(async () => {}) } as unknown as VoiceSampleStore;
+
+        await service.speakAs(plugin, 'sample-key', samples, { text: 'Unger' }, {}, [{ written: 'Unger', spoken: 'UN-guhr' }]);
+
+        expect(asked[0]?.text).toBe('UN-guhr');
+    });
 });
 
 // A delivery is the cue rule one field over: the RENDER path decides whether it survives, because

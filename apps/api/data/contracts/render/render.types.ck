@@ -184,6 +184,12 @@ contract PronunciationStateWrite: { # Accepting a proposal, turning one down, or
     state: enum(active, suggested, rejected)
 }
 
+contract PronunciationSampleRequest: { # One entry to hear, whether or not the lexicon holds it yet
+    written: string(min=1, max=200) # What is spoken, with this entry applied to it
+    spoken: string(min=1, max=400) # How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear
+    voice?: string(max=100) # A station voice name. Absent uses the plugin's own default
+}
+
 contract PronunciationQuery: { # Which part of the lexicon to read
     state?: enum(active, suggested, rejected) # Absent is all of it
 }

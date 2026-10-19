@@ -230,6 +230,19 @@ export interface PronunciationStateWrite {
 }
 
 /**
+ * One entry to hear, whether or not the lexicon holds it yet
+ * generated from [PronunciationSampleRequest](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface PronunciationSampleRequest {
+    /** What is spoken, with this entry applied to it */
+    written: string;
+    /** How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear */
+    spoken: string;
+    /** A station voice name. Absent uses the plugin's own default */
+    voice?: string;
+}
+
+/**
  * Which part of the lexicon to read
  * generated from [PronunciationQuery](../../../../../apps/api/data/contracts/render/render.types.ck)
  */

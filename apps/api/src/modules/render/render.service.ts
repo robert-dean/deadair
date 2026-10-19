@@ -11,6 +11,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type {
     PronunciationList,
     PronunciationQuery,
+    PronunciationSampleRequest,
     PronunciationStateWrite,
     PronunciationWrite,
     ScriptAttempt,
@@ -42,6 +43,7 @@ import { PadSetRepository } from './pad.set.repository.js';
 import { padsIn } from './pad.cues.js';
 import { PadJoiner } from './pad.join.js';
 import { padMixKey } from './pad.settings.js';
+import type { Pronunciation } from './pronunciation.lexicon.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
@@ -828,6 +830,30 @@ export class RenderService {
     }
 
     /**
+     * One lexicon entry heard: the written word, spoken in one voice with exactly this entry applied.
+     *
+     * The entry comes in the request rather than by id, because the ones worth hearing are mostly
+     * ones the lexicon does not say yet (a respelling being typed, a proposal, one turned down), and
+     * {@link previewSpeech} applies only the active lexicon. Nor can it be done by previewing the
+     * spoken form as plain text: that sends it through the passes the lexicon holds its own forms out
+     * of, and a respelling like `UN-guhr` is read as an initialism.
+     *
+     * The rest of the lexicon still applies, so a written form that holds another entry inside it is
+     * heard as the station would say the whole thing.
+     *
+     * @throws 503 when nothing can speak or the engine is busy, 502 when it refused.
+     */
+    async samplePronunciation(request: PronunciationSampleRequest): Promise<SpeechPreviewResponse> {
+        const written = request.written.trim();
+        const spoken = request.spoken.trim();
+        if (written.length === 0 || spoken.length === 0)
+            throw httpError(400).withDetails({ message: 'a pronunciation sample needs both the written form and how it is said' });
+
+        const { bytes, ext } = await this.renderSample(request.voice ?? '', written, undefined, [{ written, spoken }]);
+        return { contentType: SEGMENT_CONTENT_TYPES[ext], body: bytes };
+    }
+
+    /**
      * A script with a soundboard hit, spoken and joined around it, or `undefined` to fall back to the
      * words alone.
      *
@@ -921,6 +947,7 @@ export class RenderService {
         voiceId: string,
         text: string,
         asked?: SpeechDelivery,
+        lexicon: readonly Pronunciation[] = [],
     ): Promise<{ bytes: Buffer; ext: SegmentExtension; key: string }> {
         const plugin = this.speech.speaker();
         if (plugin === undefined) throw httpError(503).withDetails({ message: this.speech.explainSpeaker() });
@@ -930,7 +957,10 @@ export class RenderService {
         // on an engine that dropped it, and serve that file back after the operator switched to a
         // model that does perform it: the plugin, the voice and its spec would all be the same.
         const delivery = asked !== undefined && (await this.speech.deliveriesOf(plugin)).includes(asked) ? asked : undefined;
-        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId), text, delivery);
+        // The caller's own lexicon entries change what is said without changing the text, so they are
+        // part of the key: otherwise a respelling being adjusted would play its first attempt back.
+        const keyed = lexicon.length === 0 ? text : [text, ...lexicon.map(entry => `${entry.written}\u2192${entry.spoken}`)].join('\n');
+        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId), keyed, delivery);
 
         for (const ext of this.samples.extensions) {
             const cached = await this.samples.read(key, ext);
@@ -957,6 +987,7 @@ export class RenderService {
                 // behind every render in the queue as well, so an operator clicking through voices
                 // cannot delay a break the station is about to air.
                 { maxWaitMs: SAMPLE_QUEUE_MS, priority: 'preview' },
+                ...(lexicon.length === 0 ? [] : [lexicon]),
             );
         } catch (error) {
             const message = errorText(error);

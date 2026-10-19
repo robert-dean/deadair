@@ -692,6 +692,42 @@ public struct PronunciationStateWrite: Codable, Equatable, Sendable {
     }
 }
 
+/// One entry to hear, whether or not the lexicon holds it yet
+public struct PronunciationSampleRequest: Codable, Equatable, Sendable {
+    /// What is spoken, with this entry applied to it
+    public var written: String
+    /// How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear
+    public var spoken: String
+    /// A station voice name. Absent uses the plugin's own default
+    public var voice: String?
+
+    public init(written: String, spoken: String, voice: String? = nil) {
+        self.written = written
+        self.spoken = spoken
+        self.voice = voice
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case written = "written"
+        case spoken = "spoken"
+        case voice = "voice"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.written = try container.decode(String.self, forKey: .written)
+        self.spoken = try container.decode(String.self, forKey: .spoken)
+        self.voice = try container.decodeIfPresent(String.self, forKey: .voice)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.written, forKey: .written)
+        try container.encode(self.spoken, forKey: .spoken)
+        try container.encodeIfPresent(self.voice, forKey: .voice)
+    }
+}
+
 /// Which part of the lexicon to read
 public struct PronunciationQuery: Codable, Equatable, Sendable {
     /// Absent is all of it

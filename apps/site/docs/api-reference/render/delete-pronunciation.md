@@ -1,7 +1,7 @@
 ---
 title: 'Delete pronunciation'
 sidebar_label: 'Delete pronunciation'
-sidebar_position: 18
+sidebar_position: 19
 mdx:
     format: 'md'
 ---

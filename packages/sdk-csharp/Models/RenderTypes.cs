@@ -445,6 +445,23 @@ public sealed record PronunciationStateWrite
     public required PronunciationStateWriteState State { get; init; }
 }
 
+/// <summary>One entry to hear, whether or not the lexicon holds it yet</summary>
+public sealed record PronunciationSampleRequest
+{
+    /// <summary>What is spoken, with this entry applied to it</summary>
+    [JsonPropertyName("written")]
+    public required string Written { get; init; }
+
+    /// <summary>How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear</summary>
+    [JsonPropertyName("spoken")]
+    public required string Spoken { get; init; }
+
+    /// <summary>A station voice name. Absent uses the plugin's own default</summary>
+    [JsonPropertyName("voice")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Voice { get; init; }
+}
+
 /// <summary>Which part of the lexicon to read</summary>
 public sealed record PronunciationQuery
 {

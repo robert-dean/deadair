@@ -11,6 +11,7 @@ import {
     PadUse,
     PronunciationList,
     PronunciationQuery,
+    PronunciationSampleRequest,
     PronunciationStateWrite,
     PronunciationWrite,
     ScriptAttempt,
@@ -323,6 +324,22 @@ RenderRouter.post('/pronunciations', requirePolicy({ policy: 'platform.manage' }
     ctx.status = 201;
     ctx.type = 'application/json';
     ctx.body = result;
+});
+
+/**
+ * Speaks the written word as this entry says it, in one voice
+ * from [render.ck](../../data/contracts/render/render.ck) `POST /pronunciations/sample`
+ */
+RenderRouter.post('/pronunciations/sample', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PronunciationSampleRequest);
+
+    const service = ctx.container.get(RenderService);
+    const result: { contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4'; body: Buffer } =
+        await service.samplePronunciation(body);
+
+    ctx.status = 200;
+    ctx.type = result.contentType;
+    ctx.body = result.body;
 });
 
 /**

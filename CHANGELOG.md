@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.74.0] — 2026-10-19
+
+- A persona can now be set to always work one fact about the music into every link ("How much they lean on what the station knows" → Always). The station picks the fact, preferring a sourced one about the record coming up, and the presenter says it in their own words beside their usual patter.
+- A persona can now be set to never be handed what the station knows about the records ("How much they lean on what the station knows" → Never). Its links are written from the records alone, and the facts it is not shown stay unused for whoever presents next.
+- A persona can now be set to work one fact about the music into a link now and then ("How much they lean on what the station knows" → Sometimes): about a third of its links carry one, chosen by the station, and the rest carry none.
+- The station now records, for each break written by a presenter asked for one fact, whether the script actually said it, so how often a host uses the fact can be read from the break history.
+
 ## [0.73.0] — 2026-10-19
 
 - A passkey can now be answered from the Android app as well as the console. The station accepts an assertion that names the app's own signing certificate as its origin, when that certificate is the published app's or one listed under Settings, Sign-in, "Android builds that may use passkeys", and binds it to the station's public https address.
@@ -1513,7 +1520,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.73.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.0...HEAD
+[0.74.0]: https://github.com/robert-dean/deadair/compare/v0.73.0...v0.74.0
 [0.73.0]: https://github.com/robert-dean/deadair/compare/v0.72.1...v0.73.0
 [0.72.1]: https://github.com/robert-dean/deadair/compare/v0.72.0...v0.72.1
 [0.72.0]: https://github.com/robert-dean/deadair/compare/v0.71.0...v0.72.0

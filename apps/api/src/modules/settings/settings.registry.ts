@@ -2186,6 +2186,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'already has an account signs in whatever this says, through a provider they have linked under Your account on this page, or one that ' +
             'vouches for the same address. Leave it empty and nobody new can join this way.',
     },
+    {
+        group: 'signin',
+        key: SIGNIN_KEYS.androidCertificates,
+        label: 'Android builds that may use passkeys',
+        type: 'text',
+        default: '',
+        placeholder: 'BE:E5:E6:63:…:CC:B9',
+        help:
+            'The app from Google Play can answer a passkey without anything here. A build of your own, a debug build among them, cannot ' +
+            'until its signing certificate is named: its SHA-256 fingerprint as keytool prints it, one per line. Each one is published ' +
+            'at /.well-known/assetlinks.json, which is how Android decides the app may use passkeys made for this address.',
+    },
 
     // ── connections ────────────────────────────────────────────────────────────
     // The other half of the sign-in group: not how people sign in to the station, but how an app

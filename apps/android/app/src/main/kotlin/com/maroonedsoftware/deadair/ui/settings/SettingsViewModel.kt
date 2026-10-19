@@ -8,6 +8,7 @@ import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.widget.WidgetFollows
 import com.maroonedsoftware.deadair.nowplaying.KeepAwake
+import com.maroonedsoftware.deadair.auth.PasskeyAnswer
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
@@ -217,13 +218,56 @@ class SettingsViewModel(
                         sessions.completeSecondFactor(station, email, challenge.challengeId, challenge.methodId, current.code.trim())
                     is SecondFactor.Email ->
                         sessions.completeEmailCode(station, email, challenge.challengeId, challenge.emailChallengeId ?: return@launch, current.code.trim())
+                    // The passkey step's button asks for the passkey again; there is nothing typed to send.
+                    is SecondFactor.Passkey -> {
+                        _account.value = AccountState.askingPasskeyAgain(current)
+                        startPasskeyIfNeeded()
+                        return@launch
+                    }
                 }
             _account.value = AccountState.from(_account.value, answer)
             sendCodeIfNeeded()
+            startPasskeyIfNeeded()
         }
     }
 
-    /** "Email me a code instead", from the authenticator step. */
+    /** "Use a passkey instead", from the authenticator step. */
+    fun usePasskey() {
+        _account.value = AccountState.usingPasskey(_account.value)
+        viewModelScope.launch { startPasskeyIfNeeded() }
+    }
+
+    /**
+     * Ask the station to start the passkey assertion the screen is waiting on, if it is waiting on
+     * one. Driven by the state, as [sendCodeIfNeeded] is. Once it has started, the screen raises the
+     * prompt, because only it holds the activity the prompt is drawn over.
+     */
+    private suspend fun startPasskeyIfNeeded() {
+        val station = settings.value?.station ?: return
+        val waiting = _account.value
+        if (!AccountState.needsPasskeyStarted(waiting)) return
+        val challenge = waiting.challenge as? SecondFactor.Passkey ?: return
+        val result = sessions.startPasskey(station, challenge.challengeId)
+        if (_account.value.challenge?.challengeId != challenge.challengeId) return
+        _account.value = AccountState.fromPasskeyStarted(_account.value, result)
+    }
+
+    /** What the passkey prompt answered. A signed assertion goes to the station to be checked. */
+    fun onPasskeyAnswer(answer: PasskeyAnswer) {
+        val station = settings.value?.station ?: return
+        val next = AccountState.fromPasskeyAnswer(_account.value, answer)
+        _account.value = next
+        val challenge = next.challenge as? SecondFactor.Passkey ?: return
+        val fidoChallengeId = challenge.fidoChallengeId ?: return
+        if (answer !is PasskeyAnswer.Answered) return
+        viewModelScope.launch {
+            val result = sessions.completePasskey(station, next.email.trim(), challenge.challengeId, fidoChallengeId, answer.authenticationResponseJson)
+            if (_account.value.challenge?.challengeId != challenge.challengeId) return@launch
+            _account.value = AccountState.from(_account.value, result)
+        }
+    }
+
+    /** "Email me a code instead", from the authenticator or the passkey step. */
     fun useEmail() {
         _account.value = AccountState.usingEmail(_account.value)
         viewModelScope.launch { sendCodeIfNeeded() }

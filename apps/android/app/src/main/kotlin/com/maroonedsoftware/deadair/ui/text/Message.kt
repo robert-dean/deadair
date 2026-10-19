@@ -111,6 +111,16 @@ sealed interface Message {
 
     data object CodeNoMail : Message
 
+    data object PasskeyNotOffered : Message
+
+    data object CouldNotStartPasskey : Message
+
+    data object NoPasskeyOnPhone : Message
+
+    data object PasskeyFailed : Message
+
+    data object PasskeyRefused : Message
+
     data object NoRefreshToken : Message
 
     data object ResetNeedsEmail : Message

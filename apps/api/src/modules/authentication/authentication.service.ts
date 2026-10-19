@@ -86,6 +86,17 @@ type AuthenticationTokenInternal = AuthenticationTokenIssued | MfaRequiredRespon
 
 /** The factor methods the wire contract admits — deliberately narrower than ServerKit's union. */
 type MfaChallengeFactorMethod = MfaRequiredResponse['factors'][number]['method'];
+/**
+ * WebAuthn request options as a client is sent them: without `rawChallenge`, the library's Buffer
+ * copy of `challenge`. A Buffer goes over the wire as `{"type":"Buffer","data":[...]}`, which no
+ * client reads (the console decodes `challenge`) and which the Kotlin SDK, typing the field as
+ * bytes, cannot decode at all, so the whole start response failed there.
+ */
+function withoutRawChallenge<T extends { rawChallenge?: unknown }>(assertion: T): Omit<T, 'rawChallenge'> {
+    const { rawChallenge: _raw, ...rest } = assertion;
+    return rest;
+}
+
 type FactorChallengeStartInternal = FactorChallengeFidoStartResponse | FactorChallengeEmailStartResponse;
 type AuthenticateHandler = (request: BaseAuthenticationRequest) => Promise<AuthenticationTokenInternal>;
 type StartLoginHandler = (request: BaseAuthenticationLoginStart) => Promise<AuthenticationLoginStartResponse>;
@@ -914,13 +925,13 @@ export class AuthenticationService {
 
         // We scope the WebAuthn allowlist to the specific credential the MFA challenge offered
         // — the SPA mustn't be able to discover other credentials by trying different ids.
-        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolveForAssertion();
         const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(mfa.actor.actorId, fidoFactor.methodId, { rpId, rpOrigin });
 
         return {
             method: 'fido',
             fidoChallengeId: challenge.challengeId,
-            assertion: challenge.assertion,
+            assertion: withoutRawChallenge(challenge.assertion),
             expiresAt: challenge.expiresAt,
         };
     }
@@ -1012,14 +1023,14 @@ export class AuthenticationService {
             throw httpError(400);
         }
 
-        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolveForAssertion();
         const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, { rpId, rpOrigin });
 
         return {
             grant_type: 'fido',
             challengeId: challenge.challengeId,
             expiresAt: challenge.expiresAt,
-            assertion: challenge.assertion,
+            assertion: withoutRawChallenge(challenge.assertion),
         };
     }
 

@@ -34,6 +34,10 @@ work = "2.11.0"
 # The system output switcher on Now playing, and the selected route's name for "Playing on". Not the
 # Cast SDK. Checked against Google's Maven on 2026-10-11: 1.9.0 is still in beta.
 mediarouter = "1.8.1"
+# Passkeys at sign-in, through Credential Manager; the Play services half is what reaches the
+# phone's passkey provider before Android 14. Checked against Google's Maven on 2026-10-19: 1.7.0 is
+# still in alpha.
+credentials = "1.6.0"
 junit = "4.13.2"
 
 [libraries]
@@ -50,6 +54,8 @@ androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

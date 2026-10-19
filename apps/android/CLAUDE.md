@@ -164,6 +164,19 @@ of buffering, no player error. Look for the stream with
 `ss -tni` under `adb root`, and match on the local address rather than the peer: the station's
 Cloudflare address differs between the two networks.
 
+**Why the audio dropped is written to a journal on the phone, because logcat cannot answer it.**
+The Pixel's logcat held about seven minutes on 2026-10-19, and the drops worth explaining happen on a
+walk as wifi fades, hours from any computer: the audio history showed five restarts in six minutes
+the evening before and nothing said why. `PlaybackJournal` (held in `AppGraph`) appends one
+timestamped line per event to `filesDir/playback/journal.txt`, trimmed to 48 hours or 256 KB:
+`PlaybackLog`'s errors, stalls, plays and stops; `NetworkNotes`' changes of default network, with
+its kind and whether Android validated it (deduplicated, because capabilities are reported with
+every change of signal strength); and each `ReconnectNote` the policy makes. The notes are the
+point: a restart on a network move fails nothing and stalls nothing, so before them it left no
+trace at all. Settings → Listening shares the file through the same `FileProvider` a break's copy
+uses. The log listener is registered BEFORE the policy so an error is written before the retry it
+caused. Addresses go in without their query string, because the file is one somebody sends.
+
 **The format nobody chose is Automatic, and it is the absence of a choice.** `ListenerSettings.format`
 is `null` for it and the store keeps nothing, so an install from before it existed that never chose
 is Automatic now and one that chose MP3 keeps it. `chooseMount` plays HLS where the station

@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.util.Log
 import android.os.Bundle
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
@@ -97,15 +99,48 @@ class PlaybackService : MediaLibraryService() {
      * Callbacks arrive on the system's connectivity thread; the flow is what carries them to main.
      */
     private val defaultNetwork = MutableStateFlow<Long?>(null)
+
+    /**
+     * The same network changes, with their kind and validation, for the playback journal. Lazy
+     * because the graph is not there until the service is attached, and the first callback comes
+     * after `onCreate` registers this.
+     */
+    private val networkNotes by lazy {
+        val journal = (application as DeadairApp).graph.playbackJournal
+        NetworkNotes { line ->
+            Log.i(PlaybackLog.TAG, line)
+            journal.record(line)
+        }
+    }
     private val networkWatcher =
         object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 defaultNetwork.value = network.networkHandle
             }
 
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                networkNotes.onDefault(
+                    network.networkHandle,
+                    transportOf(capabilities),
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                )
+            }
+
             override fun onLost(network: Network) {
                 defaultNetwork.compareAndSet(network.networkHandle, null)
+                networkNotes.onLost(network.networkHandle)
             }
+        }
+
+    /** One word for what kind of network this is. A VPN first, because it rides on top of one of the others. */
+    private fun transportOf(capabilities: NetworkCapabilities): String =
+        when {
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "bluetooth"
+            else -> "other"
         }
 
     /**

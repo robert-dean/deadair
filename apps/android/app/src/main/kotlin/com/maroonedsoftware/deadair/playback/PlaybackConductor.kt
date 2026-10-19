@@ -91,8 +91,8 @@ class PlaybackConductor(
             },
             publish = publishSleep,
         )
-    /** Says why the audio stopped, which `policy` acts on without recording. */
-    private val playbackLog = PlaybackLog(player)
+    /** Says why the audio stopped, which `policy` acts on without recording, to logcat and to the journal. */
+    private val playbackLog = PlaybackLog(player, graph.playbackJournal::record)
     private val policy =
         ReconnectPolicy(
             backoff = Backoff(),
@@ -113,6 +113,7 @@ class PlaybackConductor(
                     player.play()
                 }
             },
+            note = { playbackLog.note(it.line) },
         )
     /**
      * Mirrors `player.playWhenReady`, so the poll below can be gated on it. A separate listener
@@ -190,8 +191,9 @@ class PlaybackConductor(
 
     fun start() {
         reportPlayback()
-        player.addListener(policy)
+        // The log before the policy, so the journal says what failed before what was done about it.
         player.addListener(playbackLog)
+        player.addListener(policy)
         player.addListener(playWhenReadyListener)
         player.addListener(metadataListener)
         network.onEach(policy::onNetwork).launchIn(scope)

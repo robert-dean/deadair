@@ -315,7 +315,8 @@ preference order, is the ordinary budget and the notes paragraph calls them opti
 any, and a notes paragraph that asks for the story they tell. Spreading gives up the rule that a claim outranks
 a provider line ACROSS levels (within a level it still does), which is the trade a keen presenter is asking for:
 a note about each thing rather than the best two about the take. A persona at `trivia: 'always'` is handed exactly one for the whole break, chosen in code
-(`factForBreak`) and asked for outright. A persona at `trivia: 'never'` is handed none:
+(`factForBreak`) and asked for outright, and one at `sometimes` is treated that way on about a third of links
+and as `never` on the rest. A persona at `trivia: 'never'` is handed none:
 the facts are read unstamped, so nothing rests, and withheld before the prompt. `personas.md` § "How much
 rope" has the rest.
 

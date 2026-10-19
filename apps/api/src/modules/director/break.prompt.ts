@@ -734,7 +734,9 @@ function notesParagraph(trivia: PersonaTrivia | undefined): string {
                 'saying when it is part of the story, and only exactly as the note gives it. Anything a note mentions that is not one ' +
                 'of the records above is background, never something to cue or play.'
             );
+        // `sometimes` is shown a note only on a link that drew one, and is asked for it as `always` is.
         case 'always':
+        case 'sometimes':
             return (
                 'The note is something the station knows to be true, and this link carries it. Say it as yourself, in your own words, ' +
                 'beside whatever else you would say about the music. Never read it out as it stands, and a year, a name or a figure only ' +

@@ -542,6 +542,14 @@ story-first rules stay `keen`'s. A break whose records the station knows nothing
 written as an ordinary link. Whether the fact was actually said is measured rather than refused; see
 `breaks.md` § "A claim needs its evidence".
 
+**`sometimes` is `always` on a share of links and `never` on the rest**, drawn per break by `triviaForBreak`
+from the segment id against `SOMETIMES_FACT_ODDS` (a third), through `drawOf` rather than a random so a
+re-offered break draws the same way. The draw happens where the facts are read, so the builder and the
+audition see only `always` or `never` and take those paths unchanged: a link that drew nothing reads
+unstamped and is shown nothing. The prompt is not told which way it drew. Its system line speaks for both
+("when you are given a note"), its ceiling is `always`'s on every link so the guard and the prompt cannot
+disagree, and `notesParagraph` gives it `always`'s paragraph, which only appears where a note was shown.
+
 ## Hearing a character before it goes on air
 
 **A rehearsal is one break; an AUDITION is a playlist.** `POST /personas/{id}/rehearse` writes a single break

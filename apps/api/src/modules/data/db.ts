@@ -708,7 +708,7 @@ export interface DeadairPersonas {
   storytelling: string | null;
   style: string;
   templates: string | null;
-  trivia: "keen" | "never" | "always" | null;
+  trivia: "keen" | "never" | "always" | "sometimes" | null;
   updatedAt: Generated<DateTime>;
   voice: string | null;
 }

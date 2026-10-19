@@ -21,6 +21,8 @@ import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
 import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import { drawOf } from '../../../src/modules/shared/rotation.js';
+import { SOMETIMES_FACT_ODDS } from '../../../src/modules/personas/persona.sheet.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -1847,6 +1849,55 @@ describe('WriteBreakJob', () => {
 
                 expect(segments.writeScript).toHaveBeenCalled();
                 expect(logger.warn).toHaveBeenCalledOnce();
+            });
+        });
+
+        // A share of links drawn per segment, each treated exactly as one of the two rungs either side.
+        describe('under a presenter handed one fact on some links', () => {
+            const sometimes = {
+                id: 'p-1',
+                key: 'classic',
+                label: 'Classic host',
+                style: 'a classic host',
+                defaultHost: true,
+                trivia: 'sometimes',
+            } as Persona;
+            const ids = Array.from({ length: 50 }, (_, i) => `seg-${i}`);
+            const hit = ids.find(id => drawOf(`${id}:fact`) < SOMETIMES_FACT_ODDS)!;
+            const miss = ids.find(id => drawOf(`${id}:fact`) >= SOMETIMES_FACT_ODDS)!;
+            const known = new Map([['track-a', ['John Martyn was born in New Malden in 1948.']]]);
+
+            it('asks for the one fact on a link that drew one', async () => {
+                const { job, writers, enrichment } = harness({
+                    lineup: withIds(hit),
+                    segment: planned({ id: hit }),
+                    persona: sometimes,
+                    fact: { trackId: 'track-a', fact: 'John Martyn was born in New Malden in 1948.' },
+                });
+
+                await job.run({ segmentId: hit });
+
+                expect(enrichment.factForBreak).toHaveBeenCalled();
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({ previous: expect.objectContaining({ facts: ['John Martyn was born in New Malden in 1948.'] }) }),
+                );
+            });
+
+            it('shows nothing and rests nothing on a link that did not', async () => {
+                const { job, writers, enrichment } = harness({
+                    lineup: withIds(miss),
+                    segment: planned({ id: miss }),
+                    persona: sometimes,
+                    facts: known,
+                });
+
+                await job.run({ segmentId: miss });
+
+                expect(enrichment.factForBreak).not.toHaveBeenCalled();
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
+                );
             });
         });
 

@@ -55,6 +55,7 @@ public static partial class PersonaReadout
         {
             "keen" => " It builds each link out of the story behind the record, from what the station knows about it.",
             "always" => " It works one thing the station knows about the music into every link.",
+            "sometimes" => " Now and then it works one thing the station knows about the music into a link.",
             "never" => " It is never told what the station knows about the records.",
             _ => string.Empty,
         };

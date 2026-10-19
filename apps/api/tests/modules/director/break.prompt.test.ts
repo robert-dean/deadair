@@ -1594,6 +1594,15 @@ describe('breakPrompt', () => {
             expect(user(messages)).toMatch(/The station knows nothing about "Solid Air"/);
         });
 
+        it('asks a presenter at "sometimes" for the note exactly as "always" does, on a link that was handed one', () => {
+            const one = { previous, next: { ...next, facts: ['Pink Moon was recorded in two late-night sessions.'] } };
+            const messages = prompt({ kind: 'talkbreak', ...one }, { persona: { ...host, trivia: 'sometimes' as const } });
+
+            expect(system(messages)).toContain(TRIVIA_INSTRUCTIONS.sometimes);
+            expect(user(messages)).toMatch(/this link carries it/);
+            expect(user(messages)).not.toMatch(OPTIONAL);
+        });
+
         it('keeps the ordinary paragraph and ceiling for a rung that is not keen', () => {
             // `never` is withheld its notes before the prompt is built (`BreakRequestBuilder`), so
             // here it only has to ask for nothing keen's line asks for.

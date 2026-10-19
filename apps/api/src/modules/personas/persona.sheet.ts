@@ -432,8 +432,9 @@ export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
  * trivia has to be told so in code, by never being handed the notes, rather than in the prompt.
  * `always` sits between the ordinary break and `keen`, and it is the same idea pointed the other way:
  * code chooses ONE fact for the break, and the prompt asks for it beside the presenter's own patter.
+ * `sometimes` is `always` on a share of links and `never` on the rest; see {@link triviaForBreak}.
  */
-export const PERSONA_TRIVIA = ['keen', 'never', 'always'] as const;
+export const PERSONA_TRIVIA = ['keen', 'never', 'always', 'sometimes'] as const;
 
 export type PersonaTrivia = (typeof PERSONA_TRIVIA)[number];
 
@@ -458,6 +459,11 @@ export const TRIVIA_INSTRUCTIONS: Partial<Record<PersonaTrivia, string>> = {
     always:
         'You always have one thing to tell the listener about the music, and you work it into the link beside whatever else you would ' +
         'say, in your own words. Only ever the note you were given, never one you remember.',
+    // Said on every link, the ones that drew nothing included, for the same reason: it is who the
+    // presenter is. A link that drew nothing is shown no note, and this line asks for nothing then.
+    sometimes:
+        'Now and then you have one thing to tell the listener about the music. When you are given a note, work it into the link beside ' +
+        'whatever else you would say, in your own words. Only ever the note you were given, never one you remember.',
     // `never` says nothing: a line about notes in a prompt that is shown none is a line about nothing,
     // and naming trivia to a model is the surest way to have it reach for some.
 };
@@ -474,7 +480,33 @@ export const TRIVIA_MAX_WORDS: Partial<Record<PersonaTrivia, number>> = {
     // One fact said in a sentence of its own, plus the link the presenter would have made anyway, does
     // not fit the station's forty. Less than `keen`'s seventy, because this is not a story.
     always: 55,
+    // `always`'s room on every link, the ones that drew nothing included: the prompt is not told which
+    // it is, and a ceiling that moved with the draw would be one the guard and the prompt could
+    // disagree about.
+    sometimes: 55,
 };
+
+/**
+ * The share of links a presenter at `sometimes` is handed a fact on.
+ *
+ * A third, beside {@link QUIRK_CADENCE_ODDS}' `occasionally` at a quarter: often enough to be part of
+ * the character, rarely enough that a listener does not hear a fact every time the presenter opens
+ * their mouth, which is what `always` is for.
+ */
+export const SOMETIMES_FACT_ODDS = 1 / 3;
+
+/**
+ * The rung this break is read at: {@link triviaOf}, with `sometimes` drawn into `always` or `never`.
+ *
+ * Drawn from `breakId` through {@link drawOf}, never the clock or a random, for `rotation.ts`'s
+ * reason: a break re-offered after a lost job has to be handed what it was handed the first time, or
+ * the retry is a second opinion. Every other rung, and no rung, passes through unchanged.
+ */
+export function triviaForBreak(sheet: PersonaSheet | undefined, breakId: string): PersonaTrivia | undefined {
+    const rung = triviaOf(sheet);
+    if (rung !== 'sometimes') return rung;
+    return drawOf(`${breakId}:fact`) < SOMETIMES_FACT_ODDS ? 'always' : 'never';
+}
 
 /**
  * How many facts one record contributes at each rung, and how they are drawn.

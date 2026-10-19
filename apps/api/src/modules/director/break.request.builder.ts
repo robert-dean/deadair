@@ -11,7 +11,7 @@ import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
 import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import { occasionalQuirkOf, preoccupationOf, storytellingOf, triviaOf, TRIVIA_FACT_BUDGET } from '#modules/personas/persona.sheet.js';
+import { occasionalQuirkOf, preoccupationOf, storytellingOf, triviaForBreak, TRIVIA_FACT_BUDGET } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
@@ -121,8 +121,9 @@ interface FactPlan {
     one: boolean;
 }
 
-function factPlan(persona: Persona | undefined, kind: string): FactPlan {
-    const rung = TRIVIA_KINDS.has(kind) ? triviaOf(persona) : undefined;
+function factPlan(persona: Persona | undefined, kind: string, segmentId: string): FactPlan {
+    // `sometimes` arrives here already drawn into `always` or `never`, so the two paths below are its.
+    const rung = TRIVIA_KINDS.has(kind) ? triviaForBreak(persona, segmentId) : undefined;
     if (rung === 'never') return { withhold: true, one: false };
     if (rung === 'always') return { withhold: false, one: true };
     const budget = rung === undefined ? undefined : TRIVIA_FACT_BUDGET[rung];
@@ -274,7 +275,7 @@ export class BreakRequestBuilder {
         // After the persona too, since how much a record brings is partly who is presenting: a
         // presenter keen on the story behind a record is handed more of it, and one at `never` none.
         // See `factPlan`.
-        const facts = factPlan(persona, kind);
+        const facts = factPlan(persona, kind, turn);
         await this.attachFacts(turn, neighbours, facts);
         // Read before a `never` presenter's notes are withheld, because whether a story fills the
         // silence is a question about what the station knows, not about what this break is shown.

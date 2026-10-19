@@ -97,24 +97,49 @@ struct SignInScreen: View {
         .onAppear { focus = .email }
     }
 
+    /// The same box for both kinds of code. What differs is the sentence above it, its label, and
+    /// the one extra button each has: an emailed code can be sent again, and an authenticator step
+    /// can turn into an emailed one when the account has both.
     private func codeStep(_ challenge: SecondFactor) -> some View {
-        Group {
+        let emailed = challenge.emailed
+        return Group {
             Text(String(localized: "One more step")).font(.title2)
-            Text(String(localized: "Enter the code from your authenticator app.")).foregroundStyle(.secondary)
+            Text(codeDetail(emailed)).foregroundStyle(.secondary)
             PillField {
-                TextField(String(localized: "Authenticator code"), text: Binding(get: { account.code }, set: { account = account.typingCode($0) }))
-                    .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
-                    .focused($focus, equals: .code)
+                TextField(
+                    emailed == nil ? String(localized: "Authenticator code") : String(localized: "Emailed code"),
+                    text: Binding(get: { account.code }, set: { account = account.typingCode($0) })
+                )
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .focused($focus, equals: .code)
             }
             if let error = account.error {
                 Text(error.words).font(.footnote).foregroundStyle(.red).padding(.horizontal, 16)
             }
             submitButton(String(localized: "Sign in"))
+            if emailed != nil {
+                Button(String(localized: "Send it again")) { send(account.sendingAgain()) }
+                    .frame(maxWidth: .infinity)
+                    .disabled(account.busy)
+            } else if case .authenticator(_, _, .some) = challenge {
+                Button(String(localized: "Email me a code instead")) { send(account.usingEmail()) }
+                    .frame(maxWidth: .infinity)
+                    .disabled(account.busy)
+            }
             Button(String(localized: "Start again")) { account = account.startingAgain() }
                 .frame(maxWidth: .infinity)
+                .disabled(account.busy)
         }
         .onAppear { focus = .code }
+    }
+
+    /// "We sent a code to r•••@example.com.", in the station's label for the address when it gave one.
+    private func codeDetail(_ emailed: EmailCode?) -> String {
+        guard let emailed else { return String(localized: "Enter the code from your authenticator app.") }
+        if emailed.emailChallengeId == nil { return String(localized: "Sending a code to your email.") }
+        if let sentTo = emailed.sentTo { return String(localized: "We sent a code to \(sentTo).") }
+        return String(localized: "We sent a code to your email.")
     }
 
     /// After "Forgot your password?": where the link went, and the way back to the form. The link
@@ -170,15 +195,38 @@ struct SignInScreen: View {
         let current = account
         Task {
             let result: SignInResult
-            if let challenge = current.challenge {
-                result = await model.session.completeSecondFactor(
-                    station, email: current.email, challengeId: challenge.challengeId, methodId: challenge.methodId, code: current.code
-                )
-            } else {
+            switch current.challenge {
+            case nil:
                 result = await model.session.signIn(station, email: current.email, password: current.password)
+            case .authenticator(let challengeId, let methodId, _):
+                result = await model.session.completeSecondFactor(station, email: current.email, challengeId: challengeId, methodId: methodId, code: current.code)
+            case .email(let emailed):
+                guard let emailChallengeId = emailed.emailChallengeId else { return }
+                result = await model.session.completeEmailCode(
+                    station, email: current.email, challengeId: emailed.challengeId, emailChallengeId: emailChallengeId, code: current.code
+                )
             }
             account = account.after(result)
+            await sendCodeIfNeeded()
         }
+    }
+
+    /// "Email me a code instead" and "Send it again": the state says a send is due, and this sends it.
+    private func send(_ next: AccountState) {
+        account = next
+        Task { await sendCodeIfNeeded() }
+    }
+
+    /// Ask the station to email the code the page is waiting on, if it is waiting on one.
+    ///
+    /// Driven by the state rather than by whoever called, so the three ways into it (a challenge that
+    /// leads with email, choosing email, sending again) cannot disagree about when a send is due.
+    private func sendCodeIfNeeded() async {
+        guard account.needsCodeSent, let station = model.settings.settings.station, let emailed = account.challenge?.emailed else { return }
+        let result = await model.session.sendEmailCode(station, challengeId: emailed.challengeId)
+        // The challenge may have been abandoned while the send was in flight.
+        guard account.challenge?.challengeId == emailed.challengeId else { return }
+        account = account.afterCodeSent(result)
     }
 }
 

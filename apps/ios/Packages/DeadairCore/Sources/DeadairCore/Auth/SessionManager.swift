@@ -5,7 +5,6 @@ import Observation
 /// Nothing is signed in to this station, so the call that needed a session was never made.
 public struct NotSignedIn: Error, Equatable {}
 
-/// What came of offering an email and a password, or a code against a pending challenge.
 /// What the station said to "Forgot your password?". `apps/android`'s `ResetResult`.
 ///
 /// `sent` is the same answer whether or not the address has an account, because the station gives
@@ -28,6 +27,26 @@ public enum ResetResult: Equatable, Sendable {
     case failed(String?)
 }
 
+/// What came of asking the station to email a code for a pending challenge. `apps/android`'s
+/// `CodeSendResult`.
+///
+/// `sent` carries the email challenge's id, which the code grant has to echo back: an emailed code
+/// is bound to the message the station sent rather than to an enrolled factor's method id.
+public enum CodeSendResult: Equatable, Sendable {
+    case sent(emailChallengeId: String)
+
+    /// The pending sign-in expired before the code could be sent. Only the password step again can
+    /// fix it.
+    case challengeExpired
+
+    /// The station has no mail server to send through.
+    case noMail
+
+    /// Anything else. Carries the diagnostic, never shown.
+    case failed(String?)
+}
+
+/// What came of offering an email and a password, or a code against a pending challenge.
 public enum SignInResult: Equatable, Sendable {
     case ok
 
@@ -39,7 +58,7 @@ public enum SignInResult: Equatable, Sendable {
     /// A 200 rather than an error, which is why signing in answers with a result instead of
     /// throwing: a client reading the status alone sees a successful sign-in with no token in it.
     /// `factors` lists every factor that would satisfy the challenge, of which this app can answer
-    /// the authenticator and nothing else.
+    /// the authenticator and the emailed code.
     case secondFactorNeeded(challengeId: String, factors: [MfaChallengeFactor])
 
     /// The challenge is gone: it expired, or it was already spent. A code cannot answer it, and
@@ -169,10 +188,45 @@ public final class SessionManager: OperatorSession {
     /// has no other binding to the account at initial login, so the station cannot work out which
     /// authenticator six digits are supposed to be from.
     public func completeSecondFactor(_ station: StationUrl, email: String, challengeId: String, methodId: String, code: String) async -> SignInResult {
+        let grant = AuthenticatorAuthenticationRequest(code: code, mfaChallengeId: challengeId, methodId: methodId)
+        return await answerChallenge(station, email: email, .authenticatorAuthenticationRequest(grant))
+    }
+
+    /// Ask the station to email a one-time code for a pending challenge.
+    ///
+    /// Safe to call again: that is "Send it again", and the station re-sends rather than suppressing
+    /// it, because the reason somebody presses it is that the first never arrived.
+    public func sendEmailCode(_ station: StationUrl, challengeId: String) async -> CodeSendResult {
+        do {
+            let request = FactorChallengeEmailStart(mfaChallengeId: challengeId)
+            let started = try await sdkFor(station, { [:] }).authenticationFactor.startFactorChallenge(body: .factorChallengeEmailStart(request))
+            switch started {
+            case .factorChallengeEmailStartResponse(let started): return .sent(emailChallengeId: started.emailChallengeId)
+            default: return .failed("The station answered with a factor this app did not ask for")
+            }
+        } catch let error as SdkError where error.status == 401 {
+            return .challengeExpired
+        } catch let error as SdkError where error.status == 503 {
+            return .noMail
+        } catch {
+            return .failed(String(describing: error))
+        }
+    }
+
+    /// Answer a pending challenge with a code the station emailed.
+    ///
+    /// A different grant from the authenticator's: the code is bound to `emailChallengeId`, the
+    /// message `sendEmailCode` asked for, rather than to an enrolled factor.
+    public func completeEmailCode(_ station: StationUrl, email: String, challengeId: String, emailChallengeId: String, code: String) async -> SignInResult {
+        let grant = CodeAuthenticationRequest(code: code, mfaChallengeId: challengeId, challengeId: emailChallengeId)
+        return await answerChallenge(station, email: email, .codeAuthenticationRequest(grant))
+    }
+
+    /// Post a proof grant against a pending challenge, and read the station's refusal for what it is.
+    private func answerChallenge(_ station: StationUrl, email: String, _ grant: AuthenticationRequest) async -> SignInResult {
         let answer: AuthenticationTokenResponse
         do {
-            let grant = AuthenticatorAuthenticationRequest(code: code, mfaChallengeId: challengeId, methodId: methodId)
-            answer = try await requestToken(station, .authenticatorAuthenticationRequest(grant))
+            answer = try await requestToken(station, grant)
         } catch let error as SdkError where Self.credentialRefusals.contains(error.status) {
             // Three different refusals arrive as one status, and the station names which in
             // `WWW-Authenticate`.

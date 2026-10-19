@@ -7,6 +7,7 @@ import {
     presentableFactors,
     strongFactors,
     useMfaCodeMutation,
+    usePasskeyChallengeMutation,
     useRegisterAuthenticator,
     useRemoveFactor,
     useStartStepUp,
@@ -21,6 +22,7 @@ const registerFactor = vi.fn();
 const verifyFactorRegistration = vi.fn();
 const removeFactor = vi.fn();
 const startMFAChallenge = vi.fn();
+const startFactorChallenge = vi.fn();
 const requestToken = vi.fn();
 
 vi.mock('../../src/api/client', () => ({
@@ -32,13 +34,15 @@ vi.mock('../../src/api/client', () => ({
                 verifyFactorRegistration: (...args: unknown[]) => verifyFactorRegistration(...args),
                 removeFactor: (...args: unknown[]) => removeFactor(...args),
                 startMFAChallenge: (...args: unknown[]) => startMFAChallenge(...args),
+                startFactorChallenge: (...args: unknown[]) => startFactorChallenge(...args),
             },
         },
     },
 }));
 
 afterEach(() => {
-    for (const mock of [registerFactor, verifyFactorRegistration, removeFactor, startMFAChallenge, requestToken]) mock.mockReset();
+    for (const mock of [registerFactor, verifyFactorRegistration, removeFactor, startMFAChallenge, startFactorChallenge, requestToken])
+        mock.mockReset();
     clearSession();
 });
 
@@ -154,7 +158,31 @@ const passkeyAvailable = vi.hoisted(() => ({ value: false }));
 vi.mock('../../src/auth/webauthn', async importOriginal => ({
     ...(await importOriginal<typeof import('../../src/auth/webauthn')>()),
     passkeysAvailable: () => passkeyAvailable.value,
+    assertPasskey: async () => SIGNED_ASSERTION,
 }));
+
+const SIGNED_ASSERTION = vi.hoisted(() => ({
+    id: 'cred-1',
+    rawId: 'cred-1',
+    type: 'public-key',
+    response: { clientDataJSON: 'e30', authenticatorData: 'AA', signature: 'AA' },
+}));
+
+describe('usePasskeyChallengeMutation', () => {
+    it('sends the signed credential as JSON, because form encoding flattens it to "[object Object]"', async () => {
+        startFactorChallenge.mockResolvedValue({ method: 'fido', fido_challenge_id: 'fido-1', assertion: { challenge: 'abc' } });
+        requestToken.mockResolvedValue({ result: 'token', access_token: 'tok-5', expires_in: 900 });
+        const { result } = renderHook(() => usePasskeyChallengeMutation(), { wrapper: wrapWithQueryClient(createTestQueryClient()) });
+
+        await act(() => result.current.mutateAsync({ challengeId: 'mfa-1' }));
+
+        expect(requestToken).toHaveBeenCalledWith(
+            { grant_type: 'fido', mfa_challenge_id: 'mfa-1', challenge_id: 'fido-1', credential: SIGNED_ASSERTION },
+            { contentType: 'application/json' },
+        );
+        expect(getSession().accessToken).toBe('tok-5');
+    });
+});
 
 const MIXED = {
     challengeId: 'mfa-1',

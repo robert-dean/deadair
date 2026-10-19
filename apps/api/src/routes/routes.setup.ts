@@ -38,6 +38,7 @@ import { StreamRouter } from './stream.router.js';
 import { StorageRouter } from './storage.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 import { OAuthProtocolRouter } from './oauth.protocol.router.js';
+import { AssetLinksRouter } from './assetlinks.router.js';
 import { OauthRouter } from './oauth.router.js';
 import { McpRouter } from '../mcp/mcp.router.js';
 import { MessagingRouter } from './messaging.router.js';
@@ -57,6 +58,8 @@ export const routers = [
     // Hand-written rather than generated: its status codes and error bodies are the OAuth RFCs', which
     // a generated route cannot produce. See the router.
     OAuthProtocolRouter,
+    // Hand-written: Digital Asset Links fixes its path, at the origin. See the router.
+    AssetLinksRouter,
     OauthRouter,
     // Hand-written, and lives with the tools in `src/mcp`: the generated one would not carry the
     // `oauth.grant` guard. See the router.

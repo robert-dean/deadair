@@ -124,6 +124,14 @@ export function chooseFacts(facts: readonly string[], rotate = 0, limit = MAX_BR
     return [...kept.slice(from), ...kept.slice(0, from)].slice(0, limit);
 }
 
+/** The one fact a break carries, and which of the records either side of it the fact is about. */
+export interface BreakFact {
+    /** The record the fact is about: the break's previous or its next. */
+    trackId: string;
+    /** The sentence, trimmed and short enough to say whole. */
+    fact: string;
+}
+
 /**
  * One level's candidates for a spread read, in the order that level would hand them over.
  *
@@ -403,6 +411,64 @@ export class EnrichmentReadService {
         if (options.stamp !== false) void this.factRepository.markUsed(used).catch(() => undefined);
 
         return facts;
+    }
+
+    /**
+     * The one fact a break is handed, and the record it is about, or `undefined` when there is
+     * nothing to say.
+     *
+     * {@link factsForTracks} hands a writer notes and lets the model decide whether to use any of
+     * them. This is the other shape: CODE decides that the break carries a fact and exactly which,
+     * and the model only decides how to say it. So it answers one for the whole break rather than a
+     * list per record, and either id may be absent, since a break at the top of the hour has no
+     * previous record and one before a non-record segment has no next.
+     *
+     * Preference order is a sourced claim about the NEXT record, then one about the previous record,
+     * then a provider line, next before previous. The next record first because a break leans
+     * forward into what plays; a claim before any provider line on either side because it carries
+     * the span of an article that says so, which is the top-up rule {@link factsForTracks} follows
+     * applied across the break instead of within a record. Claims arrive from the store most
+     * specific level first and least recently used first, with the resting ones already gone, so
+     * the first usable one is the one to say. A provider line has no cooldown, so `rotate` is its
+     * variety, drawn through {@link chooseFacts} exactly as the list read draws it.
+     *
+     * Only the claim handed over is STAMPED, best-effort and off the critical path, and nothing at
+     * all when `stamp` is `false`: the same split, for the same audition, that
+     * {@link factsForTracks} makes. A provider line carries nothing to stamp.
+     */
+    async factForBreak(
+        previousTrackId: string | undefined,
+        nextTrackId: string | undefined,
+        rotate = 0,
+        options: { stamp?: boolean } = {},
+    ): Promise<BreakFact | undefined> {
+        const ids = [...new Set([nextTrackId, previousTrackId].filter((id): id is string => id !== undefined))];
+        if (ids.length === 0) return undefined;
+
+        const [stored, claims] = await Promise.all([
+            this.enrichmentRepository.findFactPayloadsForTracks(ids),
+            this.factRepository.findFactsForTracks(ids, FACT_COOLDOWN_MS),
+        ]);
+
+        for (const trackId of ids) {
+            for (const believed of claims.get(trackId) ?? []) {
+                const fact = believed.claim.trim();
+                if (fact.length === 0 || fact.length > MAX_FACT_CHARS) continue;
+
+                // Caught for the reason the list read catches it: a failed stamp costs a claim its
+                // rest, and nothing here may cost a break its fact.
+                if (options.stamp !== false) void this.factRepository.markUsed([believed.id]).catch(() => undefined);
+                return { trackId, fact };
+            }
+        }
+
+        for (const trackId of ids) {
+            const supplied = this.suppliedFacts(stored.find(payloads => payloads.trackId === trackId));
+            const [fact] = chooseFacts([...supplied.track, ...supplied.album, ...supplied.artist], rotate, 1);
+            if (fact !== undefined) return { trackId, fact };
+        }
+
+        return undefined;
     }
 
     /**

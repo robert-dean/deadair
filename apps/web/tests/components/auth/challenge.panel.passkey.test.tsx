@@ -73,7 +73,10 @@ describe('a challenge offering a passkey', () => {
 
         await vi.waitFor(() => expect(onComplete).toHaveBeenCalled());
         expect(startFactorChallenge).toHaveBeenCalledWith({ method: 'fido', mfa_challenge_id: 'mfa-1' });
-        expect(requestToken).toHaveBeenCalledWith({ grant_type: 'fido', mfa_challenge_id: 'mfa-1', challenge_id: 'fido-1', credential: CREDENTIAL });
+        expect(requestToken).toHaveBeenCalledWith(
+            { grant_type: 'fido', mfa_challenge_id: 'mfa-1', challenge_id: 'fido-1', credential: CREDENTIAL },
+            { contentType: 'application/json' },
+        );
         expect(getSession()?.accessToken).toBe('access');
     });
 

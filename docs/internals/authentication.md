@@ -98,10 +98,46 @@ could use any of the passkey routes.
 
 **WebAuthn needs a secure context**, so a station opened over plain `http://` on a LAN address offers
 no passkey anywhere: `passkeysAvailable()` in the console is false there and every passkey control is
-hidden rather than failing. The phone apps answer authenticator codes (`ChallengeFactors.kt`,
-`AccountState.swift`), and the Android app answers emailed codes too, sending one through
-`POST /auth/factors/start` and redeeming it with the `code` grant, as the console does. Neither
-answers a passkey, so a passkey is a browser second step and the invite page says so.
+hidden rather than failing. The phone apps and the desktop app answer authenticator codes and
+emailed codes (`ChallengeFactors.kt`, `AccountState.swift`, and on the desktop
+`ChallengeFactors.Email` and `SessionManager.SendEmailCodeAsync`), sending an emailed one through
+`POST /auth/factors/start` and redeeming it with the `code` grant, as the console does. The desktop
+and iOS apps do not answer a passkey, so there a passkey is a browser second step and the invite page
+says so.
+
+**The Android app answers a passkey as well, and the station has to be told who is asking.** A native
+app sends no `Origin`, and the assertion Credential Manager makes names the APP in its `clientDataJSON`:
+`android:apk-key-hash:` and the base64url SHA-256 of the signing certificate. fido2-lib accepts that
+origin, but only as the single expected origin fixed when the challenge is issued, so the app names its
+own in `x-deadair-app-origin` when it starts the challenge. `PasskeyRelyingParty.resolveForAssertion`
+answers that with the station's public host (`stream.publicUrl`, else `SPA_BASE_URL`/`APP_BASE_URL`) as
+the relying party, which is the host the console registered the passkey at, and the app's origin as the
+expected one, and only when it is https and the certificate is one the station vouches for: the
+published app's (`OFFICIAL_ANDROID_CERTIFICATES` in `android.apps.ts`) or one listed in
+`signin.androidCertificates`, which is how a debug build is let in. Accepting the header unchecked would
+change nothing about phishing, since Android will not hand an app a passkey its host does not vouch for,
+but it would make the station's answer depend on what a caller claims; held to the list, an app can name
+only an origin it could genuinely have. Registration never comes here: a passkey is made in the console
+and only proved from the app. The same list is published at `/.well-known/assetlinks.json`
+(`assetlinks.router.ts`, both packages, `delegate_permission/common.get_login_creds`), which is what
+Credential Manager reads from the host before it lets the app use the passkey; each station serves it
+for itself because each is on its operator's own domain. So a station with no public https address has
+no passkey in the app, and says so (`E10014`) rather than starting one that cannot be answered.
+
+**Two things that broke the app's half before it worked.** The start response carried `rawChallenge`, a
+Buffer that goes over the wire as `{"type":"Buffer","data":[...]}`; nothing read it and the Kotlin SDK,
+typing it as bytes, could not decode the response at all, so it is dropped. And the generated clients
+form-encode `/auth/token` by default, which cannot carry the `fido` grant's `credential` object (a form
+field is text, and the contract refuses it as `{"credential":"Expected object"}`), so the app sends that
+one grant as JSON through the SDK's own runtime. A passkey challenge is also shared between the console
+and the app for its five minutes, because the library hands back the live challenge for the same actor
+and factor; started in a browser and answered from the app inside that window, it carries the web origin
+and is refused, and starting again after it expires is the way out.
+
+**An emailed code signs in and never steps up.** `StrongFactorGate` excludes email, password and
+oidc from every step-up, so the desktop's step-up dialog asks only for an authenticator: an account
+whose only strong factor is a passkey makes those changes on the console, and one with nothing
+stronger than email is never asked.
 
 **The station sends a challenge as standard base64 and the browser writes it into clientData as
 base64url.** `auth/webauthn.ts` decodes either, and a scripted authenticator has to encode the same
@@ -150,7 +186,8 @@ provider, and no email address the station could mail a sign-in link to (an emai
 while mail is configured). An account created through a provider starts out exactly like that.
 
 **An account with no password cannot use the listener apps**, which sign in with a password and then
-a code (an authenticator's, or on Android an emailed one). Password sign-in stays.
+a second step (an authenticator's code, an emailed one, or on Android a passkey). Password sign-in
+stays.
 
 ## Password lockout
 

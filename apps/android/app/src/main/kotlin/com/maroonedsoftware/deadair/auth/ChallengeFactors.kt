@@ -21,7 +21,12 @@ fun authenticatorFactors(factors: List<MfaChallengeFactor>): List<MfaChallengeFa
  *
  * An emailed code needs a challenge started against it first (`POST /auth/factors/start`), which is
  * what sends the message. Accounts made with an email and a passkey and nothing else were refused
- * here outright until this existed, because the passkey is the one factor left over: FIDO needs a
- * WebAuthn assertion this app has no way to produce, and that stays the console's job.
+ * here outright until this existed.
  */
 fun emailFactor(factors: List<MfaChallengeFactor>): MfaChallengeFactor? = factors.firstOrNull { it.method == AuthenticationFactorMethod.EMAIL }
+
+/**
+ * The challenge's passkey, if it has one. Answered through Credential Manager (`PasskeyPrompt.kt`)
+ * with an assertion the station started for this app (`SessionManager.startPasskey`).
+ */
+fun passkeyFactor(factors: List<MfaChallengeFactor>): MfaChallengeFactor? = factors.firstOrNull { it.method == AuthenticationFactorMethod.FIDO }

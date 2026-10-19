@@ -9,3 +9,10 @@
     *** Companion;
     *** serializer(...);
 }
+
+# Credential Manager finds its Play services provider by class name, so R8 cannot see it is used.
+# The rule Credential Manager's own guide gives.
+-if class androidx.credentials.CredentialManager
+-keep class androidx.credentials.playservices.** {
+  *;
+}

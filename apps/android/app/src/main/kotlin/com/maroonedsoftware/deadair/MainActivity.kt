@@ -397,6 +397,8 @@ private fun Listener(
                             onStartAgain = model::startAgain,
                             onUseEmail = model::useEmail,
                             onSendAgain = model::sendCodeAgain,
+                            onUsePasskey = model::usePasskey,
+                            onPasskeyAnswer = model::onPasskeyAnswer,
                         )
                     }
                     entry<Destination.Manage> {

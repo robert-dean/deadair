@@ -29,7 +29,7 @@ extension SdkError {
     }
 }
 
-/// Which of a challenge's factors this app can answer: the AUTHENTICATOR, and only that.
+/// Which of a challenge's factors this app can answer with an authenticator code.
 ///
 /// A challenge lists every factor the account has enrolled, in ENROLMENT order, so the first entry
 /// is not reliably the one a code box can satisfy: an email factor enrolled first sits ahead of the
@@ -37,10 +37,18 @@ extension SdkError {
 /// `invalid_factor`, which at the keyboard reads exactly like a mistyped code. The desktop app
 /// shipped sending the first factor, and the report that came back was "the 2FA code is not
 /// accepted".
-///
-/// The others are not oversights. A phone or email factor needs a challenge started against it
-/// first, and FIDO needs a WebAuthn assertion this app has no way to produce; both are the
-/// console's job. An empty answer is what lets the screen SAY that.
 public func authenticatorFactors(_ factors: [MfaChallengeFactor]) -> [MfaChallengeFactor] {
     factors.filter { $0.method == .authenticator }
+}
+
+/// The challenge's email factor, if it has one: the other factor this app can answer.
+/// `apps/android`'s `emailFactor`.
+///
+/// An emailed code needs a challenge started against it first (`POST /auth/factors/start`), which is
+/// what sends the message. An account with an email factor and a passkey and nothing else was refused
+/// outright until this existed, because the passkey is the one factor left over: FIDO needs a
+/// WebAuthn assertion this app has no way to produce, and that stays the console's job. So does a
+/// phone factor.
+public func emailFactor(_ factors: [MfaChallengeFactor]) -> MfaChallengeFactor? {
+    factors.first { $0.method == .email }
 }

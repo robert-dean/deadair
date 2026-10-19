@@ -26,7 +26,15 @@ struct SecondFactorTests {
     }
 
     @Test func answersNothingWhenTheAccountHasNoAuthenticator() {
-        #expect(authenticatorFactors([factor(.email, "email-1")]).isEmpty)
+        // An email factor is answered by a different grant, after a send, so it is not one of these.
+        let factors = [factor(.email, "email-1")]
+
+        #expect(authenticatorFactors(factors).isEmpty)
+        #expect(emailFactor(factors)?.methodId == "email-1")
+    }
+
+    @Test func findsNoEmailFactorWhereThereIsNone() {
+        #expect(emailFactor([factor(.fido, "fido-1")]) == nil)
     }
 
     @Test func readsTheErrorOutOfAChallengeWithOtherParametersBesideIt() {
@@ -87,5 +95,61 @@ struct SecondFactorTests {
         // Retyping a code is free; sending somebody back to the password step when the code was
         // merely mistyped is not.
         #expect(await code(.empty(401)) == .badCredentials)
+    }
+
+    // MARK: An emailed code
+
+    @Test func asksTheStationToEmailACodeForTheChallenge() async {
+        let fake = FakeStation { _ in .json(#"{"method":"email","email_challenge_id":"e_1","expires_at":"2026-09-08T12:10:00Z"}"#) }
+        let manager = manager(MemorySessionStorage(), fake)
+
+        #expect(await manager.sendEmailCode(station(), challengeId: "c_1") == .sent(emailChallengeId: "e_1"))
+
+        let request = fake.requests.first
+        #expect(request?.path.hasSuffix("/auth/factors/start") == true)
+        let body = request?.body ?? ""
+        #expect(body.contains(#""method":"email""#))
+        #expect(body.contains(#""mfa_challenge_id":"c_1""#))
+        // Before there is a session, so nothing to carry.
+        #expect(request?.authorization == nil)
+    }
+
+    @Test func aSendAgainstASpentChallengeOrAStationWithNoMailSaysWhich() async {
+        let expired = manager(MemorySessionStorage(), FakeStation { _ in .refusal("invalid_challenge") })
+        #expect(await expired.sendEmailCode(station(), challengeId: "c_1") == .challengeExpired)
+
+        let noMail = manager(MemorySessionStorage(), FakeStation { _ in .json(#"{"message":"mail is not configured"}"#, status: 503) })
+        #expect(await noMail.sendEmailCode(station(), challengeId: "c_1") == .noMail)
+
+        let down = manager(MemorySessionStorage(), FakeStation { _ in .unreachable })
+        guard case .failed = await down.sendEmailCode(station(), challengeId: "c_1") else {
+            Issue.record("expected a failure")
+            return
+        }
+    }
+
+    @Test func anEmailedCodeIsAnsweredWithTheCodeGrantAndTheMessageItCameIn() async {
+        let storage = MemorySessionStorage()
+        let fake = FakeStation { request in
+            request.path.hasSuffix("/auth/session") ? .json(Bodies.session("admin")) : .json(Bodies.token("access-9", refresh: "refresh-9"), status: 201)
+        }
+        let manager = manager(storage, fake)
+
+        let result = await manager.completeEmailCode(station(), email: "operator@example.com", challengeId: "c_1", emailChallengeId: "e_1", code: "123456")
+
+        #expect(result == .ok)
+        #expect(storage.session?.accessToken == "access-9")
+        let body = fake.requests.first?.body ?? ""
+        #expect(body.contains("grant_type=code"))
+        #expect(body.contains("mfa_challenge_id=c_1"))
+        #expect(body.contains("challenge_id=e_1"))
+        #expect(body.contains("code=123456"))
+        #expect(!body.contains("method_id"))
+    }
+
+    @Test func aWrongEmailedCodeIsReportedAsAWrongCode() async {
+        let manager = manager(MemorySessionStorage(), FakeStation { _ in .refusal("invalid_grant") })
+
+        #expect(await manager.completeEmailCode(station(), email: "operator@example.com", challengeId: "c_1", emailChallengeId: "e_1", code: "000000") == .badCredentials)
     }
 }

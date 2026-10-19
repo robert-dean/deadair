@@ -579,6 +579,119 @@ describe('EnrichmentReadService', () => {
             });
         });
     });
+
+    // Code decides that a break carries a fact and which one; the model only says it. One for the
+    // whole break, so the order between the two records is part of the answer.
+    describe('the one fact a break is handed', () => {
+        const PREVIOUS_ID = '55555555-5555-4555-8555-555555555555';
+        const NEXT_ID = '66666666-6666-4666-8666-666666666666';
+
+        const claim = (id: string, text: string, level: ClaimForTrack['level'] = 'track'): ClaimForTrack => ({ id, claim: text, level });
+        const both = (previous: Parameters<typeof factRows>[0], next: Parameters<typeof factRows>[0]) => [
+            ...factRows(previous, PREVIOUS_ID),
+            ...factRows(next, NEXT_ID),
+        ];
+        const reader = (facts: TrackFactPayloads[], believed: Map<string, ClaimForTrack[]> = new Map()) => {
+            const store = fakeFacts([], believed);
+            return { store, read: new EnrichmentReadService(fakeRepository({}, facts), fakeService([MUSICBRAINZ]), store) };
+        };
+
+        it('takes a sourced claim about the next record first', async () => {
+            const { read } = reader(
+                both({ track: [{ facts: ['The last one was recorded in one take.'] }] }, { track: [{ facts: ['The next one went gold.'] }] }),
+                new Map([
+                    [PREVIOUS_ID, [claim('previous-claim', 'The last one was in a film.')]],
+                    [NEXT_ID, [claim('next-claim', 'The next one was banned by the BBC.')]],
+                ]),
+            );
+
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({ trackId: NEXT_ID, fact: 'The next one was banned by the BBC.' });
+        });
+
+        it('takes a claim about the previous record ahead of any provider line, the next record’s included', async () => {
+            const { read } = reader(
+                both({}, { track: [{ facts: ['The next one went gold.'] }] }),
+                new Map([[PREVIOUS_ID, [claim('previous-claim', 'The last one was in a film.')]]]),
+            );
+
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({ trackId: PREVIOUS_ID, fact: 'The last one was in a film.' });
+        });
+
+        it('falls back to a provider line, the next record’s before the previous one’s', async () => {
+            const { read } = reader(both({ track: [{ facts: ['The last one went gold.'] }] }, { artist: [{ facts: ['They formed in Bristol.'] }] }));
+
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({ trackId: NEXT_ID, fact: 'They formed in Bristol.' });
+            await expect(read.factForBreak(PREVIOUS_ID, undefined)).resolves.toEqual({ trackId: PREVIOUS_ID, fact: 'The last one went gold.' });
+        });
+
+        it('skips a claim too long to say whole, and the next one in the store’s order is said instead', async () => {
+            const { read, store } = reader(
+                [],
+                new Map([
+                    [NEXT_ID, [claim('too-long', 'x'.repeat(MAX_FACT_CHARS + 1)), claim('artist-claim', '  They met at a job centre. ', 'artist')]],
+                ]),
+            );
+
+            await expect(read.factForBreak(undefined, NEXT_ID)).resolves.toEqual({ trackId: NEXT_ID, fact: 'They met at a job centre.' });
+            expect(store.markUsed).toHaveBeenCalledWith(['artist-claim']);
+        });
+
+        it('gives the same answer for the same rotation, and moves on for another', async () => {
+            const facts = both({}, { track: [{ facts: ['One.', 'Two.', 'Three.'] }] });
+
+            await expect(reader(facts).read.factForBreak(PREVIOUS_ID, NEXT_ID, 1)).resolves.toEqual({ trackId: NEXT_ID, fact: 'Two.' });
+            await expect(reader(facts).read.factForBreak(PREVIOUS_ID, NEXT_ID, 1)).resolves.toEqual({ trackId: NEXT_ID, fact: 'Two.' });
+            await expect(reader(facts).read.factForBreak(PREVIOUS_ID, NEXT_ID, 2)).resolves.toEqual({ trackId: NEXT_ID, fact: 'Three.' });
+        });
+
+        it('stamps only the claim it hands over, not the others it could have said', async () => {
+            const { read, store } = reader(
+                [],
+                new Map([
+                    [PREVIOUS_ID, [claim('previous-claim', 'The last one was in a film.')]],
+                    [NEXT_ID, [claim('next-claim', 'The next one was banned.'), claim('next-artist', 'They met at a job centre.', 'artist')]],
+                ]),
+            );
+
+            await read.factForBreak(PREVIOUS_ID, NEXT_ID);
+
+            expect(store.markUsed).toHaveBeenCalledTimes(1);
+            expect(store.markUsed).toHaveBeenCalledWith(['next-claim']);
+        });
+
+        it('marks nothing for a caller that is not airing anything', async () => {
+            const { read, store } = reader([], new Map([[NEXT_ID, [claim('next-claim', 'The next one was banned.')]]]));
+
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID, 0, { stamp: false })).resolves.toEqual({
+                trackId: NEXT_ID,
+                fact: 'The next one was banned.',
+            });
+            expect(store.markUsed).not.toHaveBeenCalled();
+        });
+
+        it('marks nothing when the fact is a provider line, which has no rest to take', async () => {
+            const { read, store } = reader(both({}, { track: [{ facts: ['The next one went gold.'] }] }));
+
+            await read.factForBreak(PREVIOUS_ID, NEXT_ID);
+
+            expect(store.markUsed).not.toHaveBeenCalled();
+        });
+
+        it('answers undefined when every claim is resting and no provider said anything', async () => {
+            // The cooldown filters in the query, so resting claims arrive as no claims at all.
+            const { read, store } = reader(both({ track: [{ genres: ['trip hop'] }] }, {}));
+
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toBeUndefined();
+            expect(store.markUsed).not.toHaveBeenCalled();
+        });
+
+        it('asks nothing of the database for a break with no record either side', async () => {
+            const { read, store } = reader([]);
+
+            await expect(read.factForBreak(undefined, undefined)).resolves.toBeUndefined();
+            expect(store.findFactsForTracks).not.toHaveBeenCalled();
+        });
+    });
 });
 
 // A provider's picture in an enrichment view is the plugin's URL, and a Navidrome one carries the

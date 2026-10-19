@@ -499,8 +499,13 @@ stops answering.
 signature: Liquidsoap's own starve push, plus its latest reading saying the queue holds a request and is not
 producing. The holding half is what makes it a fault in the player, since a starve with nothing queued is the
 transport having nothing to give. The `ready: false` half is required because the starve clock on
-`PlayoutControlClient` is cleared only by a reported recovery, and a Liquidsoap restarted on its own has none
-to report, so the clock can run on over a chain that is playing. "Not answering" is judged with or without an
+`PlayoutControlClient` can outlive the gap it timed: a Liquidsoap restarted on its own starts outside a gap and
+reports only edges, so it never sends the recovery the old process owed. That clock is now also cleared by a
+reading saying `ready: true`, by an item confirmed on air and by a refused connection (the process that opened
+it is gone), after a restart the watch itself asked for left the diagnosis saying `starved` for 22 hours on
+2026-10-18 over a station playing its running order. **It is deliberately not cleared by a timeout or by the
+re-probe after a run of them**: that is a hung chain, its gap still open and no edge left to report, and
+clearing there would blind this watch to the one failure it restarts for. "Not answering" is judged with or without an
 audience, because a restart nobody hears is the cheapest there is. A minute is several times the worst stall
 the live log shows the chain recovering from on its own (62 status and 15 lease timeouts in ten days, none
 longer than about twelve seconds).

@@ -915,4 +915,102 @@ describe('PlayoutControlClient.starvedSince', () => {
 
         expect(control.starvedSince()).toBe(8_000);
     });
+
+    // A restarted Liquidsoap starts outside a gap and only ever reports edges, so the starve
+    // the old process pushed is never answered. On 2026-10-18 that left the diagnosis saying
+    // `starved` for 22 hours over a station playing its running order.
+    describe('when nothing will push the recovery', () => {
+        const reading = (body: object) => async (): Promise<Response> => new Response(JSON.stringify(body), { status: 200 });
+        const refused = async (): Promise<Response> => {
+            throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
+        };
+        const timedOut = async (): Promise<Response> => {
+            throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+        };
+
+        it('clears on a reading that says the queue is producing, as the restarted process gives', async () => {
+            vi.stubGlobal('fetch', reading({ queued: 1, ready: true, driving: true }));
+            const control = client();
+            try {
+                control.noteStarve(true, 1_000);
+                await control.assertOnAir();
+
+                expect(control.starvedSince()).toBeUndefined();
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('stays open over a reading that says the queue is not producing', async () => {
+            // The hung chain the watchdog restarts: holding a record, not playing it.
+            vi.stubGlobal('fetch', reading({ queued: 1, ready: false, driving: true }));
+            const control = client();
+            try {
+                control.noteStarve(true, 1_000);
+                await control.assertOnAir();
+
+                expect(control.starvedSince()).toBe(1_000);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('stays open over a reading too old to say', async () => {
+            vi.stubGlobal('fetch', reading({ queued: 1 }));
+            const control = client();
+            try {
+                control.noteStarve(true, 1_000);
+                await control.status();
+
+                expect(control.starvedSince()).toBe(1_000);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('clears when the process that reported it has gone, and a restarted one reconnects', async () => {
+            vi.stubGlobal('fetch', refused);
+            const control = client();
+            try {
+                control.noteStarve(true, 1_000);
+                await control.status();
+                expect(control.starvedSince()).toBeUndefined();
+
+                // The new process answers outside a gap and never sends `recovered`.
+                vi.stubGlobal('fetch', reading({ queued: 0, ready: false, driving: false }));
+                await control.status();
+                expect(control.starvedSince()).toBeUndefined();
+
+                // And a starve it does push opens a fresh clock rather than the old one.
+                control.noteStarve(true, 50_000);
+                expect(control.starvedSince()).toBe(50_000);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('stays open through a run of timeouts, which is a hung chain rather than a gone one', async () => {
+            // Clearing here would blind the audio chain watchdog to the failure it restarts for:
+            // the hung process still has its gap open and no edge left to report.
+            vi.stubGlobal('fetch', timedOut);
+            const control = client();
+            try {
+                control.noteStarve(true, 1_000);
+                for (let call = 0; call < 4; call += 1) await control.status();
+
+                expect(control.isUp()).toBe(false);
+                expect(control.starvedSince()).toBe(1_000);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('clears when an item is confirmed on air', () => {
+            const control = client();
+            control.noteStarve(true, 1_000);
+            control.noteProducing();
+
+            expect(control.starvedSince()).toBeUndefined();
+        });
+    });
 });

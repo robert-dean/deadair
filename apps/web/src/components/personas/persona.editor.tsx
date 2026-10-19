@@ -807,7 +807,7 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
             ? t('editor.readout.length.oneLine')
             : brevity === 'short'
               ? t('editor.readout.length.short')
-              : latitude === '' && trivia === ''
+              : latitude === '' && trivia !== 'keen'
                 ? t('editor.readout.length.usual')
                 : t('editor.readout.length.long');
 

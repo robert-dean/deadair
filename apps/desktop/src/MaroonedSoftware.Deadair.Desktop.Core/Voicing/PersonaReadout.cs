@@ -39,7 +39,7 @@ public static partial class PersonaReadout
         {
             "one-line" => "one line",
             "short" => "a sentence or two",
-            _ when latitude.Length == 0 && trivia.Length == 0 => "the station's usual length",
+            _ when latitude.Length == 0 && trivia != "keen" => "the station's usual length",
             _ => "as long as it takes",
         };
 

@@ -1036,7 +1036,9 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
               : []),
         // Last in the list, because a rule true of this kind alone should not push the shared ones
         // further from the end than they already are.
-        ...(trivia !== undefined && shape.triviaRules !== undefined
+        // Keyed on the rung by NAME: these are the story-first rules, and a rung that is not `keen`
+        // asks for something other than a story.
+        ...(trivia === 'keen' && shape.triviaRules !== undefined
             ? shape.triviaRules
             : latitude === undefined
               ? (shape.rules ?? [])
@@ -1169,16 +1171,18 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             // which is the failure the rung exists to fix. What the two share is kept word for word:
             // never read out as it stands, and anything a note mentions that is not one of the
             // records is background.
-            triviaIn(settings, shape) === undefined
-                ? 'The notes are things the station knows to be true, offered in case one is worth saying. ' +
-                      'You do not have to use any of them, and most breaks are better without one: a note earns its place only if you can ' +
-                      'say it as yourself. Never more than one, never read out as it stands, never a date or a credit for its own sake. ' +
-                      'Anything a note mentions that is not one of the records above is background, never something to cue or play.'
-                : 'The notes are things the station knows to be true, and they are what your break is made of. Pick the one that tells ' +
+            // Keyed on the rung by NAME rather than on whether one is set, so a rung added later
+            // falls to the ordinary paragraph until it is given one of its own.
+            triviaIn(settings, shape) === 'keen'
+                ? 'The notes are things the station knows to be true, and they are what your break is made of. Pick the one that tells ' +
                       'the best story about a record, or two if they tell the same story, and tell it as yourself: who made it, where it ' +
                       'came from, what happened to it. Never read a note out as it stands. A year, a name or a chart position is worth ' +
                       'saying when it is part of the story, and only exactly as the note gives it. Anything a note mentions that is not one ' +
-                      'of the records above is background, never something to cue or play.',
+                      'of the records above is background, never something to cue or play.'
+                : 'The notes are things the station knows to be true, offered in case one is worth saying. ' +
+                      'You do not have to use any of them, and most breaks are better without one: a note earns its place only if you can ' +
+                      'say it as yourself. Never more than one, never read out as it stands, never a date or a credit for its own sake. ' +
+                      'Anything a note mentions that is not one of the records above is background, never something to cue or play.',
         );
     }
 

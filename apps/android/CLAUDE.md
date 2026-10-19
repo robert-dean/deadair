@@ -350,6 +350,18 @@ that would never be asked again. Children, item and search are answered asynchro
 legacy stub and may keep reading the settings; `onConnect` is synchronous by signature and must
 stay cheap.
 
+**The root is never refused, and "no station" is an error the CHILDREN return.** Any error from
+`onGetLibraryRoot` makes Media3's legacy stub answer the browser with a null root, so the car's
+connection fails and Android Auto says the content could not load. Play's Auto review did exactly
+that from a fresh install with nothing kept, and enforced it on 2026-10-19 as "App crashes", holding
+the release. So the root is offered under the app's name, and `onGetChildren` answers no station
+with `ERROR_SESSION_AUTHENTICATION_EXPIRED`, a message and an "Open deadair" resolution intent. The
+code is chosen for its plumbing, not its meaning: Media3 replicates only that one and the parental
+one into the platform playback state, which is where Auto reads an error from, so the more honest
+`SETUP_REQUIRED` would reach no car. Replication is FATAL, so Auto draws the whole error screen with
+its button, and the next successful children answer clears it. An empty folder is not the fix
+either: in a car it is a dead end with no way out.
+
 ## The session, and the one rule that is not obvious
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and

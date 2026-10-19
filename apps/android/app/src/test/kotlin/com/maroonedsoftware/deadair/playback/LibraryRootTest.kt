@@ -3,13 +3,12 @@ package com.maroonedsoftware.deadair.playback
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.station.StationUrl
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
  * The library root is answered at once from what the service already holds, because a legacy
- * browser asking for it blocks the main thread until it has an answer. Refused only when the
- * settings are known to hold no station.
+ * browser asking for it blocks the main thread until it has an answer. Never refused: a refused
+ * root is a car saying the app could not load.
  */
 class LibraryRootTest {
     private val station = StationUrl.parse("https://radio.example").getOrThrow()
@@ -20,8 +19,8 @@ class LibraryRootTest {
     }
 
     @Test
-    fun `no station kept refuses the root`() {
-        assertNull(libraryRootTitle(KeptStation.None, appName = "deadair"))
+    fun `no station kept still offers the root, under the app's name`() {
+        assertEquals("deadair", libraryRootTitle(KeptStation.None, appName = "deadair"))
     }
 
     @Test

@@ -106,6 +106,14 @@ for that day:
 > listener sees works without an account. Signing in is for the person who operates the station
 > and controls what it broadcasts, which is why no listener account exists to give you.
 
+**Android Auto review needs a station too, and that is the stronger reason to answer yes.** Auto's
+reviewers open the app in a car with nothing kept; until 2026-10-19 that refused the library root
+and was enforced as an Auto "App crashes" issue. The app now shows "open deadair on your phone and
+choose a station" in the car instead, which is the shape Auto's guidelines ask for, but a reviewer
+who cannot get past it still has nothing to test. The instructions above then need one more line:
+
+> For Android Auto, do the above on the phone first; the station then appears in the car.
+
 Operator credentials are a further step again: the reviewer would reach every screen, and could
 also skip records and stop the station for everyone listening.
 

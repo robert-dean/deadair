@@ -22,6 +22,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
@@ -221,14 +222,12 @@ class PlaybackService : MediaLibraryService() {
         this.live = live
         session =
             MediaLibrarySession.Builder(this, live, StationLibrary())
-                .setSessionActivity(
-                    PendingIntent.getActivity(
-                        this,
-                        0,
-                        Intent(this, MainActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                    ),
-                )
+                .setSessionActivity(openApp)
+                // Fatal, so the car shows "no station" as the whole screen with its button rather
+                // than as a passing notice over a player with nothing in it: see `onGetChildren`.
+                // The only error this library replicates is that one, and it clears itself the
+                // first time the children are answered with the station.
+                .setLibraryErrorReplicationMode(MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_FATAL)
                 // Cached, because the session asks for the same picture every time the metadata
                 // is pushed, and the metadata is pushed every time the record changes. Bounded,
                 // because a cover is decoded into a bitmap in this process and `/api/art` can
@@ -280,6 +279,33 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
+
+    /** The app's own screen, for the session's activity and for a car's "open the app" button. */
+    private val openApp: PendingIntent by lazy {
+        PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    /**
+     * What a car is told when no station has been chosen, with a button that opens the app on the
+     * phone. `AUTHENTICATION_EXPIRED` is not a claim about an account: it is one of the two codes
+     * Media3 replicates into the platform playback state, which is where Android Auto reads an
+     * error and its resolution from, and it is the code Auto's own guidance gives an app that needs
+     * something done on the phone first. `SETUP_REQUIRED` says it better and reaches no car.
+     */
+    private fun noStation(): SessionError =
+        SessionError(
+            SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
+            getString(R.string.auto_no_station),
+            Bundle().apply {
+                putString(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT, getString(R.string.auto_open_app))
+                putParcelable(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT, openApp)
+            },
+        )
 
     /** What the station calls itself, as last kept, for a car's list. */
     private suspend fun stationName(): String? {
@@ -348,7 +374,8 @@ class PlaybackService : MediaLibraryService() {
         }
 
         /**
-         * One folder, of radio stations. An install with no station kept has nothing to offer.
+         * One folder, of radio stations. Offered even with no station kept: see [libraryRootTitle]
+         * for why a refusal here reads, in a car, as an app that cannot load.
          *
          * Answered with a future that is already complete, and it must stay that way. A legacy
          * browser's request for the root runs this on the main thread and blocks that thread until
@@ -360,13 +387,17 @@ class PlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?,
         ): ListenableFuture<LibraryResult<MediaItem>> {
-            val title =
-                libraryRootTitle(kept.value, getString(R.string.app_name))
-                    ?: return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
+            val title = libraryRootTitle(kept.value, getString(R.string.app_name))
             return Futures.immediateFuture(LibraryResult.ofItem(MediaItems.root(title), params))
         }
 
-        /** Exactly one child, the station: see `MediaItems.stationEntry` for why never more. */
+        /**
+         * Exactly one child, the station: see `MediaItems.stationEntry` for why never more.
+         *
+         * With no station kept, the folder is not empty but an error a car can act on, because an
+         * empty folder in a car is a dead end with no way out of it (Play's Auto review calls that
+         * content that cannot load). See [noStation].
+         */
         override fun onGetChildren(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
@@ -376,8 +407,8 @@ class PlaybackService : MediaLibraryService() {
             params: LibraryParams?,
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> =
             answer {
-                val name = stationName()
-                if (parentId != MediaItems.ROOT_ID || name == null) return@answer LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+                if (parentId != MediaItems.ROOT_ID) return@answer LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+                val name = stationName() ?: return@answer LibraryResult.ofError(noStation())
                 LibraryResult.ofItemList(ImmutableList.of(MediaItems.stationEntry(name)), params)
             }
 

@@ -31,17 +31,17 @@ sealed interface KeptStation {
 }
 
 /**
- * The title of the library root a browser is offered, or `null` to refuse it.
+ * The title of the library root a browser is offered. Never a refusal.
  *
- * Refused only when the settings are KNOWN to hold no station. A browser that connects before they
- * have been read (a car starting the service cold, which is the ordinary case) is offered the root
- * under the app's own name rather than refused, because it cannot be told to wait and a refusal is
- * not asked again: the children, which Media3 answers asynchronously, read the settings themselves
- * and say whether the folder is empty.
+ * A refused root is not an error a car can show: Media3's legacy stub answers ANY error from
+ * `onGetLibraryRoot` with a null root, the browser's connection fails, and Android Auto says the
+ * app's content could not load. That is what Play's Auto review saw on 2026-10-19, from a fresh
+ * install with no station kept, and it was enforced as an app crash. So the root is always offered
+ * (under the app's own name until there is a station to name it), and "no station" is said by the
+ * children instead, as an error Auto draws with a button that opens the app on the phone.
  */
-fun libraryRootTitle(kept: KeptStation, appName: String): String? =
+fun libraryRootTitle(kept: KeptStation, appName: String): String =
     when (kept) {
-        KeptStation.Unread -> appName
-        KeptStation.None -> null
+        KeptStation.Unread, KeptStation.None -> appName
         is KeptStation.Named -> kept.name
     }

@@ -314,7 +314,29 @@ preference order, is the ordinary budget and the notes paragraph calls them opti
 `trivia: 'keen'` is handed four, one each about the recording, its record and its artist before a second about
 any, and a notes paragraph that asks for the story they tell. Spreading gives up the rule that a claim outranks
 a provider line ACROSS levels (within a level it still does), which is the trade a keen presenter is asking for:
-a note about each thing rather than the best two about the take. `personas.md` § "How much rope" has the rest.
+a note about each thing rather than the best two about the take. A persona at `trivia: 'always'` is handed exactly one for the whole break, chosen in code
+(`factForBreak`) and asked for outright, and one at `sometimes` is treated that way on about a third of links
+and as `never` on the rest. A persona at `trivia: 'never'` is handed none:
+the facts are read unstamped, so nothing rests, and withheld before the prompt. `personas.md` § "How much
+rope" has the rest.
+
+**Whether a break said the fact it was asked for is MEASURED, and nothing refuses over it yet.**
+`script_history.fact_used` is set on every attempt that produced words under a presenter handed one fact
+(`always`, or a `sometimes` link that drew one), by the station's own read-back, `mentionsFact`
+(`fact.mentions.ts`): the script counts as having said the fact when it carries one of the fact's names or
+digit figures, the records' own titles and artists excluded since a link names those anyway. Null everywhere
+else, and null for a fact with nothing distinctive to look for, because a guess there would be a number about
+the guess. It undercounts: a figure said in words ("nineteen seventy-two") reads as not said. A refusal that
+asks again (a `missing-fact` fault in `RETRYABLE_FAULTS`) is the obvious next step and is deliberately not
+built until this rate has been read on air, on the `invented-chart` argument above: a check that refuses
+needs its false-refusal rate known first. The rate, per presenter, over a week:
+
+```sql
+select persona_key, count(*) filter (where fact_used) as said, count(*) filter (where not fact_used) as skipped
+from deadair.script_history
+where fact_used is not null and outcome = 'written' and created_at > now() - interval '7 days'
+group by persona_key;
+```
 
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the

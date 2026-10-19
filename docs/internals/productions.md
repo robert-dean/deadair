@@ -160,7 +160,8 @@ an outline planned around three records whose turns were told about three others
 `callSubjectOf` then makes the records the subject, the host's preoccupation their take on them and the
 caller's their angle on one; the notes under a record are all anybody on the call may state about it, and that
 sentence replaces the outline's "the station knows nothing about any record" paragraph rather than joining it.
-Every other host's callers get no records, since a list of titles in a prompt is a call about the titles. The
+Every other host's callers get no records, since a list of titles in a prompt is a call about the titles. That
+includes `trivia: 'always'`: one fact beside a link's patter is not a show about the records. The
 read is best-effort: a failure costs the records and the call falls back to the host's preoccupation. A
 persona row seeded before the countdown sheet gained `keen` (2026-09-22) does not have it, since seeds never
 overwrite a row.

@@ -85,6 +85,8 @@ function build(
         found?: Persona;
         recent?: string[];
         facts?: Map<string, string[]>;
+        /** What `factForBreak` answers, for a presenter at `always`. */
+        fact?: { trackId: string; fact: string };
         shelf?: unknown[];
         rack?: { name: string; placements?: ('start' | 'middle' | 'end')[]; cue?: string }[] | Error;
     } = {},
@@ -126,7 +128,10 @@ function build(
     const factsForTracks = vi.fn(
         async (_ids: readonly string[], _rotate?: number, _options?: { stamp?: boolean }) => options.facts ?? new Map<string, string[]>(),
     );
-    const enrichment = { factsForTracks } as never;
+    const factForBreak = vi.fn(
+        async (_previous: string | undefined, _next: string | undefined, _rotate?: number, _options?: { stamp?: boolean }) => options.fact,
+    );
+    const enrichment = { factsForTracks, factForBreak } as never;
 
     const seen: BreakWriteRequest[] = [];
     const write = vi.fn(async (request: BreakWriteRequest) => {
@@ -171,6 +176,7 @@ function build(
         forPrompt,
         tellable,
         factsForTracks,
+        factForBreak,
         onSet,
         markPadUsed,
         write,
@@ -398,6 +404,37 @@ describe('PersonaAuditionJob: the facts and the stories', () => {
         await run({ auditionId: 'audition-1', ordinal: 0 });
 
         expect(factsForTracks.mock.calls[0]?.[2]).toEqual({ stamp: false, budget: { limit: 4, spread: true } });
+    });
+
+    it('hears a presenter at "never" with no facts at all', async () => {
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, factsForTracks, seen } = build({
+            claimed: withIds,
+            found: persona({ trivia: 'never' }),
+            facts: new Map([['t1', ['Cut in a day.']]]),
+        });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(factsForTracks).not.toHaveBeenCalled();
+        expect(seen[0]?.previous).not.toHaveProperty('facts');
+    });
+
+    it('hears a presenter at "always" with the one fact the break would carry, unstamped', async () => {
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, factForBreak, factsForTracks, seen } = build({
+            claimed: withIds,
+            found: persona({ trivia: 'always' }),
+            fact: { trackId: 't2', fact: 'Written in one sitting.' },
+        });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(factsForTracks).not.toHaveBeenCalled();
+        expect(factForBreak.mock.calls[0]?.slice(0, 2)).toEqual(['t1', 't2']);
+        expect(factForBreak.mock.calls[0]?.[3]).toEqual({ stamp: false });
+        expect(seen[0]?.next?.facts).toEqual(['Written in one sitting.']);
+        expect(seen[0]?.previous).not.toHaveProperty('facts');
     });
 
     it('shows each side its own facts', async () => {

@@ -604,7 +604,7 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaGrowth? Growth { get; init; }
 
-    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
+    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `sometimes` a share of links are treated as `always` and the rest as `never`, drawn per link. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
     [JsonPropertyName("trivia")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaTrivia? Trivia { get; init; }
@@ -742,7 +742,7 @@ public sealed record PersonaInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaGrowth? Growth { get; init; }
 
-    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
+    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `sometimes` a share of links are treated as `always` and the rest as `never`, drawn per link. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
     [JsonPropertyName("trivia")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaTrivia? Trivia { get; init; }
@@ -1948,7 +1948,7 @@ public sealed class PersonaGrowthConverter : JsonConverter<PersonaGrowth>
     };
 }
 
-/// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
+/// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `sometimes` a share of links are treated as `always` and the rest as `never`, drawn per link. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
 [JsonConverter(typeof(PersonaTriviaConverter))]
 public enum PersonaTrivia
 {
@@ -1960,6 +1960,15 @@ public enum PersonaTrivia
 
     [JsonStringEnumMemberName("keen")]
     Keen,
+
+    [JsonStringEnumMemberName("never")]
+    Never,
+
+    [JsonStringEnumMemberName("always")]
+    Always,
+
+    [JsonStringEnumMemberName("sometimes")]
+    Sometimes,
 }
 
 /// <summary>
@@ -1990,12 +1999,18 @@ public sealed class PersonaTriviaConverter : JsonConverter<PersonaTrivia>
     private static PersonaTrivia FromWire(string? text) => text switch
     {
         "keen" => PersonaTrivia.Keen,
+        "never" => PersonaTrivia.Never,
+        "always" => PersonaTrivia.Always,
+        "sometimes" => PersonaTrivia.Sometimes,
         _ => PersonaTrivia.Unknown,
     };
 
     private static string ToWire(PersonaTrivia value) => value switch
     {
         PersonaTrivia.Keen => "keen",
+        PersonaTrivia.Never => "never",
+        PersonaTrivia.Always => "always",
+        PersonaTrivia.Sometimes => "sometimes",
         _ => throw new JsonException($"PersonaTrivia.{value} has no wire spelling, so it cannot be sent."),
     };
 }
@@ -2322,6 +2337,15 @@ public enum PersonaDraftViewTrivia
 
     [JsonStringEnumMemberName("keen")]
     Keen,
+
+    [JsonStringEnumMemberName("never")]
+    Never,
+
+    [JsonStringEnumMemberName("always")]
+    Always,
+
+    [JsonStringEnumMemberName("sometimes")]
+    Sometimes,
 }
 
 /// <summary>
@@ -2352,12 +2376,18 @@ public sealed class PersonaDraftViewTriviaConverter : JsonConverter<PersonaDraft
     private static PersonaDraftViewTrivia FromWire(string? text) => text switch
     {
         "keen" => PersonaDraftViewTrivia.Keen,
+        "never" => PersonaDraftViewTrivia.Never,
+        "always" => PersonaDraftViewTrivia.Always,
+        "sometimes" => PersonaDraftViewTrivia.Sometimes,
         _ => PersonaDraftViewTrivia.Unknown,
     };
 
     private static string ToWire(PersonaDraftViewTrivia value) => value switch
     {
         PersonaDraftViewTrivia.Keen => "keen",
+        PersonaDraftViewTrivia.Never => "never",
+        PersonaDraftViewTrivia.Always => "always",
+        PersonaDraftViewTrivia.Sometimes => "sometimes",
         _ => throw new JsonException($"PersonaDraftViewTrivia.{value} has no wire spelling, so it cannot be sent."),
     };
 }

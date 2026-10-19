@@ -609,7 +609,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             description={t('editor.dial.trivia.description')}
                             data={[
                                 { value: '', label: t('editor.dial.trivia.usual') },
+                                { value: 'sometimes', label: t('editor.dial.trivia.sometimes') },
+                                { value: 'always', label: t('editor.dial.trivia.always') },
                                 { value: 'keen', label: t('editor.dial.trivia.keen') },
+                                { value: 'never', label: t('editor.dial.trivia.never') },
                             ]}
                             {...form.getInputProps('trivia')}
                         />
@@ -807,7 +810,7 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
             ? t('editor.readout.length.oneLine')
             : brevity === 'short'
               ? t('editor.readout.length.short')
-              : latitude === '' && trivia === ''
+              : latitude === '' && trivia !== 'keen'
                 ? t('editor.readout.length.usual')
                 : t('editor.readout.length.long');
 
@@ -830,7 +833,16 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
 
     // Material again, but the station's rather than the character's own: what it knows about the
     // records. A sentence of its own for the stories' reason.
-    const lore = trivia === 'keen' ? t('editor.readout.lore') : '';
+    const lore =
+        trivia === 'keen'
+            ? t('editor.readout.lore')
+            : trivia === 'always'
+              ? t('editor.readout.loreAlways')
+              : trivia === 'sometimes'
+                ? t('editor.readout.loreSometimes')
+                : trivia === 'never'
+                  ? t('editor.readout.loreNever')
+                  : '';
 
     // Frequency is the one of the four that is not about a break at all — it is about how many
     // there are — so it leads with "and" rather than joining the sentence about how one sounds.
@@ -1123,7 +1135,10 @@ function draftOf(values: FormValues): PersonaInput {
     // opts it out — so absent is the right shape for it, as with the rungs above.
     const growth: PersonaInput['growth'] = values.growth === 'self-directed' ? values.growth : undefined;
     // '' is the station's ordinary break, which is a rung that is not there, as with latitude.
-    const trivia: PersonaInput['trivia'] = values.trivia === 'keen' ? values.trivia : undefined;
+    const trivia: PersonaInput['trivia'] =
+        values.trivia === 'keen' || values.trivia === 'never' || values.trivia === 'always' || values.trivia === 'sometimes'
+            ? values.trivia
+            : undefined;
     // `ordinary` is the default and is sent as absent, matching how every other rung on this form
     // treats its middle: a stored value that means "unchanged" is a row saying what a null already says.
     const chattiness: PersonaInput['chattiness'] =

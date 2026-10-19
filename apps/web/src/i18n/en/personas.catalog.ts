@@ -327,9 +327,12 @@ export const personas = {
             trivia: {
                 label: 'How much they lean on what the station knows',
                 description:
-                    'What the station has learned about a record: who made it, where it came from, what happened to it. Keen presenters are handed more of it, a note about the album and the artist as well as the track, and are asked to build each link out of the story, with a longer break to tell it in. Links only. They can still only say what a note says.',
+                    'What the station has learned about a record: who made it, where it came from, what happened to it. Keen presenters are handed more of it, a note about the album and the artist as well as the track, and are asked to build each link out of the story, with a longer break to tell it in. Always hands them one fact for every link, to say beside their own patter, and Sometimes on about a third of links. Never keeps it from them altogether, for a character whose job is a reaction. Links only. They can still only say what a note says.',
                 usual: "The station's usual — a note now and then",
+                sometimes: 'Sometimes — one fact now and then',
+                always: 'Always — one fact in every link',
                 keen: 'Keen — the story behind every record',
+                never: 'Never — none of it, just the reaction',
             },
             storytelling: {
                 label: 'How often they bring up their own past',
@@ -376,6 +379,11 @@ export const personas = {
                 occasionally: ' It reaches for one of its own stories when the station knows nothing about the records.',
             },
             lore: ' It builds each link out of the story behind the record, from what the station knows about it.',
+            // A key of its own rather than `lore` turned into an object, so a language pack that already
+            // translates `lore` keeps it.
+            loreNever: ' It is never told what the station knows about the records.',
+            loreAlways: ' It works one thing the station knows about the music into every link.',
+            loreSometimes: ' Now and then it works one thing the station knows about the music into a link.',
             often: {
                 relentless: ' It talks twice as often as the station would on its own.',
                 chatty: ' It talks a little more often than the station would on its own.',

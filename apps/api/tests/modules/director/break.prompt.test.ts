@@ -1561,7 +1561,7 @@ describe('breakPrompt', () => {
         it('takes the larger ceiling when a character carries both rungs', () => {
             const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: { ...keen, latitude: 'unleashed' as const } }));
 
-            expect(rules).toMatch(new RegExp(`under ${Math.max(TRIVIA_MAX_WORDS.keen, LATITUDE_MAX_WORDS.unleashed)} words`));
+            expect(rules).toMatch(new RegExp(`under ${Math.max(TRIVIA_MAX_WORDS.keen!, LATITUDE_MAX_WORDS.unleashed)} words`));
         });
 
         it('is not offered by a kind that did not ask for it', () => {
@@ -1577,6 +1577,38 @@ describe('breakPrompt', () => {
             const request = { kind: 'talkbreak', ...noted } as const;
 
             expect(prompt(request, { persona: { ...keen, trivia: 'obsessive' as never } })).toEqual(prompt(request, { persona: host }));
+        });
+
+        it('asks a presenter at "always" for the one note it was handed, beside its own patter', () => {
+            const one = { previous, next: { ...next, facts: ['Pink Moon was recorded in two late-night sessions.'] } };
+            const messages = prompt({ kind: 'talkbreak', ...one }, { persona: { ...host, trivia: 'always' as const } });
+
+            expect(system(messages)).toContain(TRIVIA_INSTRUCTIONS.always);
+            expect(system(messages)).toMatch(new RegExp(`under ${TRIVIA_MAX_WORDS.always} words`));
+            // Not the story-first rules: this is a fact beside the patter, not a story instead of it.
+            expect(system(messages)).not.toMatch(/at the end once the story has earned it/);
+            expect(user(messages)).toMatch(/this link carries it/);
+            expect(user(messages)).not.toMatch(OPTIONAL);
+            expect(user(messages)).not.toMatch(MATERIAL);
+            expect(user(messages)).toMatch(/Never read it out as it stands/);
+            expect(user(messages)).toMatch(/The station knows nothing about "Solid Air"/);
+        });
+
+        it('asks a presenter at "sometimes" for the note exactly as "always" does, on a link that was handed one', () => {
+            const one = { previous, next: { ...next, facts: ['Pink Moon was recorded in two late-night sessions.'] } };
+            const messages = prompt({ kind: 'talkbreak', ...one }, { persona: { ...host, trivia: 'sometimes' as const } });
+
+            expect(system(messages)).toContain(TRIVIA_INSTRUCTIONS.sometimes);
+            expect(user(messages)).toMatch(/this link carries it/);
+            expect(user(messages)).not.toMatch(OPTIONAL);
+        });
+
+        it('keeps the ordinary paragraph and ceiling for a rung that is not keen', () => {
+            // `never` is withheld its notes before the prompt is built (`BreakRequestBuilder`), so
+            // here it only has to ask for nothing keen's line asks for.
+            const request = { kind: 'talkbreak', ...noted } as const;
+
+            expect(prompt(request, { persona: { ...host, trivia: 'never' as const } })).toEqual(prompt(request, { persona: host }));
         });
     });
 });

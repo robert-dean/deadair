@@ -494,8 +494,8 @@ title and the fact that a sleeve was approved, never the music itself. Its fence
 splitting the taste from the listener and one splitting a chosen name from the person who has it, and it
 forbids describing a sleeve the writer is never shown. `persona.defaults.ts` has the argument.
 
-**A third rung sits beside those two, and it is about MATERIAL rather than room.** `personas.trivia` has one
-value, `keen`, for a presenter whose job is the story behind the record: who made it, where it came from, what
+**A third rung sits beside those two, and it is about MATERIAL rather than room.** `personas.trivia` was
+built with one value, `keen`, for a presenter whose job is the story behind the record: who made it, where it came from, what
 happened to it. The ordinary break could not host one. It handed over two notes, both from the recording
 before the album or the artist, and told the model most breaks are better without either, so a countdown host
 whose first quirk asked for "the reason somebody cared about it" was hedging between its sheet and its prompt.
@@ -514,6 +514,41 @@ listener can name, which `mustNameRecord` refuses over, and drops only the order
 bulletin under a keen presenter is handed what it always was. The grounding rules are the part that does not
 move: "say only what the notes tell you" is the same sentence, and a record with no notes still gets the
 paragraph saying the station knows nothing about it.
+
+**`never` is the same field read the other way, and it is decided in code rather than in the prompt.** The
+ordinary break's notes are optional, and "optional" turned out to be something a model reads as an offer to
+take, so a character whose job is a reaction could not be kept off trivia by any wording. At `never` the job
+still reads the ordinary budget, UNSTAMPED, and then withholds the notes from both records before the prompt
+is built (`factPlan` and `withholdFacts` in `break.request.builder.ts`). Read rather than skipped, because
+whether a story is offered (`storytelling: occasionally`) asks whether the station knew anything, and a
+`never` presenter answered "nothing" on every link would be handed a story on every link. Unstamped, because a
+note this character was never going to use should rest for whoever presents next. What falls out of the
+prompt with the notes is the notes paragraph and every year a note would have permitted, so `invented-year`
+holds the character to the record's own year. The shape's veto still applies: a kind that does not offer the
+rung reads and shows as ordinary under a `never` presenter. Three places key on the rung by NAME for this
+reason (the shape's `triviaRules`, the notes paragraph, both consoles' readouts), so a rung added later falls
+to the ordinary behaviour until it is given its own.
+
+**`always` is the middle the field was missing: a presenter with patter of its own, who should still say
+something true about the music every time.** The ordinary break offers notes a model mostly declines, and
+`keen` makes them the whole break. At `always` CODE chooses one fact for the break,
+`EnrichmentReadService.factForBreak`: a sourced claim about the next record, then one about the previous
+record, then a provider line, next before previous, with only the chosen claim stamped. It goes on the record
+it is about and the other record is shown none, since a second record's notes beside it would be the list
+this rung replaces. The prompt carries `TRIVIA_INSTRUCTIONS.always` in the system turn, the ceiling rises to
+`TRIVIA_MAX_WORDS.always`, and `notesParagraph` asks for "the note" outright rather than offering it, because
+the optionality the ordinary paragraph states first is exactly what this rung takes away from the model. The
+story-first rules stay `keen`'s. A break whose records the station knows nothing about is shown no note and
+written as an ordinary link. Whether the fact was actually said is measured rather than refused; see
+`breaks.md` § "A claim needs its evidence".
+
+**`sometimes` is `always` on a share of links and `never` on the rest**, drawn per break by `triviaForBreak`
+from the segment id against `SOMETIMES_FACT_ODDS` (a third), through `drawOf` rather than a random so a
+re-offered break draws the same way. The draw happens where the facts are read, so the builder and the
+audition see only `always` or `never` and take those paths unchanged: a link that drew nothing reads
+unstamped and is shown nothing. The prompt is not told which way it drew. Its system line speaks for both
+("when you are given a note"), its ceiling is `always`'s on every link so the guard and the prompt cannot
+disagree, and `notesParagraph` gives it `always`'s paragraph, which only appears where a note was shown.
 
 ## Hearing a character before it goes on air
 

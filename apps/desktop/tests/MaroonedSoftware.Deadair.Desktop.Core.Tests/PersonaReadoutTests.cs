@@ -22,6 +22,25 @@ public class PersonaReadoutTests
     }
 
     [Fact]
+    public void OnlyAKeenPresenterRunsLong_SoARungAddedLaterKeepsTheUsualLength()
+    {
+        Assert.Contains("as long as it takes", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "keen"), StringComparison.Ordinal);
+        Assert.Contains("the station's usual length", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "never"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnAlwaysPresenterWorksOneFactIntoEveryLink() =>
+        Assert.Contains("into every link", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "always"), StringComparison.Ordinal);
+
+    [Fact]
+    public void ASometimesPresenterWorksOneInNowAndThen() =>
+        Assert.Contains("Now and then", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "sometimes"), StringComparison.Ordinal);
+
+    [Fact]
+    public void ANeverPresenterSaysItIsNotToldWhatTheStationKnows() =>
+        Assert.Contains("never told what the station knows", PersonaReadout.Describe(string.Empty, string.Empty, string.Empty, string.Empty, "never"), StringComparison.Ordinal);
+
+    [Fact]
     public void RoomWithoutBrevityRunsAsLongAsItTakes_AndBrevityStillWins()
     {
         Assert.Contains("as long as it takes", PersonaReadout.Describe(string.Empty, "loose", string.Empty, string.Empty, string.Empty), StringComparison.Ordinal);

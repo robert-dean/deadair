@@ -708,7 +708,7 @@ export interface DeadairPersonas {
   storytelling: string | null;
   style: string;
   templates: string | null;
-  trivia: "keen" | null;
+  trivia: "keen" | "never" | "always" | "sometimes" | null;
   updatedAt: Generated<DateTime>;
   voice: string | null;
 }
@@ -981,6 +981,7 @@ export interface DeadairScriptHistory {
   createdAt: Generated<DateTime>;
   delivery: string | null;
   durationMs: number | null;
+  factUsed: boolean | null;
   id: Generated<string>;
   kind: string;
   label: string | null;

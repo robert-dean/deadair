@@ -39,7 +39,7 @@ public static partial class PersonaReadout
         {
             "one-line" => "one line",
             "short" => "a sentence or two",
-            _ when latitude.Length == 0 && trivia.Length == 0 => "the station's usual length",
+            _ when latitude.Length == 0 && trivia != "keen" => "the station's usual length",
             _ => "as long as it takes",
         };
 
@@ -51,7 +51,14 @@ public static partial class PersonaReadout
         };
 
         // Material rather than manner, so a sentence of its own rather than another clause.
-        var lore = trivia == "keen" ? " It builds each link out of the story behind the record, from what the station knows about it." : string.Empty;
+        var lore = trivia switch
+        {
+            "keen" => " It builds each link out of the story behind the record, from what the station knows about it.",
+            "always" => " It works one thing the station knows about the music into every link.",
+            "sometimes" => " Now and then it works one thing the station knows about the music into a link.",
+            "never" => " It is never told what the station knows about the records.",
+            _ => string.Empty,
+        };
 
         var stories = storytelling switch
         {

@@ -82,6 +82,12 @@ export interface ScriptWrite {
     outcome: ScriptOutcome;
     /** Why, for anything that is not `written`. */
     reason?: string;
+    /**
+     * Whether the script said the one fact the break was handed, for a presenter at `trivia: always`
+     * (`mentionsFact`). Absent where no fact was required, where nothing was written, and where the
+     * fact had nothing distinctive to look for. Written and never read here: it is a number for SQL.
+     */
+    factUsed?: boolean;
     /** The provider's own token counts, when it reported any. */
     usage?: Record<string, number>;
     durationMs?: number;
@@ -271,6 +277,7 @@ export class ScriptHistoryRepository extends DataRepository {
                 next: toJsonb(write.next),
                 outcome: write.outcome,
                 reason: write.reason ?? null,
+                factUsed: write.factUsed ?? null,
                 usage: toJsonb(write.usage),
                 durationMs: write.durationMs ?? null,
                 prompt: toJsonb(write.prompt),

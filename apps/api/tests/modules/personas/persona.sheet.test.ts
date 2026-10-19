@@ -34,6 +34,8 @@ import {
     subjectsVisited,
     growthOf,
     triviaOf,
+    triviaForBreak,
+    SOMETIMES_FACT_ODDS,
 } from '../../../src/modules/personas/persona.sheet.js';
 
 describe('personaLines', () => {
@@ -939,10 +941,29 @@ describe('triviaOf', () => {
 
     it('takes the rung when one is set', () => {
         expect(triviaOf({ trivia: 'keen' })).toBe('keen');
+        expect(triviaOf({ trivia: 'never' })).toBe('never');
     });
 
     it('falls back rather than trusting a hand-edited row', () => {
         expect(triviaOf({ trivia: 'obsessive' } as never)).toBeUndefined();
+    });
+
+    it('draws "sometimes" into "always" or "never" per break, the same way every time', () => {
+        const ids = Array.from({ length: 300 }, (_, i) => `seg-${i}`);
+        const drawn = ids.map(id => triviaForBreak({ trivia: 'sometimes' }, id));
+
+        expect(new Set(drawn)).toEqual(new Set(['always', 'never']));
+        expect(ids.map(id => triviaForBreak({ trivia: 'sometimes' }, id))).toEqual(drawn);
+        const hits = drawn.filter(rung => rung === 'always').length;
+        expect(hits).toBeGreaterThan(300 * SOMETIMES_FACT_ODDS * 0.7);
+        expect(hits).toBeLessThan(300 * SOMETIMES_FACT_ODDS * 1.3);
+    });
+
+    it('passes every other rung, and none, through unchanged', () => {
+        expect(triviaForBreak({ trivia: 'keen' }, 'seg-1')).toBe('keen');
+        expect(triviaForBreak({ trivia: 'always' }, 'seg-1')).toBe('always');
+        expect(triviaForBreak({ trivia: 'never' }, 'seg-1')).toBe('never');
+        expect(triviaForBreak({}, 'seg-1')).toBeUndefined();
     });
 
     it('adds nothing to the sheet’s own lines, since the shape decides whether it is said', () => {

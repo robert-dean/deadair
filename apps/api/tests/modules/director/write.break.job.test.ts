@@ -21,6 +21,8 @@ import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
 import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import { drawOf } from '../../../src/modules/shared/rotation.js';
+import { SOMETIMES_FACT_ODDS } from '../../../src/modules/personas/persona.sheet.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -54,6 +56,8 @@ function harness(
         /** What the station knows about the records either side, keyed by track id. */
         facts?: Map<string, string[]>;
         factsThrow?: boolean;
+        /** What `factForBreak` answers, for a presenter at `always`. */
+        fact?: { trackId: string; fact: string };
         /** The persona on air, for the one test about handing it to the writers. */
         persona?: Persona;
         /** The regular host a guest sits in for, for the tests about saying whose show it is. */
@@ -150,6 +154,9 @@ function harness(
     const enrichment = {
         factsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
             options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
+        ),
+        factForBreak: vi.fn(async (_previous: string | undefined, _next: string | undefined, _rotate?: number) =>
+            options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : options.fact,
         ),
     };
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
@@ -979,6 +986,21 @@ describe('WriteBreakJob', () => {
             expect(known.tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
         });
 
+        it('offers none by default to a presenter never handed the notes, when the station knew something', async () => {
+            // The notes are withheld from the prompt, and that must not read as the station knowing
+            // nothing: a story would then fill every link the presenter was kept from the facts on.
+            const { job, writers } = harness({
+                lineup: catalogued(),
+                persona: { ...persona(), trivia: 'never' } as Persona,
+                story,
+                facts: knownRecords,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+        });
+
         it('offers one at "often" even where both records carry notes', async () => {
             const { job, writers } = harness({ lineup: catalogued(), persona: persona('often'), story, facts: knownRecords });
 
@@ -1673,6 +1695,14 @@ describe('WriteBreakJob', () => {
             expect(logger.warn).toHaveBeenCalledOnce();
         });
 
+        it('records nothing about a fact being said where none was asked for', async () => {
+            const { job, history } = harness({ lineup: withIds(), facts: new Map([['track-a', ['Born in New Malden in 1948.']]]) });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordAll.mock.calls[0]?.[0]?.[0]).not.toHaveProperty('factUsed');
+        });
+
         it('keeps the facts a writer was shown on the record of the write', async () => {
             // A break that said nothing interesting and a break that was TOLD nothing interesting
             // read identically from the script, and the tables cannot answer it afterwards.
@@ -1723,6 +1753,177 @@ describe('WriteBreakJob', () => {
                 await job.run({ segmentId: 'seg-1' });
 
                 expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+            });
+        });
+
+        // The other end of the same field: a presenter whose job is a reaction, and who is better
+        // without the notes than with an invitation to use them.
+        describe('under a presenter never handed the notes', () => {
+            const never = { id: 'p-1', key: 'shockjock', label: 'Shock jock', style: 'a shock jock', defaultHost: true, trivia: 'never' } as Persona;
+            const known = new Map([
+                ['track-a', ['John Martyn was born in New Malden in 1948.']],
+                ['track-b', ['Nick Drake: English singer-songwriter.']],
+            ]);
+
+            it('reads the ordinary budget without resting any of it', async () => {
+                const { job, enrichment } = harness({ lineup: withIds(), persona: never, facts: known });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+            });
+
+            it('shows the writer neither record’s notes, and records none against the write', async () => {
+                const { job, writers, history } = harness({ lineup: withIds(), persona: never, facts: known });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' },
+                        next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b' },
+                    }),
+                );
+                expect(history.recordAll.mock.calls[0]?.[0]?.[0]?.previous).not.toHaveProperty('facts');
+            });
+
+            it('reads and shows as ordinary for a kind of break that does not offer the rung', async () => {
+                const { job, enrichment } = harness({ lineup: withIds(), persona: never, segment: planned({ kind: 'story' }), facts: known });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+            });
+        });
+
+        // Between the two: code chooses the one fact the break carries, and the model only says it.
+        describe('under a presenter handed one fact for every link', () => {
+            const always = {
+                id: 'p-1',
+                key: 'classic',
+                label: 'Classic host',
+                style: 'a classic host',
+                defaultHost: true,
+                trivia: 'always',
+            } as Persona;
+
+            it('asks for the one fact rather than a list, and puts it on the record it is about', async () => {
+                const { job, writers, enrichment } = harness({
+                    lineup: withIds(),
+                    persona: always,
+                    fact: { trackId: 'track-b', fact: 'Pink Moon was recorded in two late-night sessions.' },
+                });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).not.toHaveBeenCalled();
+                expect(enrichment.factForBreak).toHaveBeenCalledWith('track-a', 'track-b', expect.any(Number));
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' },
+                        next: {
+                            title: 'Pink Moon',
+                            artist: 'Nick Drake',
+                            trackId: 'track-b',
+                            facts: ['Pink Moon was recorded in two late-night sessions.'],
+                        },
+                    }),
+                );
+            });
+
+            it('records whether the script said the fact it was asked for', async () => {
+                const fact = { trackId: 'track-b', fact: 'Pink Moon was recorded with John Wood at Sound Techniques.' };
+                // What the registry hands back when the model wrote these words.
+                const spoke = (script: string) => ({
+                    written: { script, label: 'talking' },
+                    writer: 'model',
+                    attempts: [{ writer: 'model', outcome: 'written' as const, written: { script, label: 'talking' }, durationMs: 1 }],
+                });
+                const said = harness({ lineup: withIds(), persona: always, fact, written: spoke('Cut with John Wood, this one. Pink Moon.') });
+                const skipped = harness({ lineup: withIds(), persona: always, fact, written: spoke('Here is Pink Moon.') });
+
+                await said.job.run({ segmentId: 'seg-1' });
+                await skipped.job.run({ segmentId: 'seg-1' });
+
+                expect(said.history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({ factUsed: true });
+                expect(skipped.history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({ factUsed: false });
+            });
+
+            it('shows neither record a note when the station had nothing to say', async () => {
+                const { job, writers } = harness({ lineup: withIds(), persona: always });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
+                );
+            });
+
+            it('asks for the same fact on a retry', async () => {
+                const first = harness({ lineup: withIds(), persona: always });
+                await first.job.run({ segmentId: 'seg-1' });
+                const second = harness({ lineup: withIds(), persona: always });
+                await second.job.run({ segmentId: 'seg-1' });
+
+                expect(second.enrichment.factForBreak.mock.calls[0]![2]).toBe(first.enrichment.factForBreak.mock.calls[0]![2]);
+            });
+
+            it('writes the break anyway when the fact cannot be read', async () => {
+                const { job, segments, logger } = harness({ lineup: withIds(), persona: always, factsThrow: true });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(segments.writeScript).toHaveBeenCalled();
+                expect(logger.warn).toHaveBeenCalledOnce();
+            });
+        });
+
+        // A share of links drawn per segment, each treated exactly as one of the two rungs either side.
+        describe('under a presenter handed one fact on some links', () => {
+            const sometimes = {
+                id: 'p-1',
+                key: 'classic',
+                label: 'Classic host',
+                style: 'a classic host',
+                defaultHost: true,
+                trivia: 'sometimes',
+            } as Persona;
+            const ids = Array.from({ length: 50 }, (_, i) => `seg-${i}`);
+            const hit = ids.find(id => drawOf(`${id}:fact`) < SOMETIMES_FACT_ODDS)!;
+            const miss = ids.find(id => drawOf(`${id}:fact`) >= SOMETIMES_FACT_ODDS)!;
+            const known = new Map([['track-a', ['John Martyn was born in New Malden in 1948.']]]);
+
+            it('asks for the one fact on a link that drew one', async () => {
+                const { job, writers, enrichment } = harness({
+                    lineup: withIds(hit),
+                    segment: planned({ id: hit }),
+                    persona: sometimes,
+                    fact: { trackId: 'track-a', fact: 'John Martyn was born in New Malden in 1948.' },
+                });
+
+                await job.run({ segmentId: hit });
+
+                expect(enrichment.factForBreak).toHaveBeenCalled();
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({ previous: expect.objectContaining({ facts: ['John Martyn was born in New Malden in 1948.'] }) }),
+                );
+            });
+
+            it('shows nothing and rests nothing on a link that did not', async () => {
+                const { job, writers, enrichment } = harness({
+                    lineup: withIds(miss),
+                    segment: planned({ id: miss }),
+                    persona: sometimes,
+                    facts: known,
+                });
+
+                await job.run({ segmentId: miss });
+
+                expect(enrichment.factForBreak).not.toHaveBeenCalled();
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
+                );
             });
         });
 

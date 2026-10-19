@@ -32,7 +32,7 @@ mdx:
 | `latitude`          | `'loose' \| 'unleashed'`                                            | No       |             |
 | `chattiness`        | `'reserved' \| 'sparing' \| 'ordinary' \| 'chatty' \| 'relentless'` | No       |             |
 | `storytelling`      | `'never' \| 'occasionally' \| 'often'`                              | No       |             |
-| `trivia`            | `'keen'`                                                            | No       |             |
+| `trivia`            | `'keen' \| 'never' \| 'always' \| 'sometimes'`                      | No       |             |
 | `samples`           | `string[]`                                                          | No       |             |
 | `templates`         | `string`                                                            | No       |             |
 

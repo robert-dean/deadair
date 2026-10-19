@@ -17,6 +17,7 @@ import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.history.HistoryRepository
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
 import com.maroonedsoftware.deadair.nowplaying.Reading
+import com.maroonedsoftware.deadair.playback.PlaybackJournal
 import com.maroonedsoftware.deadair.playout.AirActions
 import com.maroonedsoftware.deadair.playout.PlayoutRepository
 import com.maroonedsoftware.deadair.playout.Transport
@@ -29,6 +30,7 @@ import com.maroonedsoftware.deadair.widget.coverBitmap
 import com.maroonedsoftware.deadair.widget.WidgetFeed
 import com.maroonedsoftware.deadair.widget.WidgetRefreshWorker
 import com.maroonedsoftware.deadair.widget.WidgetSnapshotStore
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -170,6 +172,18 @@ class AppGraph(private val application: Application) {
      * draws the poll's own reading, which is the station's word for what is on.
      */
     val aired: StateFlow<Reading?> = _aired.asStateFlow()
+
+    /**
+     * What happened to playback on this phone, for the listener to share after a drop. Process-lifetime
+     * like the poll, and written on the IO dispatcher because it appends to a file.
+     */
+    val playbackJournal: PlaybackJournal =
+        PlaybackJournal(
+            file = File(File(application.filesDir, "playback"), "journal.txt"),
+            // Wall-clock: the journal is read as times of day, a day later.
+            now = System::currentTimeMillis,
+            scope = CoroutineScope(scope.coroutineContext + Dispatchers.IO),
+        )
 
     /** Set by `PlaybackConductor`, the one place that knows what reached the listener. */
     fun onAired(reading: Reading?) {

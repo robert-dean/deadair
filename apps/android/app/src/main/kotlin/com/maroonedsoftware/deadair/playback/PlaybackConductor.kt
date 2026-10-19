@@ -91,8 +91,8 @@ class PlaybackConductor(
             },
             publish = publishSleep,
         )
-    /** Says why the audio stopped, which `policy` acts on without recording. */
-    private val playbackLog = PlaybackLog(player)
+    /** Says why the audio stopped, which `policy` acts on without recording, to logcat and to the journal. */
+    private val playbackLog = PlaybackLog(player, graph.playbackJournal::record)
     private val policy =
         ReconnectPolicy(
             backoff = Backoff(),

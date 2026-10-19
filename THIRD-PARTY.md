@@ -17,7 +17,7 @@ broadcast any music.
 
 | Component                                                            | Version                 | Licence                     | Present in         |
 | -------------------------------------------------------------------- | ----------------------- | --------------------------- | ------------------ |
-| [Liquidsoap](https://github.com/savonet/liquidsoap)                   | 2.4.5                   | GPL-2.0-or-later            | all variants       |
+| [Liquidsoap](https://github.com/savonet/liquidsoap)                   | 2.4.6                   | GPL-2.0-or-later            | all variants       |
 | [Icecast](https://gitlab.xiph.org/xiph/icecast-server) (LibreTime image) | 2.5.0                 | GPL-2.0                     | all variants       |
 | [go-librespot](https://github.com/devgianlu/go-librespot)             | v0.7.4                  | **GPL-3.0**                 | all variants       |
 | [nginx](https://nginx.org)                                            | nginx.org stable, Debian trixie | BSD-2-Clause        | all variants       |

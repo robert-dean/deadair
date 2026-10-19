@@ -23,7 +23,7 @@ import wave
 from array import array
 
 RATE = 22_050
-IMAGE = "savonet/liquidsoap:v2.4.5"
+IMAGE = "savonet/liquidsoap:v2.4.6"
 HERE = os.path.dirname(os.path.abspath(__file__))
 AIMS = (-13.0, -18.0)
 

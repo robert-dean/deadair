@@ -1,8 +1,11 @@
 // The OTLP export is a second destination for the minute the station has just written for itself, so
 // what is pinned is the switch (nothing at all until an endpoint is set), the reading of a pasted
 // collector address and its headers, what kind each metric goes out as, and that a collector being
-// down is logged at its edges and never thrown.
+// down is logged at its edges and never thrown. And what a collector is sent: a minute flushed in two
+// parts as one growing total, from a service.instance.id that is this process's own.
 
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { aggregateOf, labelsKey, type MetricBucket } from '@maroonedsoftware/telemetry';
@@ -134,5 +137,60 @@ describe('OtlpExport', () => {
 
         await otlp.export([]);
         expect(held.spans).toHaveLength(0);
+    });
+
+    it('gives each process its own service.instance.id, kept across exporter rebuilds, with the station beside it', async () => {
+        const one = new OtlpExport(container(), config({}), new StationIdentity(), logger() as never);
+        const two = new OtlpExport(container(), config({}), new StationIdentity(), logger() as never);
+
+        expect(one.instanceId).not.toBe(two.instanceId);
+        expect(one.resource().attributes).toEqual({ 'service.name': 'deadair', 'service.instance.id': one.instanceId, 'deadair.station': 'main' });
+        expect(one.resource().attributes['service.instance.id']).toBe(one.instanceId);
+    });
+
+    it('sends a minute flushed in two parts as one cumulative total that grows, not two points over the same minute', async () => {
+        const bodies: unknown[] = [];
+        const server = createServer((request, response) => {
+            let body = '';
+            request.on('data', chunk => (body += chunk));
+            request.on('end', () => {
+                bodies.push(JSON.parse(body));
+                response.writeHead(200, { 'content-type': 'application/json' }).end('{}');
+            });
+        });
+        await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address() as AddressInfo;
+        const otlp = new OtlpExport(
+            container(),
+            config({ [OTLP_KEYS.endpoint]: `http://127.0.0.1:${port}` }),
+            new StationIdentity(),
+            logger() as never,
+        );
+        const tokens = (value: number): MetricBucket => ({ ...bucket(), name: 'model.tokens.input', aggregate: aggregateOf(value) });
+
+        try {
+            await otlp.export([tokens(100)]);
+            await otlp.export([tokens(40)]);
+        } finally {
+            await otlp.close();
+            server.close();
+        }
+
+        type Sent = {
+            resourceMetrics: {
+                resource: { attributes: { key: string; value: { stringValue?: string } }[] };
+                scopeMetrics: {
+                    metrics: { sum: { aggregationTemporality: number; dataPoints: { asDouble: number; startTimeUnixNano: string }[] } }[];
+                }[];
+            }[];
+        };
+        const sent = (bodies as Sent[]).map(body => body.resourceMetrics[0]!);
+        const points = sent.map(metrics => metrics.scopeMetrics[0]!.metrics[0]!.sum);
+
+        // 2 is CUMULATIVE in OTLP's AggregationTemporality.
+        expect(points.map(sum => sum.aggregationTemporality)).toEqual([2, 2]);
+        expect(points.map(sum => sum.dataPoints[0]!.asDouble)).toEqual([100, 140]);
+        expect(points[1]!.dataPoints[0]!.startTimeUnixNano).toBe(points[0]!.dataPoints[0]!.startTimeUnixNano);
+        expect(sent[0]!.resource.attributes.find(attribute => attribute.key === 'service.instance.id')?.value.stringValue).toBe(otlp.instanceId);
     });
 });

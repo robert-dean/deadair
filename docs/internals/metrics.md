@@ -140,9 +140,21 @@ other page pays for it.
 the table, and the export sends it through `@maroonedsoftware/telemetry/otlp`'s bridge to an
 `OTLPMetricExporter` (OTLP over HTTP with JSON, at `<endpoint>/v1/metrics`). No `MeterProvider` sits
 in between: the buckets are already aggregates. Durations go as histograms (count, sum, min, max),
-tokens and failures as monotonic counters, the rest as gauges, all with **delta** temporality, so a
-collector feeding Prometheus needs its `deltatocumulative` processor. The resource is
-`service.name=deadair`, `service.instance.id=<station key>`.
+tokens and failures as monotonic counters, the rest as gauges. **Counters and histograms are
+cumulative**: the bridge keeps each series' running total from its first minute and sends the whole
+total on every flush, so Prometheus takes them with no `deltatocumulative` processor. They were delta
+until 2026-10-19, and that was wrong for this flusher: it drains the still-open minute (the table
+merges it, and Trends wants it), so the rest of every minute went out as a second delta point over the
+same interval, and a collector keeps one of the two. `drainClosed()` would have fixed delta too, at
+the cost of holding every minute back from the table until it ended. A running total also carries a
+collector outage's counts into the next export that lands; a gauge's readings from the outage are gone.
+
+**The resource is `service.name=deadair`, `service.instance.id=<a UUID made at boot>`,
+`deadair.station=<station key>`.** The instance id is the process's own, kept across exporter
+rebuilds, and not the station key it used to be: a cumulative series is keyed by its resource, so a
+restart, or the old container still flushing beside the new one during a deploy, would otherwise be
+one series whose total went backwards. Changing the endpoint or its headers rebuilds the bridge, which
+starts every total again from a later start time, which a collector reads as a reset.
 
 **Off until an endpoint is set, read on every flush.** Naming, changing or clearing the endpoint takes
 effect within a minute with no restart; the exporter is rebuilt only when the endpoint or its headers
@@ -154,8 +166,9 @@ directly (it failed the boot the first time), so the headers are decrypted in a 
 and only when the stored value changes.
 
 **A collector that is down never costs the table its minute**, and the export never throws: it is
-logged when it goes and when it comes back, by its address and never its headers, and the minutes in
-between are dropped rather than queued, on the flusher's own rule.
+logged when it goes and when it comes back, by its address and never its headers, and nothing is
+queued for it, on the flusher's own rule: the running totals already hold what it missed, and the
+spans and gauge readings in between are dropped.
 
 **Traces are the trace file's spans, sent on.** The same `onSpan` listener that counts work hands each
 span to `OtlpExport.queueSpan`, which holds up to 5,000 between flushes (past that a span is counted and

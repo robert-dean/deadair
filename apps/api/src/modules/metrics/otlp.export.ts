@@ -1,10 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { Container, Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { Logger } from '@maroonedsoftware/logger';
 import type { FinishedSpan, MetricBucket } from '@maroonedsoftware/telemetry';
 import { OtlpMetricsBridge, OtlpSpanBridge, type MetricKind } from '@maroonedsoftware/telemetry/otlp';
-import { OTLPMetricExporter, AggregationTemporalityPreference } from '@opentelemetry/exporter-metrics-otlp-http';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes, type Resource } from '@opentelemetry/resources';
 import { errorText } from '#modules/shared/error.text.js';
@@ -29,6 +30,11 @@ export const MAX_SPAN_BUFFER = 5000;
  * How each of the station's metrics goes out. Durations as histograms, so a collector keeps their
  * count, sum and extremes; tokens and failures as counters; everything else (listeners, the library,
  * the disk, the model's queue) as a gauge.
+ *
+ * Counters and histograms go out CUMULATIVE: the bridge keeps each series' running total and sends it
+ * whole on every flush. The flusher drains the still-open minute too (the table merges it, and Trends
+ * wants it), so with delta temporality the rest of a minute flushed early went out as a second point
+ * over the same interval, which a collector keeps one of. A cumulative total just grows.
  */
 export function metricKind(name: string): MetricKind {
     if (name.endsWith('.ms')) return 'histogram';
@@ -82,7 +88,12 @@ class Outage {
  *
  * **Nothing here may cost the station its own work.** The flusher calls this after the table write and
  * this never throws: a collector that is down is logged when it goes and when it comes back, and what
- * fell in between is dropped rather than queued, which is the flusher's own rule for its own table.
+ * fell in between is not queued: a counter's or histogram's running total carries it into the next
+ * export that lands, and a gauge's readings from the outage are simply gone.
+ *
+ * **Each process is its own `service.instance.id`**, a fresh UUID at boot. A cumulative series is
+ * keyed by its resource, so a restart, or the old container still flushing beside the new one during a
+ * deploy, would otherwise be one series whose total went backwards or interleaved two.
  */
 @Injectable()
 export class OtlpExport {
@@ -93,6 +104,8 @@ export class OtlpExport {
     private droppedSpans = 0;
     private readonly metricsOutage: Outage;
     private readonly tracesOutage: Outage;
+    /** This process's `service.instance.id`, the same across every exporter rebuild it makes. */
+    readonly instanceId = randomUUID();
 
     constructor(
         private readonly container: Container,
@@ -213,11 +226,11 @@ export class OtlpExport {
                 exporter: new OTLPMetricExporter({
                     ...common,
                     url: otlpSignalUrl(settings.endpoint, 'metrics'),
-                    temporalityPreference: AggregationTemporalityPreference.DELTA,
                 }),
                 resource,
                 scope: 'deadair',
                 kindOf: metricKind,
+                temporality: 'cumulative',
             }),
             spans: new OtlpSpanBridge({
                 exporter: new OTLPTraceExporter({ ...common, url: otlpSignalUrl(settings.endpoint, 'traces') }),
@@ -228,7 +241,12 @@ export class OtlpExport {
         return this.current;
     }
 
-    private resource(): Resource {
-        return resourceFromAttributes({ 'service.name': 'deadair', 'service.instance.id': this.identity.stationKey });
+    /** Who is sending: this process, and the station it airs, which used to be the instance id. */
+    resource(): Resource {
+        return resourceFromAttributes({
+            'service.name': 'deadair',
+            'service.instance.id': this.instanceId,
+            'deadair.station': this.identity.stationKey,
+        });
     }
 }

@@ -240,3 +240,29 @@ describe('syndicated segments', () => {
         expect(statements[0]?.parameters).toContain('syndicated');
     });
 });
+
+// What the next break is told the station said recently, when no broadcast is on to remember it. An
+// operator's own script, typed in through POST /segments, has no writer and was never the station
+// choosing a phrase, so it must not count against the writer's openings.
+describe('SegmentRepository.recentScripts', () => {
+    it('asks only for scripts a writer wrote, of the kind asked for, newest first', async () => {
+        const statements: Statement[] = [];
+        const scripts = await new SegmentRepository(fakeDb([{ script: 'the newer' }, { script: 'the older' }], statements), identity()).recentScripts(
+            'talkbreak',
+            5,
+        );
+
+        expect(scripts).toEqual(['the newer', 'the older']);
+        expect(statements[0]?.sql).toContain('"writer" is not null');
+        expect(statements[0]?.sql).toContain('"script" is not null');
+        expect(statements[0]?.sql).toMatch(/order by "created_at" desc/);
+        expect(statements[0]?.parameters).toContain('talkbreak');
+    });
+
+    it('costs no query for an empty window', async () => {
+        const statements: Statement[] = [];
+
+        expect(await new SegmentRepository(fakeDb([], statements), identity()).recentScripts('talkbreak', 0)).toEqual([]);
+        expect(statements).toEqual([]);
+    });
+});

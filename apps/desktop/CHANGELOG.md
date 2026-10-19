@@ -8,6 +8,13 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-10-19
+
+- A persona can now be set to always work one fact about the music into every link ("How much they lean on what the station knows" → Always). The station picks the fact, preferring a sourced one about the record coming up, and the presenter says it in their own words beside their usual patter.
+- A persona can now be set to never be handed what the station knows about the records ("How much they lean on what the station knows" → Never). Its links are written from the records alone, and the facts it is not shown stay unused for whoever presents next.
+- A persona can now be set to work one fact about the music into a link now and then ("How much they lean on what the station knows" → Sometimes): about a third of its links carry one, chosen by the station, and the rest carry none.
+- A character whose sheet carries a dial setting this build does not know (one the station added after the app was built) now opens, with that dial showing the station's usual, rather than failing to load.
+
 ## [0.15.0] — 2026-10-19
 
 - Signing in answers an emailed code as well as an authenticator code. An account whose second factor is email (with or without a passkey beside it) is sent a code and can ask for it again, instead of being told to sign in on the web console, and an account with both an authenticator and email can choose "Email me a code instead". A passkey or phone factor alone is still refused, with words that no longer suggest email is the problem.
@@ -160,7 +167,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.15.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.0...HEAD
+[0.16.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.15.0...desktop-v0.16.0
 [0.15.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.1...desktop-v0.15.0
 [0.14.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.0...desktop-v0.14.1
 [0.14.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.3...desktop-v0.14.0

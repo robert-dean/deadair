@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-10-19
+
+- "Forgot your password?" with an address the station cannot read as one now says "That is not an email address. Check what you typed." It used to say the station could not be reached, which sent somebody to check their network instead of their spelling.
+
 ## [0.14.0] — 2026-10-17
 
 - Sign-in has "Forgot your password?": it asks the station to email a link to the address typed, which opens the station in a browser to choose a new password, and the panel then says to check that inbox. With no address typed it asks for one first. A station that has sent that address enough links, or cannot send email at all, is said plainly.
@@ -152,7 +156,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.1...HEAD
+[0.14.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.0...desktop-v0.14.1
 [0.14.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.3...desktop-v0.14.0
 [0.13.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.2...desktop-v0.13.3
 [0.13.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.1...desktop-v0.13.2

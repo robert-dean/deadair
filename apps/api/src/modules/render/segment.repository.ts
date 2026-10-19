@@ -820,6 +820,12 @@ export class SegmentRepository extends DataRepository {
      * again as though it were fresh is how a phrasing that never aired blocks nothing while one that
      * did blocks everything.
      *
+     * **Only words a writer wrote.** A segment typed in through `POST /segments` has no `writer`, and
+     * listing it here would tell the next break "you said these recently" about an operator's own
+     * script, which then counts against the writer's openings and overused words as though the
+     * station had chosen it. `script_history`, which the broadcast path reads, is filled by the
+     * writers alone; this keeps the fallback saying the same thing.
+     *
      * This is the cheap seed of "what the station said", and it stops being enough the moment a
      * persona is involved: a character sheet asking for a signature phrase now and then is an
      * instruction no writer can follow from scripts alone. That wants its own table rather than a
@@ -833,6 +839,7 @@ export class SegmentRepository extends DataRepository {
             .select('script')
             .where('kind', '=', kind)
             .where('script', 'is not', null)
+            .where('writer', 'is not', null)
             .orderBy('createdAt', 'desc')
             .limit(limit)
             .execute();

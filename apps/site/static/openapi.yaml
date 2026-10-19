@@ -5176,6 +5176,41 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PronunciationList'
+    '/pronunciations/sample':
+        post:
+            operationId: samplePronunciation
+            summary: 'Sample pronunciation'
+            description: 'Speaks the written word as this entry says it, in one voice'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PronunciationSampleRequest'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'audio/mpeg':
+                            schema:
+                                type: string
+                                format: binary
+                        'audio/wav':
+                            schema:
+                                type: string
+                                format: binary
+                        'audio/ogg':
+                            schema:
+                                type: string
+                                format: binary
+                        'audio/flac':
+                            schema:
+                                type: string
+                                format: binary
+                        'audio/mp4':
+                            schema:
+                                type: string
+                                format: binary
     '/pronunciations/{id}':
         put:
             operationId: updatePronunciation
@@ -14760,6 +14795,25 @@ components:
                     enum: [active, suggested, rejected]
             required: [state]
             description: 'Accepting a proposal, turning one down, or taking an entry out of use without losing it'
+        PronunciationSampleRequest:
+            type: object
+            properties:
+                written:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'What is spoken, with this entry applied to it'
+                spoken:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: "How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear"
+                voice:
+                    type: string
+                    maxLength: 100
+                    description: "A station voice name. Absent uses the plugin's own default"
+            required: [written, spoken]
+            description: 'One entry to hear, whether or not the lexicon holds it yet'
         PronunciationQuery:
             type: object
             properties:

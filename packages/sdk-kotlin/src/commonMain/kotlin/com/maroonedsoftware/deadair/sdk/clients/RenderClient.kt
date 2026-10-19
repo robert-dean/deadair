@@ -12,6 +12,7 @@ import com.maroonedsoftware.deadair.sdk.models.PadState
 import com.maroonedsoftware.deadair.sdk.models.PadUse
 import com.maroonedsoftware.deadair.sdk.models.PronunciationList
 import com.maroonedsoftware.deadair.sdk.models.PronunciationQuery
+import com.maroonedsoftware.deadair.sdk.models.PronunciationSampleRequest
 import com.maroonedsoftware.deadair.sdk.models.PronunciationStateWrite
 import com.maroonedsoftware.deadair.sdk.models.PronunciationWrite
 import com.maroonedsoftware.deadair.sdk.models.ScriptAttempt
@@ -296,6 +297,24 @@ class RenderClient(private val http: SdkHttp) {
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
+    }
+
+    /**
+     * Sample pronunciation
+     * Speaks the written word as this entry says it, in one voice
+     */
+    suspend fun samplePronunciation(body: PronunciationSampleRequest): SamplePronunciationResponse {
+        val response = http.execute(HttpMethod.Post) {
+            path("pronunciations", "sample")
+            jsonBody(body, "application/json")
+        }
+        return when (response.contentType) {
+            "audio/wav" -> SamplePronunciationResponse.AudioWav(response.bytes)
+            "audio/ogg" -> SamplePronunciationResponse.AudioOgg(response.bytes)
+            "audio/flac" -> SamplePronunciationResponse.AudioFlac(response.bytes)
+            "audio/mp4" -> SamplePronunciationResponse.AudioMp4(response.bytes)
+            else -> SamplePronunciationResponse.AudioMpeg(response.bytes)
+        }
     }
 
     /**
@@ -655,6 +674,29 @@ sealed interface GetStoredAudioResponse {
     val headers: GetStoredAudio200Headers,
     ) : GetStoredAudioResponse
     data object Status304 : GetStoredAudioResponse
+}
+
+/**
+ * What POST /pronunciations/sample returned.
+ *
+ * The status declares several content types, so which one arrived is part of the value.
+ */
+sealed interface SamplePronunciationResponse {
+    data class AudioMpeg(
+        val data: ByteArray,
+    ) : SamplePronunciationResponse
+    data class AudioWav(
+        val data: ByteArray,
+    ) : SamplePronunciationResponse
+    data class AudioOgg(
+        val data: ByteArray,
+    ) : SamplePronunciationResponse
+    data class AudioFlac(
+        val data: ByteArray,
+    ) : SamplePronunciationResponse
+    data class AudioMp4(
+        val data: ByteArray,
+    ) : SamplePronunciationResponse
 }
 
 /** Response headers declared on GET /pads/{id}/audio. */

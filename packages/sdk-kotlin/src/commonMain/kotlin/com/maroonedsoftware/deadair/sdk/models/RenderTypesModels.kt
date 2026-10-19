@@ -240,6 +240,17 @@ data class PronunciationStateWrite(
     val state: PronunciationStateWriteState,
 )
 
+/** One entry to hear, whether or not the lexicon holds it yet */
+@Serializable
+data class PronunciationSampleRequest(
+    /** What is spoken, with this entry applied to it */
+    val written: String,
+    /** How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear */
+    val spoken: String,
+    /** A station voice name. Absent uses the plugin's own default */
+    val voice: String? = null,
+)
+
 /** Which part of the lexicon to read */
 @Serializable
 data class PronunciationQuery(

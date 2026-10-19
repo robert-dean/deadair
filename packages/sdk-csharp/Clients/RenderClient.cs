@@ -362,6 +362,32 @@ public sealed class RenderClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Sample pronunciation
+    /// Speaks the written word as this entry says it, in one voice
+    /// </summary>
+    public async Task<SamplePronunciationResponse> SamplePronunciationAsync(PronunciationSampleRequest body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("pronunciations", "sample"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        switch (response.ContentType)
+        {
+            case "audio/wav":
+                return new SamplePronunciationResponse.AudioWav(response.Bytes);
+            case "audio/ogg":
+                return new SamplePronunciationResponse.AudioOgg(response.Bytes);
+            case "audio/flac":
+                return new SamplePronunciationResponse.AudioFlac(response.Bytes);
+            case "audio/mp4":
+                return new SamplePronunciationResponse.AudioMp4(response.Bytes);
+            default:
+                return new SamplePronunciationResponse.AudioMpeg(response.Bytes);
+        }
+    }
+
+    /// <summary>
     /// Update pronunciation
     /// Rewrites one entry's words, whoever proposed it
     /// </summary>
@@ -714,6 +740,26 @@ public abstract record GetStoredAudioResponse
     public sealed record Status200AudioMp4(byte[] Data, GetStoredAudio200Headers Headers) : GetStoredAudioResponse;
 
     public sealed record Status304() : GetStoredAudioResponse;
+}
+
+/// <summary>
+/// What POST /pronunciations/sample returned.
+///
+/// The status declares several content types, so which one arrived is part of the value.
+/// </summary>
+public abstract record SamplePronunciationResponse
+{
+    private SamplePronunciationResponse() { }
+
+    public sealed record AudioMpeg(byte[] Data) : SamplePronunciationResponse;
+
+    public sealed record AudioWav(byte[] Data) : SamplePronunciationResponse;
+
+    public sealed record AudioOgg(byte[] Data) : SamplePronunciationResponse;
+
+    public sealed record AudioFlac(byte[] Data) : SamplePronunciationResponse;
+
+    public sealed record AudioMp4(byte[] Data) : SamplePronunciationResponse;
 }
 
 /// <summary>Response headers declared on GET /pads/{id}/audio.</summary>

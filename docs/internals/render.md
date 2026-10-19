@@ -444,6 +444,15 @@ character a script arrives with, so the only ones present at the end are the sta
 `modifiesWhatFollows` reads a held entry as a word, since `a $20 P!nk shirt` read singular when the name
 was still letters.
 
+**An entry can be heard before it is said, and that is its own route rather than a speech preview.**
+`POST /pronunciations/sample` takes the entry's words, not its id, and speaks the written form with that
+entry handed to `SpeechService.speakAs` ahead of the station's lexicon (replacing any station entry for
+the same written form), so a proposal, a turned-down row and a respelling still being typed can all be
+heard. `/voices/preview` could not do it either way: it applies only the ACTIVE lexicon, and handed the
+spoken form as plain text it runs that form through the very passes `hold` exists to keep it out of, which
+is `UN-guhr` becoming `U N-guhr` again. The entry is part of the sample key, so an adjusted respelling is a
+new file rather than the first attempt played back.
+
 **What a symbol stands for goes after the whole of what it names, and for `$` that was measured wrong twice.**
 `saySymbols` marks the currency where the digits stop, which is right for `$5.99` and wrong for every amount
 whose size is a separate word: `$17.1 Billion` went to the engine as `17.1#DOLLARS# Billion` and **aired as

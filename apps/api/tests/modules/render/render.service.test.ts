@@ -585,6 +585,44 @@ describe('RenderService.previewSpeech with a soundboard', () => {
     });
 });
 
+describe('RenderService.samplePronunciation', () => {
+    it('speaks the written word with the entry handed over, in the voice asked for', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('said'));
+
+        const response = await render.samplePronunciation({ written: ' Röyksopp ', spoken: 'royk-sop ', voice: 'host' });
+
+        expect(speakAs).toHaveBeenCalledWith(
+            SPEAKER,
+            expect.any(String),
+            expect.anything(),
+            { text: 'Röyksopp', voice: 'host' },
+            { maxWaitMs: expect.any(Number), priority: 'preview' },
+            [{ written: 'Röyksopp', spoken: 'royk-sop' }],
+        );
+        expect(response.body).toEqual(Buffer.from('said'));
+    });
+
+    it('keys two respellings of one word as two files, so an adjusted one is not played back as the first', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValue(undefined);
+
+        await render.samplePronunciation({ written: 'Sade', spoken: 'Shar-day' }).catch(() => undefined);
+        await render.samplePronunciation({ written: 'Sade', spoken: 'Shah-day' }).catch(() => undefined);
+
+        const keys = (speakAs.mock.calls as unknown as unknown[][]).map(call => call[1]);
+        expect(keys).toHaveLength(2);
+        expect(keys[0]).not.toBe(keys[1]);
+    });
+
+    it('refuses an entry with nothing to say, rather than asking the engine for silence', async () => {
+        const { service: render, speakAs } = service();
+
+        expect(await status(render.samplePronunciation({ written: 'Sade', spoken: '   ' }))).toBe(400);
+        expect(speakAs).not.toHaveBeenCalled();
+    });
+});
+
 describe('RenderService.previewSpeech', () => {
     it('speaks the words it was given, in the voice it was given', async () => {
         const { service: render, speakAs, sampleRead } = service();

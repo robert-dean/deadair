@@ -296,6 +296,21 @@ export const PronunciationStateWrite = z.strictObject({
 export type PronunciationStateWrite = z.infer<typeof PronunciationStateWrite>;
 
 /**
+ * One entry to hear, whether or not the lexicon holds it yet
+ * generated from [PronunciationSampleRequest](../../../../data/contracts/render/render.types.ck)
+ */
+export const PronunciationSampleRequest = z.strictObject({
+    written: z.string().min(1).max(200).describe('What is spoken, with this entry applied to it'),
+    spoken: z
+        .string()
+        .min(1)
+        .max(400)
+        .describe("How this entry says it. Not empty, unlike a stored entry's: an entry that drops the words has nothing to hear"),
+    voice: z.string().max(100).optional().describe("A station voice name. Absent uses the plugin's own default"),
+});
+export type PronunciationSampleRequest = z.infer<typeof PronunciationSampleRequest>;
+
+/**
  * Which part of the lexicon to read
  * generated from [PronunciationQuery](../../../../data/contracts/render/render.types.ck)
  */

@@ -10,6 +10,7 @@ import type {
     PadUse,
     PronunciationList,
     PronunciationQuery,
+    PronunciationSampleRequest,
     PronunciationStateWrite,
     PronunciationWrite,
     ScriptAttempt,
@@ -301,6 +302,24 @@ export class RenderClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<PronunciationList>(result);
+    }
+
+    /**
+     * @name Sample pronunciation
+     * @description Speaks the written word as this entry says it, in one voice
+     */
+    async samplePronunciation(
+        body: PronunciationSampleRequest,
+    ): Promise<{ contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4'; data: Blob }> {
+        const result = await this.fetch(`/pronunciations/sample`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return {
+            contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+            data: await result.blob(),
+        };
     }
 
     /**

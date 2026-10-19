@@ -1,7 +1,7 @@
 ---
 title: 'Set pad state'
 sidebar_label: 'Set pad state'
-sidebar_position: 25
+sidebar_position: 26
 mdx:
     format: 'md'
 ---

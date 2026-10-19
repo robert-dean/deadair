@@ -1,22 +1,26 @@
 import { useState } from 'react';
-import { ActionIcon, Anchor, Badge, Button, Card, Group, Stack, Table, Text, TextInput } from '@mantine/core';
-import { IconCheck, IconPencil, IconTrash, IconX } from '@tabler/icons-react';
+import { ActionIcon, Anchor, Badge, Button, Card, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core';
+import { IconCheck, IconPencil, IconPlayerPauseFilled, IconPlayerPlayFilled, IconTrash, IconX } from '@tabler/icons-react';
 import type { Pronunciation } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import {
+    fetchPronunciationSample,
     useCreatePronunciation,
     useDeletePronunciation,
     usePronunciations,
     useSetPronunciationState,
     useUpdatePronunciation,
 } from '../../api/pronunciations.queries';
+import { useVoices } from '../../api/voices.queries';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { severityColor } from '../shared/status';
+import { useVoicePreview, type VoicePreview } from '../voices/voice.preview';
 
 /**
  * How the station says a word.
@@ -35,6 +39,14 @@ import { PageSkeleton } from '../shared/page.skeleton';
  * Turning one down is a state rather than a deletion, and the section stays visible for the same
  * reason: the mining pass re-reads an article whenever a plugin hands over a new copy of it, so a
  * proposal that was deleted would come back, and come back again.
+ *
+ * ## Every entry can be heard
+ *
+ * A respelling is written for an engine, and only the engine can say whether it works. So every row
+ * has a play button, and so do the add and edit fields: what is heard is the written word with that
+ * entry applied, whatever its state, which is the point for a proposal and for a respelling still being
+ * typed. The voice is chosen once for the page, since the question is usually "how does THIS presenter
+ * say it".
  */
 export function PronunciationsPage() {
     const { t } = useTranslation(['pronunciations', 'common']);
@@ -43,6 +55,11 @@ export function PronunciationsPage() {
     const update = useUpdatePronunciation();
     const setState = useSetPronunciationState();
     const remove = useDeletePronunciation();
+    const voices = useVoices(true);
+    const preview = useVoicePreview();
+
+    // Absent is the plugin's own default, which is what a sample route given no voice speaks in.
+    const [voice, setVoice] = useState<string | undefined>(undefined);
 
     const [written, setWritten] = useState('');
     const [spoken, setSpoken] = useState('');
@@ -81,6 +98,20 @@ export function PronunciationsPage() {
                         {t('description')}
                     </Text>
                 }
+                actions={
+                    <Select
+                        size="xs"
+                        w={220}
+                        aria-label={t('listen.voice')}
+                        placeholder={t('listen.defaultVoice')}
+                        clearable
+                        // The plugin's own default answers to the empty string, which Mantine cannot hold
+                        // as an option value and which this Select already says by being cleared.
+                        data={(voices.data?.voices ?? []).filter(one => one.id.length > 0).map(one => ({ value: one.id, label: one.label }))}
+                        value={voice ?? null}
+                        onChange={next => setVoice(next ?? undefined)}
+                    />
+                }
             />
 
             {lexicon.error ? <ErrorAlert title={t('error.load')} error={lexicon.error} fallback={t('error.loadFallback')} /> : undefined}
@@ -112,8 +143,15 @@ export function PronunciationsPage() {
                                             <Table.Td>
                                                 <Evidence entry={entry} />
                                             </Table.Td>
-                                            <Table.Td w={110}>
+                                            <Table.Td w={140}>
                                                 <Group gap={4} justify="flex-end">
+                                                    <Listen
+                                                        preview={preview}
+                                                        listenKey={entry.id}
+                                                        written={entry.written}
+                                                        spoken={entry.spoken}
+                                                        voice={voice}
+                                                    />
                                                     <ActionIcon
                                                         size="sm"
                                                         variant="subtle"
@@ -141,6 +179,7 @@ export function PronunciationsPage() {
                                 </Table.Tbody>
                             </Table>
                         </Table.ScrollContainer>
+                        <ListenFailure preview={preview} keys={suggested.map(entry => entry.id)} />
                     </Stack>
                 </Card>
             ) : undefined}
@@ -177,6 +216,13 @@ export function PronunciationsPage() {
                                                             value={editing.spoken}
                                                             onChange={event => setEditing({ ...editing, spoken: event.currentTarget.value })}
                                                         />
+                                                        <Listen
+                                                            preview={preview}
+                                                            listenKey={`edit:${entry.id}`}
+                                                            written={editing.written}
+                                                            spoken={editing.spoken}
+                                                            voice={voice}
+                                                        />
                                                         <Button size="xs" variant="light" loading={update.isPending} onClick={save}>
                                                             {t('active.save')}
                                                         </Button>
@@ -193,8 +239,15 @@ export function PronunciationsPage() {
                                                     <Table.Td>
                                                         <Evidence entry={entry} />
                                                     </Table.Td>
-                                                    <Table.Td w={110}>
+                                                    <Table.Td w={140}>
                                                         <Group gap={4} justify="flex-end">
+                                                            <Listen
+                                                                preview={preview}
+                                                                listenKey={entry.id}
+                                                                written={entry.written}
+                                                                spoken={entry.spoken}
+                                                                voice={voice}
+                                                            />
                                                             <ActionIcon
                                                                 size="sm"
                                                                 variant="subtle"
@@ -226,6 +279,8 @@ export function PronunciationsPage() {
                         </Table.ScrollContainer>
                     )}
 
+                    <ListenFailure preview={preview} keys={[...active.flatMap(entry => [entry.id, `edit:${entry.id}`]), 'draft']} />
+
                     <Group gap="xs" align="flex-end">
                         <TextInput
                             size="xs"
@@ -246,6 +301,7 @@ export function PronunciationsPage() {
                                 if (event.key === 'Enter') void add();
                             }}
                         />
+                        <Listen preview={preview} listenKey="draft" written={written} spoken={spoken} voice={voice} size="md" />
                         <Button size="xs" variant="light" loading={create.isPending} disabled={written.trim().length === 0} onClick={add}>
                             {t('add.action')}
                         </Button>
@@ -274,8 +330,15 @@ export function PronunciationsPage() {
                                             <Table.Td>
                                                 <Evidence entry={entry} />
                                             </Table.Td>
-                                            <Table.Td w={110}>
+                                            <Table.Td w={140}>
                                                 <Group gap={4} justify="flex-end">
+                                                    <Listen
+                                                        preview={preview}
+                                                        listenKey={entry.id}
+                                                        written={entry.written}
+                                                        spoken={entry.spoken}
+                                                        voice={voice}
+                                                    />
                                                     <Button
                                                         size="compact-xs"
                                                         variant="subtle"
@@ -291,6 +354,7 @@ export function PronunciationsPage() {
                                 </Table.Tbody>
                             </Table>
                         </Table.ScrollContainer>
+                        <ListenFailure preview={preview} keys={rejected.map(entry => entry.id)} />
                     </Stack>
                 </Card>
             ) : undefined}
@@ -312,6 +376,55 @@ export function PronunciationsPage() {
                 {deleting ? t('delete.body', { spoken: deleting.spoken }) : ''}
             </ConfirmModal>
         </Stack>
+    );
+}
+
+/**
+ * Hear one entry. Drawn disabled rather than hidden when there is nothing to say, so the row keeps its
+ * shape: an entry that drops the words, or a draft with a side still empty.
+ */
+function Listen({
+    preview,
+    listenKey,
+    written,
+    spoken,
+    voice,
+    size = 'sm',
+}: {
+    preview: VoicePreview;
+    listenKey: string;
+    written: string;
+    spoken: string;
+    voice: string | undefined;
+    size?: 'sm' | 'md';
+}) {
+    const { t } = useTranslation('pronunciations');
+    const sayable = written.trim().length > 0 && spoken.trim().length > 0;
+    const playing = preview.isPlaying(listenKey);
+
+    return (
+        <ActionIcon
+            size={size}
+            variant="subtle"
+            disabled={!sayable}
+            loading={preview.isLoading(listenKey)}
+            aria-label={playing ? t('listen.pause', { written }) : t('listen.play', { written })}
+            onClick={() => preview.play(listenKey, () => fetchPronunciationSample(written.trim(), spoken.trim(), voice), t('listen.failed'))}
+        >
+            {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+        </ActionIcon>
+    );
+}
+
+/** Why the last sample in this section could not be heard, if it could not. */
+function ListenFailure({ preview, keys }: { preview: VoicePreview; keys: readonly string[] }) {
+    const failure = keys.map(key => preview.failureFor(key)).find(message => message !== undefined);
+    if (failure === undefined) return undefined;
+
+    return (
+        <Text size="xs" c={severityColor.failure}>
+            {failure}
+        </Text>
     );
 }
 

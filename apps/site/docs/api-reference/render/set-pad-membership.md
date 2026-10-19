@@ -1,7 +1,7 @@
 ---
 title: 'Set pad membership'
 sidebar_label: 'Set pad membership'
-sidebar_position: 31
+sidebar_position: 32
 mdx:
     format: 'md'
 ---

@@ -43,3 +43,18 @@ export const useSetPronunciationState = () =>
     usePronunciationWrite(({ id, body }: { id: string; body: PronunciationStateWrite }) => sdk.render.setPronunciationState(id, body));
 
 export const useDeletePronunciation = () => usePronunciationWrite((id: string) => sdk.render.deletePronunciation(id));
+
+/**
+ * Speak one entry and hand back an object URL to play it with: the written word, said the way this
+ * entry says it, in one voice.
+ *
+ * The entry goes by its words rather than its id, so a respelling can be heard while it is still being
+ * typed, and a proposal before it is accepted. The blob rationale is `fetchSpeechPreview`'s: an
+ * `<audio src>` sends no Authorization header, so the bytes come through the SDK.
+ *
+ * The caller owns the URL and must `revokeObjectURL` it. `useVoicePreview` does.
+ */
+export async function fetchPronunciationSample(written: string, spoken: string, voice?: string): Promise<string> {
+    const result = await sdk.render.samplePronunciation({ written, spoken, ...(voice === undefined ? {} : { voice }) });
+    return URL.createObjectURL(result.data);
+}

@@ -53,6 +53,13 @@ export const pronunciations = {
         errorTitle: 'That entry could not be deleted',
         body: 'The station reads it as "{{spoken}}" today, and will say it however the engine does once this is gone.',
     },
+    listen: {
+        voice: 'Voice to hear them in',
+        defaultVoice: 'Default voice',
+        play: 'Hear how {{written}} is said',
+        pause: 'Stop the sample of {{written}}',
+        failed: 'That could not be spoken.',
+    },
     notSaid: 'not said',
     source: 'the article',
 } as const;

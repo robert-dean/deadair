@@ -1,7 +1,7 @@
 ---
 title: 'Update pronunciation'
 sidebar_label: 'Update pronunciation'
-sidebar_position: 17
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

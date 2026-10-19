@@ -20,6 +20,7 @@ import { extensionForMime, SegmentStore, type SegmentExtension } from './segment
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { transposeForSpeech } from './speech.transpose.js';
+import type { Pronunciation } from './pronunciation.lexicon.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
 
@@ -261,6 +262,10 @@ export class SpeechService {
      *
      * For a cache whose name answers "which voice, saying which line" rather than "which bytes".
      * Same stream, same store, different naming. See {@link VoiceSampleStore}.
+     *
+     * `lexicon` is entries said AHEAD of the station's own, for a caller judging one the lexicon does
+     * not hold yet (a pronunciation sample). Each one replaces any station entry for the same written
+     * form, and is applied whatever the station's language, since somebody asked to hear it.
      */
     async speakAs(
         plugin: SpeechPlugin,
@@ -268,10 +273,11 @@ export class SpeechService {
         store: VoiceSampleStore,
         request: SpeechRequest,
         options: SpeechGateOptions = {},
+        lexicon: readonly Pronunciation[] = [],
     ): Promise<SegmentExtension> {
         // Read before the gate is taken, as `speakWith` does: the lexicon is a query, and a query
         // made while holding the one speech slot is a query every other caller waits behind.
-        const performed = await this.performable(request, plugin);
+        const performed = await this.performable(request, plugin, lexicon);
 
         return await this.gate.hold(
             async () => {
@@ -313,9 +319,9 @@ export class SpeechService {
      * here or be handed a field it would ignore. The engine is only asked when there is something to
      * ask about, since nearly every line carries no delivery at all.
      */
-    private async performable(request: SpeechRequest, plugin: SpeechPlugin): Promise<SpeechRequest> {
+    private async performable(request: SpeechRequest, plugin: SpeechPlugin, lexicon: readonly Pronunciation[] = []): Promise<SpeechRequest> {
         const { delivery, ...rest } = request;
-        const text = await this.sayable(request.text, plugin);
+        const text = await this.sayable(request.text, plugin, lexicon);
         // The station's language on every line, when it is not English. A caller that knows the text
         // is in some other language (a book read out in the language it was written in) has already
         // said so and is not overruled.
@@ -389,7 +395,7 @@ export class SpeechService {
      * A row cannot be malformed, which is most of what moving the lexicon out of a text box bought:
      * there is nothing here to warn about any more, because an entry either exists or it does not.
      */
-    private async sayable(text: string, plugin: SpeechPlugin): Promise<string> {
+    private async sayable(text: string, plugin: SpeechPlugin, lexicon: readonly Pronunciation[] = []): Promise<string> {
         // BEFORE the transposition, because a cue is notation rather than words: leaving one in for
         // `transposeForSpeech` to walk past means every pass there has to know about brackets it
         // does not own, and one of them (`settle`) already had an opinion about them.
@@ -399,7 +405,12 @@ export class SpeechService {
         // phonetics ("Shar-day") and a German voice reads them as German. An operator's own entries
         // stay: somebody wrote those for this station's voice.
         const language = stationLanguage(this.config);
-        const entries = await this.pronunciations.active(language === undefined ? undefined : ['operator']);
+        const station = await this.pronunciations.active(language === undefined ? undefined : ['operator']);
+        // The caller's entries replace the station's for the same written form rather than joining
+        // them, because the matcher keys on the written form and would otherwise keep whichever of the
+        // two it happened to see last.
+        const overridden = new Set(lexicon.map(entry => entry.written.toLowerCase()));
+        const entries = [...station.filter(entry => !overridden.has(entry.written.toLowerCase())), ...lexicon];
 
         const spoken = transposeForSpeech(performable, entries, language);
         if (spoken !== text.trim()) this.logger.debug('render: transposed a script for the engine', { written: text, spoken });

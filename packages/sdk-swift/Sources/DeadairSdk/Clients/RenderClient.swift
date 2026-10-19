@@ -241,6 +241,26 @@ public final class RenderClient: Sendable {
         return try http.decodeJSON(PronunciationList.self, from: response)
     }
 
+    /// Sample pronunciation
+    /// Speaks the written word as this entry says it, in one voice
+    public func samplePronunciation(body: PronunciationSampleRequest) async throws -> SamplePronunciationResponse {
+        var request = SdkRequest(method: "POST", path: ["pronunciations", "sample"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        switch response.contentType {
+        case "audio/wav":
+            return .audioWav(response.body)
+        case "audio/ogg":
+            return .audioOgg(response.body)
+        case "audio/flac":
+            return .audioFlac(response.body)
+        case "audio/mp4":
+            return .audioMp4(response.body)
+        default:
+            return .audioMpeg(response.body)
+        }
+    }
+
     /// Update pronunciation
     /// Rewrites one entry's words, whoever proposed it
     public func updatePronunciation(id: UUID, body: PronunciationWrite) async throws -> PronunciationList {
@@ -497,6 +517,17 @@ public enum GetStoredAudioResponse: Equatable, Sendable {
     case status200AudioFlac(data: Data, headers: GetStoredAudio200Headers)
     case status200AudioMp4(data: Data, headers: GetStoredAudio200Headers)
     case status304
+}
+
+/// What POST /pronunciations/sample returned.
+///
+/// The status declares several content types, so which one arrived is part of the value.
+public enum SamplePronunciationResponse: Equatable, Sendable {
+    case audioMpeg(Data)
+    case audioWav(Data)
+    case audioOgg(Data)
+    case audioFlac(Data)
+    case audioMp4(Data)
 }
 
 /// Response headers declared on GET /pads/{id}/audio.

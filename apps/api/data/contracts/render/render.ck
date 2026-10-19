@@ -444,6 +444,39 @@ operation /pronunciations: {
     }
 }
 
+# One entry, heard. The written word spoken in one voice with exactly this entry applied, so an
+# operator can judge a respelling before the station says it on air.
+#
+# The entry travels in the body rather than by id, because the cases worth hearing are the ones the
+# lexicon does not say yet: a respelling still being typed, a proposal that has not been accepted,
+# one that was turned down. `/voices/preview` cannot do it for that reason — it applies the ACTIVE
+# lexicon, and handing it the spoken form as plain text sends it through every pass the lexicon's
+# own forms are held out of, which is how `UN-guhr` became `U N-guhr`.
+#
+# Rendered into the samples store like every other preview, so it has no segment row and nothing
+# here can air. `platform.manage` for `/voices/preview`'s reason: it can spend a synthesis.
+operation /pronunciations/sample: {
+    post: { # Speaks the written word as this entry says it, in one voice
+        name: Sample pronunciation
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.samplePronunciation
+        request: {
+            application/json: PronunciationSampleRequest
+        }
+        response: {
+            200: {
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+            }
+        }
+    }
+}
+
 operation /pronunciations/{id}: {
     params: {
         id: uuid

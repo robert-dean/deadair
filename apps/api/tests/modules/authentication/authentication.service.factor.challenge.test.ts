@@ -32,7 +32,8 @@ const build = () => {
     };
 
     const service = Object.create(AuthenticationService.prototype) as AuthenticationService;
-    const passkeyRelyingParty = { resolve: () => ({ rpId: 'radio.example', rpOrigin: 'https://radio.example', rpName: 'Radio' }) };
+    const relyingParty = { rpId: 'radio.example', rpOrigin: 'https://radio.example', rpName: 'Radio' };
+    const passkeyRelyingParty = { resolve: () => relyingParty, resolveForAssertion: () => relyingParty };
     Object.assign(service, { mfaChallengeService, fidoFactorService, passkeyRelyingParty, options: {} });
 
     return { service, mfaChallengeService, fidoFactorService };

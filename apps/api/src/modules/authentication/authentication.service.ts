@@ -914,7 +914,7 @@ export class AuthenticationService {
 
         // We scope the WebAuthn allowlist to the specific credential the MFA challenge offered
         // — the SPA mustn't be able to discover other credentials by trying different ids.
-        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolveForAssertion();
         const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(mfa.actor.actorId, fidoFactor.methodId, { rpId, rpOrigin });
 
         return {
@@ -1012,7 +1012,7 @@ export class AuthenticationService {
             throw httpError(400);
         }
 
-        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolveForAssertion();
         const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, { rpId, rpOrigin });
 
         return {

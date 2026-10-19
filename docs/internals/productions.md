@@ -384,6 +384,17 @@ that was placed fresh and then outlived its hour in the order while nobody liste
 block fallback never airs half a programme. A reading is exempt: it is carried to its slot, and its words are
 an author's rather than the station's.
 
+**The first check covers every unsettled state, not only the two it places from**, because it is also the only
+thing that retires a production whose pass DIED. A restart between passes resumes, since the next pass's job is
+already queued; a restart during one does not. On 19 October a restart killed a banter's draft pass, its job
+(`retryLimit: 0`) tried to record the failure against a pool already torn down, and the row sat in `drafting`
+with no job behind it. `standingIn` counts every unsettled row as one coming, so that broadcast was never
+commissioned another banter. `injectProductions` runs ahead of `ripen` on the same commit pass, so failing the
+row there frees the standing rule immediately. Re-sending the dead pass instead was considered and refused: a
+pass may legitimately run for the job's two-hour `expiresIn`, which is longer than the shelf life, so by the
+time a pass is certainly dead its production is too old anyway; and a draft run again writes every beat a second
+time, which the `drafting → drafting` claim would not stop.
+
 **A production with a time waits for it** (`productionLanding` in `director/production.shelf.ts`). The
 time was stored and never read: `injectProductions` put every finished production at the first open
 boundary past what was committed, so a podcast asked for at eleven at night aired the moment its last beat

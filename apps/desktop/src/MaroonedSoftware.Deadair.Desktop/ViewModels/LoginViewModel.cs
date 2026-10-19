@@ -183,6 +183,9 @@ public sealed partial class LoginViewModel(SessionManager session) : ObservableO
                     Password = string.Empty;
                     ResetSentTo = email;
                     break;
+                case ResetResult.NotAnAddress:
+                    Problem = "That is not an email address. Check what you typed.";
+                    break;
                 case ResetResult.TooMany:
                     Problem = "That address has been sent enough links for now. Try again in a few minutes.";
                     break;

@@ -18,6 +18,13 @@ public abstract record ResetResult
     /// <summary>The address has been sent enough for now. The station decides how long that lasts.</summary>
     public sealed record TooMany : ResetResult;
 
+    /// <summary>The station read what was typed and it is not an email address.</summary>
+    /// <remarks>
+    /// A 400 is the only thing the route refuses that way, and "could not reach the station" about a
+    /// typo sends somebody to check their network instead of their spelling.
+    /// </remarks>
+    public sealed record NotAnAddress : ResetResult;
+
     /// <summary>The station has no mail server to send through, so no link can reach anybody.</summary>
     public sealed record NoMail : ResetResult;
 

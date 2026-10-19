@@ -101,7 +101,11 @@ export function usePasskeySignInMutation() {
             const started = await sdk.authentication.startLogin({ grant_type: 'fido', email: email.trim() });
             if (started.grant_type !== 'fido') throw new Error('The station answered a different kind of sign-in.');
             const credential = await assertPasskey(started.assertion);
-            return await sdk.authentication.requestToken({ grant_type: 'fido', challenge_id: started.challengeId, credential });
+            // JSON, never the client's form default: form encoding flattens the nested credential to "[object Object]".
+            return await sdk.authentication.requestToken(
+                { grant_type: 'fido', challenge_id: started.challengeId, credential },
+                { contentType: 'application/json' },
+            );
         },
         onSuccess: response => {
             if (response.result === 'token') setSession(response.access_token, response.expires_in);

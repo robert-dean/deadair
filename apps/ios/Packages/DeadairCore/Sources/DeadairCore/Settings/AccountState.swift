@@ -87,6 +87,7 @@ public struct AccountState: Equatable, Sendable {
     public func afterReset(_ result: ResetResult) -> AccountState {
         switch result {
         case .sent: return AccountState(email: email, resetSentTo: email.trimmingCharacters(in: .whitespaces))
+        case .notAnAddress: return with { $0.busy = false; $0.error = .resetNotAnAddress }
         case .tooMany: return with { $0.busy = false; $0.error = .resetTooMany }
         case .noMail: return with { $0.busy = false; $0.error = .resetNoMail }
         case .failed: return with { $0.busy = false; $0.error = .couldNotReachToReset }

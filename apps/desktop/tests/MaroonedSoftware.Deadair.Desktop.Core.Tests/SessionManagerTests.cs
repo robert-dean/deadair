@@ -236,6 +236,16 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task SaysATypedAddressTheStationRefusedIsNotAnAddress_RatherThanThatItCouldNotBeReached()
+    {
+        var (session, _, transport) = Build();
+        await session.AttachAsync(Station(Origin), TestContext.Current.CancellationToken);
+        transport.AnswerOnce(System.Net.HttpStatusCode.BadRequest);
+
+        Assert.IsType<ResetResult.NotAnAddress>(await session.AskForResetAsync("operator@", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task ReportsAStationItCannotReachAsAFailure_RatherThanASentLink()
     {
         var (session, _, transport) = Build();

@@ -64,6 +64,7 @@ public enum Message: Equatable, Sendable {
     case factorRefused
     case noRefreshToken
     case resetNeedsEmail
+    case resetNotAnAddress
     case resetTooMany
     case resetNoMail
     case couldNotReachToReset

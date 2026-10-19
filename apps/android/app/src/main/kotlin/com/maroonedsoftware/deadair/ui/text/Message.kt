@@ -115,6 +115,8 @@ sealed interface Message {
 
     data object ResetNeedsEmail : Message
 
+    data object ResetNotAnAddress : Message
+
     data object ResetTooMany : Message
 
     data object ResetNoMail : Message

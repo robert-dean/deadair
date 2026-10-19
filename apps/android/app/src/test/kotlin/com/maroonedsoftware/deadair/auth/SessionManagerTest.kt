@@ -483,6 +483,13 @@ class SessionManagerTest {
     }
 
     @Test
+    fun `says a typed address the station refused is not an address, rather than that it could not be reached`() = runTest {
+        val (manager, _) = managerOver(FakeStore(null), backgroundScope) { respondError(HttpStatusCode.BadRequest) }
+
+        assertEquals(ResetResult.NotAnAddress, manager.askForReset(station, "operator@"))
+    }
+
+    @Test
     fun `reports a station it cannot reach as a failure rather than a sent link`() = runTest {
         val (manager, _) = managerOver(FakeStore(null), backgroundScope) { throw IOException("no route") }
 

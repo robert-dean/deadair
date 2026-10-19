@@ -111,6 +111,10 @@ public sealed class SessionManager : IDisposable
                 cancellationToken).ConfigureAwait(false);
             return new ResetResult.Sent();
         }
+        catch (SdkException failure) when (failure.Status == 400)
+        {
+            return new ResetResult.NotAnAddress();
+        }
         catch (SdkException failure) when (failure.Status == 429)
         {
             return new ResetResult.TooMany();

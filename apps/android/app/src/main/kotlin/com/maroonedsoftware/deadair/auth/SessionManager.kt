@@ -45,6 +45,13 @@ sealed interface ResetResult {
     /** The address has been sent enough for now. The station decides how long that lasts. */
     data object TooMany : ResetResult
 
+    /**
+     * The station read what was typed and it is not an email address. A 400 is the only thing the
+     * route refuses that way, and saying "could not reach the station" about a typo sends somebody
+     * to check their network instead of their spelling.
+     */
+    data object NotAnAddress : ResetResult
+
     /** The station has no mail server to send through, so no link can reach anybody. */
     data object NoMail : ResetResult
 
@@ -212,6 +219,7 @@ class SessionManager(
             ResetResult.Sent
         } catch (error: SdkError) {
             when (error.status) {
+                BAD_REQUEST -> ResetResult.NotAnAddress
                 TOO_MANY_REQUESTS -> ResetResult.TooMany
                 SERVICE_UNAVAILABLE -> ResetResult.NoMail
                 else -> ResetResult.Failed(error.message)
@@ -458,6 +466,7 @@ class SessionManager(
         const val AUTHORIZATION = "Authorization"
         const val UNAUTHORIZED = 401
         const val FORBIDDEN = 403
+        const val BAD_REQUEST = 400
         const val TOO_MANY_REQUESTS = 429
         const val SERVICE_UNAVAILABLE = 503
         val CLIENT_ERRORS = 400..499

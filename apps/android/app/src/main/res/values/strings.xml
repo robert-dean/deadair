@@ -188,6 +188,7 @@
     <string name="reset_sent_detail">If %1$s has an account on this station, a link to choose a new password is on its way. It opens the station in your browser. Then come back and sign in here with the new password.</string>
     <string name="back_to_sign_in">Back to sign in</string>
     <string name="reset_needs_email">Enter your email address first</string>
+    <string name="reset_not_an_address">That is not an email address. Check what you typed.</string>
     <string name="reset_too_many">That address has been sent enough links for now. Try again in a few minutes.</string>
     <string name="reset_no_mail">The station cannot send email, so it cannot send a link. Ask whoever runs it.</string>
     <string name="reset_could_not_reach">Could not reach the station to send a link</string>

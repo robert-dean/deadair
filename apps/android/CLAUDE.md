@@ -177,6 +177,31 @@ trace at all. Settings → Listening shares the file through the same `FileProvi
 uses. The log listener is registered BEFORE the policy so an error is written before the retry it
 caused. Addresses go in without their query string, because the file is one somebody sends.
 
+**A stream that stalls on wifi moves to cellular after four seconds, because Android waits far
+longer.** The journal from a walk on 2026-10-20: the audio stalled at 10:35:47, the wifi stayed
+`validated=yes` until it vanished at 10:36:06, and the stream came back on cellular five seconds
+after that. Validation gave no warning at all, so `StallFallback` triggers on the stall itself:
+four seconds of buffering while the default is wifi and `CellularStandby` has a validated cellular
+network up beside it. Ordinary stalls on a good network were 274 and 605ms. Two Android facts shape
+it. **The cellular network standing by is a BACKGROUND network** (no `NET_CAPABILITY_FOREGROUND`),
+so listening for it means dropping that capability from the request (API 28+), and the system puts
+it back on every listen from an app without `CHANGE_NETWORK_STATE`, which is why the manifest asks
+for that normal permission. **No app's traffic goes over a background network**, so the fallback
+`requestNetwork`s cellular (bringing it to the foreground, quickly, since it is already up) and
+`bindProcessToNetwork`s to what that answers. The whole process moves, not just the stream: the poll
+and the artwork were stalling on the same dead wifi. What the reconnect policy hears is the pinned
+network when there is one and the default otherwise, so pinning is an ordinary move and restart.
+The pin lets go when the default becomes a DIFFERENT network (the same cellular one, as when the
+wifi finally drops, changes nothing and restarts nothing; a wifi is an ordinary move), when playback
+stops, or when the cellular network goes. The default going to none keeps it: that is the wifi
+going, and the stream is on cellular so that it can carry on. **The emulator CAN show this one**,
+unlike a handover: under `adb root`, `iptables -I OUTPUT -o wlan0 -j DROP` (and `INPUT -i`, and the
+same through `ip6tables`) leaves the wifi connected, validated and default while it carries
+nothing, which is the dying wifi exactly. On 2026-10-20 that stalled the live stream, requested
+cellular four seconds later and resumed 4.8 seconds after the stall, with `ss -tni` showing the
+stream on `eth0`'s address; Android dropped the wifi 65 seconds in, and the pin released without a
+restart. Take the rules off and `adb unroot` afterwards.
+
 **The format nobody chose is Automatic, and it is the absence of a choice.** `ListenerSettings.format`
 is `null` for it and the store keeps nothing, so an install from before it existed that never chose
 is Automatic now and one that chose MP3 keeps it. `chooseMount` plays HLS where the station

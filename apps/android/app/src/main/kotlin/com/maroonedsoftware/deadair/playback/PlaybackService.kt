@@ -11,12 +11,15 @@ import android.net.NetworkRequest
 import android.util.Log
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -45,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -103,18 +108,32 @@ class PlaybackService : MediaLibraryService() {
      */
     private val defaultNetwork = MutableStateFlow<Long?>(null)
 
+    /** The default network with its kind, for [StallFallback], which moves only off a wifi. */
+    private val defaultKind = MutableStateFlow<DefaultNetwork?>(null)
+
+    /** The validated cellular network standing by, by handle, for [StallFallback]. */
+    private val standby = MutableStateFlow<Long?>(null)
+
+    /**
+     * The cellular network the process is bound to while a stalled stream has been moved off a
+     * wifi, or `null` while it follows the default. What the reconnect policy hears is this when
+     * set and the default otherwise, so pinning is a network move to it and releasing is a move
+     * back (or no move at all, when the default has become that same cellular network).
+     */
+    private val pinned = MutableStateFlow<Long?>(null)
+
+    private val main = Handler(Looper.getMainLooper())
+    private var fallback: StallFallback? = null
+
+    /** The outstanding request for cellular, while [fallback] is engaged. */
+    private var cellularRequest: ConnectivityManager.NetworkCallback? = null
+
     /**
      * The same network changes, with their kind and validation, for the playback journal. Lazy
      * because the graph is not there until the service is attached, and the first callback comes
      * after `onCreate` registers this.
      */
-    private val networkNotes by lazy {
-        val journal = (application as DeadairApp).graph.playbackJournal
-        NetworkNotes { line ->
-            Log.i(PlaybackLog.TAG, line)
-            journal.record(line)
-        }
-    }
+    private val networkNotes by lazy { NetworkNotes(::note) }
     private val networkWatcher =
         object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
@@ -122,16 +141,15 @@ class PlaybackService : MediaLibraryService() {
             }
 
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                networkNotes.onDefault(
-                    network.networkHandle,
-                    transportOf(capabilities),
-                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-                )
+                val kind = transportOf(capabilities)
+                networkNotes.onDefault(network.networkHandle, kind, capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+                defaultKind.value = DefaultNetwork(network.networkHandle, kind)
             }
 
             override fun onLost(network: Network) {
                 defaultNetwork.compareAndSet(network.networkHandle, null)
                 networkNotes.onLost(network.networkHandle)
+                defaultKind.update { if (it?.handle == network.networkHandle) null else it }
             }
         }
 
@@ -139,23 +157,80 @@ class PlaybackService : MediaLibraryService() {
      * Whether a validated cellular network is up beside the default, for the journal. Listen-only,
      * so it never brings mobile data up itself: see [CellularStandby].
      */
-    private val cellularStandby by lazy {
-        val journal = (application as DeadairApp).graph.playbackJournal
-        CellularStandby { line ->
-            Log.i(PlaybackLog.TAG, line)
-            journal.record(line)
-        }
-    }
+    private val cellularStandby by lazy { CellularStandby(::note) }
     private val cellularWatcher =
         object : ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
                 cellularStandby.onCapabilities(network.networkHandle, capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+                standby.value = cellularStandby.standby
             }
 
             override fun onLost(network: Network) {
                 cellularStandby.onLost(network.networkHandle)
+                standby.value = cellularStandby.standby
             }
         }
+
+    /** A line for logcat and the playback journal, from beside the player. Any thread. */
+    private fun note(line: String) {
+        Log.i(PlaybackLog.TAG, line)
+        (application as DeadairApp).graph.playbackJournal.record(line)
+    }
+
+    /**
+     * Ask for cellular for a stream that has stalled on wifi, and bind the process to it when it
+     * comes. A REQUEST rather than the network [standby] names, because that one is a background
+     * network and Android carries no app's traffic over it; requested, it is brought to the
+     * foreground, which is quick because it is already up. Bound before [pinned] is set, so the
+     * restart that follows connects over it.
+     */
+    private fun requestCellular() {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        if (connectivity == null) {
+            fallback?.onUnanswered()
+            return
+        }
+        if (cellularRequest != null) return
+        val callback =
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    if (cellularRequest !== this) return
+                    connectivity.bindProcessToNetwork(network)
+                    pinned.value = network.networkHandle
+                    fallback?.onPinned(network.networkHandle)
+                }
+
+                override fun onLost(network: Network) {
+                    if (pinned.value == network.networkHandle) fallback?.onCellularLost()
+                }
+
+                override fun onUnavailable() {
+                    if (cellularRequest === this) fallback?.onUnanswered()
+                }
+            }
+        cellularRequest = callback
+        connectivity.requestNetwork(
+            NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build(),
+            callback,
+            main,
+            CELLULAR_REQUEST_TIMEOUT_MS,
+        )
+    }
+
+    /** Unbind, drop the request, and let the stream follow the default again. Safe to call twice. */
+    private fun releaseCellular() {
+        val callback = cellularRequest ?: return
+        cellularRequest = null
+        getSystemService(ConnectivityManager::class.java)?.let { connectivity ->
+            connectivity.bindProcessToNetwork(null)
+            // Already unregistered by the system when the request timed out.
+            runCatching { connectivity.unregisterNetworkCallback(callback) }
+        }
+        pinned.value = null
+    }
 
     /** One word for what kind of network this is. A VPN first, because it rides on top of one of the others. */
     private fun transportOf(capabilities: NetworkCapabilities): String =
@@ -257,6 +332,22 @@ class PlaybackService : MediaLibraryService() {
                 scope.launch { graph.transport.skip() }
             }
         this.live = live
+
+        val fallback =
+            StallFallback(
+                schedule = { ms, run ->
+                    val task = Runnable(run)
+                    main.postDelayed(task, ms)
+                    ({ main.removeCallbacks(task) })
+                },
+                request = ::requestCellular,
+                release = ::releaseCellular,
+                note = ::note,
+            )
+        this.fallback = fallback
+        scope.launch { defaultKind.collect { fallback.onDefault(it?.handle, it?.kind) } }
+        scope.launch { standby.collect(fallback::onStandby) }
+        player.addListener(StallWatch(player, fallback))
         session =
             MediaLibrarySession.Builder(this, live, StationLibrary())
                 .setSessionActivity(openApp)
@@ -290,7 +381,7 @@ class PlaybackService : MediaLibraryService() {
                 graph,
                 words,
                 displayOn = displayOn,
-                network = defaultNetwork,
+                network = combine(defaultNetwork, pinned) { default, pin -> pin ?: default },
                 publishSleep = { session?.setSessionExtras(SleepCommands.extras(it)) },
                 // A timer that fires after the task was swiped away would otherwise leave an idle
                 // service and its notification behind: `onTaskRemoved` only stops one that is quiet.
@@ -516,6 +607,8 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         unregisterReceiver(displayWatcher)
+        releaseCellular()
+        fallback = null
         getSystemService(ConnectivityManager::class.java)?.let { connectivity ->
             connectivity.unregisterNetworkCallback(networkWatcher)
             connectivity.unregisterNetworkCallback(cellularWatcher)
@@ -538,5 +631,38 @@ class PlaybackService : MediaLibraryService() {
 
         /** A lock screen shows a cover at a few hundred pixels a side; 1024 is generous and keeps a decoded cover to a few megabytes. */
         const val ARTWORK_MAX_SIDE = 1024
+
+        /** How long a request for cellular may take. The network is already up in the background, so this is generous. */
+        const val CELLULAR_REQUEST_TIMEOUT_MS = 5_000
+    }
+
+    /** The default network and what kind it is. */
+    private data class DefaultNetwork(val handle: Long, val kind: String)
+
+    /**
+     * Tells [StallFallback] when playback that was running starts buffering, when it runs again,
+     * and when it stops: the same reading of the player's states `PlaybackLog` writes as `stall`
+     * and `resumed`.
+     */
+    private class StallWatch(private val player: Player, private val fallback: StallFallback) : Player.Listener {
+        private var ready = false
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            when (playbackState) {
+                Player.STATE_BUFFERING -> if (ready && player.playWhenReady) fallback.onStall()
+                Player.STATE_READY -> {
+                    ready = true
+                    fallback.onResumed()
+                }
+                else -> {
+                    ready = false
+                    fallback.onResumed()
+                }
+            }
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (!playWhenReady) fallback.onStopped()
+        }
     }
 }

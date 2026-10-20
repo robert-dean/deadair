@@ -41,6 +41,16 @@ describe('standingCall', () => {
     it('is not a production that is not a conversation', () => {
         expect(standingCall({ kind: 'podcast' }, kinds)).toBe(false);
     });
+
+    // `dialogueKinds` always adds both, so the set here is the one the director really reads.
+    it('is not a banter or a visit, which are dialogue without being calls', () => {
+        const withPresenters = new Set(['callin', 'visit', 'banter']);
+
+        expect(standingCall({ kind: 'banter' }, withPresenters)).toBe(false);
+        expect(standingCall({ kind: ' Banter ' }, withPresenters)).toBe(false);
+        expect(standingCall({ kind: 'visit' }, withPresenters)).toBe(false);
+        expect(standingCall({ kind: 'callin' }, withPresenters)).toBe(true);
+    });
 });
 
 // A podcast asked for at eleven at night aired the moment its last beat was joined: the time was

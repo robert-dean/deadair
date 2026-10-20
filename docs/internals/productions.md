@@ -131,7 +131,10 @@ asked for it is often not the one on air when it is ready, and a playlist put on
 the previous show's caller. `injectProductions` now leaves a standing call `ready` in a broadcast whose
 `callins` is off, where a later show that takes calls can still use it and the shelf life retires it
 otherwise. A call with a slot (the format clock's) or an actor (the desk's Take a call) is exempt: both are
-instructions the broadcast's rule has no say over.
+instructions the broadcast's rule has no say over. **A banter and a visit are exempt too**: both are dialogue
+kinds and neither is a call, and a standing banter has no slot and no actor, so until 20 October every one
+on a co-hosted show that took no calls was finished, skipped on every pass and retired an hour later, and
+the one waiting to expire was what stopped the next being commissioned. Not one aired that week.
 
 **A call nobody briefed is about the HOST's show, and the caller comes at it their own way**
 (`callSubjectOf` in `production.cast.ts`). With nothing to plan around, the outline invented a subject and

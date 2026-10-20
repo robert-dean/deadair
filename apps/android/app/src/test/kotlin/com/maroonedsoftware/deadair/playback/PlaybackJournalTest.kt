@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.playback
 import java.io.File
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -158,5 +159,22 @@ class PlaybackJournalTest {
             )
 
             assertEquals(listOf("play", "stall"), journal.read().map { it.substringAfter(' ') })
+        }
+
+    @Test
+    fun `lines from several threads land in the order they were stamped`() =
+        runTest {
+            val file = File(folder.root, "journal.txt")
+            val clock = AtomicLong(at)
+            val journal = journal(file, now = { clock.getAndIncrement() })
+
+            val threads = List(4) { thread -> Thread { repeat(250) { journal.record("thread $thread line $it") } } }
+            threads.forEach(Thread::start)
+            threads.forEach(Thread::join)
+            runCurrent()
+
+            val stamps = file.readLines().map { PlaybackJournal.stampOf(it)!! }
+            assertEquals(1_000, stamps.size)
+            assertEquals(stamps.sorted(), stamps)
         }
 }

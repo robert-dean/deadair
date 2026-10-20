@@ -53,9 +53,19 @@ class PlaybackJournal(
         }
     }
 
-    /** Add one event. Callable from any thread. */
+    /** Holds stamping and queueing together; see [record]. */
+    private val order = Any()
+
+    /**
+     * Add one event. Callable from any thread.
+     *
+     * The stamp is taken and the line queued under one lock, so the file's order is the stamps'
+     * order. Network lines come from the system's connectivity thread and the policy's from the
+     * main thread, and stamped and queued separately the two once landed a millisecond out of
+     * order, with the restart written before the network change that caused it (2026-10-20).
+     */
     fun record(event: String) {
-        pending.trySend(format(now(), zone(), event))
+        synchronized(order) { pending.trySend(format(now(), zone(), event)) }
     }
 
     /**

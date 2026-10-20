@@ -98,6 +98,10 @@ interface Options {
     ingestSkips?: boolean;
     /** The canonical id an ingest answers with. */
     ingestsAs?: string;
+    /** Whether the ingest attached the copy to a work the catalog already held, rather than creating one. */
+    ingestsOntoExisting?: boolean;
+    /** Each catalog row's own title and lead artist, as `findById` answers them. */
+    byId?: Record<string, { title: string; artist: string }>;
     /** The release year the catalog knows per track id. A track absent from this has none. */
     years?: Record<string, number>;
 }
@@ -126,6 +130,10 @@ function build(options: Options = {}) {
             const found = options.byName?.[`${artist} — ${title}`];
             if (found === undefined) return undefined;
             return typeof found === 'string' ? { trackId: found, title, artist } : found;
+        }),
+        findById: vi.fn(async (trackId: string) => {
+            const row = options.byId?.[trackId];
+            return row === undefined ? undefined : { trackId, ...row };
         }),
         ratingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, number>();
@@ -188,7 +196,7 @@ function build(options: Options = {}) {
     const ingestTrack = vi.fn(async (pluginId: string, track: { id: string }, origin: string) => {
         if (options.ingestSkips) return { status: 'skipped' as const, reason: 'no-artist' as const };
         ingested.push({ pluginId, externalId: track.id, origin });
-        return { status: 'ingested' as const, trackId: options.ingestsAs ?? `cat-${track.id}`, created: true };
+        return { status: 'ingested' as const, trackId: options.ingestsAs ?? `cat-${track.id}`, created: !options.ingestsOntoExisting };
     });
     const ingested: { pluginId: string; externalId: string; origin: string }[] = [];
     const ingest = { ingestTrack } as unknown as CatalogResolverService;
@@ -498,6 +506,50 @@ describe('PickResolver discovering a record at a provider', () => {
 
         const withWindow: ResolvedRules = { ...OPEN_RULES, repeatWindowDays: 3 };
         expect(await resolver.resolve([{ title: 'Yeah!', artist: 'Usher' }], withWindow)).toEqual([]);
+    });
+
+    it('judges a copy attached to a work the catalog already held by that work’s own title', async () => {
+        // 2026-10-20, live. The model named "Detroit Rock City (Edit)", which the strict name match
+        // missed against the album cut the library has held since August; the provider answered
+        // "Detroit Rock City - Edit" and the ingest attached that copy to the existing row. Keyed by
+        // the provider's spelling, the pick asked the window about a song `play_history` never
+        // writes (it writes the row's title), so the record aired at 10:30 and again at 14:08.
+        const { resolver, candidates } = build({
+            byName: {},
+            atProvider: {
+                'Kiss — Detroit Rock City (Edit)': {
+                    pluginId: 'deadair.spotify',
+                    track: { id: 'sp_edit', title: 'Detroit Rock City - Edit', artists: ['KISS'] },
+                },
+            },
+            ingestsAs: 'track-drc',
+            ingestsOntoExisting: true,
+            byId: { 'track-drc': { title: 'Detroit Rock City', artist: 'KISS' } },
+            bindings: { 'track-drc': binding('track-drc') },
+            metadata: { 'track-drc': { title: 'Detroit Rock City', credit: 'KISS' } },
+            recentSongs: ['kiss:detroit rock city'],
+        });
+
+        const withWindow: ResolvedRules = { ...OPEN_RULES, repeatWindowDays: 2 };
+        expect(await resolver.resolve([{ title: 'Detroit Rock City (Edit)', artist: 'Kiss' }], withWindow)).toEqual([]);
+        expect(candidates.findById).toHaveBeenCalledWith('track-drc');
+    });
+
+    it('does not read the row back for a record the ingest has just created', async () => {
+        // A new row holds exactly the provider's strings, so the read would answer what is in hand.
+        const { resolver, candidates } = build(missing);
+
+        await resolve(resolver, pick);
+
+        expect(candidates.findById).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the provider’s strings when the existing row cannot be read', async () => {
+        const { resolver } = build({ ...missing, ingestsOntoExisting: true });
+
+        const [resolved] = await resolve(resolver, pick);
+
+        expect(resolved).toMatchObject({ trackId: 'cat-sp_1', artist: 'Sleep' });
     });
 
     it('marks the copy as discovered, so the sync sweep cannot bench it', async () => {

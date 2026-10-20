@@ -649,6 +649,24 @@ export class CandidatesRepository extends DataRepository {
 
         return row;
     }
+
+    /**
+     * One catalog row's own title and lead artist, in the shape {@link findByName} answers.
+     *
+     * For `PickResolver.discover`, when an ingest attached a provider's copy to a work the catalog
+     * already held: the row keeps its own title, which is what `play_history` is written with, and
+     * the provider's spelling of it ("Detroit Rock City - Edit" against "Detroit Rock City") is a
+     * song no window has ever seen.
+     */
+    async findById(trackId: string): Promise<{ trackId: string; title: string; artist: string } | undefined> {
+        return this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist'])
+            .where('deadair.tracks.id', '=', trackId)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+    }
 }
 
 /**

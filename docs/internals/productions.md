@@ -210,8 +210,12 @@ conversation. It also refuses a bare credit, "Title by Artist" with both sides c
 (`recordNobodyGave`), unless the record shares a title or artist with the programme's records, brief or notes, the
 "artist" is somebody on the programme or the station, or a one-word "title" opens a sentence ("Inspired by Wayne").
 Run over the live station's last 455 production beats it fired 19 times and every one named a record, several of
-them invented ("Echoes of Steel by Neon Pulse"). **Those two are the part of the check the DRAFT pass runs too**
-(`recordFaults`), because `outlined` and `quick` have no check pass and a record named is one a listener waits
+them invented ("Echoes of Steel by Neon Pulse"). The other direction is refused the same way (`backAnnounced`):
+"that was", "that's been" or "you just heard" followed by a capitalised run that is not shouted, not somebody on
+the programme, not a day, a month or a pronoun, and not anything handed. Only one of the station's 462 production
+beats had ever used such a frame, so it was measured on the 409 talk breaks that do: it fired on 301 and every one
+named a record or an artist ("That was Walk, from Pantera"), and the 108 it passed were lowercase. **Those are the part of the check the DRAFT pass runs too**
+(`recordFaults`), all three, because `outlined` and `quick` have no check pass and a record named is one a listener waits
 for and never hears, where every other check is a matter of quality the mode pays for. It asks once more with the
 correction before the next turn is handed the words as its run-in, and keeps the first attempt when the rewrite
 comes back empty or throws, on the check pass's own terms. Handing a banter the real next record is not built: it would mean writing after placement, or

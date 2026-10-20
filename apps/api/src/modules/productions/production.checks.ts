@@ -80,8 +80,11 @@ const MARKUP = /(\*\*?|^#{1,6}\s|^\s*[-*]\s|`|_[A-Za-z])/m;
  */
 const CUES_NEXT_RECORD = /\b(?:this|the) next (?:song|record|track|tune|cut)\b/i;
 
-/** One capitalised word of a title or a name: "Blue", "Motörhead", "AC/DC", "Guns'n'Roses". */
-const NAME_WORD = "[\\p{Lu}\\d][\\p{L}\\d'’/&-]*";
+/**
+ * One capitalised word of a title or a name: "Blue", "Motörhead", "AC/DC", "Guns'n'Roses", and the
+ * abbreviations that end in a full stop ("Dr. Dre", "Mr. Roboto"), which would otherwise end the run.
+ */
+const NAME_WORD = "(?:(?:Mr|Mrs|Ms|Dr|St)\\.|[\\p{Lu}\\d][\\p{L}\\d'’/&-]*)";
 
 /** The small words a title or a band name keeps lowercase inside it: "Ace of Spades", "Echo and the Bunnymen". */
 const NAME_LINK = '(?:of|the|a|an|in|on|to|and|for|me|my|you|your|with|at|from|is|it|n|&)';
@@ -95,6 +98,55 @@ const NAME_RUN = `${NAME_WORD}(?:\\s+(?:${NAME_LINK}\\s+)*${NAME_WORD})*`;
  * its invented record bare in two of its three turns, with no frame in front of it.
  */
 const TITLE_BY_ARTIST = new RegExp(`["“]?(${NAME_RUN})["”]?,?\\s+by\\s+(${NAME_RUN})`, 'gu');
+
+/**
+ * "That was Blue Monday": a back-announce frame, then a capitalised run straight after it, optionally
+ * quoted. The frame is matched in either case at its first letter and the run must be capitalised,
+ * which is what tells "that was Blue Monday" from "that was close". The other direction of
+ * {@link CUES_NEXT_RECORD}: a programme knows the record before it no better than the one after.
+ */
+const BACK_ANNOUNCED = new RegExp(
+    `\\b(?:[Tt]hat (?:was|one was|has been)|[Tt]hat['’]s been|(?:[Yy]ou|[Ww]e) (?:just|have just|['’]ve just) heard)\\s+["“‘']?(${NAME_RUN})`,
+    'gu',
+);
+
+/**
+ * Capitalised words a back-announce frame is followed by that are never a record: the calendar, and
+ * the station's own vocabulary. "That was Monday" is a day, and the beat that says it is about one.
+ */
+const NOT_A_RECORD = new Set([
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+    'i',
+    'me',
+    'you',
+    'him',
+    'her',
+    'them',
+    'us',
+    'it',
+    'god',
+    'mom',
+    'mum',
+    'dad',
+]);
 
 /** How much of the run-in a beat may echo before it is reciting rather than continuing. */
 export const RUN_IN_ECHO_WORDS = 6;
@@ -349,9 +401,19 @@ export function recordFaults(input: RecordCheckInput): string[] {
         );
     }
 
+    // The other direction: a record said to have just played, which the programme knows no better.
+    const announced = backAnnounced(input, input.text);
+    if (announced !== undefined) {
+        problems.push(
+            `This beat says "${announced}", but nothing plays under a programme and you were not told what played before it. ` +
+                'Do not say what just played, and name no record you were not handed.',
+        );
+    }
+
     // The same fault without the frame: a record named outright that nobody handed the programme.
+    // Left out when it is the record just back-announced, which the correction above already names.
     const invented = recordNobodyGave(input, input.text);
-    if (invented !== undefined) {
+    if (invented !== undefined && (announced === undefined || !invented.includes(announced.replace(BACK_ANNOUNCE_FRAME, '')))) {
         problems.push(
             `This beat names "${invented}", a record you were not given. Nothing plays under a programme, so name no record, song or artist you were not handed.`,
         );
@@ -377,28 +439,66 @@ export function recordFaults(input: RecordCheckInput): string[] {
  */
 function recordNobodyGave(input: RecordCheckInput, text: string): string | undefined {
     const spoken = withoutPads(withoutCues(text));
-    const known = [...(input.records ?? []).flatMap(record => [record.title, record.artist]), ...(input.handed ?? [])].map(entry =>
-        entry.toLowerCase(),
-    );
-    const people = (input.names ?? []).map(name => name.toLowerCase());
-    const given = (part: string) => known.some(entry => entry.includes(part.toLowerCase()));
+    const { given, person } = handedTo(input);
 
     for (const match of spoken.matchAll(TITLE_BY_ARTIST)) {
         const [, title, artist] = match as unknown as [string, string, string];
         const before = spoken.slice(0, match.index).trimEnd();
         if (!title.includes(' ') && (before.length === 0 || /[.!?:;]["”]?$/.test(before))) continue;
-        if (
-            people.some(
-                name => artist.toLowerCase() === name || artist.toLowerCase().startsWith(`${name} `) || artist.toLowerCase().startsWith(`${name}'`),
-            )
-        )
-            continue;
+        if (person(artist)) continue;
         if (given(title) || given(artist)) continue;
         // Named back as the record alone, without the "this is" in front of it or a quote mark caught at either end.
         return `${title.replace(/^(?:It|This|That|Here)\s+(?:is|was)\s+/, '')} by ${artist}`.replace(/^['‘]|['’]$/g, '').replace(/['’](?= by )/, '');
     }
 
     return undefined;
+}
+
+/** The frame at the front of a {@link BACK_ANNOUNCED} match, for naming the record alone. */
+const BACK_ANNOUNCE_FRAME = /^.*?(?:was|been|heard)\s+["“‘']?/u;
+
+/**
+ * A record said to have just played that the programme was never handed, as the words that said it,
+ * or `undefined`.
+ *
+ * Refused on {@link recordNobodyGave}'s terms. What follows the frame must be a capitalised run that
+ * is not shouted (Garth's turns are in capitals by design, and "THAT WAS AMAZING" is not a record),
+ * not somebody on the programme ("that was Wayne"), not a day, a month or a pronoun, and not anything
+ * the programme was handed.
+ */
+function backAnnounced(input: RecordCheckInput, text: string): string | undefined {
+    const spoken = withoutPads(withoutCues(text));
+    const { given, person } = handedTo(input);
+
+    for (const match of spoken.matchAll(BACK_ANNOUNCED)) {
+        const [whole, run] = match as unknown as [string, string];
+        if (run === run.toUpperCase()) continue;
+        if (NOT_A_RECORD.has(run.toLowerCase())) continue;
+        if (person(run) || given(run)) continue;
+        // The frame as it was said and the run without the quote mark in front of it, so "that's" keeps its apostrophe.
+        return `${whole.slice(0, -run.length).replace(/[\s"“‘']+$/u, '')} ${run}`;
+    }
+
+    return undefined;
+}
+
+/**
+ * What a programme may name, as two questions: whether a title or an artist is among what it was
+ * handed, and whether a name is somebody on it (or the station) rather than a credit.
+ */
+function handedTo(input: RecordCheckInput): { given: (part: string) => boolean; person: (name: string) => boolean } {
+    const known = [...(input.records ?? []).flatMap(record => [record.title, record.artist]), ...(input.handed ?? [])].map(entry =>
+        entry.toLowerCase(),
+    );
+    const people = (input.names ?? []).map(name => name.toLowerCase());
+
+    return {
+        given: part => known.some(entry => entry.includes(part.toLowerCase())),
+        person: name => {
+            const lower = name.toLowerCase();
+            return people.some(one => lower === one || lower.startsWith(`${one} `) || lower.startsWith(`${one}'`) || lower.startsWith(`${one}’`));
+        },
+    };
 }
 
 /**

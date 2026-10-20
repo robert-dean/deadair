@@ -416,3 +416,41 @@ describe('naming the record back', () => {
         expect(beat(`${words(30)} always 'Africa' by Toto.`, { words: 40 })[0]).toMatch(/names "Africa by Toto"/);
     });
 });
+
+// The other direction of "this next song". A programme knows the record before it no better than the
+// one after, so "that was X" is the same invention. Run over the live station's 409 talk breaks that
+// back-announce, it named a record or an artist in all 301 it fired on.
+describe('a record back-announced that nobody handed the programme', () => {
+    const cast = { names: ['Wayne', 'Garth', "Wayne's World"] };
+    const said = (text: string, over: Partial<Parameters<typeof checkBeat>[0]> = {}) => beat(`${words(30)} ${text}`, { words: 40, ...cast, ...over });
+
+    it('refuses "that was X", "that\'s been X" and "you just heard X"', () => {
+        expect(said('Party on. That was Blue Monday, Wayne!')[0]).toMatch(/says "That was Blue Monday", but .* what played before it/);
+        expect(said("Wow, that's been Dr. Feelgood, man.")[0]).toMatch(/says "that's been Dr. Feelgood"/);
+        expect(said('and you just heard "Paranoid" right there.')[0]).toMatch(/says "you just heard Paranoid"/);
+    });
+
+    it('names the record once when the back-announce credits it too', () => {
+        const problems = said('That was Blue Monday by New Order.');
+
+        expect(problems).toHaveLength(1);
+        expect(problems[0]).toMatch(/says "That was Blue Monday", but .* what played before it/);
+    });
+
+    it('lets through a record the programme was handed', () => {
+        expect(said('That was Holy Wars, mate.', { records: [{ title: 'Holy Wars', artist: 'Megadeth' }] })).toEqual([]);
+        expect(said('That was Holy Wars, mate.', { handed: ['a call about Holy Wars'] })).toEqual([]);
+    });
+
+    it('reads somebody on the programme, a day and plain English as what they are', () => {
+        expect(said('Shyeah, that was Wayne being Wayne.')).toEqual([]);
+        expect(said("That was Garth's idea, not mine.")).toEqual([]);
+        expect(said('That was Monday, and I am still scared.')).toEqual([]);
+        expect(said('That was close. That was so close, Wayne.')).toEqual([]);
+    });
+
+    // Garth's turns are in capitals by design, and a shout is not a credit.
+    it('reads a shouted line as a shout', () => {
+        expect(said('THAT WAS AMAZING! I am air-drumming.')).toEqual([]);
+    });
+});

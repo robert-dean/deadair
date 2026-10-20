@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.74.3] — 2026-10-20
+
+- A banter nobody briefed is no longer worded as a phone-in. The subject passage its outline and every beat are given said the host's preoccupation was "why the caller rang", so every banter was planned around a caller nobody cast and aired "we have a caller on the line". It now says that is what the presenters talk about.
+
 ## [0.74.2] — 2026-10-20
 
 - Banters, phone-ins and studio visits no longer announce a record that never plays. A programme is written before the station knows where it will air, so its presenters are now told that nothing plays under it and to name no record they were not given, and a polished programme's turn that introduces "this next song" is written again.
@@ -1533,7 +1537,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.3...HEAD
+[0.74.3]: https://github.com/robert-dean/deadair/compare/v0.74.2...v0.74.3
 [0.74.2]: https://github.com/robert-dean/deadair/compare/v0.74.1...v0.74.2
 [0.74.1]: https://github.com/robert-dean/deadair/compare/v0.74.0...v0.74.1
 [0.74.0]: https://github.com/robert-dean/deadair/compare/v0.73.0...v0.74.0

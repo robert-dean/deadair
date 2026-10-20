@@ -453,6 +453,49 @@ describe('what a character remembers', () => {
     });
 });
 
+// A production is written before the director places it, so no beat knows the record either side of
+// it. Measured live on 2026-10-20: a banter co-host whose sheet says "name the record and who made it"
+// announced "Blue Monday by New Order" as "this next song" in three turns, between two other records.
+describe('the records around a programme', () => {
+    const garth = sheet({ key: 'garth', kinds: ['host'], quirks: [{ text: 'Name the record and who made it, even if you mumble the rest' }] });
+
+    it('tells a banter turn nothing is playing and to name no record at all', () => {
+        const system = systemOf(turn({ ...banter, speaker: lemmy, previousSpeaker: host, persona: garth }));
+
+        expect(system).toContain('Nothing plays under this');
+        expect(system).toContain('Do not introduce a record, back-announce one');
+        expect(system).toContain('Name no record, song or artist at all.');
+    });
+
+    it("tells a speaker with a sheet that the sheet's record rules are for breaks", () => {
+        expect(systemOf(turn({ ...banter, speaker: lemmy, persona: garth }))).toContain(
+            'that is for the breaks between records, and this is not one',
+        );
+        expect(systemOf(turn({ ...banter, speaker: lemmy }))).not.toContain('that is for the breaks between records');
+    });
+
+    it('holds a call-in and a studio visit to the same rule', () => {
+        expect(systemOf(turn({ ...base, speaker: dale, previousSpeaker: host }))).toContain('Name no record, song or artist at all.');
+        expect(systemOf(turn({ ...visit, speaker: host, guest: mira }))).toContain('Name no record, song or artist at all.');
+    });
+
+    // A countdown host's call is about records it was handed, so naming those is the programme.
+    it('lets a programme name the records it was handed, and only those', () => {
+        const subject = { host: 'Dale', caller: 'Judith', records: [{ title: 'Holy Wars', artist: 'Megadeth' }] };
+        const system = systemOf(turn({ ...base, subject }));
+
+        expect(system).toContain('Nothing plays under this');
+        expect(system).toContain('Name no record, song or artist you were not given here.');
+        expect(system).not.toContain('at all.');
+    });
+
+    it('has the outline plan no turn that cues a record', () => {
+        const system = String(outlinePrompt({ kind: 'banter', title: 'Banter', beats: 7, wordsPerBeat: 35 })[0]?.content);
+
+        expect(system).toContain('plan no beat that introduces or back-announces a record');
+    });
+});
+
 // A production with no source material was told the content was "yours to invent. Keep it to what
 // you actually know" and nothing more — no counterpart to the break prompt's own rule against a
 // real-sounding discography credit for a record the station was never handed. The other station's

@@ -347,3 +347,22 @@ describe('weather nobody gave the call', () => {
         expect(beat(`Draußen ist es sonnig und 22 Grad. ${words(200)}`, { ...host, language: 'de' })).toEqual([]);
     });
 });
+
+// No beat is handed the record after it, so a beat that cues one named a record the model chose.
+// The live case: "THE DRUMS IN THIS NEXT SONG ARE TOTAL MAYHEM! ... Blue Monday by New Order."
+describe('a record cued as coming next', () => {
+    it('refuses a beat that introduces the next song', () => {
+        const problems = beat(`${words(30)} The drums in this next song are total mayhem, Blue Monday by New Order.`, { words: 40 });
+
+        expect(problems[0]).toMatch(/"this next song"/);
+        expect(problems[0]).toMatch(/nothing plays under a programme/);
+    });
+
+    it('lets ordinary talk about what comes next through', () => {
+        expect(beat(`${words(30)} Up next, Wayne has a question nobody should ask on air, coming up after this.`, { words: 40 })).toEqual([]);
+    });
+
+    it('stands down on a station that does not broadcast in English', () => {
+        expect(beat(`${words(30)} this next song is loud`, { words: 40, language: 'de' })).toEqual([]);
+    });
+});

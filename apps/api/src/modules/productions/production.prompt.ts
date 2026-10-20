@@ -63,6 +63,26 @@ export const NOTES_ELSEWHERE =
     "This beat covers none of the programme's notes, so state no facts in it: introduce, connect, react or reflect. " +
     'Everything the station knows is in the beats that carry the notes.';
 
+/**
+ * What every beat is told about the records around it, which is that there are none it knows.
+ *
+ * A production is written minutes before anybody knows where it airs: the director places it once it
+ * is ready, so the record before it and the record after it are not facts at writing time, and no
+ * beat is handed either. Nothing said so, and a persona sheet written for breaks says the opposite:
+ * Garth's tells him to "name the record and who made it" and to air-drum along to it. Measured on
+ * the live station on 2026-10-20: three of his four turns in one banter announced "Blue Monday by
+ * New Order" as "this next song", a record nothing on the station had mentioned, between two others.
+ * So the rule names the swap and the sheet's request both, for the reason `groundingRules` names
+ * its specifics: a model told only to be careful reaches for the thing its character asked for.
+ */
+export const NO_RECORD_PLAYING =
+    '- Nothing plays under this, and you have not been told what played before it or what comes after it. ' +
+    'Do not introduce a record, back-announce one, or react to one as if it were playing.';
+
+/** What a speaker with a sheet is told about the sheet's own record rules, beside {@link NO_RECORD_PLAYING}. */
+export const SHEET_RECORDS_ARE_FOR_BREAKS =
+    'Where your character description asks you to name the record or react to the one playing, that is for the breaks between records, and this is not one.';
+
 /** What the outline pass is working from. */
 export interface OutlineRequest {
     kind: string;
@@ -328,6 +348,9 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         // be repetitive rather than a plan for a programme.
         '- Runners are threads of SUBJECT that come back through the programme: an idea, a question, a running argument. Two or three at most. They are never a phrase to repeat, a catchphrase, or a way of speaking.',
         '- Do not write any of the script. This is a plan.',
+        // A beat is told the same thing (`NO_RECORD_PLAYING`), and a plan with a turn that cues the
+        // next record would be a beat brief that rule then has to fight.
+        '- Nothing plays under this programme and nobody knows what comes before or after it, so plan no beat that introduces or back-announces a record.',
         ...(dialogueRules(request.speakers) ?? []),
         // The break prompt's own sentence, word for word: two prompts stating the same station
         // policy in different words is how the two drift.
@@ -497,6 +520,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         // exist. A model reaches for a specific because a specific sounds like knowledge, so the
         // rule has to name the swap and give it somewhere to go instead.
         ...groundingRules(request, caller, answering),
+        ...recordRules(request),
         ...reactionRules(request.reactions, request.speaker?.role ?? 'host'),
         // Beside the reactions, because they are the same KIND of instruction — the only two things
         // a beat may carry that are not words — and a model reading them together reads one idea.
@@ -734,6 +758,23 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
               ]
             : []),
         '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
+    ];
+}
+
+/**
+ * What a beat may say about records: that none is playing, and which ones it may name at all.
+ *
+ * A programme handed records (a countdown host's call), notes or a brief may name what it was
+ * handed, since those are the subject; one handed none, which is every banter, may name none, since
+ * any record it names is one the model chose. See {@link NO_RECORD_PLAYING}.
+ */
+function recordRules(request: BeatRequest): string[] {
+    const handed = request.brief !== undefined || (request.items?.length ?? 0) > 0 || (request.subject?.records?.length ?? 0) > 0;
+
+    return [
+        NO_RECORD_PLAYING +
+            (handed ? ' Name no record, song or artist you were not given here.' : ' Name no record, song or artist at all.') +
+            (request.persona === undefined ? '' : ` ${SHEET_RECORDS_ARE_FOR_BREAKS}`),
     ];
 }
 

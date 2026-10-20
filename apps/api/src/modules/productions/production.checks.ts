@@ -70,6 +70,16 @@ export const DUPLICATE_OVERLAP = 0.35;
  */
 const MARKUP = /(\*\*?|^#{1,6}\s|^\s*[-*]\s|`|_[A-Za-z])/m;
 
+/**
+ * A beat cueing a record as the next thing on air, which no beat can do truthfully: a production is
+ * written before it is placed, so nothing it is handed says what follows it. See `NO_RECORD_PLAYING`
+ * in `production.prompt.ts` for the banter whose "this next song" was a record nobody played.
+ *
+ * Only the frames that cannot be about anything but a record. "Coming up", "up next" and "here's"
+ * are ordinary conversation in a programme, and a refusal here costs the beat its one re-draft.
+ */
+const CUES_NEXT_RECORD = /\b(?:this|the) next (?:song|record|track|tune|cut)\b/i;
+
 /** How much of the run-in a beat may echo before it is reciting rather than continuing. */
 export const RUN_IN_ECHO_WORDS = 6;
 
@@ -215,6 +225,15 @@ export function checkBeat(input: BeatCheckInput): string[] {
         problems.push(
             `This beat says "${sky}", but you were given no weather to report and do not know what it is doing outside. ` +
                 'Say nothing about the weather, and do not reach for it to set a scene.',
+        );
+    }
+
+    // Still about what the beat SAYS. Quoted for the forbidden words' reason.
+    const cue = english ? CUES_NEXT_RECORD.exec(withoutCues(text))?.[0] : undefined;
+    if (cue !== undefined) {
+        problems.push(
+            `This beat says "${cue}", but nothing plays under a programme and you were not told what comes after it. ` +
+                'Do not introduce or name a record as coming up.',
         );
     }
 

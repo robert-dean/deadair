@@ -195,6 +195,20 @@ link, a close) is told to state no facts at all (`NOTES_ELSEWHERE`), since the g
 for the very specifics the notes were there to supply. The notes also count as raised for the check pass, so a
 programme whose notes put a storm in it is not refused for mentioning the weather.
 
+**No beat knows the records either side of it, and every beat is told so** (`NO_RECORD_PLAYING`,
+`recordRules` in `production.prompt.ts`). A production is written minutes before the director places it, so the
+record before and the record after are not facts at writing time and no beat is handed either. Nothing said so,
+and a persona sheet written for breaks says the opposite: on 2026-10-20 a Wayne's World banter aired with Garth,
+whose sheet says "name the record and who made it" and to air-drum along to it, announcing "Blue Monday by New
+Order" as "this next song" in three of his four turns, a record nothing on the station had mentioned, between
+Thundermother and Slash. So every turn is told nothing plays under it, not to introduce or back-announce a record,
+and to name none at all, or none it was not given when the programme has a brief, notes or a countdown host's
+records. A speaker with a sheet is told the sheet's record rules are for breaks. The outline is told to plan no
+turn that cues one, since a beat brief that does would be a rule the beat then has to fight. The `check` pass
+refuses "this/the next song, record, track, tune or cut" and nothing wider, because "coming up" and "here's" are
+conversation. Handing a banter the real next record is not built: it would mean writing after placement, or
+re-writing a turn when the order moves, and naming none is true either way.
+
 **A production handed sources and no notes is researched before it is written** (`production.research.ts`,
 the `research` pass, state `researching`). Nobody types notes for a podcast about a long article, so the
 research pass reads each source in chunks of up to eight thousand characters, three chunks at most, asks the

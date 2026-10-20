@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.74.2] — 2026-10-20
+
+- Banters, phone-ins and studio visits no longer announce a record that never plays. A programme is written before the station knows where it will air, so its presenters are now told that nothing plays under it and to name no record they were not given, and a polished programme's turn that introduces "this next song" is written again.
+- A programme's turn that names a record it was not handed, such as "Blue Monday by New Order" in a banter that was given no records, is now written again, whichever writing mode the station uses.
+- A record the station takes in from a provider is judged by the library row it lands on, so a copy attached to a work the library already held ("Detroit Rock City - Edit" onto "Detroit Rock City") is held by the repeat window instead of airing twice in a day.
+- The repeat window now gives way only when a refill would otherwise add nothing at all, rather than whenever it came back a record or two short, so a record is no longer let back in an hour after it aired just to make up the number. When it does give way, the activity feed says so for every kind of refill, not only for the library draw.
+- Render: a shouted run of capitals is read as words. A presenter writing `THE DRUMS ARE SO LOUD!` had `DRUMS` spelled out on air as "D Rums"; a run of two or more capitalised words now reaches the engine in title case, while a lone capitalised name and the initialisms the station spells out are left as they were.
+
 ## [0.74.1] — 2026-10-20
 
 - Productions: a banter now airs on a co-hosted show that takes no calls. It was being treated as an unwanted phone-in, so every one was finished, never put on and retired an hour later, and the one waiting to expire stopped the next from being made.
@@ -1525,7 +1533,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.2...HEAD
+[0.74.2]: https://github.com/robert-dean/deadair/compare/v0.74.1...v0.74.2
 [0.74.1]: https://github.com/robert-dean/deadair/compare/v0.74.0...v0.74.1
 [0.74.0]: https://github.com/robert-dean/deadair/compare/v0.73.0...v0.74.0
 [0.73.0]: https://github.com/robert-dean/deadair/compare/v0.72.1...v0.73.0

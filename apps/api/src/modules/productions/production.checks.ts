@@ -80,6 +80,22 @@ const MARKUP = /(\*\*?|^#{1,6}\s|^\s*[-*]\s|`|_[A-Za-z])/m;
  */
 const CUES_NEXT_RECORD = /\b(?:this|the) next (?:song|record|track|tune|cut)\b/i;
 
+/** One capitalised word of a title or a name: "Blue", "Motörhead", "AC/DC", "Guns'n'Roses". */
+const NAME_WORD = "[\\p{Lu}\\d][\\p{L}\\d'’/&-]*";
+
+/** The small words a title or a band name keeps lowercase inside it: "Ace of Spades", "Echo and the Bunnymen". */
+const NAME_LINK = '(?:of|the|a|an|in|on|to|and|for|me|my|you|your|with|at|from|is|it|n|&)';
+
+/** A run of capitalised words, joined by nothing but spaces and the small words above. */
+const NAME_RUN = `${NAME_WORD}(?:\\s+(?:${NAME_LINK}\\s+)*${NAME_WORD})*`;
+
+/**
+ * "Blue Monday by New Order": a title, a lowercase "by", and who made it, each a run of capitalised
+ * words, optionally quoted. The other half of {@link CUES_NEXT_RECORD}, since the live banter named
+ * its invented record bare in two of its three turns, with no frame in front of it.
+ */
+const TITLE_BY_ARTIST = new RegExp(`["“]?(${NAME_RUN})["”]?,?\\s+by\\s+(${NAME_RUN})`, 'gu');
+
 /** How much of the run-in a beat may echo before it is reciting rather than continuing. */
 export const RUN_IN_ECHO_WORDS = 6;
 
@@ -153,6 +169,17 @@ export interface BeatCheckInput {
      * looked for, so a countdown host talking about "Sunny" is naming a record rather than the sky.
      */
     records?: readonly { title: string; artist: string }[];
+    /**
+     * What the programme was handed in words: the brief and the notes. A record named in either is
+     * one it was given, so naming it is the programme rather than an invention. See
+     * {@link recordNobodyGave}.
+     */
+    handed?: readonly string[];
+    /**
+     * The names of the people on the programme and of the station, so "brought in by Wayne" is not
+     * read as a record by Wayne.
+     */
+    names?: readonly string[];
     /**
      * Whatever on this call may have raised the weather before this beat: the brief an operator
      * typed and the callers' earlier turns. See {@link skyNobodyGave}.
@@ -237,6 +264,14 @@ export function checkBeat(input: BeatCheckInput): string[] {
         );
     }
 
+    // The same fault without the frame: a record named outright that nobody handed the programme.
+    const invented = english ? recordNobodyGave(input, text) : undefined;
+    if (invented !== undefined) {
+        problems.push(
+            `This beat names "${invented}", a record you were not given. Nothing plays under a programme, so name no record, song or artist you were not handed.`,
+        );
+    }
+
     const spoken = countWords(text);
     const target = expectedWords(input.words);
 
@@ -302,6 +337,47 @@ function skyNobodyGave(input: BeatCheckInput, text: string): string | undefined 
 
     // Cues and pads out first: a drop called `[sfx:thunderstorm]` is a sound, not a forecast.
     return unofferedWeather(withoutRecordNames(withoutPads(withoutCues(text)), { names: input.records ?? [] }));
+}
+
+/**
+ * A record named as "Title by Artist" that the programme was never handed, or `undefined`.
+ *
+ * No beat knows the record either side of it (`NO_RECORD_PLAYING` in `production.prompt.ts`), so a
+ * record it names that is not among the ones it was handed, the countdown host's records, the brief
+ * or the notes, is one the model chose. Measured live on 2026-10-20: "Blue Monday by New Order" in
+ * three turns of one banter, between two other records.
+ *
+ * It refuses narrowly, on the bargain every check here keeps, since a refusal costs a beat its one
+ * re-draft. Both sides must be capitalised and "by" must not be, so "blown away by Wayne" and a
+ * shouted line are not read as records. A one-word "title" opening a sentence is English rather than
+ * a record ("Inspired by Wayne"), and an "artist" who is somebody on the programme or the station
+ * itself is a person doing something rather than a credit. Anything that shares a title or an artist
+ * with what the programme was handed is a record it was given.
+ */
+function recordNobodyGave(input: BeatCheckInput, text: string): string | undefined {
+    const spoken = withoutPads(withoutCues(text));
+    const known = [...(input.records ?? []).flatMap(record => [record.title, record.artist]), ...(input.handed ?? [])].map(entry =>
+        entry.toLowerCase(),
+    );
+    const people = (input.names ?? []).map(name => name.toLowerCase());
+    const given = (part: string) => known.some(entry => entry.includes(part.toLowerCase()));
+
+    for (const match of spoken.matchAll(TITLE_BY_ARTIST)) {
+        const [, title, artist] = match as unknown as [string, string, string];
+        const before = spoken.slice(0, match.index).trimEnd();
+        if (!title.includes(' ') && (before.length === 0 || /[.!?:;]["”]?$/.test(before))) continue;
+        if (
+            people.some(
+                name => artist.toLowerCase() === name || artist.toLowerCase().startsWith(`${name} `) || artist.toLowerCase().startsWith(`${name}'`),
+            )
+        )
+            continue;
+        if (given(title) || given(artist)) continue;
+        // Named back as the record alone, without the "this is" in front of it or a quote mark caught at either end.
+        return `${title.replace(/^(?:It|This|That|Here)\s+(?:is|was)\s+/, '')} by ${artist}`.replace(/^['‘]|['’]$/g, '').replace(/['’](?= by )/, '');
+    }
+
+    return undefined;
 }
 
 /**

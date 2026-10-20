@@ -773,6 +773,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // described one anyway: with the records they brought named out first, and nothing
                 // asked once the brief or a caller has brought the weather up.
                 ...(records === undefined ? {} : { records }),
+                // What the programme was handed, so a record named in the brief or the notes is not
+                // refused as invented, and who is on it, so "brought in by Wayne" is not a record.
+                handed: [...(claimed.brief === undefined ? [] : [claimed.brief]), ...(claimed.notes ?? [])],
+                names: [...casting.flatMap(member => (member.name === undefined ? [] : [member.name])), station],
                 raised: [
                     ...(claimed.brief === undefined ? [] : [claimed.brief]),
                     // What the notes say counts as raised, so a programme the notes put a storm in is

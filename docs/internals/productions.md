@@ -206,7 +206,11 @@ and to name none at all, or none it was not given when the programme has a brief
 records. A speaker with a sheet is told the sheet's record rules are for breaks. The outline is told to plan no
 turn that cues one, since a beat brief that does would be a rule the beat then has to fight. The `check` pass
 refuses "this/the next song, record, track, tune or cut" and nothing wider, because "coming up" and "here's" are
-conversation. Handing a banter the real next record is not built: it would mean writing after placement, or
+conversation. It also refuses a bare credit, "Title by Artist" with both sides capitalised and "by" not
+(`recordNobodyGave`), unless the record shares a title or artist with the programme's records, brief or notes, the
+"artist" is somebody on the programme or the station, or a one-word "title" opens a sentence ("Inspired by Wayne").
+Run over the live station's last 455 production beats it fired 19 times and every one named a record, several of
+them invented ("Echoes of Steel by Neon Pulse"). Handing a banter the real next record is not built: it would mean writing after placement, or
 re-writing a turn when the order moves, and naming none is true either way.
 
 **A production handed sources and no notes is researched before it is written** (`production.research.ts`,

@@ -366,3 +366,53 @@ describe('a record cued as coming next', () => {
         expect(beat(`${words(30)} this next song is loud`, { words: 40, language: 'de' })).toEqual([]);
     });
 });
+
+// The live banter named its invented record bare in two of three turns: "Um. It's scary. Blue Monday
+// by New Order." No frame in front of it, so only the shape of a credit gives it away.
+describe('a record named that nobody handed the programme', () => {
+    const cast = { names: ['Wayne', 'Garth', "Wayne's World"] };
+
+    it('refuses "Title by Artist" when the programme was handed no records', () => {
+        const problems = beat(`${words(30)} Um. It's scary. Blue Monday by New Order.`, { words: 40, ...cast });
+
+        expect(problems[0]).toMatch(/names "Blue Monday by New Order", a record you were not given/);
+    });
+
+    it('refuses a quoted title and one with small words inside it', () => {
+        expect(beat(`${words(30)} I keep humming "Ace of Spades" by Motörhead.`, { words: 40 })[0]).toMatch(/"Ace of Spades by Motörhead"/);
+        expect(beat(`${words(30)} nothing beats The Killing Moon by Echo and the Bunnymen.`, { words: 40 })[0]).toMatch(
+            /"The Killing Moon by Echo and the Bunnymen"/,
+        );
+    });
+
+    it('lets through a record the programme was handed, by its records, its brief or its notes', () => {
+        const text = `${words(30)} and that is why Holy Wars by Megadeth still matters.`;
+
+        expect(beat(text, { words: 40, records: [{ title: 'Holy Wars', artist: 'Megadeth' }] })).toEqual([]);
+        expect(beat(text, { words: 40, handed: ['a call about Megadeth'] })).toEqual([]);
+        expect(beat(text, { words: 40, handed: ['Holy Wars came out in 1990.'] })).toEqual([]);
+    });
+
+    it('reads somebody on the programme doing something as a person, not a credit', () => {
+        expect(beat(`${words(30)} I was totally Brought In by Wayne today.`, { words: 40, ...cast })).toEqual([]);
+        expect(beat(`${words(30)} Blown Away by Garth's gadget again.`, { words: 40, ...cast })).toEqual([]);
+    });
+
+    it('reads ordinary English as English', () => {
+        expect(beat(`${words(30)}. Inspired by Wayne, I built a camera. I was blown away by Garth.`, { words: 40 })).toEqual([]);
+        expect(beat(`${words(30)} the drums are SO LOUD BY NOW that I cannot hear.`, { words: 40 })).toEqual([]);
+    });
+
+    it('stands down on a station that does not broadcast in English', () => {
+        expect(beat(`${words(30)} Blue Monday by New Order.`, { words: 40, language: 'de' })).toEqual([]);
+    });
+});
+
+// Measured against the live station's last 455 production beats: the frame in front and a stray quote
+// mark were caught with the record, and the correction should name the record alone.
+describe('naming the record back', () => {
+    it('leaves out the "this is" in front of it and a quote mark round it', () => {
+        expect(beat(`${words(30)} and this, It is Paranoid by Black Sabbath.`, { words: 40 })[0]).toMatch(/names "Paranoid by Black Sabbath"/);
+        expect(beat(`${words(30)} always 'Africa' by Toto.`, { words: 40 })[0]).toMatch(/names "Africa by Toto"/);
+    });
+});

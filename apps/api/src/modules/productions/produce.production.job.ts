@@ -442,19 +442,32 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 { models: this.models, budgetMs: OUTLINE_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );
 
-        // Asked again before giving up, which is worth one call and is not free. The measured reason
-        // this pass fails is the one model slot being busy — "waited 60000ms for the model and it is
-        // still busy" — so a second ask may hit the same wall; it costs another `LlmGate` wait on a
-        // background-priority call and nothing on the air path. Measured live: 8 of 12 productions
-        // aired with no outline at all.
         // The note count, so an index naming a note that exists is kept and one naming a note that
         // does not is dropped. It was hard-wired to nothing while nothing handed the outline any.
         const notes = claimed.notes?.length ?? 0;
-        let outline = coerceOutline(parseJson((await ask()).text), notes);
-        if (outline === undefined) {
-            this.logger.info('productions: the outline came back unusable, so it is being asked again', { production: claimed.id });
-            outline = coerceOutline(parseJson((await ask()).text), notes);
-        }
+
+        // Asked on the drafting loop's terms (`beat.answer.ts`): an unusable answer is asked again
+        // once, and a PREEMPTED one is not an attempt at all. This pass used to read only the text,
+        // so a break taking the model back counted as the model failing to plan — and an outline
+        // is one long background call on a station that breaks every few records, so that was the
+        // ordinary way it died. Measured live on 2026-10-20: three banters in a row went out with
+        // no outline, five of their six asks preempted by a break or a bulletin and one out of
+        // budget, and the feed said the model "could not plan it, twice".
+        const outcome = await askForBeat(ask, answer => (coerceOutline(parseJson(answer.text), notes) === undefined ? '' : answer.text), {
+            onEmpty: (_empties, outOfTime) =>
+                this.logger.info(
+                    outOfTime
+                        ? 'productions: the outline ran out of time, so it is being asked again'
+                        : 'productions: the outline came back unusable, so it is being asked again',
+                    { production: claimed.id },
+                ),
+            onPreempted: preemptions =>
+                this.logger.info('productions: a break took the model back mid-outline; it is being asked again', {
+                    production: claimed.id,
+                    preemptions,
+                }),
+        });
+        const outline = outcome.script.length === 0 ? undefined : coerceOutline(parseJson(outcome.script), notes);
 
         // Still a model that gave nothing usable, which is not a failure of the production: the plan
         // is already computed, so the beats can be drafted from the brief alone — which is what a
@@ -467,14 +480,24 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         if (outline === undefined) {
             this.logger.info('productions: the model gave no usable outline, so the beats will be drafted from the brief', {
                 production: claimed.id,
+                reason: outcome.reason,
+                preempted: outcome.preempted,
             });
+            // Which count ran out, so a programme the station's own breaks kept cutting off is not
+            // read as a model that cannot plan.
+            const why =
+                outcome.reason === 'preempted'
+                    ? `breaks took the model back from it ${outcome.preempted} times`
+                    : outcome.reason === 'budget'
+                      ? 'the model could not plan it, twice, the second time because it ran out of time'
+                      : 'the model could not plan it, twice';
             void this.activity.record({
                 module: 'render',
                 kind: 'production.unplanned',
                 detail:
-                    `"${claimed.title}" is being written without an outline: the model could not plan it, twice. Each beat will be written on ` +
+                    `"${claimed.title}" is being written without an outline: ${why}. Each beat will be written on ` +
                     'its own, so it will read as a run of separate pieces rather than one programme.',
-                data: { production: claimed.id, kind: claimed.kind },
+                data: { production: claimed.id, kind: claimed.kind, ...(outcome.reason === undefined ? {} : { reason: outcome.reason }) },
             });
             return await this.productions.savePlan(claimed.id, plan, 'outlining', 'drafting', casting);
         }

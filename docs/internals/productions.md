@@ -324,6 +324,15 @@ programme for a beat, and a caller differs from the incoming host by definition.
 
 ## Writing, then airing
 
+**The outline is asked on the drafting loop's terms, through the same `askForBeat`.** An unusable answer is
+asked again once, an answer that spent its whole budget counts as one of those, and a PREEMPTED answer is not
+an attempt at all and is asked again up to three times. It used to read only the text, so a break taking the
+model back counted as the model failing to plan. The outline is one long background call on a station that
+breaks every few records, so that was the ordinary way it died: on 2026-10-20 three banters in a row aired
+with no outline, five of their six asks cut off by a break or a bulletin, and the feed said the model "could
+not plan it, twice". Each beat was then written blind and every one repeated the same catchphrases.
+`production.unplanned` now names which count ran out.
+
 **A beat is the unit of WRITING and the joined row is the unit of AIRING, and only the second half is new.** A
 beat has to be its own segment because it is one model call in one voice, and it used to be its own lineup
 item too — seven turns of a three-minute phone-in were seven items, seven hand-overs to the player and seven

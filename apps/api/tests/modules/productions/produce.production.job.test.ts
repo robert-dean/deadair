@@ -31,6 +31,9 @@ const production = (over: Partial<Production> = {}): Production =>
         ...over,
     }) as Production;
 
+/** What `LlmService` answers when a break takes the model back mid-generation: no text, and no throw. */
+const PREEMPTED = { text: '', finishReason: 'preempted' };
+
 /** A usable outline as the model would answer with one. */
 const ANSWER = JSON.stringify({ throughline: 'what the eighties sounded like', runners: [], beats: [{ title: 'Opening' }] });
 
@@ -41,7 +44,7 @@ const ANSWER = JSON.stringify({ throughline: 'what the eighties sounded like', r
  * `outline()` touches none of it — and is what keeps this a test of the retry rather than a fixture
  * for the whole file.
  */
-function build(answers: string[], claimed: Partial<Production> = {}) {
+function build(answers: (string | { text: string; finishReason: string })[], claimed: Partial<Production> = {}) {
     const claim = vi.fn(async () => production({ state: 'outlining', ...claimed }));
     const savePlan = vi.fn(async () => true);
     const saveOutline = vi.fn(async () => true);
@@ -51,7 +54,10 @@ function build(answers: string[], claimed: Partial<Production> = {}) {
     const caster = { cast: vi.fn(async () => []) } as never;
 
     let at = 0;
-    const converse = vi.fn(async () => ({ text: answers[Math.min(at++, answers.length - 1)] ?? '' }));
+    const converse = vi.fn(async () => {
+        const answer = answers[Math.min(at++, answers.length - 1)] ?? '';
+        return typeof answer === 'string' ? { text: answer, finishReason: 'stop' } : answer;
+    });
     const llm = { converse } as never;
 
     const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
@@ -99,8 +105,7 @@ describe('the outline pass', () => {
     });
 
     it('asks AGAIN when the first answer is unusable, rather than giving up on the first refusal', async () => {
-        // The measured cause is the one model slot being busy, which is a state that passes: a
-        // second ask costs one more wait on a background-priority call and nothing on the air path.
+        // A bad roll: asked again once, on the drafting loop's `EMPTY_BEAT_RETRIES`.
         const { outline, converse, saveOutline } = build(['', ANSWER]);
 
         await outline(production());
@@ -132,9 +137,51 @@ describe('the outline pass', () => {
             expect.objectContaining({
                 module: 'render',
                 kind: 'production.unplanned',
-                detail: expect.stringContaining('without an outline'),
+                detail: expect.stringContaining('without an outline: the model could not plan it, twice'),
             }),
         );
+    });
+
+    it('asks again after a preemption without spending the one retry an unusable answer gets', async () => {
+        // The measured cause on 2026-10-20: three banters in a row aired with no outline, five of
+        // their six asks cut off by a break or a bulletin wanting the model. A preempted ask is not
+        // the model's answer at all, so it is not an attempt.
+        const { outline, converse, saveOutline, record } = build([PREEMPTED, '', PREEMPTED, ANSWER]);
+
+        await outline(production({ kind: 'banter' }));
+
+        expect(converse).toHaveBeenCalledTimes(4);
+        expect(saveOutline).toHaveBeenCalled();
+        expect(record).not.toHaveBeenCalled();
+    });
+
+    it('gives up after enough preemptions, and the feed blames the breaks rather than the model', async () => {
+        // Still bounded: a station that is never quiet would otherwise hold the job forever.
+        const { outline, converse, savePlan, record } = build([PREEMPTED]);
+
+        await outline(production({ kind: 'banter' }));
+
+        expect(converse).toHaveBeenCalledTimes(4);
+        expect(savePlan).toHaveBeenCalled();
+        expect(record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'production.unplanned',
+                detail: expect.stringContaining('breaks took the model back from it 4 times'),
+                data: expect.objectContaining({ reason: 'preempted' }),
+            }),
+        );
+        expect(record).not.toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining('could not plan it') }));
+    });
+
+    it('counts an ask that ran out of its own budget as an attempt, and says so', async () => {
+        // The gate stops it the same way, but nothing took the model: it had the whole budget.
+        const { outline, converse, savePlan, record } = build(['', { text: '', finishReason: 'budget' }]);
+
+        await outline(production());
+
+        expect(converse).toHaveBeenCalledTimes(2);
+        expect(savePlan).toHaveBeenCalled();
+        expect(record).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining('because it ran out of time') }));
     });
 
     it('says nothing on the feed when the outline worked', async () => {

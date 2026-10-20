@@ -27,6 +27,7 @@ import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/an
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
+import type { RepeatWatch } from '../../../src/modules/director/repeat.watch.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -98,6 +99,10 @@ interface Options {
     ingestSkips?: boolean;
     /** The canonical id an ingest answers with. */
     ingestsAs?: string;
+    /** Whether the ingest attached the copy to a work the catalog already held, rather than creating one. */
+    ingestsOntoExisting?: boolean;
+    /** Each catalog row's own title and lead artist, as `findById` answers them. */
+    byId?: Record<string, { title: string; artist: string }>;
     /** The release year the catalog knows per track id. A track absent from this has none. */
     years?: Record<string, number>;
 }
@@ -126,6 +131,10 @@ function build(options: Options = {}) {
             const found = options.byName?.[`${artist} — ${title}`];
             if (found === undefined) return undefined;
             return typeof found === 'string' ? { trackId: found, title, artist } : found;
+        }),
+        findById: vi.fn(async (trackId: string) => {
+            const row = options.byId?.[trackId];
+            return row === undefined ? undefined : { trackId, ...row };
         }),
         ratingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, number>();
@@ -188,7 +197,7 @@ function build(options: Options = {}) {
     const ingestTrack = vi.fn(async (pluginId: string, track: { id: string }, origin: string) => {
         if (options.ingestSkips) return { status: 'skipped' as const, reason: 'no-artist' as const };
         ingested.push({ pluginId, externalId: track.id, origin });
-        return { status: 'ingested' as const, trackId: options.ingestsAs ?? `cat-${track.id}`, created: true };
+        return { status: 'ingested' as const, trackId: options.ingestsAs ?? `cat-${track.id}`, created: !options.ingestsOntoExisting };
     });
     const ingested: { pluginId: string; externalId: string; origin: string }[] = [];
     const ingest = { ingestTrack } as unknown as CatalogResolverService;
@@ -211,6 +220,8 @@ function build(options: Options = {}) {
             })),
     } as unknown as PluginRegistry;
 
+    const repeatWatch = { gaveWay: vi.fn(), clear: vi.fn() } as unknown as RepeatWatch;
+
     return {
         resolver: new PickResolver(
             candidates,
@@ -222,10 +233,12 @@ function build(options: Options = {}) {
             ingest,
             plugins,
             activity,
+            repeatWatch,
             new StationIdentity(),
             config,
             logger,
         ),
+        repeatWatch,
         candidates,
         tracks,
         analysis,
@@ -500,6 +513,50 @@ describe('PickResolver discovering a record at a provider', () => {
         expect(await resolver.resolve([{ title: 'Yeah!', artist: 'Usher' }], withWindow)).toEqual([]);
     });
 
+    it('judges a copy attached to a work the catalog already held by that work’s own title', async () => {
+        // 2026-10-20, live. The model named "Detroit Rock City (Edit)", which the strict name match
+        // missed against the album cut the library has held since August; the provider answered
+        // "Detroit Rock City - Edit" and the ingest attached that copy to the existing row. Keyed by
+        // the provider's spelling, the pick asked the window about a song `play_history` never
+        // writes (it writes the row's title), so the record aired at 10:30 and again at 14:08.
+        const { resolver, candidates } = build({
+            byName: {},
+            atProvider: {
+                'Kiss — Detroit Rock City (Edit)': {
+                    pluginId: 'deadair.spotify',
+                    track: { id: 'sp_edit', title: 'Detroit Rock City - Edit', artists: ['KISS'] },
+                },
+            },
+            ingestsAs: 'track-drc',
+            ingestsOntoExisting: true,
+            byId: { 'track-drc': { title: 'Detroit Rock City', artist: 'KISS' } },
+            bindings: { 'track-drc': binding('track-drc') },
+            metadata: { 'track-drc': { title: 'Detroit Rock City', credit: 'KISS' } },
+            recentSongs: ['kiss:detroit rock city'],
+        });
+
+        const withWindow: ResolvedRules = { ...OPEN_RULES, repeatWindowDays: 2 };
+        expect(await resolver.resolve([{ title: 'Detroit Rock City (Edit)', artist: 'Kiss' }], withWindow)).toEqual([]);
+        expect(candidates.findById).toHaveBeenCalledWith('track-drc');
+    });
+
+    it('does not read the row back for a record the ingest has just created', async () => {
+        // A new row holds exactly the provider's strings, so the read would answer what is in hand.
+        const { resolver, candidates } = build(missing);
+
+        await resolve(resolver, pick);
+
+        expect(candidates.findById).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the provider’s strings when the existing row cannot be read', async () => {
+        const { resolver } = build({ ...missing, ingestsOntoExisting: true });
+
+        const [resolved] = await resolve(resolver, pick);
+
+        expect(resolved).toMatchObject({ trackId: 'cat-sp_1', artist: 'Sleep' });
+    });
+
     it('marks the copy as discovered, so the sync sweep cannot bench it', async () => {
         // It is in no playlist and a walk will never see it, so the sweep would mark it missing
         // within the hour of the station finding it.
@@ -714,9 +771,9 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
     });
 
-    it('lets the longest off air back in when the window would leave the batch short', async () => {
+    it('lets the longest off air back in when the window would leave the batch empty, and says so', async () => {
         // The floor gives way the same way, so a repeat it let back in has to survive here too.
-        const { resolver } = build({ ...twoTracks, recentSongs: ['one:a', 'two:b'], recentAges: { 'one:a': 2, 'two:b': 48 } });
+        const { resolver, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a', 'two:b'], recentAges: { 'one:a': 2, 'two:b': 48 } });
 
         const resolved = await resolver.resolve(
             [
@@ -728,6 +785,38 @@ describe('PickResolver rules', () => {
         );
 
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+        expect(repeatWatch.gaveWay).toHaveBeenCalledWith(1, 3);
+    });
+
+    it('lets nothing back in when anything else survived, however short the batch', async () => {
+        // 2026-10-20, live: a refill wanted fifteen, the rules kept fourteen, and "Pride and Joy" was
+        // let back in to make up the number an hour after it aired, with records still queued. A batch
+        // that brings anything keeps the order growing; only an empty one leaves it running dry.
+        const { resolver, history, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a'], recentAges: { 'one:a': 1 } });
+
+        const resolved = await resolver.resolve(
+            [
+                { title: 'A', artist: 'One', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules({ repeatWindowDays: 2 }),
+            { want: 2 },
+        );
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+        expect(history.lastAiredSince).not.toHaveBeenCalled();
+        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
+        expect(repeatWatch.clear).toHaveBeenCalled();
+    });
+
+    it('neither gives way nor speaks for a caller that asked for no number', async () => {
+        // A request or a mixed-in record: an empty answer there is one record refused, not a station
+        // running dry, and it says nothing about whether a refill would have given way.
+        const { resolver, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a'], recentAges: { 'one:a': 1 } });
+
+        expect(await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }], rules({ repeatWindowDays: 2 }))).toEqual([]);
+        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
+        expect(repeatWatch.clear).not.toHaveBeenCalled();
     });
 
     it('drops a credit naming a known act that aired inside the cooldown in another position', async () => {

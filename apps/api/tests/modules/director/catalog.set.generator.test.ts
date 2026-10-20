@@ -10,7 +10,6 @@ import { DateTime } from 'luxon';
 
 import type { AdvisoryWatch } from '../../../src/modules/director/advisory.watch.js';
 import type { EraWatch } from '../../../src/modules/director/era.watch.js';
-import type { RepeatWatch } from '../../../src/modules/director/repeat.watch.js';
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
 import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/director/candidates.repository.js';
@@ -131,7 +130,6 @@ function build(options: Options = {}) {
 
     const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
     const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
-    const repeatWatch = { gaveWay: vi.fn(), clear: vi.fn() } as unknown as RepeatWatch;
     const labels = {
         moodsForTracks: vi.fn(async () => {
             if (options.moodsFail) throw new Error('the labels table is gone');
@@ -151,9 +149,7 @@ function build(options: Options = {}) {
             labels,
             new NeverPlay(rules, candidates, config),
             skips,
-            repeatWatch,
         ),
-        repeatWatch,
         skips,
         labels,
         candidates,
@@ -187,7 +183,7 @@ describe('CatalogSetGenerator', () => {
         // A period whose every record aired in the last three days: refused outright, this floor came
         // back empty and the running order ran down.
         const now = DateTime.utc();
-        const { generator, repeatWatch } = build({
+        const { generator } = build({
             sample: [candidate('A', 'One'), candidate('B', 'Two'), candidate('C', 'Three')],
             songKeys: new Set([songKey('A', ['One']), songKey('B', ['Two']), songKey('C', ['Three'])]),
             lastAired: new Map([
@@ -200,7 +196,6 @@ describe('CatalogSetGenerator', () => {
         const picks = await generator.generate({ count: 2, rules: rotation });
 
         expect(picks.map(pick => pick.title).sort()).toEqual(['B', 'C']);
-        expect(repeatWatch.gaveWay).toHaveBeenCalledWith(2, rotation.repeatWindowDays);
     });
 
     it('never lets back a record the lineup already holds, whatever its age', async () => {
@@ -215,17 +210,20 @@ describe('CatalogSetGenerator', () => {
         expect(await generator.generate({ count: 1, rules: rotation, avoidSongKeys: new Set([held]) })).toEqual([]);
     });
 
-    it('says nothing and reads no ages when the window leaves enough', async () => {
-        const { generator, history, repeatWatch } = build({
+    it('reads no ages and lets nothing back in when the window leaves anything at all', async () => {
+        // Short of the count is not empty: the resolver asks again when the order runs low, and a
+        // repeat let in to make up the number is a record aired twice in an hour.
+        const now = DateTime.utc();
+        const { generator, history } = build({
             sample: [candidate('A', 'One'), candidate('B', 'Two')],
             songKeys: new Set([songKey('A', ['One'])]),
+            lastAired: new Map([[songKey('A', ['One']), now.minus({ hours: 1 })]]),
         });
 
-        await generator.generate({ count: 1, rules: rotation });
+        const picks = await generator.generate({ count: 2, rules: rotation });
 
+        expect(picks.map(pick => pick.title)).toEqual(['B']);
         expect(history.lastAiredSince).not.toHaveBeenCalledWith(rotation.repeatWindowDays, 'main');
-        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
-        expect(repeatWatch.clear).toHaveBeenCalled();
     });
 
     it('holds a known act aired inside the cooldown against a credit naming it in another position', async () => {

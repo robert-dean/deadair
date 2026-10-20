@@ -723,7 +723,7 @@ export const applyRulesHoldingQueue = <T extends RotationCandidate>(
 
 /**
  * Let records the repeat window refused back in, longest off air first, when the batch would
- * otherwise come back short.
+ * otherwise come back EMPTY.
  *
  * The window is library-wide and a draw is not: a period, a policy or a small library narrows what
  * may air while three days of airplay stays three days of airplay. Once every record a narrowed draw
@@ -738,14 +738,23 @@ export const applyRulesHoldingQueue = <T extends RotationCandidate>(
  * because the choice is no longer between a fresh record and a repeat but between repeats, and the
  * oldest is the one a listener is least likely to have just heard.
  *
+ * **Only when the batch is running dry, which is when the window left it nothing.** It used to give
+ * way whenever a batch came back short of `want`, and short is the ordinary case: on 2026-10-20 a
+ * refill asked for fifteen, the rules kept fourteen, and the one let back in to make up the number
+ * was "Pride and Joy", an hour after it aired, with eight records still queued ahead of it. A batch
+ * that brings anything at all keeps the running order growing and the director asks again when it
+ * runs low; a batch the window empties adds nothing, the order runs down, and THAT is the failure
+ * this exists for. So once anything survives the rules, nothing is let back in; when nothing does,
+ * repeats fill it up to `want`, because a station in that state needs the records.
+ *
  * It must be applied wherever the window is, which is the floor's draw and `PickResolver`: a floor
  * that let a repeat back in would hand the resolver a pick the resolver then drops.
  *
  * @param held - What the rules kept, from {@link applyRulesHoldingQueue} over the same candidates.
  * @param aired - When each song inside the window last aired: the window's own rows, and nothing
  *   else. A song absent here is never let back in.
- * @returns `held` when it already reaches `want`, otherwise `held` and the repeats admitted, in the
- *   order the candidates were offered.
+ * @returns `held` when it holds anything or already reaches `want`, otherwise the repeats admitted,
+ *   in the order the candidates were offered.
  */
 export const letRepeatsBackIn = <T extends RotationCandidate>(
     candidates: readonly T[],
@@ -756,28 +765,20 @@ export const letRepeatsBackIn = <T extends RotationCandidate>(
     want: number,
     aired: ReadonlyMap<string, { toMillis(): number }>,
 ): T[] => {
-    if (held.length >= want || aired.size === 0) return [...held];
+    if (held.length > 0 || held.length >= want || aired.size === 0) return [...held];
 
     const songKeys = new Set([...recent.songKeys].filter(key => !aired.has(key)));
-    const kept = new Set(held);
     const reserve = applyRulesHoldingQueue(candidates, rules, { songKeys, artistKeys: recent.artistKeys }, queued, want)
-        .filter(candidate => !kept.has(candidate) && aired.has(candidate.songKey))
+        .filter(candidate => aired.has(candidate.songKey))
         .sort((a, b) => (aired.get(a.songKey)?.toMillis() ?? 0) - (aired.get(b.songKey)?.toMillis() ?? 0));
 
-    // The per-artist cap counts what is already held, since the two halves were capped apart. The
-    // song set keeps two rows holding one work from both being let back in.
-    const perArtist = new Map<string, number>();
+    // The reserve was judged by the per-artist cap already. The song set keeps two rows holding one
+    // work from both being let back in.
     const songs = new Set<string>();
-    for (const candidate of held) {
-        perArtist.set(candidate.artistKey, (perArtist.get(candidate.artistKey) ?? 0) + 1);
-        songs.add(candidate.songKey);
-    }
-    const admitted = new Set<T>(held);
+    const admitted = new Set<T>();
     for (const candidate of reserve) {
         if (admitted.size >= want) break;
-        const seen = perArtist.get(candidate.artistKey) ?? 0;
-        if ((rules.maxPerArtist > 0 && seen >= rules.maxPerArtist) || songs.has(candidate.songKey)) continue;
-        perArtist.set(candidate.artistKey, seen + 1);
+        if (songs.has(candidate.songKey)) continue;
         songs.add(candidate.songKey);
         admitted.add(candidate);
     }

@@ -8,7 +8,6 @@ import { StationIdentity } from '#modules/shared/station.identity.js';
 import { advisoryPolicy, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { EraWatch } from './era.watch.js';
-import { RepeatWatch } from './repeat.watch.js';
 import { CandidatesRepository, bindsAnything, sampleSize, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { actsInJoinedCredits, albumKey, artistKey, creditKey, knownActsOf, songKey, withKnownActs } from './rotation.keys.js';
@@ -99,8 +98,6 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly neverPlay: NeverPlay,
         /** What the operator cut short with Skip, for the skip lean. */
         private readonly skips: TrackSkipsRepository,
-        /** Says when the repeat window had to give way to fill a batch. */
-        private readonly repeatWatch: RepeatWatch,
     ) {
         super();
     }
@@ -270,12 +267,15 @@ export class CatalogSetGenerator extends SetGenerator {
     }
 
     /**
-     * `held`, with the repeat window giving way when it leaves the draw short. See `letRepeatsBackIn`.
+     * `held`, with the repeat window giving way when it leaves the draw empty. See `letRepeatsBackIn`.
      *
      * `holding` is what the running order already holds, which is never let back in. The window's
-     * ages are read only when a draw is short and the window holds anything, so an
+     * ages are read only when a draw is empty and the window holds anything, so an
      * ordinary refill pays no round trip for them. A failed read costs the give-way and never the
      * batch: the answer is then the one this binding gave before it could give way at all.
+     *
+     * Says nothing on the feed. `PickResolver` judges these picks again and is what reports a give-way,
+     * because a repeat let back in here that it then drops for a fresh record never airs.
      */
     private async givingWayToRepeats<T extends RotationCandidate>(
         candidates: readonly T[],
@@ -287,19 +287,13 @@ export class CatalogSetGenerator extends SetGenerator {
         window: ReadonlySet<string>,
         holding: ReadonlySet<string> | undefined,
     ): Promise<T[]> {
-        if (held.length >= want || window.size === 0) {
-            this.repeatWatch.clear();
-            return [...held];
-        }
+        if (held.length > 0 || held.length >= want || window.size === 0) return [...held];
 
         const ages = await this.history.lastAiredSince(rules.repeatWindowDays, this.identity.stationKey).catch(() => new Map<string, DateTime>());
         // A song the running order already holds is in `recent` for that reason, not for the window,
         // and giving way must never queue it twice.
         const aired = holding === undefined ? ages : new Map([...ages].filter(([key]) => !holding.has(key)));
-        const eligible = letRepeatsBackIn(candidates, held, rules, recent, queued, want, aired);
-        const letBack = eligible.length - held.length;
-        if (letBack > 0) this.repeatWatch.gaveWay(letBack, rules.repeatWindowDays);
-        return eligible;
+        return letRepeatsBackIn(candidates, held, rules, recent, queued, want, aired);
     }
 
     /**

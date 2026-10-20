@@ -5,14 +5,19 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 /**
  * Says out loud when the repeat window had to give way to fill a batch.
  *
- * The floor lets records the window refused back in, longest off air first, rather than come back
- * empty (see `letRepeatsBackIn`). That is the right thing for the air and the wrong thing to do
- * silently: it means everything the station may currently draw has aired inside the window, which
- * an operator fixes by widening what the broadcast may play or shortening the window, and neither is
- * a fix anybody makes without being told.
+ * `PickResolver` lets records the window refused back in, longest off air first, when the rules
+ * left a refill with nothing at all (see `letRepeatsBackIn`). That is the right thing for the air
+ * and the wrong thing to do silently: it means everything the station may currently draw has aired
+ * inside the window, which an operator fixes by widening what the broadcast may play or shortening
+ * the window, and neither is a fix anybody makes without being told.
  *
- * Its own singleton for `EraWatch`'s reason: every set generator is scoped, so an edge flag on the
- * floor would reset before it could suppress anything and the feed would take a row per refill. A
+ * Told by the resolver alone, which is the step that decides what airs. The floor gives way the
+ * same way and says nothing: a repeat it let back in can still be dropped there for a fresh record,
+ * and a floor raising this flag while the resolver lowered it would put a row on the feed for every
+ * refill.
+ *
+ * Its own singleton for `EraWatch`'s reason: the resolver is scoped, so an edge flag on it
+ * would reset before it could suppress anything and the feed would take a row per refill. A
  * boolean rather than a key, because the window giving way is one condition whatever let it.
  *
  * Never throws, like everything that writes to the feed.

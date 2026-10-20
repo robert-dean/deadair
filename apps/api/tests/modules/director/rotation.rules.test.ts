@@ -807,11 +807,25 @@ describe('letRepeatsBackIn', () => {
         expect(letRepeatsBackIn([candidate('D', ['Four'])], [], DEFAULT_RULES, holding, undefined, 1, window)).toEqual([]);
     });
 
-    it('counts the per-artist cap across what was held and what it lets back', () => {
+    it('lets nothing back in once anything survived, however short of want', () => {
+        // Short is the ordinary case and keeps the running order growing; empty is the one that
+        // runs it dry. Letting a repeat in to make up the number aired a record twice in an hour.
+        const fresh = [candidate('D', ['Four']), ...offered];
+        const kept = applyRulesHoldingQueue(fresh, DEFAULT_RULES, recent, undefined, 3);
+
+        expect(kept.map(c => c.songKey)).toEqual([songKey('D', ['Four'])]);
+        expect(letRepeatsBackIn(fresh, kept, DEFAULT_RULES, recent, undefined, 3, window)).toEqual(kept);
+    });
+
+    it('holds the per-artist cap over what it lets back', () => {
         const rules = { ...DEFAULT_RULES, maxPerArtist: 1 };
         const same = [candidate('E', ['Two']), candidate('B', ['Two'])];
-        const kept = applyRulesHoldingQueue(same, rules, recent, undefined, 2);
+        const aired = new Map([
+            [songKey('E', ['Two']), at(30)],
+            [songKey('B', ['Two']), at(48)],
+        ]);
+        const both = { songKeys: new Set(aired.keys()), artistKeys: new Set<string>() };
 
-        expect(letRepeatsBackIn(same, kept, rules, recent, undefined, 2, window).map(c => c.songKey)).toEqual([songKey('E', ['Two'])]);
+        expect(letRepeatsBackIn(same, [], rules, both, undefined, 2, aired)).toHaveLength(1);
     });
 });

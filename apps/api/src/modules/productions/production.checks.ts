@@ -136,6 +136,34 @@ const BACK_ANNOUNCES: readonly RegExp[] = [
 ];
 
 /**
+ * A back-announce frame with no name after it: "that was heavy", "you just heard", "that one was loud".
+ *
+ * A reaction to a record as if one had just played, which the prompt rule forbids in as many words and
+ * the named shapes above cannot see. Two things keep it from reading ordinary English as one.
+ *
+ * - **"That was" must OPEN a clause**: the start of a sentence, after a comma or a dash, or after a
+ *   word a presenter reacts with ("well", "wow", "man"). A relative clause has none of those in
+ *   front of it: the one production beat on the live station with "that was" in it said "an
+ *   instrumental bridge that was omitted for air play". "You just heard" is about audio wherever it
+ *   is, so it counts anywhere.
+ * - **A clause about a PERSON is somebody's story** ("that was me singing", "that was the worst week
+ *   of my year"), so a first- or second-person word, or the name of somebody on the programme, in the
+ *   clause stands it down. The clause ends at the next comma or dash, because what follows is filler:
+ *   "that was bloody heavy, I mean" is about a record, and its "I" is not.
+ *
+ * What it still refuses is a co-host's "that was weird" about what the other one just said, which is
+ * conversation rather than a record. That is the price of asking at all, and it is one re-draft.
+ */
+const BARE_BACK_ANNOUNCE = new RegExp(
+    `(?:(?:^|[.!?…,;:—–]["”’]?|\\s-)\\s*(?:(?:well|oh|wow|man|so|and|yeah|like|perhaps|maybe|honestly|seriously)[,!]?\\s+)?(?<clause>(?:that|that one)\\s+was|that['’]s\\s+been)` +
+        `|(?<heard>(?:you|we)\\s+(?:just|have\\s+just|['’]ve\\s+just)\\s+heard))\\b(?<rest>[^.!?]{0,60})`,
+    'giu',
+);
+
+/** Words that make the rest of a clause about a person rather than a record. */
+const ABOUT_A_PERSON = /\b(?:i|i['’]m|me|my|mine|we|us|our|you|your|yours|he|him|his|she|her|they|them|their)\b/iu;
+
+/**
  * Capitalised words a back-announce frame is followed by that are never a record: the calendar, and
  * the station's own vocabulary. "That was Monday" is a day, and the beat that says it is about one.
  */
@@ -435,6 +463,16 @@ export function recordFaults(input: RecordCheckInput): string[] {
         );
     }
 
+    // A frame with nothing named after it, asked only when no named shape was found: one correction a
+    // reaction, since the named one above already says everything this would.
+    const reacted = announced === undefined ? bareBackAnnounce(input, input.text) : undefined;
+    if (reacted !== undefined) {
+        problems.push(
+            `This beat says "${reacted}" as if a record had just played, but nothing plays under a programme. ` +
+                'Do not react to a record or say what just played.',
+        );
+    }
+
     // The same fault without the frame: a record named outright that nobody handed the programme.
     // Left out when it is the record just back-announced, which the correction above already names.
     const invented = recordNobodyGave(input, input.text);
@@ -505,6 +543,28 @@ function backAnnounced(input: RecordCheckInput, text: string): { said: string; r
             .replace(/[\s,.;:]+$/u, '')
             .trim();
         return { said, record: title ?? name ?? said };
+    }
+
+    return undefined;
+}
+
+/**
+ * A frame with no name after it, as the words that said it, or `undefined`. See
+ * {@link BARE_BACK_ANNOUNCE} for what makes one, and what it stands down for.
+ */
+function bareBackAnnounce(input: RecordCheckInput, text: string): string | undefined {
+    const spoken = withoutPads(withoutCues(text));
+    const { person } = handedTo(input);
+
+    for (const match of spoken.matchAll(BARE_BACK_ANNOUNCE)) {
+        const frame = match.groups?.clause ?? match.groups?.heard ?? '';
+        // The clause alone, up to the next comma or dash: what comes after it is filler ("that was
+        // bloody heavy, I mean") or the next thought, and an "I" in it is not what the clause is about.
+        const clause = (match.groups?.rest ?? '').split(/[,;:—–]/u)[0] ?? '';
+        if (ABOUT_A_PERSON.test(clause)) continue;
+        if (clause.split(/\s+/u).some(word => word.length > 0 && person(word))) continue;
+        // The frame and the clause, which is enough for a model to find the sentence.
+        return `${frame}${clause}`.trim().split(/\s+/u).slice(0, 8).join(' ');
     }
 
     return undefined;

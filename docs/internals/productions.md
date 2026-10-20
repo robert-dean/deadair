@@ -217,9 +217,17 @@ credit ("That was honeybee, from Olivia Rodrigo"), a quoted title a few words af
 sentence about something heard, and an act named in front of the frame ("that Iron Maiden, that was bloody
 powerful"). The name must not be shouted, somebody on the programme, a day, a month or a pronoun, or anything
 handed. Only one of the station's 462 production beats had ever used such a frame, so it was measured on the 409
-talk breaks that do: it caught 316, every one a record or an artist, and none of the production beats. The 93 it
-passes say what they thought with no name ("that was heavy", "that was a choice", about thirty of those), which
-is a reaction more often than a record, so the prompt rule answers it. "That has been" is not a frame: on those
+talk breaks that do: it caught 316, every one a record or an artist, and none of the production beats. A frame with NO name after it is refused too
+(`bareBackAnnounce`: "that was heavy", "that one was loud", "we just heard"), because it is a reaction to a record
+as if one had just played. "That was" counts only where it opens a clause, at the start of a sentence, after a
+comma or a dash, or after a word a presenter reacts with ("well", "wow", "perhaps"), since a relative clause has
+none of those ("a bridge that was omitted for air play", the one production beat that ever said "that was"). A
+clause about a person stands it down ("that was me singing", "the worst week of my year"): a first- or
+second-person word or a cast name between the frame and the next comma, so "that was bloody heavy, I mean" is
+still refused. Together the shapes catch 386 of those 409 breaks and none of the 462 production beats. **What
+this costs is conversation**: a co-host's "that was so close" or "that was weird" about what the other one just
+said is refused as well, which no measurement here could show because no production beat has said one yet. It
+costs one re-draft, and the first attempt stays when that fails. "That has been" is not a frame: on those
 breaks it was a relative clause ("a quartet that has been rather consistent"). **Those are the part of the check the DRAFT pass runs too**
 (`recordFaults`), all three, because `outlined` and `quick` have no check pass and a record named is one a listener waits
 for and never hears, where every other check is a matter of quality the mode pays for. It asks once more with the

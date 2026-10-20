@@ -27,6 +27,7 @@ import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/an
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
+import type { RepeatWatch } from '../../../src/modules/director/repeat.watch.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -219,6 +220,8 @@ function build(options: Options = {}) {
             })),
     } as unknown as PluginRegistry;
 
+    const repeatWatch = { gaveWay: vi.fn(), clear: vi.fn() } as unknown as RepeatWatch;
+
     return {
         resolver: new PickResolver(
             candidates,
@@ -230,10 +233,12 @@ function build(options: Options = {}) {
             ingest,
             plugins,
             activity,
+            repeatWatch,
             new StationIdentity(),
             config,
             logger,
         ),
+        repeatWatch,
         candidates,
         tracks,
         analysis,
@@ -766,9 +771,9 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
     });
 
-    it('lets the longest off air back in when the window would leave the batch short', async () => {
+    it('lets the longest off air back in when the window would leave the batch empty, and says so', async () => {
         // The floor gives way the same way, so a repeat it let back in has to survive here too.
-        const { resolver } = build({ ...twoTracks, recentSongs: ['one:a', 'two:b'], recentAges: { 'one:a': 2, 'two:b': 48 } });
+        const { resolver, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a', 'two:b'], recentAges: { 'one:a': 2, 'two:b': 48 } });
 
         const resolved = await resolver.resolve(
             [
@@ -780,6 +785,38 @@ describe('PickResolver rules', () => {
         );
 
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+        expect(repeatWatch.gaveWay).toHaveBeenCalledWith(1, 3);
+    });
+
+    it('lets nothing back in when anything else survived, however short the batch', async () => {
+        // 2026-10-20, live: a refill wanted fifteen, the rules kept fourteen, and "Pride and Joy" was
+        // let back in to make up the number an hour after it aired, with records still queued. A batch
+        // that brings anything keeps the order growing; only an empty one leaves it running dry.
+        const { resolver, history, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a'], recentAges: { 'one:a': 1 } });
+
+        const resolved = await resolver.resolve(
+            [
+                { title: 'A', artist: 'One', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules({ repeatWindowDays: 2 }),
+            { want: 2 },
+        );
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+        expect(history.lastAiredSince).not.toHaveBeenCalled();
+        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
+        expect(repeatWatch.clear).toHaveBeenCalled();
+    });
+
+    it('neither gives way nor speaks for a caller that asked for no number', async () => {
+        // A request or a mixed-in record: an empty answer there is one record refused, not a station
+        // running dry, and it says nothing about whether a refill would have given way.
+        const { resolver, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a'], recentAges: { 'one:a': 1 } });
+
+        expect(await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }], rules({ repeatWindowDays: 2 }))).toEqual([]);
+        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
+        expect(repeatWatch.clear).not.toHaveBeenCalled();
     });
 
     it('drops a credit naming a known act that aired inside the cooldown in another position', async () => {

@@ -314,7 +314,6 @@ describe('SetGeneratorChain with the real bindings', () => {
             { moodsForTracks: async () => new Map() } as never,
             { holding: async () => [], blockedUnder: async () => new Map() } as never,
             { lastSkippedSince: async () => new Map() } as never,
-            { gaveWay: vi.fn(), clear: vi.fn() } as never,
         );
     }
 

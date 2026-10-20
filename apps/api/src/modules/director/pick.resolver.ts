@@ -31,6 +31,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { NeverPlay, type PickBroadcast } from './never.play.js';
+import { RepeatWatch } from './repeat.watch.js';
 
 export type { PickBroadcast } from './never.play.js';
 
@@ -177,6 +178,9 @@ export class PickResolver {
         // cannot is excluded from the delivery choice rather than chosen and then skipped on air.
         private readonly plugins: PluginRegistry,
         private readonly activity: ActivityRecorder,
+        // Says when the repeat window gave way. Here and not in the floor, because this is the step
+        // that decides what airs: a repeat the floor let back in that this then drops never aired.
+        private readonly repeatWatch: RepeatWatch,
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -573,10 +577,12 @@ export class PickResolver {
         // The queued artists ride the same check as the aired ones and give way only when holding
         // them would leave the batch short. See `applyRulesHoldingQueue`.
         //
-        // The repeat window gives way after them, longest off air first, and only when the batch is
-        // still short. It has to be judged here as well as in the floor: a floor that let a repeat
-        // back in would otherwise hand this a pick it then drops. See `letRepeatsBackIn`. The ages
-        // are read only then, and a failed read costs the give-way and never the batch.
+        // The repeat window gives way after them, longest off air first, and only when the rules left
+        // the batch EMPTY: a batch short of `want` still grows the order, and letting a record back in
+        // to make up the number is how one aired twice in an hour. It has to be judged here as well as
+        // in the floor: a floor that let a repeat back in would otherwise hand this a pick it then
+        // drops. See `letRepeatsBackIn`. The ages are read only then, and a failed read costs the
+        // give-way and never the batch.
         //
         // A known act inside a joined credit counts for all of it, as in the floor: see `knownActsOf`.
         // Asked only when a joined credit is in play, and a failed read spaces as before.
@@ -594,7 +600,7 @@ export class PickResolver {
         });
         const held = applyRulesHoldingQueue(acted, rules, recent, queued, want);
         const eligible =
-            held.length >= want || songKeys.size === 0
+            held.length > 0 || held.length >= want || songKeys.size === 0
                 ? held
                 : letRepeatsBackIn(
                       acted,
@@ -605,6 +611,12 @@ export class PickResolver {
                       want,
                       await this.history.lastAiredSince(rules.repeatWindowDays, this.identity.stationKey).catch(() => new Map()),
                   );
+        // Only for a caller that asked for a number: a request or a mixed-in record wants nothing, so
+        // the window never gives way for it and its batch says nothing about whether it would have.
+        if (want > 0) {
+            if (held.length > 0) this.repeatWatch.clear();
+            else if (eligible.length > 0) this.repeatWatch.gaveWay(eligible.length, rules.repeatWindowDays);
+        }
         if (eligible.length < inPeriod.length) {
             this.logger.debug('director: the rotation rules dropped some chosen tracks', {
                 offered: inPeriod.length,

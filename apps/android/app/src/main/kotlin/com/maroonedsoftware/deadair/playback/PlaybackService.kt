@@ -7,7 +7,9 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.util.Log
+import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
@@ -133,6 +135,28 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
+    /**
+     * Whether a validated cellular network is up beside the default, for the journal. Listen-only,
+     * so it never brings mobile data up itself: see [CellularStandby].
+     */
+    private val cellularStandby by lazy {
+        val journal = (application as DeadairApp).graph.playbackJournal
+        CellularStandby { line ->
+            Log.i(PlaybackLog.TAG, line)
+            journal.record(line)
+        }
+    }
+    private val cellularWatcher =
+        object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                cellularStandby.onCapabilities(network.networkHandle, capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+            }
+
+            override fun onLost(network: Network) {
+                cellularStandby.onLost(network.networkHandle)
+            }
+        }
+
     /** One word for what kind of network this is. A VPN first, because it rides on top of one of the others. */
     private fun transportOf(capabilities: NetworkCapabilities): String =
         when {
@@ -169,6 +193,19 @@ class PlaybackService : MediaLibraryService() {
         getSystemService(ConnectivityManager::class.java)?.let { connectivity ->
             defaultNetwork.value = connectivity.activeNetwork?.networkHandle
             connectivity.registerDefaultNetworkCallback(networkWatcher)
+            val cellular =
+                NetworkRequest.Builder()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            // A request asks for FOREGROUND unless told otherwise, and the cellular network Android
+            // keeps up beside a wifi is a BACKGROUND network, without it: on the Pixel on 2026-10-20
+            // and on the emulator alike, so with the default this heard nothing at all. Removing it
+            // is not enough on its own: the system puts FOREGROUND back on every listen from an app
+            // without CHANGE_NETWORK_STATE, which is why the manifest asks for that. The constant is
+            // API 28; on 26 and 27 this hears foreground cellular only, which is a default network
+            // and already written as one.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) cellular.removeCapability(NetworkCapabilities.NET_CAPABILITY_FOREGROUND)
+            connectivity.registerNetworkCallback(cellular.build(), cellularWatcher)
         }
 
         // One HTTP factory for the stream and for the artwork the session fetches for the lock
@@ -479,7 +516,10 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         unregisterReceiver(displayWatcher)
-        getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(networkWatcher)
+        getSystemService(ConnectivityManager::class.java)?.let { connectivity ->
+            connectivity.unregisterNetworkCallback(networkWatcher)
+            connectivity.unregisterNetworkCallback(cellularWatcher)
+        }
         scope.cancel()
         conductor?.stop()
         conductor = null

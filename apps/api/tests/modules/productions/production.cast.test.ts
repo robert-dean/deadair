@@ -295,6 +295,13 @@ describe('what a programme is about when nobody said', () => {
         expect(callSubjectOf(undefined, [host])).toBeUndefined();
     });
 
+    // A banter is the host's show with nobody ringing in, and the subject says so.
+    it('is a banter for a cast of presenters, with no caller in it', () => {
+        const lemmy: CastMember = { role: 'cohost', name: 'Lemmy', preoccupation: 'the gig that went wrong in 1979' };
+
+        expect(callSubjectOf(undefined, [host, lemmy])).toEqual({ host: 'Todd', show: 'what really came down at Roswell', banter: true });
+    });
+
     // The countdown host's show is the records, so a call on it is about what the show just played.
     it('is the records, when the host brought them', () => {
         const records = [{ title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.'] }];

@@ -113,6 +113,16 @@ with `breaks` off, since a banter is the presenters talking. `standingIn` counts
 so a station with both does not get two back to back, and taking `banter` out of
 `render.productionKinds` stops this as it stops the band.
 
+**A banter nobody briefed is about the host's show, and nobody rang** (`CallSubject.banter`, set by
+`callSubjectOf` for a cast of presenters with no visitor in it). It shares the phone-in's subject rule,
+since the host's preoccupation is still what the programme is about, but not its wording: until
+20 October the shared passage said that was "why the caller rang, and it is what the call is about", which
+reached the outline and every beat, so once outlines worked every banter was planned around a caller nobody
+cast (one's first beat was titled "The Caller's Grievance") and aired "we have a caller on the line". The
+banter form says it is what the presenters talk about, and the records form says the same of the records.
+`production.prompt.test.ts` holds a banter's outline and turns to never mentioning a caller, a call or
+ringing, so a new rule worded for phone-ins that leaks into the shared passages is caught there.
+
 ## Commissioning one
 
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a

@@ -99,7 +99,7 @@ export interface OutlineRequest {
     title?: string;
     /** What the operator asked for, in their own words. */
     brief?: string;
-    /** Why the caller rang, for a programme with no brief. See `callSubjectOf`. */
+    /** What the programme is about, for one with no brief. See `callSubjectOf`. */
     subject?: CallSubject;
     /** How many beats the arithmetic decided on. The model fills them; it does not choose how many. */
     beats: number;
@@ -148,7 +148,7 @@ export interface BeatRequest {
     /** What the programme is called on air, or absent when nobody named it. See {@link OutlineRequest.title}. */
     title?: string;
     brief?: string;
-    /** Why the caller rang, for a programme with no brief. Every turn is told, as every turn is told the brief. */
+    /** What the programme is about, for one with no brief. Every turn is told, as every turn is told the brief. */
     subject?: CallSubject;
     /** Where this beat comes, from 0. */
     ordinal: number;
@@ -1046,7 +1046,8 @@ export function beatBrief(beat: OutlineBeat): string[] {
  *
  * The host's subject comes first and is the programme's; the caller's is framed as their way INTO
  * it, because two subjects stated side by side are a call where each person talks about their own
- * thing and nobody answers the other.
+ * thing and nobody answers the other. A banter has no caller, and its subject names none: told why
+ * "the caller" rang, the outline planned every banter around one.
  */
 function subjectLine(subject: CallSubject): string {
     if (subject.records !== undefined && subject.records.length > 0) return recordsLine(subject, subject.records);
@@ -1056,6 +1057,8 @@ function subjectLine(subject: CallSubject): string {
     if (subject.show === undefined) return `The programme is about why ${subject.caller} ${came}: ${subject.about}.`;
 
     const show = `This is ${subject.host}'s show, and the programme is about what ${subject.host} keeps coming back to: ${subject.show}.`;
+    // Nobody rang and nobody dropped by. Said as a call, every banter was planned around a caller.
+    if (subject.banter === true) return `${show} It is what the presenters talk about from start to finish.`;
     if (subject.about === undefined) {
         return `${show} That is why ${subject.visit === true ? 'the guest' : 'the caller'} ${came}, and it is what ${what} is about from start to finish.`;
     }
@@ -1081,7 +1084,9 @@ function recordsLine(subject: CallSubject, records: readonly ShowRecord[]): stri
     return [
         `This is ${host}'s show, and the programme is about the records it has just played, newest first:`,
         ...records.flatMap(record => [`- "${record.title}" by ${record.artist}`, ...(record.facts ?? []).map(fact => `    - ${fact}`)]),
-        `${caller} rang about one of those records, and it is what the call is about from start to finish.` +
+        (subject.banter === true
+            ? 'Those records are what the presenters talk about from start to finish.'
+            : `${caller} rang about one of those records, and it is what the call is about from start to finish.`) +
             (subject.about === undefined
                 ? ''
                 : ` ${caller} comes at it through their own thing, which is ${subject.about}. That is their angle on the record, not a change of subject.`) +

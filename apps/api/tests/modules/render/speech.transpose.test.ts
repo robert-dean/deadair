@@ -198,6 +198,18 @@ describe('transposeForSpeech: initialisms', () => {
         expect(say('That was ABBA, and then MGMT.')).toBe('That was ABBA, and then MGMT.');
     });
 
+    // Garth's every break on 20 October, and `DRUMS` aired as "D Rums".
+    it('reads a shouted run of capitals as the words it is', () => {
+        expect(say('[gasp] THE DRUMS ARE SO LOUD! I am air-drumming.')).toBe('[gasp] The Drums Are So Loud! I am air-drumming.');
+        expect(say("I DON'T BELIEVE IT.")).toBe("I Don't Believe It.");
+    });
+
+    it('leaves the initialisms and names inside a shout as they were', () => {
+        expect(say('WE LOVE THE BBC')).toBe('We Love The B B C');
+        // `settle` makes the slash a space; what matters is that the name kept its capitals.
+        expect(say('THIS IS AC/DC!')).toBe('This Is AC DC!');
+    });
+
     it('does not mistake a word for a country', () => {
         expect(say('That one is between us.')).toBe('That one is between us.');
     });
@@ -349,6 +361,8 @@ describe('transposeForSpeech: a station that does not broadcast in English', () 
         expect(transposeForSpeech('Um 21:30 Uhr, 1984, 50% mehr, feat. Die Toten Hosen, die USA.', [], 'de')).toBe(
             'Um 21:30 Uhr, 1984, 50% mehr, feat. Die Toten Hosen, die USA.',
         );
+        // And a shout with them, because nothing has spelled out the capitals that are letters.
+        expect(transposeForSpeech('DIE USA SIND LAUT', [], 'de')).toBe('DIE USA SIND LAUT');
     });
 
     it('still applies the lexicon and still tidies the notation', () => {

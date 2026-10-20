@@ -382,7 +382,8 @@ route's argument: a pooled connection held across a minute of sidecar work, on a
 
 **Outside English, a script reaches the engine unrewritten.** `transposeForSpeech` takes the station's
 language and skips `saySymbols`, `sayNumbers` and `sayInitialisms`, the three passes that write English
-words into the text: a German voice handed "nineteen eighty-four" says it in English, where handed `1984` its
+words into the text (and `sayShouting`, which trusts `sayInitialisms` to have spelled out the capitals that
+are letters): a German voice handed "nineteen eighty-four" says it in English, where handed `1984` its
 own normaliser reads it in German. `settle` keeps `&`, `$` and `%` in that case, because in English it drops
 them only after `saySymbols` has turned them into words, and dropping them unread turns "50%" into "50". The
 gloss entries are left out too (`PronunciationRepository.active(['operator'])`), since they are English
@@ -452,6 +453,14 @@ heard. `/voices/preview` could not do it either way: it applies only the ACTIVE 
 spoken form as plain text it runs that form through the very passes `hold` exists to keep it out of, which
 is `UN-guhr` becoming `U N-guhr` again. The entry is part of the sample key, so an adjusted respelling is a
 new file rather than the first attempt played back.
+
+**A shouted run of capitals is read as words, and a lone capitalised word is not.** A model asked for a
+burst of intensity writes it in capitals whatever the prompt says, and an engine spells a capitalised word:
+Garth's `THE DRUMS ARE SO LOUD!` aired as "D Rums" in every break he had on 20 October. `sayShouting`
+title-cases a run of two or more capitalised words after `sayInitialisms`, so `BBC` inside the shout is
+already single letters and a word touching a slash, an ampersand, a hyphen or a digit (`AC/DC`) stays as it
+is. A LONE word is left alone on purpose, because it is far more often a name than a shout, and nothing here
+knows that `ABBA` is a word and `MGMT` is letters.
 
 **What a symbol stands for goes after the whole of what it names, and for `$` that was measured wrong twice.**
 `saySymbols` marks the currency where the digits stop, which is right for `$5.99` and wrong for every amount

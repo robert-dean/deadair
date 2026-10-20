@@ -24,7 +24,8 @@
  *    and put back at the very end; see {@link hold}.
  * 3. **Symbols** — the ones that stand in for words.
  * 4. **Numbers**, conservatively; see {@link sayNumbers}.
- * 5. **Initialisms** — dotted forms, and a short list of the ones a station says constantly.
+ * 5. **Initialisms** — dotted forms, and a short list of the ones a station says constantly. Then a
+ *    shouted run of capitals, as the words it is; see {@link sayShouting}.
  * 6. **Settle** — collapse what the passes above left, and drop what no engine can say.
  *
  * ## What it deliberately does not do
@@ -73,7 +74,9 @@ const SPARE_CUES_KEEPING_SYMBOLS = new RegExp(
  * that renders silence is a hole in the hour.
  *
  * `language` is the station's when it is not English, and then the three passes that write English
- * words into the script are skipped: {@link saySymbols}, {@link sayNumbers} and {@link sayInitialisms}.
+ * words into the script are skipped: {@link saySymbols}, {@link sayNumbers} and {@link sayInitialisms},
+ * and {@link sayShouting} with them, since it trusts the last of those to have spelled out the capitals
+ * that ARE letters.
  * A German voice handed "nineteen eighty-four" says it in English, which is worse than handing it
  * `1984` and letting the engine's own normaliser read the number in the language it was built for.
  * The passes that are about notation rather than words (pads, {@link tidy}, the lexicon,
@@ -102,6 +105,7 @@ export function transposeForSpeech(text: string, entries: readonly Pronunciation
         spoken = saySymbols(spoken);
         spoken = sayNumbers(spoken);
         spoken = sayInitialisms(spoken);
+        spoken = sayShouting(spoken);
     }
     spoken = settle(spoken, language === undefined ? SPARE_CUES : SPARE_CUES_KEEPING_SYMBOLS);
     spoken = release(spoken, held);
@@ -543,6 +547,27 @@ function sayInitialisms(text: string): string {
             const letters = (plural ? match.slice(0, -1) : match).split('').join(' ');
             return plural ? `${letters}'s` : letters;
         });
+}
+
+/**
+ * A run of shouted capitals, as the words it is: `THE DRUMS ARE SO LOUD!` as `The Drums Are So Loud!`.
+ *
+ * A model asked for a burst of intensity writes it in capitals whatever the prompt says about them, and
+ * an engine reads a capitalised word as something to spell: Garth's `DRUMS` aired as "D Rums", in every
+ * break he had on 20 October. The `!` is what carries the shout, and it survives {@link settle}.
+ *
+ * Only a RUN of two or more, because a lone capitalised word is far more often a name than a shout, and
+ * nothing here knows whether `ABBA` is read as a word or `MGMT` as letters. Runs after
+ * {@link sayInitialisms}, so a listed initialism inside the shout is single letters by now and is left
+ * alone, as is any single letter (`I`). A word that touches a slash, an ampersand, a hyphen or a digit is
+ * part of a name like `AC/DC` and is not a word of the run. Title case rather than lower case, so `I`
+ * and the first word of a sentence keep their capital without this having to find sentences.
+ */
+function sayShouting(text: string): string {
+    const word = String.raw`(?<![\p{L}\p{N}/&\-])\p{Lu}[\p{Lu}']*\p{Lu}(?![\p{L}\p{N}/&\-])`;
+    return text.replace(new RegExp(`${word}(?:\\s+${word})+`, 'gu'), run =>
+        run.replace(/\p{Lu}[\p{Lu}']*/gu, shouted => shouted[0] + shouted.slice(1).toLowerCase()),
+    );
 }
 
 /**

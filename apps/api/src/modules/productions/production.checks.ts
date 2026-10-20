@@ -255,22 +255,8 @@ export function checkBeat(input: BeatCheckInput): string[] {
         );
     }
 
-    // Still about what the beat SAYS. Quoted for the forbidden words' reason.
-    const cue = english ? CUES_NEXT_RECORD.exec(withoutCues(text))?.[0] : undefined;
-    if (cue !== undefined) {
-        problems.push(
-            `This beat says "${cue}", but nothing plays under a programme and you were not told what comes after it. ` +
-                'Do not introduce or name a record as coming up.',
-        );
-    }
-
-    // The same fault without the frame: a record named outright that nobody handed the programme.
-    const invented = english ? recordNobodyGave(input, text) : undefined;
-    if (invented !== undefined) {
-        problems.push(
-            `This beat names "${invented}", a record you were not given. Nothing plays under a programme, so name no record, song or artist you were not handed.`,
-        );
-    }
+    // Still about what the beat SAYS: a record it was never handed, cued or named.
+    problems.push(...recordFaults({ ...input, text }));
 
     const spoken = countWords(text);
     const target = expectedWords(input.words);
@@ -339,6 +325,41 @@ function skyNobodyGave(input: BeatCheckInput, text: string): string | undefined 
     return unofferedWeather(withoutRecordNames(withoutPads(withoutCues(text)), { names: input.records ?? [] }));
 }
 
+/** What {@link recordFaults} reads: the beat, and what the programme was handed. */
+export type RecordCheckInput = Pick<BeatCheckInput, 'text' | 'records' | 'handed' | 'names' | 'language'>;
+
+/**
+ * The records a beat cued or named without being handed them, as corrections, most telling first.
+ *
+ * The one part of {@link checkBeat} the DRAFT pass runs as well, so a production in a mode with no
+ * check pass is still held to it. Every other check here is a matter of quality and waits for the
+ * mode that pays for one; this is a matter of truth, since a record named is a record a listener
+ * waits for and never hears, and the draft pass is the only pass every mode has.
+ */
+export function recordFaults(input: RecordCheckInput): string[] {
+    if (input.language !== undefined) return [];
+    const problems: string[] = [];
+
+    // Quoted for the forbidden words' reason: a model told only that it cued a record cannot tell where.
+    const cue = CUES_NEXT_RECORD.exec(withoutCues(input.text))?.[0];
+    if (cue !== undefined) {
+        problems.push(
+            `This beat says "${cue}", but nothing plays under a programme and you were not told what comes after it. ` +
+                'Do not introduce or name a record as coming up.',
+        );
+    }
+
+    // The same fault without the frame: a record named outright that nobody handed the programme.
+    const invented = recordNobodyGave(input, input.text);
+    if (invented !== undefined) {
+        problems.push(
+            `This beat names "${invented}", a record you were not given. Nothing plays under a programme, so name no record, song or artist you were not handed.`,
+        );
+    }
+
+    return problems;
+}
+
 /**
  * A record named as "Title by Artist" that the programme was never handed, or `undefined`.
  *
@@ -354,7 +375,7 @@ function skyNobodyGave(input: BeatCheckInput, text: string): string | undefined 
  * itself is a person doing something rather than a credit. Anything that shares a title or an artist
  * with what the programme was handed is a record it was given.
  */
-function recordNobodyGave(input: BeatCheckInput, text: string): string | undefined {
+function recordNobodyGave(input: RecordCheckInput, text: string): string | undefined {
     const spoken = withoutPads(withoutCues(text));
     const known = [...(input.records ?? []).flatMap(record => [record.title, record.artist]), ...(input.handed ?? [])].map(entry =>
         entry.toLowerCase(),

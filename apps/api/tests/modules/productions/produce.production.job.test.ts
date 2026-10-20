@@ -841,3 +841,84 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
         expect(rows[0]).not.toHaveProperty('raw');
     });
 });
+
+// The record check is the one part of the check pass the draft pass runs too, because `outlined` and
+// `quick` have no check pass. Measured live on 2026-10-20: a banter co-host named "Blue Monday by New
+// Order" in three turns, a record nobody handed the programme.
+describe('the draft pass and a record nobody handed the programme', () => {
+    const PLAN = { beats: [{ ordinal: 0, speaker: 0, words: 12 }] } as never;
+    const CAST = [{ role: 'host', name: 'Garth', personaKey: 'garth' }] as never;
+    const INVENTED = 'The drums are mayhem and I am air-drumming so hard right now. Blue Monday by New Order.';
+    const CLEAN = 'The drums are mayhem and I am air-drumming so hard right now, Wayne. It is scary.';
+
+    async function draftWith(answers: (string | Error)[], over: Partial<Production> = {}) {
+        let at = 0;
+        const converse = vi.fn(async (_request: { messages: { content: string }[] }) => {
+            const answer = answers[Math.min(at++, answers.length - 1)]!;
+            if (answer instanceof Error) throw answer;
+            return { text: answer, finishReason: 'stop' };
+        });
+        const plan = vi.fn(async (input: { script: string }) => ({ id: 'seg-1', ...input }));
+        const productions = {
+            claim: vi.fn(async () => production({ state: 'drafting', writingMode: 'outlined', plan: PLAN, casting: CAST, ...over })),
+            isCancelled: vi.fn(async () => false),
+            moveTo: vi.fn(async () => true),
+        } as never;
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            { plan } as never,
+            { recordAll: vi.fn(async () => {}) } as never,
+            { presenting: vi.fn(async () => undefined), find: vi.fn(async () => undefined) } as never,
+            { onSet: vi.fn(async () => []), named: vi.fn(async () => undefined), markUsed: vi.fn(async () => {}) } as never,
+            { forPrompt: vi.fn(async () => []), markUsed: vi.fn(async () => {}) } as never,
+            { forPrompt: vi.fn(async () => undefined) } as never,
+            { record: vi.fn(async () => {}) } as never,
+            {} as never,
+            { cues: vi.fn(async () => []) } as never,
+            { converse } as never,
+            {} as never,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            {} as never,
+            {} as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const draft = (job as unknown as { draft: (input: Production) => Promise<boolean> }).draft.bind(job);
+        await draft(production({ state: 'drafting' }));
+
+        return { converse, written: plan.mock.calls.map(([input]) => input.script) };
+    }
+
+    it('asks again with the record named in the correction, and keeps the rewrite', async () => {
+        const { converse, written } = await draftWith([INVENTED, CLEAN]);
+
+        expect(converse).toHaveBeenCalledTimes(2);
+        expect(String(converse.mock.calls[1]?.[0].messages[1]?.content)).toContain('names "Blue Monday by New Order", a record you were not given');
+        expect(written).toEqual([CLEAN]);
+    });
+
+    it('asks once for a beat that names nothing', async () => {
+        const { converse, written } = await draftWith([CLEAN]);
+
+        expect(converse).toHaveBeenCalledTimes(1);
+        expect(written).toEqual([CLEAN]);
+    });
+
+    it('leaves a record the programme was handed alone', async () => {
+        const { converse } = await draftWith([INVENTED], { brief: 'why Blue Monday still fills a floor' });
+
+        expect(converse).toHaveBeenCalledTimes(1);
+    });
+
+    // The check pass's own terms: a re-draft that fails leaves the first attempt in place rather than
+    // a hole, since a programme cannot air with a beat missing.
+    it('keeps the first attempt when the re-draft comes back empty or throws', async () => {
+        expect((await draftWith([INVENTED, ''])).written).toEqual([INVENTED]);
+        expect((await draftWith([INVENTED, new Error('the provider fell over')])).written).toEqual([INVENTED]);
+    });
+});

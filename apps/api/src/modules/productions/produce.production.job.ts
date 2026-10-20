@@ -29,7 +29,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/s
 import { errorText } from '#modules/shared/error.text.js';
 import { stationLocation } from '#modules/shared/station.home.js';
 import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
-import { checkBeat, correctionNote } from './production.checks.js';
+import { checkBeat, correctionNote, recordFaults, type RecordCheckInput } from './production.checks.js';
 import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
@@ -38,7 +38,7 @@ import { SourceReader } from './source.reader.js';
 import { TopicResearcher } from './topic.researcher.js';
 import { chunksOf, gather, MAX_NOTES_PER_SOURCE, MAX_RESEARCH_NOTES, readNotes, researchPrompt } from './production.research.js';
 import { askForBeat, attemptsBefore } from './beat.answer.js';
-import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
+import { beatPrompt, outlinePrompt, runInFrom, type BeatRequest } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan, type ProductionSource } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
 import { ProductionRepository } from './production.repository.js';
@@ -538,6 +538,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // different part of the day while it is being written, and if one did, beats disagreeing
         // with each other would be worse than all of them being an hour stale.
         const airs = this.whenItAirs(claimed);
+        // What the programme was handed, which is the only records a beat may name. See `recordFaults`.
+        const handed = recordsHanded(claimed, casting, station);
         let runIn: string | undefined;
         let previous: number | undefined;
         // Everything written so far, PER SPEAKER, for the spent-signature check. Per speaker because
@@ -578,7 +580,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // Built once so the retry below asks for exactly the same thing, and held so the history
             // row can carry it: a retry that rebuilt the prompt would be a different question, and a
             // beat that failed twice for two different reasons is one nobody can diagnose.
-            const prompt = beatPrompt({
+            const request: BeatRequest = {
                 kind: claimed.kind,
                 ...onAir(claimed),
                 ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
@@ -613,13 +615,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...this.language(),
                 ...this.home(),
-            });
+            };
+            const prompt = beatPrompt(request);
 
-            const ask = async () =>
+            const askWith = async (messages: LlmMessage[]) =>
                 await this.llm.converse(
-                    { messages: prompt, maxOutputTokens: BEAT_OUTPUT_TOKENS, reasoningEffort: productionReasoning(this.config) },
+                    { messages, maxOutputTokens: BEAT_OUTPUT_TOKENS, reasoningEffort: productionReasoning(this.config) },
                     { models: this.models, budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
                 );
+            const ask = async () => await askWith(prompt);
 
             const label = `${claimed.title} (${beat.ordinal + 1}/${plan.beats.length})`;
             // One row per ATTEMPT, which is `script_history`'s own rule: an empty answer and the
@@ -665,7 +669,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             for (const { answer, script } of outcome.asked) {
                 attempts.push(this.attemptOf(claimed, { label, script, speaker, answer, messages: prompt }));
             }
-            const script = outcome.script;
+            let script = outcome.script;
 
             if (script.length === 0) {
                 // Out of attempts. Not survivable the way a missing break is: another break is along
@@ -683,6 +687,33 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                           : `beat ${beat.ordinal + 1} came back empty twice`,
                 );
                 return false;
+            }
+
+            // A record this turn cued or named without being handed it, asked about here rather than
+            // only in the `check` pass, because `outlined` and `quick` have no check pass and a record
+            // named is one a listener waits for and never hears. Asked before the next turn is handed
+            // these words as its run-in, which would otherwise answer the invented record. One
+            // re-draft, on the check pass's own terms: an empty or failed one keeps the original.
+            const faults = recordFaults({ text: script, ...handed, ...this.language() });
+            if (faults.length > 0) {
+                this.logger.info('productions: a beat named a record nobody handed it, so it is being asked again', {
+                    production: claimed.id,
+                    beat: beat.ordinal,
+                    faults,
+                });
+                const messages = beatPrompt({ ...request, correction: correctionNote(faults) });
+                try {
+                    const answer = await askWith(messages);
+                    const rewritten = speakable(answer.text, reactions, board.names, this.language().language, casting);
+                    attempts.push(this.attemptOf(claimed, { label, script: rewritten, speaker, answer, messages }));
+                    if (rewritten.length > 0) script = rewritten;
+                } catch (error) {
+                    this.logger.warn('productions: the re-draft of a beat that named a record failed, so the first one stands', {
+                        production: claimed.id,
+                        beat: beat.ordinal,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
             }
 
             // Resolved and RESTED before the row exists, on the break path's own terms: the board is
@@ -737,7 +768,6 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         const airs = this.whenItAirs(claimed);
-        const records = casting.find(member => member.role === 'host')?.records;
         let redrafted = 0;
 
         for (const [index, beat] of beats.entries()) {
@@ -772,11 +802,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // No production is handed a weather reading, so the host is asked whether they
                 // described one anyway: with the records they brought named out first, and nothing
                 // asked once the brief or a caller has brought the weather up.
-                ...(records === undefined ? {} : { records }),
-                // What the programme was handed, so a record named in the brief or the notes is not
-                // refused as invented, and who is on it, so "brought in by Wayne" is not a record.
-                handed: [...(claimed.brief === undefined ? [] : [claimed.brief]), ...(claimed.notes ?? [])],
-                names: [...casting.flatMap(member => (member.name === undefined ? [] : [member.name])), station],
+                // What the programme was handed, so a record in its brief, notes or the host's records
+                // is not refused as invented, and who is on it, so "brought in by Wayne" is not a record.
+                ...recordsHanded(claimed, casting, station),
                 raised: [
                     ...(claimed.brief === undefined ? [] : [claimed.brief]),
                     // What the notes say counts as raised, so a programme the notes put a storm in is
@@ -1377,6 +1405,20 @@ const guestOf = (cast: ProductionCast): CastMember | undefined => cast.find(memb
 
 /** The presenters beside the lead on a banter, for the turns that bring them in and answer them. */
 const coHostsOf = (cast: ProductionCast): CastMember[] => cast.filter(member => member.role === 'cohost');
+
+/**
+ * What a programme was handed, for `recordFaults`: the host's records, the brief and the notes, which
+ * are the records a beat may name, and who is on it, so "brought in by Wayne" is a person rather than
+ * a credit. One answer for the draft pass and the check pass, so the two cannot disagree about it.
+ */
+function recordsHanded(production: Production, cast: ProductionCast, station: string): Omit<RecordCheckInput, 'text' | 'language'> {
+    const records = cast.find(member => member.role === 'host')?.records;
+    return {
+        ...(records === undefined ? {} : { records }),
+        handed: [...(production.brief === undefined ? [] : [production.brief]), ...(production.notes ?? [])],
+        names: [...cast.flatMap(member => (member.name === undefined ? [] : [member.name])), station],
+    };
+}
 
 /**
  * A model's answer as JSON, or `undefined`.

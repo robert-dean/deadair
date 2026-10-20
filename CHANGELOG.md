@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.74.1] — 2026-10-20
+
+- Productions: a banter now airs on a co-hosted show that takes no calls. It was being treated as an unwanted phone-in, so every one was finished, never put on and retired an hour later, and the one waiting to expire stopped the next from being made.
+- A programme's outline is no longer lost when an on-air break takes the model back while it is being planned: the station asks again, as it already did for each beat, so co-host banters and phone-ins are written to one plan rather than as separate pieces. When it does give up, the activity feed says whether breaks or the model were the reason.
+
 ## [0.74.0] — 2026-10-19
 
 - A persona can now be set to always work one fact about the music into every link ("How much they lean on what the station knows" → Always). The station picks the fact, preferring a sourced one about the record coming up, and the presenter says it in their own words beside their usual patter.
@@ -1520,7 +1525,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.1...HEAD
+[0.74.1]: https://github.com/robert-dean/deadair/compare/v0.74.0...v0.74.1
 [0.74.0]: https://github.com/robert-dean/deadair/compare/v0.73.0...v0.74.0
 [0.73.0]: https://github.com/robert-dean/deadair/compare/v0.72.1...v0.73.0
 [0.72.1]: https://github.com/robert-dean/deadair/compare/v0.72.0...v0.72.1

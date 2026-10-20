@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.playback
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
+import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 
@@ -21,9 +22,10 @@ import androidx.media3.common.Player
  * - `stall` when playback that was running starts buffering, and `resumed after <ms>` when it plays
  *   again, which is a drop the listener hears without the player ever failing.
  *
- * The journal also gets `play` and `stop reason=<why>`, which logcat does not: a journal read a day
- * later needs to say where each listening session began and ended, or a stall cannot be told from
- * the listener pressing Stop.
+ * The journal also gets `play`, `stop reason=<why>` and `item uri=<what is playing>`, which logcat
+ * does not: a journal read a day later needs to say where each listening session began and ended,
+ * or a stall cannot be told from the listener pressing Stop. [SessionLines] decides which of those
+ * are new.
  *
  * The address is written without its query or fragment, because the journal is a file somebody
  * shares and the address is the one thing in it that could carry more than a place.
@@ -32,6 +34,7 @@ class PlaybackLog(private val player: Player, private val journal: (String) -> U
     /** When the current stall began, or `null` when playback is not stalled. */
     private var stalledAt: Long? = null
     private var ready = false
+    private val session = SessionLines()
 
     override fun onPlayerError(error: PlaybackException) {
         write(Log.WARN, "error code=${error.errorCodeName} (${error.errorCode}) uri=${playing()} causes=${causes(error)}", error)
@@ -59,7 +62,11 @@ class PlaybackLog(private val player: Player, private val journal: (String) -> U
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-        journal(if (playWhenReady) "play uri=${playing()}" else "stop reason=${stopReason(reason)}")
+        session.onPlayWhenReady(playWhenReady, stopReason(reason))?.let(journal)
+    }
+
+    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        session.onItem(playing()?.toString())?.let(journal)
     }
 
     /** A line from beside the player (the reconnect policy's decisions), written the same two ways. */

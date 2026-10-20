@@ -74,10 +74,15 @@ export const NOTES_ELSEWHERE =
  * New Order" as "this next song", a record nothing on the station had mentioned, between two others.
  * So the rule names the swap and the sheet's request both, for the reason `groundingRules` names
  * its specifics: a model told only to be careful reaches for the thing its character asked for.
+ *
+ * Both directions are spelled out in the words a presenter uses, because "back-announce" is trade
+ * jargon and a model that does not recognise "that was X" as one will write it: the next record is
+ * the one Garth invented, and the last one is the same invention pointed the other way.
  */
 export const NO_RECORD_PLAYING =
     '- Nothing plays under this, and you have not been told what played before it or what comes after it. ' +
-    'Do not introduce a record, back-announce one, or react to one as if it were playing.';
+    'Do not introduce a record ("here\'s", "this next song"), back-announce one ("that was", "you just heard", "that\'s been"), ' +
+    'or react to one as if it were playing.';
 
 /** What a speaker with a sheet is told about the sheet's own record rules, beside {@link NO_RECORD_PLAYING}. */
 export const SHEET_RECORDS_ARE_FOR_BREAKS =
@@ -350,7 +355,7 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         '- Do not write any of the script. This is a plan.',
         // A beat is told the same thing (`NO_RECORD_PLAYING`), and a plan with a turn that cues the
         // next record would be a beat brief that rule then has to fight.
-        '- Nothing plays under this programme and nobody knows what comes before or after it, so plan no beat that introduces or back-announces a record.',
+        '- Nothing plays under this programme and nobody knows what comes before or after it, so plan no beat that introduces a record or says what just played.',
         ...(dialogueRules(request.speakers) ?? []),
         // The break prompt's own sentence, word for word: two prompts stating the same station
         // policy in different words is how the two drift.

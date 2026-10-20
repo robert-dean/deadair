@@ -463,7 +463,8 @@ describe('the records around a programme', () => {
         const system = systemOf(turn({ ...banter, speaker: lemmy, previousSpeaker: host, persona: garth }));
 
         expect(system).toContain('Nothing plays under this');
-        expect(system).toContain('Do not introduce a record, back-announce one');
+        expect(system).toContain('Do not introduce a record ("here\'s", "this next song")');
+        expect(system).toContain('back-announce one ("that was", "you just heard", "that\'s been")');
         expect(system).toContain('Name no record, song or artist at all.');
     });
 
@@ -492,7 +493,7 @@ describe('the records around a programme', () => {
     it('has the outline plan no turn that cues a record', () => {
         const system = String(outlinePrompt({ kind: 'banter', title: 'Banter', beats: 7, wordsPerBeat: 35 })[0]?.content);
 
-        expect(system).toContain('plan no beat that introduces or back-announces a record');
+        expect(system).toContain('plan no beat that introduces a record or says what just played');
     });
 });
 

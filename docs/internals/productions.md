@@ -201,7 +201,7 @@ record before and the record after are not facts at writing time and no beat is 
 and a persona sheet written for breaks says the opposite: on 2026-10-20 a Wayne's World banter aired with Garth,
 whose sheet says "name the record and who made it" and to air-drum along to it, announcing "Blue Monday by New
 Order" as "this next song" in three of his four turns, a record nothing on the station had mentioned, between
-Thundermother and Slash. So every turn is told nothing plays under it, not to introduce or back-announce a record,
+Thundermother and Slash. So every turn is told nothing plays under it, not to introduce a record or back-announce one, each named in the words a presenter uses ("this next song", "that was", "you just heard"),
 and to name none at all, or none it was not given when the programme has a brief, notes or a countdown host's
 records. A speaker with a sheet is told the sheet's record rules are for breaks. The outline is told to plan no
 turn that cues one, since a beat brief that does would be a rule the beat then has to fight. The `check` pass

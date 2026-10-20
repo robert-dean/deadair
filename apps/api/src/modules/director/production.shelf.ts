@@ -1,4 +1,5 @@
 import type { Production } from '#modules/productions/production.js';
+import { BANTER_KIND, VISIT_KIND } from '#modules/productions/production.settings.js';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
 import { landingFor, type AirClock } from './break.planner.js';
 import type { StationLineupItem } from './station.lineup.js';
@@ -43,9 +44,17 @@ export function productionExpired(production: Pick<Production, 'createdAt' | 'sc
  * Only the standing kind is gated. A production with a slot is the format clock's, which is a time
  * rather than a property of the show, and one with an actor is somebody at the desk asking for this
  * call now. Both are instructions the broadcast's rule has no say over.
+ *
+ * A banter and a visit are dialogue kinds without being CALLS: nobody rings in, the presenters talk to
+ * each other or to a guest, and whether a show has those is its co-hosts, not its call-ins. A standing
+ * banter has no slot and no actor, so it used to answer `true` here, and on a co-hosted show that took
+ * no calls every one was finished, skipped on every pass and retired an hour later: on 20 October not
+ * one of them aired, and the one waiting to expire was what stopped the next being commissioned.
  */
 export function standingCall(production: Pick<Production, 'kind' | 'scheduledFor' | 'actorId'>, dialogueKinds: ReadonlySet<string>): boolean {
-    return production.scheduledFor === undefined && production.actorId === undefined && dialogueKinds.has(production.kind.trim().toLowerCase());
+    const kind = production.kind.trim().toLowerCase();
+    if (kind === BANTER_KIND || kind === VISIT_KIND) return false;
+    return production.scheduledFor === undefined && production.actorId === undefined && dialogueKinds.has(kind);
 }
 
 /**

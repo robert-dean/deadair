@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-10-20
+
+- When the stream stalls for four seconds on a wifi that has stopped passing anything, the app moves it to the phone's mobile data instead of waiting for Android to give up on the wifi, which took nineteen seconds on a walk. It goes back to following the phone's own choice of network as soon as Android moves on, or when you stop. The playback log says each time it happens, and when there was no mobile data to move to.
+
 ## [0.23.0] — 2026-10-19
 
 - Signing in can now finish with a passkey. When the account has one, the app asks for it with the phone's own passkey prompt after the password, with an emailed code or the authenticator still on offer beside it. It needs a station published over https, since that is where Android checks the app may use the station's passkeys.
@@ -275,7 +279,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.23.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.24.0...HEAD
+[0.24.0]: https://github.com/robert-dean/deadair/compare/android-v0.23.0...android-v0.24.0
 [0.23.0]: https://github.com/robert-dean/deadair/compare/android-v0.22.1...android-v0.23.0
 [0.22.1]: https://github.com/robert-dean/deadair/compare/android-v0.22.0...android-v0.22.1
 [0.22.0]: https://github.com/robert-dean/deadair/compare/android-v0.21.1...android-v0.22.0

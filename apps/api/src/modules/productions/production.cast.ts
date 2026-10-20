@@ -127,6 +127,11 @@ export interface CallSubject {
     records?: readonly ShowRecord[];
     /** Whether the other person dropped by the studio rather than rang, which is how the subject is worded. */
     visit?: boolean;
+    /**
+     * Whether the others are the host's co-presenters, which is a banter: nobody rang and nobody
+     * dropped by, so the subject is worded as what the presenters talk about. See {@link callSubjectOf}.
+     */
+    banter?: boolean;
 }
 
 /**
@@ -150,9 +155,12 @@ export interface CallSubject {
  * show has just played on their cast member, and then those records are the subject: the caller
  * rings about one of them, and the host's preoccupation is their take on it.
  *
+ * A banter is the same rule with nobody calling: the host's preoccupation is what the presenters
+ * talk about, and {@link CallSubject.banter} is what stops it being worded as why somebody rang.
+ *
  * A brief always wins, because it is somebody saying what they want; the scheduler is what stops a
- * broadcast's playlist brief reaching a call as one. Absent for a cast with no caller, and for one
- * where neither side has anything on their mind.
+ * broadcast's playlist brief reaching a call as one. Absent for a monologue, and for a cast where
+ * nobody has anything on their mind.
  */
 export function callSubjectOf(brief: string | undefined, cast: ProductionCast): CallSubject | undefined {
     if (brief !== undefined && brief.trim().length > 0) return undefined;
@@ -175,6 +183,10 @@ export function callSubjectOf(brief: string | undefined, cast: ProductionCast): 
         // How they came to be on it, which is how the subject is worded: why somebody RANG, or why
         // they DROPPED BY. A visit has one guest, so any visitor answers for all of them.
         ...(cast.some(member => member.role === 'guest') ? { visit: true } : {}),
+        // Nobody but presenters, which is a banter. Worded as a call, it was: every banter's outline
+        // on 2026-10-20 was planned around a caller nobody cast, and they aired "we have a caller on
+        // the line" with nobody on it.
+        ...(cast.some(member => member.role === 'cohost') && !cast.some(member => isVisitor(member)) ? { banter: true } : {}),
     };
 }
 

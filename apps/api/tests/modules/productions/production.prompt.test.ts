@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { beatPrompt, outlinePrompt } from '../../../src/modules/productions/production.prompt.js';
 import { languageRule } from '../../../src/modules/shared/language.name.js';
-import type { CastMember } from '../../../src/modules/productions/production.cast.js';
+import { callSubjectOf, type CastMember } from '../../../src/modules/productions/production.cast.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 
 const host: CastMember = { role: 'host', personaId: 'h1', personaKey: 'classic', name: 'Ray', voice: 'classic' };
@@ -599,6 +599,50 @@ describe('a programme nobody briefed', () => {
 
         expect(outlineUser({ subject, brief })).not.toContain("Todd's show");
         expect(userOf(turn({ ...base, subject, brief }))).not.toContain("Todd's show");
+    });
+});
+
+// Every banter on 2026-10-20 was planned around a caller nobody cast ("The Caller's Grievance") and
+// aired "we have a caller on the line", because the subject passage said why "the caller" rang.
+describe('a banter nobody briefed', () => {
+    const subject = callSubjectOf(undefined, [{ ...host, preoccupation: 'the gig that went wrong in 1979' }, lemmy]);
+    const speakers = [host, lemmy, host, lemmy, host].map((who, ordinal) => ({ ordinal, who }));
+    const outline = outlinePrompt({ kind: 'banter', title: 'Banter', beats: 5, wordsPerBeat: 40, subject, speakers });
+    // "called" is left out: the programme "is called" something, which is its name and not a phone call.
+    const caller = /\bcall(?:er|ers|s|ing)?\b|\brang\b|\brings?\b|\bringing\b|\bphoned?\b/i;
+
+    it("is the host's show, worded as what the presenters talk about", () => {
+        expect(subject?.banter).toBe(true);
+        expect(String(outline[1]?.content)).toContain('It is what the presenters talk about from start to finish.');
+    });
+
+    it('never tells the outline about a caller, a call or anybody ringing', () => {
+        expect(String(outline[0]?.content)).not.toMatch(caller);
+        expect(String(outline[1]?.content)).not.toMatch(caller);
+    });
+
+    it('never tells a beat about one either, whoever has it', () => {
+        const beats = [
+            turn({ ...banter, subject, ordinal: 0, speaker: host }),
+            turn({ ...banter, subject, ordinal: 1, speaker: lemmy, previousSpeaker: host, firstTurn: true }),
+            turn({ ...banter, subject, ordinal: 2, speaker: host, previousSpeaker: lemmy }),
+            turn({ ...banter, subject, ordinal: 4, speaker: host, previousSpeaker: lemmy, lastTurn: true }),
+        ];
+
+        for (const messages of beats) {
+            expect(systemOf(messages)).not.toMatch(caller);
+            expect(userOf(messages)).not.toMatch(caller);
+        }
+    });
+
+    it('talks about the records rather than a caller ringing about one, when the host brought them', () => {
+        const records = [{ title: 'Enter Sandman', artist: 'Metallica' }];
+        const user = String(
+            outlinePrompt({ kind: 'banter', title: 'Banter', beats: 5, wordsPerBeat: 40, subject: { ...subject, records }, speakers })[1]?.content,
+        );
+
+        expect(user).toContain('Those records are what the presenters talk about from start to finish.');
+        expect(user).not.toMatch(caller);
     });
 });
 

@@ -80,6 +80,138 @@ const MARKUP = /(\*\*?|^#{1,6}\s|^\s*[-*]\s|`|_[A-Za-z])/m;
  */
 const CUES_NEXT_RECORD = /\b(?:this|the) next (?:song|record|track|tune|cut)\b/i;
 
+/**
+ * One capitalised word of a title or a name: "Blue", "Motörhead", "AC/DC", "Guns'n'Roses", and the
+ * abbreviations that end in a full stop ("Dr. Dre", "Mr. Roboto"), which would otherwise end the run.
+ */
+const NAME_WORD = "(?:(?:Mr|Mrs|Ms|Dr|St)\\.|[\\p{Lu}\\d][\\p{L}\\d'’/&-]*)";
+
+/** The small words a title or a band name keeps lowercase inside it: "Ace of Spades", "Echo and the Bunnymen". */
+const NAME_LINK = '(?:of|the|a|an|in|on|to|and|for|me|my|you|your|with|at|from|is|it|n|&)';
+
+/** A run of capitalised words, joined by nothing but spaces and the small words above. */
+const NAME_RUN = `${NAME_WORD}(?:\\s+(?:${NAME_LINK}\\s+)*${NAME_WORD})*`;
+
+/**
+ * "Blue Monday by New Order": a title, a lowercase "by", and who made it, each a run of capitalised
+ * words, optionally quoted. The other half of {@link CUES_NEXT_RECORD}, since the live banter named
+ * its invented record bare in two of its three turns, with no frame in front of it.
+ */
+const TITLE_BY_ARTIST = new RegExp(`["“]?(${NAME_RUN})["”]?,?\\s+by\\s+(${NAME_RUN})`, 'gu');
+
+/** The words that say a record has just played: "that was", "that's been", "you just heard". */
+// Not "that has been": nearly always a relative clause ("a quartet that has been rather consistent
+// since the “Call of Duty” EP"), measured on the station's own breaks, where "that's been" is not.
+const BACK_FRAME = "(?:[Tt]hat (?:was|one was)|[Tt]hat['’]s been|(?:[Yy]ou|[Ww]e) (?:just|have just|['’]ve just) heard)";
+
+/** The frames that can only be about something heard, for the shape that looks further along the sentence. */
+const HEARD_FRAME = "(?:[Yy]ou|[Ww]e) (?:just|have just|['’]ve just) heard";
+
+/**
+ * The ways a script says what just played, each with the groups that name a record or an artist.
+ *
+ * The other direction of {@link CUES_NEXT_RECORD}: a programme knows the record before it no better
+ * than the one after. What makes a frame a back-announce rather than "that was close" is a NAME, so
+ * every shape here needs one, and the shapes are the ones the station's own talk breaks use:
+ *
+ * - **"That was Blue Monday"**: a capitalised run straight after the frame, optionally quoted, and
+ *   optionally opening with a bracket ("That was (I Can't Get No) Satisfaction").
+ * - **"That was honeybee, from Olivia Rodrigo"**: a title in any case, then a comma and a credit. The
+ *   comma is what makes it a credit: "that was a gift from God" has none.
+ * - **"That was the deadmau5 “Animal Rights”"**: a quoted title a few words after the frame.
+ * - **"we just heard that totally rad stuff from ZZ Top"**: a credit later in the sentence, after a
+ *   frame that can only be about something heard. "That was a postcard from Paris" is not one.
+ * - **"that Iron Maiden, that was bloody powerful"**: an act named in front of the frame.
+ *
+ * What a frame is followed by with no name ("that was heavy", "that was a choice") is not asked:
+ * across the station's talk breaks it was a reaction or an opinion far more often than a record, and
+ * the prompt rule is what answers it.
+ */
+const BACK_ANNOUNCES: readonly RegExp[] = [
+    new RegExp(`\\b${BACK_FRAME}\\s+["“‘']?(?<name>(?:\\([^)]{1,40}\\)\\s+)?${NAME_RUN})`, 'gu'),
+    new RegExp(`\\b${BACK_FRAME}\\s+(?<title>[^.!?,;:"“”]{1,60}),\\s+from\\s+(?<name>${NAME_RUN})`, 'gu'),
+    new RegExp(`\\b${BACK_FRAME}\\s+[^.!?"“”]{0,30}?["“](?<title>[^"”]{2,60})["”]`, 'gu'),
+    new RegExp(`\\b${HEARD_FRAME}\\s+[^.!?]{0,40}?\\bfrom\\s+(?<name>${NAME_RUN})`, 'gu'),
+    new RegExp(`\\b[Tt]hat\\s+(?<name>${NAME_RUN})(?:\\s+one)?,\\s+that(?:,\\s+that)?\\s+(?:was|one was)\\b`, 'gu'),
+];
+
+/**
+ * A back-announce frame with no name after it: "that was heavy", "you just heard", "that one was loud".
+ *
+ * A reaction to a record as if one had just played, which the prompt rule forbids in as many words and
+ * the named shapes above cannot see. Two things keep it from reading ordinary English as one.
+ *
+ * - **"That was" must OPEN a clause**: the start of a sentence, after a comma or a dash, or after a
+ *   word a presenter reacts with ("well", "wow", "man"). A relative clause has none of those in
+ *   front of it: the one production beat on the live station with "that was" in it said "an
+ *   instrumental bridge that was omitted for air play". "You just heard" is about audio wherever it
+ *   is, so it counts anywhere.
+ * - **A clause about a PERSON is somebody's story** ("that was me singing", "that was the worst week
+ *   of my year"), so a first- or second-person word, or the name of somebody on the programme, in the
+ *   clause stands it down. The clause ends at the next comma or dash, because what follows is filler:
+ *   "that was bloody heavy, I mean" is about a record, and its "I" is not.
+ *
+ * - **A reaction at the top of a turn that answers somebody is a reply to THEM** ("That was so close,
+ *   Wayne"), since the beat prompt tells that turn to answer what was just said before anything
+ *   else. See {@link REACTION_WORDS}.
+ */
+const BARE_BACK_ANNOUNCE = new RegExp(
+    `(?:(?:^|[.!?…,;:—–]["”’]?|\\s-)\\s*(?:(?:well|oh|wow|man|so|and|yeah|like|perhaps|maybe|honestly|seriously)[,!]?\\s+)?(?<clause>(?:that|that one)\\s+was|that['’]s\\s+been)` +
+        `|(?<heard>(?:you|we)\\s+(?:just|have\\s+just|['’]ve\\s+just)\\s+heard))\\b(?<rest>[^.!?]{0,60})`,
+    'giu',
+);
+
+/**
+ * How far into a turn that answers somebody a bare reaction is read as a reply to them.
+ *
+ * The first sentence or two, which is where the beat prompt asks for the answer ("Answer what was
+ * just said to you before you say anything else"). Further in, the turn has moved on to its own
+ * point, and "that was heavy" there is about a record again. Only the BARE frame is excused: a named
+ * one ("That was Blue Monday, Wayne") names a record wherever it is.
+ */
+export const REACTION_WORDS = 20;
+
+/** Words that make the rest of a clause about a person rather than a record. */
+const ABOUT_A_PERSON = /\b(?:i|i['’]m|me|my|mine|we|us|our|you|your|yours|he|him|his|she|her|they|them|their)\b/iu;
+
+/**
+ * Capitalised words a back-announce frame is followed by that are never a record: the calendar, and
+ * the station's own vocabulary. "That was Monday" is a day, and the beat that says it is about one.
+ */
+const NOT_A_RECORD = new Set([
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+    'i',
+    'me',
+    'you',
+    'him',
+    'her',
+    'them',
+    'us',
+    'it',
+    'god',
+    'mom',
+    'mum',
+    'dad',
+]);
+
 /** How much of the run-in a beat may echo before it is reciting rather than continuing. */
 export const RUN_IN_ECHO_WORDS = 6;
 
@@ -153,6 +285,23 @@ export interface BeatCheckInput {
      * looked for, so a countdown host talking about "Sunny" is naming a record rather than the sky.
      */
     records?: readonly { title: string; artist: string }[];
+    /**
+     * What the programme was handed in words: the brief and the notes. A record named in either is
+     * one it was given, so naming it is the programme rather than an invention. See
+     * {@link recordNobodyGave}.
+     */
+    handed?: readonly string[];
+    /**
+     * The names of the people on the programme and of the station, so "brought in by Wayne" is not
+     * read as a record by Wayne.
+     */
+    names?: readonly string[];
+    /**
+     * This turn answers somebody else on the programme, so a bare reaction at the top of it ("That was
+     * weird, Wayne") is a reply to what they just said rather than to a record. See
+     * {@link REACTION_WORDS}.
+     */
+    answering?: boolean;
     /**
      * Whatever on this call may have raised the weather before this beat: the brief an operator
      * typed and the callers' earlier turns. See {@link skyNobodyGave}.
@@ -228,14 +377,8 @@ export function checkBeat(input: BeatCheckInput): string[] {
         );
     }
 
-    // Still about what the beat SAYS. Quoted for the forbidden words' reason.
-    const cue = english ? CUES_NEXT_RECORD.exec(withoutCues(text))?.[0] : undefined;
-    if (cue !== undefined) {
-        problems.push(
-            `This beat says "${cue}", but nothing plays under a programme and you were not told what comes after it. ` +
-                'Do not introduce or name a record as coming up.',
-        );
-    }
+    // Still about what the beat SAYS: a record it was never handed, cued or named.
+    problems.push(...recordFaults({ ...input, text }));
 
     const spoken = countWords(text);
     const target = expectedWords(input.words);
@@ -302,6 +445,166 @@ function skyNobodyGave(input: BeatCheckInput, text: string): string | undefined 
 
     // Cues and pads out first: a drop called `[sfx:thunderstorm]` is a sound, not a forecast.
     return unofferedWeather(withoutRecordNames(withoutPads(withoutCues(text)), { names: input.records ?? [] }));
+}
+
+/** What {@link recordFaults} reads: the beat, and what the programme was handed. */
+export type RecordCheckInput = Pick<BeatCheckInput, 'text' | 'records' | 'handed' | 'names' | 'language' | 'answering'>;
+
+/**
+ * The records a beat cued or named without being handed them, as corrections, most telling first.
+ *
+ * The one part of {@link checkBeat} the DRAFT pass runs as well, so a production in a mode with no
+ * check pass is still held to it. Every other check here is a matter of quality and waits for the
+ * mode that pays for one; this is a matter of truth, since a record named is a record a listener
+ * waits for and never hears, and the draft pass is the only pass every mode has.
+ */
+export function recordFaults(input: RecordCheckInput): string[] {
+    if (input.language !== undefined) return [];
+    const problems: string[] = [];
+
+    // Quoted for the forbidden words' reason: a model told only that it cued a record cannot tell where.
+    const cue = CUES_NEXT_RECORD.exec(withoutCues(input.text))?.[0];
+    if (cue !== undefined) {
+        problems.push(
+            `This beat says "${cue}", but nothing plays under a programme and you were not told what comes after it. ` +
+                'Do not introduce or name a record as coming up.',
+        );
+    }
+
+    // The other direction: a record said to have just played, which the programme knows no better.
+    const announced = backAnnounced(input, input.text);
+    if (announced !== undefined) {
+        problems.push(
+            `This beat says "${announced.said}", but nothing plays under a programme and you were not told what played before it. ` +
+                'Do not say what just played, and name no record you were not handed.',
+        );
+    }
+
+    // A frame with nothing named after it, asked only when no named shape was found: one correction a
+    // reaction, since the named one above already says everything this would.
+    const reacted = announced === undefined ? bareBackAnnounce(input, input.text) : undefined;
+    if (reacted !== undefined) {
+        problems.push(
+            `This beat says "${reacted}" as if a record had just played, but nothing plays under a programme. ` +
+                'Do not react to a record or say what just played.',
+        );
+    }
+
+    // The same fault without the frame: a record named outright that nobody handed the programme.
+    // Left out when it is the record just back-announced, which the correction above already names.
+    const invented = recordNobodyGave(input, input.text);
+    if (invented !== undefined && (announced === undefined || !invented.includes(announced.record))) {
+        problems.push(
+            `This beat names "${invented}", a record you were not given. Nothing plays under a programme, so name no record, song or artist you were not handed.`,
+        );
+    }
+
+    return problems;
+}
+
+/**
+ * A record named as "Title by Artist" that the programme was never handed, or `undefined`.
+ *
+ * No beat knows the record either side of it (`NO_RECORD_PLAYING` in `production.prompt.ts`), so a
+ * record it names that is not among the ones it was handed, the countdown host's records, the brief
+ * or the notes, is one the model chose. Measured live on 2026-10-20: "Blue Monday by New Order" in
+ * three turns of one banter, between two other records.
+ *
+ * It refuses narrowly, on the bargain every check here keeps, since a refusal costs a beat its one
+ * re-draft. Both sides must be capitalised and "by" must not be, so "blown away by Wayne" and a
+ * shouted line are not read as records. A one-word "title" opening a sentence is English rather than
+ * a record ("Inspired by Wayne"), and an "artist" who is somebody on the programme or the station
+ * itself is a person doing something rather than a credit. Anything that shares a title or an artist
+ * with what the programme was handed is a record it was given.
+ */
+function recordNobodyGave(input: RecordCheckInput, text: string): string | undefined {
+    const spoken = withoutPads(withoutCues(text));
+    const { given, person } = handedTo(input);
+
+    for (const match of spoken.matchAll(TITLE_BY_ARTIST)) {
+        const [, title, artist] = match as unknown as [string, string, string];
+        const before = spoken.slice(0, match.index).trimEnd();
+        if (!title.includes(' ') && (before.length === 0 || /[.!?:;]["”]?$/.test(before))) continue;
+        if (person(artist)) continue;
+        if (given(title) || given(artist)) continue;
+        // Named back as the record alone, without the "this is" in front of it or a quote mark caught at either end.
+        return `${title.replace(/^(?:It|This|That|Here)\s+(?:is|was)\s+/, '')} by ${artist}`.replace(/^['‘]|['’]$/g, '').replace(/['’](?= by )/, '');
+    }
+
+    return undefined;
+}
+
+/**
+ * A record said to have just played that the programme was never handed, or `undefined`: the words
+ * that said it, and the title or name in them, so the bare-credit check can tell it is the same one.
+ *
+ * Refused on {@link recordNobodyGave}'s terms, and every shape in {@link BACK_ANNOUNCES} is vetted
+ * the same way. A capitalised name must not be shouted (Garth's turns are in capitals by design, and
+ * "THAT WAS AMAZING" is not a record), somebody on the programme ("that was Wayne"), a day, a month
+ * or a pronoun; and neither the name nor the title may be anything the programme was handed.
+ */
+function backAnnounced(input: RecordCheckInput, text: string): { said: string; record: string } | undefined {
+    const spoken = withoutPads(withoutCues(text));
+    const { given, person } = handedTo(input);
+
+    const found = BACK_ANNOUNCES.flatMap(pattern => [...spoken.matchAll(pattern)]).sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
+    for (const match of found) {
+        const name = match.groups?.name?.replace(/^\(/u, '');
+        const title = match.groups?.title?.trim();
+        if (name !== undefined && (name === name.toUpperCase() || NOT_A_RECORD.has(name.toLowerCase()) || person(name) || given(name))) continue;
+        if (title !== undefined && given(title)) continue;
+        // Quote marks out, except an apostrophe inside a word, so "that's" and "Can't" keep theirs.
+        const said = match[0]
+            .replace(/["“”‘]|(?<![\p{L}])'|'(?![\p{L}])/gu, '')
+            .replace(/\s+/gu, ' ')
+            .replace(/[\s,.;:]+$/u, '')
+            .trim();
+        return { said, record: title ?? name ?? said };
+    }
+
+    return undefined;
+}
+
+/**
+ * A frame with no name after it, as the words that said it, or `undefined`. See
+ * {@link BARE_BACK_ANNOUNCE} for what makes one, and what it stands down for.
+ */
+function bareBackAnnounce(input: RecordCheckInput, text: string): string | undefined {
+    const spoken = withoutPads(withoutCues(text));
+    const { person } = handedTo(input);
+
+    for (const match of spoken.matchAll(BARE_BACK_ANNOUNCE)) {
+        if (input.answering === true && countWords(spoken.slice(0, match.index)) < REACTION_WORDS) continue;
+        const frame = match.groups?.clause ?? match.groups?.heard ?? '';
+        // The clause alone, up to the next comma or dash: what comes after it is filler ("that was
+        // bloody heavy, I mean") or the next thought, and an "I" in it is not what the clause is about.
+        const clause = (match.groups?.rest ?? '').split(/[,;:—–]/u)[0] ?? '';
+        if (ABOUT_A_PERSON.test(clause)) continue;
+        if (clause.split(/\s+/u).some(word => word.length > 0 && person(word))) continue;
+        // The frame and the clause, which is enough for a model to find the sentence.
+        return `${frame}${clause}`.trim().split(/\s+/u).slice(0, 8).join(' ');
+    }
+
+    return undefined;
+}
+
+/**
+ * What a programme may name, as two questions: whether a title or an artist is among what it was
+ * handed, and whether a name is somebody on it (or the station) rather than a credit.
+ */
+function handedTo(input: RecordCheckInput): { given: (part: string) => boolean; person: (name: string) => boolean } {
+    const known = [...(input.records ?? []).flatMap(record => [record.title, record.artist]), ...(input.handed ?? [])].map(entry =>
+        entry.toLowerCase(),
+    );
+    const people = (input.names ?? []).map(name => name.toLowerCase());
+
+    return {
+        given: part => known.some(entry => entry.includes(part.toLowerCase())),
+        person: name => {
+            const lower = name.toLowerCase();
+            return people.some(one => lower === one || lower.startsWith(`${one} `) || lower.startsWith(`${one}'`) || lower.startsWith(`${one}’`));
+        },
+    };
 }
 
 /**

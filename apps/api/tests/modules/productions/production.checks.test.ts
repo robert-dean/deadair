@@ -366,3 +366,186 @@ describe('a record cued as coming next', () => {
         expect(beat(`${words(30)} this next song is loud`, { words: 40, language: 'de' })).toEqual([]);
     });
 });
+
+// The live banter named its invented record bare in two of three turns: "Um. It's scary. Blue Monday
+// by New Order." No frame in front of it, so only the shape of a credit gives it away.
+describe('a record named that nobody handed the programme', () => {
+    const cast = { names: ['Wayne', 'Garth', "Wayne's World"] };
+
+    it('refuses "Title by Artist" when the programme was handed no records', () => {
+        const problems = beat(`${words(30)} Um. It's scary. Blue Monday by New Order.`, { words: 40, ...cast });
+
+        expect(problems[0]).toMatch(/names "Blue Monday by New Order", a record you were not given/);
+    });
+
+    it('refuses a quoted title and one with small words inside it', () => {
+        expect(beat(`${words(30)} I keep humming "Ace of Spades" by Motörhead.`, { words: 40 })[0]).toMatch(/"Ace of Spades by Motörhead"/);
+        expect(beat(`${words(30)} nothing beats The Killing Moon by Echo and the Bunnymen.`, { words: 40 })[0]).toMatch(
+            /"The Killing Moon by Echo and the Bunnymen"/,
+        );
+    });
+
+    it('lets through a record the programme was handed, by its records, its brief or its notes', () => {
+        const text = `${words(30)} and that is why Holy Wars by Megadeth still matters.`;
+
+        expect(beat(text, { words: 40, records: [{ title: 'Holy Wars', artist: 'Megadeth' }] })).toEqual([]);
+        expect(beat(text, { words: 40, handed: ['a call about Megadeth'] })).toEqual([]);
+        expect(beat(text, { words: 40, handed: ['Holy Wars came out in 1990.'] })).toEqual([]);
+    });
+
+    it('reads somebody on the programme doing something as a person, not a credit', () => {
+        expect(beat(`${words(30)} I was totally Brought In by Wayne today.`, { words: 40, ...cast })).toEqual([]);
+        expect(beat(`${words(30)} Blown Away by Garth's gadget again.`, { words: 40, ...cast })).toEqual([]);
+    });
+
+    it('reads ordinary English as English', () => {
+        expect(beat(`${words(30)}. Inspired by Wayne, I built a camera. I was blown away by Garth.`, { words: 40 })).toEqual([]);
+        expect(beat(`${words(30)} the drums are SO LOUD BY NOW that I cannot hear.`, { words: 40 })).toEqual([]);
+    });
+
+    it('stands down on a station that does not broadcast in English', () => {
+        expect(beat(`${words(30)} Blue Monday by New Order.`, { words: 40, language: 'de' })).toEqual([]);
+    });
+});
+
+// Measured against the live station's last 455 production beats: the frame in front and a stray quote
+// mark were caught with the record, and the correction should name the record alone.
+describe('naming the record back', () => {
+    it('leaves out the "this is" in front of it and a quote mark round it', () => {
+        expect(beat(`${words(30)} and this, It is Paranoid by Black Sabbath.`, { words: 40 })[0]).toMatch(/names "Paranoid by Black Sabbath"/);
+        expect(beat(`${words(30)} always 'Africa' by Toto.`, { words: 40 })[0]).toMatch(/names "Africa by Toto"/);
+    });
+});
+
+// The other direction of "this next song". A programme knows the record before it no better than the
+// one after, so "that was X" is the same invention. Run over the live station's 409 talk breaks that
+// back-announce, it named a record or an artist in all 301 it fired on.
+describe('a record back-announced that nobody handed the programme', () => {
+    const cast = { names: ['Wayne', 'Garth', "Wayne's World"] };
+    const said = (text: string, over: Partial<Parameters<typeof checkBeat>[0]> = {}) => beat(`${words(30)} ${text}`, { words: 40, ...cast, ...over });
+
+    it('refuses "that was X", "that\'s been X" and "you just heard X"', () => {
+        expect(said('Party on. That was Blue Monday, Wayne!')[0]).toMatch(/says "That was Blue Monday", but .* what played before it/);
+        expect(said("Wow, that's been Dr. Feelgood, man.")[0]).toMatch(/says "that's been Dr. Feelgood"/);
+        expect(said('and you just heard "Paranoid" right there.')[0]).toMatch(/says "you just heard Paranoid"/);
+    });
+
+    it('names the record once when the back-announce credits it too', () => {
+        const problems = said('That was Blue Monday by New Order.');
+
+        expect(problems).toHaveLength(1);
+        expect(problems[0]).toMatch(/says "That was Blue Monday", but .* what played before it/);
+    });
+
+    it('lets through a record the programme was handed', () => {
+        expect(said('That was Holy Wars, mate.', { records: [{ title: 'Holy Wars', artist: 'Megadeth' }] })).toEqual([]);
+        expect(said('That was Holy Wars, mate.', { handed: ['a call about Holy Wars'] })).toEqual([]);
+    });
+
+    it('reads somebody on the programme, a day and plain English as what they are', () => {
+        expect(said('Shyeah, that was Wayne being Wayne.')).toEqual([]);
+        expect(said("That was Garth's idea, not mine.")).toEqual([]);
+        expect(said('That was Monday, and I am still scared.')).toEqual([]);
+        // Not a back-announce of a NAMED record. It is still refused as a bare reaction; see below.
+        expect(said('That was close. That was so close, Wayne.').some(problem => /what played before/.test(problem))).toBe(false);
+    });
+
+    // Garth's turns are in capitals by design, and a shout is not a credit.
+    it('reads a shouted line as a shout', () => {
+        expect(said('THAT WAS AMAZING! I am air-drumming.')).toEqual([]);
+    });
+});
+
+// The shapes the station's own talk breaks back-announce in that have no capitalised run straight
+// after the frame. A frame with no name after it ("that was heavy", "that was a choice") is not asked:
+// across those breaks it was a reaction far more often than a record.
+describe('a back-announce that names its record some other way', () => {
+    const said = (text: string, over: Partial<Parameters<typeof checkBeat>[0]> = {}) =>
+        beat(`${words(30)} ${text}`, { words: 40, names: ['Wayne', 'Garth', 'Rosa'], ...over });
+
+    it('refuses a lowercase title with a credit after it', () => {
+        expect(said('That was honeybee, from Olivia Rodrigo. Brave.')[0]).toMatch(/says "That was honeybee, from Olivia Rodrigo"/);
+    });
+
+    it('refuses a title that opens with a bracket', () => {
+        expect(said("That was (I Can't Get No) Satisfaction, mate.")[0]).toMatch(/says "That was \(I Can't Get No\) Satisfaction"/);
+    });
+
+    it('refuses a quoted title a few words after the frame', () => {
+        expect(said('That was the deadmau5 “Animal Rights”, ambitious.')[0]).toMatch(/says "That was the deadmau5 Animal Rights"/);
+    });
+
+    it('refuses a credit later in a sentence about something heard', () => {
+        expect(said('we just heard that totally rad stuff from ZZ Top, man.')[0]).toMatch(/says "we just heard that totally rad stuff from ZZ Top"/);
+    });
+
+    it('refuses an act named in front of the frame', () => {
+        expect(said('I, I mean, that Iron Maiden, that was bloody powerful.')[0]).toMatch(/says "that Iron Maiden, that was"/);
+    });
+
+    it('lets through a relative clause and a person', () => {
+        expect(said('a quartet that has been rather consistent since the “Call of Duty” EP.')).toEqual([]);
+        expect(said('the instrumental bridge that was omitted for air play.')).toEqual([]);
+    });
+
+    it('lets through a credit the programme was handed', () => {
+        expect(said('That was honeybee, from Olivia Rodrigo.', { handed: ['Olivia Rodrigo wrote it at nineteen.'] })).toEqual([]);
+    });
+});
+
+// A frame with nothing named after it: a reaction to a record as if one had just played. Over the
+// station's talk breaks this and the named shapes together catch 384 of 409 back-announces, and on
+// its 462 production beats neither fires once.
+describe('a back-announce frame with no name after it', () => {
+    const said = (text: string) => beat(`${words(30)} ${text}`, { words: 40, names: ['Wayne', 'Garth'] });
+
+    it('refuses a reaction to a record that never played', () => {
+        expect(said('Bloody hell, that was heavy, mate.')[0]).toMatch(/says "that was heavy" as if a record had just played/);
+        expect(said('That, that was bloody heavy, I mean, properly.')[0]).toMatch(/says "that was bloody heavy"/);
+        expect(said('Wow. That one was loud.')[0]).toMatch(/says "That one was loud"/);
+        expect(said('Like, that was a choice.')[0]).toMatch(/says "that was a choice"/);
+        expect(said('and we just heard the best riff in the world.')[0]).toMatch(/says "we just heard the best riff in the" as if/);
+    });
+
+    it('lets through a story about a person, and somebody on the programme', () => {
+        expect(said('I mean, that was me singing, you know?')).toEqual([]);
+        expect(said('That was the worst week of my year!')).toEqual([]);
+        expect(said('Shyeah, that was Garth being Garth.')).toEqual([]);
+    });
+
+    it('lets through a relative clause, which has nothing in front of it', () => {
+        expect(said('I saw a print near the water tank that was longer than a torso.')).toEqual([]);
+    });
+
+    it('names a back-announce once, as the named shape, when it has a name', () => {
+        const problems = said('That was Blue Monday, wow.');
+
+        expect(problems).toHaveLength(1);
+        expect(problems[0]).toMatch(/what played before/);
+    });
+});
+
+// A turn that answers somebody is told to answer what was just said before anything else, so a bare
+// reaction at the top of it is a reply to the other speaker rather than to a record.
+describe('a reaction to the other speaker', () => {
+    const turn = (text: string, answering = true) => beat(text, { words: 40, names: ['Wayne', 'Garth'], ...(answering ? { answering } : {}) });
+    const tail = words(30);
+
+    it('lets a bare reaction through at the top of a turn that answers somebody', () => {
+        expect(turn(`That was so close, Wayne. ${tail}`)).toEqual([]);
+        expect(turn(`Shyeah, right. That was weird. ${tail}`)).toEqual([]);
+    });
+
+    it('still refuses one at the top of a turn that answers nobody', () => {
+        expect(turn(`That was so close. ${tail}`, false)[0]).toMatch(/as if a record had just played/);
+    });
+
+    it('still refuses one further into the turn, where it has moved on to its own point', () => {
+        expect(turn(`${tail} Bloody hell, that was heavy.`)[0]).toMatch(/says "that was heavy" as if/);
+    });
+
+    // Only the bare frame is a reply. A named one names a record wherever it is.
+    it('still refuses a named back-announce at the top of a reply', () => {
+        expect(turn(`That was Blue Monday, Wayne. ${tail}`)[0]).toMatch(/says "That was Blue Monday", but .* what played before it/);
+    });
+});

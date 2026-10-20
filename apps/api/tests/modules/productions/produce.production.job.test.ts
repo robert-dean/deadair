@@ -915,6 +915,32 @@ describe('the draft pass and a record nobody handed the programme', () => {
         expect(converse).toHaveBeenCalledTimes(1);
     });
 
+    // A co-host answering the lead may open with a reaction to them, which is the turn the beat prompt
+    // asked for; the same words in the lead's opening turn, which answers nobody, are asked again.
+    it("lets a co-host's reaction to the lead through, and not the lead's own", async () => {
+        const banter = {
+            plan: {
+                beats: [
+                    { ordinal: 0, speaker: 0, words: 12 },
+                    { ordinal: 1, speaker: 1, words: 12 },
+                ],
+            } as never,
+            casting: [
+                { role: 'host', name: 'Wayne', personaKey: 'wayne' },
+                { role: 'cohost', name: 'Garth', personaKey: 'garth' },
+            ] as never,
+        };
+        const REACTION = 'That was so close, Wayne. I am scared of that producer and I do not like change at all.';
+
+        const replied = await draftWith([CLEAN, REACTION], banter);
+        expect(replied.converse).toHaveBeenCalledTimes(2);
+        expect(replied.written).toEqual([CLEAN, REACTION]);
+
+        const opened = await draftWith([REACTION, CLEAN, CLEAN], banter);
+        expect(opened.converse).toHaveBeenCalledTimes(3);
+        expect(String(opened.converse.mock.calls[1]?.[0].messages[1]?.content)).toContain('as if a record had just played');
+    });
+
     // The check pass's own terms: a re-draft that fails leaves the first attempt in place rather than
     // a hole, since a programme cannot air with a beat missing.
     it('keeps the first attempt when the re-draft comes back empty or throws', async () => {

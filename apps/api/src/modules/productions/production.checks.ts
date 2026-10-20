@@ -151,14 +151,25 @@ const BACK_ANNOUNCES: readonly RegExp[] = [
  *   clause stands it down. The clause ends at the next comma or dash, because what follows is filler:
  *   "that was bloody heavy, I mean" is about a record, and its "I" is not.
  *
- * What it still refuses is a co-host's "that was weird" about what the other one just said, which is
- * conversation rather than a record. That is the price of asking at all, and it is one re-draft.
+ * - **A reaction at the top of a turn that answers somebody is a reply to THEM** ("That was so close,
+ *   Wayne"), since the beat prompt tells that turn to answer what was just said before anything
+ *   else. See {@link REACTION_WORDS}.
  */
 const BARE_BACK_ANNOUNCE = new RegExp(
     `(?:(?:^|[.!?…,;:—–]["”’]?|\\s-)\\s*(?:(?:well|oh|wow|man|so|and|yeah|like|perhaps|maybe|honestly|seriously)[,!]?\\s+)?(?<clause>(?:that|that one)\\s+was|that['’]s\\s+been)` +
         `|(?<heard>(?:you|we)\\s+(?:just|have\\s+just|['’]ve\\s+just)\\s+heard))\\b(?<rest>[^.!?]{0,60})`,
     'giu',
 );
+
+/**
+ * How far into a turn that answers somebody a bare reaction is read as a reply to them.
+ *
+ * The first sentence or two, which is where the beat prompt asks for the answer ("Answer what was
+ * just said to you before you say anything else"). Further in, the turn has moved on to its own
+ * point, and "that was heavy" there is about a record again. Only the BARE frame is excused: a named
+ * one ("That was Blue Monday, Wayne") names a record wherever it is.
+ */
+export const REACTION_WORDS = 20;
 
 /** Words that make the rest of a clause about a person rather than a record. */
 const ABOUT_A_PERSON = /\b(?:i|i['’]m|me|my|mine|we|us|our|you|your|yours|he|him|his|she|her|they|them|their)\b/iu;
@@ -285,6 +296,12 @@ export interface BeatCheckInput {
      * read as a record by Wayne.
      */
     names?: readonly string[];
+    /**
+     * This turn answers somebody else on the programme, so a bare reaction at the top of it ("That was
+     * weird, Wayne") is a reply to what they just said rather than to a record. See
+     * {@link REACTION_WORDS}.
+     */
+    answering?: boolean;
     /**
      * Whatever on this call may have raised the weather before this beat: the brief an operator
      * typed and the callers' earlier turns. See {@link skyNobodyGave}.
@@ -431,7 +448,7 @@ function skyNobodyGave(input: BeatCheckInput, text: string): string | undefined 
 }
 
 /** What {@link recordFaults} reads: the beat, and what the programme was handed. */
-export type RecordCheckInput = Pick<BeatCheckInput, 'text' | 'records' | 'handed' | 'names' | 'language'>;
+export type RecordCheckInput = Pick<BeatCheckInput, 'text' | 'records' | 'handed' | 'names' | 'language' | 'answering'>;
 
 /**
  * The records a beat cued or named without being handed them, as corrections, most telling first.
@@ -557,6 +574,7 @@ function bareBackAnnounce(input: RecordCheckInput, text: string): string | undef
     const { person } = handedTo(input);
 
     for (const match of spoken.matchAll(BARE_BACK_ANNOUNCE)) {
+        if (input.answering === true && countWords(spoken.slice(0, match.index)) < REACTION_WORDS) continue;
         const frame = match.groups?.clause ?? match.groups?.heard ?? '';
         // The clause alone, up to the next comma or dash: what comes after it is filler ("that was
         // bloody heavy, I mean") or the next thought, and an "I" in it is not what the clause is about.

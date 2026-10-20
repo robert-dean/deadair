@@ -524,3 +524,28 @@ describe('a back-announce frame with no name after it', () => {
         expect(problems[0]).toMatch(/what played before/);
     });
 });
+
+// A turn that answers somebody is told to answer what was just said before anything else, so a bare
+// reaction at the top of it is a reply to the other speaker rather than to a record.
+describe('a reaction to the other speaker', () => {
+    const turn = (text: string, answering = true) => beat(text, { words: 40, names: ['Wayne', 'Garth'], ...(answering ? { answering } : {}) });
+    const tail = words(30);
+
+    it('lets a bare reaction through at the top of a turn that answers somebody', () => {
+        expect(turn(`That was so close, Wayne. ${tail}`)).toEqual([]);
+        expect(turn(`Shyeah, right. That was weird. ${tail}`)).toEqual([]);
+    });
+
+    it('still refuses one at the top of a turn that answers nobody', () => {
+        expect(turn(`That was so close. ${tail}`, false)[0]).toMatch(/as if a record had just played/);
+    });
+
+    it('still refuses one further into the turn, where it has moved on to its own point', () => {
+        expect(turn(`${tail} Bloody hell, that was heavy.`)[0]).toMatch(/says "that was heavy" as if/);
+    });
+
+    // Only the bare frame is a reply. A named one names a record wherever it is.
+    it('still refuses a named back-announce at the top of a reply', () => {
+        expect(turn(`That was Blue Monday, Wayne. ${tail}`)[0]).toMatch(/says "That was Blue Monday", but .* what played before it/);
+    });
+});

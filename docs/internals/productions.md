@@ -224,10 +224,12 @@ comma or a dash, or after a word a presenter reacts with ("well", "wow", "perhap
 none of those ("a bridge that was omitted for air play", the one production beat that ever said "that was"). A
 clause about a person stands it down ("that was me singing", "the worst week of my year"): a first- or
 second-person word or a cast name between the frame and the next comma, so "that was bloody heavy, I mean" is
-still refused. Together the shapes catch 386 of those 409 breaks and none of the 462 production beats. **What
-this costs is conversation**: a co-host's "that was so close" or "that was weird" about what the other one just
-said is refused as well, which no measurement here could show because no production beat has said one yet. It
-costs one re-draft, and the first attempt stays when that fails. "That has been" is not a frame: on those
+still refused. Together the shapes catch 386 of those 409 breaks and none of the 462 production beats. **A reaction
+to the other speaker is let through**: in the first twenty words (`REACTION_WORDS`) of a turn that answers
+somebody else, a bare frame is a reply to them ("That was so close, Wayne"), since the beat prompt tells that turn
+to answer what was just said before anything else. Further in, or in a turn that answers nobody, it is about a
+record again, and a NAMED back-announce is refused wherever it is. Both passes ask the same question of the
+cast: whether the turn before this one was somebody else's. "That has been" is not a frame: on those
 breaks it was a relative clause ("a quartet that has been rather consistent"). **Those are the part of the check the DRAFT pass runs too**
 (`recordFaults`), all three, because `outlined` and `quick` have no check pass and a record named is one a listener waits
 for and never hears, where every other check is a matter of quality the mode pays for. It asks once more with the

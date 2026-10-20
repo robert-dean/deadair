@@ -694,7 +694,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // named is one a listener waits for and never hears. Asked before the next turn is handed
             // these words as its run-in, which would otherwise answer the invented record. One
             // re-draft, on the check pass's own terms: an empty or failed one keeps the original.
-            const faults = recordFaults({ text: script, ...handed, ...this.language() });
+            const faults = recordFaults({
+                text: script,
+                ...handed,
+                // Answering somebody else, so a reaction at the top of it is a reply to them.
+                ...(previous !== undefined && previous !== at ? { answering: true } : {}),
+                ...this.language(),
+            });
             if (faults.length > 0) {
                 this.logger.info('productions: a beat named a record nobody handed it, so it is being asked again', {
                     production: claimed.id,
@@ -805,6 +811,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // What the programme was handed, so a record in its brief, notes or the host's records
                 // is not refused as invented, and who is on it, so "brought in by Wayne" is not a record.
                 ...recordsHanded(claimed, casting, station),
+                // The same question the draft pass asked: whether this turn answers somebody else.
+                ...(previousAt !== undefined && previousAt !== at ? { answering: true } : {}),
                 raised: [
                     ...(claimed.brief === undefined ? [] : [claimed.brief]),
                     // What the notes say counts as raised, so a programme the notes put a storm in is

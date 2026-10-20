@@ -454,3 +454,43 @@ describe('a record back-announced that nobody handed the programme', () => {
         expect(said('THAT WAS AMAZING! I am air-drumming.')).toEqual([]);
     });
 });
+
+// The shapes the station's own talk breaks back-announce in that have no capitalised run straight
+// after the frame. A frame with no name after it ("that was heavy", "that was a choice") is not asked:
+// across those breaks it was a reaction far more often than a record.
+describe('a back-announce that names its record some other way', () => {
+    const said = (text: string, over: Partial<Parameters<typeof checkBeat>[0]> = {}) =>
+        beat(`${words(30)} ${text}`, { words: 40, names: ['Wayne', 'Garth', 'Rosa'], ...over });
+
+    it('refuses a lowercase title with a credit after it', () => {
+        expect(said('That was honeybee, from Olivia Rodrigo. Brave.')[0]).toMatch(/says "That was honeybee, from Olivia Rodrigo"/);
+    });
+
+    it('refuses a title that opens with a bracket', () => {
+        expect(said("That was (I Can't Get No) Satisfaction, mate.")[0]).toMatch(/says "That was \(I Can't Get No\) Satisfaction"/);
+    });
+
+    it('refuses a quoted title a few words after the frame', () => {
+        expect(said('That was the deadmau5 “Animal Rights”, ambitious.')[0]).toMatch(/says "That was the deadmau5 Animal Rights"/);
+    });
+
+    it('refuses a credit later in a sentence about something heard', () => {
+        expect(said('we just heard that totally rad stuff from ZZ Top, man.')[0]).toMatch(/says "we just heard that totally rad stuff from ZZ Top"/);
+    });
+
+    it('refuses an act named in front of the frame', () => {
+        expect(said('I, I mean, that Iron Maiden, that was bloody powerful.')[0]).toMatch(/says "that Iron Maiden, that was"/);
+    });
+
+    it('lets through a reaction, an opinion, a relative clause and a person', () => {
+        expect(said('Bloody hell, that was heavy. That was a choice, Wayne.')).toEqual([]);
+        expect(said('That was a gift from God, baby.')).toEqual([]);
+        expect(said('That was a postcard, from Paris.', { names: ['Paris'] })).toEqual([]);
+        expect(said('a quartet that has been rather consistent since the “Call of Duty” EP.')).toEqual([]);
+        expect(said('I mean, that Rosa, that was lovely.')).toEqual([]);
+    });
+
+    it('lets through a credit the programme was handed', () => {
+        expect(said('That was honeybee, from Olivia Rodrigo.', { handed: ['Olivia Rodrigo wrote it at nineteen.'] })).toEqual([]);
+    });
+});

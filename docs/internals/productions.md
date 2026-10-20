@@ -210,11 +210,17 @@ conversation. It also refuses a bare credit, "Title by Artist" with both sides c
 (`recordNobodyGave`), unless the record shares a title or artist with the programme's records, brief or notes, the
 "artist" is somebody on the programme or the station, or a one-word "title" opens a sentence ("Inspired by Wayne").
 Run over the live station's last 455 production beats it fired 19 times and every one named a record, several of
-them invented ("Echoes of Steel by Neon Pulse"). The other direction is refused the same way (`backAnnounced`):
-"that was", "that's been" or "you just heard" followed by a capitalised run that is not shouted, not somebody on
-the programme, not a day, a month or a pronoun, and not anything handed. Only one of the station's 462 production
-beats had ever used such a frame, so it was measured on the 409 talk breaks that do: it fired on 301 and every one
-named a record or an artist ("That was Walk, from Pantera"), and the 108 it passed were lowercase. **Those are the part of the check the DRAFT pass runs too**
+them invented ("Echoes of Steel by Neon Pulse"). The other direction is refused the same way (`backAnnounced`), in
+the five shapes the station's own talk breaks back-announce in: a capitalised run straight after "that was",
+"that's been" or "you just heard" (opening with a bracket allowed), a title in any case followed by a comma and a
+credit ("That was honeybee, from Olivia Rodrigo"), a quoted title a few words after the frame, a credit later in a
+sentence about something heard, and an act named in front of the frame ("that Iron Maiden, that was bloody
+powerful"). The name must not be shouted, somebody on the programme, a day, a month or a pronoun, or anything
+handed. Only one of the station's 462 production beats had ever used such a frame, so it was measured on the 409
+talk breaks that do: it caught 316, every one a record or an artist, and none of the production beats. The 93 it
+passes say what they thought with no name ("that was heavy", "that was a choice", about thirty of those), which
+is a reaction more often than a record, so the prompt rule answers it. "That has been" is not a frame: on those
+breaks it was a relative clause ("a quartet that has been rather consistent"). **Those are the part of the check the DRAFT pass runs too**
 (`recordFaults`), all three, because `outlined` and `quick` have no check pass and a record named is one a listener waits
 for and never hears, where every other check is a matter of quality the mode pays for. It asks once more with the
 correction before the next turn is handed the words as its run-in, and keeps the first attempt when the rewrite

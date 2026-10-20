@@ -99,16 +99,41 @@ const NAME_RUN = `${NAME_WORD}(?:\\s+(?:${NAME_LINK}\\s+)*${NAME_WORD})*`;
  */
 const TITLE_BY_ARTIST = new RegExp(`["“]?(${NAME_RUN})["”]?,?\\s+by\\s+(${NAME_RUN})`, 'gu');
 
+/** The words that say a record has just played: "that was", "that's been", "you just heard". */
+// Not "that has been": nearly always a relative clause ("a quartet that has been rather consistent
+// since the “Call of Duty” EP"), measured on the station's own breaks, where "that's been" is not.
+const BACK_FRAME = "(?:[Tt]hat (?:was|one was)|[Tt]hat['’]s been|(?:[Yy]ou|[Ww]e) (?:just|have just|['’]ve just) heard)";
+
+/** The frames that can only be about something heard, for the shape that looks further along the sentence. */
+const HEARD_FRAME = "(?:[Yy]ou|[Ww]e) (?:just|have just|['’]ve just) heard";
+
 /**
- * "That was Blue Monday": a back-announce frame, then a capitalised run straight after it, optionally
- * quoted. The frame is matched in either case at its first letter and the run must be capitalised,
- * which is what tells "that was Blue Monday" from "that was close". The other direction of
- * {@link CUES_NEXT_RECORD}: a programme knows the record before it no better than the one after.
+ * The ways a script says what just played, each with the groups that name a record or an artist.
+ *
+ * The other direction of {@link CUES_NEXT_RECORD}: a programme knows the record before it no better
+ * than the one after. What makes a frame a back-announce rather than "that was close" is a NAME, so
+ * every shape here needs one, and the shapes are the ones the station's own talk breaks use:
+ *
+ * - **"That was Blue Monday"**: a capitalised run straight after the frame, optionally quoted, and
+ *   optionally opening with a bracket ("That was (I Can't Get No) Satisfaction").
+ * - **"That was honeybee, from Olivia Rodrigo"**: a title in any case, then a comma and a credit. The
+ *   comma is what makes it a credit: "that was a gift from God" has none.
+ * - **"That was the deadmau5 “Animal Rights”"**: a quoted title a few words after the frame.
+ * - **"we just heard that totally rad stuff from ZZ Top"**: a credit later in the sentence, after a
+ *   frame that can only be about something heard. "That was a postcard from Paris" is not one.
+ * - **"that Iron Maiden, that was bloody powerful"**: an act named in front of the frame.
+ *
+ * What a frame is followed by with no name ("that was heavy", "that was a choice") is not asked:
+ * across the station's talk breaks it was a reaction or an opinion far more often than a record, and
+ * the prompt rule is what answers it.
  */
-const BACK_ANNOUNCED = new RegExp(
-    `\\b(?:[Tt]hat (?:was|one was|has been)|[Tt]hat['’]s been|(?:[Yy]ou|[Ww]e) (?:just|have just|['’]ve just) heard)\\s+["“‘']?(${NAME_RUN})`,
-    'gu',
-);
+const BACK_ANNOUNCES: readonly RegExp[] = [
+    new RegExp(`\\b${BACK_FRAME}\\s+["“‘']?(?<name>(?:\\([^)]{1,40}\\)\\s+)?${NAME_RUN})`, 'gu'),
+    new RegExp(`\\b${BACK_FRAME}\\s+(?<title>[^.!?,;:"“”]{1,60}),\\s+from\\s+(?<name>${NAME_RUN})`, 'gu'),
+    new RegExp(`\\b${BACK_FRAME}\\s+[^.!?"“”]{0,30}?["“](?<title>[^"”]{2,60})["”]`, 'gu'),
+    new RegExp(`\\b${HEARD_FRAME}\\s+[^.!?]{0,40}?\\bfrom\\s+(?<name>${NAME_RUN})`, 'gu'),
+    new RegExp(`\\b[Tt]hat\\s+(?<name>${NAME_RUN})(?:\\s+one)?,\\s+that(?:,\\s+that)?\\s+(?:was|one was)\\b`, 'gu'),
+];
 
 /**
  * Capitalised words a back-announce frame is followed by that are never a record: the calendar, and
@@ -405,7 +430,7 @@ export function recordFaults(input: RecordCheckInput): string[] {
     const announced = backAnnounced(input, input.text);
     if (announced !== undefined) {
         problems.push(
-            `This beat says "${announced}", but nothing plays under a programme and you were not told what played before it. ` +
+            `This beat says "${announced.said}", but nothing plays under a programme and you were not told what played before it. ` +
                 'Do not say what just played, and name no record you were not handed.',
         );
     }
@@ -413,7 +438,7 @@ export function recordFaults(input: RecordCheckInput): string[] {
     // The same fault without the frame: a record named outright that nobody handed the programme.
     // Left out when it is the record just back-announced, which the correction above already names.
     const invented = recordNobodyGave(input, input.text);
-    if (invented !== undefined && (announced === undefined || !invented.includes(announced.replace(BACK_ANNOUNCE_FRAME, '')))) {
+    if (invented !== undefined && (announced === undefined || !invented.includes(announced.record))) {
         problems.push(
             `This beat names "${invented}", a record you were not given. Nothing plays under a programme, so name no record, song or artist you were not handed.`,
         );
@@ -454,29 +479,32 @@ function recordNobodyGave(input: RecordCheckInput, text: string): string | undef
     return undefined;
 }
 
-/** The frame at the front of a {@link BACK_ANNOUNCED} match, for naming the record alone. */
-const BACK_ANNOUNCE_FRAME = /^.*?(?:was|been|heard)\s+["“‘']?/u;
-
 /**
- * A record said to have just played that the programme was never handed, as the words that said it,
- * or `undefined`.
+ * A record said to have just played that the programme was never handed, or `undefined`: the words
+ * that said it, and the title or name in them, so the bare-credit check can tell it is the same one.
  *
- * Refused on {@link recordNobodyGave}'s terms. What follows the frame must be a capitalised run that
- * is not shouted (Garth's turns are in capitals by design, and "THAT WAS AMAZING" is not a record),
- * not somebody on the programme ("that was Wayne"), not a day, a month or a pronoun, and not anything
- * the programme was handed.
+ * Refused on {@link recordNobodyGave}'s terms, and every shape in {@link BACK_ANNOUNCES} is vetted
+ * the same way. A capitalised name must not be shouted (Garth's turns are in capitals by design, and
+ * "THAT WAS AMAZING" is not a record), somebody on the programme ("that was Wayne"), a day, a month
+ * or a pronoun; and neither the name nor the title may be anything the programme was handed.
  */
-function backAnnounced(input: RecordCheckInput, text: string): string | undefined {
+function backAnnounced(input: RecordCheckInput, text: string): { said: string; record: string } | undefined {
     const spoken = withoutPads(withoutCues(text));
     const { given, person } = handedTo(input);
 
-    for (const match of spoken.matchAll(BACK_ANNOUNCED)) {
-        const [whole, run] = match as unknown as [string, string];
-        if (run === run.toUpperCase()) continue;
-        if (NOT_A_RECORD.has(run.toLowerCase())) continue;
-        if (person(run) || given(run)) continue;
-        // The frame as it was said and the run without the quote mark in front of it, so "that's" keeps its apostrophe.
-        return `${whole.slice(0, -run.length).replace(/[\s"“‘']+$/u, '')} ${run}`;
+    const found = BACK_ANNOUNCES.flatMap(pattern => [...spoken.matchAll(pattern)]).sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
+    for (const match of found) {
+        const name = match.groups?.name?.replace(/^\(/u, '');
+        const title = match.groups?.title?.trim();
+        if (name !== undefined && (name === name.toUpperCase() || NOT_A_RECORD.has(name.toLowerCase()) || person(name) || given(name))) continue;
+        if (title !== undefined && given(title)) continue;
+        // Quote marks out, except an apostrophe inside a word, so "that's" and "Can't" keep theirs.
+        const said = match[0]
+            .replace(/["“”‘]|(?<![\p{L}])'|'(?![\p{L}])/gu, '')
+            .replace(/\s+/gu, ' ')
+            .replace(/[\s,.;:]+$/u, '')
+            .trim();
+        return { said, record: title ?? name ?? said };
     }
 
     return undefined;

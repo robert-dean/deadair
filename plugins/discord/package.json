@@ -21,7 +21,7 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@maroonedsoftware/discord": "^2.1.1"
+        "@maroonedsoftware/discord": "^2.1.2"
     },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",

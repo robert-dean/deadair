@@ -30,12 +30,29 @@ import { artistNameOf, asNumber, largestImage, type LastfmAlbum, type LastfmArti
 const MAX_TAGS = 12;
 
 /**
- * The footer Last.fm appends to every wiki body.
+ * The link Last.fm appends to every wiki body.
  *
- * Matched from the link rather than from the words, because the words are
- * localized and the markup is not.
+ * Matched from the markup rather than from the words, because the words are
+ * localized and the markup is not. Loosely: a track's wiki links back over
+ * `http://` where an artist's uses `https://`, and the attributes are not
+ * always `href` alone. Matching only the artist's form left the words "Read
+ * more on Last.fm." on the end of every track wiki the station stored.
  */
-const WIKI_FOOTER = /\s*<a href="https:\/\/www\.last\.fm[^>]*>[^<]*<\/a>[\s.]*$/i;
+const WIKI_LINK = /\s*<a\b[^>]*\bhref="https?:\/\/(?:www\.)?last\.fm[^"]*"[^>]*>[^<]*<\/a>[\s.]*$/i;
+
+/**
+ * The licence line `content` ends with, after the link. `summary` carries no
+ * licence, but a body read from `content` would otherwise keep it, and the
+ * link before it would then not be at the end for `WIKI_LINK` to find.
+ */
+const WIKI_LICENCE = /\s*User-contributed text is available under the Creative Commons[^.]*\.?\s*$/i;
+
+/**
+ * The link's words, once the markup is gone. A backstop for a link `WIKI_LINK`
+ * did not recognize: the English wording is the one this station has stored,
+ * and a sentence that says only where to read more is never worth saying.
+ */
+const READ_MORE = /\s*Read more on Last\.fm\s*\.?\s*$/i;
 
 /** Anything else that arrives as markup. The bodies are plain text with the odd link in them. */
 const TAGS = /<[^>]+>/g;
@@ -45,12 +62,14 @@ const TAGS = /<[^>]+>/g;
  *
  * `summary` rather than `content` where both exist: the summary is a paragraph
  * and the content is an essay, and what reads this is a prompt with a budget.
+ * A body that was nothing but the boilerplate answers with nothing, so it is
+ * never offered as a note.
  */
 export function readWiki(wiki: LastfmWiki | undefined): string | undefined {
     const body = wiki?.summary?.trim() ?? wiki?.content?.trim();
     if (!body) return undefined;
 
-    const text = body.replace(WIKI_FOOTER, '').replace(TAGS, '').replace(/\s+/g, ' ').trim();
+    const text = body.replace(WIKI_LICENCE, '').replace(WIKI_LINK, '').replace(TAGS, '').replace(/\s+/g, ' ').replace(READ_MORE, '').trim();
     return text.length > 0 ? text : undefined;
 }
 

@@ -174,6 +174,13 @@ data class PlayoutAiredQuery(
     val item: String,
 )
 
+/** Which item a skip means to cut, as the caller last saw it on air */
+@Serializable
+data class PlayoutSkipQuery(
+    /** The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives */
+    val item: String? = null,
+)
+
 /** Which way the running order went, and how long it had been that way */
 @Serializable
 data class PlayoutStarveQuery(

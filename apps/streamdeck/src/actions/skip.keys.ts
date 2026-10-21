@@ -11,6 +11,9 @@ import { StationKeys } from './station.keys.js';
  * cannot disagree about who may skip: the station decides, and a key issued Read only is refused
  * there and says so here. The console DISABLES Skip when there is nothing to end (no stream, or
  * nothing on it); a key cannot be disabled, so it refuses the press instead and asks nothing.
+ *
+ * The press names the item the key last read as on air, as the console's does, so the station
+ * refuses it (409) when that record has ended in the five seconds since rather than cutting the next.
  */
 export class SkipKeys extends StationKeys {
     private busy = false;
@@ -31,7 +34,15 @@ export class SkipKeys extends StationKeys {
         }
         this.busy = true;
         try {
-            await runCommand(face, () => this.station.command(playout => playout.skipTheCurrentItem()), this.log);
+            // Named, so a press read off a record that has since ended is refused rather than cutting
+            // the one after it: the deck reads the station every five seconds.
+            const item = status.nowPlaying?.item.id;
+            await runCommand(
+                face,
+                () => this.station.command(playout => playout.skipTheCurrentItem(item === undefined ? undefined : { item })),
+                this.log,
+                { conflict: 'Nothing was skipped: the record the key was showing had already finished.' },
+            );
         } finally {
             this.busy = false;
         }

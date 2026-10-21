@@ -421,7 +421,7 @@ struct NowPlayingScreen: View {
                 if besidePlay, let transport {
                     if even { Spacer(minLength: 0) }
                     operatorControl("forward.end.fill", label: String(localized: "Skip"), enabled: transport.skipEnabled) {
-                        await model.transport.skip()
+                        await model.transport.skip(onAir: transport.status.nowPlaying?.item.id)
                     }
                 }
                 if ends {

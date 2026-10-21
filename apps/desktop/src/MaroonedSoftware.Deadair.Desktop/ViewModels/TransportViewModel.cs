@@ -115,19 +115,29 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
     /// The same skip the on-screen button performs, for a media key pressed outside the window.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// One path into the station rather than two: a keyboard skip and a clicked skip must not be able
     /// to disagree about notices, roles or the settling re-reads.
+    /// </para>
+    /// <para>
+    /// It names nothing, where the button names the record on screen: a key pressed away from the
+    /// window means "skip this", not "skip the record I was shown".
+    /// </para>
     /// </remarks>
-    public Task SkipFromSystemAsync() => SkipAsync(CancellationToken.None);
+    public Task SkipFromSystemAsync() => SkipCoreAsync(onAir: null, CancellationToken.None);
 
+    /// <summary>The button: it names the record the window is showing, so a press read off one that has since ended cuts nothing.</summary>
     [RelayCommand]
-    private async Task SkipAsync(CancellationToken cancellationToken)
+    private Task SkipAsync(CancellationToken cancellationToken) =>
+        SkipCoreAsync(_repository?.Current.Value?.NowPlaying?.Item.Id, cancellationToken);
+
+    private async Task SkipCoreAsync(string? onAir, CancellationToken cancellationToken)
     {
         Busy = true;
         try
         {
             await _actions.RunAsync(
-                token => _repository!.SkipAsync(token),
+                token => _repository!.SkipAsync(onAir, token),
                 cancellationToken: cancellationToken).ConfigureAwait(true);
         }
         finally

@@ -275,6 +275,7 @@ extension Notice {
         switch self {
         case .noLongerOperator: String(localized: "The station no longer treats this account as its operator.")
         case .stepUpNeeded: String(localized: "The station wants your authenticator code again before that. Do it on the console.")
+        case .alreadyFinished: String(localized: "Nothing was skipped: that record had already finished.")
         case .nothingToResume: String(localized: "Nothing to resume: the station has not been put on air yet.")
         case .playlistEmpty: String(localized: "That playlist has nothing the station can play.")
         case .hostGone: String(localized: "That persona is no longer on the station.")

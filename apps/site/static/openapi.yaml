@@ -3956,6 +3956,16 @@ paths:
             operationId: skip
             summary: 'Skip the current item'
             description: 'Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player'
+            parameters:
+                - name: item
+                  in: query
+                  required: false
+                  description: 'The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                      description: 'The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives'
             responses:
                 '200':
                     description: 'Successful response'
@@ -3963,6 +3973,8 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PlayoutStatus'
+                '409':
+                    description: Conflict
     '/playout/start':
         post:
             operationId: startPlayout
@@ -13254,6 +13266,15 @@ components:
                 - staleStreamConfig
                 - silence
             description: "The station's transport, as one reading"
+        PlayoutSkipQuery:
+            type: object
+            properties:
+                item:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives'
+            description: 'Which item a skip means to cut, as the caller last saw it on air'
         PluginStatus:
             type: string
             enum: [discovered, disabled, misconfigured, active, failed]

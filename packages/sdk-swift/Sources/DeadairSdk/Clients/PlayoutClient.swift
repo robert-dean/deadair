@@ -55,8 +55,10 @@ public final class PlayoutClient: Sendable {
 
     /// Skip the current item
     /// Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
-    public func skipTheCurrentItem() async throws -> PlayoutStatus {
-        let request = SdkRequest(method: "POST", path: ["playout", "skip"])
+    /// - Throws: `SdkError` on 409
+    public func skipTheCurrentItem(query: PlayoutSkipQuery? = nil) async throws -> PlayoutStatus {
+        var request = SdkRequest(method: "POST", path: ["playout", "skip"])
+        try http.addQuery(&request, query)
         let response = try await http.execute(request)
         return try http.decodeJSON(PlayoutStatus.self, from: response)
     }

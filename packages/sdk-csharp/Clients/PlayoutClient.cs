@@ -93,11 +93,13 @@ public sealed class PlayoutClient(SdkHttp http)
     /// Skip the current item
     /// Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
     /// </summary>
-    public async Task<PlayoutStatus> SkipTheCurrentItemAsync(CancellationToken cancellationToken = default)
+    /// <exception cref="SdkException">On 409.</exception>
+    public async Task<PlayoutStatus> SkipTheCurrentItemAsync(PlayoutSkipQuery? query = null, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
             HttpMethod.Post,
             http.Path("playout", "skip"),
+            query: http.Params(query),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PlayoutStatus>(response);
     }

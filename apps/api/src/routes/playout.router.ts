@@ -6,6 +6,7 @@ import {
     PlayoutAlbumInput,
     PlayoutChartInput,
     PlayoutPlaylistInput,
+    PlayoutSkipQuery,
     PlayoutStarveQuery,
     PlayoutStationPlaylistInput,
     PlayoutStatus,
@@ -95,8 +96,10 @@ PlayoutRouter.post('/playout/chart', requirePolicy({ policy: 'platform.manage' }
  * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/skip`
  */
 PlayoutRouter.post('/playout/skip', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, PlayoutSkipQuery.strict());
+
     const service = ctx.container.get(PlayoutService);
-    const result: PlayoutStatus = await service.skip();
+    const result: PlayoutStatus = await service.skip(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

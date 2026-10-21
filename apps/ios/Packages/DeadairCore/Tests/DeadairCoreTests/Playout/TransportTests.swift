@@ -91,4 +91,37 @@ struct PlayoutRepositoryTests {
         #expect(playout.applied?.listeners == 7)
         #expect(fake.requests.map(\.path).contains { $0.hasSuffix("/skip") })
     }
+
+    /// The screens read the station every two seconds, so the record they show can have ended before
+    /// the press arrives. Named, the station refuses rather than cutting the next record, and the
+    /// refusal is told in words.
+    @Test func aSkipFromAScreenNamesItsRecordAndARefusalSaysItHadFinished() async {
+        let fake = FakeStation { request in
+            request.path.hasSuffix("/skip") ? .json("{}", status: 409) : .json("{}", status: 500)
+        }
+        let session = OperatorActionsTests.Session(fake)
+        let toasts = Toasts()
+        let playout = PlayoutRepository(sleep: Sleeps(immediately: Set(PlayoutRepository.followUps)).sleep, readStatus: { throw Refused() }, readAir: { LivePlayout.air })
+        let transport = Transport(actions: OperatorActions(session: session, toasts: toasts), playout: playout)
+
+        await transport.skip(onAir: "item-7")
+
+        #expect(fake.requests.first { $0.path.hasSuffix("/skip") }?.query == "item=item-7")
+        #expect(toasts.current?.message == .operatorNotice(.alreadyFinished))
+    }
+
+    @Test func aSkipWithNothingToNameAsksForWhateverIsOn() async {
+        let fake = FakeStation { request in
+            request.path.hasSuffix("/skip") ? .json("{}", status: 409) : .json("{}", status: 500)
+        }
+        let session = OperatorActionsTests.Session(fake)
+        let toasts = Toasts()
+        let playout = PlayoutRepository(sleep: Sleeps(immediately: Set(PlayoutRepository.followUps)).sleep, readStatus: { throw Refused() }, readAir: { LivePlayout.air })
+        let transport = Transport(actions: OperatorActions(session: session, toasts: toasts), playout: playout)
+
+        await transport.skip()
+
+        #expect(fake.requests.first { $0.path.hasSuffix("/skip") }?.query == nil)
+        #expect(toasts.current?.message != .operatorNotice(.alreadyFinished))
+    }
 }

@@ -33,6 +33,22 @@ describe('SkipKeys', () => {
         expect(key.calls).toContain('ok');
     });
 
+    it('names the record it is showing, so a press read off one that has ended cuts nothing', async () => {
+        const station = fakeStation();
+        const { skip } = await showing(station);
+        await skip.press('skip');
+        expect(station.playout.skipTheCurrentItem).toHaveBeenCalledWith({ item: airing().nowPlaying?.item.id });
+    });
+
+    it('says in the log that the record had already finished when the station refuses the press', async () => {
+        const station = fakeStation();
+        station.playout.skipTheCurrentItem.mockRejectedValueOnce(new SdkError(409, 'Conflict', {}, new Headers()));
+        const { skip, key, log } = await showing(station);
+        await skip.press('skip');
+        expect(key.calls).toContain('alert');
+        expect(log).toHaveBeenCalledWith(expect.stringContaining('had already finished'));
+    });
+
     it('refuses a press with nothing to end, and asks the station nothing', async () => {
         const station = fakeStation(stoodDown());
         const { skip, key } = await showing(station);

@@ -5,7 +5,7 @@
 
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
-import type { StationOrder, StationOrderItem } from '@deadair/sdk';
+import { SdkError, type StationOrder, type StationOrderItem } from '@deadair/sdk';
 
 import { clearSession, setSession } from '../../../src/auth/session.store';
 import { DeskPage } from '../../../src/components/desk/desk.page';
@@ -38,7 +38,7 @@ vi.mock('../../../src/api/client', () => ({
         },
         playout: {
             getPlayoutStatus: () => getPlayoutStatus(),
-            skipTheCurrentItem: () => skipTheCurrentItem(),
+            skipTheCurrentItem: (query?: unknown) => skipTheCurrentItem(query),
             stopPlayout: () => stopPlayout(),
             startPlayout: () => Promise.resolve(playoutStatus()),
         },
@@ -176,6 +176,37 @@ describe('DeskPage', () => {
 
         await user.click(screen.getByRole('button', { name: 'Confirm stop' }));
         await waitFor(() => expect(stopPlayout).toHaveBeenCalled());
+    });
+
+    // The status is read every two seconds, so the record on screen can have ended before the press
+    // arrives. Naming it is what lets the station refuse that press instead of cutting the next record.
+    it('skips the record it is showing, by its id', async () => {
+        arrange();
+        skipTheCurrentItem.mockResolvedValue(playoutStatus());
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'Skip' }));
+
+        await waitFor(() => expect(skipTheCurrentItem).toHaveBeenCalledWith({ item: 'item-1' }));
+    });
+
+    it('says so when the record it showed had already finished', async () => {
+        arrange();
+        skipTheCurrentItem.mockRejectedValue(
+            new SdkError(
+                409,
+                'Conflict',
+                { message: 'Conflict', details: { message: 'That had already finished, so nothing was skipped.' } },
+                new Headers(),
+            ),
+        );
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'Skip' }));
+
+        expect(await screen.findByText('That had already finished, so nothing was skipped.')).toBeInTheDocument();
     });
 
     it('keeps Skip and Stop exactly where they were once Stop is armed', async () => {

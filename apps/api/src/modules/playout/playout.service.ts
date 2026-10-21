@@ -26,6 +26,7 @@ import type {
     PlayoutStationPlaylistInput,
     PlayoutAlbumInput,
     PlayoutPlaylistInput,
+    PlayoutSkipQuery,
     PlayoutStarveQuery,
     PlayoutStatus,
     SilenceCause,
@@ -400,15 +401,24 @@ export class PlayoutService {
     /**
      * End the item on air so the next one starts at once.
      *
-     * @throws 409 when the stream did not take the command, so a skip nobody
-     *   heard is never reported as one that happened.
+     * `query.item` is what the caller was looking at. A console polls, so a record can end and the
+     * next begin between the last reading and the press; aimed at whatever is on air when the request
+     * lands, that press would cut the record nobody meant to skip, for every listener. Named, the skip
+     * is refused instead. Left out, it is the press as it always was.
+     *
+     * @throws 409 when the item named is no longer on air, so nothing was cut; and when the stream did
+     *   not take the command, so a skip nobody heard is never reported as one that happened.
      */
-    async skip(): Promise<PlayoutStatus> {
+    async skip(query: PlayoutSkipQuery = {}): Promise<PlayoutStatus> {
         // What the operator was looking at when they pressed Skip, read before anything waits. The cut
         // lands after a top-up pass, and aimed at nothing in particular it would take off whatever
-        // started in the meantime. See `PlayoutPusher.skipCurrent`.
+        // started in the meantime. See `PlayoutPusher.skipCurrent`, which holds to the same id
+        // through that pass.
         const playing = this.rundown.nowPlaying();
         const airing = playing?.item.id;
+        if (query.item !== undefined && query.item !== airing) {
+            throw httpError(409).withDetails({ message: 'That had already finished, so nothing was skipped.' });
+        }
         if (!(await this.pusher.skipCurrent(airing))) {
             throw httpError(409).withDetails({ message: 'the stream did not take the skip; it may be down' });
         }

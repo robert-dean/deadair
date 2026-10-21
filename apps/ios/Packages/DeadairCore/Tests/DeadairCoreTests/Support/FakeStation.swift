@@ -8,6 +8,7 @@ import Foundation
 final class FakeStation: @unchecked Sendable {
     struct Request: Sendable {
         let path: String
+        let query: String?
         let authorization: String?
         let userAgent: String?
         let body: String
@@ -35,6 +36,7 @@ final class FakeStation: @unchecked Sendable {
         StubTransport { [self] urlRequest in
             let request = Request(
                 path: urlRequest.url?.path() ?? "",
+                query: urlRequest.url?.query(),
                 authorization: urlRequest.value(forHTTPHeaderField: "Authorization"),
                 userAgent: urlRequest.value(forHTTPHeaderField: "User-Agent"),
                 body: urlRequest.httpBody.map { String(decoding: $0, as: UTF8.self) } ?? ""

@@ -511,6 +511,35 @@ describe('PlayoutService.skip and stop', () => {
         expect(pusher.skipCurrent).toHaveBeenCalledWith('item-7');
     });
 
+    it('cuts the item the caller named while it is still on air', async () => {
+        const { service, rundown, pusher } = build();
+        vi.mocked(rundown.nowPlaying).mockReturnValue({ item: { id: 'item-7' } as RundownItem, startedAt: 0 });
+
+        expect(await statusOf(service.skip({ item: 'item-7' }))).toBe(200);
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('item-7');
+    });
+
+    it('refuses, and cuts nothing, when the item the caller named has already left the air', async () => {
+        // A console polls: record 6 ended and record 7 began between the last reading and the press.
+        // Aimed at whatever is on air now, the press meant for 6 would cut 7 for every listener.
+        const { service, rundown, pusher, skips } = build();
+        vi.mocked(rundown.nowPlaying).mockReturnValue({ item: { id: 'item-7' } as RundownItem, startedAt: 0 });
+
+        const answer = await service.skip({ item: 'item-6' }).catch((error: unknown) => error);
+
+        expect(answer).toMatchObject({ statusCode: 409, details: { message: 'That had already finished, so nothing was skipped.' } });
+        expect(pusher.skipCurrent).not.toHaveBeenCalled();
+        expect(skips.record).not.toHaveBeenCalled();
+    });
+
+    it('refuses a named skip when nothing is on air at all', async () => {
+        const { service, rundown, pusher } = build();
+        vi.mocked(rundown.nowPlaying).mockReturnValue(undefined);
+
+        expect(await statusOf(service.skip({ item: 'item-6' }))).toBe(409);
+        expect(pusher.skipCurrent).not.toHaveBeenCalled();
+    });
+
     it('writes down the record the operator skipped, how far in, and who pressed it', async () => {
         const { service, rundown, skips } = build();
         const item = { id: 'item-7', pluginId: 'spotify', externalId: 'x', title: 'Song', artist: 'Band', artists: ['Band'] } as RundownItem;

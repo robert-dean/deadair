@@ -17,8 +17,16 @@ public final class Transport {
         self.playout = playout
     }
 
-    public func skip() async {
-        await status { try await $0.playout.skipTheCurrentItem() }
+    /// `onAir` is the id of the record the screen is showing. Named, the station refuses the skip
+    /// (409) when that record has ended since the last reading, rather than cutting the one after it.
+    /// Left out, as the system's next-track command leaves it, the skip takes whatever is on now: a
+    /// press there means "skip this", not "skip the record I was shown". `apps/android`'s `Transport`.
+    public func skip(onAir: String? = nil) async {
+        guard let onAir else {
+            await status { try await $0.playout.skipTheCurrentItem() }
+            return
+        }
+        await status(expected: [409: .alreadyFinished]) { try await $0.playout.skipTheCurrentItem(query: PlayoutSkipQuery(item: onAir)) }
     }
 
     public func stop() async {

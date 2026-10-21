@@ -4,6 +4,7 @@ package com.maroonedsoftware.deadair.sdk.clients
 import com.maroonedsoftware.deadair.sdk.models.PlayoutAlbumInput
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInput
 import com.maroonedsoftware.deadair.sdk.models.PlayoutPlaylistInput
+import com.maroonedsoftware.deadair.sdk.models.PlayoutSkipQuery
 import com.maroonedsoftware.deadair.sdk.models.PlayoutStationPlaylistInput
 import com.maroonedsoftware.deadair.sdk.models.PlayoutStatus
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
@@ -73,10 +74,12 @@ class PlayoutClient(private val http: SdkHttp) {
     /**
      * Skip the current item
      * Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
+     * @throws SdkError on 409
      */
-    suspend fun skipTheCurrentItem(): PlayoutStatus {
+    suspend fun skipTheCurrentItem(query: PlayoutSkipQuery? = null): PlayoutStatus {
         val response = http.execute(HttpMethod.Post) {
             path("playout", "skip")
+            params(query)
         }
         return http.decodeJson(response)
     }

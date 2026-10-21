@@ -14,6 +14,12 @@ export const REQUEST_PICK_ACTION = 'request.pick';
 /** How many matches a chat is offered to choose between. Three fit on one row of buttons on every platform. */
 const MAX_CHOICES = 3;
 
+/**
+ * How many matches a search reads. More than are offered, so a title several artists share cannot
+ * push its own other recordings out of the exact matches it is told apart from.
+ */
+const SEARCH_LIMIT = 10;
+
 /** What the station says about a request, from the row the desk answered with. Exported for the tests. */
 export function describeRequest(row: RequestRow): string {
     const record = `${row.title} by ${row.artist}`;
@@ -62,8 +68,22 @@ export function parseRequestArgs(args: string): RequestArgs {
     return { query, ...(dedication === undefined ? {} : { dedication }) };
 }
 
-/** A match as a button label. */
-const labelOf = (record: RequestableRow): string => `${record.title}, ${record.artist}`;
+/**
+ * The offered matches as button labels: the title and the artist, then the album where two would read
+ * the same, then the year where those still would. Exported for the tests.
+ */
+export function labelsOf(records: RequestableRow[]): string[] {
+    const clashing = (labels: string[]): Set<string> => new Set(labels.filter((label, at) => labels.indexOf(label) !== at));
+    let labels = records.map(record => `${record.title}, ${record.artist}`);
+    for (const extra of [(record: RequestableRow) => record.album, (record: RequestableRow) => record.year?.toString()]) {
+        const same = clashing(labels);
+        labels = labels.map((label, at) => {
+            const more = extra(records[at]!);
+            return same.has(label) && more !== undefined ? `${label}, ${more}` : label;
+        });
+    }
+    return labels;
+}
 
 /**
  * `/request` on a chat platform: the chat side of the requests module.
@@ -79,9 +99,12 @@ const labelOf = (record: RequestableRow): string => `${record.title}, ${record.a
  *
  * ## Which record
  *
- * One clear match (the only one, or one whose title is exactly what was typed) is asked for at once.
- * Several are offered as buttons, each carrying the record's id as its value, and a press asks for
- * that one. What somebody typed to find a record is only ever a search: it reaches the catalog as a
+ * One clear match (the only one, or the only one whose title is exactly what was typed) is asked for
+ * at once. Several are offered as buttons, each carrying the record's id as its value, and a press asks
+ * for that one. When more than one title is exactly what was typed (`/request Crazy` with two artists'
+ * recordings of it), only those are offered, labelled with the album and then the year where the title
+ * and the artist alone would read the same; the search orders by title alone, so picking the first
+ * would ask for whichever row the database happened to return. What somebody typed to find a record is only ever a search: it reaches the catalog as a
  * `LIKE` pattern and nothing else.
  *
  * ## A dedication
@@ -107,11 +130,11 @@ export class MessagingRequests {
         if (query === '') return { text: 'Tell me what you would like to hear: /request followed by a title, an artist, or both.' };
 
         return inScope(this.container, async scope => {
-            const matches = await scope.get(RequestsRepository).search(query, MAX_CHOICES + 1);
+            const matches = await scope.get(RequestsRepository).search(query, SEARCH_LIMIT);
             if (matches.length === 0) return { text: 'The station does not have anything matching that. Try the title, the artist, or both.' };
 
-            const exact = matches.find(record => record.title.toLowerCase() === query.trim().toLowerCase());
-            const clear = matches.length === 1 ? matches[0] : exact;
+            const exact = matches.filter(record => record.title.toLowerCase() === query.trim().toLowerCase());
+            const clear = matches.length === 1 ? matches[0] : exact.length === 1 ? exact[0] : undefined;
             if (clear !== undefined) return { text: describeRequest(await this.submit(scope, pluginId, message, clear, dedication)) };
 
             const key = choiceKey(pluginId, message);
@@ -119,9 +142,11 @@ export class MessagingRequests {
             else this.choices.set(key, { dedication, until: Date.now() + CHOICE_TTL_MS });
             this.forgetStale();
 
+            const offered = (exact.length > 1 ? exact : matches).slice(0, MAX_CHOICES);
+            const labels = labelsOf(offered);
             return {
                 text: 'Which one did you mean?',
-                buttons: matches.slice(0, MAX_CHOICES).map(record => ({ id: REQUEST_PICK_ACTION, label: labelOf(record), value: record.trackId })),
+                buttons: offered.map((record, at) => ({ id: REQUEST_PICK_ACTION, label: labels[at]!, value: record.trackId })),
             };
         });
     }

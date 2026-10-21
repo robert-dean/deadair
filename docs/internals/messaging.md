@@ -254,8 +254,11 @@ fail to decode the whole operator list. Joins are limited per address (`PartyJoi
 admits `MAX_PARTY_GUESTS`; ending the party switches its guests off and revokes their sessions. What a
 guest may reach, and why that is only three routes, is in `authentication.md` § "Party guests".
 
-**`/request` in a chat searches, and asks at once only for a clear match** (the only one, or an exact
-title); several are offered as up to three buttons, `request.pick` with the record's id as the value, and a
+**`/request` in a chat searches, and asks at once only for a clear match** (the only one, or the only
+exact title). Two or more exact titles (`/request Crazy` with two artists' recordings) are offered as
+buttons on their own, told apart by album and then year when title and artist read the same, because
+the search orders by title alone and the first row is whichever the database returned. Otherwise several
+are offered as up to three buttons, `request.pick` with the record's id as the value, and a
 press is looked up rather than trusted, since a client can send any value. A chat account LINKED to a
 station account asks as that account, so the one-at-a-time rule and the cooldown are one person's whether
 they ask from the app or the chat (`messaging.requests.ts`).

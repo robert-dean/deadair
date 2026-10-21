@@ -59,7 +59,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = gitCommitCount.get()
-        versionName = "0.24.1"
+        versionName = "0.25.0"
     }
 
     buildFeatures {

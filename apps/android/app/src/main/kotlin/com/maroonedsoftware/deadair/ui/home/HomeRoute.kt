@@ -246,7 +246,7 @@ fun HomeRoute(
                                 busy = true
                                 scope.launch {
                                     try {
-                                        graph.transport.skip()
+                                        graph.transport.skip(onAir = loaded.status.nowPlaying?.item?.id)
                                     } finally {
                                         busy = false
                                     }

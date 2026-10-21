@@ -5,6 +5,7 @@ import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
 import com.maroonedsoftware.deadair.sdk.models.AirMode
 import com.maroonedsoftware.deadair.sdk.models.HoldStationInput
+import com.maroonedsoftware.deadair.sdk.models.PlayoutSkipQuery
 import com.maroonedsoftware.deadair.sdk.models.PlayoutStatus
 import com.maroonedsoftware.deadair.sdk.models.SetStationAirInput
 import com.maroonedsoftware.deadair.sdk.models.StationAir
@@ -18,7 +19,19 @@ import com.maroonedsoftware.deadair.sdk.models.StationAir
  * two behind it.
  */
 class Transport(private val actions: OperatorActions, private val playout: PlayoutRepository) {
-    suspend fun skip() = status { it.playout.skipTheCurrentItem() }
+    /**
+     * [onAir] is the id of the record the screen is showing. Named, the station refuses the skip
+     * (409) when that record has ended since the last reading, rather than cutting the one after it.
+     * Left out, as the widget and the media session leave it, the skip takes whatever is on now:
+     * those hold a reading that can be hours old, and a press there means "skip this", not "skip
+     * the record I was shown".
+     */
+    suspend fun skip(onAir: String? = null) =
+        if (onAir == null) {
+            status { it.playout.skipTheCurrentItem() }
+        } else {
+            status(expected = mapOf(CONFLICT to Notice.AlreadyFinished)) { it.playout.skipTheCurrentItem(PlayoutSkipQuery(item = onAir)) }
+        }
 
     suspend fun stop() = status { it.playout.stopPlayout() }
 

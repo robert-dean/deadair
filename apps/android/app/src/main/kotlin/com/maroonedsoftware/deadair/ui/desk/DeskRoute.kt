@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
+import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportHandlers
@@ -43,7 +44,8 @@ fun DeskRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit, o
     val handlers =
         remember(graph) {
             TransportHandlers(
-                onSkip = { act { graph.transport.skip() } },
+                // Read at the press, so it is the record the desk is showing then.
+                onSkip = { act { graph.transport.skip(onAir = (playout as? PlayoutState.Loaded)?.status?.nowPlaying?.item?.id) } },
                 onStop = { act { graph.transport.stop() } },
                 onStart = { act { graph.transport.start() } },
                 onHold = { minutes -> act { graph.transport.hold(minutes) } },

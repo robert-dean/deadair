@@ -179,7 +179,10 @@ wants to be plain wants that flag rather than a missing sheet. The spent rule is
 same argument that made the markers get sent: refusing a script for an instruction it was never given is a
 trick question, and a model told only what it may not say fills the hole with a sample line, which is the
 failure one rule over. Only the phrase-shaped half of `avoid` is checkable, and the entries describing a
-subject stay instructions to a model, which is why the grounding rules underneath them are what actually hold.
+subject stay instructions to a model, which is why the grounding rules underneath them are what actually hold. A cue is phrase-shaped too, and `readAnswer` judges the
+words with the cues taken out, so `characterFault` reads `avoid` against the CUED script (`CharacterContext.cued`):
+without it a forbidden `[sigh]` could never match, and on 2026-10-21 six of Garth's talk breaks aired sighing under
+a sheet that forbade it.
 
 **`dialect: 'optional'` was the guard's half of the bulletin's lean, and for a long time the prompt kept
 asking for the opposite.** The sheet the news writer sent still said "work at least 1" of the character's

@@ -524,7 +524,12 @@ function recordNobodyGave(input: RecordCheckInput, text: string): string | undef
     for (const match of spoken.matchAll(TITLE_BY_ARTIST)) {
         const [, title, artist] = match as unknown as [string, string, string];
         const before = spoken.slice(0, match.index).trimEnd();
-        if (!title.includes(' ') && (before.length === 0 || /[.!?:;]["”]?$/.test(before))) continue;
+        // English only while the sentence carries on: "Inspired by Wayne, I built" does, and a credit
+        // standing as its own sentence does not. Garth's "We fear change. Dreams by The Dreamers." went
+        // out on 2026-10-21 through this exemption.
+        const after = spoken.slice((match.index ?? 0) + match[0].length);
+        const credit = /^["”']?\s*(?:[.!?]|$)/u.test(after);
+        if (!title.includes(' ') && !credit && (before.length === 0 || /[.!?:;]["”]?$/.test(before))) continue;
         if (person(artist)) continue;
         if (given(title) || given(artist)) continue;
         // Named back as the record alone, without the "this is" in front of it or a quote mark caught at either end.

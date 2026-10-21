@@ -43,6 +43,12 @@ describe('a turn in a banter', () => {
         expect(system).not.toContain("you're on the air");
     });
 
+    // Every banter on 2026-10-21 opened with the chant Wayne's sheet keeps for the start of the show.
+    it('tells the opening beat the show is already under way', () => {
+        expect(systemOf(turn({ ...banter, ordinal: 0, speaker: host }))).toContain('this is a chat partway through it, not the start of it');
+        expect(systemOf(turn({ ...banter, speaker: lemmy, previousSpeaker: host }))).not.toContain('not the start of it');
+    });
+
     it('frames a co-host as presenting, never as a caller or a guest', () => {
         const messages = turn({ ...banter, speaker: lemmy, previousSpeaker: host });
 

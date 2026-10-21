@@ -819,6 +819,11 @@ function banterRule(where: {
         return [
             `- This is the OPENING beat. You are presenting with ${names}. Say hello and bring them in by name, the way presenters on a shared show do.`,
             '- Then hand over to them, and stop. Do not read out the date, the time or the name of the programme.',
+            // A banter is never the start of the SHOW: the changeover opens it, and the first banter
+            // airs after it. "The opening beat" read as the top of the show, so every one of the four
+            // banters on 2026-10-21 opened with the chant Wayne's sheet keeps for exactly that moment.
+            '- The show itself has been on the air for a while: this is a chat partway through it, not the start of it. ' +
+                'Anything your character description keeps for the very start of the show is not for this.',
         ];
     }
 

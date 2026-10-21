@@ -532,6 +532,10 @@ export class PlayoutService {
      * present it. See the note above that prefix in `playout.ck`.
      */
     confirmAired(query: PlayoutAiredQuery): void {
+        // Whether or not the rundown knows the item, the queue just put something on air, so any
+        // starve still open is over. An unknown id is a Liquidsoap that outlived an app restart,
+        // and it is playing all the same.
+        this.control.noteProducing();
         if (!this.rundown.markAired(query.item)) {
             this.logger.warn('playout: aired notify named an item the rundown does not hold', { item: query.item });
         }

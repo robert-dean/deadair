@@ -121,6 +121,7 @@ function build(options: Options = {}) {
         isOnAir: vi.fn(() => options.onAir ?? true),
         isWarming: vi.fn(() => options.warming ?? false),
         noteStarve: vi.fn(),
+        noteProducing: vi.fn(),
         starvedSince: vi.fn(() => undefined),
         downSince: vi.fn(() => options.downSince),
         deniedSince: vi.fn(() => options.deniedSince),
@@ -605,6 +606,17 @@ describe('PlayoutService.confirmAired', () => {
         const { service } = build({ markAired: false });
 
         expect(() => service.confirmAired({ item: 'from-a-previous-session' })).not.toThrow();
+    });
+
+    it('tells the control client the queue is producing, which ends any starve still open', () => {
+        // Even for an id the rundown does not hold: something reached air either way.
+        const known = build();
+        known.service.confirmAired({ item: 'item-1' });
+        expect(known.control.noteProducing).toHaveBeenCalled();
+
+        const unknown = build({ markAired: false });
+        unknown.service.confirmAired({ item: 'from-a-previous-session' });
+        expect(unknown.control.noteProducing).toHaveBeenCalled();
     });
 });
 

@@ -278,6 +278,22 @@ export class PlayoutControlClient {
      * doing, alongside {@link isUp} and {@link isOnAir}, and because those are all
      * singletons while `PlayoutService` is scoped per request — a starve recorded
      * there would be forgotten as soon as the request that heard about it ended.
+     *
+     * **A pushed recovery is not the only thing that ends it**, because the process that
+     * reported the gap may not be around to report the end of it. `radio.liq` reports only
+     * EDGES, and a restarted Liquidsoap starts outside a gap, so the starve the old process
+     * pushed is one nobody will ever answer: on 2026-10-18 a restart asked for by the audio
+     * chain watch left this set for 22 hours over a station playing its running order, and
+     * the diagnosis said `starved` the whole time. So three other things clear it, each of
+     * which is proof the gap is over or that the process holding it is gone: a reading with
+     * `ready: true` (see {@link read}), an item confirmed on air (see {@link noteProducing}),
+     * and a refused connection (see the catch in {@link call}). A new process that IS
+     * starved pushes its own starve, because it starts with no gap to compare against.
+     *
+     * Not cleared by a timeout, nor by the endpoint being re-probed after a run of them: a
+     * hung Liquidsoap times out and comes back with its gap still open and no edge left to
+     * report, and clearing there would blind the audio chain watchdog to exactly the
+     * failure it exists for.
      */
     starvedSince(): number | undefined {
         return this.starvedAt;
@@ -309,6 +325,17 @@ export class PlayoutControlClient {
     noteStarve(starved: boolean, now = Date.now()): void {
         if (!starved) this.starvedAt = undefined;
         else this.starvedAt ??= now;
+    }
+
+    /**
+     * The running order has just been heard producing: an item Liquidsoap confirmed on air.
+     *
+     * Ends any starve still open, because an item reaching air is the queue producing, which
+     * is the one thing a starve says is not happening. See {@link starvedSince} for why this
+     * cannot wait for the pushed recovery.
+     */
+    noteProducing(): void {
+        this.starvedAt = undefined;
     }
 
     /**
@@ -477,6 +504,8 @@ export class PlayoutControlClient {
         this.onAir = reading?.driving ?? false;
         this.warming = reading?.warming ?? false;
         if (reading !== undefined) this.reading = reading;
+        // The queue producing is the end of any gap, whoever was supposed to say so.
+        if (reading?.ready === true) this.starvedAt = undefined;
         // A call that produced no reading hands over `undefined` rather than a default:
         // a stream nobody could reach has not told us anything about its config, and the
         // watch must not accuse it on the strength of a failed request.
@@ -552,6 +581,11 @@ export class PlayoutControlClient {
                 if (this.timeouts < TIMEOUT_TOLERANCE) return undefined;
             }
 
+            // Refused is nothing listening, so the process that pushed any starve still open is
+            // gone and will never push its recovery. Whatever answers next starts outside a gap
+            // and reports its own. See {@link starvedSince}.
+            if (isRefused(error)) this.starvedAt = undefined;
+
             this.timeouts = 0;
             this.markUp(false);
             this.endpoint.invalidate();
@@ -567,6 +601,16 @@ export class PlayoutControlClient {
  */
 function isTimeout(error: unknown): boolean {
     return error instanceof Error && error.name === 'TimeoutError';
+}
+
+/**
+ * Whether a call failed because nothing was listening. undici rejects with a `TypeError` whose
+ * `cause` carries the socket's code; read off the code for the reason {@link isTimeout} reads off
+ * `name`.
+ */
+function isRefused(error: unknown): boolean {
+    const cause = error instanceof Error ? (error.cause as { code?: unknown } | undefined) : undefined;
+    return cause?.code === 'ECONNREFUSED';
 }
 
 /**

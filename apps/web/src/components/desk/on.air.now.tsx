@@ -346,7 +346,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                     loading={skip.isPending}
                                     // Nothing on air is nothing to cut, and a skip needs a stream to take it.
                                     disabled={!status.streamUp || !nowPlaying}
-                                    onClick={() => skip.mutate()}
+                                    onClick={() => skip.mutate(nowPlaying?.item.id)}
                                 >
                                     {t('onAir.skip')}
                                 </Button>

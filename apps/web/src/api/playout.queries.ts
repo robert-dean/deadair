@@ -148,13 +148,22 @@ export function usePlayChart() {
     });
 }
 
-/** Ends the item on air. */
+/**
+ * Ends the item on air: the one the page is showing, named by its id.
+ *
+ * The status is read every couple of seconds, so the record on screen can have ended before the press
+ * arrives. Named, the station refuses that press with a 409 rather than cutting the record after it,
+ * and the page reads the station again so it shows what is actually on.
+ */
 export function useSkipCurrent() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: () => sdk.playout.skipTheCurrentItem(),
+        mutationFn: (item: string | undefined) => sdk.playout.skipTheCurrentItem(item === undefined ? undefined : { item }),
         onSuccess: status => {
             followTransport(queryClient, status);
+        },
+        onError: () => {
+            void queryClient.refetchQueries({ queryKey: queryKeys.playout.status() });
         },
     });
 }

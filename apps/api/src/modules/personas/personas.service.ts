@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
 import { AfterCommit } from '#modules/data/after.commit.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { LlmService } from '#modules/llm/llm.service.js';
@@ -69,6 +70,10 @@ export class PersonasService {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly stories: PersonaStoriesRepository,
+        // The portraits this repository ships for its own characters, given at the two moments the
+        // stories are written and for the same reason. ArtModule sits above this one in `modules.ts`,
+        // so this reaches backwards.
+        private readonly portraits: PersonaArtworkService,
         private readonly llm: LlmService,
         // Reaching FORWARDS: PersonasModule sits above DirectorModule in `modules.ts`, which is a
         // dependency order for lifecycle rather than for resolution. `ScheduleModule` already does
@@ -225,11 +230,21 @@ export class PersonasService {
      * It is additive and never destructive: the partial unique index skips a handle this character
      * already holds, so an edited story is safe and only a DELETED one comes back. That is the same
      * bargain the button already makes about a deleted persona, and it is what the button means.
+     *
+     * Their PORTRAITS are topped up on the same terms ({@link seedPortraits}): a character with a
+     * picture of its own keeps it, and only a removed one comes back. It is also the only way a
+     * station seeded before this repository shipped any is ever given them.
      */
     async restore(): Promise<PersonaList> {
         const written = await this.personas.restoreMissing(SEED_CHARACTERS);
         const told = await this.seedStories(SEED_CHARACTERS.map(persona => persona.key));
-        this.logger.info('personas: an operator restored the station personas', { written: written.length, keys: written, stories: told });
+        const pictured = await this.seedPortraits();
+        this.logger.info('personas: an operator restored the station personas', {
+            written: written.length,
+            keys: written,
+            stories: told,
+            portraits: pictured,
+        });
 
         return this.answer();
     }
@@ -251,7 +266,8 @@ export class PersonasService {
         // operator had emptied would make deleting a story inexpressible, which is the same argument
         // one table up.
         const told = await this.seedStories(SEED_CHARACTERS.map(persona => persona.key));
-        this.logger.info('personas: seeded a station that had none', { written, stories: told });
+        const pictured = await this.seedPortraits();
+        this.logger.info('personas: seeded a station that had none', { written, stories: told, portraits: pictured });
     }
 
     /**
@@ -271,6 +287,27 @@ export class PersonasService {
             return await this.stories.addAll(writes);
         } catch (error) {
             this.logger.warn(`personas: the seeded characters were written without their stories (${errorText(error)})`);
+            return 0;
+        }
+    }
+
+    /**
+     * Give the station's own characters the portraits this repository ships for them, where they have none.
+     *
+     * Every persona under a seeded key is a candidate, including one an operator rewrote under it,
+     * which is the bargain {@link restore} already makes about its stories: a persona with a portrait
+     * of its own is never touched, so the only thing that comes back is one somebody REMOVED. Best-effort
+     * on {@link seedStories}' terms: a character with no picture is one a player shows the record's
+     * cover for, which is an ordinary state.
+     */
+    private async seedPortraits(): Promise<number> {
+        const seeded = new Set(SEED_CHARACTERS.map(persona => persona.key));
+
+        try {
+            const candidates = (await this.personas.list()).filter(persona => seeded.has(persona.key));
+            return await this.portraits.seedShipped(candidates.map(persona => ({ id: persona.id, key: persona.key })));
+        } catch (error) {
+            this.logger.warn(`personas: the seeded characters were written without their portraits (${errorText(error)})`);
             return 0;
         }
     }

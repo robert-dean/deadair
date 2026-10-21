@@ -1,0 +1,83 @@
+{
+    "$comment": [
+        "Provenance for every portrait this repository SHIPS for one of its own personas. The rule is",
+        "the one assets/pads/MANIFEST.json and assets/art/breaks/MANIFEST.json state, and it is not",
+        "relaxed for a face: CC0 or an equivalent public-domain dedication, and attribution-requiring",
+        "work is refused rather than credited, because a radio station has nowhere to put a credit and",
+        "the obligation would travel to the operator in silence.",
+        "",
+        "A portrait has one more rule a break picture does not need: it is a picture of NOBODY. Every",
+        "persona this repository ships is an invented character, so a photograph of a real person,",
+        "however freely licensed, is refused here too. Licence waives the photographer's copyright and",
+        "says nothing about the subject's likeness, and a stranger's face would then be presenting as",
+        "somebody they are not on every install.",
+        "",
+        "`key` is `personas.key`, the stable name `persona.defaults.ts` seeds, and the file is named",
+        "after it: a new portrait is a file named for its persona plus a line here, and nothing in the",
+        "code learns its name. `sha256` is of the file, and it is what makes an entry checkable by",
+        "somebody who was not here.",
+        "",
+        "These are DEFAULTS, and they reach a station only at two moments: when a fresh station is",
+        "seeded with its personas, and when an operator presses Restore. Never at an ordinary boot,",
+        "because an operator who removed a portrait meant it, and a boot that put it back would make",
+        "removing one impossible to express -- the argument PersonasService.seed already makes about a",
+        "deleted persona. A persona that already has a portrait is never touched, so an operator's own",
+        "upload always wins.",
+        "",
+        "Every entry below is an image GENERATED for this repository from a written description of the",
+        "character, so there is nobody to credit; it is dedicated CC0 on that basis. None was prompted with,",
+        "or is meant to resemble, any real person. 720x720 JPEG, which is generous at the size a player draws",
+        "it and a small fraction of the 4 MB a portrait upload may be."
+    ],
+    "personas": [
+        {
+            "key": "classic",
+            "file": "classic.jpg",
+            "sha256": "b5ed858009a365ded6bb2afc6fcc4fbd7454d75b2dc59339040e04d8f111954d",
+            "source": "Generated for this repository with an image model (gpt-image-2.5 through ElevenLabs), from a description of the persona; 1280x720, cropped to a square",
+            "licence": "CC0-1.0"
+        },
+        {
+            "key": "conspiracy",
+            "file": "conspiracy.jpg",
+            "sha256": "72cd5bce9c3032a675aef8dd01666cd8ce42884f3b3d88971320e4efac1c6026",
+            "source": "Generated for this repository with ChatGPT's image model, from a description of the persona; 1254x1254, resized",
+            "licence": "CC0-1.0"
+        },
+        {
+            "key": "countdown",
+            "file": "countdown.jpg",
+            "sha256": "375fc78d566d16621c77ff89e729ce7103721ad7d53533ead720ef57a9f383dd",
+            "source": "Generated for this repository with ChatGPT's image model, from a description of the persona; 1254x1254, resized",
+            "licence": "CC0-1.0"
+        },
+        {
+            "key": "latenight",
+            "file": "latenight.jpg",
+            "sha256": "caafa74a4d7830f2a4d841166e2294fb1080ff6e098995f4046e39c07fc1e033",
+            "source": "Generated for this repository with an image model (gpt-image-2.5 through ElevenLabs), from a description of the persona; 1280x720, cropped to a square",
+            "licence": "CC0-1.0"
+        },
+        {
+            "key": "shockjock",
+            "file": "shockjock.jpg",
+            "sha256": "0d65e5e4da2601c28898d99f26f1c94f1f975ca3ece5eedb759cf967aee4ca7a",
+            "source": "Generated for this repository with ChatGPT's image model, from a description of the persona; 1254x1254, resized",
+            "licence": "CC0-1.0"
+        },
+        {
+            "key": "videoage",
+            "file": "videoage.jpg",
+            "sha256": "98c2347db0a301749317ab515540a019f2c6abe995aa708fb26354b93b5cae2a",
+            "source": "Generated for this repository with an image model (gpt-image-2.5 through ElevenLabs), from a description of the persona; 1280x720, cropped to a square",
+            "licence": "CC0-1.0"
+        },
+        {
+            "key": "wisecrack",
+            "file": "wisecrack.jpg",
+            "sha256": "abbe8b908b9c16d353403f7bbdc427d0f97e5cf68143ec47d586aef2a61c56d4",
+            "source": "Generated for this repository with ChatGPT's image model, from a description of the persona; 1254x1254, resized",
+            "licence": "CC0-1.0"
+        }
+    ]
+}

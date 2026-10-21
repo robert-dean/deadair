@@ -29,6 +29,12 @@ const DEFAULT_ART_DIR = './media/art';
 const DEFAULT_BREAK_ART_ASSETS_DIR = '../../assets/art/breaks';
 
 /**
+ * Where the portraits this repository ships for its own personas are read from, when
+ * `PERSONA_ART_ASSETS_DIR` is unset. Part of the build on exactly the break pictures' terms.
+ */
+const DEFAULT_PERSONA_ART_ASSETS_DIR = '../../assets/art/personas';
+
+/**
  * Locally cached artwork: the files, and the rows that say what is in them.
  *
  * Registered before the catalog because catalog reads join `art_assets` to hand out a local URL in
@@ -99,8 +105,17 @@ export const ArtModule: ServerKitModule = {
             )
             .asScoped();
 
-        // Scoped for the same reason: it writes through `ArtRepository`. Nothing shipped, so no directory.
-        registry.register(PersonaArtworkService).useClass(PersonaArtworkService).asScoped();
+        // Scoped for the same reason: it writes through `ArtRepository`. Its shipped directory is read
+        // only when PersonasService seeds a station or restores its personas, never at this module's
+        // own boot; `PersonaArtworkService` says why.
+        const personaArtAssetsDir = config.get('PERSONA_ART_ASSETS_DIR', DEFAULT_PERSONA_ART_ASSETS_DIR);
+        registry
+            .register(PersonaArtworkService)
+            .useFactory(
+                container =>
+                    new PersonaArtworkService(container.get(ArtRepository), container.get(ArtStore), personaArtAssetsDir, container.get(Logger)),
+            )
+            .asScoped();
 
         // Singleton, unlike the services above: it is a memory of which upstream covers the station
         // already holds, read by `/nowplaying` and the pusher, both of which answer without a scope.

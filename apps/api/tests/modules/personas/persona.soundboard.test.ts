@@ -45,6 +45,8 @@ function build() {
     const service = new PersonasService(
         personas as never,
         { list: vi.fn(async () => []) } as never,
+        // The shipped portraits. Only the seed and the restore reach them.
+        {} as never,
         {} as never,
         { post: vi.fn(async () => undefined), order: vi.fn(() => undefined) } as never,
         new AfterCommit(),

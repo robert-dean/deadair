@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.2] — 2026-10-21
+
+- The "Continue with" buttons on the sign-in page work. Starting a sign-in through an identity provider answered "Bad Request" from the day the buttons were added, so nobody could sign in that way from the console.
+- Signing in or linking through an identity provider (Google, Authelia and the like) now only completes in the browser that started it. Somebody can no longer send you a half-finished sign-in link that signs your console in as them, or links your identity to their account. If you start a sign-in in two tabs at once, the earlier tab asks you to start again.
+- The station's timings (how long jobs, renders and model calls take) now reach an OTLP collector with their full spread, so Prometheus, Grafana or Google Cloud can show a 95th percentile and not just the average and the worst. Google Cloud accepts them at all now: it refused them before. Trends in the console is unchanged.
+- Sign-in is harder to race: `@maroonedsoftware/authentication` 6.7.0 consumes every one-time code, sign-in link and authorization code in a single step, so two requests arriving together can no longer both use one. Refreshing a session twice at once now gives exactly one new session, and "sign out everywhere" can no longer miss a session created at the same moment. Also `cache` 0.6.0, `mcp` 0.7.6, `telemetry` 0.3.0, `discord` 2.1.2, `slack` 3.3.2 and `telegram` 2.1.2. Sessions signed in before the upgrade stay signed in.
+
 ## [0.77.1] — 2026-10-21
 
 - Presenters no longer sign off to the station by name ("Party on, Deadair!", "Stay wired, Deadair."). The prompt now says the station is the one the presenter is on rather than someone to talk to, the invitation to make up a new closing line when a catchphrase is spent says not to build it on the station's name, and a break that still says a line to the station is refused and asked for again without it. Naming the station ("This is Deadair", "You're listening to Deadair") is unaffected.
@@ -1561,7 +1568,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.2...HEAD
+[0.77.2]: https://github.com/robert-dean/deadair/compare/v0.77.1...v0.77.2
 [0.77.1]: https://github.com/robert-dean/deadair/compare/v0.77.0...v0.77.1
 [0.77.0]: https://github.com/robert-dean/deadair/compare/v0.76.0...v0.77.0
 [0.76.0]: https://github.com/robert-dean/deadair/compare/v0.75.0...v0.76.0

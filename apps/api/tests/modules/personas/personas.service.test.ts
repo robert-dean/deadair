@@ -30,6 +30,8 @@ function build(
         ordersHost?: string;
         ordersCoHosts?: string[];
         ties?: Map<string, string[]>;
+        portraits?: { seedShipped: (candidates: { id: string; key: string }[]) => Promise<number> };
+        seeded?: number;
     } = {},
 ) {
     const roster = options.roster ?? [persona()];
@@ -47,6 +49,10 @@ function build(
         find: vi.fn(async () => ('setDefaultHost' in options ? options.setDefaultHost : persona())),
         setDefaultHost: vi.fn(async () => ('setDefaultHost' in options ? options.setDefaultHost : persona())),
         list: vi.fn(async () => roster),
+        // The two writers the portraits ride on. Neither writes anything here: what is under test is
+        // what each one hands the portraits afterwards.
+        seed: vi.fn(async () => options.seeded ?? 0),
+        restoreMissing: vi.fn(async () => [] as string[]),
         // The repository's own precedence, doubled: the order's host when it names one that exists,
         // and the station's own behind it. `PersonaRepository.presenting` is where the real one
         // lives, and `persona.repository.test.ts` is what holds it to that.
@@ -81,8 +87,11 @@ function build(
         service: new PersonasService(
             personas as never,
             // The stories shelf. Untouched by anything these cases are about — only the seed and the
-            // restore reach it — so an empty double is the honest one.
-            {} as never,
+            // restore reach it — so a double that writes nothing is the honest one.
+            { addAll: vi.fn(async () => 0) } as never,
+            // The shipped portraits, which only the seed and the restore reach either.
+            (options.portraits ?? {}) as never,
+            // The model, which nothing here asks for.
             {} as never,
             director as never,
             afterCommit,
@@ -374,6 +383,57 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
         expect(list.personas.find(row => row.id === 'c1')?.hosts).toEqual(['h1']);
         expect(list.personas.find(row => row.id === 'c2')).not.toHaveProperty('hosts');
         expect(list.personas.find(row => row.id === 'h1')).not.toHaveProperty('hosts');
+    });
+});
+
+describe('the portraits this repository ships for its own characters', () => {
+    // Under seeded keys and an operator's own one, so the filter has something to leave out.
+    const roster = [
+        persona({ id: 'p1', key: 'classic', defaultHost: true }),
+        persona({ id: 'p2', key: 'videoage', defaultHost: false }),
+        persona({ id: 'p3', key: 'pirate', defaultHost: false }),
+    ];
+
+    it('are offered to every seeded character when an operator restores the personas, and to nobody else', async () => {
+        const seedShipped = vi.fn(async () => 2);
+        const { service } = build({ roster, portraits: { seedShipped } });
+
+        await service.restore();
+
+        expect(seedShipped).toHaveBeenCalledWith([
+            { id: 'p1', key: 'classic' },
+            { id: 'p2', key: 'videoage' },
+        ]);
+    });
+
+    it('are offered when a fresh station is seeded', async () => {
+        const seedShipped = vi.fn(async () => 2);
+        const { service } = build({ roster, portraits: { seedShipped }, seeded: 10 });
+
+        await service.seed();
+
+        expect(seedShipped).toHaveBeenCalledTimes(1);
+    });
+
+    it('are not offered at a boot that found the station already had personas', async () => {
+        // A boot is the seed with its emptiness guard. A portrait an operator removed coming back on
+        // every restart would make removing one impossible to express.
+        const seedShipped = vi.fn(async () => 2);
+        const { service } = build({ roster, portraits: { seedShipped }, seeded: 0 });
+
+        await service.seed();
+
+        expect(seedShipped).not.toHaveBeenCalled();
+    });
+
+    it('never cost the operator a restore that has already written the personas', async () => {
+        const seedShipped = vi.fn(async () => {
+            throw new Error('the art store is read-only');
+        });
+        const { service } = build({ roster, portraits: { seedShipped } });
+
+        await expect(service.restore()).resolves.toMatchObject({ personas: expect.any(Array) });
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/without their portraits/));
     });
 });
 

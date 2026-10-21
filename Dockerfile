@@ -460,6 +460,12 @@ COPY assets/pads /app/assets/pads
 # from there; an operator who uploads their own replaces the bytes, and Revert re-reads these.
 COPY assets/art/breaks /app/assets/art/breaks
 
+# The portraits of this repository's own personas, on the same terms as the break pictures above and
+# under one more rule `assets/art/personas/MANIFEST.json` states: each is a picture of nobody, because
+# every persona shipped is invented. Read only when a fresh station is seeded with its personas or an
+# operator presses Restore, never at an ordinary boot, so a portrait somebody removed stays removed.
+COPY assets/art/personas /app/assets/art/personas
+
 # The station's changelog, which is how the console says what changed in the release it is running
 # without asking the internet, and how the update check knows which release this image already
 # contains. The image's version label cannot answer that second question: it is stamped on a release
@@ -549,6 +555,7 @@ ENV NODE_ENV=production \
     # library rather than served from here.
     PAD_ASSETS_DIR=/app/assets/pads \
     BREAK_ART_ASSETS_DIR=/app/assets/art/breaks \
+    PERSONA_ART_ASSETS_DIR=/app/assets/art/personas \
     # What changed in each release, which the console's What's new reads and the update check reads
     # to know which release this image already contains.
     CHANGELOG_PATH=/app/CHANGELOG.md \

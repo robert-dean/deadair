@@ -1,0 +1,28 @@
+{
+    "$comment": [
+        "Provenance for every portrait this repository SHIPS for one of its own personas. The rule is",
+        "the one assets/pads/MANIFEST.json and assets/art/breaks/MANIFEST.json state, and it is not",
+        "relaxed for a face: CC0 or an equivalent public-domain dedication, and attribution-requiring",
+        "work is refused rather than credited, because a radio station has nowhere to put a credit and",
+        "the obligation would travel to the operator in silence.",
+        "",
+        "A portrait has one more rule a break picture does not need: it is a picture of NOBODY. Every",
+        "persona this repository ships is an invented character, so a photograph of a real person,",
+        "however freely licensed, is refused here too. Licence waives the photographer's copyright and",
+        "says nothing about the subject's likeness, and a stranger's face would then be presenting as",
+        "somebody they are not on every install.",
+        "",
+        "`key` is `personas.key`, the stable name `persona.defaults.ts` seeds, and the file is named",
+        "after it: a new portrait is a file named for its persona plus a line here, and nothing in the",
+        "code learns its name. `sha256` is of the file, and it is what makes an entry checkable by",
+        "somebody who was not here.",
+        "",
+        "These are DEFAULTS, and they reach a station only at two moments: when a fresh station is",
+        "seeded with its personas, and when an operator presses Restore. Never at an ordinary boot,",
+        "because an operator who removed a portrait meant it, and a boot that put it back would make",
+        "removing one impossible to express -- the argument PersonasService.seed already makes about a",
+        "deleted persona. A persona that already has a portrait is never touched, so an operator's own",
+        "upload always wins."
+    ],
+    "personas": []
+}

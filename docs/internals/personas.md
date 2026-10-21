@@ -337,6 +337,26 @@ instruction rather than an enforcement. Both word ceilings involved are
 settings now with a declared MINIMUM (`rotation.breakWords`, `rotation.storyWords`, `break.words.ts`), because
 a ceiling set too low does not make a terse station, it hands every model break to the phrasings in silence.
 
+## The portraits
+
+**A persona's picture is an art asset, not a column**: `deadair:persona-art/<persona id>` in `art_assets`
+(`art/persona.art.ts`), served like any cover and shown by a listener's player while that persona presents
+(`playout.md` says which break wears whose). **This repository ships one for each of its own characters**,
+in `assets/art/personas`, named by `personas.key` and listed with its provenance in `MANIFEST.json`. The
+licence rule is the pads' and the break pictures': CC0 or nothing. The manifest adds one rule they do not
+need. Every shipped persona is invented, so a shipped portrait must be a picture of nobody, and a freely
+licensed photograph of a real person is refused, because the licence waives the photographer's rights and
+not the subject's likeness.
+
+**Shipped portraits arrive at the two moments the stories do, and never at boot.** `PersonasService.seed`
+gives them to a fresh station's characters, and `restore` tops them up. That is not the break pictures'
+rule, which takes a stock picture in at every boot where the station holds none. A portrait can be
+REMOVED, which a break picture cannot, and a boot that gave one back would make removing it impossible to
+express. That is the same argument `seed` makes about a deleted persona. A persona that already has a
+portrait is never touched, whoever put it there, so an upload always wins; and Restore is also the only way
+a station seeded before any portrait shipped is ever given them. There is no Revert: removing an upload and
+pressing Restore is the same round trip, and a route for it would be a contract change across four SDKs.
+
 ## The ledger
 
 **`deadair.persona_tellings` (migration 0034) records every time one of a character's stories was carried into

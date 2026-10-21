@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.76.0] — 2026-10-21
+
+- The station's own hosts now come with a portrait each, which a listener's player shows while that host is on air. A fresh station is given them when its personas are seeded, and an existing one when an operator presses Restore on the personas page. A host that already has a picture keeps it, and a portrait somebody removed stays removed until they press Restore. Seven of the ten shipped hosts have one so far.
+
 ## [0.75.0] — 2026-10-21
 
 - A skip can say which record it means: `POST /playout/skip?item=<id>`, with the id of the record on air as you last saw it. When that record has already finished, the station refuses with "That had already finished, so nothing was skipped." rather than cutting the record that started after it. A console only reads the station every few seconds, so a press could land on the next record and take it off for every listener. A skip without the id behaves exactly as before. The generated SDKs take the id as an optional query.
@@ -1548,7 +1552,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.75.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.76.0...HEAD
+[0.76.0]: https://github.com/robert-dean/deadair/compare/v0.75.0...v0.76.0
 [0.75.0]: https://github.com/robert-dean/deadair/compare/v0.74.4...v0.75.0
 [0.74.4]: https://github.com/robert-dean/deadair/compare/v0.74.3...v0.74.4
 [0.74.3]: https://github.com/robert-dean/deadair/compare/v0.74.2...v0.74.3

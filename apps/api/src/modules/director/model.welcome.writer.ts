@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationPromptSettings } from './prompt.settings.js';
+import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -187,6 +187,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
             ...homeGuard(this.config),
+            ...stationGuard(this.config),
             ...speakerGuard(this.config, request),
             // The talk break's own guard, carried over: `WELCOME_SHAPE` never shows a previous
             // record (`showsPrevious: false`), so the only one a greeting is ever handed is

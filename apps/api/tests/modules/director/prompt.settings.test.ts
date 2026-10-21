@@ -8,6 +8,7 @@ import {
     STATION_CONTEXT_KEY,
     STATION_IDENTITY_KEY,
     STATION_TEXT_MAX,
+    stationGuard,
     stationPromptSettings,
 } from '../../../src/modules/director/prompt.settings.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
@@ -91,6 +92,22 @@ describe('homeGuard', () => {
         const { config } = settingsConfig({ [STREAM_KEYS.title]: 'Night Owl' });
 
         expect(homeGuard(config).homes).toEqual(['night owl']);
+    });
+});
+
+describe('stationGuard', () => {
+    it('carries the name the prompt calls the station, so a sign-off to it is refused', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.title]: 'Deadair' });
+
+        expect(stationGuard(config)).toEqual({ station: 'Deadair' });
+        expect(stationPromptSettings(config, {}).station).toBe('Deadair');
+        expect(readAnswer('That was the record. Party on, Deadair!', stationGuard(config))).toBeUndefined();
+    });
+
+    it('asks nothing of a station whose name is blank', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.title]: '  ' });
+
+        expect(stationGuard(config)).toEqual({});
     });
 });
 

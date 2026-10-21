@@ -104,6 +104,9 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     // is about the records: the model named the right record on the right side and joined its two
     // halves backwards, so told which words (`BreakRetry.said`) the fix is to turn them round.
     'swapped-credit',
+    // One sentence said to the station rather than about it, and told which (`BreakRetry.said`) the
+    // fix is to drop it: the rest of the break was fine.
+    'station-sign-off',
     'nothing-said',
 ]);
 
@@ -151,6 +154,8 @@ const NUDGES: Record<string, string> = {
         'That called somewhere here that is not where the station is. Say the same break again without it: the only place that is here is the one you were told, and if you were told none, do not say where you are.',
     'swapped-credit':
         'That said a record the wrong way round, naming the artist as the song. Say the same break again with the title first and the artist after it: the title "by" the artist.',
+    'station-sign-off':
+        'That said a line to the station by name, as though the station were listening. Say the same break again without that line. Name the station only as the station you are on, or not at all.',
     'nothing-said': 'That answered with nothing the station could read aloud. Write the break.',
 };
 

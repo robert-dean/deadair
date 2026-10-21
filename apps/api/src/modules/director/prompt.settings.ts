@@ -130,3 +130,14 @@ export function homeGuard(config: AppConfig): Pick<AnswerGuard, 'homes'> {
     const station = stationLocation(String(config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title) ?? ''));
     return { homes: [...new Set([...homeNames(location), ...homeNames(station)])] };
 }
+
+/**
+ * The station's name as a field on an answer guard, read from the same setting the prompt names it from.
+ *
+ * Beside {@link homeGuard} for its reason: the prompt says what the station is called and the guard
+ * refuses a sign-off addressed to it, so the two have to be reading one value. See `stationSignOffIn`.
+ */
+export function stationGuard(config: AppConfig): Pick<AnswerGuard, 'station'> {
+    const station = String(config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title) ?? '').trim();
+    return station === '' ? {} : { station };
+}

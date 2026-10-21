@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationPromptSettings } from './prompt.settings.js';
+import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -174,6 +174,7 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
             ...homeGuard(this.config),
+            ...stationGuard(this.config),
             ...speakerGuard(this.config, request),
             // The figures this break may say. It used to be checked below, after the answer had
             // already been judged, which was fine while this was the only kind that could be handed

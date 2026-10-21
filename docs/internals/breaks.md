@@ -446,6 +446,29 @@ frame are not places, and a claim inside a record name is taken out first. Engli
 deletion), with the phrase shown back through `saidIn`. Productions are told the rule and not checked for
 it: `checkBeat` runs only on `polished` productions, and that is a separate change.
 
+**The station's name is something to say, never someone to say it to, and `station-sign-off` holds the
+answer to that.** Talk breaks were ending on catchphrases with the name on the end: "Party on, Deadair!",
+"Stay wired, Deadair.", "Stay laid back on Deadair." Two sentences of the user turn combined to ask for it.
+The spent-catchphrase line invites a new closing line in the character's voice (see `personas.md` on why
+the invitation exists), and the last line before "Write the link now." was the bare name, so a signature
+with a name slot in it ("Party on, Garth!") had an obvious filler. A twenty-break audition of Wayne on
+2026-10-21 ended fifteen times that way. Both lines now say what the name is not for: the invitation adds
+"do not build it on the station's name", and the station line adds that it is the station you are on,
+"not someone you are talking to". The guard behind them is narrow on purpose: `stationSignOffIn` refuses
+only the vocative, a sentence that ENDS on the name with a comma in front of it, because that is the one
+shape an ident never takes ("This is Deadair", "you're on Deadair", "stay tuned to Deadair" all pass, and
+so does the name in apposition mid-sentence). Measured against the live station on 2026-10-21 before
+relying on it: of 2,322 model-written talk breaks in `script_history`, 6 carried a vocative sign-off, and
+across all 1,800 talk-break, welcome, banter and changeover scripts in `segments` from the previous thirty
+days the only comma-and-name endings were sign-offs (7, all of them "Stay wired", "Cheers", "Keep
+listening", "Happy listening", "Party on" or "the loudest side of town"), so it refuses nothing a listener
+should have heard. The wider imperative ("Stay laid back on Deadair.", 8 of `snoop`'s 38 stored talk
+breaks) is left to the prompt, since "Stay tuned to Deadair." is the same grammar and a real ident. The
+same history also says the invitation is not the only driver: closers on the name were no more common in
+prompts that carried it (5 of 905) than in those that did not (13 of 1,417), which is why the station line
+carries the rule too rather than the invitation alone. Retryable, with the sentence shown back through
+`saidIn`, because the fix is deleting one line of an otherwise sound break.
+
 **What buys a character room is what the break does not have to say, never the word ceiling.** Measured before
 changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the median break came in at 28
 words, so the ceiling was never what bounded one — the model stops on its own, and the question is what it

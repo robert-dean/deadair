@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.16.1] — 2026-10-21
+
+- Skip in the window now names the record it is showing. If it finished in the moment before the press reached the station, nothing is skipped and the station's own sentence says so: "That had already finished, so nothing was skipped." Before, the press cut the record that had just started. The media key still skips whatever is on.
+
 ## [0.16.0] — 2026-10-19
 
 - A persona can now be set to always work one fact about the music into every link ("How much they lean on what the station knows" → Always). The station picks the fact, preferring a sourced one about the record coming up, and the presenter says it in their own words beside their usual patter.
@@ -167,7 +171,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.1...HEAD
+[0.16.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.0...desktop-v0.16.1
 [0.16.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.15.0...desktop-v0.16.0
 [0.15.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.1...desktop-v0.15.0
 [0.14.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.0...desktop-v0.14.1

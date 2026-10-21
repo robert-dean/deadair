@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-10-21
+
+- Skip on Now playing and on the desk now names the record the screen is showing. If it finished in the moment before the press reached the station, nothing is skipped and the app says "Nothing was skipped: that record had already finished." Before, the press cut the record that had just started. Skip from the lock screen and Control Center still skips whatever is on.
+
 ## [0.14.0] — 2026-10-19
 
 - Signing in answers an emailed code as well as an authenticator code. An account whose second factor is email (with or without a passkey beside it) is sent a code and can ask for it again, instead of being told to sign in from the console, and an account with both an authenticator and email can choose "Email me a code instead".

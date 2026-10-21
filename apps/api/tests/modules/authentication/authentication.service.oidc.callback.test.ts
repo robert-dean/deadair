@@ -3,11 +3,18 @@
 // the asking. Now an identity nobody here knows gets an account only when the allowlist names its
 // provider-verified address, and gets the listener role and nothing else. Everything else lands the
 // browser on the console with a code and a sentence.
+//
+// The callback also has to be one this browser started. The library trusts whichever stored state
+// the callback names, so without the state cookie anybody could begin a sign-in, stop at the
+// provider's redirect and send the callback URL to somebody else, whose console would then be
+// signed in as them.
 
 import { describe, expect, it, vi } from 'vitest';
 import { httpError } from '@maroonedsoftware/errors';
 
 import { AuthenticationService } from '../../../src/modules/authentication/authentication.service.js';
+import { RequestCookieJar } from '../../../src/modules/authentication/request.cookie.jar.js';
+import { ResponseCookieJar } from '../../../src/modules/authentication/response.cookie.jar.js';
 import { SIGNIN_KEYS } from '../../../src/modules/authentication/signin.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -25,7 +32,7 @@ type Completion =
       }
     | { kind: 'new-user'; authorizationId: string; profile: { email?: string; emailVerified?: boolean }; emailConflict?: { actorId: string } };
 
-function build(completion: Completion, allowlist = '') {
+function build(completion: Completion, allowlist = '', started: { state?: string } = { state: 's' }) {
     const oidcFactorService = {
         completeAuthorization: vi.fn(async (): Promise<unknown> => ({ intent: 'sign-in', ...completion })),
         createFactorFromAuthorization: vi.fn(async () => ({ id: 'factor-new' })),
@@ -36,6 +43,9 @@ function build(completion: Completion, allowlist = '') {
     const platformRoles = { assign: vi.fn(async () => undefined) };
     const sessionActivity = { recordFactorFailure: vi.fn(async () => undefined) };
     const htmlRedirectProvider = { getRedirectHtml: (url: URL) => ({ html: url.toString() }) };
+    const requestCookieJar = new RequestCookieJar();
+    if (started.state !== undefined) requestCookieJar.setOidcState(started.state);
+    const responseCookieJar = new ResponseCookieJar();
 
     const service = Object.create(AuthenticationService.prototype) as AuthenticationService;
     Object.assign(service, {
@@ -47,10 +57,13 @@ function build(completion: Completion, allowlist = '') {
         platformRoles,
         sessionActivity,
         htmlRedirectProvider,
+        requestCookieJar,
+        responseCookieJar,
     });
 
-    const callback = async () => new URL(await service.handleOidcCallback({ code: 'c', state: 's' }));
-    return { callback, oidcFactorService, actorsRepository, emailFactorRepository, platformRoles, sessionActivity };
+    const callback = async (query: { code?: string; state?: string; error?: string } = { code: 'c', state: 's' }) =>
+        new URL(await service.handleOidcCallback(query as never));
+    return { callback, oidcFactorService, actorsRepository, emailFactorRepository, platformRoles, sessionActivity, responseCookieJar };
 }
 
 const newcomer = (email: string, emailVerified = true): Completion => ({
@@ -163,6 +176,58 @@ describe('AuthenticationService.handleOidcCallback', () => {
         expect(target.searchParams.get('error')).toBe('oidc_failed');
         expect(target.toString()).not.toContain('ECONNREFUSED');
         expect(h.sessionActivity.recordFactorFailure).toHaveBeenCalledWith(expect.objectContaining({ lastReason: 'ECONNREFUSED 10.0.0.4:443' }));
+    });
+});
+
+describe('AuthenticationService.handleOidcCallback, bound to the browser that started it', () => {
+    const signedIn: Completion = { kind: 'signed-in', actorId: EXISTING_ACTOR, factorId: 'factor-1' };
+
+    it('refuses a callback whose state is not the one this browser started, and consumes nothing', async () => {
+        const h = build(signedIn, '', { state: 'mine' });
+
+        const target = await h.callback({ code: 'c', state: 'theirs' });
+
+        expect(target.pathname).toBe('/auth/callback');
+        expect(target.searchParams.get('error')).toBe('not_started_here');
+        expect(target.searchParams.get('error_description')).toContain('not started in this browser');
+        expect(h.oidcFactorService.completeAuthorization).not.toHaveBeenCalled();
+        expect(h.oidcFactorService.stashAuthenticatedExchange).not.toHaveBeenCalled();
+    });
+
+    it('refuses a callback from a browser holding no state at all', async () => {
+        const h = build(signedIn, '', {});
+
+        expect((await h.callback()).searchParams.get('error')).toBe('not_started_here');
+        expect(h.oidcFactorService.completeAuthorization).not.toHaveBeenCalled();
+    });
+
+    it('refuses a callback that carries no state', async () => {
+        const h = build(signedIn);
+
+        expect((await h.callback({ code: 'c' })).searchParams.get('error')).toBe('not_started_here');
+    });
+
+    it("leaves this browser's own state alone when somebody else's callback is refused", async () => {
+        const h = build(signedIn, '', { state: 'mine' });
+
+        await h.callback({ code: 'c', state: 'theirs' });
+
+        expect(h.responseCookieJar.takeClearOidcState()).toBe(false);
+    });
+
+    it('clears the state once its own callback has used it', async () => {
+        const h = build(signedIn);
+
+        await h.callback();
+
+        expect(h.responseCookieJar.takeClearOidcState()).toBe(true);
+    });
+
+    it("still reports the provider's own error as the provider's", async () => {
+        const h = build(signedIn, '', {});
+        h.oidcFactorService.completeAuthorization.mockRejectedValueOnce(new Error('access_denied'));
+
+        expect((await h.callback({ error: 'access_denied', state: 's' })).searchParams.get('error')).toBe('provider_error');
     });
 });
 

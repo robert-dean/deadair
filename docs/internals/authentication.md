@@ -84,6 +84,21 @@ newcomer gets the `listener` role through `PermissionsService.writeDirect`, as o
 `oidc_failed` for anything else, or the provider's own error. `OidcSignInRefused` carries the code
 and the sentence.
 
+**A callback is honoured only in the browser that started it.** The library trusts whichever stored
+state record a callback's `state` names, and the PKCE verifier and nonce live in that record, so they
+prove nothing about the browser. Without a binding, somebody could begin a sign-in, stop at the
+provider's redirect and send the callback URL to somebody else, whose console would be signed in as
+them; a link the same way puts the victim's identity on the attacker's account. So both places a flow
+begins (`handleOidcStartLogin` and `registerOidcFactor`) put the `state` in the `deadair.oidc`
+httpOnly cookie through the `ResponseCookieJar`, for as long as the state lives, and the callback
+compares it before `completeAuthorization` reads anything, refusing a mismatch as `not_started_here`.
+SameSite=Lax is enough, because the provider returns the browser with a top-level GET. Two details
+are deliberate: the cookie is cleared only by a callback that MATCHED it, since clearing on a mismatch
+would let somebody else's link cancel the sign-in this browser has in flight; and one cookie holds one
+state, so a second sign-in started in another tab wins and the first tab is asked to start again. A
+provider's own `?error=` skips the check and is still reported as `provider_error`. Only the web
+console starts these flows, so no app is affected.
+
 ## Passkeys
 
 **A passkey's relying party is the address the browser is on, held to the addresses the station is

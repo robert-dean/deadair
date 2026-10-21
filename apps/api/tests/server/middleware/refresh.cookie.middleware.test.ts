@@ -5,7 +5,10 @@
 // `auditContextMiddleware` resolves `AfterCommit`.
 
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
+
+import { OIDC_STATE_COOKIE_NAME } from '../../../src/modules/authentication/oidc.state.cookie.js';
 
 import { REFRESH_COOKIE_NAME } from '../../../src/modules/authentication/refresh.cookie.js';
 import { RequestCookieJar } from '../../../src/modules/authentication/request.cookie.jar.js';
@@ -31,7 +34,7 @@ function request() {
             disposed = true;
         },
     };
-    const cookies = { get: vi.fn(() => undefined), set: vi.fn(), secure: false };
+    const cookies = { get: vi.fn((_name: string): string | undefined => undefined), set: vi.fn(), secure: false };
     const ctx = {
         container,
         res,
@@ -42,7 +45,7 @@ function request() {
         protocol: 'http',
         secure: false,
     };
-    return { ctx, jar, cookies };
+    return { ctx, jar, requestJar, cookies };
 }
 
 const run = (ctx: ReturnType<typeof request>['ctx'], handler: () => Promise<void>) => refreshCookieMiddleware()(ctx as never, handler);
@@ -84,5 +87,34 @@ describe('refreshCookieMiddleware', () => {
             }),
         ).rejects.toThrow('401');
         expect(cookies.set).toHaveBeenCalledWith(REFRESH_COOKIE_NAME, null, expect.objectContaining({ maxAge: 0 }));
+    });
+
+    it('hands the OIDC state the browser presented to the request', async () => {
+        const { ctx, requestJar, cookies } = request();
+        cookies.get.mockImplementation(name => (name === OIDC_STATE_COOKIE_NAME ? 'state-1' : undefined));
+
+        await run(ctx, async () => undefined);
+
+        expect(requestJar.getOidcState()).toBe('state-1');
+    });
+
+    it('binds a started sign-in to the browser for as long as its state lives', async () => {
+        const { ctx, jar, cookies } = request();
+
+        await run(ctx, async () => jar.setOidcState('state-1', DateTime.utc().plus({ minutes: 10 })));
+
+        const [name, value, options] = cookies.set.mock.calls[0]!;
+        expect([name, value]).toEqual([OIDC_STATE_COOKIE_NAME, 'state-1']);
+        expect(options).toMatchObject({ httpOnly: true, sameSite: 'lax' });
+        expect(options.maxAge).toBeGreaterThan(9 * 60 * 1000);
+        expect(options.maxAge).toBeLessThanOrEqual(10 * 60 * 1000);
+    });
+
+    it('clears the OIDC state once a callback has used it', async () => {
+        const { ctx, jar, cookies } = request();
+
+        await run(ctx, async () => jar.clearOidcState());
+
+        expect(cookies.set).toHaveBeenCalledWith(OIDC_STATE_COOKIE_NAME, null, expect.objectContaining({ maxAge: 0 }));
     });
 });

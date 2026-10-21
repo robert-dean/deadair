@@ -1,13 +1,19 @@
-// `/request` from a chat. What matters: a clear match is asked for at once, several are offered as
-// buttons, a pressed button's value is looked up rather than trusted, and a linked chat account asks
-// as its station account so the rules are one person's wherever they ask from.
+// `/request` from a chat. What matters: a clear match is asked for at once, several (or several exact
+// titles) are offered as buttons, a pressed button's value is looked up rather than trusted, and a
+// linked chat account asks as its station account so the rules are one person's wherever they ask from.
 
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import type { Container } from 'injectkit';
 import type { InboundMessage } from '@deadair/plugin-sdk';
 
-import { MessagingRequests, REQUEST_PICK_ACTION, describeRequest, parseRequestArgs } from '../../../src/modules/messaging/messaging.requests.js';
+import {
+    MessagingRequests,
+    REQUEST_PICK_ACTION,
+    describeRequest,
+    labelsOf,
+    parseRequestArgs,
+} from '../../../src/modules/messaging/messaging.requests.js';
 import { MessagingRepository } from '../../../src/modules/messaging/messaging.repository.js';
 import { RequestDesk } from '../../../src/modules/requests/request.desk.js';
 import { RequestsRepository, type RequestRow, type RequestableRow } from '../../../src/modules/requests/requests.repository.js';
@@ -93,6 +99,22 @@ describe('/request', () => {
         expect(submit).toHaveBeenCalledWith(expect.anything(), teardrop, undefined);
     });
 
+    it('offers two exact titles by different artists as buttons rather than asking for whichever came first', async () => {
+        const cline: RequestableRow = { trackId: '8f1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11', title: 'Crazy', artist: 'Patsy Cline' };
+        const gnarls: RequestableRow = { trackId: '9f1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11', title: 'Crazy', artist: 'Gnarls Barkley' };
+        const train: RequestableRow = { trackId: 'af1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11', title: 'Crazy Train', artist: 'Ozzy Osbourne' };
+        const { requests, submit } = build({ matches: [cline, gnarls, train] });
+
+        expect(await requests.request('p', message, 'crazy')).toEqual({
+            text: 'Which one did you mean?',
+            buttons: [
+                { id: REQUEST_PICK_ACTION, label: 'Crazy, Patsy Cline', value: cline.trackId },
+                { id: REQUEST_PICK_ACTION, label: 'Crazy, Gnarls Barkley', value: gnarls.trackId },
+            ],
+        });
+        expect(submit).not.toHaveBeenCalled();
+    });
+
     it('offers several matches as buttons carrying each record’s id', async () => {
         const { requests, submit } = build({ matches: [tearDown, teardrop] });
 
@@ -136,6 +158,25 @@ describe('a pick', () => {
         expect((await requests.pick('p', message, undefined)).text).toContain('not available');
         expect(findRequestable).not.toHaveBeenCalled();
         expect(submit).not.toHaveBeenCalled();
+    });
+});
+
+describe('labelsOf', () => {
+    it('tells the same title and artist apart by album, then by year', () => {
+        const crazy = { title: 'Crazy', artist: 'Patsy Cline' };
+        expect(
+            labelsOf([
+                { trackId: 'a', ...crazy, album: 'Showcase', year: 1961 },
+                { trackId: 'b', ...crazy, album: 'Live at the Opry', year: 1988 },
+                { trackId: 'c', title: 'Crazy', artist: 'Gnarls Barkley', album: 'St. Elsewhere' },
+            ]),
+        ).toEqual(['Crazy, Patsy Cline, Showcase', 'Crazy, Patsy Cline, Live at the Opry', 'Crazy, Gnarls Barkley']);
+        expect(
+            labelsOf([
+                { trackId: 'a', ...crazy, album: 'Showcase', year: 1961 },
+                { trackId: 'b', ...crazy, album: 'Showcase', year: 1967 },
+            ]),
+        ).toEqual(['Crazy, Patsy Cline, Showcase, 1961', 'Crazy, Patsy Cline, Showcase, 1967']);
     });
 });
 

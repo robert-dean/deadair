@@ -26,9 +26,11 @@ how many distinct series exist, not with how busy the station is, and a minute i
 thousand times is still one row for that job.
 
 **Five numbers cover all three kinds of metric, so there is one row shape.** A gauge reads `last`, a
-counter `sum`, a duration `sum / count` and `max`. **There are no percentiles**, deliberately: they
-need a histogram or a sketch per bucket, and a duration's mean beside its worst is enough to see that
-something got slow.
+counter `sum`, a duration `sum / count` and `max`. **The table keeps no percentiles**, deliberately:
+they need a histogram per row, and a duration's mean beside its worst is enough on Trends to see that
+something got slow. The recorder does count each duration (`*.ms`) into `DURATION_BOUNDS_MS` buckets
+as well (`metricBounds`, set on the recorder in `MetricsModule`), but only the OTLP export sends them;
+`MetricsStore` writes the five numbers and drops the rest.
 
 **A producer never imports the metrics module, only the recorder.** It registers a gauge on
 `MetricsRecorder` in its own `ready()` (as `PlayoutModule` does for the audience), or calls `observe`
@@ -139,7 +141,8 @@ other page pays for it.
 (Settings, Telemetry), `MetricsFlusher` hands each drained minute to `OtlpExport` after writing it to
 the table, and the export sends it through `@maroonedsoftware/telemetry/otlp`'s bridge to an
 `OTLPMetricExporter` (OTLP over HTTP with JSON, at `<endpoint>/v1/metrics`). No `MeterProvider` sits
-in between: the buckets are already aggregates. Durations go as histograms (count, sum, min, max),
+in between: the buckets are already aggregates. Durations go as histograms (count, sum, min, max, and since telemetry 0.3.0 the bucket counts, so a
+collector can answer a p95; Google Cloud refused histograms without bounds),
 tokens and failures as monotonic counters, the rest as gauges. **Counters and histograms are
 cumulative**: the bridge keeps each series' running total from its first minute and sends the whole
 total on every flush, so Prometheus takes them with no `deltatocumulative` processor. They were delta

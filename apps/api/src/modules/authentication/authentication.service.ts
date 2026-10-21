@@ -900,6 +900,7 @@ export class AuthenticationService {
             intent: 'sign-in',
             ...(redirectAfter === undefined ? {} : { redirectAfter }),
         });
+        this.responseCookieJar.setOidcState(state, expiresAt);
 
         return await parseAndValidate(
             {
@@ -907,7 +908,7 @@ export class AuthenticationService {
                 challengeId: state,
                 authorize_url: url.toString(),
                 state,
-                expires_at: expiresAt,
+                expiresAt,
             },
             AuthenticationLoginStartResponse,
         );
@@ -1057,6 +1058,17 @@ export class AuthenticationService {
      */
     async handleOidcCallback(query: OidcLoginCallback): Promise<string> {
         try {
+            // Before the library reads the state record, so a callback this browser did not start
+            // consumes nothing. A provider's own error is left to the library, which reports it as
+            // one. Cleared only on a match: clearing on a mismatch would let somebody else's link
+            // cancel the sign-in this browser really has in flight.
+            if (query.error === undefined) {
+                if (query.state === undefined || query.state !== this.requestCookieJar.getOidcState()) {
+                    throw new OidcSignInRefused('not_started_here');
+                }
+                this.responseCookieJar.clearOidcState();
+            }
+
             const result = await this.oidcFactorService.completeAuthorization({ params: query });
 
             // A link started from Security by somebody already signed in: the identity is now on

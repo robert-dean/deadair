@@ -3,7 +3,7 @@ import { Container, Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { Logger } from '@maroonedsoftware/logger';
-import type { FinishedSpan, MetricBucket } from '@maroonedsoftware/telemetry';
+import { DURATION_BOUNDS_MS, type FinishedSpan, type MetricBucket } from '@maroonedsoftware/telemetry';
 import { OtlpMetricsBridge, OtlpSpanBridge, type MetricKind } from '@maroonedsoftware/telemetry/otlp';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -40,6 +40,17 @@ export function metricKind(name: string): MetricKind {
     if (name.endsWith('.ms')) return 'histogram';
     if (name.startsWith('model.tokens.') || name === METRICS.failed) return 'counter';
     return 'gauge';
+}
+
+/**
+ * The bucket bounds the recorder counts a metric's observations into, which the bridge sends as an
+ * explicit-bucket histogram so a collector can answer percentiles. Exactly the metrics
+ * {@link metricKind} sends as histograms: a bound on anything else would be counted and never sent.
+ * Without them a histogram carried only count, sum, min and max, which Prometheus keeps but cannot
+ * take a p95 of, and Google Cloud refuses outright.
+ */
+export function metricBounds(name: string): readonly number[] | undefined {
+    return metricKind(name) === 'histogram' ? DURATION_BOUNDS_MS : undefined;
 }
 
 interface Bridges {

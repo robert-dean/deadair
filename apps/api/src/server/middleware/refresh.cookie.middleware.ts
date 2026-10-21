@@ -1,4 +1,6 @@
 import { ServerKitMiddleware } from '@maroonedsoftware/koa';
+import { DateTime } from 'luxon';
+import { clearOidcStateCookie, readOidcStateCookie, setOidcStateCookie } from '#modules/authentication/oidc.state.cookie.js';
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie, wantsRefreshCookie } from '#modules/authentication/refresh.cookie.js';
 import { RequestCookieJar } from '#modules/authentication/request.cookie.jar.js';
 import { ResponseCookieJar } from '#modules/authentication/response.cookie.jar.js';
@@ -10,6 +12,8 @@ import { ResponseCookieJar } from '#modules/authentication/response.cookie.jar.j
  * Inbound, before the route runs:
  *  - stash the presented refresh cookie in the RequestCookieJar, so the refresh grant can redeem it
  *    for a browser client that sends no `refresh_token` in the body.
+ *  - stash the presented OIDC state cookie the same way, so the identity-provider callback can
+ *    refuse a `state` this browser did not start (see oidc.state.cookie.ts).
  *
  * Outbound, after the route:
  *  - JSON token responses from clients that opted in (see refresh.cookie.ts): move `refresh_token`
@@ -19,6 +23,9 @@ import { ResponseCookieJar } from '#modules/authentication/response.cookie.jar.j
  *    ResponseCookieJar: set the cookie unconditionally (a browser navigation has no opt-in header).
  *  - Flows that asked the ResponseCookieJar to clear the cookie (logout, a rejected refresh grant):
  *    expire it. This one also runs when the route threw, so a 401 still clears a dead cookie.
+ *  - An identity-provider sign-in or link that began here: set the OIDC state cookie for as long as
+ *    the state lives. A callback that used it asks for it cleared, in `finally` beside the refresh
+ *    cookie for the same reason.
  *
  * Must run INSIDE jsonMiddleware (pushed after it in the chain) so it sees the still-object body and
  * mutates it before serialization. Reading a cookie needs no parsed body, so the inbound half is
@@ -29,6 +36,10 @@ export const refreshCookieMiddleware: () => ServerKitMiddleware = () => {
         const presented = readRefreshCookie(ctx);
         if (presented) {
             ctx.container.get(RequestCookieJar).setRefreshToken(presented);
+        }
+        const oidcState = readOidcStateCookie(ctx);
+        if (oidcState) {
+            ctx.container.get(RequestCookieJar).setOidcState(oidcState);
         }
         // Resolved up front, as `auditContextMiddleware` resolves `AfterCommit`, because the scope may
         // not be there to ask afterwards: ServerKit disposes it when the response CLOSES, which is also
@@ -49,6 +60,9 @@ export const refreshCookieMiddleware: () => ServerKitMiddleware = () => {
             if (jar.takeClearRefreshToken() && !ctx.res?.closed) {
                 clearRefreshCookie(ctx);
             }
+            if (jar.takeClearOidcState() && !ctx.res?.closed) {
+                clearOidcStateCookie(ctx);
+            }
         }
 
         // Everything below is success-path only (a thrown error rethrows out of the `finally`).
@@ -58,6 +72,11 @@ export const refreshCookieMiddleware: () => ServerKitMiddleware = () => {
         const stashed = jar.takeRefreshToken();
         if (stashed) {
             setRefreshCookie(ctx, stashed);
+        }
+
+        const started = jar.takeOidcState();
+        if (started) {
+            setOidcStateCookie(ctx, started.state, Math.max(0, started.expiresAt.diff(DateTime.utc()).toMillis()));
         }
 
         if (!wantsRefreshCookie(ctx)) return;

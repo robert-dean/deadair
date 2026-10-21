@@ -40,7 +40,7 @@ export const wantsRefreshCookie = (ctx: Context): boolean => ctx.get(REFRESH_COO
  */
 const secureRequest = (ctx: Context): boolean => requestIsSecure(ctx, trustsProxy(ctx.container.get(AppConfig)));
 
-const cookieOptions = (ctx: Context) => ({
+export const cookieOptions = (ctx: Context) => ({
     httpOnly: true,
     // Marked `secure` exactly when the browser's own hop was encrypted. With the web app served
     // same-origin (via the Vite dev proxy) SameSite=Lax is sufficient and avoids third-party-cookie
@@ -60,7 +60,7 @@ const cookieOptions = (ctx: Context) => ({
  * decision above is the better-informed one, so it is what the jar is told; nothing
  * else in a request reads this cookie jar.
  */
-const withScheme = (ctx: Context, secure: boolean): Context['cookies'] => {
+export const withScheme = (ctx: Context, secure: boolean): Context['cookies'] => {
     if (secure) ctx.cookies.secure = true;
 
     return ctx.cookies;

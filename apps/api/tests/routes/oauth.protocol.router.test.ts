@@ -55,6 +55,11 @@ function inMemoryCache(): CacheProvider {
         get: async (key: string) => store.get(key),
         set: async (key: string, value: string) => void store.set(key, value),
         delete: async (key: string) => void store.delete(key),
+        take: async (key: string) => {
+            const value = store.get(key);
+            store.delete(key);
+            return value;
+        },
         add: async (key: string, value: string) => (store.has(key) ? false : (store.set(key, value), true)),
     } as unknown as CacheProvider;
 }

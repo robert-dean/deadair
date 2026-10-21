@@ -42,6 +42,7 @@ import { httpError, unauthorizedError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { SessionActivityService } from './session.activity.service.js';
+import { ResponseCookieJar } from './response.cookie.jar.js';
 import { PasskeyRelyingParty } from './passkey.relying.party.js';
 import { StrongFactorGate } from './strong.factor.gate.js';
 import { MailService } from '#modules/mail/mail.service.js';
@@ -85,6 +86,7 @@ export class AuthenticationRegistrationService {
         private readonly sessionActivity: SessionActivityService,
         private readonly oidcFactorService: OidcFactorService,
         private readonly passkeyRelyingParty: PasskeyRelyingParty,
+        private readonly responseCookieJar: ResponseCookieJar,
     ) {
         this.factorHandlerMap = new Map<AuthenticationFactorMethod, FactorHandlers>();
         this.factorHandlerMap.set('password', {
@@ -455,10 +457,13 @@ export class AuthenticationRegistrationService {
      * Link an identity provider to the signed-in account: begin an authorization with `intent:
      * 'link'` and hand back where the browser goes. The provider sends it back to the OIDC callback,
      * which attaches the identity to this account and lands on Security rather than signing anybody
-     * in. An identity already linked to a different account is refused there, by the library.
+     * in. An identity already linked to a different account is refused there, by the library. The
+     * state is bound to this browser, so a link begun here cannot be finished in somebody else's.
      */
     private async registerOidcFactor(actorId: string, request: OidcFactorRegistration): Promise<OidcFactorRegistrationResponse> {
-        const { url, expiresAt } = await this.oidcFactorService.beginAuthorization({ provider: request.provider, intent: 'link', actorId });
+        const { url, state, expiresAt } = await this.oidcFactorService.beginAuthorization({ provider: request.provider, intent: 'link', actorId });
+        // Bound to this browser, so only it can finish the link (see oidc.state.cookie.ts).
+        this.responseCookieJar.setOidcState(state, expiresAt);
         return { method: 'oidc', authorizeUrl: url.toString(), expiresAt };
     }
 

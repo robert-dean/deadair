@@ -8,6 +8,7 @@ import { DateTime } from 'luxon';
 import { IsHttpError } from '@maroonedsoftware/errors';
 
 import { AuthenticationRegistrationService } from '../../../src/modules/authentication/authentication.registration.service.js';
+import { ResponseCookieJar } from '../../../src/modules/authentication/response.cookie.jar.js';
 
 const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 const FACTOR_ID = 'oidc-1';
@@ -25,6 +26,7 @@ function build(options: { factors?: { method: string; methodId: string }[]; mail
         }),
         deleteFactor: vi.fn(async () => undefined),
     };
+    const responseCookieJar = new ResponseCookieJar();
     const actorsRepository = { listFactors: vi.fn(async () => options.factors ?? [{ method: 'oidc', methodId: FACTOR_ID }]) };
     const service = Object.create(AuthenticationRegistrationService.prototype) as AuthenticationRegistrationService;
     Object.assign(service, {
@@ -33,6 +35,7 @@ function build(options: { factors?: { method: string; methodId: string }[]; mail
         mailService: { isConfigured: () => options.mailConfigured ?? false },
         oidcFactorService,
         actorsRepository,
+        responseCookieJar,
     });
     // The handler map is built in the constructor, which a prototype-built instance skips.
     Object.assign(service, {
@@ -40,7 +43,7 @@ function build(options: { factors?: { method: string; methodId: string }[]; mail
             ['oidc', { registerFactor: (actorId: string, request: never) => (service as any).registerOidcFactor(actorId, request) }],
         ]),
     });
-    return { service, oidcFactorService };
+    return { service, oidcFactorService, responseCookieJar };
 }
 
 const statusOf = async (promise: Promise<unknown>) => {
@@ -56,6 +59,14 @@ describe('linking an identity provider', () => {
 
         expect(h.oidcFactorService.beginAuthorization).toHaveBeenCalledWith({ provider: 'authelia', intent: 'link', actorId: ACTOR_ID });
         expect(response).toMatchObject({ method: 'oidc', authorizeUrl: 'https://auth.example.com/authorize?state=s' });
+    });
+
+    it('binds the state to this browser, so only it can finish the link', async () => {
+        const h = build();
+
+        await h.service.registerFactor({ method: 'oidc', provider: 'authelia' });
+
+        expect(h.responseCookieJar.takeOidcState()?.state).toBe('s');
     });
 });
 

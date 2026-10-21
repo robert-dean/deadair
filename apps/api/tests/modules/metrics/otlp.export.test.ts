@@ -2,17 +2,18 @@
 // what is pinned is the switch (nothing at all until an endpoint is set), the reading of a pasted
 // collector address and its headers, what kind each metric goes out as, and that a collector being
 // down is logged at its edges and never thrown. And what a collector is sent: a minute flushed in two
-// parts as one growing total, from a service.instance.id that is this process's own.
+// parts as one growing total, from a service.instance.id that is this process's own, and a duration
+// sent with its distribution so a collector can take percentiles of it.
 
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
-import { aggregateOf, labelsKey, type MetricBucket } from '@maroonedsoftware/telemetry';
+import { aggregateOf, DURATION_BOUNDS_MS, labelsKey, MetricsRecorder, type MetricBucket } from '@maroonedsoftware/telemetry';
 import { DateTime } from 'luxon';
 
 import { OTLP_KEYS, otlpSignalUrl, resolveOtlpSettings } from '../../../src/modules/metrics/metrics.settings.js';
-import { MAX_SPAN_BUFFER, metricKind, OtlpExport } from '../../../src/modules/metrics/otlp.export.js';
+import { MAX_SPAN_BUFFER, metricBounds, metricKind, OtlpExport } from '../../../src/modules/metrics/otlp.export.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const config = (values: Record<string, string>): AppConfig =>
@@ -69,6 +70,14 @@ describe('metricKind', () => {
         expect(metricKind('work.failed')).toBe('counter');
         expect(metricKind('station.listeners')).toBe('gauge');
         expect(metricKind('library.cached')).toBe('gauge');
+    });
+});
+
+describe('metricBounds', () => {
+    it('buckets exactly what goes out as a histogram', () => {
+        expect(metricBounds('work.job.ms')).toBe(DURATION_BOUNDS_MS);
+        expect(metricBounds('model.tokens.input')).toBeUndefined();
+        expect(metricBounds('station.listeners')).toBeUndefined();
     });
 });
 
@@ -192,5 +201,50 @@ describe('OtlpExport', () => {
         expect(points.map(sum => sum.dataPoints[0]!.asDouble)).toEqual([100, 140]);
         expect(points[1]!.dataPoints[0]!.startTimeUnixNano).toBe(points[0]!.dataPoints[0]!.startTimeUnixNano);
         expect(sent[0]!.resource.attributes.find(attribute => attribute.key === 'service.instance.id')?.value.stringValue).toBe(otlp.instanceId);
+    });
+
+    it('sends a duration with its bucket counts, from a recorder bounded the way the module bounds it', async () => {
+        const bodies: unknown[] = [];
+        const server = createServer((request, response) => {
+            let body = '';
+            request.on('data', chunk => (body += chunk));
+            request.on('end', () => {
+                bodies.push(JSON.parse(body));
+                response.writeHead(200, { 'content-type': 'application/json' }).end('{}');
+            });
+        });
+        await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address() as AddressInfo;
+        const otlp = new OtlpExport(
+            container(),
+            config({ [OTLP_KEYS.endpoint]: `http://127.0.0.1:${port}` }),
+            new StationIdentity(),
+            logger() as never,
+        );
+        const recorder = new MetricsRecorder();
+        recorder.bucketBounds = metricBounds;
+        for (const ms of [3, 40, 40, 900]) recorder.observe('work.job.ms', ms);
+
+        try {
+            await otlp.export(recorder.drain());
+        } finally {
+            await otlp.close();
+            server.close();
+        }
+
+        type Sent = {
+            resourceMetrics: {
+                scopeMetrics: {
+                    metrics: {
+                        histogram: { dataPoints: { count: string | number; explicitBounds: number[]; bucketCounts: (string | number)[] }[] };
+                    }[];
+                }[];
+            }[];
+        };
+        const [point] = (bodies[0] as Sent).resourceMetrics[0]!.scopeMetrics[0]!.metrics[0]!.histogram.dataPoints;
+
+        expect(point!.explicitBounds).toEqual([...DURATION_BOUNDS_MS]);
+        expect(point!.bucketCounts.map(Number).reduce((a, b) => a + b, 0)).toBe(4);
+        expect(Number(point!.count)).toBe(4);
     });
 });

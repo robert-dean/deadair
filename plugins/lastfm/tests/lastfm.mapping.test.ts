@@ -29,6 +29,50 @@ describe('a wiki body', () => {
         expect(readWiki({ summary: '<a href="https://www.last.fm/music/x">Read more</a>.' })).toBeUndefined();
     });
 
+    it('strips the link from a track wiki, whose href is http rather than https', () => {
+        // Every track wiki the station had stored ended "Read more on Last.fm.", and the break
+        // writer was handed that sentence as a note about the record.
+        const wiki = {
+            summary: 'SOULS OF BLACK!!!! <a href="http://www.last.fm/music/Metallica/_/Souls+of+Black/+wiki">Read more on Last.fm</a>.',
+        };
+        expect(readWiki(wiki)).toBe('SOULS OF BLACK!!!!');
+    });
+
+    it('strips the link whatever its other attributes are', () => {
+        const wiki = { summary: 'Formed in 1991. <a rel="nofollow" href="https://last.fm/music/x/+wiki" class="more">Read more on Last.fm</a>' };
+        expect(readWiki(wiki)).toBe('Formed in 1991.');
+    });
+
+    it('answers with nothing for a track wiki that was only the link', () => {
+        expect(readWiki({ summary: ' <a href="http://www.last.fm/music/x/_/y/+wiki">Read more on Last.fm</a>.' })).toBeUndefined();
+    });
+
+    it('drops the words of the link even when the markup was not recognized', () => {
+        expect(readWiki({ summary: 'A sequel to "Crank". Read more on Last.fm.' })).toBe('A sequel to "Crank".');
+        expect(readWiki({ summary: 'Read more on Last.fm.' })).toBeUndefined();
+    });
+
+    it('strips the licence line and the link before it from a body read from content', () => {
+        const wiki = {
+            content:
+                'Released in 1990. <a href="http://www.last.fm/music/x/_/y/+wiki">Read more on Last.fm</a>. User-contributed text is available under the Creative Commons By-SA License; additional terms may apply.',
+        };
+        expect(readWiki(wiki)).toBe('Released in 1990.');
+    });
+
+    it('leaves a body without the link as it was', () => {
+        expect(readWiki({ summary: 'Recorded at Abbey Road in one take.' })).toBe('Recorded at Abbey Road in one take.');
+    });
+
+    it('keeps a wiki that has only the link out of the facts altogether', () => {
+        const mapped = mapTrack(
+            { name: 'y', artist: { name: 'x' }, wiki: { summary: '<a href="http://www.last.fm/music/x/_/y/+wiki">Read more on Last.fm</a>.' } },
+            WEIGHT,
+            true,
+        );
+        expect(mapped.facts).toBeUndefined();
+    });
+
     it.each([undefined, {}, { summary: '   ' }])('answers with nothing for %s', wiki => {
         expect(readWiki(wiki)).toBeUndefined();
     });

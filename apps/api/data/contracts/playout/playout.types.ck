@@ -119,6 +119,10 @@ contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started p
     item: string(min=1, max=100) # The id the app put on the pushed uri's `annotate:` metadata
 }
 
+contract PlayoutSkipQuery: { # Which item a skip means to cut, as the caller last saw it on air
+    item?: string(min=1, max=100) # The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives
+}
+
 contract PlayoutStarveQuery: { # Which way the running order went, and how long it had been that way
     state: enum(starved, recovered) # `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again
     forMs: int(min=0) # How long the PREVIOUS state lasted, in milliseconds. On a recovery this is the length of the gap, which is the number worth reading

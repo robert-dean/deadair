@@ -11,6 +11,7 @@ import {
     PlayoutAlbumInput,
     PlayoutChartInput,
     PlayoutPlaylistInput,
+    PlayoutSkipQuery,
     PlayoutStationPlaylistInput,
     PlayoutStatus,
 } from '../modules/playout/types/playout.types.js';
@@ -28,7 +29,7 @@ const PlayAPlaylistArgs = z.object({ body: PlayoutPlaylistInput });
 const PlayAStationPlaylistArgs = z.object({ body: PlayoutStationPlaylistInput });
 const PlayAnAlbumArgs = z.object({ body: PlayoutAlbumInput });
 const PlayAChartArgs = z.object({ body: PlayoutChartInput });
-const SkipTheCurrentItemArgs = z.object({});
+const SkipTheCurrentItemArgs = z.object({ query: PlayoutSkipQuery.optional() });
 const StartPlayoutArgs = z.object({});
 const StopPlayoutArgs = z.object({});
 
@@ -166,10 +167,14 @@ export class SkipTheCurrentItemMcpTool implements McpToolHandler {
         _meta: { 'contractkit/security': { policy: 'platform.manage' } },
     };
 
-    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
-        const result = await container.get(PlayoutService).skip();
+        const { query = await parseAndValidate({}, SkipTheCurrentItemArgs.shape.query.unwrap()) } = await parseAndValidate(
+            args,
+            SkipTheCurrentItemArgs,
+        );
+        const result = await container.get(PlayoutService).skip(query);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }

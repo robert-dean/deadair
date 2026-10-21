@@ -345,6 +345,15 @@ public sealed record PlayoutAiredQuery
     public required string Item { get; init; }
 }
 
+/// <summary>Which item a skip means to cut, as the caller last saw it on air</summary>
+public sealed record PlayoutSkipQuery
+{
+    /// <summary>The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives</summary>
+    [JsonPropertyName("item")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Item { get; init; }
+}
+
 /// <summary>Which way the running order went, and how long it had been that way</summary>
 public sealed record PlayoutStarveQuery
 {

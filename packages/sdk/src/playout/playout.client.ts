@@ -1,9 +1,10 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson } from '../sdk-options.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     PlayoutAlbumInput,
     PlayoutChartInput,
     PlayoutPlaylistInput,
+    PlayoutSkipQuery,
     PlayoutStationPlaylistInput,
     PlayoutStatus,
 } from './types/playout.types.js';
@@ -76,8 +77,11 @@ export class PlayoutClient {
      * @name Skip the current item
      * @description Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
      */
-    async skipTheCurrentItem(): Promise<PlayoutStatus> {
-        const result = await this.fetch(`/playout/skip`, { method: 'POST' });
+    async skipTheCurrentItem(query?: PlayoutSkipQuery): Promise<PlayoutStatus> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/playout/skip${qs}`, {
+            method: 'POST',
+        });
         return await parseJson<PlayoutStatus>(result);
     }
 

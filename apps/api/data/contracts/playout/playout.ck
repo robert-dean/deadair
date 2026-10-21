@@ -110,6 +110,7 @@ operation /playout/skip: {
             description: "Cuts what is on air now for every listener and starts the next item at once. It cannot be undone, so confirm with the person first unless they asked for it in so many words."
         }
         service: PlayoutService.skip
+        query: PlayoutSkipQuery
         security: {
             policy: platform.manage
         }
@@ -117,6 +118,9 @@ operation /playout/skip: {
             200: {
                 application/json: PlayoutStatus
             }
+            # Refused rather than aimed elsewhere: the item the caller named has already left the
+            # air, so nothing was cut. Also answered when the stream did not take the skip.
+            409:
         }
     }
 }

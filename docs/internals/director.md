@@ -283,6 +283,14 @@ cuts nothing when the pass it waited for shows that item gone, answering as thou
 since the item is off air either way. The id also goes to the player as `X-Skip-Item`, and `radio.liq`
 makes the same check where no boundary can overtake it, because Liquidsoap runs one handler at a time.
 
+**The operator's Skip can be one step older than "when it was asked".** A console reads the station on
+a poll (every 2 s on the web, 5 s on the Stream Deck), so the record on its screen can have ended before
+the press reaches the station, and the id read on arrival is then already the next record's. So
+`POST /playout/skip` takes `?item=`, the id the caller was showing, and `PlayoutService.skip` refuses
+with a 409 ("That had already finished, so nothing was skipped.") when that item is no longer on air,
+before `skipCurrent` is asked anything. Without the parameter the press is aimed at whatever is airing
+when it arrives, as it always was, which is what keeps an older app working against a newer station.
+
 ## What the order is asked for
 
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job

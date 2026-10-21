@@ -444,6 +444,30 @@ public struct PlayoutAiredQuery: Codable, Equatable, Sendable {
     }
 }
 
+/// Which item a skip means to cut, as the caller last saw it on air
+public struct PlayoutSkipQuery: Codable, Equatable, Sendable {
+    /// The id of the item on air as the caller last saw it (`PlayoutStatus.nowPlaying.item.id`). When it is no longer on air the skip is refused with a 409 and nothing is cut, so a press meant for a record that has just ended never takes off the one after it. Left out, the skip cuts whatever is on air when it arrives
+    public var item: String?
+
+    public init(item: String? = nil) {
+        self.item = item
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case item = "item"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.item = try container.decodeIfPresent(String.self, forKey: .item)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.item, forKey: .item)
+    }
+}
+
 /// Which way the running order went, and how long it had been that way
 public struct PlayoutStarveQuery: Codable, Equatable, Sendable {
     /// `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again

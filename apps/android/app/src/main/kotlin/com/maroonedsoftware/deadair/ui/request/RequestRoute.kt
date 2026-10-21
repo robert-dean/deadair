@@ -177,6 +177,13 @@ fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
         onRetry = { attempt += 1 },
         onRetryMine = { mineAttempt += 1 },
         onChoose = { chosen = it },
+        // A past request opens the same sheet, with what it went with filled in: sending it is a new request.
+        onAgain = { row ->
+            row.again()?.let {
+                chosen = it
+                form = form.again(row)
+            }
+        },
         chosen = chosen,
         form = form,
         onForm = { form = it },

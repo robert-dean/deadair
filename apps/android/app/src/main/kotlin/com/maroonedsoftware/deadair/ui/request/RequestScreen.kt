@@ -56,7 +56,7 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * With nothing typed the page is the listener's own requests, newest first, because "did it play
  * yet?" is the other half of why somebody opens it. A row opens a sheet rather than sending at once:
  * a request is one at a time and cannot be taken back, and the sheet is where the name and the
- * dedication go.
+ * dedication go. A past request opens the same sheet for its record, so asking again is two taps.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +72,8 @@ fun RequestScreen(
     onRetry: () -> Unit,
     onRetryMine: () -> Unit,
     onChoose: (RequestRow) -> Unit,
+    /** A past request was tapped, to be asked for again. */
+    onAgain: (MyRequestRow) -> Unit,
     /** The record the sheet is open for, or `null` with the sheet closed. */
     chosen: RequestRow?,
     form: RequestForm,
@@ -112,7 +114,7 @@ fun RequestScreen(
             }
 
             when (results) {
-                null -> MyRequests(mine, onRetryMine, insisting, onInsist)
+                null -> MyRequests(mine, onRetryMine, insisting, onInsist, onAgain)
                 LoadState.Loading -> Unit
                 is LoadState.Failed -> ErrorPlaceholder(detailFailure(results.status, R.string.request_nothing_found), onRetry)
                 is LoadState.Loaded ->
@@ -152,7 +154,13 @@ fun RequestScreen(
 }
 
 @Composable
-private fun MyRequests(mine: LoadState<List<MyRequestRow>>?, onRetry: () -> Unit, insisting: String?, onInsist: (MyRequestRow) -> Unit) {
+private fun MyRequests(
+    mine: LoadState<List<MyRequestRow>>?,
+    onRetry: () -> Unit,
+    insisting: String?,
+    onInsist: (MyRequestRow) -> Unit,
+    onAgain: (MyRequestRow) -> Unit,
+) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item { Caption(stringResource(R.string.request_intro)) }
         item {
@@ -166,12 +174,12 @@ private fun MyRequests(mine: LoadState<List<MyRequestRow>>?, onRetry: () -> Unit
         when (mine) {
             null, LoadState.Loading -> Unit
             is LoadState.Failed -> item { ErrorPlaceholder(detailFailure(mine.status, R.string.my_requests_none), onRetry) }
-            is LoadState.Loaded -> myRows(mine.value, insisting, onInsist)
+            is LoadState.Loaded -> myRows(mine.value, insisting, onInsist, onAgain)
         }
     }
 }
 
-private fun LazyListScope.myRows(rows: List<MyRequestRow>, insisting: String?, onInsist: (MyRequestRow) -> Unit) {
+private fun LazyListScope.myRows(rows: List<MyRequestRow>, insisting: String?, onInsist: (MyRequestRow) -> Unit, onAgain: (MyRequestRow) -> Unit) {
     if (rows.isEmpty()) {
         item { Caption(stringResource(R.string.my_requests_none)) }
         return
@@ -203,6 +211,10 @@ private fun LazyListScope.myRows(rows: List<MyRequestRow>, insisting: String?, o
                     color = if (open) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
+            // A row the station named its record for can be asked for again; one it did not stays still.
+            modifier =
+                if (row.trackId == null) Modifier
+                else Modifier.clickable(onClickLabel = stringResource(R.string.request_again_label, row.title)) { onAgain(row) },
         )
         if (index < rows.lastIndex) HorizontalDivider()
     }

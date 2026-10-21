@@ -34,9 +34,12 @@ class RequestUiStateTest {
         airedAt: String? = null,
         dedicateTo: String? = null,
         overrulable: Boolean? = null,
+        message: String? = null,
+        recordId: String? = trackId,
     ) =
         ListenerRequest(
             id = Uuid.parse("0c9f3e1a-7b2d-4e8f-a1c3-5d6e7f809a1b"),
+            trackId = recordId?.let(Uuid::parse),
             status = status,
             title = "Blue Monday",
             artist = "New Order",
@@ -47,6 +50,7 @@ class RequestUiStateTest {
             airedAt = airedAt?.let(Instant::parse),
             dedicateTo = dedicateTo,
             overrulable = overrulable,
+            message = message,
         )
 
     @Test
@@ -163,5 +167,41 @@ class RequestUiStateTest {
         assertTrue(MyRequestRow.of(request(RequestStatus.DECLINED, overrulable = true), now, ZoneOffset.UTC).mayInsist)
         assertFalse(MyRequestRow.of(request(RequestStatus.DECLINED), now, ZoneOffset.UTC).mayInsist)
         assertFalse(MyRequestRow.of(request(RequestStatus.EXPIRED, overrulable = true), now, ZoneOffset.UTC).mayInsist)
+    }
+
+    @Test
+    fun `a past request is asked for again by its record in the station's library`() {
+        val now = Instant.parse("2026-10-03T22:00:00Z").toEpochMilliseconds()
+        val again = MyRequestRow.of(request(RequestStatus.AIRED), now, ZoneOffset.UTC).again()!!
+        assertEquals(Uuid.parse(trackId), again.trackId)
+        assertNull(again.source)
+        assertEquals("Blue Monday", again.title)
+        assertEquals("New Order", again.artist)
+    }
+
+    @Test
+    fun `a past request the station did not name a record for cannot be asked for again`() {
+        val now = Instant.parse("2026-10-03T22:00:00Z").toEpochMilliseconds()
+        assertNull(MyRequestRow.of(request(RequestStatus.DECLINED, recordId = null), now, ZoneOffset.UTC).again())
+    }
+
+    @Test
+    fun `asking again keeps the name and brings back the dedication and message it went with`() {
+        val now = Instant.parse("2026-10-03T22:00:00Z").toEpochMilliseconds()
+        val past = MyRequestRow.of(request(RequestStatus.AIRED, dedicateTo = "Alex", message = "Happy birthday"), now, ZoneOffset.UTC)
+        val body = RequestForm(name = "Sam", dedicateTo = "Somebody else").again(past).body(past.again()!!)
+        assertEquals(Uuid.parse(trackId), body.trackId)
+        assertNull(body.source)
+        assertEquals("Sam", body.name)
+        assertEquals("Alex", body.dedicateTo)
+        assertEquals("Happy birthday", body.message)
+    }
+
+    @Test
+    fun `asking again for one that went with nothing clears what was typed for another record`() {
+        val now = Instant.parse("2026-10-03T22:00:00Z").toEpochMilliseconds()
+        val past = MyRequestRow.of(request(RequestStatus.AIRED), now, ZoneOffset.UTC)
+        val form = RequestForm(name = "Sam", dedicateTo = "Alex", message = "Hi").again(past)
+        assertEquals(RequestForm(name = "Sam"), form)
     }
 }

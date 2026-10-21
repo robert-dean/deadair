@@ -83,6 +83,9 @@ data class RequestForm(val name: String = "", val dedicateTo: String = "", val m
             message = message.sent(REQUEST_MESSAGE_MAX),
         )
 
+    /** The form for asking for `row` again: the name stays, and the dedication and message are the ones it went with, to be changed or kept. */
+    fun again(row: MyRequestRow) = copy(dedicateTo = row.dedicateTo.orEmpty(), message = row.message.orEmpty())
+
     private fun String.sent(max: Int): String? = trim().take(max).ifEmpty { null }
 }
 
@@ -110,7 +113,11 @@ fun isOpen(status: RequestStatus): Boolean = status == RequestStatus.WAITING || 
  * The note is the most useful thing to know next: when it aired, why it never will, or who it is for
  * while it is still on its way. `mayInsist` is a refusal the station says may be overruled: turned
  * down for its own taste, and not insisted on yet. The station decides that; the app only reads it.
+ *
+ * `trackId` is the record in the station's library, which is what lets a past request be asked for
+ * again; a station older than that field sends none, and its rows are not tappable.
  */
+@OptIn(ExperimentalUuidApi::class)
 data class MyRequestRow(
     val id: String,
     val title: String,
@@ -118,7 +125,17 @@ data class MyRequestRow(
     val status: RequestStatus,
     val note: Message?,
     val mayInsist: Boolean = false,
+    val trackId: Uuid? = null,
+    val dedicateTo: String? = null,
+    val message: String? = null,
 ) {
+    /**
+     * The record to ask for again, as a search row the request sheet can open for, or `null` when the
+     * station did not say which record it was. A new request, decided by the station's rules like any other.
+     */
+    fun again(): RequestRow? =
+        trackId?.let { RequestRow(id = it.toString(), title = title, artist = artist, detail = null, trackId = it, source = null, sourceName = null) }
+
     companion object {
         @OptIn(ExperimentalUuidApi::class)
         fun of(request: ListenerRequest, nowEpochMs: Long, zone: ZoneId) =
@@ -134,6 +151,9 @@ data class MyRequestRow(
                         else -> request.dedicateTo?.let(Message::RequestFor)
                     },
                 mayInsist = request.status == RequestStatus.DECLINED && request.overrulable == true,
+                trackId = request.trackId,
+                dedicateTo = request.dedicateTo,
+                message = request.message,
             )
     }
 }

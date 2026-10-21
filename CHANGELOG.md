@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.0] — 2026-10-21
+
+- A listener's request now says which record it was for: `ListenerRequest` carries the record's `trackId`, so an app can offer to ask for it again from the listener's own list of requests.
+- A presenter with a soundboard no longer hits a pad in most talk breaks. After a talk break that used one, the next four talk breaks are written without the presenter being offered the board at all, because asking a character to use it sparingly was measured to make no difference. The number is the new "Rest a character's soundboard for N breaks after a hit" setting under Render, and zero puts back the old behaviour. Jingles still end on a sting every time, the station's own sting on breaks written without a model keeps its separate spacing, and auditions are spaced the same way on air is.
+
 ## [0.76.0] — 2026-10-21
 
 - The station's own hosts now come with a portrait each, which a listener's player shows while that host is on air. A fresh station is given them when its personas are seeded, and an existing one when an operator presses Restore on the personas page. A host that already has a picture keeps it, and a portrait somebody removed stays removed until they press Restore. Seven of the ten shipped hosts have one so far.
@@ -1552,7 +1557,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.76.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.0...HEAD
+[0.77.0]: https://github.com/robert-dean/deadair/compare/v0.76.0...v0.77.0
 [0.76.0]: https://github.com/robert-dean/deadair/compare/v0.75.0...v0.76.0
 [0.75.0]: https://github.com/robert-dean/deadair/compare/v0.74.4...v0.75.0
 [0.74.4]: https://github.com/robert-dean/deadair/compare/v0.74.3...v0.74.4

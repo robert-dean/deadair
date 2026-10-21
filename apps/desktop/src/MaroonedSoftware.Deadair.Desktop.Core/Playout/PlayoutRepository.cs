@@ -72,8 +72,17 @@ public sealed class PlayoutRepository : IAsyncDisposable
 
     public void Kick() => _poller.Kick();
 
-    public Task<PlayoutStatus> SkipAsync(CancellationToken cancellationToken = default) =>
-        TransportAsync((sdk, token) => sdk.Playout.SkipTheCurrentItemAsync(token), cancellationToken);
+    /// <param name="onAir">
+    /// The id of the record the window is showing. Named, the station refuses the skip (409, "That had
+    /// already finished, so nothing was skipped.") when that record has ended since the last reading,
+    /// rather than cutting the one after it. Left out, as the media key leaves it, the skip takes
+    /// whatever is on now.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    public Task<PlayoutStatus> SkipAsync(string? onAir = null, CancellationToken cancellationToken = default) =>
+        TransportAsync(
+            (sdk, token) => sdk.Playout.SkipTheCurrentItemAsync(onAir is null ? null : new PlayoutSkipQuery { Item = onAir }, token),
+            cancellationToken);
 
     /// <remarks>Takes the station off air and LEAVES the running order in place, so start resumes it.</remarks>
     public Task<PlayoutStatus> StopAsync(CancellationToken cancellationToken = default) =>

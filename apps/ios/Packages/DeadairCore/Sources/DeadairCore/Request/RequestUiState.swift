@@ -73,6 +73,17 @@ public struct RequestRow: Equatable, Sendable, Identifiable {
         let parts = [track.album, track.year.map(String.init)].compactMap { $0 }
         detail = parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
+
+    /// A record the station holds, named by its library id: what a past request is asked for again by.
+    init(trackId: UUID, title: String, artist: String) {
+        id = trackId.uuidString
+        self.trackId = trackId
+        source = nil
+        sourceName = nil
+        self.title = title
+        self.artist = artist
+        detail = nil
+    }
 }
 
 /// What goes with a request, as typed.
@@ -101,6 +112,12 @@ public struct RequestForm: Equatable, Sendable {
         )
     }
 
+    /// The form for asking for `row` again: the name stays, and the dedication and message are the
+    /// ones it went with, to be changed or kept.
+    public func again(_ row: MyRequestRow) -> RequestForm {
+        RequestForm(name: name, dedicateTo: row.dedicateTo ?? "", message: row.message ?? "")
+    }
+
     private static func sent(_ text: String, max: Int) -> String? {
         let trimmed = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(max))
         return trimmed.isEmpty ? nil : trimmed
@@ -113,6 +130,9 @@ public struct RequestForm: Equatable, Sendable {
 /// for while it is still on its way. `mayInsist` is a refusal the station says may be overruled:
 /// turned down for its own taste, and not insisted on yet. The station decides that; the app only
 /// reads it.
+///
+/// `trackId` is the record in the station's library, which is what lets a past request be asked for
+/// again; a station older than that field sends none, and its rows are not tappable.
 public struct MyRequestRow: Equatable, Sendable, Identifiable {
     public let id: UUID
     public let title: String
@@ -120,6 +140,15 @@ public struct MyRequestRow: Equatable, Sendable, Identifiable {
     public let status: RequestStatus
     public let note: Message?
     public let mayInsist: Bool
+    public let trackId: UUID?
+    public let dedicateTo: String?
+    public let message: String?
+
+    /// The record to ask for again, as a search row the request sheet can open for, or `nil` when the
+    /// station did not say which record it was. A new request, decided by the station's rules like any other.
+    public func again() -> RequestRow? {
+        trackId.map { RequestRow(trackId: $0, title: title, artist: artist) }
+    }
 
     public init(_ request: ListenerRequest, now: Date, calendar: Calendar) {
         id = request.id
@@ -127,6 +156,9 @@ public struct MyRequestRow: Equatable, Sendable, Identifiable {
         artist = request.artist
         status = request.status
         mayInsist = request.status == .declined && request.overrulable == true
+        trackId = request.trackId
+        dedicateTo = request.dedicateTo
+        message = request.message
         switch request.status {
         case .aired: note = request.airedAt.map { .aired(airedLabel($0, now: now, calendar: calendar)) }
         case .declined, .expired: note = request.reason.map(Message.text)

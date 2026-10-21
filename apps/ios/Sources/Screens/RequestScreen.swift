@@ -8,8 +8,9 @@ import SwiftUI
 /// could get, so there is no row to draw that would be refused at the door. With nothing typed the page
 /// is the listener's own requests, polled while it shows, because the station tells an app nothing when
 /// one moves on. A row opens a sheet rather than sending at once: a request is one at a time and cannot
-/// be taken back, and the sheet is where the name and the dedication go. A refusal is still a 201, and
-/// is said as the station said it.
+/// be taken back, and the sheet is where the name and the dedication go. A past request opens the same
+/// sheet for its record, so asking again is two taps. A refusal is still a 201, and is said as the
+/// station said it.
 struct RequestScreen: View {
     @Environment(AppModel.self) private var model
     @State private var typed = ""
@@ -104,7 +105,7 @@ struct RequestScreen: View {
         case .loaded(let rows) where rows.isEmpty:
             Text(String(localized: "You have not asked for anything yet.")).foregroundStyle(.secondary)
         case .loaded(let rows):
-            ForEach(rows) { row in MyRow(row: row, insisting: insisting) { insist(row) } }
+            ForEach(rows) { row in MyRow(row: row, insisting: insisting, insist: { insist(row) }, again: { again(row) }) }
         }
     }
 
@@ -134,6 +135,13 @@ struct RequestScreen: View {
                 break
             }
         }
+    }
+
+    /// A past request opens the same sheet, with what it went with filled in: sending it is a new request.
+    private func again(_ row: MyRequestRow) {
+        guard let record = row.again() else { return }
+        form = form.again(row)
+        chosen = record
     }
 
     /// Overruling the station on a refusal makes a new request, decided like any other, so it is told
@@ -191,8 +199,21 @@ struct RequestScreen: View {
         let row: MyRequestRow
         let insisting: UUID?
         let insist: () -> Void
+        let again: () -> Void
 
         var body: some View {
+            if row.trackId == nil {
+                content
+            } else {
+                // A tap gesture rather than a Button, so Play it anyway inside stays its own control.
+                content
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: again)
+                    .accessibilityAction(named: Text(String(localized: "Ask for “\(row.title)” again")), again)
+            }
+        }
+
+        private var content: some View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.title).lineLimit(1)

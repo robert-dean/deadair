@@ -6,7 +6,7 @@ import { onSpan } from '#modules/shared/trace.spans.js';
 import { MetricsFlusher } from './metrics.flusher.js';
 import { MetricsRepository } from './metrics.repository.js';
 import { MetricsService } from './metrics.service.js';
-import { OtlpExport } from './otlp.export.js';
+import { metricBounds, OtlpExport } from './otlp.export.js';
 import { OtlpIngest } from './otlp.ingest.js';
 import { OtlpReceiveService } from './otlp.receive.service.js';
 import { observeSpan } from './span.metrics.js';
@@ -30,7 +30,16 @@ export const MetricsModule: ServerKitModule = {
     name: 'Metrics',
     setup: async (registry: Registry, _: AppConfig) => {
         // Singletons: one buffer per process is the point, and the flusher runs off the request path.
-        registry.register(MetricsRecorder).useClass(MetricsRecorder).asSingleton();
+        // Durations keep their distribution as well as the five numbers, for the OTLP histograms; the
+        // table keeps only the five, so Trends is unchanged.
+        registry
+            .register(MetricsRecorder)
+            .useFactory(() => {
+                const recorder = new MetricsRecorder();
+                recorder.bucketBounds = metricBounds;
+                return recorder;
+            })
+            .asSingleton();
         registry.register(MetricsFlusher).useClass(MetricsFlusher).asSingleton();
         registry.register(OtlpExport).useClass(OtlpExport).asSingleton();
         // One receiver per process, for its cumulative baselines and its series cap; the route's

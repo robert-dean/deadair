@@ -266,3 +266,41 @@ describe('SegmentRepository.recentScripts', () => {
         expect(statements).toEqual([]);
     });
 });
+
+// What withholds a character's rack for a few talk breaks after one hit a pad. Counted from the rows,
+// so a station restarted every hour does not hit on the first break after each restart, and over one
+// kind, so a jingle's sting every time does not keep the talk breaks' board withdrawn forever.
+describe('SegmentRepository.padInLastBreaks', () => {
+    it('asks only for the last few scripted rows of the kind asked for, newest first', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).padInLastBreaks('talkbreak', 4);
+
+        expect(statements[0]?.sql).toContain('jsonb_array_length(pads) > 0');
+        expect(statements[0]?.sql).toContain('"kind" = $');
+        expect(statements[0]?.sql).toContain('"script" is not null');
+        expect(statements[0]?.sql).toMatch(/order by "created_at" desc limit \$\d+/);
+        expect(statements[0]?.parameters).toEqual(expect.arrayContaining(['a-station', 'talkbreak', 4]));
+    });
+
+    it('answers no for a fresh station that has never written a break, so its first one is offered the board', async () => {
+        expect(await new SegmentRepository(fakeDb([], []), identity()).padInLastBreaks('talkbreak', 4)).toBe(false);
+    });
+
+    it('answers no when none of the last few hit one', async () => {
+        const rows = [{ hit: false }, { hit: false }, { hit: false }, { hit: false }];
+        expect(await new SegmentRepository(fakeDb(rows, []), identity()).padInLastBreaks('talkbreak', 4)).toBe(false);
+    });
+
+    it('answers yes from the rows alone, so a repository built fresh after a restart still sees the last hit', async () => {
+        // A new instance holds nothing from the last process: what it answers is what the table says.
+        const rows = [{ hit: false }, { hit: true }];
+        expect(await new SegmentRepository(fakeDb(rows, []), identity()).padInLastBreaks('talkbreak', 4)).toBe(true);
+    });
+
+    it('costs no query for an empty window', async () => {
+        const statements: Statement[] = [];
+
+        expect(await new SegmentRepository(fakeDb([], statements), identity()).padInLastBreaks('talkbreak', 0)).toBe(false);
+        expect(statements).toEqual([]);
+    });
+});

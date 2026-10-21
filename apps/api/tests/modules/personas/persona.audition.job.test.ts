@@ -89,6 +89,8 @@ function build(
         fact?: { trackId: string; fact: string };
         shelf?: unknown[];
         rack?: { name: string; placements?: ('start' | 'middle' | 'end')[]; cue?: string }[] | Error;
+        /** Settings as the STRINGS a config layer actually holds. */
+        settings?: Record<string, string>;
     } = {},
 ) {
     const claim = vi.fn(async () => options.claimed);
@@ -144,7 +146,7 @@ function build(
     const send = vi.fn(async (_name: string, _payload: AuditionPayload, _options?: { startAfter?: Duration }) => {});
     const jobs = { send } as never;
 
-    const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+    const config = { get: (key: string, fallback: unknown) => options.settings?.[key] ?? fallback } as unknown as AppConfig;
 
     const job = new PersonaAuditionJob(
         auditions,
@@ -693,6 +695,48 @@ describe('PersonaAuditionJob: the soundboard', () => {
         await run({ auditionId: 'audition-1', ordinal: 0 });
 
         expect(Object.keys(seen[0] ?? {})).not.toContain('pads');
+    });
+
+    // On air the rack is withdrawn for a few talk breaks after one hit a pad, so a run that offered it
+    // at every transition would report a host the station no longer airs. The run's own scripts are
+    // what it is counted over, since an audition cannot read the station's segments.
+    it('rests the board for a few transitions after the run hit a pad', async () => {
+        const { run, seen, recentScripts } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon' }],
+            recent: ['Nothing to hit here.', 'That was Green Onions. [sfx:cannon]'],
+        });
+        await run({ auditionId: 'audition-1', ordinal: 1 });
+
+        expect(recentScripts).toHaveBeenCalledWith('audition-1', 4);
+        expect(Object.keys(seen[0] ?? {})).not.toContain('pads');
+        expect(Object.keys(seen[0] ?? {})).not.toContain('padUse');
+    });
+
+    it('offers the board again once the last few transitions hit nothing', async () => {
+        const { run, seen } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon' }],
+            recent: ['One.', 'Two.', 'Three.', 'Four.'],
+        });
+        await run({ auditionId: 'audition-1', ordinal: 1 });
+
+        expect(seen[0]?.pads).toEqual(['cannon']);
+    });
+
+    it('offers the board at every transition when the spacing is zero, read as the string a config layer holds', async () => {
+        const { run, seen } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon' }],
+            recent: ['That was Green Onions. [sfx:cannon]'],
+            settings: { 'render.padOfferEveryBreaks': '0' },
+        });
+        await run({ auditionId: 'audition-1', ordinal: 1 });
+
+        expect(seen[0]?.pads).toEqual(['cannon']);
     });
 
     it('writes the break anyway when the rack cannot be read', async () => {

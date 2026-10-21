@@ -658,6 +658,41 @@ export class SegmentRepository extends DataRepository {
         return Number(row?.count ?? 0);
     }
 
+    /**
+     * Whether any of the station's last `count` written breaks of one kind hit a pad.
+     *
+     * What withholds a character's rack from the model for a while after it reached for it, and
+     * counted from the ROWS for {@link breaksSincePad}'s reason: a spacing held in memory is one a
+     * station restarted every hour would reset every hour, and the first break after each restart
+     * would be the one that hit.
+     *
+     * Its own question rather than {@link breaksSincePad} with a filter, for two reasons. It is
+     * counted over ONE kind, because a jingle ends on a sting every time on purpose and would
+     * otherwise keep the talk breaks' rack withdrawn forever. And it asks about the last few rows
+     * rather than counting back to the last hit, so a station that has never hit one is never
+     * inside the window: the floor's count answers a brand-new station with zero, which would keep
+     * the rack from the first few breaks it ever writes for no reason that has anything to do with
+     * rhythm.
+     *
+     * Over what was WRITTEN rather than what aired, and scripted rows only, for the same reasons the
+     * count above gives.
+     */
+    async padInLastBreaks(kind: string, count: number): Promise<boolean> {
+        if (count <= 0) return false;
+
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select(sql<boolean>`jsonb_array_length(pads) > 0`.as('hit'))
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('kind', '=', kind)
+            .where('script', 'is not', null)
+            .orderBy('createdAt', 'desc')
+            .limit(count)
+            .execute();
+
+        return rows.some(row => row.hit === true);
+    }
+
     /** One segment, whatever state it is in. */
     async findById(id: string): Promise<Segment | undefined> {
         const row = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).where('id', '=', id).executeTakeFirst();

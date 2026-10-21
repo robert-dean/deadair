@@ -5,6 +5,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
 import { padUseNotes, type PadUseNote } from '#modules/render/pad.cues.js';
 import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
+import { padOfferEveryBreaks } from '#modules/render/pad.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
@@ -397,7 +398,7 @@ export class BreakRequestBuilder {
             // reaction is a property of the engine and a pad is a property of the CHARACTER. Read
             // here rather than inside a writer for the reactions' own reason — one answer per break,
             // so every binding asked agrees about what this presenter had to hand.
-            ...(await this.pads(persona)),
+            ...(await this.pads(persona, kind)),
             // The one subject this character has had on its mind, spread over the segment id so two
             // breaks in a row are about different things and a re-offered break is about the same
             // one. Attached whatever the kind is, because choosing costs nothing and spends nothing:
@@ -664,13 +665,34 @@ export class BreakRequestBuilder {
      * Nothing is RESTED here, which is where this differs from the notes and the story beside it. A
      * pad is spent when one is actually chosen, and the model has not chosen yet: this is the offer.
      * `RenderSegmentJob` is what marks the hit, because it is what reads the answer back.
+     *
+     * ## A talk break just after one that hit a pad is offered nothing
+     *
+     * For `render.padOfferEveryBreaks` talk breaks after a hit, the rack is WITHDRAWN rather than
+     * offered with a rule about restraint, because the rule was measured and does nothing: the
+     * prompt says "most breaks want none", and on air a host with no cues on their pads hit one in
+     * 80% of the breaks they were offered a board in, while one with two cued pads hit one in 17 of
+     * 20 auditioned. Each break is its own model call, so a budget stated in the prompt is a number
+     * nothing can honour. `MAX_PRODUCTION_PADS` reached the same answer for a production's beats.
+     *
+     * Talk breaks only, and counted over talk breaks only. That is the one kind whose shape offers a
+     * rack to a model; a jingle ends on a sting every time on purpose, so it keeps its `stings`
+     * whatever the spacing says and its hits do not count against the next link.
+     *
+     * A spacing that could not be read withholds the rack, which is the cheap mistake: a break that
+     * went without a drop it could have had is one nobody notices.
      */
     private async pads(
         persona: Persona | undefined,
+        kind: string,
     ): Promise<{ pads?: readonly string[]; stings?: readonly string[]; padUse?: Readonly<Record<string, PadUseNote>> }> {
         if (persona?.soundboard === undefined) return {};
 
         try {
+            // Zero is the operator asking for the rack on every break, which is what this did before.
+            const rest = kind === TALK_BREAK_KIND ? padOfferEveryBreaks(this.config) : 0;
+            if (rest > 0 && (await this.segments.padInLastBreaks(TALK_BREAK_KIND, rest))) return {};
+
             const rack = await this.padRepository.onSet(persona.soundboard);
             if (rack.length === 0) return {};
 

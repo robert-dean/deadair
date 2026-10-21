@@ -138,6 +138,8 @@ export interface ListenerRequestCreate {
  */
 export interface ListenerRequest {
     id: string;
+    /** The record in the station's library, so it can be asked for again with `POST /requests`. Absent on a refusal answered before a provider's record was taken in */
+    trackId?: string;
     /** `waiting` for an operator to approve it, `pending` while its audio is fetched or a place is found for it, `queued` in the running order, `aired` once heard, `declined` or `expired` when it never will be */
     status: RequestStatus;
     /** The record, as it was called when it was asked for */

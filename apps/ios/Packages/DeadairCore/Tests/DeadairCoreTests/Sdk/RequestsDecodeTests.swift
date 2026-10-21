@@ -61,6 +61,7 @@ struct RequestsDecodeTests {
         #expect(request.reason == "You already have a request in: Temptation. One at a time.")
         #expect(request.airedAt == nil)
         #expect(request.dedicateTo == nil)
+        #expect(request.trackId == nil)
     }
 
     @Test func decodesMyRequestsAiredAndDedicated() throws {
@@ -69,6 +70,7 @@ struct RequestsDecodeTests {
               "requests": [
                 {
                   "id": "0c9f3e1a-7b2d-4e8f-a1c3-5d6e7f809a1b",
+                  "trackId": "5b1d2c3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
                   "status": "aired",
                   "title": "Blue Monday",
                   "artist": "New Order",
@@ -87,5 +89,6 @@ struct RequestsDecodeTests {
         #expect(request.airedAt == ISO8601DateFormatter().date(from: "2026-10-03T20:09:31Z"))
         #expect(request.dedicateTo == "Alex")
         #expect(request.message == "Happy birthday")
+        #expect(request.trackId == UUID(uuidString: "5b1d2c3e-4f50-4a6b-8c7d-9e0f1a2b3c4d"))
     }
 }

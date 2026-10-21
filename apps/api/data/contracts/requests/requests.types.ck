@@ -29,6 +29,7 @@ contract RequestSource: enum(app, chat)
 
 contract ListenerRequest: { # A record somebody asked the station to play, and what became of it
     id: uuid
+    trackId?: uuid # The record in the station's library, so it can be asked for again with `POST /requests`. Absent on a refusal answered before a provider's record was taken in
     status: RequestStatus # `waiting` for an operator to approve it, `pending` while its audio is fetched or a place is found for it, `queued` in the running order, `aired` once heard, `declined` or `expired` when it never will be
     title: string(max=400) # The record, as it was called when it was asked for
     artist: string(max=400)

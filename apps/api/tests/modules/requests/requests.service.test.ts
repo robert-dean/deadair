@@ -273,6 +273,10 @@ describe('RequestsService', () => {
         expect(toListenerRequest(row())).not.toHaveProperty('insisted');
     });
 
+    it('names the record it asked for, so it can be asked for again', () => {
+        expect(toListenerRequest(row()).trackId).toBe(row().trackId);
+    });
+
     it('says whether a request came from an app or a chat', () => {
         expect(toListenerRequest(row()).source).toBe('app');
         expect(toListenerRequest(row({ requesterKey: 'chat:deadair.telegram:7' })).source).toBe('chat');

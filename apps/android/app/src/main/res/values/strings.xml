@@ -513,6 +513,7 @@
     <string name="request_for">For %1$s</string>
     <string name="request_play_anyway">Play it anyway</string>
     <string name="request_play_anyway_label">Play “%1$s” anyway</string>
+    <string name="request_again_label">Ask for “%1$s” again</string>
     <string name="request_cannot_insist">That one cannot be asked for again.</string>
     <string name="request_state_waiting">Waiting for the operator</string>
     <string name="request_state_pending">On its way</string>

@@ -24,10 +24,13 @@ struct RequestUiStateTests {
         reason: String? = nil,
         airedAt: String? = nil,
         dedicateTo: String? = nil,
-        overrulable: Bool? = nil
+        overrulable: Bool? = nil,
+        message: String? = nil,
+        recordId: UUID?? = .none
     ) -> ListenerRequest {
         ListenerRequest(
             id: UUID(uuidString: "0C9F3E1A-7B2D-4E8F-A1C3-5D6E7F809A1B")!,
+            trackId: recordId ?? trackId,
             status: status,
             title: "Blue Monday",
             artist: "New Order",
@@ -37,6 +40,7 @@ struct RequestUiStateTests {
             reason: reason,
             airedAt: airedAt.map(date),
             dedicateTo: dedicateTo,
+            message: message,
             overrulable: overrulable
         )
     }
@@ -130,5 +134,32 @@ struct RequestUiStateTests {
         #expect(MyRequestRow(request(.declined, overrulable: true), now: now, calendar: utc).mayInsist)
         #expect(!MyRequestRow(request(.declined), now: now, calendar: utc).mayInsist)
         #expect(!MyRequestRow(request(.expired, overrulable: true), now: now, calendar: utc).mayInsist)
+    }
+
+    @Test func aPastRequestIsAskedForAgainByItsRecordInTheStationsLibrary() throws {
+        let again = try #require(MyRequestRow(request(.aired), now: date("2026-10-03T22:00:00Z"), calendar: utc).again())
+        #expect(again.trackId == trackId)
+        #expect(again.source == nil)
+        #expect(again.title == "Blue Monday")
+        #expect(again.artist == "New Order")
+    }
+
+    @Test func aPastRequestTheStationDidNotNameARecordForCannotBeAskedForAgain() {
+        #expect(MyRequestRow(request(.declined, recordId: .some(nil)), now: date("2026-10-03T22:00:00Z"), calendar: utc).again() == nil)
+    }
+
+    @Test func askingAgainKeepsTheNameAndBringsBackTheDedicationAndMessageItWentWith() throws {
+        let past = MyRequestRow(request(.aired, dedicateTo: "Alex", message: "Happy birthday"), now: date("2026-10-03T22:00:00Z"), calendar: utc)
+        let body = RequestForm(name: "Sam", dedicateTo: "Somebody else").again(past).body(for: try #require(past.again()))
+        #expect(body.trackId == trackId)
+        #expect(body.source == nil)
+        #expect(body.name == "Sam")
+        #expect(body.dedicateTo == "Alex")
+        #expect(body.message == "Happy birthday")
+    }
+
+    @Test func askingAgainForOneThatWentWithNothingClearsWhatWasTypedForAnotherRecord() {
+        let past = MyRequestRow(request(.aired), now: date("2026-10-03T22:00:00Z"), calendar: utc)
+        #expect(RequestForm(name: "Sam", dedicateTo: "Alex", message: "Hi").again(past) == RequestForm(name: "Sam"))
     }
 }

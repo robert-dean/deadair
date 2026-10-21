@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmReasoningEffort } from '@deadair/plugin-sdk';
-import { homeGuard, languageGuard, speakerGuard, stationPromptSettings } from './prompt.settings.js';
+import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import {
@@ -306,6 +306,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
             ...(request.moment === undefined ? {} : { moment: request.moment }),
             ...languageGuard(this.config),
             ...homeGuard(this.config),
+            ...stationGuard(this.config),
             ...speakerGuard(this.config, request),
             // Built from `settings` rather than from `request`, so the guard is judging EXACTLY what
             // the prompt offered — the shape's veto included. A guard handed the raw request would

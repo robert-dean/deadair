@@ -1472,6 +1472,11 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         // reaches for the nearest other thing the sheet gave it, which is a sample line — the
         // failure one rule over. Told to make a new one, it does the character rather than quoting
         // it, and the station gets a signature that is genuinely its own.
+        //
+        // And told what the new one may not be built on, because the invitation alone had an obvious
+        // answer: a signature with a name in it ("Party on, Garth!") whose name is not in the room,
+        // and the station's name in every prompt. A twenty-break audition of that character on
+        // 2026-10-21 ended fifteen times on "Party on, Deadair!" or a cousin of it.
         const spent = settings.persona === undefined ? [] : spentCatchphrases(settings.persona, request.recent);
         if (spent.length > 0) {
             parts.push(
@@ -1479,7 +1484,9 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
                     // The prohibition stays for a break whose character is a lean, because the guard
                     // still refuses a spent signature there; the invitation to make a new sign-off
                     // does not. See `BreakPromptShape.voice`.
-                    (shape.voice === 'lean' ? '' : ' If you want a line to go out on, make up a new one of your own in the same voice.'),
+                    (shape.voice === 'lean'
+                        ? ''
+                        : " If you want a line to go out on, make up a new one of your own in the same voice, and do not build it on the station's name."),
             );
         }
     }
@@ -1525,8 +1532,19 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The last thing before the ask, so whatever it says is the freshest material the model has, and
+    // for a long time all it said was the name. That made the name the nearest thing to hand for a
+    // closing line, and the station got "Stay wired, Deadair." and "Stay laid back on Deadair." as
+    // sign-offs, addressed to the station as though it were the listener. Naming the station is an
+    // ident and stays allowed; the second sentence says what it is not. `stationSignOffIn` refuses
+    // the vocative half of it, and this is the ask that keeps that refusal rare.
     const station = settings.station?.trim();
-    if (station) parts.push(`The station is called ${station}. You may say so, but you do not have to every time.`);
+    if (station) {
+        parts.push(
+            `The station is called ${station}. You may say so, but you do not have to every time. It is the station you are on, ` +
+                'not someone you are talking to: never say a line to it by name, and never end the break on it as a sign-off.',
+        );
+    }
 
     parts.push('Write the link now.');
     return parts.join('\n\n');
@@ -2654,6 +2672,12 @@ export interface AnswerGuard {
      */
     homes?: readonly string[];
     /**
+     * The station's name, which a script may say and may not say a line TO. Build it with
+     * `stationGuard`, from the same setting the prompt names the station from. Absent asks nothing.
+     * See `stationSignOffIn`.
+     */
+    station?: string;
+    /**
      * The station's language when it is not English. Absent, every check reads the script as it
      * always has.
      *
@@ -2769,6 +2793,12 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // one thing the station must never say. After the factual checks and in the same position
     // `writeDecline` checks it, on the one-story rule. See `quotedLyricIn`.
     if (quotedLyricIn(words, guard) !== undefined) return undefined;
+
+    // A line said TO the station, "Party on, Deadair!". After every factual check, because it is a
+    // fault of voice rather than of fact, and before the character, because a sign-off that is
+    // perfectly in character is still refused. Same position in `writeDecline`. See
+    // `stationSignOffIn`.
+    if (stationSignOffIn(words, guard) !== undefined) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -3349,6 +3379,40 @@ const inventedHomeIn = (script: string, guard: AnswerGuard): string | undefined 
     return spoken.includes(said) ? claim.said : undefined;
 };
 
+/**
+ * The sentence a script said TO the station, "Party on, Deadair!", or `undefined` when it said none.
+ *
+ * A catchphrase with somebody's name on the end ("Party on, Garth!") is the shape a model reaches
+ * for when it wants a line to go out on, and the station's name is the one name every prompt hands
+ * it. The result addresses the listener as the station, which no presenter does. Naming the station
+ * is not the fault: "This is Deadair", "you're on Deadair" and "stay tuned to Deadair" are idents,
+ * and they never put a comma in front of the name. So the check is the vocative and nothing wider:
+ * a sentence that ENDS on the station's name with a comma before it.
+ *
+ * Measured on the live station on 2026-10-21, over the 2,322 model-written talk breaks in
+ * `script_history`: 6 carried one ("Stay wired, Deadair.", "Cheers, Deadair!", "Happy listening,
+ * Deadair."), and across every stored talk break, welcome, banter and changeover script of the
+ * last thirty days the only comma-and-name endings were sign-offs of this kind. The two uses of the
+ * name in apposition ("this station, Deadair, is bloody brilliant") do not end on it and pass.
+ * The wider shape the prompt also discourages, "Stay laid back on Deadair.", is not refused,
+ * because "Stay tuned to Deadair." is the same grammar and a real ident.
+ *
+ * Not English-only, unlike the frames around it: a comma and a name is the same vocative in every
+ * language the station speaks.
+ */
+const stationSignOffIn = (script: string, guard: AnswerGuard): string | undefined => {
+    const station = guard.station?.trim().toLowerCase();
+    if (station === undefined || station === '') return undefined;
+
+    return sentencesOf(script).find(sentence => {
+        const bare = sentence
+            .toLowerCase()
+            .replace(/[\s.!?…"'”’)]+$/u, '')
+            .replace(/\s+/g, ' ');
+        return bare.endsWith(station) && /,\s*$/.test(bare.slice(0, -station.length));
+    });
+};
+
 const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
     if (guard.years === undefined) return undefined;
 
@@ -3420,6 +3484,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // and this one to the persona sheet or the station's own text, where a home town was planted.
     'invented-home':
         'the model called somewhere here that is not where the station is, which a listener there hears as the station not knowing its own town',
+    'station-sign-off': 'the model said a line to the station by name, as though the station were the listener',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
@@ -3458,6 +3523,7 @@ export type WriteFault =
     | 'quoted-lyric'
     | 'unoffered-weather'
     | 'invented-home'
+    | 'station-sign-off'
     | 'character-trimmed';
 
 /** How {@link writeDecline} introduces the wording it caught, which {@link saidIn} reads back. */
@@ -3554,6 +3620,9 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
     // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
     if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');
+    // With the sentence, so the second ask can be told which line to drop.
+    const signOff = stationSignOffIn(speakable, guard);
+    if (signOff !== undefined) return reasoned('station-sign-off', signOff);
 
     const fault = faultIn(speakable, guard);
     if (fault === undefined) return undefined;

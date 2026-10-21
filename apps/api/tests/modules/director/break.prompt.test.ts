@@ -421,6 +421,20 @@ describe('breakPrompt', () => {
         expect(said).not.toMatch(/do not say what is coming up/i);
     });
 
+    it('names the station as the one the presenter is on, never as somebody to sign off to', () => {
+        // The last line before the ask, which used to be the bare name and so was the nearest thing
+        // to hand for a closing line: "Stay wired, Deadair."
+        const said = user(prompt({ kind: 'talkbreak', previous }, { station: 'Deadair' }));
+
+        expect(said).toContain('The station is called Deadair. You may say so, but you do not have to every time.');
+        expect(said).toMatch(/never say a line to it by name/i);
+        expect(said.trimEnd().endsWith('Write the link now.')).toBe(true);
+    });
+
+    it('says nothing about the station when it has no name', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/never say a line to it/i);
+    });
+
     it('gives the model something true to do when it has no records at all', () => {
         const said = user(prompt({ kind: 'talkbreak', station: 'Deadair' }));
 
@@ -629,6 +643,14 @@ describe('breakPrompt', () => {
             expect(said).toMatch(/make up a new one of your own/i);
             // The one it has NOT spent stays available, and is not named here as though it were.
             expect(said).not.toContain('You have already said "Make of that what you will"');
+        });
+
+        it("asks for the new line not to be built on the station's name", () => {
+            // "Party on, Garth!" spent, with Garth not in the room and the station's name in the
+            // prompt: an invitation with nothing else said answered "Party on, Deadair!".
+            const said = user(prompt({ kind: 'talkbreak', previous, recent: ['Aye. Arrr, and there it goes.'] }, { persona, station: 'Deadair' }));
+
+            expect(said).toMatch(/make up a new one of your own in the same voice, and do not build it on the station's name/i);
         });
 
         it('says nothing about signatures the station has not used, because that is a rule about nothing', () => {
@@ -3294,5 +3316,54 @@ describe('readAnswer, against where the station is', () => {
 
         expect(declined?.fault).toBe('invented-home');
         expect(saidIn(declined?.reason ?? '')).toBe('Here in Glasgow');
+    });
+});
+
+// A catchphrase with the station's name on the end, "Party on, Deadair!", said to the station as
+// though it were the listener. The idents that name it ("This is Deadair") have to keep airing.
+describe('readAnswer, against a line said to the station', () => {
+    const deadair = { station: 'Deadair' };
+
+    it('refuses a sign-off addressed to the station', () => {
+        for (const script of [
+            'That was Move On Up from Curtis Mayfield. Party on, Deadair!',
+            'Move On Up, Curtis Mayfield. Stay wired, Deadair.',
+            'Curtis Mayfield, Move On Up. [laugh] Cheers, Deadair!',
+            'Happy listening, deadair. That was Move On Up.',
+        ]) {
+            expect(readAnswer(script, deadair), script).toBeUndefined();
+        }
+    });
+
+    it('keeps the station named as the station', () => {
+        for (const script of [
+            'That was Move On Up from Curtis Mayfield, and this is Deadair.',
+            "You're listening to Deadair. Move On Up, Curtis Mayfield.",
+            'Move On Up from Curtis Mayfield. Stay tuned to Deadair.',
+            'It is just after ten on Deadair, and that was Move On Up.',
+            'This station, Deadair, is bloody brilliant. That was Move On Up.',
+        ]) {
+            expect(readAnswer(script, deadair), script).toBe(script);
+        }
+    });
+
+    it('asks nothing of a guard that names no station, like every other field here', () => {
+        const script = 'That was Move On Up. Party on, Deadair!';
+
+        expect(readAnswer(script)).toBe(script);
+    });
+
+    it('reads a station name of more than one word', () => {
+        expect(readAnswer('That was Move On Up. Stay tuned, Far  Frequency.', { station: 'Far Frequency' })).toBeUndefined();
+        expect(readAnswer('That was Move On Up on The Far Frequency.', { station: 'Far Frequency' })).toBe(
+            'That was Move On Up on The Far Frequency.',
+        );
+    });
+
+    it('names the sentence it refused, so the second ask can drop it', () => {
+        const declined = writeDecline('That was Move On Up from Curtis Mayfield. Party on, Deadair!', deadair);
+
+        expect(declined?.fault).toBe('station-sign-off');
+        expect(saidIn(declined?.reason ?? '')).toBe('Party on, Deadair!');
     });
 });

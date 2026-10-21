@@ -140,6 +140,12 @@ export type ListenerRequestCreate = z.infer<typeof ListenerRequestCreate>;
  */
 export const ListenerRequest = z.strictObject({
     id: z.uuid(),
+    trackId: z
+        .uuid()
+        .optional()
+        .describe(
+            "The record in the station's library, so it can be asked for again with `POST /requests`. Absent on a refusal answered before a provider's record was taken in",
+        ),
     status: RequestStatus.describe(
         '`waiting` for an operator to approve it, `pending` while its audio is fetched or a place is found for it, `queued` in the running order, `aired` once heard, `declined` or `expired` when it never will be',
     ),

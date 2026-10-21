@@ -8,6 +8,7 @@ import com.maroonedsoftware.deadair.sdk.models.RequestableTrackList
 import com.maroonedsoftware.deadair.sdk.runtime.SdkJson
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -83,6 +84,7 @@ class RequestsDecodeTest {
         assertEquals("You already have a request in: Temptation. One at a time.", request.reason)
         assertNull(request.airedAt)
         assertNull(request.dedicateTo)
+        assertNull(request.trackId)
     }
 
     @Test
@@ -93,6 +95,7 @@ class RequestsDecodeTest {
               "requests": [
                 {
                   "id": "0c9f3e1a-7b2d-4e8f-a1c3-5d6e7f809a1b",
+                  "trackId": "5b1d2c3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
                   "status": "aired",
                   "title": "Blue Monday",
                   "artist": "New Order",
@@ -113,5 +116,6 @@ class RequestsDecodeTest {
         assertEquals(Instant.parse("2026-10-03T20:09:31.000Z"), request.airedAt)
         assertEquals("Alex", request.dedicateTo)
         assertEquals("Happy birthday", request.message)
+        assertEquals(Uuid.parse("5b1d2c3e-4f50-4a6b-8c7d-9e0f1a2b3c4d"), request.trackId)
     }
 }

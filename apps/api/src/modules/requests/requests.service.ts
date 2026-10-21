@@ -33,6 +33,7 @@ const DEFAULT_SEARCH_LIMIT = 10;
 export function toListenerRequest(row: RequestRow): ListenerRequest {
     return {
         id: row.id,
+        trackId: row.trackId,
         status: row.status,
         title: row.title,
         artist: row.artist,

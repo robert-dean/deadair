@@ -387,6 +387,8 @@ public struct ListenerRequestCreate: Codable, Equatable, Sendable {
 /// A record somebody asked the station to play, and what became of it
 public struct ListenerRequest: Codable, Equatable, Sendable {
     public var id: UUID
+    /// The record in the station's library, so it can be asked for again with `POST /requests`. Absent on a refusal answered before a provider's record was taken in
+    public var trackId: UUID?
     /// `waiting` for an operator to approve it, `pending` while its audio is fetched or a place is found for it, `queued` in the running order, `aired` once heard, `declined` or `expired` when it never will be
     public var status: RequestStatus
     /// The record, as it was called when it was asked for
@@ -413,8 +415,9 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
     /// True when whoever asked insisted on it after the station turned it down, so the station's own taste was overruled. Absent otherwise
     public var insisted: Bool?
 
-    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil, fromParty: Bool? = nil, overrulable: Bool? = nil, insisted: Bool? = nil) {
+    public init(id: UUID, trackId: UUID? = nil, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil, fromParty: Bool? = nil, overrulable: Bool? = nil, insisted: Bool? = nil) {
         self.id = id
+        self.trackId = trackId
         self.status = status
         self.title = title
         self.artist = artist
@@ -432,6 +435,7 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id = "id"
+        case trackId = "trackId"
         case status = "status"
         case title = "title"
         case artist = "artist"
@@ -450,6 +454,7 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decode(UUID.self, forKey: .id)
+        self.trackId = try container.decodeIfPresent(UUID.self, forKey: .trackId)
         self.status = try container.decode(RequestStatus.self, forKey: .status)
         self.title = try container.decode(String.self, forKey: .title)
         self.artist = try container.decode(String.self, forKey: .artist)
@@ -468,6 +473,7 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.id, forKey: .id)
+        try container.encodeIfPresent(self.trackId, forKey: .trackId)
         try container.encode(self.status, forKey: .status)
         try container.encode(self.title, forKey: .title)
         try container.encode(self.artist, forKey: .artist)

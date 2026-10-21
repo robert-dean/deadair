@@ -282,6 +282,11 @@ public sealed record ListenerRequest
     [JsonPropertyName("id")]
     public required Guid Id { get; init; }
 
+    /// <summary>The record in the station's library, so it can be asked for again with `POST /requests`. Absent on a refusal answered before a provider's record was taken in</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? TrackId { get; init; }
+
     /// <summary>`waiting` for an operator to approve it, `pending` while its audio is fetched or a place is found for it, `queued` in the running order, `aired` once heard, `declined` or `expired` when it never will be</summary>
     [JsonPropertyName("status")]
     public required RequestStatus Status { get; init; }

@@ -2805,8 +2805,9 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // English, in a lifted sample line, in a signature the station used four records ago, or in
     // wording the sheet forbids. Declined rather than re-drafted: the floor underneath speaks in
     // the same character, so the station gets an in-character line at once instead of paying for a
-    // second generation to maybe get one.
-    if (faultIn(words, guard) !== undefined) return undefined;
+    // second generation to maybe get one. The cued script goes too, because a sheet can forbid a cue
+    // and `words` has none: `writeDecline` already judges the cued script, so the two agree.
+    if (faultIn(words, guard, script) !== undefined) return undefined;
 
     return script;
 }
@@ -3434,11 +3435,15 @@ const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined 
  * The same judgement {@link readAnswer} makes, exported so a writer can log WHICH of the four faults
  * it was without re-deriving it and drifting from what actually happened. A guard carrying no
  * persona answers `undefined`: a station that made no claim, rather than one that passed.
+ *
+ * `cued` is the same script with its cues still in, for a caller that judges the words without them:
+ * a sheet can forbid a cue (`[sigh]`), and only the cued script can say one.
  */
-export function faultIn(script: string, guard: AnswerGuard): CharacterFault | undefined {
+export function faultIn(script: string, guard: AnswerGuard, cued?: string): CharacterFault | undefined {
     if (guard.persona === undefined) return undefined;
 
     return characterFault(guard.persona, script, {
+        ...(cued === undefined ? {} : { cued }),
         ...(guard.recent === undefined ? {} : { recent: guard.recent }),
         ...(guard.told === undefined ? {} : { told: guard.told }),
         ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),

@@ -1578,6 +1578,15 @@ export interface CharacterContext {
      */
     withoutRecordNames?: string;
     /**
+     * The script with its cues still in, for the avoid check.
+     *
+     * A sheet may forbid a cue as well as a phrase, and both of Wayne's World's do: `[sigh]` is on
+     * Wayne's and Garth's avoid lists. `readAnswer` judges the words with the cues taken out, so an
+     * entry like that could never match there, and on 2026-10-21 six of Garth's talk breaks aired
+     * sighing under a sheet that forbade it. Absent, the check reads the script as it is.
+     */
+    cued?: string;
+    /**
      * The station's language when it is not English, which loosens how a marker is matched: any short
      * ending and an elided article instead of English's inflections. See `ANY_INFLECTION`.
      */
@@ -1609,7 +1618,7 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     // the sheet only, so nothing stopped a prior telling being lifted whole — which is the worst
     // possible outcome for a callback, since the whole point is a listener hearing the thing move on.
     if (context.told !== undefined && echoOf(context.told, script) !== undefined) return 'retold-verbatim';
-    if (avoidedWording(sheet, script).length > 0) return 'avoided-wording';
+    if (avoidedWording(sheet, context.cued ?? script).length > 0) return 'avoided-wording';
 
     const spent = spentCatchphrases(sheet, context.recent);
     if (spent.length > 0 && catchphrasesIn(spent, script).length > 0) return 'spent-catchphrase';

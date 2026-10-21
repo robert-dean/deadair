@@ -2264,6 +2264,15 @@ describe('readAnswer, against a persona', () => {
 
         expect(readAnswer('Aye, matey — buckle up.', { persona: sheet })).toBeUndefined();
     });
+
+    // Garth's sheet forbids "[sigh]" and six of his talk breaks aired sighing on 2026-10-21: the
+    // character check read the words with the cues taken out, so a cue could never match.
+    it('declines a cue the sheet forbids, and keeps the same cue under a sheet that allows it', () => {
+        const script = 'Aye, that were Solid Air. [sigh] Ye know it, matey.';
+
+        expect(readAnswer(script, { persona: { ...pirate, avoid: ['[sigh]'] } })).toBeUndefined();
+        expect(readAnswer(script, { persona: pirate })).toBe(script);
+    });
 });
 
 // Everything about what survives from a model's answer. The budget TRIMS rather than declines, which

@@ -55,8 +55,17 @@ import { PRODUCTION_MODEL_KEY, productionReasoning } from './production.settings
  */
 export const DEADLINE_MS = 30 * 60_000;
 
-/** How long the outline may take once it has the model. One call, but a whole programme's worth. */
-export const OUTLINE_BUDGET_MS = 120_000;
+/**
+ * How long the outline may take once it has the model. One call, but a whole programme's worth.
+ *
+ * Sized to the outline's own output allowance rather than to a beat's. It was the beats' two minutes,
+ * and the outline is the one call here left at the model's default reasoning: measured on the live
+ * station on 2026-10-21, the outlines that came back took 70 to 111 seconds for 3,000 to 4,800 output
+ * tokens, and three of that day's four banters went out unplanned with both asks stopped at exactly
+ * 120. Four minutes covers {@link OUTLINE_OUTPUT_TOKENS} at that rate. A break taking the model back
+ * mid-outline still costs no attempt (see `askForBeat`), so the longer call is not easier to lose.
+ */
+export const OUTLINE_BUDGET_MS = 240_000;
 
 /** How long one beat may take. */
 export const BEAT_BUDGET_MS = 120_000;

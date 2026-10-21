@@ -93,7 +93,9 @@ get a presenter's cues, soundboard and weather rule, and the prompt frames them 
 than as somebody who rang or dropped by. `COHOST_TURN_WEIGHT` is about the lead's, because peers trade
 lines rather than one asking and the other answering. The lead's first beat brings the others in by
 name, a co-host's first turn answers being brought in without welcoming anybody, and the lead's last
-beat wraps up and hands back to the music. The caster reads the co-hosts off the running order of the
+beat wraps up and hands back to the music. **The lead's first beat is told the show is already under way**: a
+banter is never the top of the show (the changeover is), and "the OPENING beat" read as one, so on 2026-10-21 all
+four banters opened with the chant Wayne's sheet keeps for the start of the show. The caster reads the co-hosts off the running order of the
 broadcast the banter airs in (tonight's, which is where a visiting co-host's night is stamped) and
 throws, as a visit does, when nobody presents beside the host. `banter` is a default production kind
 and always a dialogue kind; a `banter` band on the format clock is how a station asks for a few a show.
@@ -218,7 +220,9 @@ turn that cues one, since a beat brief that does would be a rule the beat then h
 refuses "this/the next song, record, track, tune or cut" and nothing wider, because "coming up" and "here's" are
 conversation. It also refuses a bare credit, "Title by Artist" with both sides capitalised and "by" not
 (`recordNobodyGave`), unless the record shares a title or artist with the programme's records, brief or notes, the
-"artist" is somebody on the programme or the station, or a one-word "title" opens a sentence ("Inspired by Wayne").
+"artist" is somebody on the programme or the station, or a one-word "title" opens a sentence that carries on past
+the artist ("Inspired by Wayne, I built"). One standing as its own sentence is a credit: Garth's "We fear change.
+Dreams by The Dreamers." aired on 2026-10-21 through the wider exemption that came first.
 Run over the live station's last 455 production beats it fired 19 times and every one named a record, several of
 them invented ("Echoes of Steel by Neon Pulse"). The other direction is refused the same way (`backAnnounced`), in
 the five shapes the station's own talk breaks back-announce in: a capitalised run straight after "that was",
@@ -387,6 +391,12 @@ breaks every few records, so that was the ordinary way it died: on 2026-10-20 th
 with no outline, five of their six asks cut off by a break or a bulletin, and the feed said the model "could
 not plan it, twice". Each beat was then written blind and every one repeated the same catchphrases.
 `production.unplanned` now names which count ran out.
+
+**The outline gets four minutes, not the beats' two** (`OUTLINE_BUDGET_MS`). It is the one call in the pass left
+at the model's default reasoning, and on the live station the outlines that came back took 70 to 111 seconds for
+3,000 to 4,800 output tokens, so the slow half of them hit the old 120-second budget exactly: on 2026-10-21 three
+of four banters went out unplanned, both asks ended at 120 seconds. The budget is sized to the outline's output
+allowance at that rate. A longer call is no easier to lose to a break, since a preempted ask costs no attempt.
 
 **A beat is the unit of WRITING and the joined row is the unit of AIRING, and only the second half is new.** A
 beat has to be its own segment because it is one model call in one voice, and it used to be its own lineup

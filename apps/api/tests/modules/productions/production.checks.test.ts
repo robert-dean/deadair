@@ -403,6 +403,15 @@ describe('a record named that nobody handed the programme', () => {
         expect(beat(`${words(30)} the drums are SO LOUD BY NOW that I cannot hear.`, { words: 40 })).toEqual([]);
     });
 
+    // The live case from 2026-10-21, a one-word title standing as its own sentence, which the
+    // "Inspired by Wayne" exemption let through.
+    it('refuses a one-word title that stands as a sentence of its own', () => {
+        const problems = beat(`${words(30)} It's scary. We fear change. Dreams by The Dreamers.`, { words: 40, ...cast });
+
+        expect(problems[0]).toMatch(/names "Dreams by The Dreamers", a record you were not given/);
+        expect(beat(`${words(30)} We fear change. Dreams by The Dreamers`, { words: 40, ...cast })[0]).toMatch(/"Dreams by The Dreamers"/);
+    });
+
     it('stands down on a station that does not broadcast in English', () => {
         expect(beat(`${words(30)} Blue Monday by New Order.`, { words: 40, language: 'de' })).toEqual([]);
     });

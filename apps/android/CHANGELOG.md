@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.24.1] — 2026-10-21
+
+- Skip on Now playing and on the desk now names the record the screen is showing. If it finished in the moment before the press reached the station, nothing is skipped and the app says "Nothing was skipped: that record had already finished." Before, the press cut the record that had just started. Skip from the widget and the media controls still skips whatever is on.
+
 ## [0.24.0] — 2026-10-20
 
 - When the stream stalls for four seconds on a wifi that has stopped passing anything, the app moves it to the phone's mobile data instead of waiting for Android to give up on the wifi, which took nineteen seconds on a walk. It goes back to following the phone's own choice of network as soon as Android moves on, or when you stop. The playback log says each time it happens, and when there was no mobile data to move to.
@@ -279,7 +283,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.24.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.24.1...HEAD
+[0.24.1]: https://github.com/robert-dean/deadair/compare/android-v0.24.0...android-v0.24.1
 [0.24.0]: https://github.com/robert-dean/deadair/compare/android-v0.23.0...android-v0.24.0
 [0.23.0]: https://github.com/robert-dean/deadair/compare/android-v0.22.1...android-v0.23.0
 [0.22.1]: https://github.com/robert-dean/deadair/compare/android-v0.22.0...android-v0.22.1

@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.75.0] — 2026-10-21
+
+- A skip can say which record it means: `POST /playout/skip?item=<id>`, with the id of the record on air as you last saw it. When that record has already finished, the station refuses with "That had already finished, so nothing was skipped." rather than cutting the record that started after it. A console only reads the station every few seconds, so a press could land on the next record and take it off for every listener. A skip without the id behaves exactly as before. The generated SDKs take the id as an optional query.
+- A chat `/request` for a title more than one artist recorded (say "Crazy", by both Patsy Cline and Gnarls Barkley) now asks which one you meant, with a button for each, instead of quietly queueing whichever the library happened to list first. When two of the buttons would read the same, they show the album, and then the year.
+- The station no longer goes on saying it is airing Liquidsoap's local bed after Liquidsoap has been restarted. A restarted Liquidsoap never reports the end of a gap the old one reported, so the console and `/playout/status` could call a station that was playing its running order "starved" for as long as it stayed up. The gap now also ends when Liquidsoap says its queue is producing, when an item is confirmed on air, or when the old process is gone.
+- Skip in the console and on the Stream Deck now names the record it was showing. If that record finished in the seconds before the press reached the station, nothing is skipped, and you are told so ("That had already finished, so nothing was skipped." in the console, the warning triangle and a line in the log on the deck). Before, the press cut the record that had just started.
+
 ## [0.74.4] — 2026-10-21
 
 - A track's Last.fm wiki no longer ends with "Read more on Last.fm.", which the break writer was being handed as a note about the record. The link back is now recognized over `http://` and with other attributes, the licence line a `content` body ends with is stripped, and a wiki that was nothing but the link contributes no note at all.
@@ -1541,7 +1548,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.75.0...HEAD
+[0.75.0]: https://github.com/robert-dean/deadair/compare/v0.74.4...v0.75.0
 [0.74.4]: https://github.com/robert-dean/deadair/compare/v0.74.3...v0.74.4
 [0.74.3]: https://github.com/robert-dean/deadair/compare/v0.74.2...v0.74.3
 [0.74.2]: https://github.com/robert-dean/deadair/compare/v0.74.1...v0.74.2

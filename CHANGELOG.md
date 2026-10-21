@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.74.4] — 2026-10-21
+
+- A track's Last.fm wiki no longer ends with "Read more on Last.fm.", which the break writer was being handed as a note about the record. The link back is now recognized over `http://` and with other attributes, the licence line a `content` body ends with is stripped, and a wiki that was nothing but the link contributes no note at all.
+
 ## [0.74.3] — 2026-10-20
 
 - A banter nobody briefed is no longer worded as a phone-in. The subject passage its outline and every beat are given said the host's preoccupation was "why the caller rang", so every banter was planned around a caller nobody cast and aired "we have a caller on the line". It now says that is what the presenters talk about.
@@ -1537,7 +1541,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.74.4...HEAD
+[0.74.4]: https://github.com/robert-dean/deadair/compare/v0.74.3...v0.74.4
 [0.74.3]: https://github.com/robert-dean/deadair/compare/v0.74.2...v0.74.3
 [0.74.2]: https://github.com/robert-dean/deadair/compare/v0.74.1...v0.74.2
 [0.74.1]: https://github.com/robert-dean/deadair/compare/v0.74.0...v0.74.1

@@ -908,7 +908,7 @@ export class AuthenticationService {
                 challengeId: state,
                 authorize_url: url.toString(),
                 state,
-                expires_at: expiresAt,
+                expiresAt,
             },
             AuthenticationLoginStartResponse,
         );

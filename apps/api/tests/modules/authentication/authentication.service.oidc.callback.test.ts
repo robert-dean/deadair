@@ -11,6 +11,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { httpError } from '@maroonedsoftware/errors';
+import { DateTime } from 'luxon';
 
 import { AuthenticationService } from '../../../src/modules/authentication/authentication.service.js';
 import { RequestCookieJar } from '../../../src/modules/authentication/request.cookie.jar.js';
@@ -228,6 +229,42 @@ describe('AuthenticationService.handleOidcCallback, bound to the browser that st
         h.oidcFactorService.completeAuthorization.mockRejectedValueOnce(new Error('access_denied'));
 
         expect((await h.callback({ error: 'access_denied', state: 's' })).searchParams.get('error')).toBe('provider_error');
+    });
+});
+
+describe('AuthenticationService.startLogin through a provider', () => {
+    function start() {
+        const expiresAt = DateTime.utc().plus({ minutes: 10 });
+        const oidcFactorService = {
+            beginAuthorization: vi.fn(async () => ({ url: new URL('https://idp.example/authorize?state=s1'), state: 's1', expiresAt })),
+        };
+        const responseCookieJar = new ResponseCookieJar();
+        const service = Object.create(AuthenticationService.prototype) as AuthenticationService;
+        Object.assign(service, { oidcFactorService, responseCookieJar });
+        return { service, oidcFactorService, responseCookieJar, expiresAt };
+    }
+
+    // It answered `expires_at` against a strict schema wanting `expiresAt` from the day it was
+    // written, so every "Continue with" button in the console answered 400 and nothing noticed.
+    it('answers the shape its own contract declares, with the provider address to go to', async () => {
+        const h = start();
+
+        const response = await (h.service as any).handleOidcStartLogin({ grant_type: 'oidc', provider: 'mock' });
+
+        expect(response).toMatchObject({
+            grant_type: 'oidc',
+            authorize_url: 'https://idp.example/authorize?state=s1',
+            state: 's1',
+            challengeId: 's1',
+        });
+    });
+
+    it('binds the state it began to this browser, for as long as the state lives', async () => {
+        const h = start();
+
+        await (h.service as any).handleOidcStartLogin({ grant_type: 'oidc', provider: 'mock' });
+
+        expect(h.responseCookieJar.takeOidcState()).toEqual({ state: 's1', expiresAt: h.expiresAt });
     });
 });
 

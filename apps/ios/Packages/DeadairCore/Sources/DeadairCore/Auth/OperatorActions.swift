@@ -15,6 +15,9 @@ public enum Notice: Equatable, Sendable {
     /// role. Re-reading would confirm `admin` and change nothing, having spent a request to do it.
     case stepUpNeeded
 
+    /// A skip named a record that had already finished by the time it arrived, so nothing was cut.
+    case alreadyFinished
+
     /// Start on a station that was never put on air. There is nothing to resume.
     case nothingToResume
 

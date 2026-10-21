@@ -113,7 +113,7 @@ private struct TransportPair: View {
         HStack(spacing: 12) {
             // The width goes on the label, inside the button: on the button itself it widens the row
             // and leaves the button the size of its word.
-            Button { act { await model.transport.skip() } } label: {
+            Button { act { await model.transport.skip(onAir: transport.status.nowPlaying?.item.id) } } label: {
                 Text(String(localized: "Skip")).frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)

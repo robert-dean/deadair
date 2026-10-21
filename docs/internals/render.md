@@ -264,6 +264,29 @@ somebody else shaped is two rules that disagree. Its spacing is counted from the
 memory, on `ReadLog`'s decision inverted — a read log has a twelve-hour half-life where this is a RHYTHM, and
 a station restarted every hour would hit a pad on the first break every time.
 
+**A talk break is offered the rack only some of the time, and the spacing is enforced by WITHDRAWING the
+offer rather than by rewording the prompt.** `padRules` has always said "At most one in a break, and most
+breaks want none", and measured on air it did nothing: over fourteen days of talk breaks (2026-10-21), a
+host whose seven pads carried no cue hit one in 66 of 82 breaks, two hosts with cues on most or all of
+theirs hit one in 30% and 20%, and a twenty-break audition of a host with two cued pads hit one in 17. A
+model shown a soundboard reaches for it, because each break is its own call and "most breaks" is a
+frequency no single call can see, which is the production beats' `MAX_PRODUCTION_PADS` argument arriving
+for the break. So `BreakRequestBuilder.pads` asks `SegmentRepository.padInLastBreaks` whether any of the
+last `render.padOfferEveryBreaks` (4) written talk breaks hit a pad, and when one did the break is handed
+no `pads`, `stings` or `padUse` at all, which is also what makes `padRules` say nothing. Three choices in
+it. It is counted from the ROWS, on the floor's restart argument. It asks about the last few rows rather
+than counting back to the last hit as `breaksSincePad` does, so a brand-new station is inside no window
+and its first break is offered the board, where the floor's count answers such a station with zero. And it
+is over TALK breaks alone, the one kind whose shape offers a model a rack: a jingle ends on a sting every
+time on purpose, keeps its `stings` whatever this says, and would otherwise hold the talk breaks' board
+withdrawn forever. A window that cannot be read withholds the rack, since a break missing a drop it could
+have had is the mistake nobody hears. Zero offers the rack on every talk break, as before. The floor is
+untouched and keeps its own number: one is how often the station joins in by itself and the other how
+often a character is allowed to, and an operator switching the floor off has not asked for a pad in every
+break. An AUDITION mirrors the spacing over the run's own recorded scripts (`recentScripts`), since it
+cannot read the station's segments and the station's last hit says nothing about the run, and a run
+offered the rack at every transition measured a host the station no longer airs.
+
 **A pad has THREE doors and one library, and the file on disk is what makes that true.** Dropping files in
 `media/pads/<board>/` was the only way in, which is fine with a shell and is not fine on the production image,
 where that directory is inside a container an operator reaches through whatever share they set up — so `POST

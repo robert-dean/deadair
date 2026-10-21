@@ -100,6 +100,8 @@ function harness(
         pads?: { name: string }[];
         /** How long since the station last made a noise, which is what the floor's spacing reads. */
         breaksSincePad?: number;
+        /** Whether one of the last few talk breaks hit a pad, which is what withholds the rack from the model. */
+        padInLastBreaks?: boolean | Error;
         /** Which writer produced the words, since the floor's pad applies only to the station's own. */
         writer?: string;
         /** Settings as the STRINGS a config layer actually holds. See the off-case assertions. */
@@ -122,6 +124,10 @@ function harness(
         recentScripts: vi.fn(async () => []),
         writeScript: vi.fn(async () => options.wrote ?? true),
         breaksSincePad: vi.fn(async () => options.breaksSincePad ?? 0),
+        padInLastBreaks: vi.fn(async (_kind: string, _count: number) => {
+            if (options.padInLastBreaks instanceof Error) throw options.padInLastBreaks;
+            return options.padInLastBreaks ?? false;
+        }),
         lastSpokenBy: vi.fn(async () => options.heard ?? new Map<string, number>()),
         markFailed: vi.fn(async () => {}),
         // Read only for an order that carries a programme, which none of these do unless a test says.
@@ -2498,5 +2504,130 @@ describe('WriteBreakJob putting a pad in by itself', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking' }));
+    });
+});
+
+// The model's half of the spacing. The prompt says "most breaks want none" and a host shown a board was
+// measured hitting it in most breaks anyway, so for a few talk breaks after a hit the rack is not
+// offered at all. Counted from the rows, which the double below stands in for.
+describe('WriteBreakJob resting the soundboard after a hit', () => {
+    const withBoard = {
+        key: 'wisecrack',
+        id: 'p-1',
+        label: 'Wisecrack',
+        kinds: ['host' as const],
+        style: 'dry',
+        defaultHost: true,
+        soundboard: 'wisecrack',
+    };
+    const rimshot = {
+        id: 'pad-1',
+        board: 'wisecrack',
+        name: 'rimshot',
+        label: 'Rimshot',
+        audioChecksum: 'sum',
+        audioExt: 'mp3',
+        source: 'library',
+        state: 'active',
+        placements: ['start', 'middle', 'end'],
+    };
+    const cued = { ...rimshot, id: 'pad-2', name: 'drumroll', cue: 'right after a punchline' };
+
+    /** What the writers were handed, as a plain record so a test can ask which keys it carries. */
+    const handed = (writers: { write: { mock: { calls: unknown[][] } } }) => (writers.write.mock.calls[0]?.[0] ?? {}) as Record<string, unknown>;
+
+    it('withdraws the whole offer on a talk break inside the window, and asks over talk breaks with the default of four', async () => {
+        const { job, writers, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [rimshot, cued] as never,
+            padInLastBreaks: true,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.padInLastBreaks).toHaveBeenCalledWith('talkbreak', 4);
+        expect(Object.keys(handed(writers))).not.toContain('pads');
+        expect(Object.keys(handed(writers))).not.toContain('stings');
+        expect(Object.keys(handed(writers))).not.toContain('padUse');
+    });
+
+    it('offers the rack once the last few talk breaks hit nothing, which is also a fresh station', async () => {
+        const { job, writers } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: [rimshot, cued] as never });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(handed(writers)).toMatchObject({ pads: ['rimshot', 'drumroll'], stings: ['rimshot'] });
+    });
+
+    it('reads the window as the STRING a config layer holds', async () => {
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [rimshot] as never,
+            settings: { 'render.padOfferEveryBreaks': '9' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.padInLastBreaks).toHaveBeenCalledWith('talkbreak', 9);
+    });
+
+    it('offers the rack on every talk break when the window is zero, without asking', async () => {
+        const { job, writers, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [rimshot] as never,
+            padInLastBreaks: true,
+            settings: { 'render.padOfferEveryBreaks': '0' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.padInLastBreaks).not.toHaveBeenCalled();
+        expect(handed(writers)).toMatchObject({ pads: ['rimshot'] });
+    });
+
+    it('leaves a jingle its sting, since imaging makes the same noise on purpose', async () => {
+        const { job, writers, segments } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ kind: 'jingle' }),
+            persona: withBoard as never,
+            pads: [rimshot] as never,
+            padInLastBreaks: true,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.padInLastBreaks).not.toHaveBeenCalled();
+        expect(handed(writers)).toMatchObject({ stings: ['rimshot'] });
+    });
+
+    it('withholds the rack when the window cannot be read, and still writes the break', async () => {
+        const { job, writers, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [rimshot] as never,
+            padInLastBreaks: new Error('connection reset'),
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(Object.keys(handed(writers))).not.toContain('pads');
+        expect(segments.writeScript).toHaveBeenCalled();
+    });
+
+    it('leaves the floor on its own spacing: a template break that is due still gets its sting', async () => {
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [rimshot] as never,
+            breaksSincePad: 4,
+            padInLastBreaks: true,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking [sfx:rimshot]' }));
     });
 });

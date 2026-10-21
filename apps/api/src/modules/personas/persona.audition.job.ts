@@ -19,7 +19,8 @@ import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { PadRepository } from '#modules/render/pad.repository.js';
-import { padUseNotes, type PadUseNote } from '#modules/render/pad.cues.js';
+import { padsIn, padUseNotes, type PadUseNote } from '#modules/render/pad.cues.js';
+import { padOfferEveryBreaks } from '#modules/render/pad.settings.js';
 import type { Persona } from './persona.js';
 import type { PersonaStoryForPrompt } from './persona.story.js';
 
@@ -202,7 +203,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         const story = await this.storyFor(persona, ordinal, facts);
 
         const recent = await this.auditions.recentScripts(audition.id);
-        const { pads, padUse } = await this.padsFor(persona);
+        const { pads, padUse } = await this.padsFor(persona, audition.id);
 
         const result = await this.writers.write(
             auditionRequest({
@@ -333,13 +334,26 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
      * host offered a bare rack while every on-air break was told "[sfx:thunder] (just before naming
      * the next tale)", so a cue an operator set could not be auditioned at all.
      *
+     * The SPACING is mirrored too, because how often a host reaches for the board is what a run
+     * reports, and a run offered the rack at every transition measured a host the station no longer
+     * airs: 17 of 20 auditioned breaks hit a pad where on air the offer is withdrawn for
+     * `render.padOfferEveryBreaks` talk breaks after a hit. An audition cannot read the station's
+     * segments and should not, since the station's last hit says nothing about this run, so it is
+     * counted over the run's OWN scripts instead: a hit in any of the last few transitions withdraws
+     * the offer. A run that has not hit one yet is offered the rack at its first transition, which
+     * is what an established station that has gone a while without one does too.
+     *
      * Best-effort, like every other read here: a rack that could not be read costs the transition
      * its offer and never its break.
      */
-    private async padsFor(persona: Persona): Promise<{ pads: readonly string[]; padUse?: Readonly<Record<string, PadUseNote>> }> {
+    private async padsFor(persona: Persona, auditionId: string): Promise<{ pads: readonly string[]; padUse?: Readonly<Record<string, PadUseNote>> }> {
         if (persona.soundboard === undefined) return { pads: [] };
 
         try {
+            const every = padOfferEveryBreaks(this.config);
+            const lately = every === 0 ? [] : await this.auditions.recentScripts(auditionId, every);
+            if (lately.some(script => padsIn(script).length > 0)) return { pads: [] };
+
             const rack = await this.pads.onSet(persona.soundboard);
             const padUse = padUseNotes(rack);
             return { pads: rack.map(pad => pad.name), ...(padUse === undefined ? {} : { padUse }) };

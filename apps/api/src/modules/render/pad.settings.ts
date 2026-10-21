@@ -105,6 +105,33 @@ export function padEveryBreaks(config: AppConfig): number {
 /** What the console draws, so the form and the resolver cannot disagree about the range. */
 export const PAD_EVERY_BOUNDS = { default: 4, min: 0, max: 100 } as const;
 
+/** How many talk breaks after a hit the MODEL is not shown the rack. */
+export const PAD_OFFER_EVERY_KEY = 'render.padOfferEveryBreaks';
+
+/**
+ * How many talk breaks after one that hit a pad go by without the rack being offered at all.
+ *
+ * {@link padEveryBreaks}' twin for the other writer, and the same four for the same reason. It is
+ * its own number rather than that one read twice because the two answer different questions: that
+ * one is how often the station joins in by itself, this is how often a character is ALLOWED to, and
+ * an operator who switches the floor off (zero there) has not thereby asked for a pad in every
+ * break. The prompt already says "most breaks want none", and on air that sentence was measured to
+ * do nothing: a host offered a rack hit it in most breaks it was offered in. So the spacing is
+ * enforced by withdrawing the offer, which is the one thing a model cannot argue with.
+ *
+ * Zero offers the rack on every talk break, which is what the station did before this existed.
+ *
+ * Clamped and parsed from a string, like every resolver here.
+ */
+export function padOfferEveryBreaks(config: AppConfig): number {
+    const set = numberFrom(config.get(PAD_OFFER_EVERY_KEY, String(PAD_OFFER_EVERY_BOUNDS.default)), PAD_OFFER_EVERY_BOUNDS.default);
+
+    return Math.min(PAD_OFFER_EVERY_BOUNDS.max, Math.max(PAD_OFFER_EVERY_BOUNDS.min, Math.round(set)));
+}
+
+/** What the console draws, so the form and the resolver cannot disagree about the range. */
+export const PAD_OFFER_EVERY_BOUNDS = { default: 4, min: 0, max: 100 } as const;
+
 /** How far a pad is pulled back under the words before it, in milliseconds. */
 export const PAD_UNDER_KEY = 'render.padUnderMs';
 

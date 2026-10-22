@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.5] — 2026-10-22
+
+- A show that names an act no longer plays a different act whose name merely contains it. A rock hour asking for Boston aired the techno duo Boston 168 twice, because "Boston 168" holds the word "Boston". When the model runs out of time and the station falls back to what it searched for, an artist now counts only when the search names the whole act. A credit joining several acts, such as "WWE, Motörhead", still counts for each of them.
+
 ## [0.77.4] — 2026-10-22
 
 - News bulletins no longer repeat stories after the station restarts. The list of headlines already read out was kept only in memory, so every release handed the whole twelve-hour window back and the same story could go out in three bulletins in one morning. It is now written through to Redis and read back after a restart. If Redis cannot be reached the bulletin still airs, and a warning in the log says a story may be repeated.
@@ -1576,7 +1580,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.5...HEAD
+[0.77.5]: https://github.com/robert-dean/deadair/compare/v0.77.4...v0.77.5
 [0.77.4]: https://github.com/robert-dean/deadair/compare/v0.77.3...v0.77.4
 [0.77.3]: https://github.com/robert-dean/deadair/compare/v0.77.2...v0.77.3
 [0.77.2]: https://github.com/robert-dean/deadair/compare/v0.77.1...v0.77.2

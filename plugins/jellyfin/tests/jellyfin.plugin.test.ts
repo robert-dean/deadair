@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EVERYTHING_PLAYLIST_ID } from '../src/jellyfin.manifest.js';
 import { JellyfinPlugin } from '../src/jellyfin.plugin.js';
-import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
+import { createFakePluginHost, routedFetch, type FakePluginHost, type FakeRoute } from '@deadair/plugin-sdk/testing';
 
 const BASE_URL = 'http://jellyfin.test:8096';
 const KEY = 'k3y';
@@ -10,13 +10,9 @@ const USER_ID = 'a77d199535c14c0483f91d61a07ec40d';
 const TRACK = 'd32748680b298db5650456cbd268da71';
 const PLAYLIST = 'de7b67171bc76e1c8b76436bd53f236e';
 
-type Reply = { status?: number; body: unknown };
-type Route = (url: URL) => Reply | undefined;
+type Route = FakeRoute;
 
-/**
- * An initialized plugin whose host answers by path. Every unrouted call is a 500, so a test that
- * forgot a route fails loudly rather than reading an empty answer.
- */
+/** An initialized plugin whose host answers by path; see `routedFetch` for what an unrouted call gets. */
 async function build(routes: Route[], config: Record<string, unknown> = {}): Promise<{ host: FakePluginHost; plugin: JellyfinPlugin }> {
     const host = createFakePluginHost();
     host.seedConfig({ baseUrl: BASE_URL, username: 'station', streamFormat: 'raw', ...config });
@@ -30,11 +26,7 @@ async function build(routes: Route[], config: Record<string, unknown> = {}): Pro
                   ],
               }
             : undefined;
-    host.setFetchImpl(async raw => {
-        const url = new URL(raw);
-        const reply = [users, ...routes].map(route => route(url)).find(found => found !== undefined) ?? { status: 500, body: 'unrouted' };
-        return new Response(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body), { status: reply.status ?? 200 });
-    });
+    host.setFetchImpl(routedFetch([users, ...routes]));
 
     const plugin = new JellyfinPlugin();
     await plugin.init(host);

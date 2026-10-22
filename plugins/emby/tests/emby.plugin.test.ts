@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EVERYTHING_PLAYLIST_ID } from '../src/emby.manifest.js';
 import { EmbyPlugin } from '../src/emby.plugin.js';
-import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
+import { createFakePluginHost, routedFetch, type FakePluginHost, type FakeRoute } from '@deadair/plugin-sdk/testing';
 
 const BASE_URL = 'http://emby.test:8096';
 const KEY = 'k3y';
@@ -10,13 +10,9 @@ const USER_ID = 'e0077b6b1c2648a3ba363b7fedb6fd12';
 const TRACK = '12';
 const PLAYLIST = '34';
 
-type Reply = { status?: number; body: unknown };
-type Route = (url: URL) => Reply | undefined;
+type Route = FakeRoute;
 
-/**
- * An initialized plugin whose host answers by path. Every unrouted call is a 500, so a test that
- * forgot a route fails loudly rather than reading an empty answer.
- */
+/** An initialized plugin whose host answers by path; see `routedFetch` for what an unrouted call gets. */
 async function build(routes: Route[], config: Record<string, unknown> = {}): Promise<{ host: FakePluginHost; plugin: EmbyPlugin }> {
     const host = createFakePluginHost();
     host.seedConfig({ baseUrl: BASE_URL, username: 'station', streamFormat: 'raw', ...config });
@@ -30,11 +26,7 @@ async function build(routes: Route[], config: Record<string, unknown> = {}): Pro
                   ],
               }
             : undefined;
-    host.setFetchImpl(async raw => {
-        const url = new URL(raw);
-        const reply = [users, ...routes].map(route => route(url)).find(found => found !== undefined) ?? { status: 500, body: 'unrouted' };
-        return new Response(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body), { status: reply.status ?? 200 });
-    });
+    host.setFetchImpl(routedFetch([users, ...routes]));
 
     const plugin = new EmbyPlugin();
     await plugin.init(host);

@@ -189,6 +189,47 @@ export function fakeHostFetchResponse(init: FakeResponseInit = {}): Response {
     return response;
 }
 
+/** What a {@link FakeRoute} answers: a status (200 when left out) and a body, sent as JSON unless it is already text. */
+export interface FakeReply {
+    status?: number;
+    body: unknown;
+}
+
+/** One path a {@link routedFetch} knows, answering `undefined` for a URL that is not its own. */
+export type FakeRoute = (url: URL, init?: HostFetchInit) => FakeReply | undefined;
+
+/**
+ * A `setFetchImpl` that answers by route, for a plugin test that talks to several paths.
+ *
+ * The first route that answers wins. Every unrouted call is a 500, so a test that forgot a route
+ * fails loudly rather than reading an empty answer. Three provider plugins wrote this same
+ * dispatcher into their own tests before it lived here.
+ *
+ * ```ts
+ * const users: FakeRoute = url => (url.pathname === '/Users' ? { body: [{ Name: 'station', Id: 'u1' }] } : undefined);
+ * host.setFetchImpl(routedFetch([users, ...routes]));
+ * ```
+ */
+export function routedFetch(routes: readonly FakeRoute[]): (url: string, init?: HostFetchInit) => Promise<Response> {
+    return async (raw, init) => {
+        const url = new URL(raw);
+        let reply: FakeReply = { status: 500, body: 'unrouted' };
+        for (const route of routes) {
+            const found = route(url, init);
+            if (found !== undefined) {
+                reply = found;
+                break;
+            }
+        }
+
+        return fakeHostFetchResponse({
+            status: reply.status,
+            body: typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body),
+            url: raw,
+        });
+    };
+}
+
 /** A socket that is open until either end closes it. Exported for a test that wants one on its own. */
 export function createFakePluginSocket(url: string): FakePluginSocket {
     const messageListeners: ((text: string) => void)[] = [];

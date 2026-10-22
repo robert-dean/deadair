@@ -9,6 +9,7 @@ import {
     type PersonaTellingSource,
     type PersonaTellingWrite,
 } from './persona.telling.js';
+import { instant } from '#modules/data/timestamp.columns.js';
 
 /** A telling with the handle of the story it told, which is what a timeline lists. */
 export interface PersonaTellingEntry extends PersonaTelling {
@@ -232,6 +233,3 @@ export class PersonaTellingRepository extends DataRepository {
         };
     }
 }
-
-/** As `NarrationPieceRepository` and `StationLineupRepository` both spell it. */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;

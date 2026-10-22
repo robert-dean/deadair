@@ -1,10 +1,11 @@
 import { Injectable } from 'injectkit';
-import { Kysely, sql } from 'kysely';
+import { Kysely } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { BreakContext, BreakRequest, BreakRequestState, BreakUrgency, StoredBreakRequest } from './break.request.js';
+import { instant, millisOf } from '#modules/data/timestamp.columns.js';
 
 /**
  * Storage for `deadair.break_requests`: what the station has been asked to say.
@@ -160,21 +161,6 @@ interface RequestRow {
     expiresAt: DateTime | null;
     segmentId: string | null;
     broadcastId: string | null;
-}
-
-/**
- * Epoch millis as something the column will take.
- *
- * Through SQL rather than as a value, exactly as `segment.repository.ts` does it and for the same
- * reason: Postgres is handed a number and does the conversion itself, so the `DateTime`-versus-`Date`
- * mismatch in the generated types never has to be resolved here.
- */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
-
-/** A timestamp column as epoch millis. Both shapes handled, per `segment.repository.ts`. */
-function millisOf(value: DateTime | null): number | undefined {
-    if (value == null) return undefined;
-    return value instanceof Date ? value.getTime() : value.toMillis();
 }
 
 /**

@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { Kysely, sql } from 'kysely';
+import { Kysely } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
@@ -17,6 +17,7 @@ import {
     type WritingMode,
 } from './production.js';
 import { isWritingMode } from './production.passes.js';
+import { instant, millisOf } from '#modules/data/timestamp.columns.js';
 
 /**
  * `deadair.productions`: the row that IS the state machine.
@@ -383,22 +384,6 @@ export class ProductionRepository extends DataRepository {
 
         return rows.map(toProduction);
     }
-}
-
-/**
- * Epoch millis as something the column will take.
- *
- * Through SQL rather than as a value, exactly as `break.request.repository.ts` and
- * `segment.repository.ts` do it and for the same reason: Postgres is handed a number and does the
- * conversion itself, so the `DateTime`-versus-`Date` mismatch in the generated types never has to be
- * resolved here.
- */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
-
-/** A timestamp column as epoch millis. Both shapes handled, per `break.request.repository.ts`. */
-function millisOf(value: DateTime | null): number | undefined {
-    if (value == null) return undefined;
-    return value instanceof Date ? value.getTime() : value.toMillis();
 }
 
 /** One row as the rest of the app reads it. */

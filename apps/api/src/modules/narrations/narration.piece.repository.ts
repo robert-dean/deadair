@@ -1,10 +1,10 @@
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
-import type { DateTime } from 'luxon';
 import type { NarrationOrder } from '@deadair/plugin-sdk';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { NarrationPieceListing, NarrationPieceRecord } from './narration.piece.js';
+import { instant, millisOf } from '#modules/data/timestamp.columns.js';
 
 /** The largest word count the table keeps: `word_count` is an `integer`, as `duration_ms` is. */
 const MAX_WORD_COUNT = 2_147_483_647;
@@ -425,16 +425,6 @@ const readOrder = (value: unknown): NarrationOrder =>
         .toLowerCase() === 'latest'
         ? 'latest'
         : 'serial';
-
-/** Epoch millis as something a `timestamptz` column will take, converted by Postgres. */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
-
-/** A timestamp column as epoch millis, whichever shape the driver handed over. */
-function millisOf(value: unknown): number | undefined {
-    if (value == null) return undefined;
-    if (value instanceof Date) return value.getTime();
-    return (value as DateTime).toMillis();
-}
 
 /**
  * One row as the rest of the app reads it.

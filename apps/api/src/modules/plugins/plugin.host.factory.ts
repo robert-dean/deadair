@@ -40,6 +40,7 @@ import { PluginStorageRepository } from './plugin.storage.repository.js';
 import { columnAppliesToRow } from '#modules/shared/config.rows.js';
 import { causeText, errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { REDIRECT_STATUSES } from '#modules/shared/redirect.hops.js';
 
 export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
 
@@ -503,9 +504,6 @@ const limiterFor = (ratePerSecond: number | undefined): RateLimiterMemory => {
     if (capped >= 1) return new RateLimiterMemory({ points: Math.floor(capped), duration: 1 });
     return new RateLimiterMemory({ points: 1, duration: Math.ceil(1 / capped) });
 };
-
-/** The statuses that carry a `location` worth following. */
-const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 
 /** Dropped when a hop crosses an origin, so a bearer token cannot ride a 302 to a third party. */
 const CREDENTIAL_HEADERS = ['authorization', 'cookie'] as const;

@@ -1,8 +1,31 @@
-import type { Config } from '@docusaurus/types';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import type { Config, Plugin } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import { themes as prismThemes } from 'prism-react-renderer';
 
+import { llmsLinks, unservedLinks } from './src/llms.links';
+
 const repository = 'https://github.com/robert-dean/deadair';
+
+/**
+ * Fails the build when `static/llms.txt` links to a page on this site that the build did not make.
+ *
+ * A path is served when it is a route or a file in the output: `/docs/install` is the first and
+ * `/openapi.yaml` the second. See `src/llms.links.ts` for why the build cannot see these by itself.
+ */
+function llmsLinkCheck(): Plugin {
+    return {
+        name: 'llms-link-check',
+        postBuild: async ({ outDir, routesPaths }) => {
+            const routes = new Set(routesPaths);
+            const served = (path: string) => routes.has(path) || existsSync(join(outDir, path));
+            const missing = unservedLinks(llmsLinks(readFileSync(join(outDir, 'llms.txt'), 'utf8')), served);
+            if (missing.length > 0) throw new Error(`llms.txt links to pages this build does not serve: ${missing.join(', ')}`);
+        },
+    };
+}
 
 /**
  * Where "Edit this page" goes.
@@ -48,7 +71,8 @@ const config: Config = {
     // The brand mark lives with the console and is served from there rather than copied. Everything
     // in `apps/web/public` is therefore on the site too, which today is the logo and the favicon.
     // `static` holds `openapi.yaml`, which `pnpm build:contracts` writes from the contracts, and
-    // `img/console/`, which `scripts/console.capture.mjs` photographs from a running station.
+    // `img/console/`, which `scripts/console.capture.mjs` photographs from a running station, and
+    // `llms.txt`, the index for language models that `llmsLinkCheck` holds to this build's pages.
     staticDirectories: ['static', '../web/public'],
 
     clientModules: ['./src/fonts.ts'],
@@ -71,10 +95,8 @@ const config: Config = {
     // A page that moves keeps its old address, because somebody has linked to it. GitHub Pages has no
     // server-side redirects, so this writes a page at the old path that sends the browser on.
     plugins: [
-        [
-            '@docusaurus/plugin-client-redirects',
-            { redirects: [{ from: '/docs/features/making-a-voice', to: '/docs/tutorials/making-a-voice' }] },
-        ],
+        ['@docusaurus/plugin-client-redirects', { redirects: [{ from: '/docs/features/making-a-voice', to: '/docs/tutorials/making-a-voice' }] }],
+        llmsLinkCheck,
     ],
 
     themeConfig: {

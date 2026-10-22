@@ -38,6 +38,7 @@
  */
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
+import { firstJsonObject } from '#modules/shared/json.objects.js';
 
 /** A bit with enough history to summarise, as the recap prompt shows it. */
 export interface RunningBit {
@@ -111,16 +112,8 @@ export function readRecaps(answer: string, bits: readonly RunningBit[]): { id: s
 }
 
 function parseRecapAnswer(answer: string): { title?: unknown; recap?: unknown }[] | undefined {
-    const start = answer.indexOf('{');
-    if (start < 0) return undefined;
-
-    try {
-        const parsed: unknown = JSON.parse(answer.slice(start, answer.lastIndexOf('}') + 1));
-        const list = (parsed as { recaps?: unknown }).recaps;
-        return Array.isArray(list) ? (list as { title?: unknown; recap?: unknown }[]) : undefined;
-    } catch {
-        return undefined;
-    }
+    const list = firstJsonObject(answer)?.recaps;
+    return Array.isArray(list) ? (list as { title?: unknown; recap?: unknown }[]) : undefined;
 }
 
 /** How many proposals one pass over one character is asked for. */
@@ -380,16 +373,8 @@ const take = (seen: Set<string>, key: string): boolean => {
 function parseAnswer(
     answer: string,
 ): { kind?: unknown; title?: unknown; story?: unknown; detail?: unknown; beat?: unknown; quote?: unknown; source?: unknown }[] | undefined {
-    const start = answer.indexOf('{');
-    const end = answer.lastIndexOf('}');
-    if (start < 0 || end <= start) return undefined;
-
-    try {
-        const parsed = JSON.parse(answer.slice(start, end + 1)) as { proposals?: unknown };
-        return Array.isArray(parsed.proposals) ? (parsed.proposals as { kind?: unknown }[]) : undefined;
-    } catch {
-        return undefined;
-    }
+    const proposals = firstJsonObject(answer)?.proposals;
+    return Array.isArray(proposals) ? (proposals as { kind?: unknown }[]) : undefined;
 }
 
 const text = (value: unknown): string | undefined => {

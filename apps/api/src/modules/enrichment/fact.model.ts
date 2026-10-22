@@ -33,6 +33,7 @@
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { FACT_CATEGORIES, type FactCategory } from './fact.repository.js';
+import { firstJsonObject } from '#modules/shared/json.objects.js';
 
 /** How many claims one article is asked for. */
 export const MAX_MODEL_CLAIMS = 5;
@@ -214,16 +215,8 @@ export function readClaims(answer: string, article: string, limit = MAX_MODEL_CL
 
 /** A model's JSON, however it wrapped it. */
 function parseAnswer(answer: string): { claim?: unknown; quote?: unknown; category?: unknown }[] | undefined {
-    const start = answer.indexOf('{');
-    const end = answer.lastIndexOf('}');
-    if (start < 0 || end <= start) return undefined;
-
-    try {
-        const parsed = JSON.parse(answer.slice(start, end + 1)) as { facts?: unknown };
-        return Array.isArray(parsed.facts) ? (parsed.facts as { claim?: unknown }[]) : undefined;
-    } catch {
-        return undefined;
-    }
+    const facts = firstJsonObject(answer)?.facts;
+    return Array.isArray(facts) ? (facts as { claim?: unknown }[]) : undefined;
 }
 
 /**

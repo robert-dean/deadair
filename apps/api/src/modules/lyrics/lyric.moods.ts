@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { LlmMessage } from '@deadair/plugin-sdk';
+import { firstJsonObject } from '#modules/shared/json.objects.js';
 
 /**
  * What mood a record is in, as a model judges it from the record's lyric and, where the station can
@@ -154,20 +155,11 @@ export type MoodDistribution = Record<LyricMood, number>;
  * mood it left out is zero. Anything negative, non-numeric or all-zero is not an answer.
  */
 export function readMoods(answer: string): MoodDistribution | 'unknown' | undefined {
-    const start = answer.indexOf('{');
-    const end = answer.lastIndexOf('}');
-    if (start < 0 || end <= start) return undefined;
+    const parsed = firstJsonObject(answer);
+    if (parsed === undefined) return undefined;
+    if (parsed.unknown === true) return 'unknown';
 
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(answer.slice(start, end + 1));
-    } catch {
-        return undefined;
-    }
-    if (typeof parsed !== 'object' || parsed === null) return undefined;
-    if ((parsed as { unknown?: unknown }).unknown === true) return 'unknown';
-
-    const moods = (parsed as { moods?: unknown }).moods;
+    const moods = parsed.moods;
     if (typeof moods !== 'object' || moods === null) return undefined;
 
     const raw = LYRIC_MOODS.map(mood => (moods as Record<string, unknown>)[mood] ?? 0);

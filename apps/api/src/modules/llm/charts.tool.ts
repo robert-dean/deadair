@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ChartsService } from '#modules/charts/charts.service.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { limitArgument } from '#modules/shared/limit.clamp.js';
 
 /**
  * "What is popular?", as something a model can ask.
@@ -148,7 +149,7 @@ export class ChartsTool implements ToolSource {
             return { charts };
         }
 
-        const entries = await this.charts.fetchChart(chartId, clampLimit(args.limit), readText(args.date));
+        const entries = await this.charts.fetchChart(chartId, limitArgument(args.limit, MAX_RESULTS), readText(args.date));
 
         // The line the two search tools each carry, and for the same reason: "how many records did
         // the model actually have to choose from" has to be answerable from the log alone when a
@@ -176,9 +177,3 @@ export class ChartsTool implements ToolSource {
 
 /** An argument the model actually set. Blank is the interesting case: a model filling every field. */
 const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
-
-/** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
-function clampLimit(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return MAX_RESULTS;
-    return Math.min(MAX_RESULTS, Math.floor(value));
-}

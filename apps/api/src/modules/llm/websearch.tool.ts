@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import type { SearchRecency } from '@deadair/plugin-sdk';
 import { SearchService } from '#modules/search/search.service.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { limitArgument } from '#modules/shared/limit.clamp.js';
 
 /**
  * "What does the web say about this?", as something a model can ask.
@@ -134,7 +135,7 @@ export class WebSearchTool implements ToolSource {
         }
 
         const recency = readRecency(args.recency);
-        const found = await this.search.search(query, clampLimit(args.limit), recency === undefined ? {} : { recency });
+        const found = await this.search.search(query, limitArgument(args.limit, MAX_RESULTS), recency === undefined ? {} : { recency });
 
         // The line every tool here carries: "how much did the model actually
         // have to work with" has to be answerable from the log alone when a
@@ -165,9 +166,3 @@ const readText = (value: unknown): string | undefined => (typeof value === 'stri
 
 /** A window the capability offers, or nothing. A model naming one it invented is asking for anything. */
 const readRecency = (value: unknown): SearchRecency | undefined => RECENCIES.find(recency => recency === value) as SearchRecency | undefined;
-
-/** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
-function clampLimit(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return MAX_RESULTS;
-    return Math.min(MAX_RESULTS, Math.floor(value));
-}

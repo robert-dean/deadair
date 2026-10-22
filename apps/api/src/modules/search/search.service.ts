@@ -6,6 +6,7 @@ import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { clampLimit } from '#modules/shared/limit.clamp.js';
 
 /**
  * What the open web says about something, out of whatever search plugins are
@@ -78,7 +79,7 @@ export class SearchService {
         const asked = query.trim();
         if (asked.length === 0) return [];
 
-        const wanted = clampLimit(limit);
+        const wanted = clampLimit(limit, MAX_SEARCH_RESULTS);
         const key = cacheKey(asked, options);
 
         const cached = SearchService.cache.get(key);
@@ -227,8 +228,3 @@ function dedupeKey(url: string): string | undefined {
         return undefined;
     }
 }
-
-const clampLimit = (value: number): number => {
-    if (!Number.isFinite(value)) return MAX_SEARCH_RESULTS;
-    return Math.min(Math.max(Math.floor(value), 1), MAX_SEARCH_RESULTS);
-};

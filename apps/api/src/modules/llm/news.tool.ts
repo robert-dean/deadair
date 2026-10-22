@@ -6,6 +6,7 @@ import { NewsService } from '#modules/news/news.service.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { NEWS_KIND } from '#modules/director/news.break.writer.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { limitArgument } from '#modules/shared/limit.clamp.js';
 
 /**
  * "What happened?", as something a model can ask.
@@ -165,7 +166,7 @@ export class NewsTool implements ToolSource {
             // Reaching further down the page when a category was asked for, since most of what comes
             // back will not belong to it. Bounded by `MAX_NEWS_ITEMS` inside `NewsService` either
             // way, because this number reaches somebody else's server.
-            limit: asked === undefined ? clampLimit(args.limit) : MAX_RESULTS,
+            limit: asked === undefined ? limitArgument(args.limit, MAX_RESULTS) : MAX_RESULTS,
             ...(since === undefined ? {} : { since }),
         });
 
@@ -183,7 +184,9 @@ export class NewsTool implements ToolSource {
         const stories =
             asked === undefined
                 ? page
-                : page.filter(story => categoriesOf(withFeedCategory(story, declared), [asked]).length > 0).slice(0, clampLimit(args.limit));
+                : page
+                      .filter(story => categoriesOf(withFeedCategory(story, declared), [asked]).length > 0)
+                      .slice(0, limitArgument(args.limit, MAX_RESULTS));
 
         // The line every tool here carries: "how many stories did the model
         // actually have to work with" has to be answerable from the log alone
@@ -245,9 +248,3 @@ const withFeedCategory = (story: NewsItem, declared: ReadonlyMap<string, string>
 };
 
 const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
-
-/** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
-function clampLimit(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return MAX_RESULTS;
-    return Math.min(MAX_RESULTS, Math.floor(value));
-}

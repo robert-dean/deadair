@@ -13,6 +13,7 @@ import { keptOffAir, newsTopicRules, type ClassifiableStory, type NewsTopicRules
 import { feedRoster } from './news.settings.js';
 import { qualifyFeedId, splitFeedId } from './feed.ids.js';
 import type { NewsPage, NewsQuery, StationFeed, StationFeedList } from './types/news.types.js';
+import { clampLimit } from '#modules/shared/limit.clamp.js';
 
 /**
  * What happened outside the station, as the station can see it: every feed
@@ -171,7 +172,7 @@ export class NewsService {
      * every caller here and the log line is where the difference lives.
      */
     async fetchItems(query: NewsItemQuery): Promise<NewsItem[]> {
-        const limit = clampLimit(query.limit);
+        const limit = clampLimit(query.limit, MAX_NEWS_ITEMS);
 
         if (query.feedId !== undefined) {
             const address = splitFeedId(query.feedId);
@@ -326,11 +327,6 @@ export interface NewsItemQuery {
  * and a caller that asks for a thousand is asking a third party for a thousand.
  */
 export const MAX_NEWS_ITEMS = 50;
-
-const clampLimit = (value: number): number => {
-    if (!Number.isFinite(value)) return MAX_NEWS_ITEMS;
-    return Math.min(Math.max(Math.floor(value), 1), MAX_NEWS_ITEMS);
-};
 
 /**
  * The feeds the station listed, in its order, then everything else in the order it arrived.

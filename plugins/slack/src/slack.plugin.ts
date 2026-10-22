@@ -1,4 +1,6 @@
 import {
+    configFlag,
+    configLines,
     Plugin,
     PluginError,
     type HostFetchMethod,
@@ -28,8 +30,6 @@ import {
     actionsBlock,
     allowedChannel,
     clip,
-    configFlag,
-    configLines,
     decodeAction,
     escapeSlack,
     isDirectChannel,

@@ -1,4 +1,6 @@
 import {
+    configFlag,
+    configLines,
     Plugin,
     PluginError,
     type MessagingAnnounceTarget,
@@ -14,8 +16,6 @@ import {
 import { IsTelegramError, TelegramClient, type TelegramConfig } from '@maroonedsoftware/telegram';
 
 import {
-    configFlag,
-    configLines,
     inlineKeyboard,
     isRetryableStatus,
     nextOffset,

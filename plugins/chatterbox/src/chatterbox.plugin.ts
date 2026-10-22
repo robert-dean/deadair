@@ -1,5 +1,6 @@
 import {
     configBaseUrl,
+    configFlag,
     configString,
     errorText,
     plausibleAudio,
@@ -164,7 +165,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // the other speech plugin for why never-opened is not a state the console can keep a station
         // in, and for the row on THIS engine that proved it.
         this.voices = shippedUnlessMapped(config[VOICES_FIELD]);
-        this.unloadAfterRender = isOn(config.unloadAfterRender);
+        this.unloadAfterRender = configFlag(config.unloadAfterRender, false);
         this.unloadAfterIdleMinutes = minutesOrDefault(config.unloadAfterIdleMinutes);
         this.apiKey = await this.host.secrets.get('apiKey');
 
@@ -657,21 +658,11 @@ const serverRootOf = (baseUrl: string): string => baseUrl.replace(/\/+$/, '').re
 const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);
 
 /**
- * A boolean config value, defaulting OFF.
- *
- * Plugin config is jsonb, so a checkbox arrives as a real boolean and this is
- * mostly a narrowing. The string arm covers a row hand-edited in psql, where
- * `"false"` would otherwise be truthy — which is the same trap `settingIsOn`
- * exists for on the station's own settings, and it cost six switches there.
- */
-const isOn = (value: unknown): boolean => value === true || value === 'true';
-
-/**
  * Minutes of idle time before the model is let go, defaulting on anything that is not a sane number.
  *
  * `0` is a real answer ("never") rather than a bad value, so it is the only number let through
  * unchanged below the default; a negative number or anything that does not parse falls back the same
- * way `isOn` falls back on a boolean field, and for the same reason: a row hand-edited in psql should
+ * way `configFlag` falls back on a boolean field, and for the same reason: a row hand-edited in psql should
  * not turn into a station holding a GPU it never lets go.
  *
  * `undefined` and a blank or whitespace-only string are checked before the conversion rather than

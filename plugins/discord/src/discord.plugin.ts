@@ -1,4 +1,6 @@
 import {
+    configFlag,
+    configLines,
     Plugin,
     PluginError,
     type HostFetchMethod,
@@ -24,8 +26,6 @@ import {
     actionRows,
     applicationCommands,
     clip,
-    configFlag,
-    configLines,
     interactionToInbound,
     isRetryableStatus,
     messageToInbound,

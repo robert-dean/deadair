@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { configBaseUrl, configString } from '../src/plugin.config.read.js';
+import { configBaseUrl, configFlag, configLines, configString } from '../src/plugin.config.read.js';
 
 describe('configString', () => {
     it('trims a set value', () => {
@@ -36,5 +36,36 @@ describe('configBaseUrl', () => {
         expect(configBaseUrl('')).toBe('');
         expect(configBaseUrl('   ')).toBe('');
         expect(configBaseUrl(42)).toBe('');
+    });
+});
+
+describe('configLines', () => {
+    it('splits on newlines and commas, trimming each line and dropping blanks', () => {
+        expect(configLines('  -100123 \n\n-100456, -100789 ,')).toEqual(['-100123', '-100456', '-100789']);
+    });
+
+    it('answers an empty list for a field that is not a string', () => {
+        expect(configLines(undefined)).toEqual([]);
+        expect(configLines(['a'])).toEqual([]);
+        expect(configLines(42)).toEqual([]);
+    });
+});
+
+describe('configFlag', () => {
+    it('reads a real boolean', () => {
+        expect(configFlag(true, false)).toBe(true);
+        expect(configFlag(false, true)).toBe(false);
+    });
+
+    it('reads the text a hand-edited row holds, so "false" is off rather than truthy', () => {
+        expect(configFlag('true', false)).toBe(true);
+        expect(configFlag('false', true)).toBe(false);
+    });
+
+    it('takes the fallback for anything else, absent included', () => {
+        expect(configFlag(undefined, true)).toBe(true);
+        expect(configFlag(undefined, false)).toBe(false);
+        expect(configFlag('yes', false)).toBe(false);
+        expect(configFlag(1, true)).toBe(true);
     });
 });

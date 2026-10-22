@@ -1,3 +1,16 @@
+# deadair
+
+The instructions for working in this repository are in [`CLAUDE.md`](CLAUDE.md). Read it before
+anything else. Claude loads it on its own; this file exists so that every other agent finds the same
+rules. It names a scoped `CLAUDE.md` for each part of the tree (`apps/api/CLAUDE.md`,
+`apps/web/CLAUDE.md`, `packages/plugin-sdk/CLAUDE.md` and the rest), and those are required reading
+before you change the thing they describe.
+
+Keep the rules there, not here. Two copies of one rule drift, and the agent that read the stale one
+is the one that ships the bug.
+
+The block below is not ours. `turbo` writes it, and puts it back if it is deleted.
+
 <!-- BEGIN:turborepo-agent-rules -->
 
 # This is NOT the Turborepo you know

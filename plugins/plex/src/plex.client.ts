@@ -6,6 +6,7 @@ import {
     upstreamDetail,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { CLIENT_IDENTIFIER, PLUGIN_VERSION, PRODUCT, REQUEST_TIMEOUT_MS } from './plex.manifest.js';
@@ -25,14 +26,10 @@ function pluginCodeForStatus(status: number): PluginErrorCode {
 }
 
 /** A Plex call that failed, carrying the status so callers can treat a miss as data. */
-export class PlexRequestError extends PluginError {
-    readonly status: number;
-
+export class PlexRequestError extends UpstreamRequestError {
     constructor(message: string, status: number) {
-        super(message);
+        super(status, message, { code: pluginCodeForStatus(status) });
         this.name = 'PlexRequestError';
-        this.status = status;
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
     }
 }
 

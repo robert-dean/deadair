@@ -1,12 +1,12 @@
 import {
     configBaseUrl,
-    PluginError,
     jsonBody,
     pluginCodeForStatus as sharedCodeForStatus,
     truncateUpstreamMessage,
     upstreamDetail,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import type { SubsonicAuth } from './navidrome.auth.js';
@@ -59,20 +59,16 @@ const reason = (message: string | undefined): string | undefined => {
  * "no such song" and becomes `undefined` rather than an error — while the
  * `PluginError` half says what the host should make of it.
  */
-export class SubsonicRequestError extends PluginError {
-    /** HTTP status, absent when the failure was inside a 200. */
-    readonly status?: number;
-
+export class SubsonicRequestError extends UpstreamRequestError<number | undefined> {
+    /** `status` is the HTTP status, absent when the failure was inside a 200. */
     constructor(message: string, options: { code?: number; status?: number } = {}) {
-        super(message);
+        // `options.code` is Subsonic's own numeric code, absent when the request failed before the
+        // envelope. Not the host's `code`, which is what the first argument below decides.
+        super(options.status, message, {
+            code: options.status === undefined ? pluginCodeForSubsonic(options.code) : pluginCodeForStatus(options.status),
+            upstreamCode: options.code,
+        });
         this.name = 'SubsonicRequestError';
-        this.status = options.status;
-
-        this.withCode(options.status === undefined ? pluginCodeForSubsonic(options.code) : pluginCodeForStatus(options.status));
-        if (options.status !== undefined) this.withUpstreamStatus(options.status);
-        // Subsonic's own numeric code, absent when the request failed before the envelope. Not
-        // `code`: that holds the host's vocabulary.
-        if (options.code !== undefined) this.withUpstreamCode(options.code);
     }
 }
 

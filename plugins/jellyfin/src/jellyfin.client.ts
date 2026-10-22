@@ -6,6 +6,7 @@ import {
     upstreamDetail,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { CLIENT_NAME, DEVICE_ID, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './jellyfin.manifest.js';
@@ -27,14 +28,10 @@ function pluginCodeForStatus(status: number): PluginErrorCode {
 }
 
 /** A Jellyfin call that failed, carrying the status so callers can treat a miss as data. */
-export class JellyfinRequestError extends PluginError {
-    readonly status: number;
-
+export class JellyfinRequestError extends UpstreamRequestError {
     constructor(message: string, status: number) {
-        super(message);
+        super(status, message, { code: pluginCodeForStatus(status) });
         this.name = 'JellyfinRequestError';
-        this.status = status;
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
     }
 }
 

@@ -1,11 +1,11 @@
 import {
-    PluginError,
     headersToRecord,
     hostFetchMethod,
     pluginCodeForStatus as sharedCodeForStatus,
     retryAfterMs,
     truncateUpstreamMessage,
     upstreamField,
+    UpstreamRequestError,
     type PluginErrorCode,
 } from '@deadair/plugin-sdk';
 import type { HostFetchInit, HostFetchMethod, PluginHost } from '@deadair/plugin-sdk';
@@ -115,21 +115,15 @@ export const QUOTA_BACKOFF_MS = 30 * 60_000;
  * class, because the host logs and returns what a `PluginError` carries and an
  * upstream error body is not ours to forward.
  */
-export class SpotifyRequestError extends PluginError {
-    readonly status: number;
+export class SpotifyRequestError extends UpstreamRequestError {
     readonly body?: string;
 
     constructor(status: number, message: string, body?: string, retryAfterMs?: number) {
-        super(message);
+        // `upstreamCode` is Spotify's own machine-readable cause, when it sent one.
+        // {@link QUOTA_EXCEEDED_REASON} is the one that changes behaviour.
+        super(status, message, { code: pluginCodeForStatus(status), upstreamCode: upstreamCause(body) });
         this.name = 'SpotifyRequestError';
-        this.status = status;
         this.body = body;
-
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
-        // Spotify's own machine-readable cause, when it sent one. {@link QUOTA_EXCEEDED_REASON} is the
-        // one that changes behaviour.
-        const cause = upstreamCause(body);
-        if (cause !== undefined) this.withUpstreamCode(cause);
 
         // The quota hold wins over whatever `Retry-After` advised, including a
         // header that advised nothing: see {@link QUOTA_BACKOFF_MS}.

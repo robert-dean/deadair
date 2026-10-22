@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { BreakArtworkList } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useSettledWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /** The picture each kind of break wears, and where those bytes came from. */
@@ -36,10 +37,5 @@ export function useRevertBreakArtwork() {
  * against the checksum ETag and is handed the new bytes the moment they change.
  */
 function useBreakArtworkArrival<TArgs>(mutationFn: (args: TArgs) => Promise<BreakArtworkList>) {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn,
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.breakArtwork.list() }),
-    });
+    return useSettledWrite(queryKeys.breakArtwork.list(), mutationFn);
 }

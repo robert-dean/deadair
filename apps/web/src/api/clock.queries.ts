@@ -1,7 +1,8 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { ClockBandInput, ClockBandList } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -32,11 +33,7 @@ export function useClockBands() {
  * derived from this, so unlike the schedule there is nothing further to invalidate.
  */
 function useClockWrite<TArgs>(mutationFn: (args: TArgs) => Promise<ClockBandList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (clock: ClockBandList) => queryClient.setQueryData(queryKeys.director.clock(), clock),
-    });
+    return useListWrite(queryKeys.director.clock(), mutationFn);
 }
 
 export const useCreateClockBand = () => useClockWrite((body: ClockBandInput) => sdk.director.createClockBand(body));

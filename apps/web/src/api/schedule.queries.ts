@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import type { ScheduleSlotInput, ScheduleSlotList } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -75,32 +76,28 @@ export function useTimetable(from: string | undefined, days: number) {
  * slot has no end of its own: it runs until the next one begins, so adding, moving or deleting one
  * changes how its neighbours read. The answer is written into the cache and nothing refetches.
  */
-function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<ScheduleSlotList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (schedule: ScheduleSlotList) => {
-            queryClient.setQueryData(queryKeys.schedule.list(), schedule);
-            // The blocks are DERIVED from the slots, so a write invalidates every window rather than
-            // being written into the cache: the answer depends on a range this callback knows
-            // nothing about, and one slot moving changes how its neighbours read in all of them.
-            void queryClient.invalidateQueries({ queryKey: ['schedule', 'timetable'] });
-            // And what is on NOW is derived from them too. Without this the strip above the grid
-            // keeps its last answer for up to a poll — so an operator who has just written the block
-            // they are standing in watches the page say nothing is scheduled, which is the one thing
-            // it must never say while being wrong about it.
-            void queryClient.invalidateQueries({ queryKey: queryKeys.schedule.current() });
-            // And where a resuming slot will pick its playlist up, which an edit to its source forgets.
-            void queryClient.invalidateQueries({ queryKey: ['schedule', 'playlist-position'] });
-        },
-    });
+function useScheduleWrite<TArgs>(mutationFn: (args: TArgs) => Promise<ScheduleSlotList>) {
+    return useListWrite(queryKeys.schedule.list(), mutationFn, [
+        // The blocks are DERIVED from the slots, so a write invalidates every window rather than
+        // being written into the cache: the answer depends on a range this callback knows
+        // nothing about, and one slot moving changes how its neighbours read in all of them.
+        ['schedule', 'timetable'],
+        // And what is on NOW is derived from them too. Without this the strip above the grid
+        // keeps its last answer for up to a poll — so an operator who has just written the block
+        // they are standing in watches the page say nothing is scheduled, which is the one thing
+        // it must never say while being wrong about it.
+        queryKeys.schedule.current(),
+        // And where a resuming slot will pick its playlist up, which an edit to its source forgets.
+        ['schedule', 'playlist-position'],
+    ]);
 }
 
-export const useCreateSlot = () => useListWrite((body: ScheduleSlotInput) => sdk.schedule.createScheduleSlot(body));
+export const useCreateSlot = () => useScheduleWrite((body: ScheduleSlotInput) => sdk.schedule.createScheduleSlot(body));
 
-export const useUpdateSlot = () => useListWrite(({ id, body }: { id: string; body: ScheduleSlotInput }) => sdk.schedule.updateScheduleSlot(id, body));
+export const useUpdateSlot = () =>
+    useScheduleWrite(({ id, body }: { id: string; body: ScheduleSlotInput }) => sdk.schedule.updateScheduleSlot(id, body));
 
-export const useDeleteSlot = () => useListWrite((id: string) => sdk.schedule.deleteScheduleSlot(id));
+export const useDeleteSlot = () => useScheduleWrite((id: string) => sdk.schedule.deleteScheduleSlot(id));
 
 /**
  * The record a slot that resumes its playlist will open on next time, or an empty answer when it

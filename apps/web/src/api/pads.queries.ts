@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import type { Pad, PadFetch, PadList, PadSet, PadSetMembership, PadSetWrite, PadState, PadUse } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useListWrite, useSettledWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -26,11 +27,7 @@ export function usePads() {
 
 /** Turning one down, or putting it back. The answer is the whole rack, so nothing refetches. */
 export function useSetPadState() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, body }: { id: string; body: PadState }) => sdk.render.setPadState(id, body),
-        onSuccess: (list: PadList) => queryClient.setQueryData(queryKeys.pads.list(), list),
-    });
+    return useListWrite(queryKeys.pads.list(), ({ id, body }: { id: string; body: PadState }) => sdk.render.setPadState(id, body));
 }
 
 /**
@@ -38,11 +35,7 @@ export function useSetPadState() {
  * state's is, so nothing refetches.
  */
 export function useSetPadUse() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, body }: { id: string; body: PadUse }) => sdk.render.setPadUse(id, body),
-        onSuccess: (list: PadList) => queryClient.setQueryData(queryKeys.pads.list(), list),
-    });
+    return useListWrite(queryKeys.pads.list(), ({ id, body }: { id: string; body: PadUse }) => sdk.render.setPadUse(id, body));
 }
 
 /**
@@ -53,11 +46,7 @@ export function useSetPadUse() {
  * AND the set's count AND, for a rename, every persona line beside it.
  */
 function usePadSetWrite<TArgs>(mutationFn: (args: TArgs) => Promise<PadList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (list: PadList) => queryClient.setQueryData(queryKeys.pads.list(), list),
-    });
+    return useListWrite(queryKeys.pads.list(), mutationFn);
 }
 
 export const useCreatePadSet = () => usePadSetWrite((body: PadSetWrite) => sdk.render.createPadSet(body));
@@ -85,11 +74,7 @@ export function useFetchPad() {
 }
 
 function usePadArrival<TArgs>(mutationFn: (args: TArgs) => Promise<PadList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.pads.list() }),
-    });
+    return useSettledWrite(queryKeys.pads.list(), mutationFn);
 }
 
 /**

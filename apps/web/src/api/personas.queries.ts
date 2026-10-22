@@ -22,6 +22,7 @@ import type {
 
 import { downloadFilename, saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
+import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -51,23 +52,17 @@ export function usePersonas() {
  * them can change more than that row: making one the station's host takes that off another, deleting that one
  * one leaves the station with none. So the answer is written into the cache and nothing refetches.
  */
-function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<PersonaList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (personas: PersonaList) => {
-            queryClient.setQueryData(queryKeys.personas.list(), personas);
-        },
-    });
+function usePersonaListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<PersonaList>) {
+    return useListWrite(queryKeys.personas.list(), mutationFn);
 }
 
-export const useCreatePersona = () => useListWrite((body: PersonaInput) => sdk.personas.createPersona(body));
+export const useCreatePersona = () => usePersonaListWrite((body: PersonaInput) => sdk.personas.createPersona(body));
 
-export const useUpdatePersona = () => useListWrite(({ id, body }: { id: string; body: PersonaInput }) => sdk.personas.updatePersona(id, body));
+export const useUpdatePersona = () => usePersonaListWrite(({ id, body }: { id: string; body: PersonaInput }) => sdk.personas.updatePersona(id, body));
 
-export const useDeletePersona = () => useListWrite((id: string) => sdk.personas.deletePersona(id));
+export const useDeletePersona = () => usePersonaListWrite((id: string) => sdk.personas.deletePersona(id));
 
-export const useSetStationHost = () => useListWrite((id: string) => sdk.personas.setTheStationHost(id));
+export const useSetStationHost = () => usePersonaListWrite((id: string) => sdk.personas.setTheStationHost(id));
 
 /**
  * Put back whichever of the station's own personas are missing.
@@ -75,7 +70,7 @@ export const useSetStationHost = () => useListWrite((id: string) => sdk.personas
  * Touches nothing already here and puts nothing on air, so it is safe to press twice — which is
  * what makes it a plain button rather than something behind a confirmation.
  */
-export const useRestorePersonas = () => useListWrite(() => sdk.personas.restoreStationPersonas());
+export const useRestorePersonas = () => usePersonaListWrite(() => sdk.personas.restoreStationPersonas());
 
 /**
  * Ask a persona for a break it will never air.
@@ -115,13 +110,7 @@ export function usePersonaNotes(id: string | undefined) {
  * back the row it named is holding a list it has to refetch to draw.
  */
 function useNoteWrite<TArgs extends { id: string }>(mutationFn: (args: TArgs) => Promise<PersonaNoteList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (notes: PersonaNoteList) => {
-            queryClient.setQueryData(queryKeys.personas.notes(notes.personaId), notes);
-        },
-    });
+    return useListWrite((notes: PersonaNoteList) => queryKeys.personas.notes(notes.personaId), mutationFn);
 }
 
 export const useWritePersonaNote = () =>
@@ -162,13 +151,7 @@ export function usePersonaStories(id: string | undefined) {
  * a list rather than a row.
  */
 function useStoryWrite<TArgs extends { id: string }>(mutationFn: (args: TArgs) => Promise<PersonaStoryList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (stories: PersonaStoryList) => {
-            queryClient.setQueryData(queryKeys.personas.stories(stories.personaId), stories);
-        },
-    });
+    return useListWrite((stories: PersonaStoryList) => queryKeys.personas.stories(stories.personaId), mutationFn);
 }
 
 export const useWritePersonaStory = () =>

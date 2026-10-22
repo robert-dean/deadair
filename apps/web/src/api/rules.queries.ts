@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { BlockRuleInput, BlockRuleList, GenreSteerInput, GenreSteerReading } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -22,11 +23,7 @@ export function useNeverPlayRules() {
 
 /** Every rule write answers the whole list, which is written straight into the cache. */
 function useRuleWrite<TArgs>(mutationFn: (args: TArgs) => Promise<BlockRuleList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (rules: BlockRuleList) => queryClient.setQueryData(queryKeys.director.rules(), rules),
-    });
+    return useListWrite(queryKeys.director.rules(), mutationFn);
 }
 
 export function useAddNeverPlayRule() {
@@ -48,11 +45,7 @@ export function useGenreSteer() {
 }
 
 function useSteerWrite<TArgs>(mutationFn: (args: TArgs) => Promise<GenreSteerReading>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (reading: GenreSteerReading) => queryClient.setQueryData(queryKeys.director.steer(), reading),
-    });
+    return useListWrite(queryKeys.director.steer(), mutationFn);
 }
 
 export function useSteerTowardGenres() {

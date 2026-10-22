@@ -1,0 +1,46 @@
+# deadair
+
+> deadair is an AI radio station you run yourself. It picks the records from a music source you already have, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result as one broadcast that every listener hears at the same moment. It is open source (MIT), self-hosted in Docker, and has no hosted service.
+
+Things that are easy to get wrong about it:
+
+- It is software you install, not a station you tune in to. There is no deadair.radio stream: every station is somebody's own install at their own address.
+- It holds no music. It programmes what your provider already gives you: Spotify (Premium), YouTube Music, Apple Music, Pandora, or your own Navidrome or other Subsonic server, Jellyfin, Emby or Plex. It grants nobody any right to broadcast that music.
+- It is a radio station, not a playlist. There is one running order, no per-listener shuffle and no skip button for listeners. The operator edits the running order from a web console.
+- It keeps talking without a language model. With no model, or a slow or failed one, the presenter falls back to the station's own phrasings. With no speech engine it plays records without talk.
+- Models are plugins: any OpenAI-compatible server (Ollama, vLLM, OpenAI, Groq, Mistral, OpenRouter), Anthropic or Gemini. Voices are plugins too: Kokoro, Chatterbox, Rhapsode or ElevenLabs.
+- The stream is `/live.mp3` on the station's own address, with Opus, AAC, FLAC and HLS available as opt-in mounts.
+- The image is `deadair/deadair`. `full` brings a voice, PostgreSQL and Redis; `latest` brings a voice and expects your own PostgreSQL and Redis; `slim` brings neither and expects a speech server too. Apple Music needs the `-apple` variant of a tag. Plan on about 4 GB of memory.
+- Claude, or any MCP client that signs in with OAuth, can connect to a station at `/api/mcp` once the operator turns it on.
+
+## Run it
+
+- [Quick start](https://deadair.radio/docs/quick-start): one station on one machine in about ten minutes, every choice made for you
+- [Install](https://deadair.radio/docs/install): the image tags, the database and cache, the station's address, upgrading and backups
+- [Unraid](https://deadair.radio/docs/unraid): every field in the Unraid template
+- [Installer script](https://deadair.radio/install.sh): `curl -fsSL https://deadair.radio/install.sh | sh` asks a few questions, writes a compose file and starts the station
+- [Music licensing](https://deadair.radio/docs/licensing): what you may and may not broadcast, read before publishing an address
+- [Help](https://deadair.radio/docs/help): why a station is silent, locked out or unable to send mail
+
+## What it does
+
+- [Features](https://deadair.radio/docs/features): the seven things a station does and where each is explained
+- [Models and voices](https://deadair.radio/docs/features/models-and-voices): which model writes which words and which engine speaks them
+- [Characters](https://deadair.radio/docs/features/characters): the presenters, their voices and what they remember
+- [Listening](https://deadair.radio/docs/features/listening): the stream formats, the Android, iPhone and macOS apps, and speakers
+- [Connecting Claude](https://deadair.radio/docs/features/connect-claude): letting Claude or another MCP client run the station as an operator
+- [Tutorials](https://deadair.radio/docs/tutorials): step by step, from prerequisites to a first hour on air
+
+## Build on it
+
+- [Develop](https://deadair.radio/docs/develop): contributing to the station, writing a plugin, or calling the API
+- [Writing plugins](https://deadair.radio/docs/plugin-development): what a plugin is and what the station promises it
+- [API](https://deadair.radio/docs/develop/api): a key, a first request and the typed clients
+- [API reference](https://deadair.radio/docs/api-reference): every endpoint, generated from the contracts
+- [OpenAPI document](https://deadair.radio/openapi.yaml): the same API as OpenAPI 3.1, for generating a client
+
+## Optional
+
+- [Source](https://github.com/robert-dean/deadair): the repository
+- [Community](https://deadair.radio/community): stations and plugins other people have published
+- [Changelog](https://github.com/robert-dean/deadair/blob/main/CHANGELOG.md)

@@ -273,13 +273,15 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
 
     /** The dispatch, and the only place the credentials are read. */
     private async ask(query: SearchQuery): Promise<SearchResult[]> {
+        const host = this.host;
+
         switch (this.provider) {
             case 'searxng':
-                return await searxngSearch(this.host, this.baseUrl, query);
+                return await searxngSearch(host, this.baseUrl, query);
             case 'brave':
-                return await braveSearch(this.host, this.apiKey, query);
+                return await braveSearch(host, this.apiKey, query);
             case 'tavily':
-                return await tavilySearch(this.host, this.apiKey, query);
+                return await tavilySearch(host, this.apiKey, query);
             default:
                 return [];
         }

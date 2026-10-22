@@ -727,7 +727,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     this.logger.warn('productions: the re-draft of a beat that named a record failed, so the first one stands', {
                         production: claimed.id,
                         beat: beat.ordinal,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: errorText(error),
                     });
                 }
             }

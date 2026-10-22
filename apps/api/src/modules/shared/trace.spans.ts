@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { errorText } from './error.text.js';
 import { currentTrace } from './trace.context.js';
 
 /**
@@ -233,7 +234,7 @@ export async function recordingSpan<T>(op: string, target: string, fn: () => Pro
 
 /** Everything a caller needs to describe a failure the same way twice. */
 export function spanError(error: unknown): string {
-    const text = error instanceof Error ? error.message : String(error);
+    const text = errorText(error);
     return text.slice(0, ERROR_CHARS);
 }
 

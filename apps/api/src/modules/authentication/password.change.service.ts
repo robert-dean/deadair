@@ -9,6 +9,7 @@ import { MailService } from '#modules/mail/mail.service.js';
 import { SessionActivityService } from './session.activity.service.js';
 import { StrongFactorGate } from './strong.factor.gate.js';
 import { PasswordChange } from './types/registration.types.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * How recently a sign-in link must have been used for it to stand in for the current password.
@@ -113,9 +114,7 @@ export class PasswordChangeService {
         this.afterCommit.add(async () => {
             for (const to of addresses) {
                 await this.mailService.send({ to, template: 'PasswordChanged', data: { added } }).catch((error: unknown) => {
-                    this.logger.warn(
-                        `authentication: could not tell ${to} their password changed (${error instanceof Error ? error.message : String(error)})`,
-                    );
+                    this.logger.warn(`authentication: could not tell ${to} their password changed (${errorText(error)})`);
                 });
             }
         });

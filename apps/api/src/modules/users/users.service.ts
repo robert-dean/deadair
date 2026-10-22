@@ -13,6 +13,7 @@ import { MailService } from '#modules/mail/mail.service.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { UsersRepository, type UserRow } from './users.repository.js';
 import { UserDetail, UserPage, UserSummary, type UserQueryInput, type UserRoleChange, type UserSignIn } from './types/users.types.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /** How many recent sign-ins a person's page shows. */
 export const RECENT_SIGN_INS = 20;
@@ -162,9 +163,7 @@ export class UsersService {
             const to = person.email;
             this.afterCommit.add(async () => {
                 await this.mail.send({ to, template: 'SecondFactorReset', data: {} }).catch((error: unknown) => {
-                    this.logger.warn(
-                        `users: could not tell ${to} their second step was reset (${error instanceof Error ? error.message : String(error)})`,
-                    );
+                    this.logger.warn(`users: could not tell ${to} their second step was reset (${errorText(error)})`);
                 });
             });
         }

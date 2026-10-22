@@ -637,11 +637,21 @@ and never about whichever feed happened to answer first.
 `BulletinSource` took the top `rotation.newsStoriesMin`–`Max` off a newest-first feed with nothing remembering
 the last bulletin, so on a feed that had not moved the same three stories went out in twenty-seven consecutive
 bulletins across seven hours — which the twelve-hour freshness window permits and a listener cannot tell from
-the station being wrong. `ReadLog` is what it now checks against: **in memory, and that is a decision rather
-than a shortcut** — what was reported is already durable in `script_history`, one row per bulletin, so this
-holds only "may I say it again", a question with a twelve-hour half-life, and a restart costs one repeated
-bulletin instead of a migration and a sweep. Memory is the authority and the row is the record, exactly as for
-the running order. Keyed on the HEADLINE rather than the item id, because one story carried by two newsrooms
+the station being wrong. `ReadLog` is what it now checks against. What was reported is already durable in
+`script_history`, one row per bulletin, so this holds only "may I say it again", a question with a twelve-hour
+half-life, and memory answers it.
+
+**Memory alone did not survive a release, and the station restarts on every one.** It used to be memory
+only, on the argument that a restart cost one repeated bulletin. A restart forgets the whole window, though,
+so it costs a repeat of every story still on the feed, and on a day with six or seven releases that is most
+of the news. Measured on air on 21 October: one prisoner release and one software vulnerability each went out
+in three bulletins with releases between them, and on 20 October one headline was read word for word at 13:07
+and again at 14:32 across a 13:23 release. So `ReadLog` now writes through to `ReadLogStore`, a Redis sorted
+set scored by the instant each headline was read: the first `keep` or `forget` after boot reads it back, and
+`forget` prunes it with one range delete, so there is still no migration and no sweep. The station already
+runs a Redis for its sessions, and the `full` image saves it under `/data/redis`. A store that fails is
+logged and never costs a bulletin: the log carries on in memory, and the next restart repeats the window,
+which is all memory alone ever bought. Keyed on the HEADLINE rather than the item id, because one story carried by two newsrooms
 is two ids and one thing a listener hears twice; it does not catch two publishers WORDING one story
 differently, and nothing here does. Marked at SELECTION, so a bulletin that never airs has still spent its
 stories — the same inaccuracy `chooseFacts` buys, against the same alternative of a second writer that can

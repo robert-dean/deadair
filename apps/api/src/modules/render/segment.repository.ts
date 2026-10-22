@@ -625,10 +625,10 @@ export class SegmentRepository extends DataRepository {
      * How many breaks the station has written since the last one that hit a pad.
      *
      * What the deterministic floor's spacing is judged against, and it is counted from the ROWS
-     * rather than held in memory for `ReadLog`'s inverse reason: a bulletin's read log is a question
-     * with a twelve-hour half-life and a restart costing one repeated story, where this is a
-     * rhythm — a station restarted every hour would hit a pad on the first break every time, which
-     * is the one pattern a listener would actually notice.
+     * rather than held in memory, because a restart must not reset it: this is a rhythm, and a
+     * station restarted every hour would hit a pad on the first break every time, which is the one
+     * pattern a listener would actually notice. `ReadLog` learned the same thing about stories and
+     * now writes through to Redis.
      *
      * Counted over everything the station WROTE rather than over what aired, because a break dropped
      * before its slot still spent its pad (`PadRepository.markUsed` stamps at selection, and this has

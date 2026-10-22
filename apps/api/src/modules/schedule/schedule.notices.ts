@@ -16,8 +16,9 @@ import { Injectable } from 'injectkit';
  *
  * This holds "may I say that again", a question with no value past the current process: what actually
  * happened is already durable in `station_events`, and a restart costing one repeated line is cheaper
- * than a table and a sweep for it. Exactly the call `ReadLog` makes for a bulletin's stories, and for
- * the same reason — memory is the authority, and the row is the record.
+ * than a table and a sweep for it. Memory is the authority, and the row is the record. `ReadLog` made
+ * the same call for a bulletin's stories and had to take it back, because a restart there repeats every
+ * story in a twelve-hour window rather than one line, and the station restarts on every release.
  *
  * A singleton, because the job is transient and rebuilt on every run.
  */

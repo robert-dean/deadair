@@ -83,8 +83,10 @@ export interface AlmanacReport {
  * ## In memory, and that is a decision rather than a shortcut
  *
  * What was said is already durable in `script_history`, one row per break. This holds only "may I
- * say it again today", a question with a lifetime of hours, so a restart costs one repeated
- * anniversary instead of a migration and a sweep. `ReadLog`'s argument exactly.
+ * say it again today", a question with a lifetime of hours, so a restart costs a repeat of what was
+ * said today instead of a migration and a sweep. `ReadLog` made this argument too and now writes
+ * through to Redis, because releases restart the station several times a day; the same may yet be
+ * worth doing here.
  *
  * ## Forgotten by the DATE rather than by a window
  *

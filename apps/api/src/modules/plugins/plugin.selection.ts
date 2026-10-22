@@ -193,7 +193,7 @@ export function explainDefaultPick(
  * every commit pass, which is a line every track boundary for as long as the operator leaves the key
  * unset.
  *
- * In memory rather than anywhere durable, on `ReadLog`'s argument: this holds "have I said this
+ * In memory rather than anywhere durable: this holds "have I said this
  * yet", a question whose whole lifetime is this process, and a restart costs one repeated log line
  * rather than a migration. Keyed by the SETTING, since that is what identifies the capability, and
  * valued by the answer — so an install, an uninstall, or the operator finally choosing all report

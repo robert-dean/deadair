@@ -10,6 +10,7 @@ import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakStory, BreakSubject } from './break.writer.js';
+import { ReadLogStore } from './bulletin.read.store.js';
 import { NEWS_KIND } from './news.break.writer.js';
 
 /**
@@ -133,14 +134,25 @@ const MAX_BODY_CHARS = 700;
  * consecutive bulletins across seven hours, because that is what the feed had and the freshness
  * window is twelve hours. A listener hears a station with nothing to say pretending to have news.
  *
- * ## Why memory rather than a table
+ * ## Memory is the authority, and {@link ReadLogStore} carries it across a restart
  *
  * This is a WORKING SET, not a record. What was reported is already durable in
  * `deadair.script_history`, one row per bulletin, which is where "what did the station say last
  * Tuesday" is answered. What this holds is only "may I say it again", a question with a twelve-hour
- * half-life — so a restart costs at most one repeated bulletin and heals itself on the next one,
- * which is a smaller price than a migration and a sweep for a fact that expires by lunchtime. It is
- * the same split the running order makes: memory is the authority, and the row is the record.
+ * half-life, so `has` answers from memory and never waits on anything.
+ *
+ * It was memory ONLY for a long time, on the argument that a restart costs one repeated bulletin.
+ * That was wrong twice over. A restart forgets every story in the window, so it costs a repeat of
+ * each one still on the feed, spread over the bulletins that follow; and this station restarts on
+ * every release, six or seven times on a busy day. Measured on air on 21 October: the same Russian
+ * prisoner release and the same PHP vulnerability each read in three bulletins, with releases
+ * between them, and on 20 October one headline read word for word at 13:07 and again at 14:32
+ * across a 13:23 release.
+ *
+ * So what is kept is written through to the store, and read back on the first `keep` or `forget`
+ * after boot. Both of those are awaited before any `has`, which is the order `storiesFor` already
+ * asks in. A store that fails is logged and costs what memory alone always cost: a restart repeats
+ * the window. It never costs a bulletin, because nothing here throws.
  *
  * ## Keyed on the HEADLINE rather than on the item id
  *
@@ -177,15 +189,25 @@ const MAX_BODY_CHARS = 700;
 @Injectable()
 export class ReadLog {
     private readonly readAt = new Map<string, number>();
+    /** The one read of the store this process makes, once it has succeeded. A failed one is tried again. */
+    private restored?: Promise<void>;
 
-    /** Whether this headline has already gone out inside the window. */
+    constructor(
+        private readonly store: ReadLogStore,
+        private readonly logger: Logger,
+    ) {}
+
+    /** Whether this headline has already gone out inside the window. Valid once a `keep` or `forget` has been awaited. */
     has(headline: string): boolean {
         return this.readAt.has(key(headline));
     }
 
     /** Mark everything this bulletin is about to read. */
-    keep(headlines: readonly string[], now: number): void {
-        for (const headline of headlines) this.readAt.set(key(headline), now);
+    async keep(headlines: readonly string[], now: number): Promise<void> {
+        await this.restore();
+        const keys = headlines.map(key);
+        for (const heard of keys) this.readAt.set(heard, now);
+        await this.persist('keep', () => this.store.save(keys, now));
     }
 
     /**
@@ -199,9 +221,43 @@ export class ReadLog {
      * Pruned against the same window the fetch uses, so the log can never hold a story that could
      * still be offered, which is what keeps it bounded without a sweep of its own.
      */
-    forget(before: number): void {
+    async forget(before: number): Promise<void> {
+        await this.restore();
         for (const [seen, at] of this.readAt) {
             if (at < before) this.readAt.delete(seen);
+        }
+        await this.persist('prune', () => this.store.prune(before));
+    }
+
+    /**
+     * What an earlier process read, merged under what this one has.
+     *
+     * Merged rather than assigned, keeping the later instant of the two, so a read that lands after
+     * this process has already kept something cannot hand a story back.
+     */
+    private restore(): Promise<void> {
+        this.restored ??= this.store.load().then(
+            saved => {
+                for (const [heard, at] of saved) {
+                    if (at > (this.readAt.get(heard) ?? Number.NEGATIVE_INFINITY)) this.readAt.set(heard, at);
+                }
+                if (saved.size > 0) this.logger.debug('director: the read log was restored', { headlines: saved.size });
+            },
+            (error: unknown) => {
+                this.restored = undefined;
+                this.logger.warn(
+                    `director: the read log could not be restored, so a story read before the restart may be read again (${errorText(error)})`,
+                );
+            },
+        );
+        return this.restored;
+    }
+
+    private async persist(what: string, write: () => Promise<void>): Promise<void> {
+        try {
+            await write();
+        } catch (error) {
+            this.logger.warn(`director: the read log could not ${what} in its store (${errorText(error)})`);
         }
     }
 }
@@ -284,7 +340,7 @@ export interface Bulletin {
 export class BulletinSource {
     constructor(
         private readonly news: NewsService,
-        /** See {@link ReadLog}. A singleton beside this scoped class, and deliberately not persisted. */
+        /** See {@link ReadLog}. A singleton beside this scoped class, written through to Redis. */
         private readonly read: ReadLog,
         private readonly topics: TopicRepository,
         /** See {@link CategoryWatch}. A singleton for the same reason the read log is. */
@@ -343,7 +399,7 @@ export class BulletinSource {
             // Before the filter, and before the fetch now that the fetch consults it, so a story that
             // has aged past the window is sayable again even on a station whose every recent
             // bulletin declined. See `ReadLog.forget`.
-            this.read.forget(now - windowMs);
+            await this.read.forget(now - windowMs);
 
             const offer = (page: readonly NewsItem[]): BreakStory[] => page.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []);
             const eligibleIn = (page: readonly BreakStory[]): BreakStory[] => {
@@ -416,7 +472,7 @@ export class BulletinSource {
                 return { stories: [] };
             }
 
-            this.read.keep(
+            await this.read.keep(
                 stories.map(story => story.headline),
                 now,
             );

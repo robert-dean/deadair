@@ -4,7 +4,9 @@ import { privateAddressBehind, resolveAddresses as systemResolver, type AddressR
 import { PluginOperatorHosts } from '#modules/plugins/plugin.operator.hosts.js';
 import { ArtRepository } from './art.repository.js';
 import { ART_CONTENT_TYPES, ArtExtension, ArtStore } from './art.store.js';
+import { readBounded } from '#modules/shared/bounded.body.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { followRedirects } from '#modules/shared/redirect.hops.js';
 
 /**
  * How long one image may take.
@@ -35,9 +37,6 @@ const MAX_RETRY_MS = 24 * 60 * 60 * 1000;
  * a CDN adds at most one more. The same five a plugin's own fetch gets.
  */
 const MAX_REDIRECTS = 5;
-
-/** The statuses that carry a `location` to follow. */
-const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 /** What the caller learns about one URL. `cached` means bytes are now on disk under `id`. */
 export type ArtCacheOutcome = { cached: true; id: string } | { cached: false; reason: string };
@@ -144,44 +143,36 @@ export class ArtCacheService {
      * local file read. That is a guard against a mistake; the private-address check on each hop is
      * the guard against the upstream (see the class).
      *
-     * Redirects are followed by hand so each hop's name is checked before it is connected to, which a
-     * `redirect: 'follow'` fetch would not allow. One deadline covers the whole chain and the body.
+     * Redirects are followed by hand ({@link followRedirects}) so each hop's name is checked before it
+     * is connected to, which a `redirect: 'follow'` fetch would not allow. One deadline covers the
+     * whole chain and the body.
      */
     private async download(sourceUrl: string, signal?: AbortSignal): Promise<{ body: Buffer; ext: ArtExtension; contentType: string }> {
         const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
         const aborted = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
-        let address = parseAddress(sourceUrl);
-        let from: URL | undefined;
-        for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-            await this.refusePrivate(address, from);
+        const response = await followRedirects(parseAddress(sourceUrl), {
+            fetch: this.options.fetch,
+            init: { signal: aborted },
+            maxRedirects: MAX_REDIRECTS,
+            beforeHop: (address, from) => this.refusePrivate(address, from),
+            next: (location, from) => parseAddress(location, from),
+            tooMany: () => new Error(`upstream redirected more than ${MAX_REDIRECTS} times`),
+        });
 
-            const response = await this.options.fetch(address, { redirect: 'manual', signal: aborted });
-
-            const location = response.headers.get('location');
-            if (REDIRECTS.has(response.status) && location !== null) {
-                await response.body?.cancel().catch(() => undefined);
-                from = address;
-                address = parseAddress(location, address);
-                continue;
-            }
-
-            if (!response.ok) {
-                await response.body?.cancel().catch(() => undefined);
-                throw new Error(`upstream answered ${response.status}`);
-            }
-
-            const contentType = response.headers.get('content-type');
-            const ext = extensionFor(contentType);
-            if (ext === undefined) {
-                await response.body?.cancel().catch(() => undefined);
-                throw new Error(`not an image: ${contentType ?? 'no content type'}`);
-            }
-
-            return { body: await this.readCapped(response), ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
+        if (!response.ok) {
+            await response.body?.cancel().catch(() => undefined);
+            throw new Error(`upstream answered ${response.status}`);
         }
 
-        throw new Error(`upstream redirected more than ${MAX_REDIRECTS} times`);
+        const contentType = response.headers.get('content-type');
+        const ext = extensionFor(contentType);
+        if (ext === undefined) {
+            await response.body?.cancel().catch(() => undefined);
+            throw new Error(`not an image: ${contentType ?? 'no content type'}`);
+        }
+
+        return { body: await readCapped(response), ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
     }
 
     /**
@@ -217,26 +208,15 @@ export class ArtCacheService {
         });
         throw new Error(`${address.hostname} reaches the private address ${behind}${redirected}, and is not a server the operator configured`);
     }
+}
 
-    /** The body, refusing anything over {@link MAX_BYTES} as it arrives rather than after it lands. */
-    private async readCapped(response: Response): Promise<Buffer> {
-        if (response.body === null) throw new Error('upstream sent no body');
+/** The body, refusing anything over {@link MAX_BYTES} as it arrives rather than after it lands. */
+async function readCapped(response: Response): Promise<Buffer> {
+    if (response.body === null) throw new Error('upstream sent no body');
 
-        const chunks: Buffer[] = [];
-        let total = 0;
+    const body = await readBounded(response.body, MAX_BYTES);
+    if (body === undefined) throw new Error(`image is larger than ${MAX_BYTES} bytes`);
+    if (body.byteLength === 0) throw new Error('upstream sent an empty body');
 
-        for await (const chunk of response.body) {
-            const buffer = Buffer.from(chunk as Uint8Array);
-            total += buffer.byteLength;
-            if (total > MAX_BYTES) {
-                await response.body.cancel().catch(() => undefined);
-                throw new Error(`image is larger than ${MAX_BYTES} bytes`);
-            }
-            chunks.push(buffer);
-        }
-
-        if (total === 0) throw new Error('upstream sent an empty body');
-
-        return Buffer.concat(chunks);
-    }
+    return body;
 }

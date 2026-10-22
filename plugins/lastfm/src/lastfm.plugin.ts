@@ -363,6 +363,8 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
      * 1994" needs a different source.
      */
     async fetchChart(query: ChartQuery): Promise<ChartEntry[]> {
+        const host = this.host;
+
         if (!this.client) return [];
 
         const limit = String(Math.max(1, Math.min(query.limit, 100)));
@@ -387,7 +389,7 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
 
             return entries;
         } catch (error) {
-            this.host.logger.debug('lastfm could not read a chart', { chartId: query.chartId, reason: errorText(error) });
+            host.logger.debug('lastfm could not read a chart', { chartId: query.chartId, reason: errorText(error) });
             return [];
         }
     }
@@ -633,14 +635,16 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
      * which is the right way for that to break.
      */
     async getAuthorizeUrl(state: string): Promise<string> {
+        const host = this.host;
+
         if (!this.client) throw new LastfmRequestError(200, 'Add your Last.fm API key first', { apiError: LASTFM_ERROR.invalidApiKey });
 
         const { token } = await this.client.get<LastfmTokenResponse>('auth.getToken');
         if (!token) throw new LastfmRequestError(200, 'Last.fm would not issue a request token');
 
-        const redirect = await this.host.oauth.getRedirectUri();
+        const redirect = await host.oauth.getRedirectUri();
         const callback = `${redirect}${redirect.includes('?') ? '&' : '?'}state=${encodeURIComponent(state)}`;
-        const apiKey = (await this.host.secrets.get('apiKey'))?.trim() ?? '';
+        const apiKey = (await host.secrets.get('apiKey'))?.trim() ?? '';
 
         return `${AUTH_ORIGIN}?api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}&cb=${encodeURIComponent(callback)}`;
     }
@@ -653,6 +657,8 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
      * the settings card can say whose account this is.
      */
     async handleCallback(params: Record<string, string>): Promise<void> {
+        const host = this.host;
+
         const token = params.token?.trim();
         if (!this.client || !token) throw new LastfmRequestError(200, 'Last.fm did not return a token to exchange');
 
@@ -660,12 +666,12 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
         const key = response.session?.key?.trim();
         if (!key) throw new LastfmRequestError(200, 'Last.fm would not issue a session key');
 
-        await this.host.oauth.saveTokens({
+        await host.oauth.saveTokens({
             [SESSION_KEY]: key,
             [SESSION_USER]: response.session?.name?.trim() ?? '',
         });
 
-        this.host.logger.info('lastfm account connected', { user: response.session?.name });
+        host.logger.info('lastfm account connected', { user: response.session?.name });
     }
 
     // ------------------------------------------------------------------ internals

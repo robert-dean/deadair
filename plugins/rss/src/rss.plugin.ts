@@ -294,6 +294,8 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
      * combinations spend one.
      */
     private async storyFor(item: NewsItem, carried: number): Promise<{ content?: string; fetched: boolean } | undefined> {
+        const host = this.host;
+
         const url = item.url;
         if (url === undefined) return undefined;
 
@@ -305,13 +307,13 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         // Both checks before starting one, for the reason the feed loop's is:
         // being cut off mid-page costs the request and leaves nothing to show.
         if (carried >= MAX_STORIES) return undefined;
-        if (this.host.remainingMs() < ARTICLE_BUDGET_MS) {
-            this.host.logger.debug('rss: stopped short of the stories, out of budget', { read: carried });
+        if (host.remainingMs() < ARTICLE_BUDGET_MS) {
+            host.logger.debug('rss: stopped short of the stories, out of budget', { read: carried });
             return undefined;
         }
 
         try {
-            const text = await fetchArticle(this.host, url, { timeoutMs: ARTICLE_TIMEOUT_MS });
+            const text = await fetchArticle(host, url, { timeoutMs: ARTICLE_TIMEOUT_MS });
             this.articles.set(url, { ...(text === undefined ? {} : { text }), readAt: Date.now() });
             return { ...(text === undefined ? {} : { content: text }), fetched: true };
         } catch (error) {
@@ -319,7 +321,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
             // the publisher having a bad minute and the next bulletin should try
             // again. The publisher's own words are not repeated; see
             // {@link RssPlugin.read}.
-            this.host.logger.debug('rss: a story could not be read', { feed: item.feedId, error: message(error) });
+            host.logger.debug('rss: a story could not be read', { feed: item.feedId, error: message(error) });
             return { fetched: true };
         }
     }
@@ -333,11 +335,13 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
      * news, which is the opposite of what a cache is for here.
      */
     private async read(feed: ConfiguredFeed): Promise<NewsItem[]> {
+        const host = this.host;
+
         const cached = this.cache.get(feed.url);
         if (cached !== undefined && Date.now() - cached.readAt < this.cacheSeconds * 1_000) return cached.items;
 
         try {
-            const parsed = await fetchFeed(this.host, feed.url, { timeoutMs: REQUEST_TIMEOUT_MS });
+            const parsed = await fetchFeed(host, feed.url, { timeoutMs: REQUEST_TIMEOUT_MS });
             const items = parsed.items.slice(0, this.maxItems).map(entry => toNewsItem(entry, feed.descriptor));
 
             this.cache.set(feed.url, { items, readAt: Date.now() });
@@ -345,7 +349,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         } catch (error) {
             // The publisher's own words are not repeated: this line ends up in a
             // log an operator reads, and the useful half is which feed failed.
-            this.host.logger.warn('rss: a feed could not be read', { feed: feed.descriptor.id, error: message(error) });
+            host.logger.warn('rss: a feed could not be read', { feed: feed.descriptor.id, error: message(error) });
             return [];
         }
     }

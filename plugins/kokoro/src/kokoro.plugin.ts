@@ -155,13 +155,15 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
      * right there.
      */
     async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        const host = this.host;
+
         if (this.baseUrl.length === 0) return {};
 
         let voices: string[];
         try {
             voices = await this.fetchEngineVoices();
         } catch (error) {
-            this.host.logger.debug('kokoro could not suggest voices', { error: error instanceof Error ? error.message : String(error) });
+            host.logger.debug('kokoro could not suggest voices', { error: error instanceof Error ? error.message : String(error) });
             return {};
         }
 
@@ -199,6 +201,8 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
+        const host = this.host;
+
         if (this.baseUrl.length === 0) {
             throw new PluginError('kokoro has no server URL configured').withCode('config');
         }
@@ -211,7 +215,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         const voice = mapping.engine;
 
         const endpoint = `${this.baseUrl}/audio/speech`;
-        const response = await this.host.fetch(endpoint, {
+        const response = await host.fetch(endpoint, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({
@@ -236,7 +240,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
                 .withUpstreamStatus(response.status);
         }
 
-        this.host.logger.debug('kokoro speaking', {
+        host.logger.debug('kokoro speaking', {
             voice,
             format,
             chars: text.length,

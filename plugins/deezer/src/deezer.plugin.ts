@@ -162,6 +162,8 @@ export class DeezerPlugin extends Plugin implements SimilarityPluginInstance {
      * its API.
      */
     private async artistId(ref: ArtistRef): Promise<number | undefined> {
+        const host = this.host;
+
         const client = this.client;
         const name = ref.name?.trim();
         if (!client || !name) return undefined;
@@ -169,14 +171,14 @@ export class DeezerPlugin extends Plugin implements SimilarityPluginInstance {
         const found = await client.get<DeezerList<DeezerArtist>>('search/artist', { q: name, limit: '10' });
         const artist = exactArtist(found.data ?? [], name);
         if (!artist?.id) {
-            this.host.logger.debug('deezer does not carry that artist under that name', { artist: name });
+            host.logger.debug('deezer does not carry that artist under that name', { artist: name });
             return undefined;
         }
 
         // The second half of the chain is only worth starting with time to
         // finish it in.
-        if (this.host.remainingMs() < STEP_BUDGET_MS) {
-            this.host.logger.debug('deezer ran out of budget before asking', { artist: name });
+        if (host.remainingMs() < STEP_BUDGET_MS) {
+            host.logger.debug('deezer ran out of budget before asking', { artist: name });
             return undefined;
         }
 

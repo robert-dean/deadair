@@ -365,6 +365,8 @@ export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance,
 
     /** The recording id first, then the name search. See {@link chooseSong}. */
     private async songId(ref: TrackRef): Promise<string | undefined> {
+        const host = this.host;
+
         if (ref.mbid) {
             const recording = await this.identify(PROPERTY_MUSICBRAINZ_RECORDING, ref.mbid);
             // Only worth taking when it actually reaches an article. A recording
@@ -375,7 +377,7 @@ export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance,
         }
 
         const terms = songSearchTerms(ref.title, ref.artist);
-        if (!terms || this.host.remainingMs() < STEP_BUDGET_MS) return undefined;
+        if (!terms || host.remainingMs() < STEP_BUDGET_MS) return undefined;
 
         const response = await this.wikidata!.get<MediaWikiSearchResponse>({
             action: 'query',
@@ -385,7 +387,7 @@ export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance,
         });
 
         const ids = searchedIds(response, SEARCH_LIMIT);
-        if (ids.length === 0 || this.host.remainingMs() < STEP_BUDGET_MS) return undefined;
+        if (ids.length === 0 || host.remainingMs() < STEP_BUDGET_MS) return undefined;
 
         const entities = await this.entities(ids, 'labels|sitelinks|claims');
         const candidates = ids.map(id => songCandidate(id, entities.get(id), this.language));
@@ -454,14 +456,16 @@ export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance,
      * pass the search that found it.
      */
     private async enrichmentFor(id: string): Promise<IdentifiedEnrichment> {
+        const host = this.host;
+
         const base = { providerRef: id, externalIds: [{ source: 'wikidata', id }] };
-        if (this.host.remainingMs() < STEP_BUDGET_MS) return base;
+        if (host.remainingMs() < STEP_BUDGET_MS) return base;
 
         const title = await this.articleFor(id);
         if (!title) return base;
 
         const link = { label: 'Wikipedia', url: articleUrl(this.language, title) };
-        if (this.host.remainingMs() < STEP_BUDGET_MS) return { ...base, links: [link] };
+        if (host.remainingMs() < STEP_BUDGET_MS) return { ...base, links: [link] };
 
         const document = await this.article(title);
 

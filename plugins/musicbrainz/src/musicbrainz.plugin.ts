@@ -327,13 +327,15 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * worth nothing, and thrown it would count against the circuit the durable path relies on.
      */
     async nowPlaying(play: ScrobblePlay): Promise<void> {
+        const host = this.host;
+
         if (!(await this.accepting()) || !this.listenBrainz) return;
 
         const { listened_at: _listenedAt, ...listen } = listenOf(play);
         try {
             await this.listenBrainz.submitListens({ listen_type: 'playing_now', payload: [listen] });
         } catch (error) {
-            this.host.logger.debug('listenbrainz playing-now was not taken', { error: errorText(error) });
+            host.logger.debug('listenbrainz playing-now was not taken', { error: errorText(error) });
         }
     }
 
@@ -448,6 +450,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * stores as a miss on a short clock rather than as an answer.
      */
     async enrichTracks(refs: TrackRef[]): Promise<Partial<TrackEnrichment>[]> {
+        const host = this.host;
+
         const answers: Partial<TrackEnrichment>[] = refs.map(() => ({}));
         if (!this.client) return answers;
 
@@ -465,8 +469,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
             // ref start with far less time than it needs. Stopping early leaves
             // those refs outstanding for the next pass, which is strictly
             // better than losing the whole call's work to a timeout.
-            if (this.host.remainingMs() < TAIL_MIN_MS) {
-                this.host.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: outstanding.length });
+            if (host.remainingMs() < TAIL_MIN_MS) {
+                host.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: outstanding.length });
                 break;
             }
 
@@ -507,6 +511,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         // whether or not there is a token, because similarity uses an endpoint
         // that needs none, and the batching this path is for answers 401
         // without one.
+        const host = this.host;
+
         if (!this.listenBrainz?.authenticated || outstanding.length === 0) return outstanding;
 
         const answered = new Set<number>();
@@ -543,7 +549,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
                 answered.add(index);
             }
 
-            this.host.logger.debug('listenbrainz answered a batch', {
+            host.logger.debug('listenbrainz answered a batch', {
                 asked: chunk.length,
                 matched: chunk.filter(index => answered.has(index)).length,
             });
@@ -562,6 +568,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * line up with the release MusicBrainz chose.
      */
     private async resolveByRelease(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+        const host = this.host;
+
         const groups = new Map<string, number[]>();
         for (const index of outstanding) {
             const album = refs[index]!.album;
@@ -591,7 +599,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
                 answered.add(index);
             }
 
-            this.host.logger.debug('musicbrainz answered a record from its tracklist', {
+            host.logger.debug('musicbrainz answered a record from its tracklist', {
                 album: refs[indices[0]!]!.album,
                 asked: indices.length,
                 matched: indices.filter(index => answered.has(index)).length,
@@ -626,6 +634,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * mismatch rather than fall through to the per-ref path that would catch it.
      */
     private async resolveByIsrcBatch(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+        const host = this.host;
+
         const withIsrc = outstanding.filter(index => refs[index]!.isrc);
         if (withIsrc.length < 2) return outstanding;
 
@@ -647,7 +657,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
                 answered.add(index);
             }
 
-            this.host.logger.debug('musicbrainz identified a batch of isrcs in one search', { asked: chunk.length, matched: taken.size });
+            host.logger.debug('musicbrainz identified a batch of isrcs in one search', { asked: chunk.length, matched: taken.size });
         }
 
         return outstanding.filter(index => !answered.has(index));
@@ -755,6 +765,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * `albumSearchTitle` for what that cost.
      */
     private async searchReleaseGroup(ref: AlbumRef): Promise<string | undefined> {
+        const host = this.host;
+
         const title = albumSearchTitle(ref.name);
         const response = await this.client!.get<MusicBrainzReleaseGroupSearchResponse>('release-group', {
             query: `releasegroup:"${escapeLucene(title)}" AND artist:"${escapeLucene(ref.artist)}"`,
@@ -762,7 +774,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         });
 
         const found = selectReleaseGroup(response['release-groups'] ?? []);
-        if (!found?.id) this.host.logger.debug('musicbrainz found no release group', { album: ref.name, searched: title, artist: ref.artist });
+        if (!found?.id) host.logger.debug('musicbrainz found no release group', { album: ref.name, searched: title, artist: ref.artist });
         return found?.id;
     }
 
@@ -979,9 +991,11 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * one record instead of fifty.
      */
     private async canonicalRecording(ref: TrackRef): Promise<string | undefined> {
+        const host = this.host;
+
         const [found] = await this.listenBrainz!.lookup([toLookupQuery(ref)]);
         const mbid = found?.recording_mbid;
-        if (!mbid) this.host.logger.debug('listenbrainz does not know that record by that name', { artist: ref.artist, title: ref.title });
+        if (!mbid) host.logger.debug('listenbrainz does not know that record by that name', { artist: ref.artist, title: ref.title });
         return mbid;
     }
 
@@ -995,13 +1009,15 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * which the host remembers as a miss on a short clock.
      */
     private async searchArtist(name: string): Promise<string | undefined> {
+        const host = this.host;
+
         const response = await this.client!.get<MusicBrainzArtistSearchResponse>('artist', {
             query: `artist:"${escapeLucene(name)}"`,
             limit: '1',
         });
 
         const found = response.artists?.[0];
-        if (!found?.id) this.host.logger.debug('musicbrainz found no artist by that name', { artist: name });
+        if (!found?.id) host.logger.debug('musicbrainz found no artist by that name', { artist: name });
         return found?.id;
     }
 
@@ -1016,16 +1032,18 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * hiccup on the third request should not throw away the two that worked.
      */
     private async optional<T>(step: string, run: () => Promise<T | undefined>): Promise<T | undefined> {
-        const remainingMs = (await this.host?.remainingMs()) ?? 0;
+        const host = this.host;
+
+        const remainingMs = (await host?.remainingMs()) ?? 0;
         if (remainingMs < OPTIONAL_STEP_MIN_MS) {
-            this.host.logger.debug('musicbrainz skipped an optional lookup, out of budget', { step, remainingMs });
+            host.logger.debug('musicbrainz skipped an optional lookup, out of budget', { step, remainingMs });
             return undefined;
         }
 
         try {
             return await run();
         } catch (error) {
-            this.host.logger.debug('musicbrainz dropped an optional lookup', { step, reason: errorText(error) });
+            host.logger.debug('musicbrainz dropped an optional lookup', { step, reason: errorText(error) });
             return undefined;
         }
     }
@@ -1069,6 +1087,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * of a provider's ISRCs are simply not in the database.
      */
     private async lookupIsrc(ref: TrackRef): Promise<RecordingMatch | undefined> {
+        const host = this.host;
+
         if (!ref.isrc) return undefined;
 
         // Upper case, because MusicBrainz answers 400 rather than 404 for a
@@ -1080,7 +1100,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         try {
             const response = await this.client!.get<MusicBrainzIsrcResponse>(`isrc/${encodeURIComponent(isrc)}`, { inc: CANDIDATE_INC });
             const match = selectByIsrc(response.recordings ?? [], ref);
-            if (!match) this.host.logger.debug('musicbrainz isrc resolved to nothing usable', { isrc });
+            if (!match) host.logger.debug('musicbrainz isrc resolved to nothing usable', { isrc });
             return match;
         } catch (error) {
             // 404 is a code MusicBrainz has never seen; 400 is one it will not
@@ -1089,7 +1109,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
             // less still to spend a strike on the breaker and have one bad code
             // in a rotation quarantine the plugin.
             if (error instanceof MusicBrainzRequestError && (error.status === 404 || error.status === 400)) {
-                this.host.logger.debug('musicbrainz would not take that isrc, falling back to the search', { isrc, status: error.status });
+                host.logger.debug('musicbrainz would not take that isrc, falling back to the search', { isrc, status: error.status });
                 return undefined;
             }
             throw error;
@@ -1097,6 +1117,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
     }
 
     private async searchRecording(ref: TrackRef): Promise<RecordingMatch | undefined> {
+        const host = this.host;
+
         const response = await this.client!.get<MusicBrainzRecordingSearchResponse>('recording', {
             query: buildRecordingQuery(ref),
             limit: String(SEARCH_LIMIT),
@@ -1104,7 +1126,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
 
         const match = selectRecording(response.recordings ?? [], ref, this.matchScore);
         if (!match) {
-            this.host.logger.debug('musicbrainz found no confident match', { artist: ref.artist, title: ref.title, minScore: this.matchScore });
+            host.logger.debug('musicbrainz found no confident match', { artist: ref.artist, title: ref.title, minScore: this.matchScore });
         }
         return match;
     }
@@ -1119,12 +1141,14 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * what is in hand beats losing a confident match to a hiccup.
      */
     private async loadRecording(candidate: MusicBrainzRecording): Promise<MusicBrainzRecording> {
+        const host = this.host;
+
         if (!candidate.id) return candidate;
 
         try {
             return await this.client!.get<MusicBrainzRecording>(`recording/${candidate.id}`, { inc: RECORDING_INC });
         } catch (error) {
-            this.host.logger.warn('musicbrainz recording lookup failed, using the search result', {
+            host.logger.warn('musicbrainz recording lookup failed, using the search result', {
                 recordingId: candidate.id,
                 reason: errorText(error),
             });

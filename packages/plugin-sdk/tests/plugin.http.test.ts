@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { PluginError } from '../src/plugin.error.js';
 import {
     HOST_FETCH_METHODS,
     headersToRecord,
@@ -7,6 +8,7 @@ import {
     pluginCodeForStatus,
     retryAfterMs,
     truncateUpstreamMessage,
+    UpstreamRequestError,
     upstreamDetail,
     upstreamField,
 } from '../src/plugin.http.js';
@@ -131,5 +133,67 @@ describe('headersToRecord', () => {
 
     it('is empty for no headers', () => {
         expect(headersToRecord(new Headers())).toEqual({});
+    });
+});
+
+describe('UpstreamRequestError', () => {
+    class ExampleRequestError extends UpstreamRequestError {
+        constructor(message: string, status: number) {
+            super(status, message);
+            this.name = 'ExampleRequestError';
+        }
+
+        get isMissing(): boolean {
+            return this.status === 404;
+        }
+    }
+
+    it('classifies from the status and records it, so a subclass only names itself', () => {
+        const error = new ExampleRequestError('no such thing', 404);
+
+        expect(error).toBeInstanceOf(ExampleRequestError);
+        expect(error).toBeInstanceOf(UpstreamRequestError);
+        expect(error).toBeInstanceOf(PluginError);
+        expect(error.name).toBe('ExampleRequestError');
+        expect(error.status).toBe(404);
+        expect(error.upstreamStatus).toBe(404);
+        expect(error.code).toBe('not_found');
+        expect(error.isMissing).toBe(true);
+    });
+
+    it('takes a code of its own over the shared ladder', () => {
+        expect(new UpstreamRequestError(401, 'bad token', { code: 'config' }).code).toBe('config');
+    });
+
+    it('keeps the retry advice even when the code would not be retryable on its own', () => {
+        const error = new UpstreamRequestError(400, 'slow down', { code: 'upstream', retryAfterMs: 2_000 });
+
+        expect(error.retryable).toBe(true);
+        expect(error.retryAfterMs).toBe(2_000);
+    });
+
+    it('carries the service code, and leaves a 200 off upstreamStatus because the failure was inside it', () => {
+        const error = new UpstreamRequestError(200, 'refused', { code: 'config', upstreamCode: 10 });
+
+        expect(error.status).toBe(200);
+        expect(error.upstreamStatus).toBeUndefined();
+        expect(error.upstreamCode).toBe(10);
+    });
+
+    it('allows no status at all for a failure that came back inside an envelope', () => {
+        const error = new UpstreamRequestError<number | undefined>(undefined, 'not found', { code: 'not_found', upstreamCode: 70 });
+
+        expect(error.status).toBeUndefined();
+        expect(error.upstreamStatus).toBeUndefined();
+        expect(error.code).toBe('not_found');
+    });
+
+    it('defaults a status-less failure to upstream', () => {
+        expect(new UpstreamRequestError<number | undefined>(undefined, 'odd answer').code).toBe('upstream');
+    });
+
+    it('keeps the cause', () => {
+        const cause = new Error('socket hang up');
+        expect(new UpstreamRequestError(502, 'bad gateway', { cause }).cause).toBe(cause);
     });
 });

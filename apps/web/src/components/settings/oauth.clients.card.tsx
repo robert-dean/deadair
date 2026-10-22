@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, Code, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { OAuthClientAuthMethod, OAuthClientIssued, OAuthClientSummary } from '@deadair/sdk';
 
 import { useCreateOAuthClient, useOAuthClients, useRevokeOAuthClient } from '../../api/oauth.queries';
 import { isForbidden } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
-import { CopyButton } from '../shared/copy.button';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
@@ -81,17 +81,11 @@ function IssuedPanel({ issued, onDone }: { issued: OAuthClientIssued; onDone: ()
         <Alert color="yellow" variant="light" title={t('oauthClients.issued.title', { name: issued.client.name ?? issued.client.clientId })}>
             <Stack gap="xs">
                 <Text size="sm">{t('oauthClients.issued.clientId')}</Text>
-                <Group gap="xs" wrap="nowrap">
-                    <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.client.clientId}</Code>
-                    <CopyButton value={issued.client.clientId} />
-                </Group>
+                <CopyableCode value={issued.client.clientId} />
                 {issued.clientSecret ? (
                     <>
                         <Text size="sm">{t('oauthClients.issued.clientSecret')}</Text>
-                        <Group gap="xs" wrap="nowrap">
-                            <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.clientSecret}</Code>
-                            <CopyButton value={issued.clientSecret} />
-                        </Group>
+                        <CopyableCode value={issued.clientSecret} />
                     </>
                 ) : undefined}
                 <Button variant="default" size="compact-sm" w="fit-content" onClick={onDone}>

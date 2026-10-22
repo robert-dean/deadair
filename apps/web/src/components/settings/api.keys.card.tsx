@@ -7,8 +7,8 @@ import type { ApiKey, ApiKeyIssued, ApiKeyScope } from '@deadair/sdk';
 import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '../../api/auth.apikeys.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
-import { CopyButton } from '../shared/copy.button';
 import { ACCESS_CHOICES, accessWord } from '../shared/access.words';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
@@ -152,10 +152,7 @@ function IssuedPanel({ issued, verb, onDone }: { issued: ApiKeyIssued; verb: 'cr
         <Alert color="yellow" variant="light" title={t(`apiKeys.issued.title.${verb}`, { name: issued.key.name })}>
             <Stack gap="sm">
                 <Text size="sm">{t(`apiKeys.issued.body.${verb}`)}</Text>
-                <Group gap="xs" wrap="nowrap" align="flex-start">
-                    <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.token}</Code>
-                    <CopyButton value={issued.token} />
-                </Group>
+                <CopyableCode value={issued.token} align="flex-start" />
                 <Text size="xs" c="dimmed">
                     <Trans t={t} i18nKey="apiKeys.issued.sendAs" components={{ code: <Code /> }} />
                 </Text>

@@ -13,7 +13,7 @@ import {
     useConsoleLanguages,
     useRemoveConsoleLanguage,
 } from '../../api/languages.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { en } from '../../i18n/en/en.catalog';
 import { checkLanguagePack } from '../../i18n/language.check';
 import { englishPack, languagePackFilename, languagePackText } from '../../i18n/language.pack';
@@ -200,7 +200,7 @@ function InstalledLanguage({ language }: { language: ConsoleLanguage }) {
                 confirmLabel={t('languages.remove.confirm')}
                 confirming={remove.isPending}
                 // A 403 says only "Forbidden"; the console's own sentence says who may.
-                error={sdkError(remove.error)?.status === 403 ? new Error() : remove.error}
+                error={isForbidden(remove.error) ? new Error() : remove.error}
                 errorTitle={t('languages.remove.failedTitle')}
                 errorFallback={t('languages.remove.failed')}
             >

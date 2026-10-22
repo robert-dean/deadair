@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useRemovePlugin } from '../../api/plugins.queries';
-import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { notifyDone } from '../shared/notify';
 import { PLUGINS_PAGE_DEFAULTS } from './plugin.page.params';
@@ -79,6 +79,6 @@ export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
 
 /** What a refused removal means, in the operator's terms. */
 function removeError(error: unknown, t: TFunction<'plugins'>): string {
-    if (sdkError(error)?.status === 403) return t('remove.error.forbidden');
+    if (isForbidden(error)) return t('remove.error.forbidden');
     return apiErrorMessage(error, t('remove.error.fallback'));
 }

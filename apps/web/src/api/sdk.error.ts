@@ -26,6 +26,15 @@ export function isClientError(error: unknown): boolean {
     return status !== undefined && status >= 400 && status < 500;
 }
 
+/**
+ * Whether the API refused because of who is asking: a role without the permission, or a check this
+ * session has not passed. Most of the console answers that in its own words ("your role cannot…")
+ * or by not drawing the card at all, rather than with the server's sentence.
+ */
+export function isForbidden(error: unknown): boolean {
+    return sdkError(error)?.status === 403;
+}
+
 /** The parsed error envelope, or undefined when the failure was not a structured API error. */
 export function apiErrorBody(error: unknown): ApiErrorBody | undefined {
     const body = sdkError(error)?.body;
@@ -134,12 +143,12 @@ export function isInvalidToken(error: unknown): boolean {
  * a sign-in that stopped at a challenge. This one is a 403 on an already-established session.
  */
 export function isStepUpRequired(error: unknown): boolean {
-    return sdkError(error)?.status === 403 && authChallenge(error)?.error === 'mfa_required';
+    return isForbidden(error) && authChallenge(error)?.error === 'mfa_required';
 }
 
 /** Whether the caller is authenticated but lacks the permission this route wants. */
 export function isInsufficientScope(error: unknown): boolean {
-    return sdkError(error)?.status === 403 && authChallenge(error)?.error === 'insufficient_scope';
+    return isForbidden(error) && authChallenge(error)?.error === 'insufficient_scope';
 }
 
 /** What a step-up denial asks for, as the policy package spells it. */

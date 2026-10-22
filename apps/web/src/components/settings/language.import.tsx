@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { version } from '../../../package.json';
 import { useConsoleLanguages, useImportConsoleLanguage } from '../../api/languages.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { en } from '../../i18n/en/en.catalog';
 import { checkLanguagePack, type LanguagePackReading } from '../../i18n/language.check';
 import type { LanguagePack } from '../../i18n/language.pack';
@@ -132,7 +132,7 @@ export function LanguageImportModal({ opened, onClose }: LanguageImportModalProp
                 {write.error ? (
                     <ErrorAlert
                         title={t('languages.import.failedTitle')}
-                        error={sdkError(write.error)?.status === 403 ? undefined : write.error}
+                        error={isForbidden(write.error) ? undefined : write.error}
                         fallback={t('languages.import.failed')}
                     />
                 ) : undefined}

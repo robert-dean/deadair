@@ -7,7 +7,7 @@ import type { TFunction } from 'i18next';
 import type { PluginImportResult } from '@deadair/sdk';
 
 import { useImportPlugin } from '../../api/plugins.queries';
-import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone } from '../shared/notify';
 
@@ -133,7 +133,7 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
 
 /** What an import refusal means, in the operator's terms. The loader's own reason reaches them verbatim. */
 function importError(error: unknown, t: TFunction<'plugins'>): string {
-    if (sdkError(error)?.status === 403) return t('import.error.forbidden');
+    if (isForbidden(error)) return t('import.error.forbidden');
     return apiErrorMessage(error, t('import.error.fallback'));
 }
 

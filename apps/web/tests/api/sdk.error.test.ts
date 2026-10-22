@@ -6,6 +6,7 @@ import {
     apiErrorMessage,
     authChallenge,
     isClientError,
+    isForbidden,
     isInsufficientScope,
     isInvalidToken,
     isStepUpRequired,
@@ -166,5 +167,14 @@ describe('stepUpRequirement', () => {
             stepUpRequirement(failure(401, {}, { statusCode: 401, message: 'x', details: { kind: 'step_up_required', stepUp: { within: 'PT5M' } } })),
         ).toBeUndefined();
         expect(stepUpRequirement(new TypeError('network down'))).toBeUndefined();
+    });
+});
+
+describe('isForbidden', () => {
+    it('is true for a 403 and nothing else', () => {
+        expect(isForbidden(new SdkError(403, 'Forbidden', { statusCode: 403, message: 'no' }, new Headers()))).toBe(true);
+        expect(isForbidden(new SdkError(401, 'Unauthorized', { statusCode: 401, message: 'no' }, new Headers()))).toBe(false);
+        expect(isForbidden(new Error('403'))).toBe(false);
+        expect(isForbidden(undefined)).toBe(false);
     });
 });

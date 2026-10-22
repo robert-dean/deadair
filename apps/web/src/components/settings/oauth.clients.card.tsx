@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { OAuthClientAuthMethod, OAuthClientIssued, OAuthClientSummary } from '@deadair/sdk';
 
 import { useCreateOAuthClient, useOAuthClients, useRevokeOAuthClient } from '../../api/oauth.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
@@ -33,7 +33,7 @@ export function OAuthClientsCard() {
     const gate = useStepUpGate();
     const [issued, setIssued] = useState<OAuthClientIssued>();
 
-    if (sdkError(clients.error)?.status === 403) return undefined;
+    if (isForbidden(clients.error)) return undefined;
 
     return (
         <Card padding="lg">

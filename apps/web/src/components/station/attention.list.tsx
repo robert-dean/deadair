@@ -5,7 +5,7 @@ import type { AttentionEvidence, AttentionItem } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { useDismissAttention } from '../../api/station.queries';
-import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
 import { attentionDestinationOf } from '../shell/attention.destination';
 import { useDisclosureIds } from '../shared/disclosure';
 import { EmptyState } from '../shared/empty.state';
@@ -137,7 +137,7 @@ function Dismiss({ code }: { code: string }) {
     const failure =
         dismiss.error === null
             ? undefined
-            : sdkError(dismiss.error)?.status === 403
+            : isForbidden(dismiss.error)
               ? t('attention.dismissForbidden')
               : apiErrorMessage(dismiss.error, t('attention.dismissFailed'));
 

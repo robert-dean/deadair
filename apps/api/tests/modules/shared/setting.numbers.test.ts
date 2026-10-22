@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { numberFrom, numberOr, requiredNumber } from '../../../src/modules/shared/setting.numbers.js';
+import { numberFrom, numberInRange, numberOr, requiredNumber } from '../../../src/modules/shared/setting.numbers.js';
 
 /**
  * A config that behaves the way the real layers do: a value that is SET comes back as text, and an
@@ -66,6 +66,12 @@ describe('numberOr', () => {
     it('falls back for an unset key', () => {
         expect(numberOr(configOf({}), 'analysis.concurrency', 2)).toBe(2);
     });
+
+    // `Number('')` is 0, so a cleared console field used to read as a deliberate zero.
+    it('falls back for a blank value, which is what a cleared field stores', () => {
+        expect(numberOr(configOf({ 'analysis.concurrency': '' }), 'analysis.concurrency', 2)).toBe(2);
+        expect(numberOr(configOf({ 'analysis.concurrency': '  ' }), 'analysis.concurrency', 2)).toBe(2);
+    });
 });
 
 describe('numberFrom', () => {
@@ -74,6 +80,7 @@ describe('numberFrom', () => {
         expect(numberFrom(8192, 1)).toBe(8192);
         expect(numberFrom(undefined, 1)).toBe(1);
         expect(numberFrom('', 1)).toBe(1);
+        expect(numberFrom('   ', 1)).toBe(1);
     });
 
     it('falls back for a value that is not a number', () => {
@@ -87,5 +94,36 @@ describe('numberFrom', () => {
     it('passes through zero and negatives rather than treating them as unset', () => {
         expect(numberFrom('0', 5)).toBe(0);
         expect(numberFrom('-1', 5)).toBe(-1);
+    });
+});
+
+describe('numberInRange', () => {
+    const RANGE = { min: 1, max: 32 } as const;
+
+    it('reads a string within the range as the number it spells', () => {
+        expect(numberInRange('4', 2, RANGE)).toBe(4);
+    });
+
+    it('clamps rather than refusing, because the row is already stored', () => {
+        expect(numberInRange('400', 2, RANGE)).toBe(32);
+        expect(numberInRange('0', 2, RANGE)).toBe(1);
+        expect(numberInRange('-7', 2, RANGE)).toBe(1);
+    });
+
+    it('takes the fallback for blank, unset and unreadable values', () => {
+        expect(numberInRange('', 2, RANGE)).toBe(2);
+        expect(numberInRange(undefined, 2, RANGE)).toBe(2);
+        expect(numberInRange('lots', 2, RANGE)).toBe(2);
+        expect(numberInRange('12abc', 2, RANGE)).toBe(2);
+    });
+
+    it('rounds the way the caller says, before clamping', () => {
+        expect(numberInRange('4.9', 2, RANGE, Math.floor)).toBe(4);
+        expect(numberInRange('4.5', 2, RANGE, Math.round)).toBe(5);
+        expect(numberInRange('32.9', 2, RANGE, Math.floor)).toBe(32);
+    });
+
+    it('leaves a fractional setting fractional when no rounding is asked for', () => {
+        expect(numberInRange('-14.5', -16, { min: -30, max: -8 })).toBe(-14.5);
     });
 });

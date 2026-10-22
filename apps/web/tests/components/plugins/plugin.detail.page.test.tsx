@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SdkError } from '@deadair/sdk';
 
 import { PluginDetailPage } from '../../../src/components/plugins/plugin.detail.page';
 import { pluginDetail } from '../../utils/plugin.fixture';
@@ -10,6 +11,7 @@ const testPluginConnection = vi.fn();
 const startPluginOAuthAuthorization = vi.fn();
 const readFetcherAuthorization = vi.fn();
 const removePlugin = vi.fn();
+const disconnectPluginOAuth = vi.fn();
 const navigate = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
@@ -20,6 +22,7 @@ vi.mock('../../../src/api/client', () => ({
             startPluginOAuthAuthorization: (...args: unknown[]) => startPluginOAuthAuthorization(...args),
             updatePluginConfiguration: vi.fn(),
             removePlugin: (...args: unknown[]) => removePlugin(...args),
+            disconnectPluginOAuth: (...args: unknown[]) => disconnectPluginOAuth(...args),
         },
         stream: {
             readFetcherAuthorization: (...args: unknown[]) => readFetcherAuthorization(...args),
@@ -46,6 +49,7 @@ afterEach(() => {
     readFetcherAuthorization.mockReset();
     assign.mockReset();
     removePlugin.mockReset();
+    disconnectPluginOAuth.mockReset();
     navigate.mockReset();
 });
 
@@ -170,5 +174,41 @@ describe('PluginDetailPage', () => {
             expect(navigate).toHaveBeenCalledWith({ to: '/plugins', search: { q: '', view: 'cards' } });
         });
         expect(removePlugin).toHaveBeenCalledWith('example.charts');
+    });
+
+    it('says a refused removal in its own words and keeps the dialog open', async () => {
+        getPlugin.mockResolvedValue(pluginDetail({ id: 'example.charts', name: 'Charts', origin: 'installed' }));
+        removePlugin.mockRejectedValue(new SdkError(403, 'Forbidden', { statusCode: 403, message: 'plugins.manage required' }, new Headers()));
+        const user = setupUser();
+
+        render(<PluginDetailPage id="example.charts" />);
+        await user.click(await screen.findByRole('button', { name: 'Remove' }));
+        await user.click(screen.getByRole('button', { name: 'Remove Charts' }));
+
+        expect(await screen.findByText('That plugin was not removed')).toBeInTheDocument();
+        expect(screen.getByText('Removing a plugin is an administrator action.')).toBeInTheDocument();
+        expect(screen.queryByText(/plugins.manage required/)).not.toBeInTheDocument();
+        expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('asks before disconnecting an oauth plugin, and says a refusal in its own words', async () => {
+        getPlugin.mockResolvedValue(pluginDetail({ capabilities: ['catalog', 'stream', 'oauth'], oauthConnected: true }));
+        disconnectPluginOAuth.mockRejectedValue(
+            new SdkError(403, 'Forbidden', { statusCode: 403, message: 'plugins.manage required' }, new Headers()),
+        );
+        const user = setupUser();
+
+        render(<PluginDetailPage id="deadair.spotify" />);
+        await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+        expect(await screen.findByText(/will lose access to its provider/)).toBeInTheDocument();
+        expect(disconnectPluginOAuth).not.toHaveBeenCalled();
+
+        const dialog = await screen.findByRole('dialog');
+        const confirm = Array.from(dialog.querySelectorAll('button')).find(button => button.textContent === 'Disconnect');
+        await user.click(confirm!);
+
+        expect(await screen.findByText('Could not disconnect')).toBeInTheDocument();
+        expect(screen.getByText('Disconnecting this plugin is not something your account is allowed to do.')).toBeInTheDocument();
+        expect(disconnectPluginOAuth).toHaveBeenCalledTimes(1);
     });
 });

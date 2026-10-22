@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.4] — 2026-10-22
+
+- News bulletins no longer repeat stories after the station restarts. The list of headlines already read out was kept only in memory, so every release handed the whole twelve-hour window back and the same story could go out in three bulletins in one morning. It is now written through to Redis and read back after a restart. If Redis cannot be reached the bulletin still airs, and a warning in the log says a story may be repeated.
+
 ## [0.77.3] — 2026-10-21
 
 - Banter between co-hosts no longer opens with a show's start-of-show bit (Wayne's "Wayne's World! Party time! Excellent!" opened every banter): the first turn is told the show is already under way. A banter's outline gets four minutes instead of two, since on a slow model the plans that worked took up to 111 seconds and the rest were cut off at 120, leaving the banter unplanned and going in circles. A talk break that uses a cue the persona's avoid list forbids, such as `[sigh]`, is now refused like forbidden wording. A programme turn that ends with a record credit as a sentence of its own ("We fear change. Dreams by The Dreamers.") is now caught as a record nobody handed it.
@@ -1572,7 +1576,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.4...HEAD
+[0.77.4]: https://github.com/robert-dean/deadair/compare/v0.77.3...v0.77.4
 [0.77.3]: https://github.com/robert-dean/deadair/compare/v0.77.2...v0.77.3
 [0.77.2]: https://github.com/robert-dean/deadair/compare/v0.77.1...v0.77.2
 [0.77.1]: https://github.com/robert-dean/deadair/compare/v0.77.0...v0.77.1

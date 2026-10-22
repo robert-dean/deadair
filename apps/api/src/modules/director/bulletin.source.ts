@@ -12,6 +12,7 @@ import type { BreakContext } from './break.request.js';
 import type { BreakStory, BreakSubject } from './break.writer.js';
 import { ReadLogStore } from './bulletin.read.store.js';
 import { NEWS_KIND } from './news.break.writer.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 
 /**
  * The stories a bulletin is written from, fetched once and handed to whichever writer takes it.
@@ -374,7 +375,12 @@ export class BulletinSource {
         // bulletin that asked for four has rested four whether or not it airs — the inaccuracy
         // `chooseFacts` documents, unchanged in kind by there being a range.
         const wanted = this.howManyStories(random);
-        const maxAgeHours = clamp(this.config.get(BULLETIN_KEYS.maxAgeHours, DEFAULT_MAX_AGE_HOURS), 1, MAX_AGE_HOURS, DEFAULT_MAX_AGE_HOURS);
+        const maxAgeHours = numberInRange(
+            this.config.get(BULLETIN_KEYS.maxAgeHours, DEFAULT_MAX_AGE_HOURS),
+            DEFAULT_MAX_AGE_HOURS,
+            { min: 1, max: MAX_AGE_HOURS },
+            Math.floor,
+        );
         const roster = feedRoster(this.config);
 
         // Every category this station holds, read once: the one this bulletin was asked for cuts the
@@ -511,8 +517,18 @@ export class BulletinSource {
      *
      */
     private howManyStories(random: () => number): number {
-        const low = clamp(this.config.get(BULLETIN_KEYS.storiesMin, DEFAULT_STORY_COUNT_MIN), 1, MAX_STORY_COUNT, DEFAULT_STORY_COUNT_MIN);
-        const high = clamp(this.config.get(BULLETIN_KEYS.storiesMax, DEFAULT_STORY_COUNT_MAX), 1, MAX_STORY_COUNT, DEFAULT_STORY_COUNT_MAX);
+        const low = numberInRange(
+            this.config.get(BULLETIN_KEYS.storiesMin, DEFAULT_STORY_COUNT_MIN),
+            DEFAULT_STORY_COUNT_MIN,
+            { min: 1, max: MAX_STORY_COUNT },
+            Math.floor,
+        );
+        const high = numberInRange(
+            this.config.get(BULLETIN_KEYS.storiesMax, DEFAULT_STORY_COUNT_MAX),
+            DEFAULT_STORY_COUNT_MAX,
+            { min: 1, max: MAX_STORY_COUNT },
+            Math.floor,
+        );
 
         const from = Math.min(low, high);
         const to = Math.max(low, high);
@@ -868,12 +884,4 @@ function speakable(title: string): string | undefined {
     if (text.length === 0) return undefined;
 
     return /[.!?]$/.test(text) ? text : `${text}.`;
-}
-
-/** A setting read as a whole number inside its bounds, or the default when it is not one. */
-function clamp(value: number, low: number, high: number, fallback: number): number {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return fallback;
-
-    return Math.min(Math.max(Math.floor(parsed), low), high);
 }

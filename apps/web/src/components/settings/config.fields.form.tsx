@@ -5,7 +5,6 @@ import {
     Anchor,
     Autocomplete,
     Button,
-    Code,
     Group,
     Input,
     Loader,
@@ -35,7 +34,7 @@ import { useTranslation } from 'react-i18next';
 import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldPreset } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
-import { CopyButton } from '../shared/copy.button';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PhoneCard } from '../shared/phone.card';
@@ -830,10 +829,7 @@ export function ConfigFieldsForm({
             if (shown !== undefined) {
                 return (
                     <Input.Wrapper key={field.key} label={field.label} description={field.help}>
-                        <Group gap="xs" wrap="nowrap" mt="xxs">
-                            <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{shown}</Code>
-                            <CopyButton value={shown} />
-                        </Group>
+                        <CopyableCode value={shown} mt="xxs" />
                     </Input.Wrapper>
                 );
             }

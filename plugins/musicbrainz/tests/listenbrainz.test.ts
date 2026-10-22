@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { TrackRef } from '@deadair/plugin-sdk';
 
+import { ListenBrainzRequestError } from '../src/listenbrainz.client.js';
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
 import { musicbrainzManifest, LISTENBRAINZ_BUCKET, LISTENBRAINZ_RATE_PER_SECOND } from '../src/musicbrainz.manifest.js';
 import { coverArtUrl, lookupKey, mapListenBrainz, resultKey, tagNames, toLookupQuery } from '../src/listenbrainz.mapping.js';
@@ -299,5 +300,21 @@ describe('testConnection', () => {
         const result = await plugin.testConnection();
         expect(result.ok).toBe(true);
         expect(result.message).toContain('refused the token (HTTP 401)');
+    });
+});
+
+describe('ListenBrainzRequestError', () => {
+    it('reads a refused token as a setting to fix rather than an authentication failure', () => {
+        for (const status of [400, 401, 403]) {
+            const error = new ListenBrainzRequestError(status, `HTTP ${status}`);
+            expect(error.code).toBe('config');
+            expect(error.status).toBe(status);
+            expect(error.upstreamStatus).toBe(status);
+        }
+    });
+
+    it('falls back on the shared ladder for everything else', () => {
+        expect(new ListenBrainzRequestError(404, 'HTTP 404').code).toBe('not_found');
+        expect(new ListenBrainzRequestError(503, 'HTTP 503').code).toBe('unavailable');
     });
 });

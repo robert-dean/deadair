@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { limitArgument } from '#modules/shared/limit.clamp.js';
 
 /**
  * "What does the operator actually like?", as something a model can ask.
@@ -78,7 +79,7 @@ export class StationTasteTool implements ToolSource {
      * failed.
      */
     private async read(args: Record<string, unknown>): Promise<StationTaste> {
-        const taste = await this.taste.taste(clampLimit(args.limit));
+        const taste = await this.taste.taste(limitArgument(args.limit, MAX_RESULTS));
 
         this.logger.debug('llm: read the station taste', {
             liked: taste.likedArtists.total + taste.likedAlbums.total + taste.likedTracks.total,
@@ -86,16 +87,4 @@ export class StationTasteTool implements ToolSource {
         });
         return taste;
     }
-}
-
-/**
- * The requested limit, or the ceiling.
- *
- * The same shape `MusicSearchTool` uses and for the same reason: a model asking for everything is
- * asking for its own context to be filled with a list, so the ceiling is enforced rather than
- * honoured, and a nonsense value falls back to it rather than erroring.
- */
-function clampLimit(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return MAX_RESULTS;
-    return Math.min(MAX_RESULTS, Math.floor(value));
 }

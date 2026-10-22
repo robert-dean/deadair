@@ -7,13 +7,14 @@ import type { ApiKey, ApiKeyIssued, ApiKeyScope } from '@deadair/sdk';
 import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '../../api/auth.apikeys.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
-import { CopyButton } from '../shared/copy.button';
 import { ACCESS_CHOICES, accessWord } from '../shared/access.words';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
+import { QueryView } from '../shared/query.view';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
@@ -77,48 +78,23 @@ export function ApiKeysCard() {
 
                 {issued ? <IssuedPanel issued={issued.issued} verb={issued.verb} onDone={() => setIssued(undefined)} /> : undefined}
 
-                {keys.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                {keys.error ? (
-                    <ErrorAlert title={t('apiKeys.unavailable.title')} error={keys.error} fallback={t('apiKeys.unavailable.fallback')} />
-                ) : undefined}
-
-                {keys.data && list.length === 0 ? (
-                    <Text size="sm" c="dimmed">
-                        {t('apiKeys.empty')}
-                    </Text>
-                ) : undefined}
-
-                {keys.data && list.length > 0 && phone ? (
-                    <Stack gap="xxs">
-                        {list.map(key => (
-                            <KeyPhoneCard
-                                key={key.id}
-                                apiKey={key}
-                                state={keyState(key, now)}
-                                gate={gate}
-                                onRotated={next => setIssued({ issued: next, verb: 'rotated' })}
-                            />
-                        ))}
-                    </Stack>
-                ) : undefined}
-
-                {keys.data && list.length > 0 && !phone ? (
-                    <Table.ScrollContainer minWidth={640}>
-                        <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th w="26%">{t('apiKeys.column.name')}</Table.Th>
-                                    <Table.Th>{t('apiKeys.column.access')}</Table.Th>
-                                    <Table.Th>{t('apiKeys.column.lastUsed')}</Table.Th>
-                                    <Table.Th>{t('apiKeys.column.expires')}</Table.Th>
-                                    <Table.Th w={180} ta="right">
-                                        {' '}
-                                    </Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                <QueryView
+                    query={keys}
+                    skeleton={<PageSkeleton variant="rows" count={2} />}
+                    errorTitle={t('apiKeys.unavailable.title')}
+                    errorFallback={t('apiKeys.unavailable.fallback')}
+                    isEmpty={data => data.keys.length === 0}
+                    empty={
+                        <Text size="sm" c="dimmed">
+                            {t('apiKeys.empty')}
+                        </Text>
+                    }
+                >
+                    {() =>
+                        phone ? (
+                            <Stack gap="xxs">
                                 {list.map(key => (
-                                    <KeyRow
+                                    <KeyPhoneCard
                                         key={key.id}
                                         apiKey={key}
                                         state={keyState(key, now)}
@@ -126,10 +102,37 @@ export function ApiKeysCard() {
                                         onRotated={next => setIssued({ issued: next, verb: 'rotated' })}
                                     />
                                 ))}
-                            </Table.Tbody>
-                        </Table>
-                    </Table.ScrollContainer>
-                ) : undefined}
+                            </Stack>
+                        ) : (
+                            <Table.ScrollContainer minWidth={640}>
+                                <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th w="26%">{t('apiKeys.column.name')}</Table.Th>
+                                            <Table.Th>{t('apiKeys.column.access')}</Table.Th>
+                                            <Table.Th>{t('apiKeys.column.lastUsed')}</Table.Th>
+                                            <Table.Th>{t('apiKeys.column.expires')}</Table.Th>
+                                            <Table.Th w={180} ta="right">
+                                                {' '}
+                                            </Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {list.map(key => (
+                                            <KeyRow
+                                                key={key.id}
+                                                apiKey={key}
+                                                state={keyState(key, now)}
+                                                gate={gate}
+                                                onRotated={next => setIssued({ issued: next, verb: 'rotated' })}
+                                            />
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            </Table.ScrollContainer>
+                        )
+                    }
+                </QueryView>
 
                 {keys.data ? <NewKeyForm gate={gate} onIssued={next => setIssued({ issued: next, verb: 'created' })} /> : undefined}
             </Stack>
@@ -149,10 +152,7 @@ function IssuedPanel({ issued, verb, onDone }: { issued: ApiKeyIssued; verb: 'cr
         <Alert color="yellow" variant="light" title={t(`apiKeys.issued.title.${verb}`, { name: issued.key.name })}>
             <Stack gap="sm">
                 <Text size="sm">{t(`apiKeys.issued.body.${verb}`)}</Text>
-                <Group gap="xs" wrap="nowrap" align="flex-start">
-                    <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.token}</Code>
-                    <CopyButton value={issued.token} />
-                </Group>
+                <CopyableCode value={issued.token} align="flex-start" />
                 <Text size="xs" c="dimmed">
                     <Trans t={t} i18nKey="apiKeys.issued.sendAs" components={{ code: <Code /> }} />
                 </Text>

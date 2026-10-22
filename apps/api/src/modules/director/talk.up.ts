@@ -1,6 +1,6 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { numberOr } from '#modules/shared/setting.numbers.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS, type Runway } from '#modules/lyrics/vocal.runway.js';
 import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
 import { WORDS_PER_SECOND } from './break.prompt.js';
@@ -54,10 +54,9 @@ export interface TalkUpSettings {
 }
 
 export function resolveTalkUp(config: AppConfig): TalkUpSettings {
-    const safety = numberOr(config, TALK_UP_KEYS.safetyMs, DEFAULT_TALK_UP_SAFETY_MS);
     return {
         enabled: settingIsOn(config, TALK_UP_KEYS.enabled, TALK_UP_DEFAULT),
-        safetyMs: Math.min(TALK_UP_SAFETY_RANGE.max, Math.max(TALK_UP_SAFETY_RANGE.min, safety)),
+        safetyMs: numberInRange(config.get(TALK_UP_KEYS.safetyMs, DEFAULT_TALK_UP_SAFETY_MS), DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_SAFETY_RANGE),
     };
 }
 

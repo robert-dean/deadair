@@ -5,14 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { useSubmitAdminAccount } from '../../../api/onboarding.queries';
 import { isRateLimited, retryAfterMs } from '../../../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, sdkError } from '../../../api/sdk.error';
+import { MIN_PASSWORD_LENGTH } from '../../../auth/password.rule';
 import { i18n } from '../../../i18n/i18n.setup';
 import { ErrorAlert } from '../../shared/error.alert';
 import type { OnboardingStepProps } from '../onboarding.steps';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Matches the auth contract: string(min=8, max=256). */
-const MIN_PASSWORD_LENGTH = 8;
 
 interface AdminAccountValues {
     email: string;

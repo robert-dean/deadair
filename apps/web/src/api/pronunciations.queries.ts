@@ -1,7 +1,8 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { PronunciationList, PronunciationStateWrite, PronunciationWrite } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -27,11 +28,7 @@ export function usePronunciations() {
 
 /** Every write, sharing one success path: the answer is the whole list, so nothing refetches. */
 function usePronunciationWrite<TArgs>(mutationFn: (args: TArgs) => Promise<PronunciationList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (list: PronunciationList) => queryClient.setQueryData(queryKeys.pronunciations.list(), list),
-    });
+    return useListWrite(queryKeys.pronunciations.list(), mutationFn);
 }
 
 export const useCreatePronunciation = () => usePronunciationWrite((body: PronunciationWrite) => sdk.render.createPronunciation(body));

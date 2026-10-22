@@ -3,7 +3,7 @@ import { Alert, Card, Code, Group, SegmentedControl, Stack, Tabs, Text, Title } 
 import { useTranslation } from 'react-i18next';
 
 import { useInvitationPreview, useSettings } from '../../api/settings.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
@@ -39,7 +39,7 @@ export function InvitationPreviewCard() {
     const preview = useInvitationPreview(role, wording);
 
     if (wording === undefined) return undefined;
-    if (sdkError(preview.error)?.status === 403) return undefined;
+    if (isForbidden(preview.error)) return undefined;
 
     return (
         <Card padding="lg">

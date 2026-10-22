@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Asking every provider plugin what it carries, merged into one answer.
@@ -167,7 +168,7 @@ export class ProviderSearch {
             } catch (error) {
                 // Skipped, not fatal. One provider being down should cost its share of the results
                 // rather than the caller's ability to check anything at all.
-                this.logger.info(`llm: a provider could not be searched (${plugin.record.id}: ${messageOf(error)})`);
+                this.logger.info(`llm: a provider could not be searched (${plugin.record.id}: ${errorText(error)})`);
             }
         }
 
@@ -239,5 +240,3 @@ export function dedupe(tracks: readonly FoundTrack[]): FoundTrack[] {
 
 /** The key {@link dedupe} collapses on, exported so a caller merging another source uses the same one. */
 export const providerKey = (title: string, artist: string): string => `${title.toLowerCase()}\u0000${artist.toLowerCase()}`;
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));

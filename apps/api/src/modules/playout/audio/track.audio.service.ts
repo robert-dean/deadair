@@ -10,6 +10,8 @@ import { privateAddressBehind, resolveAddresses as systemResolveAddresses, type 
 import { TrackAudioRepository, type CachedFile, type SourceAudio } from './track.audio.repository.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY, resolveTrackCacheMaxBytes } from './track.cache.limit.js';
 import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtension, TrackStore } from './track.store.js';
+import { followRedirects } from '#modules/shared/redirect.hops.js';
+import { readBounded } from '#modules/shared/bounded.body.js';
 
 /**
  * How long one record may take to arrive.
@@ -69,9 +71,6 @@ const MIN_TRACK_BYTES = 16 * 1024;
  * eight leaves room for a chain without letting a redirect loop run forever.
  */
 const MAX_TRACK_REDIRECTS = 8;
-
-/** The statuses that carry a `location` to follow. */
-const TRACK_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 /** First retry after five minutes, doubling per attempt up to a day. The art cache's ladder. */
 const BASE_RETRY_MS = 5 * 60 * 1000;
@@ -815,7 +814,7 @@ export class TrackAudioService {
      * `http(s)` only: these URLs come from plugins, which are trusted in-process code and also the
      * least reviewed code in the tree, and `file:` would turn a bad mapping into a local file read.
      *
-     * Redirects are followed BY HAND, so a hop past the first can be refused before it is connected
+     * Redirects are followed BY HAND ({@link followRedirects}), so a hop past the first can be refused before it is connected
      * to — which a `redirect: 'follow'` fetch does not allow. The FIRST address is deliberately not
      * checked: a provider resolves a record to the operator's own Navidrome or to a station-side
      * helper, both of which are private addresses the station is meant to reach, and the resolver is
@@ -841,49 +840,37 @@ export class TrackAudioService {
         const timeout = AbortSignal.timeout(fetchBudgetFor(resolved.fetchBudgetMs));
         const aborted = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
-        let address = parseTrackAddress(url);
-        for (let hop = 0; hop <= MAX_TRACK_REDIRECTS; hop += 1) {
-            if (hop > 0) await this.refusePrivateRedirect(address);
+        const response = await followRedirects(parseTrackAddress(url), {
+            fetch,
+            init: { signal: aborted },
+            maxRedirects: MAX_TRACK_REDIRECTS,
+            // The first address is the resolver's choice and is not checked; see above.
+            beforeHop: async (address, from) => (from === undefined ? undefined : this.refusePrivateRedirect(address)),
+            next: (location, from) => parseTrackAddress(location, from),
+            tooMany: () => new Error(`redirected more than ${MAX_TRACK_REDIRECTS} times`),
+        });
 
-            const response = await fetch(address, { redirect: 'manual', signal: aborted });
-
-            const location = response.headers.get('location');
-            if (TRACK_REDIRECTS.has(response.status) && location !== null) {
-                await response.body?.cancel().catch(() => undefined);
-                address = parseTrackAddress(location, address);
-                continue;
-            }
-
+        if (!response.ok) {
+            // Nobody reads an error body here, so let the socket go rather than leave it open.
+            await response.body?.cancel().catch(() => undefined);
             if (response.status === 410) throw new UnplayableCopy('the provider has no audio for this copy and no alternative');
-            if (!response.ok) throw new Error(`upstream answered ${response.status}`);
-
-            const contentType = response.headers.get('content-type');
-            const ext = extensionFor(contentType);
-            if (ext === undefined) {
-                await response.body?.cancel().catch(() => undefined);
-                throw new Error(`not audio this station can hold: ${contentType ?? 'no content type'}`);
-            }
-
-            if (response.body === null) throw new Error('upstream sent no body');
-
-            const chunks: Buffer[] = [];
-            let total = 0;
-            for await (const chunk of response.body) {
-                const buffer = Buffer.from(chunk as Uint8Array);
-                total += buffer.byteLength;
-                if (total > MAX_TRACK_BYTES) {
-                    await response.body.cancel().catch(() => undefined);
-                    throw new Error(`larger than ${MAX_TRACK_BYTES} bytes, so it was not kept`);
-                }
-                chunks.push(buffer);
-            }
-
-            if (total < MIN_TRACK_BYTES) throw new Error(`only ${total} bytes, which is not a record`);
-
-            return { body: Buffer.concat(chunks), ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
+            throw new Error(`upstream answered ${response.status}`);
         }
 
-        throw new Error(`redirected more than ${MAX_TRACK_REDIRECTS} times`);
+        const contentType = response.headers.get('content-type');
+        const ext = extensionFor(contentType);
+        if (ext === undefined) {
+            await response.body?.cancel().catch(() => undefined);
+            throw new Error(`not audio this station can hold: ${contentType ?? 'no content type'}`);
+        }
+
+        if (response.body === null) throw new Error('upstream sent no body');
+
+        const body = await readBounded(response.body, MAX_TRACK_BYTES);
+        if (body === undefined) throw new Error(`larger than ${MAX_TRACK_BYTES} bytes, so it was not kept`);
+        if (body.byteLength < MIN_TRACK_BYTES) throw new Error(`only ${body.byteLength} bytes, which is not a record`);
+
+        return { body, ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
     }
 
     /** Refuse a redirect target whose name reaches this machine or the network it is on. Fails closed on a name that will not resolve. */

@@ -1,5 +1,6 @@
 import type { LlmToolCall, LlmToolDeclaration } from '@deadair/plugin-sdk';
 import type { StationTool } from './llm.tools.js';
+import { withoutThinking } from '#modules/shared/json.objects.js';
 
 /**
  * A tool call the model wrote as TEXT instead of as a call, read back out.
@@ -82,7 +83,7 @@ export function strayToolCall(text: string, tools: Map<string, StationTool>, ste
  * sentence away.
  */
 function soleObject(text: string): Record<string, unknown> | undefined {
-    const trimmed = text.replace(/^[\s\S]*<\/think>/i, '').trim();
+    const trimmed = withoutThinking(text);
     if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return undefined;
 
     let parsed: unknown;

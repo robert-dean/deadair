@@ -10,6 +10,7 @@
 
 import type { AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { explainDefaultPick, explainNoPlugin, selectPlugin, type CapabilityWording } from '#modules/plugins/plugin.selection.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const ANALYSIS_PLUGIN_KEY = 'analysis.pluginId';
@@ -103,10 +104,7 @@ export function explainDefaultAnalyzer(chosen: AnalysisPlugin, candidates: reado
  * strictly better than a station that quietly measures nothing.
  */
 export function resolveAnalysisConcurrency(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(parsed)) return DEFAULT_ANALYSIS_CONCURRENCY;
-
-    return Math.min(MAX_ANALYSIS_CONCURRENCY, Math.max(1, Math.floor(parsed)));
+    return numberInRange(value, DEFAULT_ANALYSIS_CONCURRENCY, { min: 1, max: MAX_ANALYSIS_CONCURRENCY }, Math.floor);
 }
 
 /**
@@ -150,8 +148,5 @@ export const MAX_ANALYSIS_PACE_MS = 10 * 60_000;
  * consent to run without a gap, which the floor of `Math.max(0, …)` does not stand in the way of.
  */
 export function resolveAnalysisPaceMs(value: unknown, fallback: number): number {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(parsed)) return fallback;
-
-    return Math.min(MAX_ANALYSIS_PACE_MS, Math.max(0, Math.floor(parsed)));
+    return numberInRange(value, fallback, { min: 0, max: MAX_ANALYSIS_PACE_MS }, Math.floor);
 }

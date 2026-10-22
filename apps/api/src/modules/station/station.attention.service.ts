@@ -18,6 +18,7 @@ import {
     type UnauthorizedFetcher,
 } from './station.attention.js';
 import type { StationAttention } from './types/station.types.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Gathering one reading of the station, for the ordered list next door.
@@ -123,7 +124,7 @@ export class StationAttentionService {
             if (!state.reachable || state.authorized) return undefined;
             return { pluginId: plugin.id, pluginName: plugin.name };
         } catch (error) {
-            this.logger.warn(`station: the track fetcher's authorization could not be read (${message(error)})`);
+            this.logger.warn(`station: the track fetcher's authorization could not be read (${errorText(error)})`);
             return undefined;
         }
     }
@@ -139,7 +140,7 @@ export class StationAttentionService {
         try {
             return (await this.playout.getStatus()).silence;
         } catch (error) {
-            this.logger.warn(`station: the silence diagnosis could not be read (${message(error)})`);
+            this.logger.warn(`station: the silence diagnosis could not be read (${errorText(error)})`);
             return { audible: true, cause: 'airing' as const, detail: '', checks: [] };
         }
     }
@@ -151,7 +152,7 @@ export class StationAttentionService {
             // counts as measured, passed in the same way the catalog page passes it.
             return await this.tracks.trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_SCHEMA_VERSION });
         } catch (error) {
-            this.logger.warn(`station: the catalog counts could not be read (${message(error)})`);
+            this.logger.warn(`station: the catalog counts could not be read (${errorText(error)})`);
             return { total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0 };
         }
     }
@@ -161,7 +162,7 @@ export class StationAttentionService {
         try {
             return await this.tracks.benchAcknowledgement();
         } catch (error) {
-            this.logger.warn(`station: the dismissed records could not be read (${message(error)})`);
+            this.logger.warn(`station: the dismissed records could not be read (${errorText(error)})`);
             return { unacknowledged: 0, acknowledged: 0 };
         }
     }
@@ -178,7 +179,7 @@ export class StationAttentionService {
         try {
             return await this.tracks.faultingTracks(state, EVIDENCE_LIMIT, ANALYSIS_SCHEMA_VERSION);
         } catch (error) {
-            this.logger.warn(`station: the ${state} records could not be read (${message(error)})`);
+            this.logger.warn(`station: the ${state} records could not be read (${errorText(error)})`);
             return [];
         }
     }
@@ -215,7 +216,7 @@ export class StationAttentionService {
                 })),
             };
         } catch (error) {
-            this.logger.warn(`station: the running order could not be read (${message(error)})`);
+            this.logger.warn(`station: the running order could not be read (${errorText(error)})`);
             return { total: 0, records: [] };
         }
     }
@@ -228,7 +229,7 @@ export class StationAttentionService {
             const faults = await this.tracks.faultsForTracks(trackIds);
             return new Map(faults.map(fault => [fault.trackId, fault]));
         } catch (error) {
-            this.logger.warn(`station: the copies of a dropped record could not be read (${message(error)})`);
+            this.logger.warn(`station: the copies of a dropped record could not be read (${errorText(error)})`);
             return new Map();
         }
     }
@@ -267,7 +268,7 @@ export class StationAttentionService {
                 fetches: fetches && { id: fetches.id, name: fetches.name },
             };
         } catch (error) {
-            this.logger.warn(`station: the plugin list could not be read (${message(error)})`);
+            this.logger.warn(`station: the plugin list could not be read (${errorText(error)})`);
             return { broken: [], fetches: undefined };
         }
     }
@@ -283,5 +284,3 @@ interface FetcherPlugin {
     id: string;
     name: string;
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

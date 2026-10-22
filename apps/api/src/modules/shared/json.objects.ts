@@ -129,3 +129,24 @@ export function parseLooseJson(span: string): unknown {
         return undefined;
     }
 }
+
+/**
+ * The first complete JSON object in a model's answer, parsed, or `undefined` when there is none.
+ *
+ * For a caller that asked for ONE object (`{"about": …}`, `{"facts": [...]}`) and wants it however
+ * it arrived: after the model's thinking, inside a code fence, behind a sentence, or wrapped across
+ * lines inside a string. The three pieces above, in the order every such caller needs them, which is
+ * what six readers were each doing by hand with `indexOf('{')` and `lastIndexOf('}')` — a slice that
+ * spans two objects, or a brace in the thinking, and reads as nothing at all.
+ *
+ * The first span that parses wins, so one malformed object costs only itself. An unterminated object
+ * is never read, which is the truncated-answer rule {@link jsonObjects} keeps.
+ */
+export function firstJsonObject(text: string): Record<string, unknown> | undefined {
+    for (const span of jsonObjects(withoutThinking(text))) {
+        const parsed = parseLooseJson(span);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    }
+
+    return undefined;
+}

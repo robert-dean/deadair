@@ -49,6 +49,7 @@ import {
     PERSONA_SHEET_LIMITS,
     unearnedMarkers,
 } from './persona.sheet.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /** How many habits the writer is asked for, below the sheet's cap: a character is mostly its rules. */
 const HABITS_ASKED_FOR = 3;
@@ -316,8 +317,8 @@ export function readPersona(text: string): GeneratedPersona | undefined {
 
 function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     const key = slug(raw.key);
-    const label = text(raw.label);
-    const style = text(raw.style);
+    const label = nonEmptyText(raw.label);
+    const style = nonEmptyText(raw.style);
     if (key === undefined || label === undefined || style === undefined) return undefined;
 
     // Every sample the model wrote, and then the few that are kept. The check below runs against ALL
@@ -370,8 +371,8 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
             label,
             style,
             ...omitUndefined({
-                djName: text(raw.djName),
-                background: text(raw.background),
+                djName: nonEmptyText(raw.djName),
+                background: nonEmptyText(raw.background),
                 brevity,
                 latitude,
                 chattiness,
@@ -433,8 +434,8 @@ function readStories(value: unknown): PersonaStoryDraft[] {
         if (typeof entry !== 'object' || entry === null) continue;
 
         const row = entry as Record<string, unknown>;
-        const title = text(row.title)?.slice(0, 200);
-        const story = text(row.story)?.slice(0, MAX_STORY_CHARS);
+        const title = nonEmptyText(row.title)?.slice(0, 200);
+        const story = nonEmptyText(row.story)?.slice(0, MAX_STORY_CHARS);
         if (title === undefined || story === undefined) continue;
 
         // The store's own unique index, applied here so a model that wrote one story twice does not
@@ -459,19 +460,13 @@ function slug(value: unknown): string | undefined {
     return cleaned.length === 0 ? undefined : cleaned.slice(0, 32);
 }
 
-function text(value: unknown): string | undefined {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
-}
-
 /** The strings in an array, capped. A non-array, or an entry that is not a string, contributes nothing. */
 function list(value: unknown, limit: number): string[] {
     if (!Array.isArray(value)) return [];
 
     const seen = new Set<string>();
     for (const entry of value) {
-        const cleaned = text(entry);
+        const cleaned = nonEmptyText(entry);
         if (cleaned !== undefined) seen.add(cleaned);
     }
     return [...seen].slice(0, limit);

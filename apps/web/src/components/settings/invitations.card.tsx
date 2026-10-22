@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Anchor, Button, Card, Code, Group, Modal, Select, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Button, Card, Group, Modal, Select, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,7 @@ import { isLoopback } from '../../api/party.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
 import { invitationLink, useCreateInvitation, useInvitations, useRevokeInvitation } from '../../api/users.queries';
 import { ConfirmModal } from '../shared/confirm.modal';
-import { CopyButton } from '../shared/copy.button';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
@@ -399,10 +399,7 @@ function LinkModal({ invitation, onClose }: { invitation: Invitation | undefined
                                     title={t('people.invitations.link.qrTitle')}
                                 />
                             </Group>
-                            <Group gap="xs" wrap="nowrap" align="flex-start">
-                                <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{link}</Code>
-                                <CopyButton value={link} />
-                            </Group>
+                            <CopyableCode value={link} align="flex-start" />
                         </>
                     )}
                 </Stack>

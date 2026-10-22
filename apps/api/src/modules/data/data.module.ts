@@ -16,6 +16,7 @@ import { resolveRuntimeConnection } from './database.connection.js';
 import { describeRedisConnection, resolveRedisConnection } from './redis.connection.js';
 import { IoRedisCacheProvider } from '@maroonedsoftware/cache/ioredis';
 import { errorText } from '#modules/shared/error.text.js';
+import { numberOr } from '#modules/shared/setting.numbers.js';
 
 export const DataModule: ServerKitModule = {
     name: 'Data',
@@ -24,16 +25,11 @@ export const DataModule: ServerKitModule = {
         // transaction per request), so an unbounded acquire wait (pg default) means a burst of
         // slow requests queues forever with no signal. Cap the pool and time out acquisition.
         // KyselyPool extends pg.Pool, so these are standard pg.PoolConfig options.
-        const numberOr = (key: string, fallback: number): number => {
-            const raw = config.get(key, fallback);
-            const parsed = raw ? Number(raw) : NaN;
-            return Number.isFinite(parsed) ? parsed : fallback;
-        };
-        const runtimePoolMax = numberOr('DATABASE_POOL_MAX', 10);
+        const runtimePoolMax = numberOr(config, 'DATABASE_POOL_MAX', 10);
         const poolTuning = {
             max: runtimePoolMax,
-            connectionTimeoutMillis: numberOr('DATABASE_POOL_CONNECTION_TIMEOUT_MS', 10_000),
-            idleTimeoutMillis: numberOr('DATABASE_POOL_IDLE_TIMEOUT_MS', 10_000),
+            connectionTimeoutMillis: numberOr(config, 'DATABASE_POOL_CONNECTION_TIMEOUT_MS', 10_000),
+            idleTimeoutMillis: numberOr(config, 'DATABASE_POOL_IDLE_TIMEOUT_MS', 10_000),
         };
 
         // The database's own backstop on a connection this process has stopped using, and NOT the
@@ -73,7 +69,7 @@ export const DataModule: ServerKitModule = {
         // Sent as a startup parameter rather than a `SET` on connect, so it is in force on the first
         // statement of every connection this pool opens with no round trip of its own, and it
         // reaches only this pool: dbmate and pg-boss hold owner connections built elsewhere.
-        const idleInTransactionMs = Math.round(numberOr('DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS', 600_000));
+        const idleInTransactionMs = Math.round(numberOr(config, 'DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS', 600_000));
         const startupOptions = idleInTransactionMs > 0 ? { options: `-c idle_in_transaction_session_timeout=${idleInTransactionMs}` } : {};
 
         // The runtime query pool connects as the non-owner `app_user` role where one is configured,

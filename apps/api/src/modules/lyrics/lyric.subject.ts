@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { runOf } from '#modules/personas/persona.sheet.js';
+import { firstJsonObject } from '#modules/shared/json.objects.js';
 import { MAX_PROMPT_LYRIC_CHARS, type MoodSubject } from './lyric.moods.js';
 
 /**
@@ -84,20 +85,11 @@ export type SubjectRefusal = 'unreadable' | 'too-long' | 'quoted-lyric';
  * word changed is still the quote.
  */
 export function readSubject(answer: string, lyric: string | undefined): { about: string } | 'unknown' | { refused: SubjectRefusal } {
-    const start = answer.indexOf('{');
-    const end = answer.lastIndexOf('}');
-    if (start < 0 || end <= start) return { refused: 'unreadable' };
+    const parsed = firstJsonObject(answer);
+    if (parsed === undefined) return { refused: 'unreadable' };
+    if (parsed.unknown === true) return 'unknown';
 
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(answer.slice(start, end + 1));
-    } catch {
-        return { refused: 'unreadable' };
-    }
-    if (typeof parsed !== 'object' || parsed === null) return { refused: 'unreadable' };
-    if ((parsed as { unknown?: unknown }).unknown === true) return 'unknown';
-
-    const about = (parsed as { about?: unknown }).about;
+    const about = parsed.about;
     if (typeof about !== 'string' || about.trim().length === 0) return { refused: 'unreadable' };
 
     const text = about.trim().replace(/\s+/g, ' ');

@@ -64,16 +64,41 @@ export function requiredNumber(config: AppConfig, key: string, fallback: number)
  * setting nobody set, and the declared default is the considered answer for that.
  */
 export function numberOr(config: AppConfig, key: string, fallback: number): number {
-    const parsed = Number(config.get(key, fallback));
-    return Number.isFinite(parsed) ? parsed : fallback;
+    // Through `numberFrom` so a blank row is unset rather than `Number('')`, which is 0: a cleared
+    // console field stores the empty string, and the operator who cleared it asked for the default.
+    return numberFrom(config.get(key, fallback), fallback);
 }
 
 /** The same question asked of a value already in hand. */
 export function numberFrom(raw: unknown, fallback: number): number {
-    if (raw === undefined || raw === null || raw === '') return fallback;
+    const text = typeof raw === 'string' ? raw.trim() : raw;
+    // Trimmed first, because `Number('  ')` is 0 just as `Number('')` is.
+    if (text === undefined || text === null || text === '') return fallback;
 
-    const parsed = Number(typeof raw === 'string' ? raw.trim() : raw);
+    const parsed = Number(text);
     return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/** A setting's declared bounds, as the registry and the resolver share them. */
+export interface NumberRange {
+    readonly min: number;
+    readonly max: number;
+}
+
+/**
+ * A numeric setting held to its declared range, or the fallback when it does not read as a number.
+ *
+ * The resolver half of the range rule in `apps/api/CLAUDE.md`: it CLAMPS rather than refusing,
+ * because what it reads is a row already stored, and a setting that refuses to load stops the walk
+ * behind it. `serializeSetting` is the half that refuses, at the moment somebody types the figure.
+ *
+ * Rounded before it is clamped, with whatever the setting means by a whole one (`Math.floor` for a
+ * count, `Math.round` for milliseconds); left alone for a setting that is not whole, like a loudness.
+ * Twelve resolvers wrote this out by hand, each parsing with `parseInt` or `parseFloat`, which read
+ * `'12abc'` as 12. This reads it through {@link numberFrom}, as a setting nobody set.
+ */
+export function numberInRange(raw: unknown, fallback: number, range: NumberRange, round: (value: number) => number = value => value): number {
+    return Math.min(range.max, Math.max(range.min, round(numberFrom(raw, fallback))));
 }
 
 function finiteOrThrow(parsed: number, key: string, raw: string): number {

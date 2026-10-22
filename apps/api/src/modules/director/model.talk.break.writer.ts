@@ -31,6 +31,7 @@ import type { StationDay } from '#modules/almanac/almanac.day.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { modelList } from '#modules/llm/model.list.js';
+import { numberFrom } from '#modules/shared/setting.numbers.js';
 
 /**
  * A model writing the station's talk breaks, with the station's own words underneath it.
@@ -146,8 +147,8 @@ export function breakGeneration(config: AppConfig): { maxOutputTokens: number; r
         : DEFAULT_BREAK_REASONING;
 
     const raw = config.get(MODEL_WRITER_KEYS.maxTokens, MAX_OUTPUT_TOKENS);
-    const parsed = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
-    const maxOutputTokens = Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : MAX_OUTPUT_TOKENS;
+    const parsed = numberFrom(raw, MAX_OUTPUT_TOKENS);
+    const maxOutputTokens = parsed >= 1 ? Math.floor(parsed) : MAX_OUTPUT_TOKENS;
 
     return { maxOutputTokens, reasoningEffort };
 }

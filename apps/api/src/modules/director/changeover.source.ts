@@ -4,6 +4,7 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakChangeover } from './break.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * What a changeover break is about: the programme that ended and the one that started.
@@ -69,13 +70,10 @@ export function changeoverContext(facts: ChangeoverFacts): BreakContext {
     return context;
 }
 
-/** A context value as text, or `undefined` for anything else. A context is shapeless by design. */
-const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
-
 /** The co-host ids out of their one stored value, in order and without repeats. */
 const ids = (value: unknown): string[] => [
     ...new Set(
-        (text(value) ?? '')
+        (nonEmptyText(value) ?? '')
             .split(',')
             .map(id => id.trim())
             .filter(id => id.length > 0),
@@ -96,9 +94,9 @@ export class ChangeoverSource {
     async changeoverFor(kind: string, context: BreakContext | undefined, presenting: Persona | undefined): Promise<BreakChangeover | undefined> {
         if (kind !== CHANGEOVER_KIND) return undefined;
 
-        const outgoing = await this.personas.presenting(text(context?.[CHANGEOVER_CONTEXT.outgoingPersonaId]));
-        const outgoingShow = text(context?.[CHANGEOVER_CONTEXT.outgoingShow]);
-        const incomingShow = text(context?.[CHANGEOVER_CONTEXT.incomingShow]);
+        const outgoing = await this.personas.presenting(nonEmptyText(context?.[CHANGEOVER_CONTEXT.outgoingPersonaId]));
+        const outgoingShow = nonEmptyText(context?.[CHANGEOVER_CONTEXT.outgoingShow]);
+        const incomingShow = nonEmptyText(context?.[CHANGEOVER_CONTEXT.incomingShow]);
         // `find` rather than `presenting`: a co-host is somebody the show named, never the station's
         // default standing in for nobody. One the roster cannot read is passed over rather than
         // failing the break, as `WriteBreakJob.speakerFor` passes one over.

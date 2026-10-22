@@ -325,6 +325,8 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * item — and none of them is worth counting against the plugin's health.
      */
     async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
+        const host = this.host;
+
         if (!this.clientId || !this.auth) return undefined;
 
         const tokens = await this.auth.sessionTokens();
@@ -336,7 +338,7 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         const username = await this.getCurrentUserId();
         if (!username) return undefined;
 
-        return this.host.trackFetcher.serve({
+        return host.trackFetcher.serve({
             trackId,
             session: { username, accessToken: tokens.accessToken, expiresAt: tokens.expiresAt },
         });
@@ -351,6 +353,8 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * unmarked. `mapPlaylist` treats a missing id as "no opinion".
      */
     private async getCurrentUserId(): Promise<string | undefined> {
+        const host = this.host;
+
         if (this.currentUserIdCache !== undefined) return this.currentUserIdCache;
 
         try {
@@ -360,10 +364,10 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
             // the first listing or the first fetch and not again until a reload. An operator who
             // never opens the settings card still gets told, in the plugin's own log.
             const advisory = explicitFilterNotice(profile);
-            if (advisory !== undefined) this.host.logger.warn(advisory);
+            if (advisory !== undefined) host.logger.warn(advisory);
             return profile.id;
         } catch (error) {
-            this.host.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', {
+            host.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', {
                 error: errorText(error),
             });
             return undefined;

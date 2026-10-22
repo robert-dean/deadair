@@ -1,4 +1,7 @@
 import {
+    errorText,
+    configFlag,
+    configLines,
     Plugin,
     PluginError,
     type HostFetchMethod,
@@ -28,8 +31,6 @@ import {
     actionsBlock,
     allowedChannel,
     clip,
-    configFlag,
-    configLines,
     decodeAction,
     escapeSlack,
     isDirectChannel,
@@ -480,7 +481,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
                 description: this.scrub(described),
             };
         }
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorText(error);
         return { retryable: true, description: this.scrub(message) };
     }
 

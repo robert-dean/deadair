@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SigninProviderCheck } from '@deadair/sdk';
 
 import { useSettings, useSigninCheck } from '../../api/settings.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
@@ -31,7 +31,7 @@ export function SigninCheckCard() {
     const check = useSigninCheck(providers);
 
     if (providers === undefined) return undefined;
-    if (sdkError(check.error)?.status === 403) return undefined;
+    if (isForbidden(check.error)) return undefined;
 
     return (
         <Card padding="lg">

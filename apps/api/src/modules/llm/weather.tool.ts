@@ -6,6 +6,7 @@ import { WeatherService } from '#modules/weather/weather.service.js';
 import { weatherLocations, type WeatherLocation } from '#modules/weather/weather.topic.js';
 import { degreeLabel, speedLabel } from '#modules/weather/weather.words.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * "What is it like outside?", as something a model can ask.
@@ -147,7 +148,7 @@ export class WeatherTool implements ToolSource {
      * station's own weather is a better answer than a refusal.
      */
     private async read(args: Record<string, unknown>, locations: readonly WeatherLocation[]): Promise<unknown> {
-        const wanted = readText(args.location);
+        const wanted = nonEmptyText(args.location);
         const asked = locations.find(location => location.key === wanted);
         const horizon = readHorizon(args.when);
 
@@ -205,11 +206,8 @@ export class WeatherTool implements ToolSource {
     }
 }
 
-/** An argument the model actually set. Blank is the interesting case: a model filling every field. */
-const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
-
 /** Whatever the model asked for, or the conditions now, which is what a bare call means. */
 function readHorizon(value: unknown): Horizon {
-    const said = readText(value)?.toLowerCase();
+    const said = nonEmptyText(value)?.toLowerCase();
     return said !== undefined && said in HORIZONS ? (said as Horizon) : 'now';
 }

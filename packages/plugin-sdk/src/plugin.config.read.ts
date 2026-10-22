@@ -44,6 +44,36 @@ export function configBaseUrl(value: unknown): string {
 }
 
 /**
+ * A multi-line config field as its non-empty, trimmed lines.
+ *
+ * Commas separate as well as newlines, because a list of chat or channel ids is
+ * what people paste, and they paste it comma-separated as often as one per line.
+ * Anything that is not a string is an empty list.
+ */
+export function configLines(value: unknown): string[] {
+    if (typeof value !== 'string') return [];
+    return value
+        .split(/[\n,]/)
+        .map(line => line.trim())
+        .filter(line => line !== '');
+}
+
+/**
+ * A boolean config field, or `fallback` when it is not set.
+ *
+ * Plugin config is jsonb, so a checkbox arrives as a real boolean and this is
+ * mostly a narrowing. The string arm covers a row hand-edited in psql, where
+ * `"false"` would otherwise be truthy: the same trap `settingIsOn` exists for on
+ * the station's own settings, where it cost six switches. Anything else,
+ * including absent, takes the fallback.
+ */
+export function configFlag(value: unknown, fallback: boolean): boolean {
+    if (value === true || value === 'true') return true;
+    if (value === false || value === 'false') return false;
+    return fallback;
+}
+
+/**
  * The credential one ROW of a `list` field holds, or `undefined` when the operator has not set it.
  *
  * The whole of what a plugin has to know about secret cells. A `secret` column is never in the row

@@ -1,7 +1,8 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { TopicInput, TopicList } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /**
@@ -42,17 +43,10 @@ export function useTopicKinds() {
 
 /** Every write, sharing one success path: the answer is the whole list, so nothing refetches. */
 function useTopicWrite<TArgs>(mutationFn: (args: TArgs) => Promise<TopicList>) {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn,
-        onSuccess: (topics: TopicList) => {
-            queryClient.setQueryData(queryKeys.topics.list(), topics);
-            // Deleting a subject takes any band that asked for it with it, so the format clock the
-            // schedule page draws is no longer what the server holds. Invalidated rather than
-            // written, since this answer says nothing about bands.
-            void queryClient.invalidateQueries({ queryKey: queryKeys.director.clock() });
-        },
-    });
+    // Deleting a subject takes any band that asked for it with it, so the format clock the schedule
+    // page draws is no longer what the server holds. Invalidated rather than written, since this
+    // answer says nothing about bands.
+    return useListWrite(queryKeys.topics.list(), mutationFn, [queryKeys.director.clock()]);
 }
 
 export const useCreateTopic = () => useTopicWrite((body: TopicInput) => sdk.topics.createTopic(body));

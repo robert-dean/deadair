@@ -1,5 +1,6 @@
 import { fillPlaceholders, placeholdersIn, renderMailMarkdown, type MailValues } from './mail.markdown.js';
 import type { MailTemplateMap } from './mail.templates.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The invitation: the one message a station may word for itself.
@@ -116,7 +117,7 @@ export function invitationBodyProblem(body: string): string | undefined {
                 return 'its {{link}} shares a line with a placeholder that can be empty ({{inviter}} or {{iosApp}}), so the invitation could arrive without one';
             }
         } catch (error) {
-            return error instanceof Error ? error.message : String(error);
+            return errorText(error);
         }
     }
     return undefined;

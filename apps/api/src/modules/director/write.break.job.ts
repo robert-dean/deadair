@@ -26,6 +26,7 @@ import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { BreakRequestBuilder, type ChosenStory, type Neighbour, type Neighbours } from './break.request.builder.js';
 import { mentionsFact } from './fact.mentions.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 export interface WriteBreakPayload {
     /**
@@ -804,12 +805,11 @@ function withLink(next: Neighbour, previous: Neighbour | undefined, items: reado
  */
 function programmeTrack(segment: Segment): BreakTrack {
     const context = segment.context ?? {};
-    const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
-    const summary = text(context.summary);
+    const summary = nonEmptyText(context.summary);
 
     return {
-        title: text(context.episodeTitle) ?? segment.label,
-        artist: text(context.showTitle) ?? 'a programme the station carries',
+        title: nonEmptyText(context.episodeTitle) ?? segment.label,
+        artist: nonEmptyText(context.showTitle) ?? 'a programme the station carries',
         ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
         programme: summary === undefined ? {} : { summary },
     };

@@ -1,4 +1,6 @@
 import {
+    configString,
+    errorText,
     Plugin,
     type AlbumEnrichment,
     type AlbumRef,
@@ -94,7 +96,7 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
         const config = await this.host.config.get();
 
         this.provider = readProvider(config.provider);
-        this.baseUrl = readText(config.baseUrl);
+        this.baseUrl = configString(config.baseUrl) ?? '';
         // From the secrets store, not from `config`. `apiKey` is declared `type: 'secret'`, which
         // means `saveConfig` encrypts it into `secrets` and `host.config.get()` can never contain
         // it — so reading it here answered `''` for every operator who had one, and Brave and
@@ -168,7 +170,7 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
             }
             return { ok: true, message: `${this.provider} answered with ${results.length} result${results.length === 1 ? '' : 's'}.` };
         } catch (error) {
-            return { ok: false, message: message(error) };
+            return { ok: false, message: errorText(error) };
         }
     }
 
@@ -262,7 +264,7 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
             // with nothing over one bad hit.
             found = await this.ask({ query, limit: wanted * 2, sites });
         } catch (error) {
-            host.logger.debug('web search: could not look up background', { error: message(error) });
+            host.logger.debug('web search: could not look up background', { error: errorText(error) });
             return [];
         }
 
@@ -271,13 +273,15 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
 
     /** The dispatch, and the only place the credentials are read. */
     private async ask(query: SearchQuery): Promise<SearchResult[]> {
+        const host = this.host;
+
         switch (this.provider) {
             case 'searxng':
-                return await searxngSearch(this.host, this.baseUrl, query);
+                return await searxngSearch(host, this.baseUrl, query);
             case 'brave':
-                return await braveSearch(this.host, this.apiKey, query);
+                return await braveSearch(host, this.apiKey, query);
             case 'tavily':
-                return await tavilySearch(this.host, this.apiKey, query);
+                return await tavilySearch(host, this.apiKey, query);
             default:
                 return [];
         }
@@ -297,9 +301,5 @@ function readProvider(value: unknown): ProviderId | undefined {
     return value;
 }
 
-const readText = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
-
 const positive = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

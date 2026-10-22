@@ -46,7 +46,7 @@
  * rather than making the caller ask the server a second time.
  */
 
-import { PluginError, type HostFetchInit, type PluginLogger } from '@deadair/plugin-sdk';
+import { errorText, PluginError, type HostFetchInit, type PluginLogger } from '@deadair/plugin-sdk';
 
 /** How long each lifecycle call gets. Short: they answer or they do not. */
 export const LIFECYCLE_TIMEOUT_MS = 10_000;
@@ -320,7 +320,7 @@ export class ModelLifecycle {
         try {
             return await this.load();
         } catch (error) {
-            this.deps.logger.warn('model load failed; clearing stranded memory and trying once more', { error: messageOf(error) });
+            this.deps.logger.warn('model load failed; clearing stranded memory and trying once more', { error: errorText(error) });
         }
 
         await this.unload();
@@ -344,7 +344,7 @@ export class ModelLifecycle {
                 timeoutMs: LIFECYCLE_TIMEOUT_MS,
             })
             .catch((error: unknown) => {
-                throw unavailable(`could not ask ${url} for a model: ${messageOf(error)}`);
+                throw unavailable(`could not ask ${url} for a model: ${errorText(error)}`);
             });
 
         if (!response.ok) {
@@ -387,7 +387,7 @@ export class ModelLifecycle {
             await response.body?.cancel().catch(() => {});
             this.deps.logger.debug('asked the server to drop its model');
         } catch (error) {
-            this.deps.logger.warn('could not ask the server to unload its model', { error: messageOf(error) });
+            this.deps.logger.warn('could not ask the server to unload its model', { error: errorText(error) });
         }
     }
 }
@@ -410,5 +410,3 @@ const namedTags = (value: unknown): readonly string[] =>
     Array.isArray(value) ? value.flatMap(entry => (typeof entry === 'string' && entry.trim().length > 0 ? [entry.trim().toLowerCase()] : [])) : [];
 
 const unavailable = (message: string): PluginError => new PluginError(`chatterbox: ${message}`).withCode('unavailable');
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));

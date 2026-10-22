@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next';
 import type { PlatformRole, UserSummary } from '@deadair/sdk';
 
 import { useCurrentSession, useUsers } from '../../api/users.queries';
-import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
+import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 import { PersonDrawer } from './person.drawer';
@@ -108,46 +108,58 @@ export function PeopleCard() {
                     />
                 </Group>
 
-                {users.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
-                {users.error ? (
-                    <ErrorAlert title={t('people.unavailable.title')} error={users.error} fallback={t('people.unavailable.fallback')} />
-                ) : undefined}
-
-                {users.data && list.length === 0 ? (
-                    <Text size="sm" c="dimmed">
-                        {t('people.empty')}
-                    </Text>
-                ) : undefined}
-
-                {users.data && list.length > 0 && phone ? (
-                    <Stack gap="xxs">
-                        {list.map(person => (
-                            <PersonPhoneCard key={person.id} person={person} isSelf={person.id === selfId} onOpen={() => setOpenId(person.id)} />
-                        ))}
-                    </Stack>
-                ) : undefined}
-
-                {users.data && list.length > 0 && !phone ? (
-                    <Table.ScrollContainer minWidth={720}>
-                        <Table verticalSpacing="sm" horizontalSpacing="sm" highlightOnHover>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>{t('people.column.person')}</Table.Th>
-                                    <Table.Th>{t('people.column.role')}</Table.Th>
-                                    <Table.Th>{t('people.column.lastSignIn')}</Table.Th>
-                                    <Table.Th>{t('people.column.signIn')}</Table.Th>
-                                    <Table.Th>{t('people.column.status')}</Table.Th>
-                                    <Table.Th w={100} />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                <QueryView
+                    query={users}
+                    skeleton={<PageSkeleton variant="rows" count={3} />}
+                    errorTitle={t('people.unavailable.title')}
+                    errorFallback={t('people.unavailable.fallback')}
+                    isEmpty={() => list.length === 0}
+                    empty={
+                        <Text size="sm" c="dimmed">
+                            {t('people.empty')}
+                        </Text>
+                    }
+                >
+                    {() =>
+                        phone ? (
+                            <Stack gap="xxs">
                                 {list.map(person => (
-                                    <PersonRow key={person.id} person={person} isSelf={person.id === selfId} onOpen={() => setOpenId(person.id)} />
+                                    <PersonPhoneCard
+                                        key={person.id}
+                                        person={person}
+                                        isSelf={person.id === selfId}
+                                        onOpen={() => setOpenId(person.id)}
+                                    />
                                 ))}
-                            </Table.Tbody>
-                        </Table>
-                    </Table.ScrollContainer>
-                ) : undefined}
+                            </Stack>
+                        ) : (
+                            <Table.ScrollContainer minWidth={720}>
+                                <Table verticalSpacing="sm" horizontalSpacing="sm" highlightOnHover>
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>{t('people.column.person')}</Table.Th>
+                                            <Table.Th>{t('people.column.role')}</Table.Th>
+                                            <Table.Th>{t('people.column.lastSignIn')}</Table.Th>
+                                            <Table.Th>{t('people.column.signIn')}</Table.Th>
+                                            <Table.Th>{t('people.column.status')}</Table.Th>
+                                            <Table.Th w={100} />
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {list.map(person => (
+                                            <PersonRow
+                                                key={person.id}
+                                                person={person}
+                                                isSelf={person.id === selfId}
+                                                onOpen={() => setOpenId(person.id)}
+                                            />
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            </Table.ScrollContainer>
+                        )
+                    }
+                </QueryView>
 
                 {users.data ? (
                     <Group justify="space-between">

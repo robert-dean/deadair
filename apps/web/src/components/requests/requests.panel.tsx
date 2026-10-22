@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDeclineRequest, useGrantRequest, useRequests } from '../../api/requests.queries';
 import { PartyCard } from './party.card';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -47,7 +47,7 @@ export function RequestsPanel() {
     const requests = useRequests();
     const [filter, setFilter] = useState<Filter>('open');
 
-    if (sdkError(requests.error)?.status === 403) {
+    if (isForbidden(requests.error)) {
         return <EmptyState>{t('forbidden')}</EmptyState>;
     }
     if (requests.isPending) return <PageSkeleton variant="rows" count={4} />;

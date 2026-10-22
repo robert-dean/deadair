@@ -3,6 +3,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import type { SearchRecency } from '@deadair/plugin-sdk';
 import { SearchService } from '#modules/search/search.service.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { limitArgument } from '#modules/shared/limit.clamp.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * "What does the web say about this?", as something a model can ask.
@@ -128,13 +130,13 @@ export class WebSearchTool implements ToolSource {
      * another step of a bounded loop.
      */
     private async look(args: Record<string, unknown>): Promise<{ results: unknown[]; note?: string }> {
-        const query = readText(args.query);
+        const query = nonEmptyText(args.query);
         if (query === undefined) {
             return { results: [], note: 'A search needs something to search for. Say what you want to know about.' };
         }
 
         const recency = readRecency(args.recency);
-        const found = await this.search.search(query, clampLimit(args.limit), recency === undefined ? {} : { recency });
+        const found = await this.search.search(query, limitArgument(args.limit, MAX_RESULTS), recency === undefined ? {} : { recency });
 
         // The line every tool here carries: "how much did the model actually
         // have to work with" has to be answerable from the log alone when a
@@ -160,14 +162,5 @@ export class WebSearchTool implements ToolSource {
     }
 }
 
-/** An argument the model actually set. Blank is the interesting case: a model filling every field. */
-const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
-
 /** A window the capability offers, or nothing. A model naming one it invented is asking for anything. */
 const readRecency = (value: unknown): SearchRecency | undefined => RECENCIES.find(recency => recency === value) as SearchRecency | undefined;
-
-/** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
-function clampLimit(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return MAX_RESULTS;
-    return Math.min(MAX_RESULTS, Math.floor(value));
-}

@@ -1,4 +1,5 @@
 import {
+    errorText,
     fetchFeed,
     jsonBody,
     Plugin,
@@ -166,7 +167,7 @@ export class PodcastPlugin extends Plugin implements PodcastPluginInstance {
 
             return toDirectoryEntries(await jsonBody<ItunesSearchAnswer>(response), query.limit);
         } catch (error) {
-            host.logger.warn('podcasts: the directory could not be searched', { error: message(error) });
+            host.logger.warn('podcasts: the directory could not be searched', { error: errorText(error) });
             return [];
         }
     }
@@ -230,7 +231,7 @@ export class PodcastPlugin extends Plugin implements PodcastPluginInstance {
         } catch (error) {
             // The publisher's own words are not repeated: this ends up in a log an operator reads,
             // and the useful half is which show failed.
-            host.logger.warn('podcasts: a feed could not be read', { show: show.id, error: message(error) });
+            host.logger.warn('podcasts: a feed could not be read', { show: show.id, error: errorText(error) });
             return this.cached(show.url, true);
         }
     }
@@ -361,9 +362,6 @@ const notNegative = (value: unknown): number | undefined => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : undefined;
 };
-
-/** An error as one short line. Never the upstream's own body. */
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /** The host a feed lives on, for a show nobody named and whose feed has never been read. */
 function hostOf(url: string): string {

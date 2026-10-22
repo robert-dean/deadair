@@ -13,7 +13,7 @@ import { onboardingRequirementsOptions } from '../api/onboarding.queries';
 import { resolveOnboardingRedirect } from '../api/onboarding.gate';
 import { resolveAuthRedirect } from '../auth/auth.gate';
 import { restoreSession } from '../auth/session.bootstrap';
-import { apiErrorMessage, sdkError } from '../api/sdk.error';
+import { apiErrorMessage, isForbidden } from '../api/sdk.error';
 import { useCurrentSession } from '../api/users.queries';
 import { queryKeys } from '../api/query.keys';
 import { useQueryClient } from '@tanstack/react-query';
@@ -109,7 +109,7 @@ export function RootLayout() {
     // A 403 is the answer for an account holding no role whatever, which is no admin either. Any
     // other failure is the API being unwell, which the banner reports, and is not a reason to take
     // an admin's desk away from them.
-    const noRole = sdkError(account.error)?.status === 403;
+    const noRole = isForbidden(account.error);
     const roleKnown = account.data !== undefined || account.isError;
     const desk = signedIn && isAdmin;
     const playout = usePlayoutStatus(desk);

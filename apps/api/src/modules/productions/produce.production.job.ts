@@ -45,6 +45,7 @@ import { ProductionRepository } from './production.repository.js';
 import { spokenTitle } from './production.scheduler.js';
 import { modelList } from '#modules/llm/model.list.js';
 import { PRODUCTION_MODEL_KEY, productionReasoning } from './production.settings.js';
+import { firstJsonObject } from '#modules/shared/json.objects.js';
 
 /**
  * How long before its slot a production stops being background work.
@@ -462,7 +463,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // ordinary way it died. Measured live on 2026-10-20: three banters in a row went out with
         // no outline, five of their six asks preempted by a break or a bulletin and one out of
         // budget, and the feed said the model "could not plan it, twice".
-        const outcome = await askForBeat(ask, answer => (coerceOutline(parseJson(answer.text), notes) === undefined ? '' : answer.text), {
+        const outcome = await askForBeat(ask, answer => (coerceOutline(firstJsonObject(answer.text), notes) === undefined ? '' : answer.text), {
             onEmpty: (_empties, outOfTime) =>
                 this.logger.info(
                     outOfTime
@@ -476,7 +477,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     preemptions,
                 }),
         });
-        const outline = outcome.script.length === 0 ? undefined : coerceOutline(parseJson(outcome.script), notes);
+        const outline = outcome.script.length === 0 ? undefined : coerceOutline(firstJsonObject(outcome.script), notes);
 
         // Still a model that gave nothing usable, which is not a failure of the production: the plan
         // is already computed, so the beats can be drafted from the brief alone — which is what a
@@ -726,7 +727,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     this.logger.warn('productions: the re-draft of a beat that named a record failed, so the first one stands', {
                         production: claimed.id,
                         beat: beat.ordinal,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: errorText(error),
                     });
                 }
             }
@@ -1435,30 +1436,6 @@ function recordsHanded(production: Production, cast: ProductionCast, station: st
         handed: [...(production.brief === undefined ? [] : [production.brief]), ...(production.notes ?? [])],
         names: [...cast.flatMap(member => (member.name === undefined ? [] : [member.name])), station],
     };
-}
-
-/**
- * A model's answer as JSON, or `undefined`.
- *
- * Tolerant of the wrapping a local model puts around it — a fence, a preface, reasoning in front —
- * for the same reason `readClaims` is: none of that is a reason to lose an answer that is otherwise
- * exactly right.
- */
-function parseJson(answer: string): unknown {
-    const trimmed = answer.trim();
-    const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
-    const body = fenced?.[1]?.trim() ?? trimmed;
-
-    // The outermost object, so a preface before it is skipped rather than breaking the parse.
-    const start = body.indexOf('{');
-    const end = body.lastIndexOf('}');
-    if (start < 0 || end <= start) return undefined;
-
-    try {
-        return JSON.parse(body.slice(start, end + 1));
-    } catch {
-        return undefined;
-    }
 }
 
 /**

@@ -8,6 +8,7 @@ import { NEWSREADER_READS } from '#modules/personas/persona.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { BreakContext } from '#modules/director/break.request.js';
 import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
+import { instant, millisOf } from '#modules/data/timestamp.columns.js';
 
 /**
  * How far along producing a segment is. Mirrors `segments.state`.
@@ -423,15 +424,6 @@ const SEGMENT_COLUMNS = [
     'pads',
 ] as const;
 
-/**
- * Epoch millis as something the column will take.
- *
- * Through SQL rather than as a value, which is what every other timestamptz write in this codebase
- * does (`missingAt`, `expiresAt`) and sidesteps the `DateTime`-versus-`Date` question above
- * entirely: Postgres is handed a number and does the conversion itself.
- */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
-
 /** What the library scan writes, and what the repository recognises as an import. */
 export const LIBRARY_SOURCE = 'library';
 
@@ -445,19 +437,6 @@ export const LIBRARY_SOURCE = 'library';
  * none of `importFile`'s checksum dedupe, since its identity is the episode it is and not its bytes.
  */
 export const SYNDICATED_SOURCE = 'syndicated';
-
-/**
- * A timestamp column as epoch millis.
- *
- * The generated types call every `timestamptz` a luxon `DateTime` and the pg driver hands back a
- * JS `Date`, which is a mismatch that predates this and is not resolved here. Both are handled
- * rather than one bet on, because picking either alone is a crash or a lie and the codegen mapping
- * is a setting somebody may change.
- */
-function millisOf(value: DateTime | null): number | undefined {
-    if (value == null) return undefined;
-    return value instanceof Date ? value.getTime() : value.toMillis();
-}
 
 /**
  * Rows read back as `undefined` rather than `null` (see the note in CLAUDE.md), so every optional

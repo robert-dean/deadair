@@ -1,12 +1,11 @@
 import {
-    PluginError,
     jsonBody,
-    pluginCodeForStatus,
     retryAfterMs,
     truncateUpstreamMessage,
     upstreamDetail,
     upstreamField,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './wikipedia.manifest.js';
@@ -28,16 +27,10 @@ function upstreamReason(body: string): string | undefined {
  * can branch on it while the `PluginError` half says what the host should make
  * of it.
  */
-export class MediaWikiRequestError extends PluginError {
-    readonly status: number;
-
+export class MediaWikiRequestError extends UpstreamRequestError {
     constructor(status: number, message: string, retryMs?: number) {
-        super(message);
+        super(status, message, { retryAfterMs: retryMs });
         this.name = 'MediaWikiRequestError';
-        this.status = status;
-
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
-        if (retryMs !== undefined) this.withRetry(retryMs);
     }
 }
 

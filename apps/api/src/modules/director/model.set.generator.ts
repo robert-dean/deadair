@@ -25,6 +25,7 @@ import { BriefArtists } from './brief.artists.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { modelList } from '#modules/llm/model.list.js';
+import { numberFrom } from '#modules/shared/setting.numbers.js';
 
 /**
  * A model choosing what the station plays, with the catalog draw underneath it.
@@ -173,9 +174,9 @@ export const DEFAULT_MAX_OUTPUT_TOKENS = 12_000;
  */
 export function maxOutputTokens(config: AppConfig): number {
     const raw = config.get(MODEL_GENERATOR_KEYS.maxTokens, DEFAULT_MAX_OUTPUT_TOKENS);
-    const parsed = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
+    const parsed = numberFrom(raw, DEFAULT_MAX_OUTPUT_TOKENS);
 
-    return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : DEFAULT_MAX_OUTPUT_TOKENS;
+    return parsed >= 1 ? Math.floor(parsed) : DEFAULT_MAX_OUTPUT_TOKENS;
 }
 
 /**

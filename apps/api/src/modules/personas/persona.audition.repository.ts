@@ -1,10 +1,11 @@
 import { Injectable } from 'injectkit';
-import { Kysely, sql } from 'kysely';
+import { Kysely } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { Audition, AuditionAttempt, AuditionBreak, AuditionRecord, AuditionSource, AuditionState } from './persona.audition.js';
+import { instant, millisOf } from '#modules/data/timestamp.columns.js';
 
 /**
  * How many of this run's own scripts a transition is shown.
@@ -299,21 +300,6 @@ export class PersonaAuditionRepository extends DataRepository {
 
         return Number(result?.numDeletedRows ?? 0);
     }
-}
-
-/**
- * Epoch millis as something the column will take.
- *
- * Through SQL rather than as a value, exactly as `production.repository.ts` and
- * `segment.repository.ts` do it: Postgres is handed a number and does the conversion itself, so the
- * `DateTime`-versus-`Date` mismatch in the generated types never has to be resolved here.
- */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
-
-/** A timestamp column as epoch millis. Both shapes handled, per `production.repository.ts`. */
-function millisOf(value: DateTime | null): number | undefined {
-    if (value == null) return undefined;
-    return value instanceof Date ? value.getTime() : value.toMillis();
 }
 
 /** One run as the rest of the app reads it. */

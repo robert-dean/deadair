@@ -23,11 +23,6 @@ export interface PlaylistTracksPageProps {
     playlistId: string;
 }
 
-/** `artists.join(', ')`, but without a stray separator when the array is documented-empty. */
-function formatArtists(artists: string[]): string {
-    return artists.length > 0 ? artists.join(', ') : '';
-}
-
 export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageProps) {
     const { t } = useTranslation('playlists');
     const tracks = useQuery(playlistTracksOptions(pluginId, playlistId));
@@ -103,7 +98,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                             }
                             subtitle={
                                 <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
-                                    {formatArtists(track.artists)}
+                                    {track.artists.join(', ')}
                                 </ArtistLink>
                             }
                             figure={
@@ -138,7 +133,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                                         <TrackLink id={track.trackId}>{track.title}</TrackLink>
                                     </Table.Td>
                                     <Table.Td>
-                                        <ArtistLink id={track.artistId}>{formatArtists(track.artists)}</ArtistLink>
+                                        <ArtistLink id={track.artistId}>{track.artists.join(', ')}</ArtistLink>
                                     </Table.Td>
                                     <Table.Td>
                                         <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>

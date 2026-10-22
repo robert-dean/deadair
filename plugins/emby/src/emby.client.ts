@@ -6,6 +6,7 @@ import {
     upstreamDetail,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { CLIENT_NAME, DEVICE_ID, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './emby.manifest.js';
@@ -27,14 +28,10 @@ function pluginCodeForStatus(status: number): PluginErrorCode {
 }
 
 /** An Emby call that failed, carrying the status so callers can treat a miss as data. */
-export class EmbyRequestError extends PluginError {
-    readonly status: number;
-
+export class EmbyRequestError extends UpstreamRequestError {
     constructor(message: string, status: number) {
-        super(message);
+        super(status, message, { code: pluginCodeForStatus(status) });
         this.name = 'EmbyRequestError';
-        this.status = status;
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
     }
 }
 

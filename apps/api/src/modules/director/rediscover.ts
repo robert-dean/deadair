@@ -35,7 +35,7 @@
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { numberFrom } from '#modules/shared/setting.numbers.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 import { PLAY_HISTORY_RETENTION_DAYS } from './play.history.repository.js';
 
 /** The `deadair.settings` keys, in the `rotation` group beside smart shuffle. */
@@ -80,8 +80,7 @@ export interface ArtistReturn {
 
 /** A stored figure as the draw will use it: whole days, clamped rather than refused, on the settings rule. */
 export function clampArtistReturnDays(value: unknown): number {
-    const parsed = Math.floor(numberFrom(value, DEFAULT_ARTIST_RETURN_DAYS));
-    return Math.min(ARTIST_RETURN_DAYS_RANGE.max, Math.max(ARTIST_RETURN_DAYS_RANGE.min, parsed));
+    return numberInRange(value, DEFAULT_ARTIST_RETURN_DAYS, ARTIST_RETURN_DAYS_RANGE, Math.floor);
 }
 
 /** The lean as the operator has it set. Through `settingIsOn`, because a setting is a string. */

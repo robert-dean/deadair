@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { PersonaPortraitList } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { useSettledWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
 /** Every persona that has a picture, and where it is served. */
@@ -28,10 +29,5 @@ export function useRemovePersonaPortrait() {
  * serves a replaceable picture with.
  */
 function usePortraitArrival<TArgs>(mutationFn: (args: TArgs) => Promise<PersonaPortraitList>) {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn,
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.personaPortraits.list() }),
-    });
+    return useSettledWrite(queryKeys.personaPortraits.list(), mutationFn);
 }

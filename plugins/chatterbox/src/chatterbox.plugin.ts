@@ -1,5 +1,6 @@
 import {
     configBaseUrl,
+    configFlag,
     configString,
     errorText,
     plausibleAudio,
@@ -10,6 +11,7 @@ import {
     tryJsonBody,
     type ConfigFieldOption,
     type PluginConnectionResult,
+    type PluginHost,
     type SpeechCue,
     type SpeechDelivery,
     type SpeechHandle,
@@ -163,7 +165,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // the other speech plugin for why never-opened is not a state the console can keep a station
         // in, and for the row on THIS engine that proved it.
         this.voices = shippedUnlessMapped(config[VOICES_FIELD]);
-        this.unloadAfterRender = isOn(config.unloadAfterRender);
+        this.unloadAfterRender = configFlag(config.unloadAfterRender, false);
         this.unloadAfterIdleMinutes = minutesOrDefault(config.unloadAfterIdleMinutes);
         this.apiKey = await this.host.secrets.get('apiKey');
 
@@ -331,6 +333,8 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      * operator fixing a bad address needs the form.
      */
     async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        const host = this.host;
+
         if (this.baseUrl.length === 0) return {};
 
         const suggestions: Record<string, ConfigFieldOption[]> = {};
@@ -342,7 +346,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         try {
             voices = await this.fetchEngineVoices();
         } catch (error) {
-            this.host.logger.debug('chatterbox could not suggest voices', { error: messageOf(error) });
+            host.logger.debug('chatterbox could not suggest voices', { error: errorText(error) });
         }
 
         if (voices.length > 0) {
@@ -377,7 +381,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         const model = await lifecycle.ensureLoaded();
 
         const format = isResponseFormat(request.format) ? request.format : this.format;
-        const mapping = this.resolveVoice(request.voice);
+        const mapping = this.resolveVoice(host, request.voice);
         const voice = mapping.engine;
         const sendDials = honoursExpressionDials(model);
         // The server's own defaults are only worth a request when a delivery has to be worked out from
@@ -512,13 +516,15 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      * why it is kept honest rather than generous.
      */
     private async fetchSupportedFormats(): Promise<ConfigFieldOption[]> {
+        const host = this.host;
+
         const root = serverRootOf(this.baseUrl);
         // Server-root-relative, which is what the document's keys are, and the same literal `speak`
         // builds its URL from.
         const speechPath = '/tts';
 
         try {
-            const response = await this.host.fetch(`${root}/openapi.json`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            const response = await host.fetch(`${root}/openapi.json`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
             if (!response.ok) {
                 await response.body?.cancel().catch(() => {});
                 return [];
@@ -532,14 +538,16 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
             return declared.flatMap((entry: unknown) => (isResponseFormat(entry) ? [{ value: entry, label: entry }] : []));
         } catch (error) {
-            this.host.logger.debug('chatterbox could not read the formats its server accepts', { error: messageOf(error) });
+            host.logger.debug('chatterbox could not read the formats its server accepts', { error: errorText(error) });
             return [];
         }
     }
 
     /** Every predefined clip this server holds, as a value and a name to show for it. */
     private async fetchEngineVoices(): Promise<ConfigFieldOption[]> {
-        const named = await this.host.fetch(`${serverRootOf(this.baseUrl)}/get_predefined_voices`, {
+        const host = this.host;
+
+        const named = await host.fetch(`${serverRootOf(this.baseUrl)}/get_predefined_voices`, {
             headers: this.authHeaders(),
             timeoutMs: PROBE_TIMEOUT_MS,
         });
@@ -561,7 +569,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
         // The OpenAI-shaped list, for a build that does not serve the named one. Bare filenames, so
         // the label is the value.
-        const response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        const response = await host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
         if (!response.ok) {
             await response.body?.cancel().catch(() => {});
             return [];
@@ -585,14 +593,16 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      * An unmapped name falls back rather than failing, and says so once: a
      * station that says the wrong thing in the wrong voice is recoverable, and
      * one that goes silent because a persona was renamed is not.
+     *
+     * Takes the host `speak` held, because it runs after that method's first await.
      */
-    private resolveVoice(requested: string | undefined): VoiceMapping {
+    private resolveVoice(host: PluginHost, requested: string | undefined): VoiceMapping {
         if (requested === undefined || requested.length === 0) return { engine: this.defaultVoice };
 
         const mapped = this.voices[requested];
         if (mapped !== undefined) return mapped;
 
-        this.host.logger.warn('no mapping for this voice; using the default', { voice: requested, using: this.defaultVoice });
+        host.logger.warn('no mapping for this voice; using the default', { voice: requested, using: this.defaultVoice });
         return { engine: this.defaultVoice };
     }
 
@@ -648,21 +658,11 @@ const serverRootOf = (baseUrl: string): string => baseUrl.replace(/\/+$/, '').re
 const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);
 
 /**
- * A boolean config value, defaulting OFF.
- *
- * Plugin config is jsonb, so a checkbox arrives as a real boolean and this is
- * mostly a narrowing. The string arm covers a row hand-edited in psql, where
- * `"false"` would otherwise be truthy — which is the same trap `settingIsOn`
- * exists for on the station's own settings, and it cost six switches there.
- */
-const isOn = (value: unknown): boolean => value === true || value === 'true';
-
-/**
  * Minutes of idle time before the model is let go, defaulting on anything that is not a sane number.
  *
  * `0` is a real answer ("never") rather than a bad value, so it is the only number let through
  * unchanged below the default; a negative number or anything that does not parse falls back the same
- * way `isOn` falls back on a boolean field, and for the same reason: a row hand-edited in psql should
+ * way `configFlag` falls back on a boolean field, and for the same reason: a row hand-edited in psql should
  * not turn into a station holding a GPU it never lets go.
  *
  * `undefined` and a blank or whitespace-only string are checked before the conversion rather than
@@ -699,8 +699,6 @@ const specOf = (mapping: VoiceMapping): string =>
         mapping.exaggeration === undefined ? '' : `e${mapping.exaggeration}`,
         mapping.cfgWeight === undefined ? '' : `c${mapping.cfgWeight}`,
     ].join('');
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
  * The model half of the connection message.

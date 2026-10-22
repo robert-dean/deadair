@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { MessagingLink, MessagingLinkCode } from '@deadair/sdk';
 
 import { useCreateMessagingLinkCode, useMessagingLinks, useRemoveMessagingLink } from '../../api/messaging.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
@@ -31,7 +31,7 @@ export function ChatAccountsCard() {
     const create = useCreateMessagingLinkCode();
     const [code, setCode] = useState<MessagingLinkCode>();
 
-    if (sdkError(links.error)?.status === 403) return undefined;
+    if (isForbidden(links.error)) return undefined;
 
     // What the operator sends the bot: a chat command, which is the bot's syntax rather than copy.
     const command = code ? `/link ${code.code}` : '';

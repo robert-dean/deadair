@@ -14,6 +14,7 @@ import {
     type StationLineupRules,
     type StationLineupSnapshot,
 } from './station.lineup.js';
+import { instant } from '#modules/data/timestamp.columns.js';
 
 /** The station whose running order this is. One today; the column exists so a second is a row. */
 export const MAIN_STATION = 'main';
@@ -362,12 +363,3 @@ function holdMillis(value: unknown): number | undefined {
 
     return typeof (value as { toMillis?: () => number }).toMillis === 'function' ? (value as { toMillis: () => number }).toMillis() : undefined;
 }
-
-/**
- * Epoch millis as something the column will take.
- *
- * Through SQL rather than as a value, exactly as `break.request.repository.ts` does it and for the
- * same reason: Postgres is handed a number and does the conversion itself, so the
- * `DateTime`-versus-`Date` mismatch in the generated types never has to be resolved here.
- */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;

@@ -15,7 +15,7 @@ import {
 } from '../../api/events.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
-import { CopyButton } from '../shared/copy.button';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentStamp } from '../shared/feed.moment';
 import { notifyDone, notifySaved } from '../shared/notify';
@@ -151,10 +151,7 @@ function SecretPanel({ minted, onDone }: { minted: Minted; onDone: () => void })
         <Alert color="yellow" variant="light" title={t(`eventDestinations.secret.title.${minted.verb}`, { name: minted.name })}>
             <Stack gap="sm">
                 <Text size="sm">{t('eventDestinations.secret.body')}</Text>
-                <Group gap="xs" wrap="nowrap" align="flex-start">
-                    <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{minted.secret}</Code>
-                    <CopyButton value={minted.secret} />
-                </Group>
+                <CopyableCode value={minted.secret} align="flex-start" />
                 <Text size="xs" c="dimmed">
                     <Trans t={t} i18nKey="eventDestinations.secret.how" components={{ code: <Code /> }} />
                 </Text>

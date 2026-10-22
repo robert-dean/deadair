@@ -176,11 +176,13 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
     }
 
     async join(request: AudioJoin): Promise<JoinedAudio> {
+        const host = this.host;
+
         if (this.baseUrl.length === 0) {
             throw new PluginError('the analyzer has no URL configured').withCode('config');
         }
 
-        const response = await this.host.fetch(`${this.baseUrl}/join`, {
+        const response = await host.fetch(`${this.baseUrl}/join`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
@@ -237,7 +239,7 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
 
         const declared = Number(response.headers.get('x-duration-ms'));
 
-        this.host.logger.debug('joined audio', { parts: request.parts.length, gapMs: request.gapMs, mime });
+        host.logger.debug('joined audio', { parts: request.parts.length, gapMs: request.gapMs, mime });
 
         return {
             mime,

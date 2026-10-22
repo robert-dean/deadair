@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 
 import { isLoopback, partyLink, useEndParty, useParty, useStartParty } from '../../api/party.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { formatClock } from '../../i18n/format.locale';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
@@ -34,7 +34,7 @@ export function PartyCard() {
     const [ending, setEnding] = useState(false);
     const [hours, setHours] = useState<number | string>(DEFAULT_HOURS);
 
-    if (sdkError(party.error)?.status === 403 || party.isPending) return undefined;
+    if (isForbidden(party.error) || party.isPending) return undefined;
 
     const live = party.data?.party;
 

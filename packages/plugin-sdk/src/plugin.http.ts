@@ -1,5 +1,5 @@
 import type { HostFetchMethod } from './plugin.host.js';
-import type { PluginErrorCode } from './plugin.error.js';
+import { PluginError, type PluginErrorCode } from './plugin.error.js';
 
 /**
  * The pieces every plugin that talks to an HTTP upstream was writing for itself.
@@ -7,10 +7,12 @@ import type { PluginErrorCode } from './plugin.error.js';
  * Four clients here wrap `host.fetch` the same way — check the status, turn it
  * into a {@link PluginErrorCode}, pull the upstream's own sentence out of the
  * body, and throw something carrying both. The WRAPPER is not shared, because
- * each one throws its own error type and each branches on its own service's
- * quirks. What is shared is underneath it: the rows of the status ladder that
- * mean the same thing everywhere, the truncation, the `Retry-After` parse, and
- * the defensive dig into a JSON error body.
+ * each one branches on its own service's quirks, and each still throws its own
+ * error type so the plugin can tell its services apart with `instanceof`. What
+ * is shared is underneath it: the rows of the status ladder that mean the same
+ * thing everywhere, the truncation, the `Retry-After` parse, the defensive dig
+ * into a JSON error body, and {@link UpstreamRequestError}, the base those
+ * error types extend.
  *
  * Deliberately not here: retry and pacing. A plugin declares its rate limit on
  * its manifest and `host.fetch` applies it, so no plugin implements a backoff
@@ -143,4 +145,60 @@ export function headersToRecord(headers: Headers): Record<string, string> {
     });
 
     return record;
+}
+
+/** How an upstream failure is classified, beyond its status. Every field is optional. */
+export interface UpstreamFailure {
+    /** The host's reading of it. Defaults to {@link pluginCodeForStatus} of the status. */
+    code?: PluginErrorCode;
+    /** The service's own code for it, when it sent one. See `PluginError.upstreamCode`. */
+    upstreamCode?: string | number;
+    /** The upstream's `Retry-After`, already parsed (see {@link retryAfterMs}). Marks the failure retryable. */
+    retryAfterMs?: number;
+    cause?: unknown;
+}
+
+/**
+ * The base of every plugin's "the upstream said no" error.
+ *
+ * Eleven plugins each declared the same class: a `PluginError` carrying the numeric `status`,
+ * classified from it, with the retry advice attached when there was some. The subclass is kept
+ * rather than replaced, because it is how a plugin tells its own services apart (`musicbrainz` asks
+ * `instanceof ListenBrainzRequestError` before it asks anything else) and where a service-specific
+ * reading of the failure lives (Spotify's `quotaExhausted`, Deezer's `isNoData`). What moves here
+ * is the part they all wrote the same way:
+ *
+ * ```ts
+ * export class PlexRequestError extends UpstreamRequestError {
+ *     constructor(message: string, status: number) {
+ *         super(status, message);
+ *         this.name = 'PlexRequestError';
+ *     }
+ * }
+ * ```
+ *
+ * `status` stays a field of its own beside `upstreamStatus` because it is never absent on most of
+ * these, so a plugin branches on it without narrowing. `Status` widens to `number | undefined` for
+ * the one service (Subsonic) whose failures can arrive inside a well-formed envelope with no status
+ * worth naming.
+ *
+ * A 200 is never recorded as `upstreamStatus`, although it stays on `status`. A failure that came
+ * back inside a 200 is the service's own error (Last.fm's error number, Deezer's code), which is
+ * what `upstreamCode` is for, and an `upstreamStatus` of 200 on the settings card reads as "the
+ * upstream answered fine".
+ */
+export class UpstreamRequestError<Status extends number | undefined = number> extends PluginError {
+    readonly status: Status;
+
+    constructor(status: Status, message: string, failure: UpstreamFailure = {}) {
+        super(message, { cause: failure.cause });
+        this.name = 'UpstreamRequestError';
+        this.status = status;
+
+        // In this order because `withCode` resets `retryable`, and `withRetry` must win over it.
+        this.withCode(failure.code ?? (status === undefined ? 'upstream' : pluginCodeForStatus(status)));
+        if (status !== undefined && status !== 200) this.withUpstreamStatus(status);
+        if (failure.upstreamCode !== undefined) this.withUpstreamCode(failure.upstreamCode);
+        if (failure.retryAfterMs !== undefined) this.withRetry(failure.retryAfterMs);
+    }
 }

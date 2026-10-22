@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Button, Card, Group, Modal, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Group, Stack, Text, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useRemovePlugin } from '../../api/plugins.queries';
-import { apiErrorMessage, sdkError } from '../../api/sdk.error';
-import { ErrorAlert } from '../shared/error.alert';
+import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { notifyDone } from '../shared/notify';
 import { PLUGINS_PAGE_DEFAULTS } from './plugin.page.params';
 
@@ -60,26 +60,25 @@ export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
                 </Button>
             </Group>
 
-            <Modal opened={confirmOpen} onClose={closeConfirm} title={t('remove.confirm.title', { name: plugin.name })} centered>
-                <Stack gap="md">
-                    <Text size="sm">{t('remove.confirm.body', { name: plugin.name })}</Text>
-                    {remove.error ? <ErrorAlert title={t('remove.error.title')}>{removeError(remove.error, t)}</ErrorAlert> : undefined}
-                    <Group justify="flex-end">
-                        <Button variant="default" onClick={closeConfirm}>
-                            {t('common:action.cancel')}
-                        </Button>
-                        <Button color="red" loading={remove.isPending} onClick={() => void confirmed()}>
-                            {t('remove.confirm.button', { name: plugin.name })}
-                        </Button>
-                    </Group>
-                </Stack>
-            </Modal>
+            <ConfirmModal
+                opened={confirmOpen}
+                onClose={closeConfirm}
+                onConfirm={() => void confirmed()}
+                title={t('remove.confirm.title', { name: plugin.name })}
+                confirmLabel={t('remove.confirm.button', { name: plugin.name })}
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle={t('remove.error.title')}
+                errorMessage={error => removeError(error, t)}
+            >
+                {t('remove.confirm.body', { name: plugin.name })}
+            </ConfirmModal>
         </Card>
     );
 }
 
 /** What a refused removal means, in the operator's terms. */
 function removeError(error: unknown, t: TFunction<'plugins'>): string {
-    if (sdkError(error)?.status === 403) return t('remove.error.forbidden');
+    if (isForbidden(error)) return t('remove.error.forbidden');
     return apiErrorMessage(error, t('remove.error.fallback'));
 }

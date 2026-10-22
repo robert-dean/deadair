@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { PlexPlugin } from '../src/plex.plugin.js';
-import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
+import { createFakePluginHost, routedFetch, type FakePluginHost, type FakeRoute } from '@deadair/plugin-sdk/testing';
 
 const BASE_URL = 'http://plex.test:32400';
 const TOKEN = 't0ken';
 const MACHINE = 'machine-1';
 
-type Reply = { status?: number; body: unknown };
-type Route = (url: URL) => Reply | undefined;
+type Route = FakeRoute;
 
 const container = (fields: Record<string, unknown>) => ({ MediaContainer: fields });
 const metadata = (...items: unknown[]) => container({ size: items.length, Metadata: items });
@@ -26,19 +25,12 @@ const sections: Route = url =>
           }
         : undefined;
 
-/**
- * An initialized plugin whose host answers by path. Every unrouted call is a 500, so a test that
- * forgot a route fails loudly rather than reading an empty answer.
- */
+/** An initialized plugin whose host answers by path; see `routedFetch` for what an unrouted call gets. */
 async function build(routes: Route[]): Promise<{ host: FakePluginHost; plugin: PlexPlugin }> {
     const host = createFakePluginHost();
     host.seedConfig({ baseUrl: BASE_URL });
     host.seedSecret('token', TOKEN);
-    host.setFetchImpl(async raw => {
-        const url = new URL(raw);
-        const reply = [sections, ...routes].map(route => route(url)).find(found => found !== undefined) ?? { status: 500, body: 'unrouted' };
-        return new Response(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body), { status: reply.status ?? 200 });
-    });
+    host.setFetchImpl(routedFetch([sections, ...routes]));
 
     const plugin = new PlexPlugin();
     await plugin.init(host);

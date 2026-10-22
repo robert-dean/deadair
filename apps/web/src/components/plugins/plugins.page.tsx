@@ -6,7 +6,7 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useQuery } from '@tanstack/react-query';
 
 import { pluginsListOptions, useRescanPlugins } from '../../api/plugins.queries';
-import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
 import { CatalogSearch } from '../catalog/catalog.search';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -32,7 +32,7 @@ import { PluginTable } from './plugin.table';
 
 /** What a rescan refusal means, in the operator's terms rather than the transport's. */
 function rescanError(error: unknown, t: TFunction<'plugins'>): string {
-    if (sdkError(error)?.status === 403) {
+    if (isForbidden(error)) {
         return t('page.rescanError.forbidden');
     }
     return apiErrorMessage(error, t('page.rescanError.fallback'));

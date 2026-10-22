@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Button, Group, Text } from '@mantine/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { invalidateCatalogLists, useClearTrack, type TrackClear } from '../../api/catalog.queries';
 import type { TrackStateParam } from './catalog.page.params';
+import { ConfirmModal } from '../shared/confirm.modal';
 
 /**
  * What to do about a whole list of records at once, where the list is one of the two fault states.
@@ -118,23 +119,20 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
                 ) : undefined}
             </Group>
 
-            <Modal opened={asking} onClose={() => setAsking(false)} title={t(`stateAction.${faulted}.title`)} centered>
-                <Stack gap="md">
-                    <Text size="sm">{t(`stateAction.${faulted}.consequence`)}</Text>
-                    <Text size="sm" c="dimmed">
-                        {t('stateAction.scope', { count: trackIds.length })}
-                    </Text>
-
-                    <Group justify="flex-end">
-                        <Button variant="default" onClick={() => setAsking(false)} disabled={running}>
-                            {t('common:action.cancel')}
-                        </Button>
-                        <Button color="red" loading={running} onClick={() => void run()}>
-                            {t(`stateAction.${faulted}.confirm`)}
-                        </Button>
-                    </Group>
-                </Stack>
-            </Modal>
+            <ConfirmModal
+                opened={asking}
+                onClose={() => setAsking(false)}
+                onConfirm={() => void run()}
+                title={t(`stateAction.${faulted}.title`)}
+                confirmLabel={t(`stateAction.${faulted}.confirm`)}
+                confirming={running}
+                lockWhileConfirming
+            >
+                <Text size="sm">{t(`stateAction.${faulted}.consequence`)}</Text>
+                <Text size="sm" c="dimmed">
+                    {t('stateAction.scope', { count: trackIds.length })}
+                </Text>
+            </ConfirmModal>
         </>
     );
 }

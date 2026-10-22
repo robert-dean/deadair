@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, Code, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { OAuthClientAuthMethod, OAuthClientIssued, OAuthClientSummary } from '@deadair/sdk';
 
 import { useCreateOAuthClient, useOAuthClients, useRevokeOAuthClient } from '../../api/oauth.queries';
-import { sdkError } from '../../api/sdk.error';
+import { isForbidden } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
-import { CopyButton } from '../shared/copy.button';
+import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
 
 type Gate = ReturnType<typeof useStepUpGate>;
@@ -32,7 +33,7 @@ export function OAuthClientsCard() {
     const gate = useStepUpGate();
     const [issued, setIssued] = useState<OAuthClientIssued>();
 
-    if (sdkError(clients.error)?.status === 403) return undefined;
+    if (isForbidden(clients.error)) return undefined;
 
     return (
         <Card padding="lg">
@@ -47,23 +48,25 @@ export function OAuthClientsCard() {
                 </Stack>
 
                 {issued ? <IssuedPanel issued={issued} onDone={() => setIssued(undefined)} /> : undefined}
-                {clients.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                {clients.error ? (
-                    <ErrorAlert title={t('oauthClients.unavailable.title')} error={clients.error} fallback={t('oauthClients.unavailable.fallback')} />
-                ) : undefined}
-
-                {clients.data ? (
-                    <Stack gap="xs">
-                        {clients.data.clients.map(client => (
-                            <ClientRow key={client.clientId} client={client} />
-                        ))}
-                        {clients.data.clients.length === 0 ? (
-                            <Text size="sm" c="dimmed">
-                                {t('oauthClients.none')}
-                            </Text>
-                        ) : undefined}
-                    </Stack>
-                ) : undefined}
+                <QueryView
+                    query={clients}
+                    skeleton={<PageSkeleton variant="rows" count={2} />}
+                    errorTitle={t('oauthClients.unavailable.title')}
+                    errorFallback={t('oauthClients.unavailable.fallback')}
+                >
+                    {data => (
+                        <Stack gap="xs">
+                            {data.clients.map(client => (
+                                <ClientRow key={client.clientId} client={client} />
+                            ))}
+                            {data.clients.length === 0 ? (
+                                <Text size="sm" c="dimmed">
+                                    {t('oauthClients.none')}
+                                </Text>
+                            ) : undefined}
+                        </Stack>
+                    )}
+                </QueryView>
 
                 {clients.data ? <NewClientForm gate={gate} onIssued={setIssued} /> : undefined}
             </Stack>
@@ -78,17 +81,11 @@ function IssuedPanel({ issued, onDone }: { issued: OAuthClientIssued; onDone: ()
         <Alert color="yellow" variant="light" title={t('oauthClients.issued.title', { name: issued.client.name ?? issued.client.clientId })}>
             <Stack gap="xs">
                 <Text size="sm">{t('oauthClients.issued.clientId')}</Text>
-                <Group gap="xs" wrap="nowrap">
-                    <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.client.clientId}</Code>
-                    <CopyButton value={issued.client.clientId} />
-                </Group>
+                <CopyableCode value={issued.client.clientId} />
                 {issued.clientSecret ? (
                     <>
                         <Text size="sm">{t('oauthClients.issued.clientSecret')}</Text>
-                        <Group gap="xs" wrap="nowrap">
-                            <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.clientSecret}</Code>
-                            <CopyButton value={issued.clientSecret} />
-                        </Group>
+                        <CopyableCode value={issued.clientSecret} />
                     </>
                 ) : undefined}
                 <Button variant="default" size="compact-sm" w="fit-content" onClick={onDone}>

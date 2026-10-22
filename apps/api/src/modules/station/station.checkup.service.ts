@@ -9,6 +9,7 @@ import { BuildRevision } from '#modules/shared/build.revision.js';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
 import { LlmGate } from '#modules/llm/llm.gate.js';
 import type { StationBacklog, StationCheckup, StationHeartbeat, StationModel } from './types/station.types.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The machinery, for the page that assembles a check-up.
@@ -97,7 +98,7 @@ export class StationCheckupService {
                       }),
             };
         } catch (error) {
-            this.logger.warn(`station: the model slot could not be read (${message(error)})`);
+            this.logger.warn(`station: the model slot could not be read (${errorText(error)})`);
             return undefined;
         }
     }
@@ -121,7 +122,7 @@ export class StationCheckupService {
                 ...(reading.lastBeat === undefined ? {} : { lastBeat: DateTime.fromMillis(reading.lastBeat, { zone: 'utc' }) }),
             }));
         } catch (error) {
-            this.logger.warn(`station: the heartbeats could not be read (${message(error)})`);
+            this.logger.warn(`station: the heartbeats could not be read (${errorText(error)})`);
             return undefined;
         }
     }
@@ -142,10 +143,8 @@ export class StationCheckupService {
             const counts = await this.tracks.trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_SCHEMA_VERSION });
             return { total: counts.total, cached: counts.cached, measured: counts.measured };
         } catch (error) {
-            this.logger.warn(`station: the analysis backlog could not be counted (${message(error)})`);
+            this.logger.warn(`station: the analysis backlog could not be counted (${errorText(error)})`);
             return undefined;
         }
     }
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

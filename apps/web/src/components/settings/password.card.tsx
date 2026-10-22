@@ -7,13 +7,11 @@ import { useTranslation } from 'react-i18next';
 import { useSetPassword } from '../../api/auth.factors.queries';
 import { isRateLimited } from '../../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
+import { MIN_PASSWORD_LENGTH } from '../../auth/password.rule';
 import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone } from '../shared/notify';
 import { isStepUpCancelled, type useStepUpGate } from './step.up.dialog';
-
-/** Matches the auth contract: string(min=8, max=256). */
-const MIN_PASSWORD_LENGTH = 8;
 
 interface PasswordValues {
     current: string;

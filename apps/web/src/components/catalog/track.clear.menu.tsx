@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Button, Group, Menu, Modal, Stack, Text } from '@mantine/core';
+import { Button, Menu, Stack, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { useClearTrack, type TrackClear } from '../../api/catalog.queries';
-import { ErrorAlert } from '../shared/error.alert';
+import { ConfirmModal } from '../shared/confirm.modal';
 
 /**
  * The five things an operator can do about a record, and what each one costs.
@@ -76,46 +76,34 @@ export function TrackClearMenu({ trackId }: { trackId: string }) {
                 ) : undefined}
             </Stack>
 
-            <Modal
+            {/* The 409 is the one refusal worth reading in full: a record about to air is left alone
+                deliberately, and the message says what to do instead, so it is a warning. */}
+            <ConfirmModal
                 opened={asking !== undefined}
                 onClose={() => setAsking(undefined)}
-                title={asking === undefined ? undefined : t(`clear.${asking}.title`)}
-                centered
+                onConfirm={() => {
+                    if (asking === undefined) return;
+                    clear.mutate(
+                        { id: trackId, what: asking },
+                        {
+                            onSuccess: result => {
+                                setAnswer(result.detail);
+                                setAsking(undefined);
+                            },
+                        },
+                    );
+                }}
+                title={asking === undefined ? '' : t(`clear.${asking}.title`)}
+                confirmLabel={asking === undefined ? '' : t(`clear.${asking}.confirm`)}
+                confirming={clear.isPending}
+                lockWhileConfirming
+                error={clear.error}
+                errorTone="warning"
+                errorTitle={t('clear.error.title')}
+                errorFallback={t('clear.error.fallback')}
             >
-                <Stack gap="md">
-                    <Text size="sm">{asking === undefined ? undefined : t(`clear.${asking}.consequence`)}</Text>
-
-                    {/* The 409 is the one refusal worth reading in full: a record about to air is
-                        left alone deliberately, and the message says what to do instead. */}
-                    {clear.error ? (
-                        <ErrorAlert tone="warning" title={t('clear.error.title')} error={clear.error} fallback={t('clear.error.fallback')} />
-                    ) : undefined}
-
-                    <Group justify="flex-end">
-                        <Button variant="default" onClick={() => setAsking(undefined)} disabled={clear.isPending}>
-                            {t('common:action.cancel')}
-                        </Button>
-                        <Button
-                            color="red"
-                            loading={clear.isPending}
-                            onClick={() => {
-                                if (asking === undefined) return;
-                                clear.mutate(
-                                    { id: trackId, what: asking },
-                                    {
-                                        onSuccess: result => {
-                                            setAnswer(result.detail);
-                                            setAsking(undefined);
-                                        },
-                                    },
-                                );
-                            }}
-                        >
-                            {asking === undefined ? undefined : t(`clear.${asking}.confirm`)}
-                        </Button>
-                    </Group>
-                </Stack>
-            </Modal>
+                {asking === undefined ? '' : t(`clear.${asking}.consequence`)}
+            </ConfirmModal>
         </>
     );
 }

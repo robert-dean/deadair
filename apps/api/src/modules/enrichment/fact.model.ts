@@ -33,6 +33,8 @@
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { FACT_CATEGORIES, type FactCategory } from './fact.repository.js';
+import { firstJsonObject } from '#modules/shared/json.objects.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /** How many claims one article is asked for. */
 export const MAX_MODEL_CLAIMS = 5;
@@ -191,8 +193,8 @@ export function readClaims(answer: string, article: string, limit = MAX_MODEL_CL
     const seen = new Set<string>();
 
     for (const entry of parsed) {
-        const claim = text(entry.claim);
-        const quote = text(entry.quote);
+        const claim = nonEmptyText(entry.claim);
+        const quote = nonEmptyText(entry.quote);
         if (claim === undefined || quote === undefined) continue;
 
         // The quote has to be IN the article. This is what makes the row's own
@@ -214,16 +216,8 @@ export function readClaims(answer: string, article: string, limit = MAX_MODEL_CL
 
 /** A model's JSON, however it wrapped it. */
 function parseAnswer(answer: string): { claim?: unknown; quote?: unknown; category?: unknown }[] | undefined {
-    const start = answer.indexOf('{');
-    const end = answer.lastIndexOf('}');
-    if (start < 0 || end <= start) return undefined;
-
-    try {
-        const parsed = JSON.parse(answer.slice(start, end + 1)) as { facts?: unknown };
-        return Array.isArray(parsed.facts) ? (parsed.facts as { claim?: unknown }[]) : undefined;
-    } catch {
-        return undefined;
-    }
+    const facts = firstJsonObject(answer)?.facts;
+    return Array.isArray(facts) ? (facts as { claim?: unknown }[]) : undefined;
 }
 
 /**
@@ -243,12 +237,6 @@ export function occurs(quote: string, article: string): boolean {
     const needle = flatten(quote);
     return needle.length > 0 && flatten(article).includes(needle);
 }
-
-const text = (value: unknown): string | undefined => {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-};
 
 /** A category the store will accept. Anything else the model made up becomes `summary`. */
 const category = (value: unknown): FactCategory => {

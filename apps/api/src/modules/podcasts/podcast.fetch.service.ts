@@ -9,6 +9,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import type { PodcastEpisodeRecord } from './podcast.episode.js';
 import { PodcastEpisodeRepository } from './podcast.episode.repository.js';
 import { SYNDICATED_KIND } from './syndicated.kind.js';
+import { followRedirects } from '#modules/shared/redirect.hops.js';
 
 /**
  * The most an episode may be, in bytes.
@@ -54,9 +55,6 @@ export const FETCH_RETRY_AFTER_MS = EPISODE_FETCH_TIMEOUT_MS + 5 * 60_000;
  * station carrying a show is a listen the publisher should be able to see.
  */
 const USER_AGENT = 'deadair/1.0 (+https://deadair.radio)';
-
-/** The statuses that carry a `location` to follow. */
-const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 /**
  * How the fetch reaches the network, which a test replaces.
@@ -179,39 +177,28 @@ export class PodcastFetchService {
     /**
      * The audio at an address, into the store, as its checksum and what it was filed as.
      *
-     * Redirects are followed by hand so each hop's name is checked before it is connected to, which a
-     * `redirect: 'follow'` fetch would not allow.
+     * Redirects are followed by hand ({@link followRedirects}) so each hop's name is checked before it
+     * is connected to, which a `redirect: 'follow'` fetch would not allow.
      */
     private async download(url: string, signal?: AbortSignal): Promise<{ checksum: string; ext: SegmentExtension; bytes: number }> {
         const deadline = AbortSignal.timeout(EPISODE_FETCH_TIMEOUT_MS);
         const aborted = signal === undefined ? deadline : AbortSignal.any([deadline, signal]);
 
-        let address = parseAddress(url);
-        for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-            await this.refusePrivate(address);
+        const response = await followRedirects(parseAddress(url), {
+            fetch: this.options.fetch,
+            init: { signal: aborted, headers: { 'user-agent': USER_AGENT, accept: 'audio/*, */*;q=0.1' } },
+            maxRedirects: MAX_REDIRECTS,
+            beforeHop: address => this.refusePrivate(address),
+            next: (location, from) => parseAddress(location, from),
+            tooMany: () => new EpisodeFetchError(`the address redirected more than ${MAX_REDIRECTS} times`),
+        });
 
-            const response = await this.options.fetch(address, {
-                redirect: 'manual',
-                signal: aborted,
-                headers: { 'user-agent': USER_AGENT, accept: 'audio/*, */*;q=0.1' },
-            });
-
-            const location = response.headers.get('location');
-            if (REDIRECTS.has(response.status) && location !== null) {
-                await response.body?.cancel().catch(() => {});
-                address = parseAddress(location, address);
-                continue;
-            }
-
-            if (!response.ok || response.body === null) {
-                await response.body?.cancel().catch(() => {});
-                throw new EpisodeFetchError(`the publisher answered ${response.status}`);
-            }
-
-            return await this.keep(response.body);
+        if (!response.ok || response.body === null) {
+            await response.body?.cancel().catch(() => {});
+            throw new EpisodeFetchError(`the publisher answered ${response.status}`);
         }
 
-        throw new EpisodeFetchError(`the address redirected more than ${MAX_REDIRECTS} times`);
+        return await this.keep(response.body);
     }
 
     /** Refuse an address whose name reaches this machine or the network it is on. */

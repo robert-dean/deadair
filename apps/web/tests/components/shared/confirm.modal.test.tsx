@@ -59,6 +59,45 @@ describe('ConfirmModal', () => {
         expect(screen.getByText(/A band still asks for it/)).toBeInTheDocument();
     });
 
+    it('says a refusal in its own words when given them, rather than the server sentence', () => {
+        const error = new SdkError(403, 'Forbidden', { statusCode: 403, message: 'plugins.manage required' }, new Headers());
+        render(
+            <ConfirmModal
+                opened
+                onClose={vi.fn()}
+                onConfirm={vi.fn()}
+                title="Remove Spotify?"
+                confirmLabel="Remove"
+                error={error}
+                errorTitle="Spotify was not removed"
+                errorMessage={() => 'Your role cannot remove plugins.'}
+            >
+                Its settings go with it.
+            </ConfirmModal>,
+        );
+
+        expect(screen.getByText('Spotify was not removed')).toBeInTheDocument();
+        expect(screen.getByText('Your role cannot remove plugins.')).toBeInTheDocument();
+        expect(screen.queryByText(/plugins.manage required/)).not.toBeInTheDocument();
+    });
+
+    it('holds Cancel while the action runs only when asked to', () => {
+        const { unmount } = render(
+            <ConfirmModal opened onClose={vi.fn()} onConfirm={vi.fn()} title="Clear it?" confirmLabel="Clear" confirming lockWhileConfirming>
+                Nothing else changes.
+            </ConfirmModal>,
+        );
+        expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+        unmount();
+
+        render(
+            <ConfirmModal opened onClose={vi.fn()} onConfirm={vi.fn()} title="Delete sport?" confirmLabel="Delete" confirming>
+                Nothing else changes.
+            </ConfirmModal>,
+        );
+        expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    });
+
     it('draws nothing while it is closed', () => {
         render(
             <ConfirmModal opened={false} onClose={vi.fn()} onConfirm={vi.fn()} title="Delete sport?" confirmLabel="Delete">

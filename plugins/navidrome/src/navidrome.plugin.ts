@@ -177,6 +177,8 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
      * see first and the catch-all is where they look when there are none.
      */
     async listPlaylists(options?: ListPlaylistsOptions): Promise<ProviderPlaylist[]> {
+        const host = this.host;
+
         const body = await this.require().get<PlaylistsResponse>('getPlaylists.view');
 
         const playlists: ProviderPlaylist[] = [];
@@ -191,7 +193,7 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
         // their own login. From outside, that is indistinguishable from a plugin
         // that only ever offers "Everything".
         if (playlists.length === 0) {
-            this.host.logger.info('navidrome returned no playlists for this account; only owned and public ones are visible', {
+            host.logger.info('navidrome returned no playlists for this account; only owned and public ones are visible', {
                 user: this.config?.username,
             });
         }

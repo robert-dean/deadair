@@ -24,7 +24,7 @@
  */
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
-import { jsonObjects } from '#modules/shared/json.objects.js';
+import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
 import type { TrackPick } from './set.generator.js';
 
 /**
@@ -628,7 +628,7 @@ function heldArtistsLine(held: readonly string[] | undefined): string | undefine
 export function readPicks(text: string, max: number): TrackPick[] {
     // A reasoning model that was told to answer with an array and thought out loud first. Same
     // treatment `readAnswer` gives a script: take what follows the last close tag.
-    const answer = text.replace(/^[\s\S]*<\/think>/i, '').trim();
+    const answer = withoutThinking(text);
 
     const picks = fromJson(answer) ?? fromLines(answer);
     return picks.slice(0, max);

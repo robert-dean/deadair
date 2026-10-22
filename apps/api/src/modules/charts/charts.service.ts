@@ -9,6 +9,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { qualifyChartId, splitChartId } from './chart.ids.js';
 import type { ChartPage, ChartQuery, StationChart, StationChartList } from './types/charts.types.js';
+import { clampLimit } from '#modules/shared/limit.clamp.js';
 
 /**
  * What is popular, as the station can see it: every chart every installed
@@ -221,12 +222,12 @@ export class ChartsService {
             const entries = await this.pluginInvoker.invoke(plugin.record.id, 'charts.fetchChart', async () =>
                 plugin.instance.fetchChart({
                     chartId: address.chartId,
-                    limit: clampLimit(limit),
+                    limit: clampLimit(limit, MAX_CHART_ENTRIES),
                     ...(date === undefined ? {} : { date }),
                 }),
             );
 
-            return (entries ?? []).filter(entry => entry?.title?.trim() && entry.artist?.trim()).slice(0, clampLimit(limit));
+            return (entries ?? []).filter(entry => entry?.title?.trim() && entry.artist?.trim()).slice(0, clampLimit(limit, MAX_CHART_ENTRIES));
         } catch (error) {
             this.logger.info(`charts: a chart could not be fetched (${qualifiedId}: ${errorText(error)})`);
             return [];
@@ -253,8 +254,3 @@ export class ChartsService {
  * and a caller that asks for a thousand is asking a third party for a thousand.
  */
 export const MAX_CHART_ENTRIES = 100;
-
-const clampLimit = (value: number): number => {
-    if (!Number.isFinite(value)) return MAX_CHART_ENTRIES;
-    return Math.min(Math.max(Math.floor(value), 1), MAX_CHART_ENTRIES);
-};

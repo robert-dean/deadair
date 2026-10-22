@@ -122,22 +122,6 @@ export function clip(text: string, max: number): string {
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-/** A multi-line config field as its non-empty lines. Commas separate too, since that is what people paste. */
-export function configLines(value: unknown): string[] {
-    if (typeof value !== 'string') return [];
-    return value
-        .split(/[\n,]/)
-        .map(line => line.trim())
-        .filter(line => line !== '');
-}
-
-/** A boolean config field, where the stored value may be a real boolean or its text. Absent takes the default. */
-export function configFlag(value: unknown, fallback: boolean): boolean {
-    if (value === true || value === 'true') return true;
-    if (value === false || value === 'false') return false;
-    return fallback;
-}
-
 /**
  * Slack's own error codes that mean the credentials are wrong rather than that something failed.
  * A poll refused with one of these is the operator's to fix.

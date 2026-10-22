@@ -1,9 +1,9 @@
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
-import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { PodcastEpisodeListing, PodcastEpisodeRecord } from './podcast.episode.js';
+import { instant, millisOf } from '#modules/data/timestamp.columns.js';
 
 /**
  * The largest size claim the table keeps. `audio_bytes` is an `integer`, as `track_audio.byte_size`
@@ -221,16 +221,6 @@ function positiveWhole(value: number | undefined, max: number): number | undefin
     if (value === undefined || !Number.isFinite(value)) return undefined;
     const whole = Math.round(value);
     return whole > 0 && whole <= max ? whole : undefined;
-}
-
-/** Epoch millis as something a `timestamptz` column will take, converted by Postgres. */
-const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
-
-/** A timestamp column as epoch millis, whichever shape the driver handed over. */
-function millisOf(value: unknown): number | undefined {
-    if (value == null) return undefined;
-    if (value instanceof Date) return value.getTime();
-    return (value as DateTime).toMillis();
 }
 
 /**

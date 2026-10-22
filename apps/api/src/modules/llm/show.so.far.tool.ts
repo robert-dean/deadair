@@ -4,6 +4,7 @@ import { PlayHistoryRepository } from '#modules/director/play.history.repository
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { limitArgument } from '#modules/shared/limit.clamp.js';
 
 /**
  * "What has happened on this show so far?", as something a model can ask.
@@ -99,22 +100,10 @@ export class ShowSoFarTool implements ToolSource {
         const broadcastId = this.identity.current();
         if (broadcastId === undefined) return { played: [], said: [], onAir: false };
 
-        const limit = clampLimit(args.limit);
+        const limit = limitArgument(args.limit, MAX_RESULTS);
         const [played, said] = await Promise.all([this.plays.duringBroadcast(broadcastId, limit), this.scripts.spokenDuring(broadcastId, limit)]);
 
         this.logger.debug('llm: read the show so far', { played: played.length, said: said.length });
         return { played, said, onAir: true };
     }
-}
-
-/**
- * The requested limit, or the ceiling.
- *
- * The same shape `StationTasteTool` and `MusicSearchTool` use, and for the same reason: a model
- * asking for everything is asking for its own context to be filled with a list, so the ceiling is
- * enforced rather than honoured, and a nonsense value falls back to it rather than erroring.
- */
-function clampLimit(value: unknown): number {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return MAX_RESULTS;
-    return Math.min(MAX_RESULTS, Math.floor(value));
 }

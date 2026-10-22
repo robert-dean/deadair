@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Button, Card, Code, Group, Modal, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Code, Group, Stack, Text, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useDisconnectPluginOAuth, useStartPluginOAuth } from '../../api/plugins.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
 
@@ -136,28 +137,21 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
             </Stack>
 
             {connected ? (
-                <Modal opened={confirmOpen} onClose={closeConfirm} title={t('oauth.confirm.title', { name: plugin.name })} centered>
-                    <Stack gap="md">
-                        <Text size="sm">{t('oauth.confirm.body', { name: plugin.name })}</Text>
-                        {disconnect.error ? (
-                            <ErrorAlert title={t('oauth.disconnectError.title')}>{disconnectError(disconnect.error, t)}</ErrorAlert>
-                        ) : undefined}
-                        <Group justify="flex-end">
-                            <Button variant="default" onClick={closeConfirm}>
-                                {t('common:action.cancel')}
-                            </Button>
-                            <Button
-                                color="red"
-                                loading={disconnect.isPending}
-                                onClick={() => {
-                                    void disconnectConfirmed();
-                                }}
-                            >
-                                {t('oauth.disconnect')}
-                            </Button>
-                        </Group>
-                    </Stack>
-                </Modal>
+                <ConfirmModal
+                    opened={confirmOpen}
+                    onClose={closeConfirm}
+                    onConfirm={() => {
+                        void disconnectConfirmed();
+                    }}
+                    title={t('oauth.confirm.title', { name: plugin.name })}
+                    confirmLabel={t('oauth.disconnect')}
+                    confirming={disconnect.isPending}
+                    error={disconnect.error}
+                    errorTitle={t('oauth.disconnectError.title')}
+                    errorMessage={error => disconnectError(error, t)}
+                >
+                    {t('oauth.confirm.body', { name: plugin.name })}
+                </ConfirmModal>
             ) : undefined}
         </Card>
     );

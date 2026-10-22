@@ -61,11 +61,6 @@ export interface StationOrderTableProps {
     collapseHistory?: boolean;
 }
 
-/** `artists.join(', ')`, but without a stray separator when the array is documented-empty. */
-function formatArtists(artists: string[]): string {
-    return artists.length > 0 ? artists.join(', ') : '';
-}
-
 /** Whether an item is beyond editing: the player has it, or it is behind us. */
 const isSpent = (state: StationItemState): boolean => state !== 'planned';
 
@@ -915,7 +910,7 @@ const OrderRow = memo(function OrderRow({
             <Table.Td>
                 <span ref={artistStopRef} style={{ display: 'contents' }}>
                     <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
-                        {formatArtists(item.artists)}
+                        {item.artists.join(', ')}
                     </ArtistLink>
                 </span>
             </Table.Td>
@@ -1064,7 +1059,7 @@ const PhoneRow = memo(function PhoneRow({
             subtitle={
                 <>
                     <Text size="xs" c="dimmed" truncate>
-                        {formatArtists(item.artists)}
+                        {item.artists.join(', ')}
                     </Text>
                     {state ? (
                         <Text

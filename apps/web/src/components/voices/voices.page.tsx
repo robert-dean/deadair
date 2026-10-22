@@ -12,6 +12,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { severityColor } from '../shared/status';
 import { useVoicePreview } from './voice.preview';
 
@@ -85,61 +86,66 @@ export function VoicesPage() {
                 }
             />
 
-            {voices.error ? <ErrorAlert title={t('error.title')} error={voices.error} fallback={t('error.fallback')} /> : undefined}
-
             {/* Not an error: a station with no TTS plugin plays records, which is a state rather
                 than a fault. The API says which of the three ways it got here. */}
-            {voices.data && voices.data.voices.length === 0 ? (
-                <EmptyState title={t('empty.title')}>{voices.data.reason ?? t('empty.fallback')}</EmptyState>
-            ) : undefined}
-
-            {voices.isPending ? <PageSkeleton variant="table" /> : undefined}
-
-            <Stack gap="xs">
-                {voices.data?.voices.map(voice => (
-                    <Card key={voice.id} padding="sm">
-                        <Group justify="space-between" wrap="nowrap">
-                            <Stack gap="xxxs">
-                                <Group gap="xs" wrap="nowrap">
-                                    <Text fw={500}>{voice.label}</Text>
-                                    <Text size="xs" c="dimmed">
-                                        {spokenBy(t, voice.id, personas.data?.personas)}
-                                    </Text>
+            <QueryView
+                query={voices}
+                skeleton={<PageSkeleton variant="table" />}
+                errorTitle={t('error.title')}
+                errorFallback={t('error.fallback')}
+                isEmpty={data => data.voices.length === 0}
+                empty={data => <EmptyState title={t('empty.title')}>{data.reason ?? t('empty.fallback')}</EmptyState>}
+            >
+                {data => (
+                    <Stack gap="xs">
+                        {data.voices.map(voice => (
+                            <Card key={voice.id} padding="sm">
+                                <Group justify="space-between" wrap="nowrap">
+                                    <Stack gap="xxxs">
+                                        <Group gap="xs" wrap="nowrap">
+                                            <Text fw={500}>{voice.label}</Text>
+                                            <Text size="xs" c="dimmed">
+                                                {spokenBy(t, voice.id, personas.data?.personas)}
+                                            </Text>
+                                        </Group>
+                                        {/* The wait is explained where it happens rather than in a footnote
+                                        at the bottom of the page, which is read long before or long
+                                        after the moment it describes. */}
+                                        {preview.isLoading(voice.id) ? (
+                                            <Text c="dimmed" size="xs">
+                                                {t('row.firstTime')}
+                                            </Text>
+                                        ) : voice.description ? (
+                                            <Text c="dimmed" size="xs">
+                                                {voice.description}
+                                            </Text>
+                                        ) : undefined}
+                                    </Stack>
+                                    <ActionIcon
+                                        variant="default"
+                                        size="lg"
+                                        loading={preview.isLoading(voice.id)}
+                                        aria-label={
+                                            preview.isPlaying(voice.id)
+                                                ? t('row.pause', { label: voice.label })
+                                                : t('row.play', { label: voice.label })
+                                        }
+                                        onClick={() => preview.play(voice.id, () => fetchVoiceSample(voice.id), t('row.playFailed'))}
+                                    >
+                                        {preview.isPlaying(voice.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+                                    </ActionIcon>
                                 </Group>
-                                {/* The wait is explained where it happens rather than in a footnote
-                                    at the bottom of the page, which is read long before or long
-                                    after the moment it describes. */}
-                                {preview.isLoading(voice.id) ? (
-                                    <Text c="dimmed" size="xs">
-                                        {t('row.firstTime')}
-                                    </Text>
-                                ) : voice.description ? (
-                                    <Text c="dimmed" size="xs">
-                                        {voice.description}
+
+                                {preview.failureFor(voice.id) ? (
+                                    <Text size="xs" c={severityColor.failure} mt="xs">
+                                        {preview.failureFor(voice.id)}
                                     </Text>
                                 ) : undefined}
-                            </Stack>
-                            <ActionIcon
-                                variant="default"
-                                size="lg"
-                                loading={preview.isLoading(voice.id)}
-                                aria-label={
-                                    preview.isPlaying(voice.id) ? t('row.pause', { label: voice.label }) : t('row.play', { label: voice.label })
-                                }
-                                onClick={() => preview.play(voice.id, () => fetchVoiceSample(voice.id), t('row.playFailed'))}
-                            >
-                                {preview.isPlaying(voice.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
-                            </ActionIcon>
-                        </Group>
-
-                        {preview.failureFor(voice.id) ? (
-                            <Text size="xs" c={severityColor.failure} mt="xs">
-                                {preview.failureFor(voice.id)}
-                            </Text>
-                        ) : undefined}
-                    </Card>
-                ))}
-            </Stack>
+                            </Card>
+                        ))}
+                    </Stack>
+                )}
+            </QueryView>
 
             {pluginId && (voices.data?.voices.length ?? 0) > 0 ? (
                 <Text c="dimmed" size="xs">

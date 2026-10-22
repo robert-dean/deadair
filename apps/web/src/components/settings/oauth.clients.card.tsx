@@ -11,6 +11,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
 
 type Gate = ReturnType<typeof useStepUpGate>;
@@ -47,23 +48,25 @@ export function OAuthClientsCard() {
                 </Stack>
 
                 {issued ? <IssuedPanel issued={issued} onDone={() => setIssued(undefined)} /> : undefined}
-                {clients.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                {clients.error ? (
-                    <ErrorAlert title={t('oauthClients.unavailable.title')} error={clients.error} fallback={t('oauthClients.unavailable.fallback')} />
-                ) : undefined}
-
-                {clients.data ? (
-                    <Stack gap="xs">
-                        {clients.data.clients.map(client => (
-                            <ClientRow key={client.clientId} client={client} />
-                        ))}
-                        {clients.data.clients.length === 0 ? (
-                            <Text size="sm" c="dimmed">
-                                {t('oauthClients.none')}
-                            </Text>
-                        ) : undefined}
-                    </Stack>
-                ) : undefined}
+                <QueryView
+                    query={clients}
+                    skeleton={<PageSkeleton variant="rows" count={2} />}
+                    errorTitle={t('oauthClients.unavailable.title')}
+                    errorFallback={t('oauthClients.unavailable.fallback')}
+                >
+                    {data => (
+                        <Stack gap="xs">
+                            {data.clients.map(client => (
+                                <ClientRow key={client.clientId} client={client} />
+                            ))}
+                            {data.clients.length === 0 ? (
+                                <Text size="sm" c="dimmed">
+                                    {t('oauthClients.none')}
+                                </Text>
+                            ) : undefined}
+                        </Stack>
+                    )}
+                </QueryView>
 
                 {clients.data ? <NewClientForm gate={gate} onIssued={setIssued} /> : undefined}
             </Stack>

@@ -8,12 +8,10 @@ import { apiErrorDetails, apiErrorMessage, sdkError } from '../api/sdk.error';
 import { createPasskey, isPasskeyCancelled, passkeysAvailable } from '../auth/webauthn';
 import { ErrorAlert } from '../components/shared/error.alert';
 import { CopyButton } from '../components/shared/copy.button';
+import { MIN_PASSWORD_LENGTH } from '../auth/password.rule';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../components/shared/one.time.code.input';
 import { inviteSdk } from './invite.client';
 import { tokenFromHash } from './invite.token';
-
-/** The shortest password the station accepts, as the contract says. */
-const MIN_PASSWORD = 8;
 
 /** Why the page cannot go on, from what the station answered. */
 type Stop = 'gone' | 'taken';
@@ -140,10 +138,10 @@ function SignUp({ token, details, onAccepted, onStop }: SignUpProps) {
     }
 
     const mismatch = confirm.length > 0 && confirm !== password;
-    const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
+    const tooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
     // The station's own reason, from the strength check: zxcvbn's warning, worded for a person.
     const weakness = apiErrorDetails(start.error)?.password;
-    const ready = password.length >= MIN_PASSWORD && confirm === password;
+    const ready = password.length >= MIN_PASSWORD_LENGTH && confirm === password;
 
     return (
         <form

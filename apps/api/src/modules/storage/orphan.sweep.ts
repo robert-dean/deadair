@@ -1,3 +1,5 @@
+import { numberFrom } from '#modules/shared/setting.numbers.js';
+
 /**
  * When a file no row claims stops being a write that has not finished, and becomes rubbish.
  *
@@ -78,10 +80,10 @@ export const MINIMUM_ORPHAN_GRACE_HOURS = 1;
  * meaningfully set, and the safe direction for all four is the one that keeps MORE.
  */
 export function resolveOrphanGraceHours(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_ORPHAN_GRACE_HOURS;
+    const hours = numberFrom(value, 0);
+    if (hours <= 0) return DEFAULT_ORPHAN_GRACE_HOURS;
 
-    return Math.max(MINIMUM_ORPHAN_GRACE_HOURS, Math.floor(parsed));
+    return Math.max(MINIMUM_ORPHAN_GRACE_HOURS, Math.floor(hours));
 }
 
 /**

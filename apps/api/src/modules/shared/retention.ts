@@ -1,5 +1,7 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
+import { numberFrom } from './setting.numbers.js';
+
 /**
  * How many days of something to keep, or `0` for all of it.
  *
@@ -21,8 +23,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
  */
 export function resolveRetentionDays(config: AppConfig, key: string, fallback: number): number {
     const raw = config.get(key, fallback);
-    const days = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
+    const days = numberFrom(raw, 0);
 
-    if (!Number.isFinite(days) || days <= 0) return 0;
-    return Math.floor(days);
+    return days > 0 ? Math.floor(days) : 0;
 }

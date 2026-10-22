@@ -1,3 +1,5 @@
+import { numberInRange } from '#modules/shared/setting.numbers.js';
+
 /**
  * How much to lift or drop one record, decided before it airs.
  *
@@ -61,10 +63,7 @@ export const MAX_TARGET_LUFS = -8;
  * silence.
  */
 export function resolveTargetLufs(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    if (!Number.isFinite(parsed)) return DEFAULT_TARGET_LUFS;
-
-    return Math.min(MAX_TARGET_LUFS, Math.max(MIN_TARGET_LUFS, parsed));
+    return numberInRange(value, DEFAULT_TARGET_LUFS, { min: MIN_TARGET_LUFS, max: MAX_TARGET_LUFS });
 }
 
 /** The `deadair.settings` key. */
@@ -260,10 +259,7 @@ export const MAX_SPEECH_TRIM_DB = 12;
 
 /** Read the stored trim, or the default. Clamped rather than rejected, like {@link resolveTargetLufs}. */
 export function resolveSpeechTrimDb(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    if (!Number.isFinite(parsed)) return DEFAULT_SPEECH_TRIM_DB;
-
-    return Math.min(MAX_SPEECH_TRIM_DB, Math.max(MIN_SPEECH_TRIM_DB, parsed));
+    return numberInRange(value, DEFAULT_SPEECH_TRIM_DB, { min: MIN_SPEECH_TRIM_DB, max: MAX_SPEECH_TRIM_DB });
 }
 
 /**

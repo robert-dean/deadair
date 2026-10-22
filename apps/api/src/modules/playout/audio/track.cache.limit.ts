@@ -1,3 +1,5 @@
+import { numberFrom } from '#modules/shared/setting.numbers.js';
+
 /**
  * How much disk the station's own copies of records may take up.
  *
@@ -41,8 +43,6 @@ export const DEFAULT_TRACK_CACHE_MAX_BYTES = 0;
  * meaning at all, and reading it as "cap everything" would empty the cache over a typo.
  */
 export function resolveTrackCacheMaxBytes(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_TRACK_CACHE_MAX_BYTES;
-
-    return Math.floor(parsed);
+    const bytes = numberFrom(value, DEFAULT_TRACK_CACHE_MAX_BYTES);
+    return bytes > 0 ? Math.floor(bytes) : DEFAULT_TRACK_CACHE_MAX_BYTES;
 }

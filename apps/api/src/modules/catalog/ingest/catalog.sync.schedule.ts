@@ -1,5 +1,6 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 
 /**
  * Whether the hourly catalog walk runs this hour.
@@ -46,10 +47,7 @@ const HOUR_MS = 3_600_000;
  * resolver rule in `apps/api/CLAUDE.md`: this reads a row that is already stored.
  */
 export function resolveSyncEveryHours(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(parsed)) return CATALOG_SYNC_DEFAULTS.everyHours;
-
-    return Math.min(MAX_SYNC_EVERY_HOURS, Math.max(1, Math.floor(parsed)));
+    return numberInRange(value, CATALOG_SYNC_DEFAULTS.everyHours, { min: 1, max: MAX_SYNC_EVERY_HOURS }, Math.floor);
 }
 
 /**

@@ -27,7 +27,7 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { DateTime } from 'luxon';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { numberFrom } from '#modules/shared/setting.numbers.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 import { PLAY_HISTORY_RETENTION_DAYS } from './play.history.repository.js';
 
 /** The `deadair.settings` keys. In the `rotation` group, because that is where an operator looks for how often things repeat. */
@@ -76,8 +76,7 @@ export interface SmartShuffle {
  * query floors its interval, and the two have to agree about what they are measuring.
  */
 export function clampSmartShuffleDays(value: unknown): number {
-    const parsed = Math.floor(numberFrom(value, DEFAULT_SMART_SHUFFLE_DAYS));
-    return Math.min(SMART_SHUFFLE_DAYS_RANGE.max, Math.max(SMART_SHUFFLE_DAYS_RANGE.min, parsed));
+    return numberInRange(value, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, Math.floor);
 }
 
 /** The smart shuffle as the operator has it set. Through `settingIsOn`, because a setting is a string. */

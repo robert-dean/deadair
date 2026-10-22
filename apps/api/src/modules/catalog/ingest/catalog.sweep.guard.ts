@@ -1,3 +1,5 @@
+import { numberInRange } from '#modules/shared/setting.numbers.js';
+
 /**
  * How much of one provider's library a single sync is allowed to retire.
  *
@@ -87,8 +89,5 @@ export function sweepIsSafe(known: number, unseen: number, maxPercent: number): 
  * because every layer of `AppConfig` holds strings.
  */
 export function resolveSweepMaxPercent(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(parsed)) return DEFAULT_SWEEP_MAX_PERCENT;
-
-    return Math.min(100, Math.max(1, Math.floor(parsed)));
+    return numberInRange(value, DEFAULT_SWEEP_MAX_PERCENT, { min: 1, max: 100 }, Math.floor);
 }

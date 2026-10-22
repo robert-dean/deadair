@@ -22,7 +22,7 @@
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { numberFrom } from '#modules/shared/setting.numbers.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 
 /** The `deadair.settings` keys, in the `rotation` group beside smart shuffle. */
 export const SKIP_LEAN_KEYS = {
@@ -57,8 +57,7 @@ export interface SkipLean {
 
 /** A stored figure as the draw will use it: whole days, clamped rather than refused, on the settings rule. */
 export function clampSkipLeanDays(value: unknown): number {
-    const parsed = Math.floor(numberFrom(value, DEFAULT_SKIP_LEAN_DAYS));
-    return Math.min(SKIP_LEAN_DAYS_RANGE.max, Math.max(SKIP_LEAN_DAYS_RANGE.min, parsed));
+    return numberInRange(value, DEFAULT_SKIP_LEAN_DAYS, SKIP_LEAN_DAYS_RANGE, Math.floor);
 }
 
 /** The lean as the operator has it set. Through `settingIsOn`, because a setting is a string. */

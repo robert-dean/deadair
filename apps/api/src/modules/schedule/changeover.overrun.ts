@@ -1,3 +1,5 @@
+import { numberInRange } from '#modules/shared/setting.numbers.js';
+
 /**
  * How long a record from the programme that has just ended may keep a scheduled one waiting.
  *
@@ -53,10 +55,7 @@ export const OVERRUN_MINUTES_RANGE = { min: 0, max: 60 } as const;
  * negative clamps to zero, which is the direction the operator was already pointing.
  */
 export function resolveOverrunMinutes(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    if (!Number.isFinite(parsed)) return DEFAULT_OVERRUN_MINUTES;
-
-    return Math.min(OVERRUN_MINUTES_RANGE.max, Math.max(OVERRUN_MINUTES_RANGE.min, Math.floor(parsed)));
+    return numberInRange(value, DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_RANGE, Math.floor);
 }
 
 /** The `deadair.settings` key for how long a record cut at its limit takes to fade out. */
@@ -75,10 +74,7 @@ export const OVERRUN_FADE_MS_RANGE = { min: 0, max: 15_000 } as const;
 
 /** The stored fade, clamped to {@link OVERRUN_FADE_MS_RANGE}, on {@link resolveOverrunMinutes}' terms. */
 export function resolveOverrunFadeMs(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    if (!Number.isFinite(parsed)) return DEFAULT_OVERRUN_FADE_MS;
-
-    return Math.min(OVERRUN_FADE_MS_RANGE.max, Math.max(OVERRUN_FADE_MS_RANGE.min, Math.round(parsed)));
+    return numberInRange(value, DEFAULT_OVERRUN_FADE_MS, OVERRUN_FADE_MS_RANGE, Math.round);
 }
 
 /**

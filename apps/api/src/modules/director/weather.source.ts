@@ -11,6 +11,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakSubject } from './break.writer.js';
+import { numberInRange } from '#modules/shared/setting.numbers.js';
 
 /**
  * The reading a weather break is written from, fetched once and handed to whichever writer takes it.
@@ -207,7 +208,12 @@ export class WeatherSource {
             return {};
         }
 
-        const days = clamp(this.config.get(WEATHER_SOURCE_KEYS.days, DEFAULT_WEATHER_DAYS), 0, MAX_WEATHER_DAYS, DEFAULT_WEATHER_DAYS);
+        const days = numberInRange(
+            this.config.get(WEATHER_SOURCE_KEYS.days, DEFAULT_WEATHER_DAYS),
+            DEFAULT_WEATHER_DAYS,
+            { min: 0, max: MAX_WEATHER_DAYS },
+            Math.floor,
+        );
         const subject = asked === undefined ? undefined : { key: asked.key, label: asked.label };
 
         try {
@@ -222,11 +228,11 @@ export class WeatherSource {
 
             // The fourth way of having nothing: a reading that is correct and will be too old to be
             // true by the time anybody hears it. Judged against the SLOT, not against now.
-            const maxAgeMinutes = clamp(
+            const maxAgeMinutes = numberInRange(
                 this.config.get(WEATHER_SOURCE_KEYS.maxAgeMinutes, DEFAULT_WEATHER_MAX_AGE_MINUTES),
-                MIN_WEATHER_MAX_AGE_MINUTES,
-                MAX_WEATHER_MAX_AGE_MINUTES,
                 DEFAULT_WEATHER_MAX_AGE_MINUTES,
+                { min: MIN_WEATHER_MAX_AGE_MINUTES, max: MAX_WEATHER_MAX_AGE_MINUTES },
+                Math.floor,
             );
             const fresh = freshUntil(reading.observedAt, maxAgeMinutes * 60_000);
             if (fresh === undefined || fresh <= airsAt) {
@@ -317,11 +323,4 @@ export class WeatherSource {
 export function freshUntil(observedAt: string, maxAgeMs: number): number | undefined {
     const at = Date.parse(observedAt);
     return Number.isFinite(at) ? at + maxAgeMs : undefined;
-}
-
-function clamp(value: number, low: number, high: number, fallback: number): number {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return fallback;
-
-    return Math.min(Math.max(Math.floor(parsed), low), high);
 }

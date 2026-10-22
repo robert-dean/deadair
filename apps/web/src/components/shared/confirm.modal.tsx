@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
-import { ErrorAlert } from './error.alert';
+import { ErrorAlert, type ErrorAlertProps } from './error.alert';
 
 export interface ConfirmModalProps {
     opened: boolean;
@@ -21,6 +21,16 @@ export interface ConfirmModalProps {
     /** What to say when the mutation failed, and what was left alone. */
     errorTitle?: string;
     errorFallback?: string;
+    /**
+     * The failure in this dialog's own words, for a refusal the API's message does not explain (a
+     * 403 an operator should read as "you may not" rather than as the server's sentence). Takes the
+     * place of `errorFallback` when given.
+     */
+    errorMessage?: (error: unknown) => ReactNode;
+    /** `warning` for a refusal that is the station working as meant, such as a record about to air being left alone. */
+    errorTone?: ErrorAlertProps['tone'];
+    /** Hold Cancel while the action runs, for one that reports what it did in the dialog's place once it finishes. */
+    lockWhileConfirming?: boolean;
 }
 
 /**
@@ -50,6 +60,9 @@ export function ConfirmModal({
     error,
     errorTitle,
     errorFallback,
+    errorMessage,
+    errorTone,
+    lockWhileConfirming = false,
 }: ConfirmModalProps) {
     const { t } = useTranslation();
     return (
@@ -57,12 +70,21 @@ export function ConfirmModal({
             <Stack gap="md">
                 {typeof children === 'string' ? <Text size="sm">{children}</Text> : children}
 
-                {error ? (
-                    <ErrorAlert title={errorTitle ?? t('confirm.errorTitle')} error={error} fallback={errorFallback ?? t('confirm.errorFallback')} />
-                ) : undefined}
+                {!error ? undefined : errorMessage ? (
+                    <ErrorAlert tone={errorTone} title={errorTitle ?? t('confirm.errorTitle')}>
+                        {errorMessage(error)}
+                    </ErrorAlert>
+                ) : (
+                    <ErrorAlert
+                        tone={errorTone}
+                        title={errorTitle ?? t('confirm.errorTitle')}
+                        error={error}
+                        fallback={errorFallback ?? t('confirm.errorFallback')}
+                    />
+                )}
 
                 <Group justify="flex-end">
-                    <Button variant="default" onClick={onClose}>
+                    <Button variant="default" onClick={onClose} disabled={lockWhileConfirming && confirming}>
                         {t('action.cancel')}
                     </Button>
                     <Button color="red" loading={confirming} onClick={onConfirm}>

@@ -39,6 +39,7 @@
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { firstJsonObject } from '#modules/shared/json.objects.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /** A bit with enough history to summarise, as the recap prompt shows it. */
 export interface RunningBit {
@@ -96,8 +97,8 @@ export function readRecaps(answer: string, bits: readonly RunningBit[]): { id: s
     const seen = new Set<string>();
 
     for (const entry of parsed) {
-        const title = text(entry.title);
-        const recap = text(entry.recap)?.slice(0, MAX_RECAP_CHARS);
+        const title = nonEmptyText(entry.title);
+        const recap = nonEmptyText(entry.recap)?.slice(0, MAX_RECAP_CHARS);
         if (title === undefined || recap === undefined) continue;
 
         const bit = byTitle.get(title.toLowerCase());
@@ -313,15 +314,15 @@ export function readProposals(
     const seen = new Set<string>();
 
     for (const entry of parsed) {
-        const title = text(entry.title)?.slice(0, MAX_TITLE_CHARS);
-        const source = text(entry.source)?.slice(0, 1000);
+        const title = nonEmptyText(entry.title)?.slice(0, MAX_TITLE_CHARS);
+        const source = nonEmptyText(entry.source)?.slice(0, 1000);
         if (title === undefined) continue;
 
         const kind = typeof entry.kind === 'string' ? entry.kind.trim().toLowerCase() : '';
-        const story = text(entry.story);
-        const detail = text(entry.detail);
-        const beat = text(entry.beat);
-        const quote = text(entry.quote);
+        const story = nonEmptyText(entry.story);
+        const detail = nonEmptyText(entry.detail);
+        const beat = nonEmptyText(entry.beat);
+        const quote = nonEmptyText(entry.quote);
 
         if (kind === 'bit' && story !== undefined && story.length <= MAX_STORY_CHARS) {
             // A quote that is not literally in what the station said is a model NOTICING something
@@ -376,9 +377,3 @@ function parseAnswer(
     const proposals = firstJsonObject(answer)?.proposals;
     return Array.isArray(proposals) ? (proposals as { kind?: unknown }[]) : undefined;
 }
-
-const text = (value: unknown): string | undefined => {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-};

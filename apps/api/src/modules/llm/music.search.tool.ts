@@ -15,6 +15,7 @@ import { StationIdentity } from '#modules/shared/station.identity.js';
 import { LYRIC_SUBJECT_KEYS, LYRIC_SUBJECTS_DEFAULT } from '#modules/lyrics/lyrics.keys.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * "What can the station play?", as ONE thing a model can ask.
@@ -263,8 +264,8 @@ export class MusicSearchTool implements ToolSource {
      * it can correct and an exception is not.
      */
     private async search(args: Record<string, unknown>, signal?: AbortSignal): Promise<{ tracks: MusicTrack[] }> {
-        const query = readText(args.query) ?? '';
-        const about = readText(args.about);
+        const query = nonEmptyText(args.query) ?? '';
+        const about = nonEmptyText(args.about);
         const filters = {
             ...(readYear(args.yearFrom) === undefined ? {} : { yearFrom: readYear(args.yearFrom)! }),
             ...(readYear(args.yearTo) === undefined ? {} : { yearTo: readYear(args.yearTo)! }),
@@ -500,9 +501,6 @@ const answersQuery = (row: MusicTrack, query: string): boolean =>
 
 /** The identity two halves of the answer are compared on, which is the resolver's own key. */
 const keyOf = (title: string, artist: string): string => catalogKey(normalizeKey(title), normalizeKey(artist));
-
-/** Text the model actually set, or nothing. A model that fills every parameter sends `query: ""`, which is not a search. */
-const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 
 /**
  * The ordering seed, as the options bag takes it.

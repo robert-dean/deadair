@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { spoken } from './talk.break.writer.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * The words in front of a record a listener asked for and dedicated: who it is from, who it is for.
@@ -43,16 +44,14 @@ export interface DedicationParts {
     message?: string;
 }
 
-const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined);
-
 /** The dedication a write request carries, or nothing when it carries none. */
 export function dedicationOf(request: BreakWriteRequest): DedicationParts | undefined {
     const context = request.context;
     if (context === undefined) return undefined;
-    const from = text(context[DEDICATION_CONTEXT.from]);
+    const from = nonEmptyText(context[DEDICATION_CONTEXT.from]);
     if (from === undefined) return undefined;
-    const to = text(context[DEDICATION_CONTEXT.to]);
-    const message = text(context[DEDICATION_CONTEXT.message]);
+    const to = nonEmptyText(context[DEDICATION_CONTEXT.to]);
+    const message = nonEmptyText(context[DEDICATION_CONTEXT.message]);
     return { from, ...(to === undefined ? {} : { to }), ...(message === undefined ? {} : { message }) };
 }
 

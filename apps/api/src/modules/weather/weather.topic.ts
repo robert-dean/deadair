@@ -1,5 +1,6 @@
 import type { Topic } from '#modules/topics/topic.js';
 import type { StationUnits } from './weather.keys.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * What a location topic MEANS, as opposed to how it is edited.
@@ -30,7 +31,7 @@ export interface WeatherLocation {
  * announce it confidently.
  */
 export function weatherLocation(topic: Topic): WeatherLocation | undefined {
-    const place = text(topic.config.place);
+    const place = nonEmptyText(topic.config.place);
     if (place === undefined) return undefined;
 
     const units = readUnits(topic.config.units);
@@ -50,8 +51,6 @@ export const weatherLocations = (topics: readonly Topic[]): WeatherLocation[] =>
  * nobody set.
  */
 function readUnits(value: unknown): StationUnits | undefined {
-    const said = text(value)?.toLowerCase();
+    const said = nonEmptyText(value)?.toLowerCase();
     return said === 'metric' || said === 'imperial' ? said : undefined;
 }
-
-const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);

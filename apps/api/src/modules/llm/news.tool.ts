@@ -7,6 +7,7 @@ import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { NEWS_KIND } from '#modules/director/news.break.writer.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 import { limitArgument } from '#modules/shared/limit.clamp.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * "What happened?", as something a model can ask.
@@ -156,9 +157,9 @@ export class NewsTool implements ToolSource {
         args: Record<string, unknown>,
         categories: readonly NewsTopicRules[],
     ): Promise<{ feeds: FeedOption[]; stories: unknown[]; note?: string }> {
-        const feedId = readText(args.feedId);
-        const since = readText(args.since);
-        const wanted = readText(args.topic);
+        const feedId = nonEmptyText(args.feedId);
+        const since = nonEmptyText(args.since);
+        const wanted = nonEmptyText(args.topic);
         const asked = categories.find(rule => rule.key === wanted);
 
         const page = await this.news.fetchItems({
@@ -246,5 +247,3 @@ const withFeedCategory = (story: NewsItem, declared: ReadonlyMap<string, string>
     const category = declared.get(story.feedId);
     return { ...story, ...(category === undefined ? {} : { feedCategory: category }) };
 };
-
-const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);

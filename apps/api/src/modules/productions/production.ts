@@ -12,6 +12,7 @@
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { ProductionCast } from './production.cast.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /** How far along making one is. Mirrors the check constraint in migration 0016. */
 export type ProductionState =
@@ -194,7 +195,7 @@ export function priorityForSlot(scheduledFor: number | undefined, now: number, w
  * and the singular `itemIndex` are accepted, because models write either.
  */
 export function coerceOutlineBeat(raw: Record<string, unknown>, itemCount: number): OutlineBeat | undefined {
-    const title = text(raw.title);
+    const title = nonEmptyText(raw.title);
     if (title === undefined) return undefined;
 
     const indexes = [...new Set(itemIndexList(raw).filter(index => Number.isInteger(index) && index >= 0 && index < itemCount))];
@@ -204,9 +205,9 @@ export function coerceOutlineBeat(raw: Record<string, unknown>, itemCount: numbe
     // that gets rendered.
     return {
         title,
-        ...maybe('angle', text(raw.angle)),
-        ...maybe('setup', text(raw.setup)),
-        ...maybe('payoff', text(raw.payoff)),
+        ...maybe('angle', nonEmptyText(raw.angle)),
+        ...maybe('setup', nonEmptyText(raw.setup)),
+        ...maybe('payoff', nonEmptyText(raw.payoff)),
         ...(indexes.length === 0 ? {} : { itemIndexes: indexes }),
     };
 }
@@ -231,17 +232,10 @@ export function coerceOutline(raw: unknown, itemCount: number): ProductionOutlin
     if (beats.length === 0) return undefined;
 
     return {
-        ...maybe('throughline', text(record.throughline)),
-        runners: (Array.isArray(record.runners) ? record.runners : []).map(text).filter((line): line is string => line !== undefined),
+        ...maybe('throughline', nonEmptyText(record.throughline)),
+        runners: (Array.isArray(record.runners) ? record.runners : []).map(nonEmptyText).filter((line): line is string => line !== undefined),
         beats,
     };
-}
-
-/** A trimmed string, or `undefined` for anything that is not usable text. */
-function text(value: unknown): string | undefined {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
 }
 
 /** A key at a value, or nothing at all, so `undefined` never becomes a present-but-empty field. */

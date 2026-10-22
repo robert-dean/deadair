@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ChartsService } from '#modules/charts/charts.service.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 import { limitArgument } from '#modules/shared/limit.clamp.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * "What is popular?", as something a model can ask.
@@ -122,7 +123,7 @@ export class ChartsTool implements ToolSource {
         // both. Sending both is a model hedging, and of the two the style is the one it chose on
         // purpose: the id would have come from a menu that never listed a style chart in the first
         // place, so honouring that instead would answer a question nobody asked.
-        const style = readText(args.style);
+        const style = nonEmptyText(args.style);
         const named = style === undefined ? undefined : await this.charts.styleChart(style);
 
         if (style !== undefined && named === undefined) {
@@ -135,7 +136,7 @@ export class ChartsTool implements ToolSource {
             return { chartId: style, records: [] };
         }
 
-        const chartId = named ?? readText(args.chartId);
+        const chartId = named ?? nonEmptyText(args.chartId);
 
         if (chartId === undefined) {
             const charts = (await this.charts.listCharts()).map(chart => ({
@@ -149,7 +150,7 @@ export class ChartsTool implements ToolSource {
             return { charts };
         }
 
-        const entries = await this.charts.fetchChart(chartId, limitArgument(args.limit, MAX_RESULTS), readText(args.date));
+        const entries = await this.charts.fetchChart(chartId, limitArgument(args.limit, MAX_RESULTS), nonEmptyText(args.date));
 
         // The line the two search tools each carry, and for the same reason: "how many records did
         // the model actually have to choose from" has to be answerable from the log alone when a
@@ -174,6 +175,3 @@ export class ChartsTool implements ToolSource {
         };
     }
 }
-
-/** An argument the model actually set. Blank is the interesting case: a model filling every field. */
-const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);

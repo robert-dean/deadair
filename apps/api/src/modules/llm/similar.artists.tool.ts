@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { SimilarityService } from '#modules/similarity/similarity.service.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 import { limitArgument } from '#modules/shared/limit.clamp.js';
+import { nonEmptyText } from '#modules/shared/text.value.js';
 
 /**
  * "Who else sounds like this?", as something a model can ask.
@@ -95,7 +96,7 @@ export class SimilarArtistsTool implements ToolSource {
      * name it can simply stop pursuing.
      */
     private async find(args: Record<string, unknown>): Promise<{ artist: string; similar: SimilarArtistRow[] }> {
-        const artist = readText(args.artist);
+        const artist = nonEmptyText(args.artist);
         if (artist === undefined) throw new Error('similar_artists needs an "artist" to look up');
 
         const found = await this.similarity.similarTo({ name: artist }, limitArgument(args.limit, MAX_ARTISTS));
@@ -135,6 +136,3 @@ interface SimilarArtistRow {
     /** A few real titles, so the model copies one rather than inventing a plausible name. */
     tracks?: string[];
 }
-
-/** An argument the model actually set. */
-const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);

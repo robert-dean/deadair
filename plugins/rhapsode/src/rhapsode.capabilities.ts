@@ -37,7 +37,7 @@
  * document at all is silence rather than a throw.
  */
 
-import { isSpeechDelivery, SPEECH_CUES, tryJsonBody, type PluginLogger, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
+import { errorText, isSpeechDelivery, SPEECH_CUES, tryJsonBody, type PluginLogger, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import type { Capabilities, CurrentVariant, Dial, Variant } from '@maroonedsoftware/rhapsode-sdk';
 import type { RhapsodeAccess } from './rhapsode.directory.js';
 import { PROBE_TIMEOUT_MS, type ResponseFormat } from './rhapsode.manifest.js';
@@ -96,7 +96,7 @@ export class EngineCapabilities {
         } catch (error) {
             this.options.logger.debug('rhapsode could not read what this engine can do', {
                 engine,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
         }
 

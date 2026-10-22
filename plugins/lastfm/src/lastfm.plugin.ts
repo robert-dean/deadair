@@ -1,4 +1,5 @@
 import {
+    errorText,
     configString,
     Plugin,
     type AlbumEnrichment,
@@ -130,10 +131,6 @@ const SESSION_USER = 'username';
  * skew resolves and a daily limit resets, so both are worth another attempt.
  */
 const PERMANENT_IGNORE_CODES = new Set([1, 2, 3]);
-
-function errorText(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-}
 
 export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsProvider, SimilarityProvider, ScrobbleProvider, MusicProviderOAuth {
     readonly priority = PRIORITY;

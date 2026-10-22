@@ -1,4 +1,5 @@
 import {
+    errorText,
     fetchArticle,
     fetchFeed,
     isPluginError,
@@ -321,7 +322,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
             // the publisher having a bad minute and the next bulletin should try
             // again. The publisher's own words are not repeated; see
             // {@link RssPlugin.read}.
-            host.logger.debug('rss: a story could not be read', { feed: item.feedId, error: message(error) });
+            host.logger.debug('rss: a story could not be read', { feed: item.feedId, error: errorText(error) });
             return { fetched: true };
         }
     }
@@ -349,7 +350,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         } catch (error) {
             // The publisher's own words are not repeated: this line ends up in a
             // log an operator reads, and the useful half is which feed failed.
-            host.logger.warn('rss: a feed could not be read', { feed: feed.descriptor.id, error: message(error) });
+            host.logger.warn('rss: a feed could not be read', { feed: feed.descriptor.id, error: errorText(error) });
             return [];
         }
     }
@@ -461,7 +462,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
 
             return ` Stories read from ${host}.`;
         } catch (error) {
-            return ` Stories could not be read from ${host} (${message(error)}). Allow this plugin the open web, under what it has asked for on this page.`;
+            return ` Stories could not be read from ${host} (${errorText(error)}). Allow this plugin the open web, under what it has asked for on this page.`;
         }
     }
 }
@@ -516,9 +517,6 @@ const notNegative = (value: unknown): number | undefined => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : undefined;
 };
-
-/** An error as one short line. Never the upstream's own body; see {@link RssPlugin.read}. */
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
  * `work` over every item, no more than `limit` at a time, answered in the items' order.

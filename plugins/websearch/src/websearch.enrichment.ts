@@ -1,4 +1,4 @@
-import { fetchArticle, parseRows, type PluginHost, type SearchResult, type SourceDocument } from '@deadair/plugin-sdk';
+import { errorText, fetchArticle, parseRows, type PluginHost, type SearchResult, type SourceDocument } from '@deadair/plugin-sdk';
 
 import { hostOf } from './websearch.results.js';
 import { hasBudget } from './websearch.http.js';
@@ -118,7 +118,7 @@ async function readPage(host: PluginHost, url: string): Promise<string | undefin
     } catch (error) {
         host.logger.debug('web search: a page could not be read', {
             site: hostOf(url) ?? 'unknown',
-            error: error instanceof Error ? error.message : String(error),
+            error: errorText(error),
         });
         return undefined;
     }

@@ -1,4 +1,4 @@
-import { PluginError } from '@deadair/plugin-sdk';
+import { errorText, PluginError } from '@deadair/plugin-sdk';
 import type { PluginHost } from '@deadair/plugin-sdk';
 import { Innertube, Log, Utils } from 'youtubei.js';
 
@@ -61,9 +61,7 @@ export class YtMusicClient {
             const accounts = (info as { contents?: { contents?: { account_name?: { text?: string } }[] } })?.contents?.contents ?? [];
             return accounts[0]?.account_name?.text;
         } catch (error) {
-            throw new PluginError(`YouTube Music did not accept the cookie: ${error instanceof Error ? error.message : String(error)}`).withCode(
-                'auth',
-            );
+            throw new PluginError(`YouTube Music did not accept the cookie: ${errorText(error)}`).withCode('auth');
         }
     }
 

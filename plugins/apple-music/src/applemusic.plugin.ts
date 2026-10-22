@@ -1,4 +1,5 @@
 import {
+    errorText,
     Plugin,
     type GetPlaylistTracksOptions,
     type MusicProviderCatalog,
@@ -68,7 +69,7 @@ export class AppleMusicPlugin extends Plugin implements MusicProviderCatalog, Mu
                         : `Reached the ${catalog.label}, but it found nothing — check the storefront.`,
             };
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            return { ok: false, message: errorText(error) };
         }
     }
 

@@ -1,4 +1,6 @@
 import {
+    configString,
+    errorText,
     isPluginError,
     Plugin,
     type PluginConnectionResult,
@@ -114,10 +116,10 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
         const config = await this.host.config.get();
 
         this.engine = readEngine(config.engine);
-        this.apiKey = readText(config.apiKey);
+        this.apiKey = configString(config.apiKey) ?? '';
         this.cacheMs = clamp(positive(config.cacheMinutes) ?? DEFAULT_CACHE_MINUTES, 1, MAX_CACHE_MINUTES) * 60_000;
 
-        const contact = readText(config.contact);
+        const contact = configString(config.contact) ?? '';
         this.userAgent = contact.length === 0 ? undefined : `${PLUGIN_ID}/${PLUGIN_VERSION} (${contact})`;
 
         // Everything the plugin accumulates is released the same way it is built,
@@ -195,8 +197,8 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
             const where = `${this.engine} answered a test lookup for ${reading.place}`;
             return { ok: true, message: temperature === undefined ? `${where}.` : `${where}: ${temperature}°C.` };
         } catch (error) {
-            host.logger.debug('weather: the connection test failed', { service: this.engine, error: message(error) });
-            return { ok: false, message: message(error) };
+            host.logger.debug('weather: the connection test failed', { service: this.engine, error: errorText(error) });
+            return { ok: false, message: errorText(error) };
         }
     }
 
@@ -395,11 +397,7 @@ function readEngine(value: unknown): EngineId {
     return value;
 }
 
-const readText = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
-
 const positive = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
 
 const clamp = (value: number, low: number, high: number): number => Math.min(high, Math.max(low, value));
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

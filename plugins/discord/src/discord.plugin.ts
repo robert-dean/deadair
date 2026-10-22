@@ -1,4 +1,5 @@
 import {
+    errorText,
     configFlag,
     configLines,
     Plugin,
@@ -414,7 +415,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
             const described = discordMessage(details.body) ?? (typeof details.reason === 'string' ? details.reason : error.message);
             return { ...(typeof details.status === 'number' ? { status: details.status } : {}), description: this.scrub(described) };
         }
-        return { description: this.scrub(error instanceof Error ? error.message : String(error)) };
+        return { description: this.scrub(errorText(error)) };
     }
 
     /** A refusal in words an operator can act on. */

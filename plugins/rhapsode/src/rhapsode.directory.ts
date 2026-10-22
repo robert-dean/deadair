@@ -13,7 +13,7 @@
  * said anyway.
  */
 
-import { tryJsonBody, type HostFetchInit, type PluginLogger } from '@deadair/plugin-sdk';
+import { errorText, tryJsonBody, type HostFetchInit, type PluginLogger } from '@deadair/plugin-sdk';
 import type { CoreHealth, EngineSummary, Voice } from '@maroonedsoftware/rhapsode-sdk';
 import { PROBE_TIMEOUT_MS } from './rhapsode.manifest.js';
 
@@ -78,7 +78,7 @@ async function fetchList<T>(access: RhapsodeAccess, url: string, what: string): 
     try {
         response = await access.fetch(url, { timeoutMs: PROBE_TIMEOUT_MS });
     } catch (error) {
-        access.logger.debug(`rhapsode could not list ${what}`, { error: error instanceof Error ? error.message : String(error) });
+        access.logger.debug(`rhapsode could not list ${what}`, { error: errorText(error) });
         return [];
     }
 

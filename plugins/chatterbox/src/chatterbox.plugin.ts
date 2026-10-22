@@ -346,7 +346,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         try {
             voices = await this.fetchEngineVoices();
         } catch (error) {
-            host.logger.debug('chatterbox could not suggest voices', { error: messageOf(error) });
+            host.logger.debug('chatterbox could not suggest voices', { error: errorText(error) });
         }
 
         if (voices.length > 0) {
@@ -538,7 +538,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
             return declared.flatMap((entry: unknown) => (isResponseFormat(entry) ? [{ value: entry, label: entry }] : []));
         } catch (error) {
-            host.logger.debug('chatterbox could not read the formats its server accepts', { error: messageOf(error) });
+            host.logger.debug('chatterbox could not read the formats its server accepts', { error: errorText(error) });
             return [];
         }
     }
@@ -699,8 +699,6 @@ const specOf = (mapping: VoiceMapping): string =>
         mapping.exaggeration === undefined ? '' : `e${mapping.exaggeration}`,
         mapping.cfgWeight === undefined ? '' : `c${mapping.cfgWeight}`,
     ].join('');
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
  * The model half of the connection message.

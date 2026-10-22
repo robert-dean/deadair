@@ -163,7 +163,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         try {
             voices = await this.fetchEngineVoices();
         } catch (error) {
-            host.logger.debug('kokoro could not suggest voices', { error: error instanceof Error ? error.message : String(error) });
+            host.logger.debug('kokoro could not suggest voices', { error: errorText(error) });
             return {};
         }
 

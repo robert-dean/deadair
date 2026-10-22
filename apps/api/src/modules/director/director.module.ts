@@ -13,6 +13,7 @@ import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { NewsBreakWriter } from './news.break.writer.js';
 import { ModelStoryBreakWriter } from './model.story.break.writer.js';
 import { StoryBreakWriter } from './story.break.writer.js';
+import { ReadLogStore } from './bulletin.read.store.js';
 import { BulletinSource, CategoryWatch, ReadLog } from './bulletin.source.js';
 import { ModelWeatherBreakWriter } from './model.weather.break.writer.js';
 import { WeatherBreakWriter } from './weather.break.writer.js';
@@ -199,7 +200,9 @@ export const DirectorModule: ServerKitModule = {
         // same reason `AdvisoryWatch` is one among the scoped generators: "the station already said
         // this" has to outlive the scope that discovered it. It was a field on `BulletinSource` and
         // therefore per-job, which made it inert — ten consecutive bulletins read the same three
-        // stories on 19 August. See `ReadLog`.
+        // stories on 19 August. Written through to Redis, so a release does not hand the window back:
+        // forgetting it on every restart read one story in three bulletins on 21 October. See `ReadLog`.
+        registry.register(ReadLogStore).useClass(ReadLogStore).asSingleton();
         registry.register(ReadLog).useClass(ReadLog).asSingleton();
         // A singleton for the same reason and one kind of fact over: which categories the clock asks
         // for and the feeds never fill. An edge flag on the scoped source below would reset every

@@ -34,6 +34,7 @@ import { rssManifest } from '../../../plugins/rss/src/rss.manifest.js';
 import type { DB } from '../src/modules/data/db.js';
 import { settingsConfigSource } from '../src/server/settings.config.source.js';
 import { BulletinSource, CategoryWatch, ReadLog } from '../src/modules/director/bulletin.source.js';
+import type { ReadLogStore } from '../src/modules/director/bulletin.read.store.js';
 import type { ActivityRecorder } from '../src/modules/activity/activity.recorder.js';
 import { breakPrompt } from '../src/modules/director/break.prompt.js';
 import { NEWS_KIND, NewsBreakWriter } from '../src/modules/director/news.break.writer.js';
@@ -176,9 +177,11 @@ const asked = wanted === undefined || wanted.length === 0 ? undefined : { topic:
 
 // A fresh `ReadLog`, which is what makes this a smoke test of the FEED rather than of the station's
 // memory: in the app it is a singleton holding what the last bulletins said, and one run of a script
-// has nothing to have said before.
+// has nothing to have said before. Over a store that holds nothing and keeps nothing, so a run
+// neither reads the station's Redis nor spends a story the station has yet to air.
+const nowhere = { load: async () => new Map<string, number>(), save: async () => {}, prune: async () => {} } as unknown as ReadLogStore;
 const watch = new CategoryWatch({ record: async () => {} } as unknown as ActivityRecorder, loud);
-const bulletin = await new BulletinSource(news, new ReadLog(), topics, watch, config, loud).storiesFor(NEWS_KIND, asked);
+const bulletin = await new BulletinSource(news, new ReadLog(nowhere, loud), topics, watch, config, loud).storiesFor(NEWS_KIND, asked);
 const stories = bulletin?.stories ?? [];
 
 console.log(

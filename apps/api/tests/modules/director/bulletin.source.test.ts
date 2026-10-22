@@ -16,6 +16,7 @@ import {
     MAX_STORY_COUNT,
     ReadLog,
 } from '../../../src/modules/director/bulletin.source.js';
+import type { ReadLogStore } from '../../../src/modules/director/bulletin.read.store.js';
 import { NEWS_KIND } from '../../../src/modules/director/news.break.writer.js';
 import type { NewsService } from '../../../src/modules/news/news.service.js';
 import { NEWS_FEEDS_KEY } from '../../../src/modules/news/news.settings.js';
@@ -38,6 +39,24 @@ const item = (title: string, overrides: Partial<NewsItem> = {}): NewsItem => ({
     publishedAt: '2026-08-15T11:00:00.000Z',
     ...overrides,
 });
+
+/**
+ * The store a log writes through to, held in memory so a test can hand one to a second log.
+ *
+ * A second {@link ReadLog} over the same store is a restart: a new process, the same Redis.
+ */
+class MemoryStore {
+    readonly read = new Map<string, number>();
+    load = vi.fn(async () => new Map(this.read));
+    save = vi.fn(async (keys: readonly string[], at: number) => {
+        for (const key of keys) this.read.set(key, at);
+    });
+    prune = vi.fn(async (before: number) => {
+        for (const [key, at] of this.read) if (at < before) this.read.delete(key);
+    });
+}
+
+const readLog = (store: MemoryStore = new MemoryStore()): ReadLog => new ReadLog(store as unknown as ReadLogStore, logger);
 
 interface Options {
     hasNews?: boolean;
@@ -112,7 +131,7 @@ function build(options: Options = {}, values: Record<string, unknown> = {}) {
     // the dice rather than on what it is checking.
     const pinned = { [BULLETIN_KEYS.storiesMin]: 3, [BULLETIN_KEYS.storiesMax]: 3, ...values };
 
-    return { source: new BulletinSource(news, options.read ?? new ReadLog(), topics, watch, config(pinned), logger), fetchItems, watch };
+    return { source: new BulletinSource(news, options.read ?? readLog(), topics, watch, config(pinned), logger), fetchItems, watch };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -498,7 +517,7 @@ describe('what the station has already read', () => {
     // Held as a field on the source, this read the same three stories for ten consecutive bulletins
     // on air while every test above passed.
     it('reaches past what an EARLIER SOURCE read, because each bulletin gets a new one', async () => {
-        const read = new ReadLog();
+        const read = readLog();
         const items = [...three, item('Library extends its hours')];
 
         const first = build({ items, read });
@@ -521,7 +540,7 @@ describe('what the station has already read', () => {
     // heard — so it read the same number on a page of fresh stories as on a page of stale ones, and
     // sat at 9 through the ten repeated bulletins that should have been what gave the fault away.
     it('reports how many stories the log turned away, not how many went unused', async () => {
-        const read = new ReadLog();
+        const read = readLog();
         const items = [...three, item('Library extends its hours')];
 
         await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW);
@@ -533,6 +552,59 @@ describe('what the station has already read', () => {
             'director: read the news for a bulletin',
             expect.objectContaining({ offered: 4, using: 1, repeats: 3 }),
         );
+    });
+
+    // A release restarts the station, and a log held only in memory handed the whole window back: on
+    // 21 October one story went out in three bulletins with releases between them.
+    it('reaches past what was read BEFORE A RESTART, because the log is written through to its store', async () => {
+        const store = new MemoryStore();
+        const items = [...three, item('Library extends its hours')];
+
+        await build({ items, read: readLog(store) }).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        const afterRestart = await build({ items, read: readLog(store) }).source.storiesFor(NEWS_KIND, undefined, NOW);
+        expect(afterRestart?.stories.map(story => story.headline)).toEqual(['Library extends its hours.']);
+        expect(store.load).toHaveBeenCalledTimes(2);
+    });
+
+    it('lets a story read before a restart be read again once it ages out of the window', async () => {
+        const store = new MemoryStore();
+        await readLog(store).keep(['Bridge reopens after four years.'], NOW - 13 * 3_600_000);
+
+        const bulletin = await build({ items: three, read: readLog(store) }).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toContain('Bridge reopens after four years.');
+        expect(store.read.size).toBe(3);
+    });
+
+    // The store is a convenience over memory, never a condition of the news: a Redis that is down costs
+    // a repeat after the next restart and nothing else.
+    it('still reads the news when the store cannot be read, and tries it again next bulletin', async () => {
+        const store = new MemoryStore();
+        store.load.mockRejectedValueOnce(new Error('connection refused'));
+        const read = readLog(store);
+        const items = [...three, item('Library extends its hours')];
+
+        const first = await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW);
+        expect(first?.stories).toHaveLength(3);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not be restored'));
+
+        const second = await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW);
+        expect(second?.stories.map(story => story.headline)).toEqual(['Library extends its hours.']);
+        expect(store.load).toHaveBeenCalledTimes(2);
+    });
+
+    it('still reads the news, and still remembers it, when the store cannot be written', async () => {
+        const store = new MemoryStore();
+        store.save.mockRejectedValue(new Error('READONLY'));
+        const read = readLog(store);
+        const items = [...three, item('Library extends its hours')];
+
+        expect((await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW))?.stories).toHaveLength(3);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not keep'));
+
+        const second = await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW);
+        expect(second?.stories.map(story => story.headline)).toEqual(['Library extends its hours.']);
     });
 
     // One story carried by two feeds. The log only stops a LATER bulletin repeating it, so both copies
@@ -928,8 +1000,8 @@ describe("reading the station's feeds in turn", () => {
 
         it('keeps asking past feeds with nothing the station has not already said', async () => {
             const ids = feeds(8);
-            const read = new ReadLog();
-            read.keep(['Old one', 'Old two', 'Old three'], NOW);
+            const read = readLog();
+            await read.keep(['Old one', 'Old two', 'Old three'], NOW);
             const byFeed = Object.fromEntries(
                 ids.map((id, index) => [
                     id,

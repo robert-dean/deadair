@@ -2,10 +2,9 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { catalogKey, normalizeKey } from '#modules/catalog/catalog.keys.js';
-import { hasWholeWords } from '#modules/catalog/catalog.query.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.js';
-import { songKey } from '#modules/director/rotation.keys.js';
+import { artistCreditsOverlap, songKey } from '#modules/director/rotation.keys.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
@@ -487,11 +486,17 @@ const ownedAllowance = (limit: number, reached: number): number => {
  * and Eddie Murphy's stand-up bit "Little Richard", which then aired. The model can still name a
  * record by its title, having read the row; only the rescue reads this.
  *
+ * And a credit answers only by naming the act WHOLE ({@link artistCreditsOverlap}), never by holding
+ * the query's words inside a longer name. Measured on the live station, 2026-10-22: a rock hour
+ * searched `Boston`, the library held Boston 168 (Italian techno) beside Boston, and "Boston 168"
+ * holds `Boston` as whole words, so Boston 168 aired twice in Wayne's World and spilled into the next
+ * show. A credit joining several acts still answers for each of them: "WWE, Motörhead" is Motörhead.
+ *
  * No query is a search the row cannot have missed. A library row reaches here too, which is why the
  * caller asks the library's own answer first: that one read the record's styles.
  */
 const answersQuery = (row: MusicTrack, query: string): boolean =>
-    query.trim().length === 0 || [row.artist, ...(row.featuring ?? [])].some(text => hasWholeWords(text, query));
+    query.trim().length === 0 || [row.artist, ...(row.featuring ?? [])].some(credit => artistCreditsOverlap(credit, query));
 
 /** The identity two halves of the answer are compared on, which is the resolver's own key. */
 const keyOf = (title: string, artist: string): string => catalogKey(normalizeKey(title), normalizeKey(artist));

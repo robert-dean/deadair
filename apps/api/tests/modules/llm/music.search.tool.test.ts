@@ -572,6 +572,32 @@ describe('MusicSearchTool', () => {
         expect(searched.matching().map(row => row.title)).toEqual(['The Game (Triple H)', 'Ace of Spades', 'Killed by Death']);
     });
 
+    // Measured on the live station, 2026-10-22: a rock hour searched `Boston`, and the rescue aired
+    // Boston 168, an Italian techno act whose name holds the query as whole words.
+    it('never counts a longer name that merely contains the act as matching', async () => {
+        const { tool, searched } = build({
+            library: [
+                { title: 'More Than a Feeling', artistName: 'Boston', matchesStyle: false },
+                { title: 'Cybernetics', artistName: 'Boston 168', matchesStyle: false },
+            ],
+            reached: [
+                found('Peace of Mind', 'Boston'),
+                found('Real Boston', 'Real Boston Richey'),
+                found('Amanda', 'Somebody', { featuring: ['boston'] }),
+            ],
+        });
+
+        await run(tool, { query: 'Boston' });
+
+        expect(searched.all().map(row => [row.title, row.matches])).toEqual([
+            ['More Than a Feeling', true],
+            ['Cybernetics', false],
+            ['Peace of Mind', true],
+            ['Real Boston', false],
+            ['Amanda', true],
+        ]);
+    });
+
     it('counts every row of a search with no text as matching, since there was no text to miss', async () => {
         const { tool, searched } = build({ library: [{ title: 'Paranoid', artistName: 'Black Sabbath' }] });
 

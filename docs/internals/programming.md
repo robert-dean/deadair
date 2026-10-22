@@ -41,8 +41,10 @@ asked for. Measured on the live station, 2026-10-11: briefed for heavy metal, ge
 seventeen on-brief searches, the library had answered `Dio` with every "Radio Edit", "Audio Remix",
 "Diopter" and "Dior" it held, and the Boneyard aired Culture Beat, Pop Smoke and a run of house remixes.
 So the search tool remembers each row with `matches`, whether it answered the query as whole words, and
-the rescue reads only `matching()`. A row matches by its CREDITS (`hasWholeWords` over the artist and
-anyone featured, which is what turns away "slayr" for `Slayer`), or, in the library, by a STYLE: the SQL's
+the rescue reads only `matching()`. A row matches by its CREDITS (`artistCreditsOverlap` over the artist
+and anyone featured: the query must be a whole act in the credit, which turns away "slayr" for `Slayer` and,
+measured on the live station 2026-10-22, Boston 168's techno for `Boston`, which whole words had let through
+twice in a rock hour; "WWE, Motörhead" still answers `Motörhead`), or, in the library, by a STYLE: the SQL's
 `matchesStyle`, the genre and the tags through `regexWholeWords`, because a style search finds a record by a
 tag the row itself does not carry. **Never by its title alone.** Measured on the live station, 2026-10-14:
 a rock and roll hour searched `Chuck Berry` and `Little Richard`, the model went quiet, and the rescue took

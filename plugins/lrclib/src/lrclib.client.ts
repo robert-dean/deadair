@@ -1,6 +1,5 @@
 import {
     configBaseUrl,
-    PluginError,
     jsonBody,
     pluginCodeForStatus as sharedCodeForStatus,
     retryAfterMs,
@@ -9,6 +8,7 @@ import {
     upstreamField,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './lrclib.manifest.js';
@@ -26,15 +26,10 @@ function pluginCodeForStatus(status: number, hasRetryAfter: boolean): PluginErro
     return sharedCodeForStatus(status);
 }
 
-export class LrclibRequestError extends PluginError {
-    readonly status: number;
-
+export class LrclibRequestError extends UpstreamRequestError {
     constructor(status: number, message: string, retryMs?: number) {
-        super(message);
+        super(status, message, { code: pluginCodeForStatus(status, retryMs !== undefined), retryAfterMs: retryMs });
         this.name = 'LrclibRequestError';
-        this.status = status;
-        this.withCode(pluginCodeForStatus(status, retryMs !== undefined)).withUpstreamStatus(status);
-        if (retryMs !== undefined) this.withRetry(retryMs);
     }
 }
 

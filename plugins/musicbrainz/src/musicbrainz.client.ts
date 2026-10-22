@@ -1,6 +1,5 @@
 import {
     configBaseUrl,
-    PluginError,
     jsonBody,
     pluginCodeForStatus as sharedCodeForStatus,
     retryAfterMs,
@@ -9,6 +8,7 @@ import {
     upstreamField,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
@@ -50,16 +50,10 @@ function upstreamReason(body: string): string | undefined {
  * branch on it (a 404 from a lookup is "no such recording", not a failure)
  * while the `PluginError` half says what the host should make of it.
  */
-export class MusicBrainzRequestError extends PluginError {
-    readonly status: number;
-
+export class MusicBrainzRequestError extends UpstreamRequestError {
     constructor(status: number, message: string, retryMs?: number) {
-        super(message);
+        super(status, message, { code: pluginCodeForStatus(status, retryMs !== undefined), retryAfterMs: retryMs });
         this.name = 'MusicBrainzRequestError';
-        this.status = status;
-
-        this.withCode(pluginCodeForStatus(status, retryMs !== undefined)).withUpstreamStatus(status);
-        if (retryMs !== undefined) this.withRetry(retryMs);
     }
 }
 

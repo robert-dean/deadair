@@ -1,4 +1,10 @@
-import { PluginError, jsonBody, pluginCodeForStatus as sharedCodeForStatus, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
+import {
+    jsonBody,
+    pluginCodeForStatus as sharedCodeForStatus,
+    type PluginErrorCode,
+    type PluginHost,
+    UpstreamRequestError,
+} from '@deadair/plugin-sdk';
 
 import { LISTENBRAINZ_LABS_ORIGIN, LISTENBRAINZ_ORIGIN, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
 import type {
@@ -50,14 +56,10 @@ function pluginCodeForStatus(status: number): PluginErrorCode {
 }
 
 /** A non-2xx from ListenBrainz, carrying the status so the caller can branch on it. */
-export class ListenBrainzRequestError extends PluginError {
-    readonly status: number;
-
+export class ListenBrainzRequestError extends UpstreamRequestError {
     constructor(status: number, message: string) {
-        super(message);
+        super(status, message, { code: pluginCodeForStatus(status) });
         this.name = 'ListenBrainzRequestError';
-        this.status = status;
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
     }
 }
 

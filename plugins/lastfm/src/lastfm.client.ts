@@ -3,12 +3,12 @@ import {
     jsonBody,
     tryJsonBody,
     PluginError,
-    pluginCodeForStatus,
     retryAfterMs,
     truncateUpstreamMessage,
     upstreamDetail,
     type PluginErrorCode,
     type PluginHost,
+    UpstreamRequestError,
 } from '@deadair/plugin-sdk';
 
 import { API_ROOT, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './lastfm.manifest.js';
@@ -95,19 +95,15 @@ function codeForApiError(error: number): PluginErrorCode {
  * branch on it — a 6 from a lookup is usually "no such artist" and is data, not
  * a failure — while the `PluginError` half says what the host should make of it.
  */
-export class LastfmRequestError extends PluginError {
-    readonly status: number;
-
+export class LastfmRequestError extends UpstreamRequestError {
     constructor(status: number, message: string, options: { apiError?: number; retryMs?: number } = {}) {
-        super(message);
+        // `apiError` is the service's own error number, absent when the failure was HTTP-level.
+        super(status, message, {
+            code: options.apiError === undefined ? undefined : codeForApiError(options.apiError),
+            upstreamCode: options.apiError,
+            retryAfterMs: options.retryMs,
+        });
         this.name = 'LastfmRequestError';
-        this.status = status;
-
-        this.withCode(options.apiError === undefined ? pluginCodeForStatus(status) : codeForApiError(options.apiError));
-        // The service's own error number, absent when the failure was HTTP-level.
-        if (options.apiError !== undefined) this.withUpstreamCode(options.apiError);
-        if (status !== 200) this.withUpstreamStatus(status);
-        if (options.retryMs !== undefined) this.withRetry(options.retryMs);
     }
 }
 

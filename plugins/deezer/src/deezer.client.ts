@@ -1,12 +1,4 @@
-import {
-    PluginError,
-    jsonBody,
-    pluginCodeForStatus,
-    retryAfterMs,
-    truncateUpstreamMessage,
-    upstreamDetail,
-    type PluginHost,
-} from '@deadair/plugin-sdk';
+import { jsonBody, retryAfterMs, truncateUpstreamMessage, upstreamDetail, type PluginHost, UpstreamRequestError } from '@deadair/plugin-sdk';
 
 import { API_ROOT, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './deezer.manifest.js';
 import { DEEZER_CODE_NO_DATA, type DeezerErrorResponse } from './deezer.types.js';
@@ -17,18 +9,11 @@ import { DEEZER_CODE_NO_DATA, type DeezerErrorResponse } from './deezer.types.js
  * Two numbers because the interesting failures here do not arrive as a status:
  * see {@link DeezerClient.get}.
  */
-export class DeezerRequestError extends PluginError {
-    readonly status: number;
-
+export class DeezerRequestError extends UpstreamRequestError {
     constructor(status: number, message: string, options: { upstreamCode?: number; retryMs?: number } = {}) {
-        super(message);
+        // `upstreamCode` is Deezer's own error code, where the failure came back inside a 200.
+        super(status, message, { upstreamCode: options.upstreamCode, retryAfterMs: options.retryMs });
         this.name = 'DeezerRequestError';
-        this.status = status;
-
-        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
-        // Deezer's own error code, where the failure came back inside a 200.
-        if (options.upstreamCode !== undefined) this.withUpstreamCode(options.upstreamCode);
-        if (options.retryMs !== undefined) this.withRetry(options.retryMs);
     }
 
     /** Whether this is Deezer's way of saying "nothing here", which is data rather than a fault. */

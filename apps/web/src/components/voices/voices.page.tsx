@@ -9,7 +9,6 @@ import { Trans, useTranslation } from 'react-i18next';
 import { usePersonas } from '../../api/personas.queries';
 import { fetchVoiceSample, voicesOptions } from '../../api/voices.queries';
 import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';

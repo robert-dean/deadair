@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import type { PlatformRole, UserSummary } from '@deadair/sdk';
 
 import { useCurrentSession, useUsers } from '../../api/users.queries';
-import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';

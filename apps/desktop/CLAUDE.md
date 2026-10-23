@@ -1471,7 +1471,7 @@ doing the job.
 `FormFieldView`, for the station's settings, a station plugin's configuration and every settings
 subset a page shows. The station's settings and a plugin's config are two SDK records of one shape
 (`StationSettingDescriptor`, `ConfigFieldDescriptor`) and both become a `FormField`. Its rules are
-the web console's `config.fields.form.tsx`, ported rather than reinvented, and the pure half is in
+the web console's `config.fields.form.tsx` (its pure half now `config.fields.values.ts`), ported rather than reinvented, and the pure half is in
 Core (`Forms/FormValues`, `Forms/FormRows`) with the tests:
 - A multiselect is a JSON array in a string; a `tags` field is a comma-separated line. They are not
   the same encoding, and changing either would be changing the setting.

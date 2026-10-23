@@ -25,7 +25,7 @@ applied whenever the config maps NOTHING — an absent key, `"[]"`, blank and un
 DEFAULT_VOICES_JSON` for as long as it existed, on the argument that this was the opposite call to
 the station's break phrasings: clearing those produces a silent DJ and clearing this one produces a station
 that speaks in one voice, which an operator may legitimately want. That distinction is not one the console can
-express. The settings form submits EVERY declared field on every save (`config.fields.form.tsx`,
+express. The settings form submits EVERY declared field on every save (`config.fields.values.ts`,
 `rowsForSubmission`), so a `list` nobody has touched is stored as `"[]"` the moment an operator edits the
 server URL beside it — which made never-having-opened-the-form the only way to keep the shipped rows, and an
 ordinary save the way to lose them in silence. This station lost them exactly that way and the logs are the

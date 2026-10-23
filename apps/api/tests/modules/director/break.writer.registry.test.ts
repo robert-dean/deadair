@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PluginError, type LlmResult } from '@deadair/plugin-sdk';
 
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from '../../../src/modules/director/break.writer.js';
-import type { WriteFault } from '../../../src/modules/director/break.prompt.js';
+import type { WriteFault } from '../../../src/modules/director/break.answer.guard.js';
 import { BreakWriterRegistry, isWritten } from '../../../src/modules/director/break.writer.registry.js';
 import { MODEL_WRITER_KEYS, ModelTalkBreakWriter } from '../../../src/modules/director/model.talk.break.writer.js';
 import { SaidLog } from '../../../src/modules/director/almanac.source.js';

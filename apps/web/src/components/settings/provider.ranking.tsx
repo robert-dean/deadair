@@ -7,7 +7,7 @@ import { useUpdateSettings } from '../../api/settings.queries';
 import { notifySaved } from '../shared/notify';
 import { StatusLamp } from '../shared/status.lamp';
 import { statusOf } from '../plugins/plugin.status';
-import { RowControls } from './config.fields.form';
+import { RowControls } from './config.rows.field';
 
 /**
  * The order the station asks a capability's plugins in, as a list of the plugins themselves.

@@ -4,7 +4,8 @@ import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
-import type { AnswerGuard, PromptSettings } from './break.prompt.js';
+import type { PromptSettings } from './break.prompt.js';
+import type { AnswerGuard } from './break.answer.guard.js';
 import type { BreakWriteRequest } from './break.writer.js';
 
 /** The part of a break prompt's settings that is the station's rather than the break's. */

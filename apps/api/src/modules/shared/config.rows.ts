@@ -58,11 +58,11 @@ export const holdsRowSecrets = (field: ConfigField): boolean => secretColumnsOf(
 /**
  * Whether a column applies to one row, per its own `dependsOn`.
  *
- * The host's copy of the console's rule (`appliesToRow` in `config.fields.form.tsx`), and it has to
+ * The host's copy of the console's rule (`appliesToRow` in `config.fields.values.ts`), and it has to
  * agree with it: a cell the form declines to send and one the allowlist declines to read are the
  * same claim made in two places, and a plugin whose address is refused by one and accepted by the
  * other looks broken rather than misconfigured. Read by the allowlist (`addressCells` in
- * `plugin.host.factory.ts`) and by {@link splitRowSecrets}, where an address cell that does not
+ * `plugin.network.settings.ts`) and by {@link splitRowSecrets}, where an address cell that does not
  * apply is no address at all.
  *
  * Forgiving in exactly the three places the console's is, and here that is the conservative

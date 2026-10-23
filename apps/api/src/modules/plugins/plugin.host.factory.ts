@@ -2,9 +2,8 @@ import { isIP } from 'node:net';
 import { connect as connectTls } from 'node:tls';
 import { Container, Injectable } from 'injectkit';
 import { RateLimiterMemory, RateLimiterQueue, RateLimiterQueueError } from 'rate-limiter-flexible';
-import { PluginError, isPluginError, parseRows } from '@deadair/plugin-sdk';
+import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 import type {
-    ConfigField,
     DiscoveredService,
     DiscoveryOptions,
     DiscoveryQuery,
@@ -16,7 +15,6 @@ import type {
     PluginLogger,
     PluginManifest,
     PluginOAuth,
-    PluginPermissions,
     PluginSecrets,
     PluginSocket,
     PluginSocketOptions,
@@ -37,10 +35,23 @@ import { isPrivateAddress, NETWORK_OPEN, privateAddressBehind, resolveAddresses 
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
-import { columnAppliesToRow } from '#modules/shared/config.rows.js';
 import { causeText, errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { REDIRECT_STATUSES } from '#modules/shared/redirect.hops.js';
+import { type NetworkEntry, needsConfig, normalizeNetwork, matchesHost } from './plugin.network.settings.js';
+import {
+    type BodyRelease,
+    egressController,
+    type SentResponse,
+    guardedResponse,
+    PLUGIN_RESPONSE_MAX_BYTES,
+    cancelBody,
+    parseRetryAfter,
+    withUserAgent,
+    withoutHeaders,
+    BODY_HEADERS,
+    CREDENTIAL_HEADERS,
+} from './plugin.egress.guard.js';
 
 export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
 
@@ -73,47 +84,6 @@ export const PLUGIN_FETCH_TIMEOUT_MS = 6_000;
  * the only thing bounding a redirect loop.
  */
 export const MAX_PLUGIN_FETCH_REDIRECTS = 5;
-
-/**
- * How long a response body may produce nothing before the host gives up on it.
- *
- * A stalled body is just as effective a hang as a stalled connect, and the
- * fetch deadline cannot cover it: that one ends when the response arrives, and
- * a large body is read long afterwards, sometimes from later invocations
- * entirely. Generous, because it bounds silence rather than total time, and an
- * upstream generating audio genuinely does pause.
- */
-export const PLUGIN_BODY_IDLE_TIMEOUT_MS = 30_000;
-
-/**
- * The longest a response body may stay open at all, from the moment the
- * response is handed to the plugin to its last byte.
- *
- * The load-bearing bound of the three, and the reason the other two are not
- * enough. Reading a body is deliberately NOT capped by the invocation that
- * started the request, because a legitimate large body outlives it, so without
- * this a body would be a way to escape the per-invocation deadline entirely and
- * hold a socket forever. The deadline is not removed, it is replaced by a
- * strictly-enforced longer one.
- *
- * Sized above a slow synthesis on CPU rather than above a request, which is
- * what the caller that needs it (speech) actually does.
- */
-export const PLUGIN_BODY_LIFETIME_MS = 5 * 60_000;
-
-/**
- * Most bytes one response body may carry.
- *
- * One cap rather than the two this used to have. There was a 5 MiB ceiling on
- * `host.fetch`, which buffered every body into a string, and a 64 MiB one on
- * the separate byte protocol for bodies that could not fit in it. That protocol
- * is gone: a plugin now decides for itself whether to buffer, with
- * `response.text()`, so the only place a single cap can sit is the wire.
- *
- * Unbounded is how a plugin fills a disk, and this is comfortably above a
- * long-form audio render at any bitrate anyone would stream.
- */
-export const PLUGIN_RESPONSE_MAX_BYTES = 64 * 1024 * 1024;
 
 /**
  * The longest `host.socket` waits for a socket to open. Plugins may ask for less.
@@ -267,225 +237,6 @@ interface RateBucket {
 }
 
 /**
- * Hostname match against one allowlist entry. A leading `*.` matches any
- * subdomain but NOT the bare apex, so `*.example.com` cannot be used to smuggle
- * in `example.com` itself.
- */
-const matchesHost = (hostname: string, pattern: string): boolean => {
-    const entry = pattern.trim().toLowerCase();
-    if (entry.length === 0) return false;
-    if (entry.startsWith('*.')) return hostname.endsWith(entry.slice(1)) && hostname.length > entry.length - 1;
-    return hostname === entry;
-};
-
-/** A manifest allowlist entry, with the shorthand expanded and the defaults filled in. */
-interface NetworkEntry {
-    pattern: string;
-    /** Which limiter this entry draws from. Several entries may name the same one. */
-    bucket: string;
-    /** Absent means the host default. */
-    ratePerSecond?: number;
-    /**
-     * Whether the address came from the operator's config (a `fromConfig` entry) rather than the
-     * manifest. Only such an address may be reached by `host.tls` without verifying its certificate:
-     * the operator typed in a device on their own network, which is what the exemption is for.
-     */
-    operator?: true;
-}
-
-/**
- * The hostname an operator-supplied address points at, or `undefined` when the
- * setting cannot name one.
- *
- * Accepts both a URL and a bare hostname, because either is a reasonable thing
- * for an operator to have typed into a "server address" field. Anything that
- * does not resolve to a plain hostname contributes no entry at all rather than
- * a permissive one: a blank setting must not widen the allowlist, and a
- * wildcard must never arrive from data, only from a manifest an operator read
- * before installing.
- */
-const hostnameFromSetting = (value: unknown): string | undefined => addressFromSetting(value)?.hostname.toLowerCase();
-
-/**
- * The address an operator-supplied value names, parsed, or `undefined` under every refusal
- * {@link hostnameFromSetting} documents. The one parser both it and {@link operatorHosts} read, so
- * the allowlist and the art fetch cannot disagree about what a setting names.
- */
-const addressFromSetting = (value: unknown): URL | undefined => {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return undefined;
-
-    try {
-        const address = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
-        const hostname = address.hostname.toLowerCase();
-        return hostname.length > 0 && !hostname.includes('*') ? address : undefined;
-    } catch {
-        return undefined;
-    }
-};
-
-/**
- * Every hostname one setting names, which is usually one and is sometimes many.
- *
- * A `fromConfig` entry was written for a setting holding one address — a
- * mirror, a self-hosted server — and one shape of plugin cannot express itself
- * that way: a reader of feeds is pointed at a LIST the operator pasted, and
- * there is no honest number of `url` fields to give it. So a value holding
- * several addresses contributes several entries, whether it arrived as the
- * lines of a `text` field, as the JSON array a `multiselect` stores, or as the
- * ROWS of a `list` — which is the only one of the three whose addresses cannot
- * be found by looking at the value alone, and is why the field descriptor is
- * passed in. See {@link addressCells}.
- *
- * Nothing about a single-address setting changes, deliberately: one line in,
- * one entry out, and every refusal {@link hostnameFromSetting} makes is made
- * per address rather than over the whole value. So one mistyped line among five
- * costs its own feed and not the other four — the same treatment the clock
- * bands and the break templates give a line an operator got wrong — and a
- * wildcard still cannot arrive from data.
- *
- * Deduplicated because two feeds at one publisher are two lines and one host,
- * and a repeated pattern would otherwise install a second limiter that quietly
- * doubles the rate the entry asked to be paced at.
- */
-const hostnamesFromSetting = (value: unknown, field?: ConfigField): string[] => [
-    ...new Set(rawAddresses(value, field).flatMap(one => hostnameFromSetting(one) ?? [])),
-];
-
-/** The unparsed addresses in one setting, by the three encodings {@link hostnamesFromSetting} names. */
-const rawAddresses = (value: unknown, field?: ConfigField): unknown[] =>
-    field?.type === 'list'
-        ? addressCells(value, field)
-        : Array.isArray(value)
-          ? value
-          : typeof value === 'string'
-            ? readAddressLines(value)
-            : [value];
-
-/**
- * The addresses in a `list` field: the cells of the columns that declared themselves `url`.
- *
- * By the COLUMN rather than by looking at every cell, which is the one thing that cannot be
- * loosened here: {@link hostnameFromSetting} accepts a bare hostname, so a cell holding a category
- * called `sport` would install `sport` on the allowlist — harmless in itself, and exactly the kind
- * of quiet widening this whole path exists to refuse. A field that declared no `url` column names
- * no addresses, which is a plugin asking for an allowlist it cannot fill rather than a permissive
- * default.
- *
- * `parseRows` is the SDK's own reader, so the host and the plugin read one encoding: a list the
- * plugin serves and the allowlist refuses is a plugin that looks broken rather than a row somebody
- * got wrong.
- *
- * And by the ROW as well as by the column, wherever a `url` column declared which rows it applies
- * to. A providers table holding one row reached at an address the operator runs and another reached
- * where its vendor lives has an address cell that means nothing on the second, and an address left
- * in it — typed before the row's kind was changed, or hand-edited into `plugin_configs` — would
- * otherwise put a host on the allowlist that the plugin can never call. The console declines to
- * send such a cell, but the console is not what decides this: a row can reach here without ever
- * having been through it.
- */
-const addressCells = (value: unknown, field: ConfigField): unknown[] => {
-    const columns = field.columns ?? [];
-    const urls = columns.filter(column => column.type === 'url');
-
-    return parseRows(value).flatMap(row => urls.filter(column => columnAppliesToRow(column, columns, row)).map(column => row[column.key]));
-};
-
-/**
- * The addresses in a multi-line setting: one per line, and the address is the
- * last `|`-separated field of its line.
- *
- * That format is the HOST's, not any plugin's, which is the whole point of it
- * being here. A list of addresses is rarely just addresses — an operator wants
- * to name the things they pasted — so a plugin will invent somewhere to put a
- * label whether or not this makes room for one. Fixing the shape means the
- * hostnames an entry resolves to are readable from the operator's own text by
- * anything, rather than being whatever a plugin's private line parser decided.
- *
- * Split on newlines and nothing else. A comma and a space are both legal inside
- * a URL, and splitting on either would turn one address into two hostnames that
- * reach nothing — silently, since a request to a host the allowlist does not
- * hold is refused rather than reported back to the form.
- */
-const readAddressLines = (value: string): string[] =>
-    value
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0)
-        .map(line => line.slice(line.lastIndexOf('|') + 1).trim());
-
-/**
- * Expands the manifest's allowlist into what the egress path actually needs,
- * reading `fromConfig` entries out of `config`.
- *
- * Done once per host rather than per call: neither the manifest nor the config
- * can change under a running plugin, because a config write reinitializes it
- * and builds a whole new host.
- */
-const normalizeNetwork = (network: PluginPermissions['network'], config: Record<string, unknown>, fields: ConfigField[] = []): NetworkEntry[] => {
-    const entries: NetworkEntry[] = [];
-
-    for (const entry of network) {
-        if (typeof entry === 'string') {
-            entries.push({ pattern: entry, bucket: entry });
-            continue;
-        }
-
-        if ('host' in entry) {
-            entries.push({ pattern: entry.host, bucket: entry.bucket ?? entry.host, ratePerSecond: entry.ratePerSecond });
-            continue;
-        }
-
-        // One address or twenty, the same loop: a setting that names several
-        // contributes several entries, and one that names none contributes
-        // nothing at all. Where the entry declared a `bucket`, every hostname
-        // out of it shares that one limiter — which is what an operator's list
-        // of feeds actually wants, since the rate being paced is this station's
-        // own and not any one publisher's.
-        for (const hostname of hostnamesFromSetting(
-            config[entry.fromConfig],
-            fields.find(field => field.key === entry.fromConfig),
-        )) {
-            entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond, operator: true });
-        }
-    }
-
-    return entries;
-};
-
-/**
- * The `host` (hostname, and port where one was given) of every address a manifest's `fromConfig`
- * entries name in one config: the servers the OPERATOR pointed this plugin at.
- *
- * For callers outside the host that need the question `PluginHostFactory.assertAllowed` answers for a plugin's
- * own fetches (is this somewhere the operator chose, and so allowed to be on the LAN?) about a URL
- * that is merely data. `ArtCacheService` is the one: a Navidrome cover URL is on the operator's own
- * server, and every other art URL is whatever an upstream said.
- *
- * The host rather than the hostname, which is the one place this is narrower than the allowlist. A
- * plugin reaching its configured hostname is the plugin doing its job; an art URL naming that
- * hostname is data, and a Navidrome at `http://localhost:4533` vouches for port 4533 and not for
- * whatever else answers on that machine. Manifest literals are not included: a host the plugin's
- * author wrote down is public, and nothing is gained by exempting it from a check it passes.
- */
-export const operatorHosts = (network: PluginPermissions['network'], config: Record<string, unknown>, fields: ConfigField[] = []): string[] => {
-    const hosts = network.flatMap(entry =>
-        typeof entry !== 'string' && 'fromConfig' in entry
-            ? rawAddresses(
-                  config[entry.fromConfig],
-                  fields.find(field => field.key === entry.fromConfig),
-              ).flatMap(one => addressFromSetting(one)?.host.toLowerCase() ?? [])
-            : [],
-    );
-
-    return [...new Set(hosts)];
-};
-
-/** Whether any entry needs the plugin's config read before the allowlist is known. */
-const needsConfig = (network: PluginPermissions['network']): boolean => network.some(entry => typeof entry !== 'string' && 'fromConfig' in entry);
-
-/**
  * The limiter shape for a declared rate, capped at the host's ceiling: a plugin
  * may ask to be paced more slowly than the host would, never faster.
  *
@@ -503,279 +254,6 @@ const limiterFor = (ratePerSecond: number | undefined): RateLimiterMemory => {
     const capped = Math.min(ratePerSecond, PLUGIN_FETCH_REQUESTS_PER_WINDOW / PLUGIN_FETCH_WINDOW_SECONDS);
     if (capped >= 1) return new RateLimiterMemory({ points: Math.floor(capped), duration: 1 });
     return new RateLimiterMemory({ points: 1, duration: Math.ceil(1 / capped) });
-};
-
-/** Dropped when a hop crosses an origin, so a bearer token cannot ride a 302 to a third party. */
-const CREDENTIAL_HEADERS = ['authorization', 'cookie'] as const;
-
-/** Dropped when a redirect rewrites the method to GET and discards the body. */
-const BODY_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'content-location'] as const;
-
-/** Header names are case-insensitive; the plugin's record keys are whatever it typed. */
-const withoutHeaders = (headers: Record<string, string>, drop: readonly string[]): Record<string, string> =>
-    Object.fromEntries(Object.entries(headers).filter(([key]) => !drop.includes(key.toLowerCase())));
-
-/**
- * Says who is calling, when the plugin has not said so itself.
- *
- * Without this the request goes out under undici's default, which a fair number
- * of APIs refuse outright: MusicBrainz requires a User-Agent that identifies
- * the application, and answers a generic one with a 403. Naming the plugin
- * rather than just the station also means an upstream complaining about traffic
- * can say which plugin to turn off.
- *
- * `baseUrl` is deliberately not in here. Some upstreams want a contact URL, and
- * a plugin whose policy requires one should set the whole header itself (a
- * `contact` config field is the usual shape), because the station's own base
- * URL is frequently an internal or loopback address and does not belong in a
- * header sent to every third party.
- */
-const withUserAgent = (headers: Record<string, string>, manifest: PluginManifest): Record<string, string> => {
-    if (Object.keys(headers).some(key => key.toLowerCase() === 'user-agent')) return headers;
-    return { ...headers, 'user-agent': `${manifest.id}/${manifest.version} (deadair)` };
-};
-
-/** `Retry-After` is either delta-seconds or an HTTP-date. Unparseable values mean "do not retry". */
-const parseRetryAfter = (value: string | undefined, nowMs: number): number | undefined => {
-    if (value === undefined) return undefined;
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return undefined;
-
-    const seconds = Number(trimmed);
-    if (Number.isFinite(seconds)) return seconds <= 0 ? 0 : seconds * 1000;
-
-    const date = Date.parse(trimmed);
-    if (Number.isNaN(date)) return undefined;
-    return Math.max(0, date - nowMs);
-};
-
-/** A live response, plus the two things about the chain that produced it the response cannot say. */
-interface SentResponse {
-    response: Response;
-    /** The last hop's URL, which is where the response actually came from. */
-    url: URL;
-    redirected: boolean;
-}
-
-/**
- * Let go of a body nobody is going to read.
- *
- * Swallows its own failure on purpose: this is always cleanup on a path that is
- * already returning or already throwing something more interesting, and a cancel
- * that fails because the peer hung up first is the ordinary case rather than
- * news.
- */
-const cancelBody = async (response: Response): Promise<void> => {
-    await response.body?.cancel().catch(() => {});
-};
-
-/**
- * The controller bounding one egress call: the host's own deadline, plus
- * whatever the plugin passed in.
- *
- * A plain timer rather than `AbortSignal.timeout`, because that one's timer is
- * unref'd and invisible to fake timers, so the deadline would be neither
- * reliable nor testable. One controller rather than `AbortSignal.any` for the
- * same reason the timer is explicit: the caller aborts this itself on a
- * transport failure, and a derived signal has no such handle.
- *
- * `dispose` drops the listener as well as the timer. A plugin's own signal is
- * routinely the invocation's, which outlives any single fetch, so leaving one
- * behind per call is a listener leak on a long background job rather than a
- * theoretical one.
- */
-const egressController = (deadlineAt: number, external?: AbortSignal): { controller: AbortController; dispose: () => void } => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), Math.max(0, deadlineAt - Date.now()));
-
-    const onExternalAbort = (): void => controller.abort(external?.reason);
-    if (external?.aborted) onExternalAbort();
-    else external?.addEventListener('abort', onExternalAbort, { once: true });
-
-    return {
-        controller,
-        dispose: () => {
-            clearTimeout(timer);
-            external?.removeEventListener('abort', onExternalAbort);
-        },
-    };
-};
-
-/**
- * Races `work` against an idle timer, failing with `onTimeout` if nothing
- * arrives in time.
- *
- * `work` is left running when the timer wins — there is no way to un-issue a
- * pending `reader.read()` — so its eventual rejection is swallowed here. The
- * caller aborts the stream's controller, which is what actually makes that read
- * reject; without the pre-attached catch that rejection would surface as an
- * unhandled one, on a path that has already reported the failure properly.
- */
-const withIdleDeadline = async <T>(work: Promise<T>, idleMs: number, onTimeout: () => Error): Promise<T> => {
-    work.catch(() => {});
-
-    let timer: NodeJS.Timeout | undefined;
-    const idle = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(onTimeout()), idleMs);
-    });
-
-    try {
-        return await Promise.race([work, idle]);
-    } finally {
-        clearTimeout(timer);
-    }
-};
-
-/**
- * Releases whatever a response body is still holding. Registered per plugin so
- * a body cannot outlive the instance that opened it.
- */
-type BodyRelease = (failure?: PluginError) => void;
-
-/** The failure the lifetime cap records when it fires. */
-const lifetimeExpired = (manifest: PluginManifest): PluginError =>
-    new PluginError(`plugin "${manifest.id}" held a response body open for more than ${PLUGIN_BODY_LIFETIME_MS}ms`).withCode('timeout');
-
-/** The failure the idle deadline records. */
-const idleExpired = (manifest: PluginManifest, url: string): PluginError =>
-    new PluginError(`plugin "${manifest.id}" response body from ${url} produced nothing for ${PLUGIN_BODY_IDLE_TIMEOUT_MS}ms`).withCode('timeout');
-
-/**
- * The plugin's response body, bounded.
- *
- * This is what is left of the byte protocol. The handles, the sequence numbers,
- * the base64 and the stream table are gone with it, because a `ReadableStream`
- * already is a pull-based stream with backpressure and a cancel. What did NOT
- * go is the reason any of it existed: a body is read outside the deadline that
- * fetched it, so something has to stop it being an unbounded socket. That is
- * the three caps here.
- *
- * Failures reject the read rather than ending the stream quietly, so a caller
- * that ignores errors truncates loudly instead of silently. The first failure
- * wins: a lifetime expiry that fired while a read was parked is the real cause,
- * and the abort landing afterwards is only its echo.
- */
-const guardBody = (
-    manifest: PluginManifest,
-    url: string,
-    source: ReadableStream<Uint8Array>,
-    controller: AbortController,
-    open: Set<BodyRelease>,
-): ReadableStream<Uint8Array> => {
-    const reader = source.getReader();
-    let total = 0;
-    let failure: PluginError | undefined;
-    let released = false;
-    let out: ReadableStreamDefaultController<Uint8Array> | undefined;
-
-    const release: BodyRelease = reason => {
-        failure ??= reason;
-        if (released) return;
-        released = true;
-        clearTimeout(lifetimeTimer);
-        open.delete(release);
-        // Both, because they answer different halves: cancelling the reader
-        // ends this stream, and aborting the controller ends the request behind
-        // it. Without the abort a cancelled body leaves the socket to time out
-        // on its own.
-        controller.abort();
-        reader.cancel().catch(() => {});
-
-        // Errored rather than merely left to fail on the next pull. A stream
-        // keeps a chunk queued ahead of its consumer, so without this a body
-        // killed by the lifetime cap or by a dispose hands over one more stale
-        // chunk first and only then reports what happened.
-        if (failure !== undefined) {
-            try {
-                out?.error(failure);
-            } catch {
-                // Already closed or errored, which is not news on a path whose
-                // whole job is to make sure it ends up that way.
-            }
-        }
-    };
-
-    // Declared after `release` and referenced from inside it, which is safe
-    // because nothing calls `release` until this line has run.
-    const lifetimeTimer = setTimeout(() => release(lifetimeExpired(manifest)), PLUGIN_BODY_LIFETIME_MS);
-    // Nothing is waiting on this timer; without unref a process holding an idle
-    // body would refuse to exit for up to the whole lifetime cap.
-    lifetimeTimer.unref?.();
-    open.add(release);
-
-    return new ReadableStream<Uint8Array>({
-        start(controller) {
-            out = controller;
-        },
-        async pull(controller) {
-            // Recorded by whatever killed it: the lifetime timer, or a dispose.
-            if (failure !== undefined) throw failure;
-
-            let result: ReadableStreamReadResult<Uint8Array>;
-            try {
-                result = await withIdleDeadline(reader.read(), PLUGIN_BODY_IDLE_TIMEOUT_MS, () => idleExpired(manifest, url));
-            } catch (error) {
-                const thrown = isPluginError(error)
-                    ? error
-                    : new PluginError(`plugin "${manifest.id}" response body from ${url} failed: ${causeText(error)}`, { cause: error }).withCode(
-                          'upstream',
-                      );
-                release(thrown);
-                throw failure ?? thrown;
-            }
-
-            if (result.done) {
-                release();
-                controller.close();
-                return;
-            }
-
-            total += result.value.byteLength;
-            if (total > PLUGIN_RESPONSE_MAX_BYTES) {
-                const over = new PluginError(
-                    `plugin "${manifest.id}" response body from ${url} is over the ${PLUGIN_RESPONSE_MAX_BYTES} byte limit`,
-                ).withCode('upstream');
-                release(over);
-                throw failure ?? over;
-            }
-
-            controller.enqueue(result.value);
-        },
-        cancel() {
-            release();
-        },
-    });
-};
-
-/**
- * The response the plugin actually gets: the upstream's status and headers,
- * with its body wrapped in {@link guardBody}.
- *
- * A fresh `Response` rather than the upstream one, because a body cannot be
- * swapped on an existing response. `url` and `redirected` are read-only and
- * blank on a constructed response, so they are redefined: both are part of the
- * contract (`url` is the last hop of the redirect chain, which is what a plugin
- * resolves relative links against) and losing them to a construction detail
- * would be a silent regression.
- *
- * A status that cannot carry a body (204, 304) arrives with `body` already
- * null, and passing null through is also what keeps the `Response` constructor
- * from throwing on exactly those.
- */
-const guardedResponse = (manifest: PluginManifest, sent: SentResponse, controller: AbortController, open: Set<BodyRelease>): Response => {
-    const url = sent.url.toString();
-    const body = sent.response.body === null ? null : guardBody(manifest, url, sent.response.body, controller, open);
-
-    const response = new Response(body, {
-        status: sent.response.status,
-        statusText: sent.response.statusText,
-        headers: sent.response.headers,
-    });
-
-    Object.defineProperty(response, 'url', { value: url });
-    Object.defineProperty(response, 'redirected', { value: sent.redirected });
-
-    return response;
 };
 
 /**

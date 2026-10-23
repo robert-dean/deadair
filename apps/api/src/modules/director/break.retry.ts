@@ -47,7 +47,7 @@
  * later. Nothing here needs to know how long the first attempt took.
  */
 
-import type { WriteFault } from './break.prompt.js';
+import type { WriteFault } from './break.answer.guard.js';
 
 /**
  * What the second ask carries: what was refused, and why.

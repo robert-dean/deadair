@@ -46,9 +46,8 @@ import { PRODUCTION_SHELF_LIFE_MS, productionExpired, productionLanding, standin
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
-import { ArtRepository } from '#modules/art/art.repository.js';
-import { artPath } from '#modules/art/art.path.js';
-import { breakPicture, breakPictureKeys, breakPicturesFrom, type BreakPictures } from './break.picture.js';
+import { breakPicture } from './break.picture.js';
+import { breakArtwork as readBreakArtwork, stationArtwork } from './director.artwork.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -2847,111 +2846,6 @@ export class DirectorService {
     }
 
     /**
-     * Turn the items just taken from the order into the form the player can be
-     * handed, and say which of them the station will pass over.
-     *
-     * A record passes straight through: the order already holds everything the
-     * player needs. A segment is a reference, so its row is read here — and a
-     * segment that is not `ready` is **skipped**, not waited for.
-     *
-     * That rule is the whole reason the running order can hold something the
-     * station has not finished making. A director that held the slot open would
-     * hand the listener silence for as long as a renderer took, and a renderer
-     * that failed would hold it open forever. Skipping costs an ident nobody
-     * hears; stalling costs the broadcast.
-     *
-     * One read for the whole batch rather than one per item, because a commit
-     * pass runs on every track boundary and the lead is only three items.
-     */
-    /**
-     * The cover for each record in a batch, as a path the station serves itself, and a request for
-     * any it does not hold yet.
-     *
-     * **A line carries whatever its cover was when the record was PICKED**, which is the provider's
-     * own URL for anything the station had not cached by then, and nothing ever revisits it. So a
-     * cover fetched an hour after the pick never reaches the record it belongs to: the running
-     * order still holds the upstream URL, and the mount carries the station's logo instead of a
-     * sleeve for the whole of that record. Resolving here, on every commit pass, is what closes
-     * that gap — the answer is read fresh each time from a store that is still filling.
-     *
-     * **Why the mount cannot simply carry the provider's URL** is in `listenerArtwork`: a player
-     * decides whether a URL is a picture by looking at it and never asks for one that ends in an
-     * id, and the field is broadcast to every listener, so a cover URL carrying a credential must
-     * never reach it. Both halves mean a cover has to be the station's own before it is worth
-     * anything here.
-     *
-     * A URL the store has never seen is asked for, ahead of the sweep's backlog, because the sweep
-     * walks the catalog in URL order and has no idea what is on tonight. **A URL it has seen and
-     * has no bytes for is NOT asked for**: that row is already in the sweep's queue carrying its
-     * own `next_attempt_at`, and asking by name bypasses the backoff, so a cover that 404s would be
-     * refetched on every commit pass for as long as it stayed in the running order.
-     *
-     * Failing to read the store is not a reason to commit nothing, on the rule {@link withLocalAudio}
-     * follows: the batch resolves to nothing, every record carries the logo for now, and the next
-     * pass tries again.
-     */
-    private async stationArtwork(covers: readonly (string | undefined)[]): Promise<Map<string, string>> {
-        const upstream = [...new Set(covers.filter((url): url is string => url !== undefined && /^https?:\/\//i.test(url)))];
-        if (upstream.length === 0) return new Map();
-
-        const held = await inScope(this.container, async scope => scope.get(ArtRepository).findBySourceUrls(upstream)).catch(error => {
-            this.logger.warn(`director: could not tell which covers the station already holds (${errorText(error)})`);
-            return undefined;
-        });
-        if (held === undefined) return new Map();
-
-        const resolved = new Map<string, string>();
-        const unseen: string[] = [];
-        for (const url of upstream) {
-            const asset = held.get(url);
-            if (asset === undefined) unseen.push(url);
-            else if (asset.checksum !== undefined) resolved.set(url, artPath(asset));
-        }
-
-        if (unseen.length > 0) {
-            void this.jobs.send('catalog.cache_art', { urls: unseen }).catch(error => {
-                this.logger.warn(`director: could not ask for ${unseen.length} cover(s) (${errorText(error)})`);
-            });
-        }
-
-        return resolved;
-    }
-
-    /**
-     * The picture each kind of break in this batch wears, as a path the station serves itself.
-     *
-     * {@link stationArtwork}'s sibling, and it is a separate lookup rather than a branch inside that
-     * one because the two ask different questions of the same table: that one asks "have we cached
-     * this provider's URL", this one asks "what does a `weather` break look like here". The key is
-     * `deadair:break-art/<kind>`; `art/break.art.ts` carries the argument for why that is a row in
-     * `art_assets` and not a table of its own.
-     *
-     * **Resolved per commit pass, deliberately, and never stamped when the segment is written.** A
-     * line carries whatever it was given when it was picked and nothing revisits it, which is the
-     * rule the cover half of this learned the hard way; a picture baked in at write time would mean
-     * an operator replacing the weather picture changed nothing about the forecast already sitting
-     * in the running order.
-     *
-     * The same read answers the portrait of each break's SPEAKER, which is the picture a break with
-     * none for its kind wears; see `break.picture.ts` for why that is the speaker and not the host.
-     *
-     * Undefined on any failure, which costs a break the host's portrait or the station's logo and
-     * nothing else. Nothing here asks for anything to be fetched, unlike {@link stationArtwork}: a
-     * break picture has no upstream to go and get, so a kind with no row is simply a kind nobody has
-     * given a picture.
-     */
-    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<BreakPictures | undefined> {
-        const keys = breakPictureKeys(segments.values());
-        if (keys.length === 0) return undefined;
-
-        const held = await inScope(this.container, async scope => scope.get(ArtRepository).findBySourceUrls(keys)).catch(error => {
-            this.logger.warn(`director: could not tell which pictures the station holds for a kind of break (${errorText(error)})`);
-            return undefined;
-        });
-        return held === undefined ? undefined : breakPicturesFrom(segments.values(), held);
-    }
-
-    /**
      * The runway of the record directly after each talk link in this batch that could be talked up.
      *
      * Keyed by the LINK's item id. A link qualifies when it is an ordinary talk break, not already a
@@ -2984,6 +2878,23 @@ export class DirectorService {
         );
     }
 
+    /**
+     * Turn the items just taken from the order into the form the player can be
+     * handed, and say which of them the station will pass over.
+     *
+     * A record passes straight through: the order already holds everything the
+     * player needs. A segment is a reference, so its row is read here — and a
+     * segment that is not `ready` is **skipped**, not waited for.
+     *
+     * That rule is the whole reason the running order can hold something the
+     * station has not finished making. A director that held the slot open would
+     * hand the listener silence for as long as a renderer took, and a renderer
+     * that failed would hold it open forever. Skipping costs an ident nobody
+     * hears; stalling costs the broadcast.
+     *
+     * One read for the whole batch rather than one per item, because a commit
+     * pass runs on every track boundary and the lead is only three items.
+     */
     private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[]; unavailable: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
@@ -3032,7 +2943,10 @@ export class DirectorService {
 
         // The cover each record, and each syndicated programme, should be shown with, as the station
         // itself can serve it.
-        const artwork = await this.stationArtwork(
+        const artwork = await stationArtwork(
+            this.container,
+            this.jobs,
+            this.logger,
             items.map(item =>
                 item.kind === 'track'
                     ? item.track.artworkUrl
@@ -3044,7 +2958,7 @@ export class DirectorService {
         // And the picture each KIND of break wears, resolved on the same pass and for the same
         // reason: an operator who replaces the weather picture has replaced it for the forecast
         // that is about to air, not for the one after the next refill.
-        const breakArtwork = await this.breakArtwork(segments);
+        const breakArtwork = await readBreakArtwork(this.container, this.logger, segments);
         // And the face of whoever is presenting, for a break whose row names no speaker: the portrait
         // the transport already holds beside the host's name, so the mount shows the person talking
         // rather than the logo. A break that names its speaker wears THEIR portrait, which on a
@@ -3938,7 +3852,7 @@ function segmentRundownTrackCover(segment: Segment | undefined): string | undefi
 /**
  * The cover fields of a player item, from the cover its line was picked with.
  *
- * `artworkUrl` is only ever the station's own `art/` path: the one {@link DirectorService.stationArtwork}
+ * `artworkUrl` is only ever the station's own `art/` path: the one {@link stationArtwork}
  * resolved on this pass, or the one the line already held (which includes a catalog read's proxy
  * path, `art/source/<token>`). A provider's URL the station does not hold yet goes in
  * `coverSourceUrl`, which is server-only, so `/nowplaying` and the mount can ask `CoverResolver`,

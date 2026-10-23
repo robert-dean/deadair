@@ -4,7 +4,7 @@ import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { ConfigFieldDescriptor } from '@deadair/sdk';
 
-import { RowControls } from './config.fields.form';
+import { RowControls } from './config.rows.field';
 
 export interface ModelListFieldProps {
     field: ConfigFieldDescriptor;

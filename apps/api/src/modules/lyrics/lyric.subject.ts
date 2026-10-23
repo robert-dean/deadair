@@ -13,7 +13,7 @@ import { MAX_PROMPT_LYRIC_CHARS, type MoodSubject } from './lyric.moods.js';
  * words of the model's own, and it is CHECKED: a sentence sharing {@link SUBJECT_ECHO_WORDS} words in a
  * row with the lyric is refused and never stored. The writer is shown the label and never the lyric,
  * so a line it was never shown is one it cannot quote, and the guard on the break itself
- * (`quoted-lyric` in `break.prompt.ts`) catches one it knew anyway.
+ * (`quoted-lyric` in `break.answer.guard.ts`) catches one it knew anyway.
  *
  * And it is written to be SAYABLE, because a presenter may paraphrase it on air whatever the station's
  * advisory policy. The first live pass described a sex act in one subject and cocaine use in another,

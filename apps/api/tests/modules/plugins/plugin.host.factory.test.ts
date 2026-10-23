@@ -7,12 +7,12 @@ import { pluginHttpError } from '../../../src/modules/plugins/plugin.error.http.
 
 import {
     MAX_PLUGIN_FETCH_REDIRECTS,
-    PLUGIN_RESPONSE_MAX_BYTES,
     PLUGIN_FETCH_REQUESTS_PER_WINDOW,
     PLUGIN_FETCH_TIMEOUT_MS,
     PluginHostFactory,
     PluginHostFactoryOptions,
 } from '../../../src/modules/plugins/plugin.host.factory.js';
+import { PLUGIN_RESPONSE_MAX_BYTES } from '../../../src/modules/plugins/plugin.egress.guard.js';
 import { runWithDeadline } from '../../../src/modules/plugins/plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from '../../../src/modules/plugins/plugin.invoker.js';
 import {

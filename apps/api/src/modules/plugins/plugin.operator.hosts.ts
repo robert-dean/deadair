@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { PluginConfigRepository } from './plugin.config.repository.js';
-import { operatorHosts } from './plugin.host.factory.js';
+import { operatorHosts } from './plugin.network.settings.js';
 import { PluginRegistry } from './plugin.registry.js';
 
 /**

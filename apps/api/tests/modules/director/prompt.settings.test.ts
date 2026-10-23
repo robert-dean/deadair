@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { readAnswer } from '../../../src/modules/director/break.prompt.js';
+import { readAnswer } from '../../../src/modules/director/break.answer.guard.js';
 import { TEMPLATE_KEYS } from '../../../src/modules/director/break.templates.js';
 import {
     homeGuard,

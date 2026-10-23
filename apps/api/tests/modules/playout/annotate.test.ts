@@ -347,7 +347,7 @@ describe('listenerArtwork, through itemAnnotations', () => {
 
     it('carries the picture a kind of break wears, once the station holds one', () => {
         // A weather forecast or a news bulletin, resolved on the commit pass by
-        // `DirectorService.breakArtwork`. It reaches the wire on the same test every other item
+        // `breakArtwork` in `director.artwork.ts`. It reaches the wire on the same test every other item
         // passes — a relative path under the API root — rather than on anything knowing it is a
         // break, which is what the rule's rewrite was for.
         const item: RundownItem = { ...labelled('Weather: this afternoon'), artworkUrl: CACHED };

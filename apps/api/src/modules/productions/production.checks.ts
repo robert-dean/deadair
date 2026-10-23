@@ -32,7 +32,7 @@
 
 import { withoutCues } from '@deadair/plugin-sdk';
 import type { CastRole } from './production.cast.js';
-import { withoutRecordNames } from '#modules/director/break.prompt.js';
+import { withoutRecordNames } from '#modules/director/break.answer.guard.js';
 import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from '#modules/director/clock.words.js';
 import { unofferedWeather } from '#modules/director/weather.figures.js';
 import { avoidedWording } from '#modules/personas/persona.sheet.js';

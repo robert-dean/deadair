@@ -6,17 +6,8 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { modelList } from '#modules/llm/model.list.js';
 import { homeGuard, languageGuard, speakerGuard, stationGuard } from './prompt.settings.js';
-import {
-    breakPrompt,
-    liftDelivery,
-    maxWordsFor,
-    readAnswer,
-    writeDecline,
-    writeTrim,
-    type AnswerGuard,
-    type BreakPromptShape,
-    type PromptSettings,
-} from './break.prompt.js';
+import { breakPrompt, maxWordsFor, type BreakPromptShape, type PromptSettings } from './break.prompt.js';
+import { liftDelivery, readAnswer, writeDecline, writeTrim, type AnswerGuard } from './break.answer.guard.js';
 import { patienceFor, type BreakWriteRequest, type WriteDetail } from './break.writer.js';
 import { breakGeneration, BUDGET_MS, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 

@@ -11,7 +11,8 @@ import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 import { writeWithModel, type ModelWriteAsk } from '../../../src/modules/director/model.break.write.js';
 import { BUDGET_MS, MODEL_WRITER_KEYS } from '../../../src/modules/director/model.talk.break.writer.js';
-import { TALK_BREAK_SHAPE, type AnswerGuard } from '../../../src/modules/director/break.prompt.js';
+import { TALK_BREAK_SHAPE } from '../../../src/modules/director/break.prompt.js';
+import { type AnswerGuard } from '../../../src/modules/director/break.answer.guard.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };

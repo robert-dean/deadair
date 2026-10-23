@@ -1,13 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isPluginError, type PluginError, type PluginErrorCode, type PluginManifest } from '@deadair/plugin-sdk';
 
-import {
-    PLUGIN_BODY_IDLE_TIMEOUT_MS,
-    PLUGIN_BODY_LIFETIME_MS,
-    PLUGIN_RESPONSE_MAX_BYTES,
-    PluginHostFactory,
-    PluginHostFactoryOptions,
-} from '../../../src/modules/plugins/plugin.host.factory.js';
+import { PluginHostFactory, PluginHostFactoryOptions } from '../../../src/modules/plugins/plugin.host.factory.js';
+import { PLUGIN_BODY_IDLE_TIMEOUT_MS, PLUGIN_BODY_LIFETIME_MS, PLUGIN_RESPONSE_MAX_BYTES } from '../../../src/modules/plugins/plugin.egress.guard.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { stubApplePlayerClient, stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import type { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';

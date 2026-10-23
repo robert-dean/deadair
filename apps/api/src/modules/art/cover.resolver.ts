@@ -22,7 +22,7 @@ export interface CoverLookup {
  * holds it.
  *
  * **Why this exists at all.** A record is committed to the player about one item before it airs,
- * and `DirectorService.stationArtwork` resolves its cover then. A cover the store has never seen is
+ * and `stationArtwork` in `director.artwork.ts` resolves its cover then. A cover the store has never seen is
  * asked for on that same pass, so it normally lands while the record before it is still playing,
  * after the item was already built. The item keeps the provider's URL in `coverSourceUrl`, which
  * nothing serialises, and every reader that shows a cover to a listener asks here instead of

@@ -44,6 +44,9 @@ Once you are signed in, Now playing gets the operator's controls:
 - **Like this record**, or the record's rating, tells the station what you think of it. **Never play**
   keeps it off the air for good.
 
+![Now playing as a listener sees it, with only Stop, and as the operator sees it, with Shuffle, Skip and the heart](/img/android/now-playing.webp)
+*Fig. 1. Now playing for a listener, and for the operator.*
+
 Ratings work on albums, artists and what the station said too. Open a record from Up next to reach
 its album and artist.
 
@@ -56,6 +59,9 @@ its album and artist.
 - **A record's menu** has **Play next**, **Move up**, **Move down** and **Drop**. On Android it is the
   menu beside the record; on an iPhone, press and hold the record.
 - **Change the host** picks who presents this show, from **Who presents this show**.
+
+![Up next with the host, Manage, and each record's menu; beside it a record opened from Up next, with its rating, Play next and Add to the end](/img/android/up-next.webp)
+*Fig. 2. Up next, and a record opened from it.*
 
 ## 4. Manage: put something on, add a record, say something
 

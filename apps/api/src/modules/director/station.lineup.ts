@@ -1915,15 +1915,34 @@ export class StationLineup implements LiveOrder {
     staysPut(): (item: StationLineupItem) => boolean {
         const promised = new Set<string>();
         for (const item of this.itemList) {
-            if (item.kind !== 'segment' || (item.state !== 'handed' && item.state !== 'airing')) continue;
-            // A talk-over cue is marked handed when the director attaches it to the record's prepared
-            // form, and its audio reaches the player only WITH that record. While the record is
-            // `planned` nothing has been promised to anybody, and moving it is `forgetStranded`'s case.
-            if (item.over !== undefined) continue;
-            const next = this.nextTrackAfter(item.id);
+            const next = this.promisedBy(item.id);
             if (next?.state === 'planned') promised.add(next.id);
         }
         return item => isPinned(item) || promised.has(item.id);
+    }
+
+    /**
+     * The record a break in the player's hands has announced and that has not started yet, or
+     * `undefined` when this line has promised nothing still to keep.
+     *
+     * The question {@link staysPut} asks of every held break, asked of one: the line has to be a
+     * segment the player holds or is airing, and the promise is the next record after it
+     * ({@link nextTrackAfter}), while that record is still `planned` or `handed`. Once it is airing
+     * the promise has been kept. A changeover asks it of the break on air, because `putOnAir`
+     * retracts the whole order and nothing of the outgoing one survives it to be kept put.
+     *
+     * A talk-over cue promises nothing here: it is marked handed when the director attaches it to
+     * the record's prepared form, and its audio reaches the player only WITH that record. While the
+     * record is `planned` nothing has been promised to anybody, and moving it is `forgetStranded`'s
+     * case.
+     */
+    promisedBy(itemId: string): StationLineupTrackItem | undefined {
+        const item = this.itemList.find(line => line.id === itemId);
+        if (item?.kind !== 'segment' || (item.state !== 'handed' && item.state !== 'airing')) return undefined;
+        if (item.over !== undefined) return undefined;
+
+        const next = this.nextTrackAfter(item.id);
+        return next?.state === 'planned' || next?.state === 'handed' ? next : undefined;
     }
 
     /** Empty it. What is on air is the transport's business, not this one's. */

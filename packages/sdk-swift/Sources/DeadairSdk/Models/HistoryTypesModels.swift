@@ -95,6 +95,104 @@ public struct HistoryQuery: Codable, Equatable, Sendable {
     }
 }
 
+/// What one line of the as-run log is.
+///
+///   record, break, programme   something that went out, with when it started and, once the station saw it end, when it ended
+///   gap                        the station aired its local bed instead of the running order. Only gaps long enough to matter are recorded
+///   onAir, offAir              the station was put on air, or stood down
+public enum AsRunKind: Codable, CaseIterable, Hashable, Sendable {
+    case record
+    case `break`
+    case programme
+    case gap
+    case onAir
+    case offAir
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [AsRunKind] = [.record, .`break`, .programme, .gap, .onAir, .offAir]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .record: return "record"
+        case .`break`: return "break"
+        case .programme: return "programme"
+        case .gap: return "gap"
+        case .onAir: return "onAir"
+        case .offAir: return "offAir"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "record": self = .record
+        case "break": self = .`break`
+        case "programme": self = .programme
+        case "gap": self = .gap
+        case "onAir": self = .onAir
+        case "offAir": self = .offAir
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "AsRunKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// One page of the as-run log, newest first
+public struct AsRunQuery: Codable, Equatable, Sendable {
+    public var limit: Int?
+    /// Where the previous page ended. Opaque: pass back whatever `nextBefore` said
+    public var before: String?
+    /// Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent
+    public var until: Date?
+
+    public init(limit: Int? = nil, before: String? = nil, until: Date? = nil) {
+        self.limit = limit
+        self.before = before
+        self.until = until
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case before = "before"
+        case until = "until"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.limit = try container.decodeIfPresent(Int.self, forKey: .limit)
+        self.before = try container.decodeIfPresent(String.self, forKey: .before)
+        self.until = try container.decodeIfPresent(Date.self, forKey: .until)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.limit, forKey: .limit)
+        try container.encodeIfPresent(self.before, forKey: .before)
+        try container.encodeIfPresent(self.until, forKey: .until)
+    }
+}
+
 public struct HistoryPage: Codable, Equatable, Sendable {
     public var entries: [HistoryEntry]
     /// The cursor for the page after this one, absent once the history has been read to its end
@@ -113,6 +211,111 @@ public struct HistoryPage: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.entries = try container.decode([HistoryEntry].self, forKey: .entries)
+        self.nextBefore = try container.decodeIfPresent(String.self, forKey: .nextBefore)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.entries, forKey: .entries)
+        try container.encodeIfPresent(self.nextBefore, forKey: .nextBefore)
+    }
+}
+
+/// One line of what actually went out
+public struct AsRunEntry: Codable, Equatable, Sendable {
+    /// Unique across the log, and half of the cursor below
+    public var id: String
+    public var kind: AsRunKind
+    /// When it started. For an item, the moment the player said so, not when it was handed over
+    public var at: Date
+    /// When it stopped. Absent while an item is on air, and for one the station never saw end, such as the last item before a crash
+    public var endedAt: Date?
+    /// A record's title or a break's label, as it went out
+    public var title: String?
+    /// A record's credit as written, whole
+    public var artists: String?
+    /// The catalog track a record was
+    public var trackId: String?
+    /// The segment a break or a programme was
+    public var segmentId: String?
+    /// How many items already handed to the player it moved past to reach this one. They never aired. Absent when none
+    public var passedOver: Int?
+    /// For a gap or an air change, the station's own sentence about it
+    public var detail: String?
+
+    public init(id: String, kind: AsRunKind, at: Date, endedAt: Date? = nil, title: String? = nil, artists: String? = nil, trackId: String? = nil, segmentId: String? = nil, passedOver: Int? = nil, detail: String? = nil) {
+        self.id = id
+        self.kind = kind
+        self.at = at
+        self.endedAt = endedAt
+        self.title = title
+        self.artists = artists
+        self.trackId = trackId
+        self.segmentId = segmentId
+        self.passedOver = passedOver
+        self.detail = detail
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case at = "at"
+        case endedAt = "endedAt"
+        case title = "title"
+        case artists = "artists"
+        case trackId = "trackId"
+        case segmentId = "segmentId"
+        case passedOver = "passedOver"
+        case detail = "detail"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.kind = try container.decode(AsRunKind.self, forKey: .kind)
+        self.at = try container.decode(Date.self, forKey: .at)
+        self.endedAt = try container.decodeIfPresent(Date.self, forKey: .endedAt)
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)
+        self.artists = try container.decodeIfPresent(String.self, forKey: .artists)
+        self.trackId = try container.decodeIfPresent(String.self, forKey: .trackId)
+        self.segmentId = try container.decodeIfPresent(String.self, forKey: .segmentId)
+        self.passedOver = try container.decodeIfPresent(Int.self, forKey: .passedOver)
+        self.detail = try container.decodeIfPresent(String.self, forKey: .detail)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.at, forKey: .at)
+        try container.encodeIfPresent(self.endedAt, forKey: .endedAt)
+        try container.encodeIfPresent(self.title, forKey: .title)
+        try container.encodeIfPresent(self.artists, forKey: .artists)
+        try container.encodeIfPresent(self.trackId, forKey: .trackId)
+        try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
+        try container.encodeIfPresent(self.passedOver, forKey: .passedOver)
+        try container.encodeIfPresent(self.detail, forKey: .detail)
+    }
+}
+
+public struct AsRunPage: Codable, Equatable, Sendable {
+    public var entries: [AsRunEntry]
+    /// The cursor for the page after this one, absent once the log has been read to its end
+    public var nextBefore: String?
+
+    public init(entries: [AsRunEntry], nextBefore: String? = nil) {
+        self.entries = entries
+        self.nextBefore = nextBefore
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+        case nextBefore = "nextBefore"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.entries = try container.decode([AsRunEntry].self, forKey: .entries)
         self.nextBefore = try container.decodeIfPresent(String.self, forKey: .nextBefore)
     }
 

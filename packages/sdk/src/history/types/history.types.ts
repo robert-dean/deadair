@@ -48,6 +48,37 @@ export interface HistoryQuery {
 }
 
 /**
+ * What one line of the as-run log is.
+ *
+ *   record, break, programme   something that went out, with when it started and, once the station saw it end, when it ended
+ *   gap                        the station aired its local bed instead of the running order. Only gaps long enough to matter are recorded
+ *   onAir, offAir              the station was put on air, or stood down
+ * generated from [AsRunKind](../../../../../apps/api/data/contracts/history/history.types.ck)
+ */
+export type AsRunKind = 'record' | 'break' | 'programme' | 'gap' | 'onAir' | 'offAir';
+
+/**
+ * One page of the as-run log, newest first
+ * generated from [AsRunQuery](../../../../../apps/api/data/contracts/history/history.types.ck)
+ */
+export interface AsRunQuery {
+    limit?: number;
+    /** Where the previous page ended. Opaque: pass back whatever `nextBefore` said */
+    before?: string;
+    /** Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent */
+    until?: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a AsRunQuery into its runtime type. Mutates and returns `raw`. */
+export function reviveAsRunQuery(raw: AsRunQuery): AsRunQuery {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['until'] != null) {
+        __o0['until'] = __dt(__o0['until'], 'AsRunQuery.until');
+    }
+    return raw;
+}
+
+/**
  * generated from [HistoryPage](../../../../../apps/api/data/contracts/history/history.types.ck)
  */
 export interface HistoryPage {
@@ -63,6 +94,63 @@ export function reviveHistoryPage(raw: HistoryPage): HistoryPage {
         const __a1 = __o0['entries'] as unknown[];
         for (let __i2 = 0; __i2 < __a1.length; __i2++) {
             reviveHistoryEntry(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
+
+/**
+ * One line of what actually went out
+ * generated from [AsRunEntry](../../../../../apps/api/data/contracts/history/history.types.ck)
+ */
+export interface AsRunEntry {
+    /** Unique across the log, and half of the cursor below */
+    id: string;
+    kind: AsRunKind;
+    /** When it started. For an item, the moment the player said so, not when it was handed over */
+    at: DateTime;
+    /** When it stopped. Absent while an item is on air, and for one the station never saw end, such as the last item before a crash */
+    endedAt?: DateTime;
+    /** A record's title or a break's label, as it went out */
+    title?: string;
+    /** A record's credit as written, whole */
+    artists?: string;
+    /** The catalog track a record was */
+    trackId?: string;
+    /** The segment a break or a programme was */
+    segmentId?: string;
+    /** How many items already handed to the player it moved past to reach this one. They never aired. Absent when none */
+    passedOver?: number;
+    /** For a gap or an air change, the station's own sentence about it */
+    detail?: string;
+}
+
+/** Rehydrates every wire-encoded scalar in a AsRunEntry into its runtime type. Mutates and returns `raw`. */
+export function reviveAsRunEntry(raw: AsRunEntry): AsRunEntry {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['at'] = __dt(__o0['at'], 'AsRunEntry.at');
+    if (__o0['endedAt'] != null) {
+        __o0['endedAt'] = __dt(__o0['endedAt'], 'AsRunEntry.endedAt');
+    }
+    return raw;
+}
+
+/**
+ * generated from [AsRunPage](../../../../../apps/api/data/contracts/history/history.types.ck)
+ */
+export interface AsRunPage {
+    entries: AsRunEntry[];
+    /** The cursor for the page after this one, absent once the log has been read to its end */
+    nextBefore?: string;
+}
+
+/** Rehydrates every wire-encoded scalar in a AsRunPage into its runtime type. Mutates and returns `raw`. */
+export function reviveAsRunPage(raw: AsRunPage): AsRunPage {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['entries'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveAsRunEntry(__a1[__i2] as never);
         }
     }
     return raw;

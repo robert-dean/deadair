@@ -7,7 +7,7 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { HistoryService } from '#src/modules/history/history.service.js';
-import { HistoryPage, HistoryQuery } from '../modules/history/types/history.types.js';
+import { AsRunPage, AsRunQuery, HistoryPage, HistoryQuery } from '../modules/history/types/history.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -18,6 +18,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 }
 
 const ReadHistoryArgs = z.object({ query: HistoryQuery.optional() });
+const ReadAsRunLogArgs = z.object({ query: AsRunQuery.optional() });
 
 /**
  * from [history.ck](../../data/contracts/history/history.ck) `GET /history`
@@ -42,12 +43,37 @@ export class ReadHistoryMcpTool implements McpToolHandler {
     }
 }
 
+/**
+ * from [history.ck](../../data/contracts/history/history.ck) `GET /history/as-run`
+ */
+@Injectable()
+export class ReadAsRunLogMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'read_as_run_log',
+        description: 'The as-run log, newest first, one page at a time',
+        inputSchema: z.toJSONSchema(ReadAsRunLogArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(AsRunPage, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        const { query = await parseAndValidate({}, ReadAsRunLogArgs.shape.query.unwrap()) } = await parseAndValidate(args, ReadAsRunLogArgs);
+        const result = await container.get(HistoryService).readAsRun(query);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
 export function registerHistoryMcpCatalog(map: McpToolHandlerMap, container: Container): void {
     map.set('read_history', container.get(ReadHistoryMcpTool));
+    map.set('read_as_run_log', container.get(ReadAsRunLogMcpTool));
 }
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
 export function registerHistoryMcpToolClasses(registry: Registry): void {
     registry.register(ReadHistoryMcpTool).useClass(ReadHistoryMcpTool).asSingleton();
+    registry.register(ReadAsRunLogMcpTool).useClass(ReadAsRunLogMcpTool).asSingleton();
 }

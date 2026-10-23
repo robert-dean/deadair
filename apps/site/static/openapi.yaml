@@ -2095,6 +2095,43 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/HistoryPage'
+    '/history/as-run':
+        get:
+            operationId: readAsRun
+            summary: 'Read as-run log'
+            description: 'The as-run log, newest first, one page at a time'
+            parameters:
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 500
+                - name: before
+                  in: query
+                  required: false
+                  description: 'Where the previous page ended. Opaque: pass back whatever `nextBefore` said'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Where the previous page ended. Opaque: pass back whatever `nextBefore` said'
+                - name: until
+                  in: query
+                  required: false
+                  description: 'Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent'
+                  schema:
+                      type: string
+                      format: date-time
+                      description: 'Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/AsRunPage'
     '/console/language':
         get:
             operationId: choice
@@ -10368,6 +10405,84 @@ components:
                     minLength: 1
                     maxLength: 200
                     description: 'The cursor for the page after this one, absent once the history has been read to its end'
+            required: [entries]
+        AsRunKind:
+            type: string
+            enum: [record, break, programme, gap, onAir, offAir]
+            description: "What one line of the as-run log is.\n\n  record, break, programme   something that went out, with when it started and, once the station saw it end, when it ended\n  gap                        the station aired its local bed instead of the running order. Only gaps long enough to matter are recorded\n  onAir, offAir              the station was put on air, or stood down"
+        AsRunEntry:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'Unique across the log, and half of the cursor below'
+                kind:
+                    '$ref': '#/components/schemas/AsRunKind'
+                at:
+                    type: string
+                    format: date-time
+                    description: 'When it started. For an item, the moment the player said so, not when it was handed over'
+                endedAt:
+                    type: string
+                    format: date-time
+                    description: 'When it stopped. Absent while an item is on air, and for one the station never saw end, such as the last item before a crash'
+                title:
+                    type: string
+                    maxLength: 500
+                    description: "A record's title or a break's label, as it went out"
+                artists:
+                    type: string
+                    maxLength: 1000
+                    description: "A record's credit as written, whole"
+                trackId:
+                    type: string
+                    maxLength: 100
+                    description: 'The catalog track a record was'
+                segmentId:
+                    type: string
+                    maxLength: 100
+                    description: 'The segment a break or a programme was'
+                passedOver:
+                    type: integer
+                    minimum: 0
+                    description: 'How many items already handed to the player it moved past to reach this one. They never aired. Absent when none'
+                detail:
+                    type: string
+                    maxLength: 2000
+                    description: "For a gap or an air change, the station's own sentence about it"
+            required: [id, kind, at]
+            description: 'One line of what actually went out'
+        AsRunQuery:
+            type: object
+            properties:
+                limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 500
+                before:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Where the previous page ended. Opaque: pass back whatever `nextBefore` said'
+                until:
+                    type: string
+                    format: date-time
+                    description: 'Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent'
+            description: 'One page of the as-run log, newest first'
+        AsRunPage:
+            type: object
+            properties:
+                entries:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/AsRunEntry'
+                nextBefore:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The cursor for the page after this one, absent once the log has been read to its end'
             required: [entries]
         ConsoleLanguagePack:
             type: object

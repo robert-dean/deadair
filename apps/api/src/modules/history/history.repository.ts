@@ -1,10 +1,21 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
+import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { artUrl } from '#modules/catalog/catalog.art.js';
 import { stationCover } from '#modules/art/art.source.token.js';
 import { decodeCursor } from '#modules/activity/activity.feed.js';
 import type { HistoryRow } from './history.page.js';
+import type { AsRunRow } from './as.run.page.js';
+
+/** What a client asked of the as-run log. */
+export interface AsRunPageQuery {
+    stationKey: string;
+    limit: number;
+    before?: string;
+    /** Read from this moment back. Ignored when `before` is a cursor. */
+    until?: DateTime;
+}
 
 /** What the client asked for. */
 export interface HistoryPageQuery {
@@ -112,5 +123,64 @@ export class HistoryRepository extends DataRepository {
             durationMs: row.durationMs,
             trackId: row.trackId,
         }));
+    }
+
+    /**
+     * One page of the as-run log, newest first: the items, and the gaps and air changes between them.
+     *
+     * A `union all` over two tables rather than a copy of the events into the log, on the activity
+     * feed's one-writer rule: the transport already writes `gap`, `air.on` and `air.off` to
+     * `station_events`, and a second copy would be a second thing to disagree. A gap is recorded when it
+     * CLOSES, with its length, so its start is worked out here from the two, which is what places it
+     * between the items it fell between rather than after the one that ended it.
+     *
+     * Raw SQL, for `taggedWith`'s reason in the tracks repository: a keyset over a union is one
+     * subquery with the cursor outside it, and the builder has no shape for that. Answers `limit + 1`
+     * rows for `page`'s reason.
+     */
+    async asRunPage(query: AsRunPageQuery): Promise<AsRunRow[]> {
+        const cursor = decodeCursor(query.before);
+        const bound =
+            cursor !== undefined
+                ? sql`where (u.at, u.id) < (${cursor.at.toISO()}::timestamptz, ${cursor.id})`
+                : query.until !== undefined
+                  ? sql`where u.at <= ${query.until.toISO()}::timestamptz`
+                  : sql``;
+
+        const result = await sql<AsRunRow>`
+            select * from (
+                select
+                    r.id::text as id,
+                    r.kind as kind,
+                    r.aired_at as at,
+                    r.ended_at as "endedAt",
+                    r.title as title,
+                    r.artists as artists,
+                    r.track_id::text as "trackId",
+                    r.segment_id::text as "segmentId",
+                    r.passed_over as "passedOver",
+                    null::text as detail
+                from deadair.as_run r
+                where r.station_key = ${query.stationKey}
+                union all
+                select
+                    e.id::text,
+                    case e.kind when 'gap' then 'gap' when 'air.on' then 'onAir' else 'offAir' end,
+                    case
+                        when e.kind = 'gap' then e.created_at - make_interval(secs => coalesce((e.data ->> 'gapMs')::numeric, 0) / 1000.0)
+                        else e.created_at
+                    end,
+                    case when e.kind = 'gap' then e.created_at end,
+                    null, null, null, null, 0,
+                    e.detail
+                from deadair.station_events e
+                where e.station_key = ${query.stationKey} and e.kind in ('gap', 'air.on', 'air.off')
+            ) u
+            ${bound}
+            order by u.at desc, u.id desc
+            limit ${query.limit + 1}
+        `.execute(this.db);
+
+        return result.rows;
     }
 }

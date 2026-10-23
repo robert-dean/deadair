@@ -31,6 +31,9 @@ If the app does not know your station yet, give it the station's address when it
 **Settings** now says **Signed in as the operator of this station**. A listener's account says
 **Signed in to this station as a listener**, and gets requests and lyrics but none of what follows.
 
+![The app's Sign in page with Email and Password; Settings afterwards, with Account reading Signed in as the operator of this station](/img/android/sign-in.webp)
+*Fig. 1. Sign in, and Account once you are the operator.*
+
 If your account's only second step is a passkey, the app may not be able to use it. Add an
 authenticator app to your account from the console's **Sign-in and security** page first.
 
@@ -44,6 +47,9 @@ Once you are signed in, Now playing gets the operator's controls:
 - **Like this record**, or the record's rating, tells the station what you think of it. **Never play**
   keeps it off the air for good.
 
+![Now playing as a listener sees it, with only Stop, and as the operator sees it, with Shuffle, Skip and the heart](/img/android/now-playing.webp)
+*Fig. 2. Now playing for a listener, and for the operator.*
+
 Ratings work on albums, artists and what the station said too. Open a record from Up next to reach
 its album and artist.
 
@@ -56,6 +62,9 @@ its album and artist.
 - **A record's menu** has **Play next**, **Move up**, **Move down** and **Drop**. On Android it is the
   menu beside the record; on an iPhone, press and hold the record.
 - **Change the host** picks who presents this show, from **Who presents this show**.
+
+![Up next with the host, Manage, and each record's menu; beside it a record opened from Up next, with its rating, Play next and Add to the end](/img/android/up-next.webp)
+*Fig. 3. Up next, and a record opened from it.*
 
 ## 4. Manage: put something on, add a record, say something
 
@@ -71,6 +80,9 @@ On **Up next**, press **Manage**. It has four parts:
 A record the station has no audio for yet is listed but cannot be added. One the station refuses,
 such as one you disliked, is refused with a sentence that says why.
 
+![Manage with This show, Put something on, Say something and What it said; What it said listing each break's script with its rating buttons](/img/android/manage.webp)
+*Fig. 4. Manage, and What it said behind it.*
+
 ## 5. The desk: on air, off air, and why
 
 In **Settings**, press **The desk**. This is everything that can take the station off air:
@@ -82,6 +94,9 @@ In **Settings**, press **The desk**. This is everything that can take the statio
 - **Hold**: something you put on yourself runs until the next scheduled block begins. **Keep it on
   past the next block** holds it there until you let it go.
 - **Show why** explains why the station is, or is not, on air.
+
+![Settings with The desk under the station's address; The desk showing On air, Skip, Take off air, what is playing, and the On air choice](/img/android/desk.webp)
+*Fig. 5. The desk, from the top of Settings.*
 
 ## In a car
 

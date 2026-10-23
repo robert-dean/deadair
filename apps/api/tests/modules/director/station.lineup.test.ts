@@ -2013,3 +2013,36 @@ describe('StationLineup keeping a dedication with its record', () => {
         expect(lineup.dropSeparatedDedications().map(item => item.id)).toEqual(['lost']);
     });
 });
+
+describe('StationLineup.withdrawBreaks', () => {
+    it('splices out every break the station planted for itself, and leaves the records', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        lineup.insertSegment('link', 1, undefined, 'talkbreak');
+        lineup.insertSegment('news', 3, undefined, 'news');
+
+        const withdrawn = lineup.withdrawBreaks();
+
+        expect(withdrawn.map(item => (item.kind === 'segment' ? item.segmentId : item.id))).toEqual(['link', 'news']);
+        // Spliced rather than marked, so the planner sees a clean tail when talking resumes.
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('leaves a break somebody asked for, a dedication, a programme and anything already handed over', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
+        lineup.insertSegment('first', 1, undefined, 'talkbreak');
+        hand(lineup, 2);
+        lineup.insertSegment('asked', 3, undefined, 'news', true);
+        lineup.insertSegments([{ segmentId: 'episode', atIndex: 4, segmentKind: 'syndicated', durationMs: 3_600_000 }]);
+        lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+
+        expect(lineup.withdrawBreaks()).toEqual([]);
+        expect(lineup.all().filter(item => item.kind === 'segment')).toHaveLength(4);
+    });
+
+    it('answers nothing and changes nothing on an order with no breaks in it', () => {
+        const lineup = lineupWith(['a', 'b']);
+
+        expect(lineup.withdrawBreaks()).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['a', 'b']);
+    });
+});

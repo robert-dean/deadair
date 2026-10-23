@@ -1626,6 +1626,21 @@ describe('DirectorService keeping quiet', () => {
         expect(director.quietFor()).toBe(10);
     });
 
+    it('takes the breaks already planted out of the order, and retires their rows', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: Array.from({ length: 12 }, (_, index) => `t${index}`),
+            segments: [{ id: 'talk-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('talk-1', lineup.size() - 1, undefined, 'talkbreak');
+
+        await director.post({ kind: 'quiet', records: 50 });
+
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('keep quiet'), 'planned');
+    });
+
     it('comes back quiet after a restart, from the row', async () => {
         const { director, seed } = build({ air: { quietRecords: 4 } });
         await seed();
@@ -3131,6 +3146,26 @@ describe('DirectorService planting breaks', () => {
         // Ten minutes between breaks — two records here — rather than the default quarter of an
         // hour, so the first two planted slots are three apart rather than four.
         expect(spacing[1]! - spacing[0]!).toBe(3);
+    });
+
+    // The wart a quiet spell settled: breaks switched off mid-air used to stop new ones being planned
+    // and leave the ones already in the tail to air until it ran out.
+    it('takes the planted breaks out when the operator turns breaks off mid-air', async () => {
+        const { director, lineup, station, segmentStub, seed } = build({
+            items: Array.from({ length: 20 }, (_, index) => `t${index}`),
+            segments: [{ id: 'talk-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        await settle();
+        lineup.insertSegment('talk-1', lineup.size() - 2, undefined, 'talkbreak');
+
+        station.set(ROTATION_KEYS.breaks, 'false');
+        await director.post({ kind: 'wake' });
+        await settle();
+
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('not to interrupt'), 'planned');
     });
 
     it('plants nothing when the operator has turned breaks off', async () => {

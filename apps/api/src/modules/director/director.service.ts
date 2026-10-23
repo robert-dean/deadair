@@ -926,7 +926,28 @@ export class DirectorService {
         const stored = await inScope(this.container, async scope => scope.get(StationAirRepository).setQuiet(records));
         this.noteQuiet(stored);
         this.logger.info('director: the station was told to keep quiet', { records: stored });
+
+        // The breaks already laid out across the next hour come out, or "quiet for the next ten
+        // records" would not be heard until the tail ran out. All of them, not only those inside the
+        // quiet: the planner lays them out again past it on the pass below, spaced from the quiet
+        // rather than from a structure planned before it.
+        if (stored > 0 && this.lineup !== undefined) await this.withdrawBreaks(this.lineup, 'the station was told to keep quiet');
         if (this.active) await this.commit();
+    }
+
+    /**
+     * Take the station's own planted breaks out of the order, write it down, and retire their rows.
+     * See {@link StationLineup.withdrawBreaks} for which ones and why it splices.
+     */
+    private async withdrawBreaks(lineup: StationLineup, because: string): Promise<void> {
+        const withdrawn = lineup.withdrawBreaks();
+        if (withdrawn.length === 0) return;
+
+        // Written down before the rows are retired, in `replaceTail`'s order: the order has changed,
+        // and a change that was not written down is the bug.
+        await this.persist();
+        await this.retireSegments(lineup, withdrawn, because);
+        this.logger.info("director: took the station's own breaks out of the running order", { count: withdrawn.length, because });
     }
 
     /** The quiet count as it now stands, in the copy and in the cached reading of the row. */
@@ -2355,6 +2376,12 @@ export class DirectorService {
         // what covers an order nothing ever extends. An imported provider playlist is exactly
         // that: it never runs the generator, so without this it would play an hour of records
         // and never once say what station it is.
+        // The station's own talk switched off mid-air: the breaks already laid out across the tail
+        // come out now rather than airing until it runs out, which is what an operator flipping
+        // `rotation.breaks` expects to hear. A walk over the order in memory, and nothing at all on
+        // the ordinary pass, where there is nothing planted to take out.
+        if (!rules.breaks) await this.withdrawBreaks(lineup, 'the station was told not to interrupt itself');
+
         await this.plantBreaks(lineup, rules);
 
         // BEFORE committing, which is a reversal of where this used to sit. It ran after the

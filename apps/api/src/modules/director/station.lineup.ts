@@ -1668,6 +1668,33 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * Take every break the station planted for itself out of the order, from what the player has not
+     * been handed. The station has been told to stop talking: a quiet spell, or `rotation.breaks`
+     * switched off mid-air.
+     *
+     * **Spliced, not marked `removed`, and the asymmetry with an operator's cut is the point.** A
+     * `removed` mark means "this slot is cut, do not refill it", and it works by resetting the
+     * planner's count where it sits. This is the opposite instruction: withdraw the whole structure
+     * now, and plan it afresh when talking resumes. Marks left across the tail would have the walk
+     * count from the last of them once it is allowed to plant again, keeping the station quiet for an
+     * interval nobody asked for. Splicing is safe here for the reason it was not for a single cut:
+     * nothing replants in between, because whatever asked for this also stops the planner.
+     *
+     * Only the station's OWN breaks ({@link withdrawnWhenQuiet}): never one somebody put there, a
+     * listener's dedication, a beat of a production, or somebody else's programme.
+     *
+     * @returns what came out, so the caller can retire the rows and write the order down.
+     */
+    withdrawBreaks(): StationLineupItem[] {
+        const withdrawn = this.itemList.filter(withdrawnWhenQuiet);
+        if (withdrawn.length === 0) return [];
+
+        const gone = new Set(withdrawn.map(item => item.id));
+        this.itemList = this.itemList.filter(item => !gone.has(item.id));
+        return withdrawn;
+    }
+
+    /**
      * Pass over everything still to come in front of this record, so that it is the next thing heard.
      *
      * The order half of an operator's "skip to". Cutting what is on air is the transport's half and
@@ -2154,6 +2181,25 @@ const givesWayToARequest = (line: StationLineupItem): line is StationLineupSegme
     line.dedicates === undefined &&
     line.durationMs === undefined &&
     GIVES_WAY_TO_A_REQUEST.has(line.segmentKind ?? 'talkbreak');
+
+/**
+ * Whether a quiet spell takes this line out of the order: a break the station planted for itself,
+ * not yet handed to the player.
+ *
+ * Wider than {@link givesWayToARequest} by one thing, the KIND: a request only takes the place of a
+ * talk break, an ident or a jingle, while a quiet spell is the station not talking at all, so a
+ * bulletin goes too. Narrower in nothing else: never one somebody put there (`pinned`), a beat of a
+ * production (`groupId`), a dedication (`dedicates`), or somebody else's programme (`durationMs`).
+ * A cue riding a record (`over`) is the station talking and goes with the rest.
+ */
+const withdrawnWhenQuiet = (line: StationLineupItem): line is StationLineupSegmentItem =>
+    line.kind === 'segment' &&
+    line.state === 'planned' &&
+    line.pinned !== true &&
+    line.groupId === undefined &&
+    line.dedicates === undefined &&
+    line.durationMs === undefined &&
+    line.segmentKind !== 'dedication';
 
 /** Whether a line can still be heard: not cut, not passed over, not given up on for want of audio. */
 const willAir = (item: StationLineupItem): boolean => item.state !== 'removed' && item.state !== 'skipped' && item.state !== 'unavailable';

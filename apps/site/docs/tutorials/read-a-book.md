@@ -52,6 +52,9 @@ The station looks at what its narration plugins offer twice an hour. To have it 
 **Library → Readings** and press **Look for new pieces**. *Frankenstein*'s chapters appear there in a
 minute or two.
 
+![Library, Readings, on a station with nothing to read yet, and the Look for new pieces button](/img/console/narrations.webp)
+*Fig. 1. **Library → Readings** before any book has arrived.*
+
 1. Open **Voice → Subjects** and find the **series** section.
 2. Press **New series**.
 3. Under **Series**, pick the book from the list.

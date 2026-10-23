@@ -37,6 +37,9 @@ by rule. A model makes the presenter better and never stands between the station
    Such servers do not report it themselves.
 5. Save again.
 
+![The Language model plugin: the reasoning effort, and a row per provider](/img/console/plugins.llm.webp)
+*Fig. 1. **Settings → Plugins → Language model**, with a local Ollama server and Gemini as its two providers.*
+
 ## 2. Tell the station to ask it
 
 Open **Settings → Providers** and check that **Writing** names the Language model plugin. With only one
@@ -61,7 +64,7 @@ at night in the background. Leave them off until the station is settled.
 Save.
 
 ![Settings, Words: a switch and a model for each job](/img/console/settings.llm.webp)
-*Fig. 1. Settings → Words.*
+*Fig. 2. Settings → Words.*
 
 **You should now see** the next talk breaks written by the model. **Voice → What it said** lists every
 break and who wrote it.

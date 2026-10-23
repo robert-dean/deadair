@@ -28,12 +28,18 @@ field stays yours to change. Write a brief if you want one, then press **Go on a
 A request show is not required. Guests can ask on any show, and their requests land in the next gap
 between records. What Party night adds is that each request steers what comes after it.
 
+![The Plan dialog on Start a new show, with the Party night button under the brief](/img/console/desk.plan.webp)
+*Fig. 1. **Plan → Start a new show** on the Desk. **Party night** is under the brief.*
+
 ## 2. Start a party
 
 Open **Programme → Requests** and press **Start a party** at the top.
 
 Choose how long the code works, in hours (six unless you change it, at most a day), and press
 **Start a party**. The card now shows the code, when it stops working, and how many guests have joined.
+
+![Programme, Requests: the party card and the list of open requests](/img/console/schedule.requests.webp)
+*Fig. 2. **Programme → Requests** before a party has started.*
 
 If the card warns that the code points at `localhost`, you opened the console on the station's own
 machine. A phone cannot reach that address. Open the console at the address the guests use, such as

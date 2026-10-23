@@ -12,6 +12,7 @@
 //     pnpm --filter @deadair/site capture shoot --only desk,checkup --blur-art
 //     pnpm --filter @deadair/site capture shoot --only desk --theme white
 //     pnpm --filter @deadair/site capture shoot --only voice.said --hide 'news flash'
+//     pnpm --filter @deadair/site capture shoot --only plugins.llm --scrub '192.168.1.10=>localhost'
 //     pnpm --filter @deadair/site capture shoot --only checkup --qr '#main svg[role="img"]'
 //
 // ## The signed-in state goes stale every time it is used
@@ -59,7 +60,7 @@ const fallbackBrowsers = [
 const viewport = { width: 1440, height: 900 };
 const deviceScaleFactor = 2;
 
-/** What replaces a scrubbed string. Obviously not anybody. */
+/** What replaces a scrubbed string that does not say its own replacement. Obviously not anybody. */
 const scrubbedAs = 'operator@example.com';
 
 const themes = ['carbon', 'white', 'neon'];
@@ -94,6 +95,21 @@ const targets = [
     { id: 'podcasts', path: '/podcasts' },
     { id: 'settings.bulletins', path: '/settings/bulletins' },
     { id: 'playlists.import', path: '/playlists', click: ['Import', 'Link'] },
+    // The tutorials, one figure per step that happens in the console.
+    { id: 'plugins.llm', path: '/plugins/deadair.llm' },
+    { id: 'plugins.navidrome', path: '/plugins/deadair.navidrome' },
+    { id: 'plugins.rss', path: '/plugins/deadair.rss' },
+    { id: 'plugins.telegram', path: '/plugins/deadair.telegram' },
+    { id: 'plugins.rhapsode', path: '/plugins/deadair.rhapsode' },
+    { id: 'voice.characters.new', path: '/voice?tab=characters', click: ['New host'] },
+    { id: 'voice.pronunciations', path: '/voice?tab=pronunciations' },
+    { id: 'voice.productions.ask', path: '/voice?tab=productions', click: ['Ask for one'] },
+    { id: 'schedule.requests', path: '/schedule?tab=requests' },
+    { id: 'schedule.rules', path: '/schedule?tab=rules' },
+    { id: 'desk.plan', path: '/', click: ['Plan', 'Start a new show'] },
+    { id: 'narrations', path: '/narrations' },
+    { id: 'settings.events', path: '/settings/events' },
+    { id: 'settings.stream', path: '/settings/stream' },
 ];
 
 const { values, positionals } = parseArgs({
@@ -127,7 +143,7 @@ if (command === 'login') await login();
 else if (command === 'shoot') await shoot();
 else
     fail(
-        'Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--hide TEXT] [--mask SELECTOR] [--qr SELECTOR] [--blur-art]',
+        'Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT[=>REPLACEMENT]] [--hide TEXT] [--mask SELECTOR] [--qr SELECTOR] [--blur-art]',
     );
 
 function fail(message) {
@@ -170,7 +186,14 @@ async function shoot() {
     const chosen = targets.filter(target => !only || only.has(target.id));
     if (chosen.length === 0) fail(`Nothing matches --only. The ids are: ${targets.map(target => target.id).join(', ')}.`);
 
-    const scrub = values.scrub.map(text => text.trim()).filter(Boolean);
+    // `TEXT=>REPLACEMENT` says what to put instead, for a LAN address where an email would read as nonsense.
+    const scrub = values.scrub
+        .map(text => text.trim())
+        .filter(Boolean)
+        .map(text => {
+            const [needle, replacement = scrubbedAs] = text.split('=>');
+            return { needle, replacement };
+        });
     const hide = values.hide.map(text => text.trim()).filter(Boolean);
     const mask = values.mask.map(selector => selector.trim()).filter(Boolean);
     const qr = values.qr.map(selector => selector.trim()).filter(Boolean);
@@ -205,7 +228,7 @@ async function shoot() {
             if (target.open === 'track') await openTrack(page);
             await settleOn(page, target, settle);
             for (const text of target.click ?? []) await pressNamed(page, target, text, settle);
-            if (scrub.length > 0) await page.evaluate(scrubText, { needles: scrub, replacement: scrubbedAs });
+            if (scrub.length > 0) await page.evaluate(scrubText, scrub);
             if (hide.length > 0) await page.evaluate(hideRows, hide);
             if (values['blur-art']) await page.addStyleTag({ content: 'img[src*="/api/"] { filter: blur(10px); }' });
             // The check-up's QR code encodes the station's own address, so a published screenshot of
@@ -266,9 +289,11 @@ async function settleOn(page, target, settle) {
     await page.waitForTimeout(settle);
 }
 
-/** The button or tab whose own text is exactly `text`, then long enough for what it opens to draw. */
+/** The button, tab or segment whose own text is exactly `text`, then long enough for what it opens to draw. */
 async function pressNamed(page, target, text, settle) {
-    const control = page.locator('button, [role="tab"]').filter({ hasText: new RegExp(`^\\s*${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) });
+    const control = page
+        .locator('button, [role="tab"], .mantine-SegmentedControl-label')
+        .filter({ hasText: new RegExp(`^\\s*${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) });
     if ((await control.count()) === 0) throw new Error(`${target.id}: nothing to press says "${text}".`);
     await control.first().click();
     await page.waitForTimeout(settle);
@@ -289,8 +314,8 @@ async function waitForQuiet(page) {
 }
 
 /** Runs in the page. Replaces each needle in text, input values and the attributes a tooltip reads. */
-function scrubText({ needles, replacement }) {
-    const swap = text => needles.reduce((result, needle) => result.split(needle).join(replacement), text);
+function scrubText(pairs) {
+    const swap = text => pairs.reduce((result, { needle, replacement }) => result.split(needle).join(replacement), text);
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         const next = swap(node.nodeValue ?? '');

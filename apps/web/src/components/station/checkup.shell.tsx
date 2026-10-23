@@ -18,12 +18,13 @@ export const CHECKUP_TABS = [
     tab('machinery'),
     tab('trends'),
     tab('history'),
+    tab('asRun'),
     tab('cost'),
     tab('logs'),
     tab('releases'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function tab<TKey extends 'machinery' | 'trends' | 'history' | 'cost' | 'logs' | 'releases'>(key: TKey) {
+function tab<TKey extends 'machinery' | 'trends' | 'history' | 'asRun' | 'cost' | 'logs' | 'releases'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -38,10 +39,11 @@ function tab<TKey extends 'machinery' | 'trends' | 'history' | 'cost' | 'logs' |
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
 
 /** Where each tab goes, so the palette and the tab strip cannot disagree about it. */
-export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/trends' | '/activity' | '/traces' | '/logs' | '/releases'> = {
+export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/trends' | '/activity' | '/as-run' | '/traces' | '/logs' | '/releases'> = {
     machinery: '/checkup',
     trends: '/trends',
     history: '/activity',
+    asRun: '/as-run',
     cost: '/traces',
     logs: '/logs',
     releases: '/releases',

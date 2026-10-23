@@ -34,6 +34,10 @@ export const catalog = {
             failing: 'No fetch is failing.',
             benched: 'No record has had all its copies written off.',
         },
+        nothingMeasured: {
+            title: 'Nothing matches',
+            body: 'No record here was measured by that analyzer, or failed that way. Clear the measurement filter to see the rest.',
+        },
         nothingToShow: {
             title: 'Nothing to show',
             body: 'This page of the catalog has no records on it.',
@@ -42,6 +46,18 @@ export const catalog = {
             audio: { label: 'audio on this machine', text: 'audio', tooltip: 'Has audio on this machine' },
             measured: { label: 'measured', text: 'measured', tooltip: 'Has measured' },
             described: { label: 'described by a provider', text: 'described', tooltip: 'Has described by a provider' },
+        },
+    },
+    measurementFilter: {
+        analyzerLabel: 'Measured by',
+        anyAnalyzer: 'Any analyzer',
+        analyzerOption_one: '{{pluginId}} ({{records}} record)',
+        analyzerOption_other: '{{pluginId}} ({{records}} records)',
+        failedLabel: 'Measurement failed:',
+        failure: {
+            unfetchable: 'could not fetch',
+            truncated: 'stopped early',
+            undecodable: 'would not decode',
         },
     },
     stateFilter: {
@@ -124,6 +140,12 @@ export const catalog = {
             by: 'By',
             schema: 'Schema',
             whyFailed: 'Why it failed',
+            kind: 'What went wrong',
+            kinds: {
+                unfetchable: 'Could not fetch it. Tried again within the hour',
+                truncated: 'The fetch stopped early. Tried again within the hour',
+                undecodable: 'The file would not decode. Tried again after a day',
+            },
         },
         vocal: {
             eyebrow: 'Singing',
@@ -253,7 +275,18 @@ export const catalog = {
                 'Clears the backoff and un-benches every copy, so the station may try each of them straight away rather than waiting out its gate. This is what to press once an upstream that was failing is working again.',
             confirm: 'Try again',
         },
+        remeasure: {
+            button: 'Measure these again ({{count}})',
+            title: 'Measure these records again?',
+            consequence:
+                'Throws away each record’s measurement, so the measurement walk measures it again on its next pass. Until then a record plays untrimmed and at the stream’s own level, as an unmeasured one always does. Its audio is not touched.',
+            confirm: 'Measure again',
+        },
         outcome: {
+            remeasured_one: '{{count}} record will be measured again.',
+            remeasured_other: '{{count}} records will be measured again.',
+            remeasuredSomeRefused_one: '{{count}} record will be measured again, {{failed}} the station would not act on.',
+            remeasuredSomeRefused_other: '{{count}} records will be measured again, {{failed}} the station would not act on.',
             reopened_one: '{{count}} record reopened.',
             reopened_other: '{{count}} records reopened.',
             reopenedSomeRefused_one: '{{count}} record reopened, {{failed}} the station would not act on.',

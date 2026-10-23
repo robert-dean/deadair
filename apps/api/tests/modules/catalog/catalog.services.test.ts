@@ -57,9 +57,20 @@ const trackRow = () => ({
 const listRow = (overrides: Record<string, unknown> = {}) => ({ ...trackRow(), hasAudio: false, measured: false, enriched: false, ...overrides });
 
 /** The counts beside a page. Zeroes unless a test is about them. */
-const trackStateCounts = vi
-    .fn()
-    .mockResolvedValue({ total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0, lyrics: 0, synced: 0, instrumental: 0, moods: 0 });
+const trackStateCounts = vi.fn().mockResolvedValue({
+    total: 0,
+    cached: 0,
+    measured: 0,
+    enriched: 0,
+    benched: 0,
+    failing: 0,
+    lyrics: 0,
+    synced: 0,
+    instrumental: 0,
+    moods: 0,
+    analyzers: [],
+    measureFailures: { unfetchable: 0, undecodable: 0, truncated: 0 },
+});
 
 /**
  * A row as the CONSOLE sees it: the repository answers with the column's `-1 / 0 / 1` and the
@@ -253,7 +264,16 @@ describe('TracksService', () => {
         await service.listTracksByAlbum(ALBUM_ID, query({ search: 'vaka' }));
 
         expect(listTracks).toHaveBeenCalledWith(
-            { limit: 25, offset: 0, sort: 'desc', search: 'vaka', state: undefined, schemaVersion: expect.any(Number) },
+            {
+                limit: 25,
+                offset: 0,
+                sort: 'desc',
+                search: 'vaka',
+                state: undefined,
+                analyzer: undefined,
+                measureFailure: undefined,
+                schemaVersion: expect.any(Number),
+            },
             ALBUM_ID,
         );
     });
@@ -263,9 +283,20 @@ describe('TracksService', () => {
     // how many are benched".
     it('counts the states over the same set the page came from', async () => {
         const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [listRow()] });
-        const counts = vi
-            .fn()
-            .mockResolvedValue({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2, lyrics: 4, synced: 3, instrumental: 1, moods: 2 });
+        const counts = vi.fn().mockResolvedValue({
+            total: 8,
+            cached: 3,
+            measured: 1,
+            enriched: 5,
+            benched: 0,
+            failing: 2,
+            lyrics: 4,
+            synced: 3,
+            instrumental: 1,
+            moods: 2,
+            analyzers: [{ pluginId: 'deadair.analyzer', count: 3 }],
+            measureFailures: { unfetchable: 1, undecodable: 0, truncated: 0 },
+        });
         const service = tracksService({ listTracks, trackStateCounts: counts });
 
         const result = await service.listTracks(query({ search: 'vaka' }));
@@ -282,7 +313,21 @@ describe('TracksService', () => {
             synced: 3,
             instrumental: 1,
             moods: 2,
+            analyzers: [{ pluginId: 'deadair.analyzer', count: 3 }],
+            measureFailures: { unfetchable: 1, undecodable: 0, truncated: 0 },
         });
+    });
+
+    it('hands the analyzer and failure filters through beside the state', async () => {
+        const listTracks = vi.fn().mockResolvedValue({ total: 1, data: [listRow()] });
+        const service = tracksService({ listTracks, trackStateCounts });
+
+        await service.listTracks({ ...query({ state: 'cached' }), analyzer: 'deadair.analyzer', measureFailure: 'truncated' });
+
+        expect(listTracks).toHaveBeenCalledWith(
+            expect.objectContaining({ state: 'cached', analyzer: 'deadair.analyzer', measureFailure: 'truncated' }),
+            undefined,
+        );
     });
 
     it('hands the chosen state through to the query', async () => {
@@ -375,7 +420,13 @@ describe('TracksService.getTrack', () => {
                         nextAttemptAt: '2026-08-16T09:00:00.000Z',
                     }),
                 ],
-                analysis: { schemaVersion: 3, complete: false, failedAt: '2026-08-15T03:12:00.000Z', failureReason: 'decode ended early' },
+                analysis: {
+                    schemaVersion: 3,
+                    complete: false,
+                    failedAt: '2026-08-15T03:12:00.000Z',
+                    failureReason: 'decode ended early',
+                    failureCode: 'truncated',
+                },
             },
         );
 
@@ -383,7 +434,7 @@ describe('TracksService.getTrack', () => {
 
         expect(detail.bindings[0]).toMatchObject({ attempts: 4, lastError: 'upstream answered 404' });
         expect(detail.bindings[0]!.missingAt).toBeDefined();
-        expect(detail.analysis).toMatchObject({ complete: false, failureReason: 'decode ended early' });
+        expect(detail.analysis).toMatchObject({ complete: false, failureReason: 'decode ended early', failureCode: 'truncated' });
     });
 
     // A record with no copies at all is a real state — an import that never resolved — and reads as

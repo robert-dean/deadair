@@ -166,52 +166,74 @@ public sealed record TrackBinding
 public sealed record TrackBindingInput;
 
 /// <summary>
-/// What the measurement sidecar made of a record.
+/// Why a measurement failed, as the station retries it.
 ///
-/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
-/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
-/// the app filters on `complete` and a page that showed only a date would be reporting a record as
-/// measured that nothing will use the measurement of.
+///   unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour
+///   truncated    the fetch stopped part of the way through. Tried again within the hour
+///   undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again
+///
+/// A failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on.
 /// </summary>
-public sealed record TrackAnalysis
+[JsonConverter(typeof(MeasureFailureConverter))]
+public enum MeasureFailure
 {
-    [JsonPropertyName("schemaVersion")]
-    public required long SchemaVersion { get; init; }
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
 
-    [JsonPropertyName("complete")]
-    public required bool Complete { get; init; }
+    [JsonStringEnumMemberName("unfetchable")]
+    Unfetchable,
 
-    /// <summary>The measuring thing itself, which is not the plugin adapting it</summary>
-    [JsonPropertyName("analyzer")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Analyzer { get; init; }
+    [JsonStringEnumMemberName("undecodable")]
+    Undecodable,
 
-    [JsonPropertyName("analyzerPluginId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AnalyzerPluginId { get; init; }
-
-    [JsonPropertyName("analyzedAt")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public DateTimeOffset? AnalyzedAt { get; init; }
-
-    [JsonPropertyName("failedAt")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public DateTimeOffset? FailedAt { get; init; }
-
-    [JsonPropertyName("failureReason")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? FailureReason { get; init; }
+    [JsonStringEnumMemberName("truncated")]
+    Truncated,
 }
 
 /// <summary>
-/// What the measurement sidecar made of a record.
-///
-/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
-/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
-/// the app filters on `complete` and a page that showed only a date would be reporting a record as
-/// measured that nothing will use the measurement of.
+/// Reads and writes <see cref="MeasureFailure"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="MeasureFailure.Unknown"/> rather than failing the payload.
 /// </summary>
-public sealed record TrackAnalysisInput;
+public sealed class MeasureFailureConverter : JsonConverter<MeasureFailure>
+{
+    public override MeasureFailure Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for MeasureFailure, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, MeasureFailure value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override MeasureFailure ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, MeasureFailure value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static MeasureFailure FromWire(string? text) => text switch
+    {
+        "unfetchable" => MeasureFailure.Unfetchable,
+        "undecodable" => MeasureFailure.Undecodable,
+        "truncated" => MeasureFailure.Truncated,
+        _ => MeasureFailure.Unknown,
+    };
+
+    private static string ToWire(MeasureFailure value) => value switch
+    {
+        MeasureFailure.Unfetchable => "unfetchable",
+        MeasureFailure.Undecodable => "undecodable",
+        MeasureFailure.Truncated => "truncated",
+        _ => throw new JsonException($"MeasureFailure.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
 
 /// <summary>One airing of a record, as this page needs it: when, and under which broadcast.</summary>
 public sealed record TrackPlay
@@ -594,60 +616,34 @@ public sealed class TrackSortConverter : JsonConverter<TrackSort>
     };
 }
 
-/// <summary>
-/// How much of the library is in each state, over the whole filtered set rather than this page.
-///
-/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
-/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
-/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
-/// read as N of M without reaching into the pager.
-/// </summary>
-public sealed record TrackStateCounts
+/// <summary>How many records one analysis plugin measured or tried to.</summary>
+public sealed record TrackAnalyzerCount
 {
-    [JsonPropertyName("total")]
-    public required long Total { get; init; }
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
 
-    [JsonPropertyName("cached")]
-    public required long Cached { get; init; }
-
-    [JsonPropertyName("measured")]
-    public required long Measured { get; init; }
-
-    [JsonPropertyName("enriched")]
-    public required long Enriched { get; init; }
-
-    [JsonPropertyName("benched")]
-    public required long Benched { get; init; }
-
-    [JsonPropertyName("failing")]
-    public required long Failing { get; init; }
-
-    /// <summary>A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`</summary>
-    [JsonPropertyName("lyrics")]
-    public required long Lyrics { get; init; }
-
-    /// <summary>A lyrics source has the timing of its lines, which says when the singing starts</summary>
-    [JsonPropertyName("synced")]
-    public required long Synced { get; init; }
-
-    /// <summary>A lyrics source says nobody sings on it</summary>
-    [JsonPropertyName("instrumental")]
-    public required long Instrumental { get; init; }
-
-    /// <summary>A model has judged what mood it is in</summary>
-    [JsonPropertyName("moods")]
-    public required long Moods { get; init; }
+    [JsonPropertyName("count")]
+    public required long Count { get; init; }
 }
 
-/// <summary>
-/// How much of the library is in each state, over the whole filtered set rather than this page.
-///
-/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
-/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
-/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
-/// read as N of M without reaching into the pager.
-/// </summary>
-public sealed record TrackStateCountsInput;
+/// <summary>How many records one analysis plugin measured or tried to.</summary>
+public sealed record TrackAnalyzerCountInput;
+
+/// <summary>Failed measurements by kind. See `MeasureFailure`.</summary>
+public sealed record MeasureFailureCounts
+{
+    [JsonPropertyName("unfetchable")]
+    public required long Unfetchable { get; init; }
+
+    [JsonPropertyName("undecodable")]
+    public required long Undecodable { get; init; }
+
+    [JsonPropertyName("truncated")]
+    public required long Truncated { get; init; }
+}
+
+/// <summary>Failed measurements by kind. See `MeasureFailure`.</summary>
+public sealed record MeasureFailureCountsInput;
 
 public sealed record EnrichmentExternalId
 {
@@ -936,6 +932,59 @@ public sealed record TrackInput
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
+/// <summary>
+/// What the measurement sidecar made of a record.
+///
+/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+/// the app filters on `complete` and a page that showed only a date would be reporting a record as
+/// measured that nothing will use the measurement of.
+/// </summary>
+public sealed record TrackAnalysis
+{
+    [JsonPropertyName("schemaVersion")]
+    public required long SchemaVersion { get; init; }
+
+    [JsonPropertyName("complete")]
+    public required bool Complete { get; init; }
+
+    /// <summary>The measuring thing itself, which is not the plugin adapting it</summary>
+    [JsonPropertyName("analyzer")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Analyzer { get; init; }
+
+    [JsonPropertyName("analyzerPluginId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AnalyzerPluginId { get; init; }
+
+    [JsonPropertyName("analyzedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? AnalyzedAt { get; init; }
+
+    [JsonPropertyName("failedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? FailedAt { get; init; }
+
+    [JsonPropertyName("failureReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureReason { get; init; }
+
+    /// <summary>Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is</summary>
+    [JsonPropertyName("failureCode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MeasureFailure? FailureCode { get; init; }
+}
+
+/// <summary>
+/// What the measurement sidecar made of a record.
+///
+/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+/// the app filters on `complete` and a page that showed only a date would be reporting a record as
+/// measured that nothing will use the measurement of.
+/// </summary>
+public sealed record TrackAnalysisInput;
+
 /// <summary>One timed line of a record's lyrics. Times are milliseconds from the start of the file.</summary>
 public sealed record LyricLineDetail
 {
@@ -1018,6 +1067,69 @@ public sealed record CatalogQueryInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CatalogSort? SortBy { get; init; }
 }
+
+/// <summary>
+/// How much of the library is in each state, over the whole filtered set rather than this page.
+///
+/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+/// read as N of M without reaching into the pager.
+/// </summary>
+public sealed record TrackStateCounts
+{
+    [JsonPropertyName("total")]
+    public required long Total { get; init; }
+
+    [JsonPropertyName("cached")]
+    public required long Cached { get; init; }
+
+    [JsonPropertyName("measured")]
+    public required long Measured { get; init; }
+
+    [JsonPropertyName("enriched")]
+    public required long Enriched { get; init; }
+
+    [JsonPropertyName("benched")]
+    public required long Benched { get; init; }
+
+    [JsonPropertyName("failing")]
+    public required long Failing { get; init; }
+
+    /// <summary>A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`</summary>
+    [JsonPropertyName("lyrics")]
+    public required long Lyrics { get; init; }
+
+    /// <summary>A lyrics source has the timing of its lines, which says when the singing starts</summary>
+    [JsonPropertyName("synced")]
+    public required long Synced { get; init; }
+
+    /// <summary>A lyrics source says nobody sings on it</summary>
+    [JsonPropertyName("instrumental")]
+    public required long Instrumental { get; init; }
+
+    /// <summary>A model has judged what mood it is in</summary>
+    [JsonPropertyName("moods")]
+    public required long Moods { get; init; }
+
+    /// <summary>Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from</summary>
+    [JsonPropertyName("analyzers")]
+    public required List<TrackAnalyzerCount> Analyzers { get; init; }
+
+    /// <summary>How many measurements failed, by kind</summary>
+    [JsonPropertyName("measureFailures")]
+    public required MeasureFailureCounts MeasureFailures { get; init; }
+}
+
+/// <summary>
+/// How much of the library is in each state, over the whole filtered set rather than this page.
+///
+/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+/// read as N of M without reaching into the pager.
+/// </summary>
+public sealed record TrackStateCountsInput;
 
 /// <summary>
 /// `releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers
@@ -1227,6 +1339,107 @@ public sealed record AlbumPageInput
 }
 
 /// <summary>
+/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
+///
+/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+/// the query that was already running — and everything wider (which providers, how many bytes, why the
+/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+/// the detail page in a table cell.
+/// </summary>
+public sealed record TrackRow
+{
+    [JsonPropertyName("id")]
+    public required Guid Id { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    [JsonPropertyName("artistId")]
+    public required Guid ArtistId { get; init; }
+
+    [JsonPropertyName("artistName")]
+    public required string ArtistName { get; init; }
+
+    /// <summary>Absent on a single ingested outside any release: `tracks.album_id` is nullable</summary>
+    [JsonPropertyName("albumId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? AlbumId { get; init; }
+
+    [JsonPropertyName("albumName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AlbumName { get; init; }
+
+    /// <summary>The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording</summary>
+    [JsonPropertyName("albumImageUrl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AlbumImageUrl { get; init; }
+
+    /// <summary>Display credit as written on the release ("X feat. Y"), not a join key</summary>
+    [JsonPropertyName("artists")]
+    public required string Artists { get; init; }
+
+    [JsonPropertyName("genre")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Genre { get; init; }
+
+    [JsonPropertyName("year")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Year { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    [JsonPropertyName("rating")]
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
+
+    /// <summary>The bytes are on this machine</summary>
+    [JsonPropertyName("hasAudio")]
+    public required bool HasAudio { get; init; }
+
+    /// <summary>Measured, COMPLETE, and at a schema version the station still trusts</summary>
+    [JsonPropertyName("measured")]
+    public required bool Measured { get; init; }
+
+    /// <summary>At least one provider has answered about it</summary>
+    [JsonPropertyName("enriched")]
+    public required bool Enriched { get; init; }
+}
+
+/// <summary>
+/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
+///
+/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+/// the query that was already running — and everything wider (which providers, how many bytes, why the
+/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+/// the detail page in a table cell.
+/// </summary>
+public sealed record TrackRowInput
+{
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>Display credit as written on the release ("X feat. Y"), not a join key</summary>
+    [JsonPropertyName("artists")]
+    public required string Artists { get; init; }
+
+    [JsonPropertyName("genre")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Genre { get; init; }
+
+    [JsonPropertyName("year")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Year { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    [JsonPropertyName("rating")]
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
+}
+
+/// <summary>
 /// Everything one record has accumulated, in one read.
 ///
 /// The enrichment is deliberately NOT here. It has its own operation already, answering
@@ -1342,107 +1555,6 @@ public sealed record TrackDetailInput
 }
 
 /// <summary>
-/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
-///
-/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
-/// the query that was already running — and everything wider (which providers, how many bytes, why the
-/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
-/// the detail page in a table cell.
-/// </summary>
-public sealed record TrackRow
-{
-    [JsonPropertyName("id")]
-    public required Guid Id { get; init; }
-
-    [JsonPropertyName("title")]
-    public required string Title { get; init; }
-
-    [JsonPropertyName("artistId")]
-    public required Guid ArtistId { get; init; }
-
-    [JsonPropertyName("artistName")]
-    public required string ArtistName { get; init; }
-
-    /// <summary>Absent on a single ingested outside any release: `tracks.album_id` is nullable</summary>
-    [JsonPropertyName("albumId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Guid? AlbumId { get; init; }
-
-    [JsonPropertyName("albumName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AlbumName { get; init; }
-
-    /// <summary>The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording</summary>
-    [JsonPropertyName("albumImageUrl")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AlbumImageUrl { get; init; }
-
-    /// <summary>Display credit as written on the release ("X feat. Y"), not a join key</summary>
-    [JsonPropertyName("artists")]
-    public required string Artists { get; init; }
-
-    [JsonPropertyName("genre")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Genre { get; init; }
-
-    [JsonPropertyName("year")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? Year { get; init; }
-
-    [JsonPropertyName("durationMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? DurationMs { get; init; }
-
-    [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
-
-    /// <summary>The bytes are on this machine</summary>
-    [JsonPropertyName("hasAudio")]
-    public required bool HasAudio { get; init; }
-
-    /// <summary>Measured, COMPLETE, and at a schema version the station still trusts</summary>
-    [JsonPropertyName("measured")]
-    public required bool Measured { get; init; }
-
-    /// <summary>At least one provider has answered about it</summary>
-    [JsonPropertyName("enriched")]
-    public required bool Enriched { get; init; }
-}
-
-/// <summary>
-/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
-///
-/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
-/// the query that was already running — and everything wider (which providers, how many bytes, why the
-/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
-/// the detail page in a table cell.
-/// </summary>
-public sealed record TrackRowInput
-{
-    [JsonPropertyName("title")]
-    public required string Title { get; init; }
-
-    /// <summary>Display credit as written on the release ("X feat. Y"), not a join key</summary>
-    [JsonPropertyName("artists")]
-    public required string Artists { get; init; }
-
-    [JsonPropertyName("genre")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Genre { get; init; }
-
-    [JsonPropertyName("year")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? Year { get; init; }
-
-    [JsonPropertyName("durationMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? DurationMs { get; init; }
-
-    [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
-}
-
-/// <summary>
 /// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
 /// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
 /// player following along adds the record's cue-in to how long it has been on air.
@@ -1554,6 +1666,16 @@ public sealed record TrackQuery
     [JsonPropertyName("state")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TrackState? State { get; init; }
+
+    /// <summary>Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again</summary>
+    [JsonPropertyName("analyzer")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Analyzer { get; init; }
+
+    /// <summary>Only records whose measurement failed this way</summary>
+    [JsonPropertyName("measureFailure")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MeasureFailure? MeasureFailure { get; init; }
 }
 
 /// <summary>
@@ -1587,6 +1709,16 @@ public sealed record TrackQueryInput
     [JsonPropertyName("state")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TrackState? State { get; init; }
+
+    /// <summary>Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again</summary>
+    [JsonPropertyName("analyzer")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Analyzer { get; init; }
+
+    /// <summary>Only records whose measurement failed this way</summary>
+    [JsonPropertyName("measureFailure")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MeasureFailure? MeasureFailure { get; init; }
 }
 
 /// <summary>

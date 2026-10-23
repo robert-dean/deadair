@@ -11,6 +11,7 @@ import { render, screen, waitFor } from '../../utils/render';
 
 const retryTrackAudio = vi.fn();
 const offerTrackCopiesAgain = vi.fn();
+const clearTrackAnalysis = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -18,6 +19,7 @@ vi.mock('../../../src/api/client', () => ({
         catalog: {
             retryTrackAudio: (...args: unknown[]) => retryTrackAudio(...args),
             offerTrackCopiesAgain: (...args: unknown[]) => offerTrackCopiesAgain(...args),
+            clearTrackAnalysis: (...args: unknown[]) => clearTrackAnalysis(...args),
         },
     },
 }));
@@ -91,6 +93,32 @@ describe('TrackStateAction', () => {
 
         await waitFor(() => expect(retryTrackAudio).toHaveBeenCalledTimes(2));
         expect(offerTrackCopiesAgain).not.toHaveBeenCalled();
+    });
+
+    it('offers measuring again once a measurement filter narrows the list, and clears only the measurement', async () => {
+        clearTrackAnalysis.mockResolvedValue({ trackId: IDS[0], cleared: 1, detail: 'Cleared.' });
+        render(<TrackStateAction state="" measured trackIds={IDS} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Measure these again (2)' }));
+        expect(await screen.findByText(/Its audio is not touched/)).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Measure again' }));
+
+        await waitFor(() => expect(clearTrackAnalysis).toHaveBeenCalledTimes(2));
+        expect(retryTrackAudio).not.toHaveBeenCalled();
+        expect(await screen.findByText('2 records will be measured again.')).toBeInTheDocument();
+    });
+
+    it('offers no measuring again on a list no measurement filter narrows', () => {
+        render(<TrackStateAction state="unmeasured" trackIds={IDS} />);
+
+        expect(screen.queryByRole('button', { name: /Measure these again/ })).not.toBeInTheDocument();
+    });
+
+    it('lets a fault state win over a measurement filter, since the copy comes first', () => {
+        render(<TrackStateAction state="failing" measured trackIds={IDS} />);
+
+        expect(screen.getByRole('button', { name: 'Try these again (2)' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Measure these again/ })).not.toBeInTheDocument();
     });
 
     // One record the station refuses must not cost the other ninety-nine, and the tally is what the

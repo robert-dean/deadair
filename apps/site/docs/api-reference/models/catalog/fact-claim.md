@@ -1,6 +1,6 @@
 ---
 title: 'FactClaim'
-sidebar_position: 37
+sidebar_position: 40
 mdx:
     format: 'md'
 ---

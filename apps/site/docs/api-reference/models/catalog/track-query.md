@@ -1,6 +1,6 @@
 ---
 title: 'TrackQuery'
-sidebar_position: 23
+sidebar_position: 24
 mdx:
     format: 'md'
 ---
@@ -13,11 +13,13 @@ mdx:
 Extends [`CatalogQuery`](./catalog-query.md)
 
 <details>
-<summary>Attributes (2)</summary>
+<summary>Attributes (4)</summary>
 
-| Attribute | Type         | Required | Description |
-| --------- | ------------ | -------- | ----------- |
-| `state`   | `TrackState` | No       |             |
-| `sortBy`  | `TrackSort`  | No       |             |
+| Attribute        | Type             | Required | Description                                                                                                               |
+| ---------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `state`          | `TrackState`     | No       |                                                                                                                           |
+| `sortBy`         | `TrackSort`      | No       |                                                                                                                           |
+| `analyzer`       | `string`         | No       | Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again |
+| `measureFailure` | `MeasureFailure` | No       | Only records whose measurement failed this way                                                                            |
 
 </details>

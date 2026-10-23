@@ -160,6 +160,25 @@ describe('TrackDetailPage', () => {
         expect(screen.queryByText('Measured')).not.toBeInTheDocument();
     });
 
+    it('says what kind of failure a measurement was, which is when the walk tries again', async () => {
+        getTrack.mockResolvedValue(
+            detail({
+                analysis: {
+                    schemaVersion: 1,
+                    complete: false,
+                    failedAt: DateTime.fromISO('2026-10-23T03:12:00.000Z'),
+                    failureReason: 'upstream answered 502',
+                    failureCode: 'unfetchable',
+                },
+            }),
+        );
+
+        render(<TrackDetailPage trackId={TRACK_ID} />);
+
+        expect(await screen.findByText('Could not fetch it. Tried again within the hour')).toBeInTheDocument();
+        expect(screen.getByText('upstream answered 502')).toBeInTheDocument();
+    });
+
     it('says a record has no copies at all rather than drawing an empty table', async () => {
         getTrack.mockResolvedValue(detail());
 

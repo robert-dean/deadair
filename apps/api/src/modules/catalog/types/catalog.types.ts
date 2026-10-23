@@ -59,27 +59,17 @@ export const TrackBindingInput = z.strictObject({});
 export type TrackBindingInput = z.infer<typeof TrackBindingInput>;
 
 /**
- * What the measurement sidecar made of a record.
+ * Why a measurement failed, as the station retries it.
  *
- * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
- * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
- * the app filters on `complete` and a page that showed only a date would be reporting a record as
- * measured that nothing will use the measurement of.
- * generated from [TrackAnalysis](../../../../data/contracts/catalog/catalog.types.ck)
+ *   unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour
+ *   truncated    the fetch stopped part of the way through. Tried again within the hour
+ *   undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again
+ *
+ * A failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on.
+ * generated from [MeasureFailure](../../../../data/contracts/catalog/catalog.types.ck)
  */
-export const TrackAnalysis = z.strictObject({
-    schemaVersion: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    complete: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
-    analyzer: z.string().max(200).optional().describe('The measuring thing itself, which is not the plugin adapting it'),
-    analyzerPluginId: z.string().max(200).optional(),
-    analyzedAt: _ZodDatetime.optional(),
-    failedAt: _ZodDatetime.optional(),
-    failureReason: z.string().max(2000).optional(),
-});
-export type TrackAnalysis = z.infer<typeof TrackAnalysis>;
-
-export const TrackAnalysisInput = z.strictObject({});
-export type TrackAnalysisInput = z.infer<typeof TrackAnalysisInput>;
+export const MeasureFailure = z.enum(['unfetchable', 'undecodable', 'truncated']);
+export type MeasureFailure = z.infer<typeof MeasureFailure>;
 
 /**
  * One airing of a record, as this page needs it: when, and under which broadcast.
@@ -227,38 +217,31 @@ export const TrackSort = z.enum(['title', 'artist', 'album', 'year', 'duration',
 export type TrackSort = z.infer<typeof TrackSort>;
 
 /**
- * How much of the library is in each state, over the whole filtered set rather than this page.
- *
- * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
- * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
- * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
- * read as N of M without reaching into the pager.
- * generated from [TrackStateCounts](../../../../data/contracts/catalog/catalog.types.ck)
+ * How many records one analysis plugin measured or tried to.
+ * generated from [TrackAnalyzerCount](../../../../data/contracts/catalog/catalog.types.ck)
  */
-export const TrackStateCounts = z.strictObject({
-    total: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    cached: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    measured: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    enriched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    benched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    failing: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
-    lyrics: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`'),
-    synced: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('A lyrics source has the timing of its lines, which says when the singing starts'),
-    instrumental: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('A lyrics source says nobody sings on it'),
-    moods: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('A model has judged what mood it is in'),
+export const TrackAnalyzerCount = z.strictObject({
+    pluginId: z.string().min(1).max(200),
+    count: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
-export type TrackStateCounts = z.infer<typeof TrackStateCounts>;
+export type TrackAnalyzerCount = z.infer<typeof TrackAnalyzerCount>;
 
-export const TrackStateCountsInput = z.strictObject({});
-export type TrackStateCountsInput = z.infer<typeof TrackStateCountsInput>;
+export const TrackAnalyzerCountInput = z.strictObject({});
+export type TrackAnalyzerCountInput = z.infer<typeof TrackAnalyzerCountInput>;
+
+/**
+ * Failed measurements by kind. See `MeasureFailure`.
+ * generated from [MeasureFailureCounts](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const MeasureFailureCounts = z.strictObject({
+    unfetchable: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    undecodable: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    truncated: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+});
+export type MeasureFailureCounts = z.infer<typeof MeasureFailureCounts>;
+
+export const MeasureFailureCountsInput = z.strictObject({});
+export type MeasureFailureCountsInput = z.infer<typeof MeasureFailureCountsInput>;
 
 /**
  * generated from [EnrichmentExternalId](../../../../data/contracts/catalog/catalog.types.ck)
@@ -403,6 +386,32 @@ export const TrackInput = z.strictObject({
 export type TrackInput = z.infer<typeof TrackInput>;
 
 /**
+ * What the measurement sidecar made of a record.
+ *
+ * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+ * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+ * the app filters on `complete` and a page that showed only a date would be reporting a record as
+ * measured that nothing will use the measurement of.
+ * generated from [TrackAnalysis](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const TrackAnalysis = z.strictObject({
+    schemaVersion: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    complete: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
+    analyzer: z.string().max(200).optional().describe('The measuring thing itself, which is not the plugin adapting it'),
+    analyzerPluginId: z.string().max(200).optional(),
+    analyzedAt: _ZodDatetime.optional(),
+    failedAt: _ZodDatetime.optional(),
+    failureReason: z.string().max(2000).optional(),
+    failureCode: MeasureFailure.optional().describe(
+        'Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is',
+    ),
+});
+export type TrackAnalysis = z.infer<typeof TrackAnalysis>;
+
+export const TrackAnalysisInput = z.strictObject({});
+export type TrackAnalysisInput = z.infer<typeof TrackAnalysisInput>;
+
+/**
  * One timed line of a record's lyrics. Times are milliseconds from the start of the file.
  * generated from [LyricLineDetail](../../../../data/contracts/catalog/catalog.types.ck)
  */
@@ -439,6 +448,44 @@ export const CatalogQueryInput = PaginationInput.extend({
     sortBy: CatalogSort.optional(),
 });
 export type CatalogQueryInput = z.infer<typeof CatalogQueryInput>;
+
+/**
+ * How much of the library is in each state, over the whole filtered set rather than this page.
+ *
+ * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+ * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+ * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+ * read as N of M without reaching into the pager.
+ * generated from [TrackStateCounts](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const TrackStateCounts = z.strictObject({
+    total: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    cached: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    measured: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    enriched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    benched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    failing: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    lyrics: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`'),
+    synced: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('A lyrics source has the timing of its lines, which says when the singing starts'),
+    instrumental: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('A lyrics source says nobody sings on it'),
+    moods: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('A model has judged what mood it is in'),
+    analyzers: z
+        .array(TrackAnalyzerCount)
+        .describe('Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from'),
+    measureFailures: MeasureFailureCounts.describe('How many measurements failed, by kind'),
+});
+export type TrackStateCounts = z.infer<typeof TrackStateCounts>;
+
+export const TrackStateCountsInput = z.strictObject({});
+export type TrackStateCountsInput = z.infer<typeof TrackStateCountsInput>;
 
 /**
  * `releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers
@@ -560,6 +607,29 @@ export const AlbumPageInput = z.strictObject({
 export type AlbumPageInput = z.infer<typeof AlbumPageInput>;
 
 /**
+ * A track as a LIST shows it: the record, plus three facts about what the station has of it.
+ *
+ * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+ * the query that was already running — and everything wider (which providers, how many bytes, why the
+ * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+ * the detail page in a table cell.
+ * generated from [TrackRow](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const TrackRow = Track.extend({
+    hasAudio: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('The bytes are on this machine'),
+    measured: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Measured, COMPLETE, and at a schema version the station still trusts'),
+    enriched: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('At least one provider has answered about it'),
+});
+export type TrackRow = z.infer<typeof TrackRow>;
+
+export const TrackRowInput = TrackInput.extend({});
+export type TrackRowInput = z.infer<typeof TrackRowInput>;
+
+/**
  * Everything one record has accumulated, in one read.
  *
  * The enrichment is deliberately NOT here. It has its own operation already, answering
@@ -583,29 +653,6 @@ export const TrackDetailInput = TrackInput.extend({
     plays: z.array(TrackPlayInput).describe('The most recent airings, newest first'),
 });
 export type TrackDetailInput = z.infer<typeof TrackDetailInput>;
-
-/**
- * A track as a LIST shows it: the record, plus three facts about what the station has of it.
- *
- * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
- * the query that was already running — and everything wider (which providers, how many bytes, why the
- * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
- * the detail page in a table cell.
- * generated from [TrackRow](../../../../data/contracts/catalog/catalog.types.ck)
- */
-export const TrackRow = Track.extend({
-    hasAudio: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('The bytes are on this machine'),
-    measured: z
-        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
-        .describe('Measured, COMPLETE, and at a schema version the station still trusts'),
-    enriched: z
-        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
-        .describe('At least one provider has answered about it'),
-});
-export type TrackRow = z.infer<typeof TrackRow>;
-
-export const TrackRowInput = TrackInput.extend({});
-export type TrackRowInput = z.infer<typeof TrackRowInput>;
 
 /**
  * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
@@ -656,12 +703,26 @@ export type TrackLyricsSourceInput = z.infer<typeof TrackLyricsSourceInput>;
 export const TrackQuery = CatalogQuery.extend({
     state: TrackState.optional(),
     sortBy: TrackSort.optional(),
+    analyzer: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe("Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"),
+    measureFailure: MeasureFailure.optional().describe('Only records whose measurement failed this way'),
 });
 export type TrackQuery = z.infer<typeof TrackQuery>;
 
 export const TrackQueryInput = CatalogQueryInput.extend({
     state: TrackState.optional(),
     sortBy: TrackSort.optional(),
+    analyzer: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe("Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"),
+    measureFailure: MeasureFailure.optional().describe('Only records whose measurement failed this way'),
 });
 export type TrackQueryInput = z.infer<typeof TrackQueryInput>;
 

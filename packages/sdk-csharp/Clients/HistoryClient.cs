@@ -33,4 +33,18 @@ public sealed class HistoryClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<HistoryPage>(response);
     }
+
+    /// <summary>
+    /// Read as-run log
+    /// The as-run log, newest first, one page at a time
+    /// </summary>
+    public async Task<AsRunPage> ReadAsRunLogAsync(AsRunQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("history", "as-run"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<AsRunPage>(response);
+    }
 }

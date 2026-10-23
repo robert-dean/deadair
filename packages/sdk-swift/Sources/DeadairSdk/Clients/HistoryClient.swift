@@ -17,4 +17,13 @@ public final class HistoryClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(HistoryPage.self, from: response)
     }
+
+    /// Read as-run log
+    /// The as-run log, newest first, one page at a time
+    public func readAsRunLog(query: AsRunQuery? = nil) async throws -> AsRunPage {
+        var request = SdkRequest(method: "GET", path: ["history", "as-run"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(AsRunPage.self, from: response)
+    }
 }

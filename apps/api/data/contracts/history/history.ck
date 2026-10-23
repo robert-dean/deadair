@@ -31,3 +31,23 @@ operation /history: {
         }
     }
 }
+
+# What actually went out, newest first: every record, break and programme, with when each started
+# and ended, and the gaps and air changes between them.
+#
+# The items are `deadair.as_run`, written on the rundown's own `onAired` edge. The gaps and the air
+# changes are read from `station_events` rather than copied, so they reach back only as far as the
+# activity feed is kept.
+
+operation /history/as-run: {
+    get: { # The as-run log, newest first, one page at a time
+        name: Read as-run log
+        service: HistoryService.readAsRun
+        query: AsRunQuery
+        response: {
+            200: {
+                application/json: AsRunPage
+            }
+        }
+    }
+}

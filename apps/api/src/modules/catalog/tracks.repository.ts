@@ -9,7 +9,7 @@ import { stationCover, withStationCover } from '#modules/art/art.source.token.js
 import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js';
 import { ratingFromColumn } from './rating.js';
 import { releasedYear } from '../shared/release.year.js';
-import type { Rating, TrackState } from './types/catalog.types.js';
+import type { MeasureFailure, Rating, TrackState } from './types/catalog.types.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
 const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
@@ -23,6 +23,10 @@ const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
  */
 export type TrackListQuery = CatalogListQuery & {
     state?: TrackState;
+    /** Only records this analysis plugin measured or tried to. See {@link measuredBy}. */
+    analyzer?: string;
+    /** Only records whose measurement failed this way. See {@link failedAs}. */
+    measureFailure?: MeasureFailure;
     schemaVersion: number;
 };
 
@@ -232,6 +236,43 @@ const isFailing = (eb: TrackScope) =>
             .where('a.attempts', '>', 0),
     );
 
+/**
+ * A record this analysis plugin measured, or tried to and failed.
+ *
+ * Both outcomes, because the question it answers is "what did this detector touch": a detector found
+ * to be wrong about a class of records is what `analyzer_plugin_id` exists to attribute, and its
+ * failures are as much its own as its measurements.
+ */
+const measuredBy = (eb: TrackScope, pluginId: string) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackAnalysis as an')
+            .select('an.id')
+            .whereRef('an.trackId', '=', 'deadair.tracks.id')
+            .where('an.analyzerPluginId', '=', pluginId),
+    );
+
+/**
+ * The kind of failure a stored one is, as the walk retries it.
+ *
+ * A failure written before 0086 has no code, and the walk retries it on `undecodable`'s day-long
+ * clock (`AnalysisRepository.listTracksNeedingAnalysis`), so that is what it is filtered and counted
+ * as. Reading it as a fourth "unknown" kind would offer a filter whose records behave exactly like
+ * one of the other three.
+ */
+const FAILURE_KIND = sql<MeasureFailure>`coalesce(an.failure_code, 'undecodable')`;
+
+/** A record whose measurement failed this way. See {@link FAILURE_KIND} for a failure with no code. */
+const failedAs = (eb: TrackScope, code: MeasureFailure) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackAnalysis as an')
+            .select('an.id')
+            .whereRef('an.trackId', '=', 'deadair.tracks.id')
+            .where('an.failedAt', 'is not', null)
+            .where(FAILURE_KIND, '=', code),
+    );
+
 /** One state, as a predicate over the list query. */
 function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
     switch (state) {
@@ -415,7 +456,7 @@ export class TracksRepository extends DataRepository {
      * @param albumId - Narrows to one album's tracks. Absent lists the whole catalog.
      */
     async listTracks(query: TrackListQuery, albumId?: string) {
-        const { limit, offset, sort, search, state, schemaVersion, sortBy } = query;
+        const { limit, offset, sort, search, state, analyzer, measureFailure, schemaVersion, sortBy } = query;
 
         let scoped = this.readable();
         if (albumId !== undefined) {
@@ -426,6 +467,13 @@ export class TracksRepository extends DataRepository {
         }
         if (state !== undefined) {
             scoped = scoped.where(eb => stateFilter(eb, state, schemaVersion));
+        }
+        // Beside the state rather than instead of it, so "unmeasured, by this analyzer" is one list.
+        if (analyzer !== undefined) {
+            scoped = scoped.where(eb => measuredBy(eb, analyzer));
+        }
+        if (measureFailure !== undefined) {
+            scoped = scoped.where(eb => failedAs(eb, measureFailure));
         }
 
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
@@ -456,7 +504,12 @@ export class TracksRepository extends DataRepository {
      *
      * It honours `search` and the album narrowing and deliberately IGNORES `state`: the counts are
      * what the filter is chosen FROM, so filtering them by the current choice would answer "of the
-     * benched records, how many are benched".
+     * benched records, how many are benched". The analyzer and failure filters are ignored for the
+     * same reason.
+     *
+     * The analyzers are a second query, because they are a GROUP BY over the measurement table rather
+     * than a count over the catalog: one row per plugin that ever measured anything here, which is
+     * one or two on any real station.
      */
     async trackStateCounts(query: TrackListQuery, albumId?: string) {
         const { search, schemaVersion } = query;
@@ -477,8 +530,20 @@ export class TracksRepository extends DataRepository {
                 eb.fn.count<number>(eb.case().when(hasSyncedLyrics(eb)).then(1).end()).as('synced'),
                 eb.fn.count<number>(eb.case().when(isInstrumental(eb)).then(1).end()).as('instrumental'),
                 eb.fn.count<number>(eb.case().when(hasMoods(eb)).then(1).end()).as('moods'),
+                eb.fn.count<number>(eb.case().when(failedAs(eb, 'unfetchable')).then(1).end()).as('unfetchable'),
+                eb.fn.count<number>(eb.case().when(failedAs(eb, 'undecodable')).then(1).end()).as('undecodable'),
+                eb.fn.count<number>(eb.case().when(failedAs(eb, 'truncated')).then(1).end()).as('truncated'),
             ])
             .executeTakeFirstOrThrow();
+
+        const analyzers = await scoped
+            .innerJoin('deadair.trackAnalysis as an', 'an.trackId', 'deadair.tracks.id')
+            .where('an.analyzerPluginId', 'is not', null)
+            .select(eb => ['an.analyzerPluginId as pluginId', eb.fn.countAll<number>().as('count')])
+            .groupBy('an.analyzerPluginId')
+            .orderBy('count', 'desc')
+            .orderBy('an.analyzerPluginId', 'asc')
+            .execute();
 
         return {
             total: Number(counted.total),
@@ -491,6 +556,12 @@ export class TracksRepository extends DataRepository {
             synced: Number(counted.synced),
             instrumental: Number(counted.instrumental),
             moods: Number(counted.moods),
+            analyzers: analyzers.flatMap(row => (row.pluginId == null ? [] : [{ pluginId: row.pluginId, count: Number(row.count) }])),
+            measureFailures: {
+                unfetchable: Number(counted.unfetchable),
+                undecodable: Number(counted.undecodable),
+                truncated: Number(counted.truncated),
+            },
         };
     }
 

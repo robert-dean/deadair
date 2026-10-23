@@ -1014,6 +1014,22 @@ paths:
                   required: false
                   schema:
                       '$ref': '#/components/schemas/TrackState'
+                - name: analyzer
+                  in: query
+                  required: false
+                  description: "Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: "Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"
+                - name: measureFailure
+                  in: query
+                  required: false
+                  description: 'Only records whose measurement failed this way'
+                  schema:
+                      '$ref': '#/components/schemas/MeasureFailure'
+                      description: 'Only records whose measurement failed this way'
             responses:
                 '200':
                     description: 'Successful response'
@@ -1346,6 +1362,22 @@ paths:
                   required: false
                   schema:
                       '$ref': '#/components/schemas/TrackState'
+                - name: analyzer
+                  in: query
+                  required: false
+                  description: "Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: "Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"
+                - name: measureFailure
+                  in: query
+                  required: false
+                  description: 'Only records whose measurement failed this way'
+                  schema:
+                      '$ref': '#/components/schemas/MeasureFailure'
+                      description: 'Only records whose measurement failed this way'
             responses:
                 '200':
                     description: 'Successful response'
@@ -2063,6 +2095,43 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/HistoryPage'
+    '/history/as-run':
+        get:
+            operationId: readAsRun
+            summary: 'Read as-run log'
+            description: 'The as-run log, newest first, one page at a time'
+            parameters:
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 500
+                - name: before
+                  in: query
+                  required: false
+                  description: 'Where the previous page ended. Opaque: pass back whatever `nextBefore` said'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Where the previous page ended. Opaque: pass back whatever `nextBefore` said'
+                - name: until
+                  in: query
+                  required: false
+                  description: 'Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent'
+                  schema:
+                      type: string
+                      format: date-time
+                      description: 'Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/AsRunPage'
     '/console/language':
         get:
             operationId: choice
@@ -8408,8 +8477,16 @@ components:
                     type: string
                     maxLength: 2000
                     readOnly: true
+                failureCode:
+                    '$ref': '#/components/schemas/MeasureFailure'
+                    readOnly: true
+                    description: 'Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is'
             required: [schemaVersion, complete]
             description: "What the measurement sidecar made of a record.\n\n`complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`\nargues at length: a measurement of a truncated download is confident and wrong, so every reader in\nthe app filters on `complete` and a page that showed only a date would be reporting a record as\nmeasured that nothing will use the measurement of."
+        MeasureFailure:
+            type: string
+            enum: [unfetchable, undecodable, truncated]
+            description: "Why a measurement failed, as the station retries it.\n\n  unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour\n  truncated    the fetch stopped part of the way through. Tried again within the hour\n  undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again\n\nA failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on."
         TrackPlay:
             type: object
             properties:
@@ -8674,6 +8751,14 @@ components:
                           '$ref': '#/components/schemas/TrackState'
                       sortBy:
                           '$ref': '#/components/schemas/TrackSort'
+                      analyzer:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                          description: "Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again"
+                      measureFailure:
+                          '$ref': '#/components/schemas/MeasureFailure'
+                          description: 'Only records whose measurement failed this way'
         TrackStateCounts:
             type: object
             properties:
@@ -8721,6 +8806,16 @@ components:
                     minimum: 0
                     readOnly: true
                     description: 'A model has judged what mood it is in'
+                analyzers:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/TrackAnalyzerCount'
+                    readOnly: true
+                    description: 'Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from'
+                measureFailures:
+                    '$ref': '#/components/schemas/MeasureFailureCounts'
+                    readOnly: true
+                    description: 'How many measurements failed, by kind'
             required:
                 - total
                 - cached
@@ -8732,7 +8827,40 @@ components:
                 - synced
                 - instrumental
                 - moods
+                - analyzers
+                - measureFailures
             description: "How much of the library is in each state, over the whole filtered set rather than this page.\n\nThe aggregate is what an operator reads first — \"13 of 581 measured\" is the sentence that made\n[analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the\nsame number as `meta.total` when nothing is filtered, and is repeated here so the counts can be\nread as N of M without reaching into the pager."
+        TrackAnalyzerCount:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    readOnly: true
+                count:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+            required: [pluginId, count]
+            description: 'How many records one analysis plugin measured or tried to.'
+        MeasureFailureCounts:
+            type: object
+            properties:
+                unfetchable:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                undecodable:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                truncated:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+            required: [unfetchable, undecodable, truncated]
+            description: 'Failed measurements by kind. See `MeasureFailure`.'
         TrackRow:
             allOf:
                 - '$ref': '#/components/schemas/Track'
@@ -10277,6 +10405,84 @@ components:
                     minLength: 1
                     maxLength: 200
                     description: 'The cursor for the page after this one, absent once the history has been read to its end'
+            required: [entries]
+        AsRunKind:
+            type: string
+            enum: [record, break, programme, gap, onAir, offAir]
+            description: "What one line of the as-run log is.\n\n  record, break, programme   something that went out, with when it started and, once the station saw it end, when it ended\n  gap                        the station aired its local bed instead of the running order. Only gaps long enough to matter are recorded\n  onAir, offAir              the station was put on air, or stood down"
+        AsRunEntry:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'Unique across the log, and half of the cursor below'
+                kind:
+                    '$ref': '#/components/schemas/AsRunKind'
+                at:
+                    type: string
+                    format: date-time
+                    description: 'When it started. For an item, the moment the player said so, not when it was handed over'
+                endedAt:
+                    type: string
+                    format: date-time
+                    description: 'When it stopped. Absent while an item is on air, and for one the station never saw end, such as the last item before a crash'
+                title:
+                    type: string
+                    maxLength: 500
+                    description: "A record's title or a break's label, as it went out"
+                artists:
+                    type: string
+                    maxLength: 1000
+                    description: "A record's credit as written, whole"
+                trackId:
+                    type: string
+                    maxLength: 100
+                    description: 'The catalog track a record was'
+                segmentId:
+                    type: string
+                    maxLength: 100
+                    description: 'The segment a break or a programme was'
+                passedOver:
+                    type: integer
+                    minimum: 0
+                    description: 'How many items already handed to the player it moved past to reach this one. They never aired. Absent when none'
+                detail:
+                    type: string
+                    maxLength: 2000
+                    description: "For a gap or an air change, the station's own sentence about it"
+            required: [id, kind, at]
+            description: 'One line of what actually went out'
+        AsRunQuery:
+            type: object
+            properties:
+                limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 500
+                before:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Where the previous page ended. Opaque: pass back whatever `nextBefore` said'
+                until:
+                    type: string
+                    format: date-time
+                    description: 'Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent'
+            description: 'One page of the as-run log, newest first'
+        AsRunPage:
+            type: object
+            properties:
+                entries:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/AsRunEntry'
+                nextBefore:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The cursor for the page after this one, absent once the log has been read to its end'
             required: [entries]
         ConsoleLanguagePack:
             type: object

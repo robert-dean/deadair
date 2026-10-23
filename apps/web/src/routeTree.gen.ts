@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as AsRunRouteImport } from './routes/as-run'
 import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as CheckupRouteImport } from './routes/checkup'
 import { Route as LoginRouteImport } from './routes/login'
@@ -70,6 +71,11 @@ const IndexRoute = IndexRouteImport.update({
 const ActivityRoute = ActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AsRunRoute = AsRunRouteImport.update({
+  id: '/as-run',
+  path: '/as-run',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChartsRoute = ChartsRouteImport.update({
@@ -327,6 +333,7 @@ const PluginsIdOauthCallbackRoute = PluginsIdOauthCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/as-run': typeof AsRunRoute
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
@@ -381,6 +388,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/as-run': typeof AsRunRoute
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
@@ -436,6 +444,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/as-run': typeof AsRunRoute
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
@@ -492,6 +501,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/activity'
+    | '/as-run'
     | '/charts'
     | '/checkup'
     | '/login'
@@ -546,6 +556,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/activity'
+    | '/as-run'
     | '/charts'
     | '/checkup'
     | '/login'
@@ -600,6 +611,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/activity'
+    | '/as-run'
     | '/charts'
     | '/checkup'
     | '/login'
@@ -655,6 +667,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivityRoute: typeof ActivityRoute
+  AsRunRoute: typeof AsRunRoute
   ChartsRoute: typeof ChartsRoute
   CheckupRoute: typeof CheckupRoute
   LoginRoute: typeof LoginRoute
@@ -721,6 +734,13 @@ declare module '@tanstack/react-router' {
       path: '/activity'
       fullPath: '/activity'
       preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/as-run': {
+      id: '/as-run'
+      path: '/as-run'
+      fullPath: '/as-run'
+      preLoaderRoute: typeof AsRunRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/charts': {
@@ -1079,6 +1099,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
+  AsRunRoute: AsRunRoute,
   ChartsRoute: ChartsRoute,
   CheckupRoute: CheckupRoute,
   LoginRoute: LoginRoute,

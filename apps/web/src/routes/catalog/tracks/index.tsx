@@ -14,6 +14,8 @@ export const Route = createFileRoute('/catalog/tracks/')({
         page: search.page,
         search: search.search,
         state: search.state,
+        analyzer: search.analyzer,
+        failure: search.failure,
         sortBy: search.sortBy,
         sort: search.sort,
         pageSize: search.pageSize,
@@ -48,7 +50,7 @@ export const Route = createFileRoute('/catalog/tracks/')({
 });
 
 function CatalogTracksRoute() {
-    const { page, search, state, sortBy, sort, pageSize } = Route.useSearch();
+    const { page, search, state, analyzer, failure, sortBy, sort, pageSize } = Route.useSearch();
     const navigate = useNavigate({ from: Route.fullPath });
 
     return (
@@ -57,6 +59,7 @@ function CatalogTracksRoute() {
                 page={page}
                 search={search}
                 state={state}
+                measurement={{ analyzer, failure }}
                 order={{ sortBy, sort, pageSize }}
                 onPageChange={next => {
                     void navigate({ search: previous => ({ ...previous, page: next }) });
@@ -68,6 +71,11 @@ function CatalogTracksRoute() {
                 }}
                 onStateChange={next => {
                     void navigate({ search: previous => ({ ...previous, page: 0, state: next }) });
+                }}
+                onMeasurementChange={next => {
+                    // Beside the state rather than instead of it, like the search: "unmeasured, by this
+                    // analyzer" is one question.
+                    void navigate({ search: previous => ({ ...previous, page: 0, ...next }) });
                 }}
                 onOrderChange={next => {
                     // The page resets for the search box's own reason one clause up: a re-ordered list

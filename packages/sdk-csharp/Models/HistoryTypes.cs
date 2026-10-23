@@ -63,12 +63,174 @@ public sealed record HistoryQuery
     public string? Before { get; init; }
 }
 
+/// <summary>
+/// What one line of the as-run log is.
+///
+///   record, break, programme   something that went out, with when it started and, once the station saw it end, when it ended
+///   gap                        the station aired its local bed instead of the running order. Only gaps long enough to matter are recorded
+///   onAir, offAir              the station was put on air, or stood down
+/// </summary>
+[JsonConverter(typeof(AsRunKindConverter))]
+public enum AsRunKind
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("record")]
+    Record,
+
+    [JsonStringEnumMemberName("break")]
+    Break,
+
+    [JsonStringEnumMemberName("programme")]
+    Programme,
+
+    [JsonStringEnumMemberName("gap")]
+    Gap,
+
+    [JsonStringEnumMemberName("onAir")]
+    OnAir,
+
+    [JsonStringEnumMemberName("offAir")]
+    OffAir,
+}
+
+/// <summary>
+/// Reads and writes <see cref="AsRunKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="AsRunKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class AsRunKindConverter : JsonConverter<AsRunKind>
+{
+    public override AsRunKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for AsRunKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, AsRunKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override AsRunKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, AsRunKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static AsRunKind FromWire(string? text) => text switch
+    {
+        "record" => AsRunKind.Record,
+        "break" => AsRunKind.Break,
+        "programme" => AsRunKind.Programme,
+        "gap" => AsRunKind.Gap,
+        "onAir" => AsRunKind.OnAir,
+        "offAir" => AsRunKind.OffAir,
+        _ => AsRunKind.Unknown,
+    };
+
+    private static string ToWire(AsRunKind value) => value switch
+    {
+        AsRunKind.Record => "record",
+        AsRunKind.Break => "break",
+        AsRunKind.Programme => "programme",
+        AsRunKind.Gap => "gap",
+        AsRunKind.OnAir => "onAir",
+        AsRunKind.OffAir => "offAir",
+        _ => throw new JsonException($"AsRunKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>One page of the as-run log, newest first</summary>
+public sealed record AsRunQuery
+{
+    [JsonPropertyName("limit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Limit { get; init; }
+
+    /// <summary>Where the previous page ended. Opaque: pass back whatever `nextBefore` said</summary>
+    [JsonPropertyName("before")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Before { get; init; }
+
+    /// <summary>Start reading from this moment back, to jump to an hour without paging to it. Ignored when `before` is sent</summary>
+    [JsonPropertyName("until")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? Until { get; init; }
+}
+
 public sealed record HistoryPage
 {
     [JsonPropertyName("entries")]
     public required List<HistoryEntry> Entries { get; init; }
 
     /// <summary>The cursor for the page after this one, absent once the history has been read to its end</summary>
+    [JsonPropertyName("nextBefore")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NextBefore { get; init; }
+}
+
+/// <summary>One line of what actually went out</summary>
+public sealed record AsRunEntry
+{
+    /// <summary>Unique across the log, and half of the cursor below</summary>
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("kind")]
+    public required AsRunKind Kind { get; init; }
+
+    /// <summary>When it started. For an item, the moment the player said so, not when it was handed over</summary>
+    [JsonPropertyName("at")]
+    public required DateTimeOffset At { get; init; }
+
+    /// <summary>When it stopped. Absent while an item is on air, and for one the station never saw end, such as the last item before a crash</summary>
+    [JsonPropertyName("endedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? EndedAt { get; init; }
+
+    /// <summary>A record's title or a break's label, as it went out</summary>
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; init; }
+
+    /// <summary>A record's credit as written, whole</summary>
+    [JsonPropertyName("artists")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Artists { get; init; }
+
+    /// <summary>The catalog track a record was</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TrackId { get; init; }
+
+    /// <summary>The segment a break or a programme was</summary>
+    [JsonPropertyName("segmentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SegmentId { get; init; }
+
+    /// <summary>How many items already handed to the player it moved past to reach this one. They never aired. Absent when none</summary>
+    [JsonPropertyName("passedOver")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? PassedOver { get; init; }
+
+    /// <summary>For a gap or an air change, the station's own sentence about it</summary>
+    [JsonPropertyName("detail")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Detail { get; init; }
+}
+
+public sealed record AsRunPage
+{
+    [JsonPropertyName("entries")]
+    public required List<AsRunEntry> Entries { get; init; }
+
+    /// <summary>The cursor for the page after this one, absent once the log has been read to its end</summary>
     [JsonPropertyName("nextBefore")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NextBefore { get; init; }

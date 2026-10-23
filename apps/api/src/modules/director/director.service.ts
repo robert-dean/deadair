@@ -51,6 +51,7 @@ import { breakArtwork as readBreakArtwork, stationArtwork } from './director.art
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { AsRunRepository } from './as.run.repository.js';
 import { playlistKeyOf } from './playlist.resume.js';
 import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
 import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
@@ -3554,6 +3555,11 @@ export class DirectorService {
             });
         }
 
+        // The as-run log, for EVERY kind of item and before the branches below return: it is the one
+        // record of what went out that is not about a record. Its own call and `void`ed, on the
+        // history row's terms: a lost row costs the log one line, and the boundary must not wait.
+        this.logAsRun(item, passedOver);
+
         // The item's own state has already moved: the rundown marks it airing at the moment the
         // player says so, on the one shared order. This listener is only for what has to be
         // written DOWN about it.
@@ -3656,6 +3662,22 @@ export class DirectorService {
                 ...(broadcastId === undefined ? {} : { broadcastId }),
             });
         }).catch(error => this.logger.warn(`director: could not queue what aired for scrobbling (${errorText(error)})`));
+    }
+
+    /** Writes the item that just started into the as-run log, closing the one before it. See `AsRunRepository`. */
+    private logAsRun(item: RundownItem, passedOver: number): void {
+        const broadcastId = this.lineup?.broadcastId;
+        const at = Date.now();
+        void inScope(this.container, async scope =>
+            scope.get(AsRunRepository).record({
+                item,
+                stationKey: this.identity.stationKey,
+                source: this.lineup?.source ?? 'director',
+                passedOver,
+                at,
+                ...(broadcastId === undefined ? {} : { broadcastId }),
+            }),
+        ).catch(error => this.logger.warn(`director: could not write the as-run log (${errorText(error)})`));
     }
 
     /**
@@ -3807,6 +3829,11 @@ export class DirectorService {
                 kind: 'air.off',
                 detail: 'The station was stood down, so it is holding nothing and airing nothing.',
             });
+            // The last item stopped being on air here, and nothing else will ever say so.
+            const at = Date.now();
+            void inScope(this.container, async scope => scope.get(AsRunRepository).close(this.identity.stationKey, at)).catch(error =>
+                this.logger.warn(`director: could not close the as-run log (${errorText(error)})`),
+            );
             this.bus.publish('air.changed', { on: false, reason: ranOut ? 'ranOut' : 'stopped', at: Date.now() });
         }
     }

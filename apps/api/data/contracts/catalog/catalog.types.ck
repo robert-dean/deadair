@@ -103,7 +103,17 @@ contract TrackAnalysis: {
     analyzedAt?: readonly datetime
     failedAt?: readonly datetime
     failureReason?: readonly string(max=2000)
+    failureCode?: readonly MeasureFailure # Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is
 }
+
+# Why a measurement failed, as the station retries it.
+#
+#   unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour
+#   truncated    the fetch stopped part of the way through. Tried again within the hour
+#   undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again
+#
+# A failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on.
+contract MeasureFailure: enum(unfetchable, undecodable, truncated)
 
 # One airing of a record, as this page needs it: when, and under which broadcast.
 contract TrackPlay: {
@@ -246,6 +256,8 @@ contract TrackSort: enum(title, artist, album, year, duration, rating)
 contract TrackQuery: CatalogQuery & {
     state?: TrackState
     sortBy?: TrackSort
+    analyzer?: string(min=1, max=200) # Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again
+    measureFailure?: MeasureFailure # Only records whose measurement failed this way
 }
 
 # How much of the library is in each state, over the whole filtered set rather than this page.
@@ -265,6 +277,21 @@ contract TrackStateCounts: {
     synced: readonly int(min=0) # A lyrics source has the timing of its lines, which says when the singing starts
     instrumental: readonly int(min=0) # A lyrics source says nobody sings on it
     moods: readonly int(min=0) # A model has judged what mood it is in
+    analyzers: readonly array(TrackAnalyzerCount) # Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from
+    measureFailures: readonly MeasureFailureCounts # How many measurements failed, by kind
+}
+
+# How many records one analysis plugin measured or tried to.
+contract TrackAnalyzerCount: {
+    pluginId: readonly string(min=1, max=200)
+    count: readonly int(min=0)
+}
+
+# Failed measurements by kind. See `MeasureFailure`.
+contract MeasureFailureCounts: {
+    unfetchable: readonly int(min=0)
+    undecodable: readonly int(min=0)
+    truncated: readonly int(min=0)
 }
 
 # A track as a LIST shows it: the record, plus three facts about what the station has of it.

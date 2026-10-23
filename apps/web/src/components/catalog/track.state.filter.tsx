@@ -73,6 +73,18 @@ const FILTERS: { state: TrackStateParam; tone: string; count: (counts: TrackStat
  * a handful of records deliberately: the bar's claim is that a state EXISTS, and the chip under it
  * is where the number is read.
  */
+/**
+ * A zero chip, drawn so it is still a chip. Shared with `TrackMeasurementFilter`, whose zeroes have
+ * the same problem; the reasoning is at the chip below.
+ */
+export const EMPTY_CHIP_STYLES = {
+    label: {
+        background: 'var(--da-raised)',
+        border: '1px solid var(--da-border-strong)',
+        color: 'var(--mantine-color-dimmed)',
+    },
+} as const;
+
 const slice = (count: number, total: number) => (total <= 0 || count <= 0 ? 0 : Math.max(1.5, (count / total) * 100));
 
 export interface TrackStateFilterProps {
@@ -191,17 +203,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                                     // above 3.8:1 on every theme. Still quieter than a live chip,
                                     // which is right — there is nothing to filter to — but legible
                                     // as a zero, which is the whole reason it is drawn.
-                                    styles={
-                                        empty
-                                            ? {
-                                                  label: {
-                                                      background: 'var(--da-raised)',
-                                                      border: '1px solid var(--da-border-strong)',
-                                                      color: 'var(--mantine-color-dimmed)',
-                                                  },
-                                              }
-                                            : undefined
-                                    }
+                                    styles={empty ? EMPTY_CHIP_STYLES : undefined}
                                     onChange={checked => {
                                         onChange(checked ? filter.state : '');
                                     }}

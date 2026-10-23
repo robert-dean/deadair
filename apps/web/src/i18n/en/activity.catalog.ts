@@ -26,4 +26,31 @@ export const activity = {
         script: 'what was said',
         track: 'the record',
     },
+    asRun: {
+        title: 'As run',
+        description:
+            'What actually went out, newest first: every record, break and programme with when it started and how long it ran, and between them any stretch the station aired its local bed or was off air.',
+        failure: 'The as-run log could not be read.',
+        empty: {
+            all: 'Nothing has gone out yet. The log starts with the first item that airs.',
+            before: 'Nothing had gone out by then.',
+        },
+        until: {
+            label: 'Read back from',
+            placeholder: 'Now',
+        },
+        kind: {
+            record: 'Record',
+            break: 'Break',
+            programme: 'Programme',
+            gap: 'Local bed',
+            onAir: 'On air',
+            offAir: 'Off air',
+        },
+        by: 'by {{artists}}',
+        passedOver_one: 'The player moved past {{count}} item that had been handed over to reach this one. It never aired.',
+        passedOver_other: 'The player moved past {{count}} items that had been handed over to reach this one. They never aired.',
+        onAirNow: 'on air',
+        noEnd: 'no end seen',
+    },
 } as const;

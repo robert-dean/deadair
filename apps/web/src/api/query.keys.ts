@@ -280,6 +280,10 @@ export const queryKeys = {
         feed: (filter: { module?: string; minSeverity?: string }) =>
             ['activity', 'feed', filter.module ?? 'all', filter.minSeverity ?? 'all'] as const,
     },
+    /** The as-run log, keyed on the moment it is read back from, or `now` for the live head. */
+    history: {
+        asRun: (until?: string) => ['history', 'asRun', until ?? 'now'] as const,
+    },
     /**
      * Everything the station has written, one row per ATTEMPT. Keyed on the filters for the reason
      * the activity feed is: a filtered history is not a stale unfiltered one, and sharing the key
@@ -380,8 +384,8 @@ export const queryKeys = {
             ['catalog', 'album', id, 'tracks', page, search ?? '', order ?? ''] as const,
         albumEnrichment: (id: string) => ['catalog', 'album', id, 'enrichment'] as const,
         /** Keyed on the state filter too: a filtered list is a different request, not a stale one. */
-        tracks: (page: number, search?: string, state?: string, order?: string) =>
-            ['catalog', 'tracks', page, search ?? '', state ?? '', order ?? ''] as const,
+        tracks: (page: number, search?: string, state?: string, order?: string, measurement?: string) =>
+            ['catalog', 'tracks', page, search ?? '', state ?? '', order ?? '', measurement ?? ''] as const,
         /**
          * One record and everything it has accumulated. Separate from `trackEnrichment` because they
          * go stale for different reasons: this moves when the station plays, fetches or measures the

@@ -22,6 +22,16 @@ import { ConfirmModal } from '../shared/confirm.modal';
  * faults — most of a library is `uncached` — and a bulk verb over them would be a button whose worst
  * case is re-fetching a healthy library.
  *
+ * ## Measuring again, once the list is narrowed by measurement
+ *
+ * The one verb offered outside the fault states, and only once a measurement filter has narrowed the
+ * list to what one analyzer touched or one kind of failure: a detector found to be wrong about a
+ * class of records is exactly what `analyzer_plugin_id` exists to attribute, and this is what does
+ * something about it. It clears each record's measurement, the cheapest of the clears and one the
+ * walk repairs on its next pass, and it never touches audio. A fault state wins when both are
+ * chosen, because a record whose copy cannot be fetched cannot be measured either, and trying the
+ * copy again is the step that comes first.
+ *
  * ## It loops the per-record verbs rather than adding a bulk one
  *
  * Deliberate at this scale, and it is a real choice rather than a shortcut. The verbs already exist,
@@ -35,13 +45,16 @@ import { ConfirmModal } from '../shared/confirm.modal';
  * would be acting on records they have not seen.
  */
 // Each action's button, title, consequence and confirm are `stateAction.<state>` in the catalog namespace.
-const ACTIONS: Record<'benched' | 'failing', TrackClear> = {
+const ACTIONS: Record<'benched' | 'failing' | 'remeasure', TrackClear> = {
     benched: 'offer',
     failing: 'retry',
+    remeasure: 'analysis',
 };
 
 export interface TrackStateActionProps {
     state: TrackStateParam | '';
+    /** Whether a measurement filter narrows the list, which is what offers measuring it again. */
+    measured?: boolean;
     /** The records the list is showing, which is exactly what this acts on. */
     trackIds: readonly string[];
 }
@@ -52,7 +65,7 @@ interface Outcome {
     failed: number;
 }
 
-export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
+export function TrackStateAction({ state, measured = false, trackIds }: TrackStateActionProps) {
     const { t } = useTranslation(['catalog', 'common']);
     const [asking, setAsking] = useState(false);
     const [outcome, setOutcome] = useState<Outcome>();
@@ -60,7 +73,7 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
     const clear = useClearTrack();
     const queryClient = useQueryClient();
 
-    const faulted = state === 'benched' || state === 'failing' ? state : undefined;
+    const faulted = state === 'benched' || state === 'failing' ? state : measured ? 'remeasure' : undefined;
     // An outcome outlives the rows it was about, deliberately. A press that WORKS empties the list it
     // was pressed on, so a component that vanished with the last row would take the answer away at
     // exactly the moment there was one — leaving an operator looking at an empty page with no idea
@@ -112,9 +125,13 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
                 ) : undefined}
                 {outcome ? (
                     <Text size="xs" c="dimmed">
-                        {outcome.failed === 0
-                            ? t('stateAction.outcome.reopened', { count: outcome.done })
-                            : t('stateAction.outcome.reopenedSomeRefused', { count: outcome.done, failed: outcome.failed })}
+                        {faulted === 'remeasure'
+                            ? outcome.failed === 0
+                                ? t('stateAction.outcome.remeasured', { count: outcome.done })
+                                : t('stateAction.outcome.remeasuredSomeRefused', { count: outcome.done, failed: outcome.failed })
+                            : outcome.failed === 0
+                              ? t('stateAction.outcome.reopened', { count: outcome.done })
+                              : t('stateAction.outcome.reopenedSomeRefused', { count: outcome.done, failed: outcome.failed })}
                     </Text>
                 ) : undefined}
             </Group>

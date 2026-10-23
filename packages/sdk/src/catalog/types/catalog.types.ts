@@ -79,38 +79,16 @@ export function reviveTrackBinding(raw: TrackBinding): TrackBinding {
 }
 
 /**
- * What the measurement sidecar made of a record.
+ * Why a measurement failed, as the station retries it.
  *
- * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
- * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
- * the app filters on `complete` and a page that showed only a date would be reporting a record as
- * measured that nothing will use the measurement of.
- * generated from [TrackAnalysis](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ *   unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour
+ *   truncated    the fetch stopped part of the way through. Tried again within the hour
+ *   undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again
+ *
+ * A failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on.
+ * generated from [MeasureFailure](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
  */
-export interface TrackAnalysis {
-    schemaVersion: number;
-    complete: boolean;
-    /** The measuring thing itself, which is not the plugin adapting it */
-    analyzer?: string;
-    analyzerPluginId?: string;
-    analyzedAt?: DateTime;
-    failedAt?: DateTime;
-    failureReason?: string;
-}
-
-export interface TrackAnalysisInput {}
-
-/** Rehydrates every wire-encoded scalar in a TrackAnalysis into its runtime type. Mutates and returns `raw`. */
-export function reviveTrackAnalysis(raw: TrackAnalysis): TrackAnalysis {
-    const __o0 = raw as unknown as Record<string, unknown>;
-    if (__o0['analyzedAt'] != null) {
-        __o0['analyzedAt'] = __dt(__o0['analyzedAt'], 'TrackAnalysis.analyzedAt');
-    }
-    if (__o0['failedAt'] != null) {
-        __o0['failedAt'] = __dt(__o0['failedAt'], 'TrackAnalysis.failedAt');
-    }
-    return raw;
-}
+export type MeasureFailure = 'unfetchable' | 'undecodable' | 'truncated';
 
 /**
  * One airing of a record, as this page needs it: when, and under which broadcast.
@@ -245,32 +223,27 @@ export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'fai
 export type TrackSort = 'title' | 'artist' | 'album' | 'year' | 'duration' | 'rating';
 
 /**
- * How much of the library is in each state, over the whole filtered set rather than this page.
- *
- * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
- * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
- * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
- * read as N of M without reaching into the pager.
- * generated from [TrackStateCounts](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ * How many records one analysis plugin measured or tried to.
+ * generated from [TrackAnalyzerCount](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
  */
-export interface TrackStateCounts {
-    total: number;
-    cached: number;
-    measured: number;
-    enriched: number;
-    benched: number;
-    failing: number;
-    /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
-    lyrics: number;
-    /** A lyrics source has the timing of its lines, which says when the singing starts */
-    synced: number;
-    /** A lyrics source says nobody sings on it */
-    instrumental: number;
-    /** A model has judged what mood it is in */
-    moods: number;
+export interface TrackAnalyzerCount {
+    pluginId: string;
+    count: number;
 }
 
-export interface TrackStateCountsInput {}
+export interface TrackAnalyzerCountInput {}
+
+/**
+ * Failed measurements by kind. See `MeasureFailure`.
+ * generated from [MeasureFailureCounts](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface MeasureFailureCounts {
+    unfetchable: number;
+    undecodable: number;
+    truncated: number;
+}
+
+export interface MeasureFailureCountsInput {}
 
 /**
  * generated from [EnrichmentExternalId](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
@@ -428,6 +401,42 @@ export interface TrackInput {
 }
 
 /**
+ * What the measurement sidecar made of a record.
+ *
+ * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+ * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+ * the app filters on `complete` and a page that showed only a date would be reporting a record as
+ * measured that nothing will use the measurement of.
+ * generated from [TrackAnalysis](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface TrackAnalysis {
+    schemaVersion: number;
+    complete: boolean;
+    /** The measuring thing itself, which is not the plugin adapting it */
+    analyzer?: string;
+    analyzerPluginId?: string;
+    analyzedAt?: DateTime;
+    failedAt?: DateTime;
+    failureReason?: string;
+    /** Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is */
+    failureCode?: MeasureFailure;
+}
+
+export interface TrackAnalysisInput {}
+
+/** Rehydrates every wire-encoded scalar in a TrackAnalysis into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackAnalysis(raw: TrackAnalysis): TrackAnalysis {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['analyzedAt'] != null) {
+        __o0['analyzedAt'] = __dt(__o0['analyzedAt'], 'TrackAnalysis.analyzedAt');
+    }
+    if (__o0['failedAt'] != null) {
+        __o0['failedAt'] = __dt(__o0['failedAt'], 'TrackAnalysis.failedAt');
+    }
+    return raw;
+}
+
+/**
  * One timed line of a record's lyrics. Times are milliseconds from the start of the file.
  * generated from [LyricLineDetail](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
  */
@@ -458,6 +467,38 @@ export interface CatalogQueryInput extends PaginationInput {
     search?: string;
     sortBy?: CatalogSort;
 }
+
+/**
+ * How much of the library is in each state, over the whole filtered set rather than this page.
+ *
+ * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+ * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+ * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+ * read as N of M without reaching into the pager.
+ * generated from [TrackStateCounts](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface TrackStateCounts {
+    total: number;
+    cached: number;
+    measured: number;
+    enriched: number;
+    benched: number;
+    failing: number;
+    /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
+    lyrics: number;
+    /** A lyrics source has the timing of its lines, which says when the singing starts */
+    synced: number;
+    /** A lyrics source says nobody sings on it */
+    instrumental: number;
+    /** A model has judged what mood it is in */
+    moods: number;
+    /** Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from */
+    analyzers: TrackAnalyzerCount[];
+    /** How many measurements failed, by kind */
+    measureFailures: MeasureFailureCounts;
+}
+
+export interface TrackStateCountsInput {}
 
 /**
  * `releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers
@@ -554,6 +595,26 @@ export interface AlbumPageInput {
 }
 
 /**
+ * A track as a LIST shows it: the record, plus three facts about what the station has of it.
+ *
+ * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+ * the query that was already running — and everything wider (which providers, how many bytes, why the
+ * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+ * the detail page in a table cell.
+ * generated from [TrackRow](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface TrackRow extends Track {
+    /** The bytes are on this machine */
+    hasAudio: boolean;
+    /** Measured, COMPLETE, and at a schema version the station still trusts */
+    measured: boolean;
+    /** At least one provider has answered about it */
+    enriched: boolean;
+}
+
+export interface TrackRowInput extends TrackInput {}
+
+/**
  * Everything one record has accumulated, in one read.
  *
  * The enrichment is deliberately NOT here. It has its own operation already, answering
@@ -599,26 +660,6 @@ export function reviveTrackDetail(raw: TrackDetail): TrackDetail {
     }
     return raw;
 }
-
-/**
- * A track as a LIST shows it: the record, plus three facts about what the station has of it.
- *
- * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
- * the query that was already running — and everything wider (which providers, how many bytes, why the
- * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
- * the detail page in a table cell.
- * generated from [TrackRow](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
- */
-export interface TrackRow extends Track {
-    /** The bytes are on this machine */
-    hasAudio: boolean;
-    /** Measured, COMPLETE, and at a schema version the station still trusts */
-    measured: boolean;
-    /** At least one provider has answered about it */
-    enriched: boolean;
-}
-
-export interface TrackRowInput extends TrackInput {}
 
 /**
  * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
@@ -678,11 +719,19 @@ export function reviveTrackLyricsSource(raw: TrackLyricsSource): TrackLyricsSour
 export interface TrackQuery extends Omit<CatalogQuery, 'sortBy'> {
     state?: TrackState;
     sortBy?: TrackSort;
+    /** Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again */
+    analyzer?: string;
+    /** Only records whose measurement failed this way */
+    measureFailure?: MeasureFailure;
 }
 
 export interface TrackQueryInput extends Omit<CatalogQueryInput, 'sortBy'> {
     state?: TrackState;
     sortBy?: TrackSort;
+    /** Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again */
+    analyzer?: string;
+    /** Only records whose measurement failed this way */
+    measureFailure?: MeasureFailure;
 }
 
 /**

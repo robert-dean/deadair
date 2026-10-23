@@ -493,10 +493,12 @@ export class DirectorConsoleService {
         //
         // Then turned round to start where the slot left off, when it is a slot that resumes its
         // playlist. See {@link resumedOpening}.
+        // One reading of the clock for the fit and for the deadline the order keeps, so the two agree.
+        const fittedAt = Date.now();
         const tracks = await this.resumedOpening(
             onSlot,
             input,
-            await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode)),
+            await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode, fittedAt)),
         );
 
         const binding: StationLineupBinding = {
@@ -543,6 +545,11 @@ export class DirectorConsoleService {
             ...(pluginOf(input) === undefined ? {} : { sourcePluginId: pluginOf(input) }),
             ...(playlistOf(input) === undefined ? {} : { sourcePlaylistId: playlistOf(input) }),
             ...(input.chartId === undefined ? {} : { sourceChartId: input.chartId }),
+            // The end of the slot a countdown was just cut to, so the director can cut it again when
+            // the show falls behind. See `StationLineupBinding.countdownEndsAt`.
+            ...(slot !== undefined && input.chartId !== undefined && (input.chartOrder ?? DEFAULT_CHART_ORDER) === 'countdown'
+                ? { countdownEndsAt: this.slotEndsAt(slot, fittedAt) }
+                : {}),
         };
 
         // Read BEFORE the command replaces it, because the order coming off is the only record of who
@@ -1119,10 +1126,22 @@ export class DirectorConsoleService {
      * Talk is judged from the rules the broadcast will run under, so a `setlist`, which takes no
      * breaks, gets the whole of the time and a rotation holds `CHART_TALK_SHARE` back.
      */
-    private airtimeLeft(slot: ScheduleSlot, input: PutOnAirInput, mode: StationLineupMode): number {
-        const minutes = minutesLeftInSlot(slot, Date.now(), stationZone(this.config));
+    private airtimeLeft(slot: ScheduleSlot, input: PutOnAirInput, mode: StationLineupMode, now: number): number {
+        const minutes = minutesLeftInSlot(slot, now, stationZone(this.config));
         const talks = resolveRules(mode, rulesAskedFor(input).rules, stationRules(this.config)).breaks;
         return recordBudget(minutes * 60_000, talks);
+    }
+
+    /**
+     * When `slot` ends, as epoch milliseconds, read at `now`.
+     *
+     * From the top of the current minute, because {@link minutesLeftInSlot} counts whole minutes on
+     * the station's clock: at 09:00:16 a block ending at 13:00 has 240 left, and 13:00 is 09:00 plus
+     * those, not 09:00:16 plus them. Every zone the station can be set to is a whole number of minutes
+     * from UTC, so the top of the minute is the same instant on its clock and on this one.
+     */
+    private slotEndsAt(slot: ScheduleSlot, now: number): number {
+        return now - (now % 60_000) + minutesLeftInSlot(slot, now, stationZone(this.config)) * 60_000;
     }
 
     /**

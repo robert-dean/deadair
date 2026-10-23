@@ -61,6 +61,7 @@ export class StationLineupRepository extends DataRepository {
                 'regularPersonaId',
                 'coHostPersonaIds',
                 'holdUntil',
+                'countdownEndsAt',
                 'mode',
                 'onEnd',
                 'source',
@@ -109,6 +110,7 @@ export class StationLineupRepository extends DataRepository {
                 // Epoch millis on the way out, because the binding is stored and sent and the
                 // JSON-safe rule allows no `Date` across either boundary.
                 ...(holdMillis(row.holdUntil) === undefined ? {} : { holdUntil: holdMillis(row.holdUntil)! }),
+                ...(holdMillis(row.countdownEndsAt) === undefined ? {} : { countdownEndsAt: holdMillis(row.countdownEndsAt)! }),
                 mode: row.mode as StationLineupMode,
                 onEnd: row.onEnd as StationLineupOnEnd,
                 source: row.source,
@@ -162,6 +164,8 @@ export class StationLineupRepository extends DataRepository {
                     : snapshot.holdUntil === Infinity
                       ? sql<never>`'infinity'::timestamptz`
                       : instant(snapshot.holdUntil),
+            // Through SQL for the same reason, and never `Infinity`: it is a slot's end, which is a time.
+            countdownEndsAt: snapshot.countdownEndsAt === undefined ? null : instant(snapshot.countdownEndsAt),
             mode: snapshot.mode,
             onEnd: snapshot.onEnd,
             source: snapshot.source,

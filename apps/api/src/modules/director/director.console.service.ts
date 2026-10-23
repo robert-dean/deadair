@@ -115,6 +115,16 @@ const operatorBreakKey = (kind: string, topic: string | undefined): string => `o
  * caller waits for its own change to have happened rather than being told it will
  * happen shortly.
  */
+/** A break on air and the record it announced that has not started yet. See {@link DirectorConsoleService.promiseOnAir}. */
+export interface PromiseOnAir {
+    breakItemId: string;
+    /** When the transport saw the break go on air, epoch millis. */
+    startedAt: number;
+    /** The break's length, when the transport knows it. */
+    durationMs?: number;
+    record: { itemId: string; title: string; artist: string };
+}
+
 @Injectable()
 export class DirectorConsoleService {
     constructor(
@@ -1467,6 +1477,36 @@ export class DirectorConsoleService {
         if (order.items.some(item => item.id === playing.item.id)) return undefined;
 
         return { itemId: playing.item.id, startedAt: playing.startedAt, title: playing.item.title };
+    }
+
+    /**
+     * The break on air, when it has announced a record that has not started yet, or nothing.
+     *
+     * What a changeover would break if it landed now. `putOnAir` retracts everything the player
+     * holds and lets only the item on air finish, so a bulletin that ends "here is X" goes on to
+     * finish in front of the next programme's first record instead. Measured on the live station:
+     * four of the fifty-five changeovers between 2026-09-23 and 2026-10-23 did it, a bulletin naming
+     * Gunship at 09:00 on 10-23 among them. The edit paths already keep that record put
+     * (`StationLineup.staysPut`); a changeover replaces the order rather than editing it, so the
+     * only thing that can keep the promise is not changing over yet.
+     *
+     * Only a break that is AIRING: one merely handed is retracted with the record it named, so
+     * nothing it said ever reaches a listener. `startedAt` and `durationMs` are the transport's, so
+     * the caller can bound how long it believes this.
+     */
+    promiseOnAir(): PromiseOnAir | undefined {
+        const playing = this.rundown.nowPlaying();
+        if (playing === undefined) return undefined;
+
+        const record = this.director.promisedBy(playing.item.id);
+        if (record === undefined) return undefined;
+
+        return {
+            breakItemId: playing.item.id,
+            startedAt: playing.startedAt,
+            ...(playing.item.durationMs === undefined ? {} : { durationMs: playing.item.durationMs }),
+            record,
+        };
     }
 
     /**

@@ -16,6 +16,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { hasOverrun } from './changeover.overrun.js';
 import { OPENING_WAIT_MS, OpeningWait } from './opening.wait.js';
 import { PREPARE_AHEAD_MS, airsNight, type PrepareSlotPayload } from './prepare.slot.job.js';
+import { promiseStillHeld } from './promise.wait.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
 import { ScheduleService } from './schedule.service.js';
@@ -144,7 +145,7 @@ export class ScheduleTickJob extends PlainJob {
         // that it already has is the running order no longer belonging to any slot, which is the
         // same comparison the block case makes and needs no second piece of state.
         if (slot === undefined) {
-            if (airing !== undefined) await this.sustain();
+            if (airing !== undefined && !(active && this.holdForPromise())) await this.sustain();
             return;
         }
 
@@ -154,7 +155,46 @@ export class ScheduleTickJob extends PlainJob {
             return;
         }
 
+        if (active && this.holdForPromise()) return;
         await this.changeOver(slot, airing, active);
+    }
+
+    /**
+     * Wait a minute rather than change over now, when a break on air has just announced a record that
+     * the changeover would take back.
+     *
+     * `putOnAir` retracts everything the player holds and lets only the item on air finish, so a
+     * bulletin that ends "here is X" and is still being read at the boundary finishes in front of
+     * the next programme's first record instead. On the live station that was four of fifty-five
+     * changeovers in a month, among them a bulletin naming Gunship at 09:00 on 2026-10-23 followed by
+     * a chart show's Tame Impala. The edit paths keep such a record put (`StationLineup.staysPut`);
+     * a changeover replaces the order rather than editing it, so here the only way to keep the
+     * promise is to ask again next minute, by which time the record has started and the changeover
+     * lets it finish like any record on air.
+     *
+     * **This is `holdForOpening`'s bargain, not the refused fix of keeping the outgoing queue**:
+     * nothing of the old order survives the changeover when it comes, and what moves is only WHEN the
+     * tick asks. It costs the new programme one record, at only the changeovers that land inside a
+     * break, and an operator's own put-on-air never comes through here. Bounded by
+     * `promiseStillHeld`, so a transport that goes on calling a break on air cannot hold the last
+     * programme on with it. A break that is only HANDED is not a reason: the changeover retracts it
+     * with its record, so nothing it said reaches anybody.
+     */
+    private holdForPromise(): boolean {
+        const promise = this.console.promiseOnAir();
+        if (promise === undefined || !promiseStillHeld(promise.startedAt, promise.durationMs, Date.now())) return false;
+
+        const { record } = promise;
+        this.logger.info('schedule: a break on air announced the next record, so the changeover waits for it', {
+            item: promise.breakItemId,
+            record: record.itemId,
+        });
+        this.say(`promise:${promise.breakItemId}`, {
+            kind: 'schedule.waited',
+            detail: `A break on air had just announced "${record.title}"${record.artist.length > 0 ? ` by ${record.artist}` : ''}, so the station is playing it before changing over.`,
+            data: { item: promise.breakItemId, record: record.itemId },
+        });
+        return true;
     }
 
     /**

@@ -77,6 +77,8 @@ interface Options {
     remaining?: number;
     /** What asking the queue does. Absent is a send that lands. */
     send?: () => Promise<string>;
+    /** A break on air that has announced a record not yet started. Absent is none. */
+    promiseOnAir?: { breakItemId: string; startedAt: number; durationMs?: number; record: { itemId: string; title: string; artist: string } };
 }
 
 function build(options: Options = {}) {
@@ -116,6 +118,7 @@ function build(options: Options = {}) {
     const console = {
         putOnAir: vi.fn(options.putOnAir ?? (async () => ({}))),
         overrunning: vi.fn(() => options.overrunning),
+        promiseOnAir: vi.fn(() => options.promiseOnAir),
         cutOverrun: vi.fn(async () => options.cutTakes ?? true),
     } as unknown as DirectorConsoleService;
 
@@ -288,6 +291,84 @@ describe('ScheduleTickJob', () => {
 
         const held = activity.record.mock.calls.filter(call => (call[0] as { kind?: string } | undefined)?.kind === 'schedule.held');
         expect(held).toHaveLength(1);
+    });
+
+    // Measured on 2026-10-23: a bulletin ended "Gunship brings us Blood for the Blood God", the clock
+    // changed the station over while it was still being read, and a chart show's first record followed.
+    describe('and a break on air that has announced the next record', () => {
+        const promising = (over: { startedAt?: number; durationMs?: number } = {}) => ({
+            breakItemId: 'news-1',
+            startedAt: over.startedAt ?? Date.now() - 30_000,
+            ...(over.durationMs === undefined ? {} : { durationMs: over.durationMs }),
+            record: { itemId: 'gunship', title: 'Blood for the Blood God', artist: 'Gunship' },
+        });
+
+        it('waits rather than change over, and says why once', async () => {
+            const { tick, console, activity } = build({
+                inForce: slot('countdown'),
+                airing: 'neon',
+                promiseOnAir: promising({ durationMs: 37_000 }),
+            });
+
+            await tick();
+            await tick();
+
+            expect(console.putOnAir).not.toHaveBeenCalled();
+            const waited = activity.record.mock.calls.filter(call => (call[0] as { kind?: string } | undefined)?.kind === 'schedule.waited');
+            expect(waited).toHaveLength(1);
+            expect(waited[0]![0]).toEqual(expect.objectContaining({ detail: expect.stringContaining('"Blood for the Blood God" by Gunship') }));
+        });
+
+        it('changes over once the record it named is on air, which is when the promise has been kept', async () => {
+            const { tick, console } = build({ inForce: slot('countdown'), airing: 'neon' });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalled();
+        });
+
+        it('stops believing a break long past its own end, so a stale reading cannot hold the last programme on', async () => {
+            const { tick, console } = build({
+                inForce: slot('countdown'),
+                airing: 'neon',
+                promiseOnAir: promising({ startedAt: Date.now() - 10 * 60_000, durationMs: 37_000 }),
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalled();
+        });
+
+        it('bounds a break whose length the transport never learned', async () => {
+            const recent = build({ inForce: slot('countdown'), airing: 'neon', promiseOnAir: promising({ startedAt: Date.now() - 60_000 }) });
+            await recent.tick();
+            expect(recent.console.putOnAir).not.toHaveBeenCalled();
+
+            const stale = build({ inForce: slot('countdown'), airing: 'neon', promiseOnAir: promising({ startedAt: Date.now() - 30 * 60_000 }) });
+            await stale.tick();
+            expect(stale.console.putOnAir).toHaveBeenCalled();
+        });
+
+        it('waits before handing a gap to its sustaining source too', async () => {
+            const { tick, console } = build({
+                inForce: undefined,
+                airing: 'neon',
+                sustaining: { pluginId: 'p', playlistId: 'l', callins: false },
+                promiseOnAir: promising({ durationMs: 37_000 }),
+            });
+
+            await tick();
+
+            expect(console.putOnAir).not.toHaveBeenCalled();
+        });
+
+        it('is not asked when the slot in force is already on', async () => {
+            const { tick, console } = build({ inForce: slot('neon'), airing: 'neon', promiseOnAir: promising({ durationMs: 37_000 }) });
+
+            await tick();
+
+            expect(console.promiseOnAir).not.toHaveBeenCalled();
+        });
     });
 
     it('hands a station in a GAP to its sustaining source', async () => {

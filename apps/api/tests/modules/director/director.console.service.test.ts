@@ -112,6 +112,8 @@ interface Options {
     cutTakes?: boolean;
     /** The id of the item the transport says is on air. Defaults to one no running order holds. */
     onAirId?: string;
+    /** How long the transport says the item on air runs. Absent is a length it does not know. */
+    onAirDurationMs?: number;
     /**
      * What `CandidatesRepository.effectiveRating` answers for a canonical track id, for the veto.
      *
@@ -163,6 +165,11 @@ function build(options: Options = {}) {
             return undefined;
         }),
         order: vi.fn(() => order?.toSnapshot()),
+        // The real order's answer, reshaped the way the real director reshapes it.
+        promisedBy: vi.fn((itemId: string) => {
+            const record = order?.promisedBy(itemId);
+            return record === undefined ? undefined : { itemId: record.id, title: record.track.title, artist: record.track.artist };
+        }),
         requestBreak: vi.fn(async () => options.changeoverAnswer ?? { accepted: true, requestId: 'req-1', segmentId: 'seg-1' }),
         applyEdit: vi.fn(async (edit: OrderEdit) => {
             if (!order) return { ok: false, reason: 'not-found', message: 'nothing on air' } as const;
@@ -351,7 +358,18 @@ function build(options: Options = {}) {
     // The transport's half of a skip to a record. The cut remembers what the order said when it
     // landed, which is how a case can tell the edit happened first.
     const rundown = {
-        nowPlaying: vi.fn(() => (options.airing ? { item: { id: options.onAirId ?? 'on-air', title: 'Echoes' }, startedAt: 0 } : undefined)),
+        nowPlaying: vi.fn(() =>
+            options.airing
+                ? {
+                      item: {
+                          id: options.onAirId ?? 'on-air',
+                          title: 'Echoes',
+                          ...(options.onAirDurationMs === undefined ? {} : { durationMs: options.onAirDurationMs }),
+                      },
+                      startedAt: 0,
+                  }
+                : undefined,
+        ),
         broadcast: vi.fn(() => (options.hostArtUrl === undefined ? undefined : { name: 'Afternoons', hostArtUrl: options.hostArtUrl })),
     };
     // A playlist the station owns, read-only from here: the playlists module owns its rows.
@@ -2448,6 +2466,66 @@ describe('DirectorConsoleService and a record left over from the last programme'
 
         expect(await service.cutOverrun('on-air')).toBe(false);
         expect(pusher.skipCurrent).not.toHaveBeenCalled();
+    });
+});
+
+// Measured on 2026-10-23: a bulletin ended "Gunship brings us Blood for the Blood God", the schedule
+// changed over while it was still being read, and the next programme's first record followed it.
+describe('DirectorConsoleService and a promise on air', () => {
+    /** A record played, the break after it airing, and the record it named still to come. */
+    const announcing = (): { order: StationLineup; breakId: string } => {
+        const order = new StationLineup({
+            name: 'Breakfast',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            slotId: 'morning',
+            placedBy: 'schedule',
+        });
+        order.append([
+            { pluginId: 'p', externalId: 't0', title: 'Future Club', artists: ['Perturbator'], artist: 'Perturbator' },
+            { pluginId: 'p', externalId: 't1', title: 'Blood for the Blood God', artists: ['Gunship'], artist: 'Gunship' },
+        ]);
+        order.insertSegment('news', 1);
+        const [first, news] = order.nextPlanned(2);
+        order.markHanded(first!.id);
+        order.markHanded(news!.id);
+        order.markPlayed(first!.id);
+        order.markAiring(news!.id);
+        return { order, breakId: news!.id };
+    };
+
+    it('names the break on air and the record it announced', () => {
+        const { order, breakId } = announcing();
+        const { service } = build({ order, airing: true, onAirId: breakId, onAirDurationMs: 37_000 });
+
+        expect(service.promiseOnAir()).toEqual({
+            breakItemId: breakId,
+            startedAt: 0,
+            durationMs: 37_000,
+            record: { itemId: order.all()[2]!.id, title: 'Blood for the Blood God', artist: 'Gunship' },
+        });
+    });
+
+    it('leaves out a length the transport does not know', () => {
+        const { order, breakId } = announcing();
+        const { service } = build({ order, airing: true, onAirId: breakId });
+
+        expect(service.promiseOnAir()).not.toHaveProperty('durationMs');
+    });
+
+    it('names nothing when a record is on air', () => {
+        const { order } = announcing();
+        const { service } = build({ order, airing: true, onAirId: order.all()[0]!.id });
+
+        expect(service.promiseOnAir()).toBeUndefined();
+    });
+
+    it('names nothing when nothing is on air', () => {
+        const { order } = announcing();
+        const { service } = build({ order, airing: false });
+
+        expect(service.promiseOnAir()).toBeUndefined();
     });
 });
 

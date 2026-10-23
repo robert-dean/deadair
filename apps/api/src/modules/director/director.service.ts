@@ -661,6 +661,18 @@ export class DirectorService {
     }
 
     /**
+     * The record a break the player holds has announced and that has not started yet, or `undefined`.
+     *
+     * `StationLineup.promisedBy`, read out of the order for a caller that holds only an item id: the
+     * transport knows which item is on air and nothing about what it said, and the order knows what
+     * comes after it. A copy of the record's name rather than the item, on {@link order}'s rule.
+     */
+    promisedBy(itemId: string): { itemId: string; title: string; artist: string } | undefined {
+        const record = this.lineup?.promisedBy(itemId);
+        return record === undefined ? undefined : { itemId: record.id, title: record.track.title, artist: record.track.artist };
+    }
+
+    /**
      * The running order as it stands, for a console that has to draw it.
      *
      * A snapshot rather than the object, so a caller cannot edit what is on air by

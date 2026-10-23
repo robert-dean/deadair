@@ -1788,6 +1788,58 @@ describe('StationLineup and the record a held break announced', () => {
 
         expect(idsOf(lineup.all())).toEqual(['a', 'segment:link', 'x', 'y']);
     });
+
+    // What a changeover asks of the break on air, since it replaces the order rather than editing it.
+    describe('promisedBy', () => {
+        it('names the record a held break announced', () => {
+            const lineup = announced();
+
+            expect(idsOf([lineup.promisedBy(lineup.all()[1]!.id)!])).toEqual(['b']);
+        });
+
+        it('still names it while the break airs and the record is already handed', () => {
+            const lineup = announced();
+            lineup.markPlayed(lineup.all()[0]!.id);
+            lineup.markAiring(lineup.all()[1]!.id);
+            hand(lineup, 1);
+            expect(lineup.all()[2]!.state).toBe('handed');
+
+            expect(idsOf([lineup.promisedBy(lineup.all()[1]!.id)!])).toEqual(['b']);
+        });
+
+        it('names nothing once the record is on air, because the promise has been kept', () => {
+            const lineup = announced();
+            lineup.markPlayed(lineup.all()[0]!.id);
+            lineup.markPlayed(lineup.all()[1]!.id);
+            hand(lineup, 1);
+            lineup.markAiring(lineup.all()[2]!.id);
+
+            expect(lineup.promisedBy(lineup.all()[1]!.id)).toBeUndefined();
+        });
+
+        it('names nothing for a record, a planned break, a talk-over cue or an id the order does not hold', () => {
+            const lineup = announced();
+            expect(lineup.promisedBy(lineup.all()[0]!.id)).toBeUndefined();
+            expect(lineup.promisedBy('nowhere')).toBeUndefined();
+
+            const planned = lineupWith(['a', 'b']);
+            planned.insertSegment('talk', 1);
+            expect(planned.promisedBy(planned.all()[1]!.id)).toBeUndefined();
+
+            const cued = lineupWith(['a', 'b', 'c']);
+            cued.insertSegment('link', 1, { atMs: 5_000 });
+            hand(cued, 2);
+            expect(cued.promisedBy(cued.all()[1]!.id)).toBeUndefined();
+        });
+
+        it('names nothing when there is no record after the break', () => {
+            const lineup = lineupWith(['a']);
+            lineup.insertSegment('talk', 1);
+            hand(lineup, 2);
+
+            expect(lineup.promisedBy(lineup.all()[1]!.id)).toBeUndefined();
+        });
+    });
 });
 
 describe('StationLineup dedications', () => {

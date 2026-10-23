@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-10-23
+
+- A record, a release or an artist can be suspended from its page in the console: **Suspend** for a day, a week or a month keeps it off the station without touching your rating, the page says how long is left, and **Lift** ends it early. The tracks list counts and filters what is suspended and marks a suspended row, and the desktop app's record list has the same filter. On the API, `TrackState` gains `suspended` and the state counts carry `suspended`.
+
 ## [0.16.1] — 2026-10-21
 
 - Skip in the window now names the record it is showing. If it finished in the moment before the press reached the station, nothing is skipped and the station's own sentence says so: "That had already finished, so nothing was skipped." Before, the press cut the record that had just started. The media key still skips whatever is on.
@@ -171,7 +175,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.0...HEAD
+[0.17.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.1...desktop-v0.17.0
 [0.16.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.0...desktop-v0.16.1
 [0.16.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.15.0...desktop-v0.16.0
 [0.15.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.14.1...desktop-v0.15.0

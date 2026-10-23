@@ -31,8 +31,12 @@ station can do the rest by being asked. Each page shows both where both exist.
    programmes against.
 4. [Two recurring shows](./recurring-shows.md): a Friday chart countdown and a nightly metal show, set
    up once and aired every week.
-5. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
+5. [A holiday special](./holiday-special.md): a Halloween night that takes over from the weekly
+   schedule for its hours and comes back every year.
+6. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
+7. [Teach the presenter to say a name](./say-a-name.md): a name the station says wrongly, fixed and
+   heard before it airs.
 
 ## Grow the station
 
@@ -64,6 +68,8 @@ Each of these adds one thing to a station that is already on air, and none depen
   demand.
 - [Throw a party](./throw-a-party.md): a code on the TV, and guests asking for records from their
   phones with no account.
+- [Run it from a Stream Deck](./stream-deck.md): what is on air, Skip, Stop and your opinion of the
+  record, under your fingers.
 
 ## On your phone
 

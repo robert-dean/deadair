@@ -68,7 +68,9 @@ const sidebars: SidebarsConfig = {
                 'tutorials/write-a-character',
                 'tutorials/make-a-show',
                 'tutorials/recurring-shows',
+                'tutorials/holiday-special',
                 'tutorials/making-a-voice',
+                'tutorials/say-a-name',
             ],
         },
         {
@@ -91,7 +93,7 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'More',
             collapsed: false,
-            items: ['tutorials/produce-a-segment', 'tutorials/throw-a-party'],
+            items: ['tutorials/produce-a-segment', 'tutorials/throw-a-party', 'tutorials/stream-deck'],
         },
         {
             type: 'category',

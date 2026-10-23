@@ -106,4 +106,4 @@ waits on Apple's approval, so the iPhone app does nothing in a car yet.
 
 - [The station on your Android home screen](./android-home-screen.md): a tile, a widget and the
   station as wallpaper.
-- [People](../features/people.md), to give somebody else a listener's account.
+- [Let friends listen](./let-friends-listen.md), to give somebody else a listener's account.

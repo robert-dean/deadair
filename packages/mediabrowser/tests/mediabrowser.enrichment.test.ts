@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment, providerId } from '../src/jellyfin.enrichment.js';
-import { selectAlbum, selectArtist, selectTrack } from '../src/jellyfin.match.js';
+import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment, providerId } from '../src/mediabrowser.enrichment.js';
+import { selectAlbum, selectArtist, selectTrack } from '../src/mediabrowser.match.js';
 
 const RECORDING = 'ebce4b79-3a33-43b7-96c4-1eda0820c06e';
 const TRACK_ID = '6715e4cf-f5ad-35e1-8aa4-c7180c64ee78';
@@ -35,6 +35,7 @@ describe('mapTrackEnrichment', () => {
                     Genres: ['Power Metal', 'power metal', ' '],
                     ProviderIds: { MusicBrainzRecording: RECORDING, MusicBrainzTrack: TRACK_ID, MusicBrainzAlbum: RELEASE },
                 },
+                'jellyfin',
                 'http://jf.test/art',
             ),
         ).toEqual({
@@ -55,7 +56,7 @@ describe('mapTrackEnrichment', () => {
     });
 
     it('drops the placeholder date Jellyfin gives an untagged file', () => {
-        expect(mapTrackEnrichment({ Id: ID, PremiereDate: '0001-01-01T00:00:00.0000000Z' }).releaseDate).toBeUndefined();
+        expect(mapTrackEnrichment({ Id: ID, PremiereDate: '0001-01-01T00:00:00.0000000Z' }, 'jellyfin').releaseDate).toBeUndefined();
     });
 });
 
@@ -64,6 +65,7 @@ describe('mapArtistEnrichment', () => {
         expect(
             mapArtistEnrichment(
                 { Id: ID, Name: 'Masterplan', Overview: 'German power metal.', ProviderIds: { MusicBrainzArtist: ARTIST } },
+                'jellyfin',
                 'http://img',
             ),
         ).toEqual({
@@ -81,14 +83,17 @@ describe('mapArtistEnrichment', () => {
 
 describe('mapAlbumEnrichment', () => {
     it('files the release group where the host promotes it, the release beside it, and the label when read', () => {
-        const enrichment = mapAlbumEnrichment({
-            Id: ID,
-            Name: 'Aeronautics',
-            AlbumArtist: 'Masterplan',
-            ProductionYear: 2005,
-            Studios: [{ Name: 'AFM Records' }],
-            ProviderIds: { MusicBrainzReleaseGroup: RELEASE_GROUP, MusicBrainzAlbum: RELEASE },
-        });
+        const enrichment = mapAlbumEnrichment(
+            {
+                Id: ID,
+                Name: 'Aeronautics',
+                AlbumArtist: 'Masterplan',
+                ProductionYear: 2005,
+                Studios: [{ Name: 'AFM Records' }],
+                ProviderIds: { MusicBrainzReleaseGroup: RELEASE_GROUP, MusicBrainzAlbum: RELEASE },
+            },
+            'jellyfin',
+        );
 
         expect(enrichment).toMatchObject({ name: 'Aeronautics', artist: 'Masterplan', year: 2005, label: 'AFM Records' });
         expect(enrichment.externalIds).toEqual([
@@ -158,5 +163,24 @@ describe('selectAlbum', () => {
         expect(selectAlbum([album('1', 'Dummy (Deluxe)')], 'Dummy', undefined)?.Id).toBe('1');
         expect(selectAlbum([album('1', 'Something Else', RELEASE_GROUP)], 'Dummy', RELEASE_GROUP)?.Id).toBe('1');
         expect(selectAlbum([album('1', 'Dummy', OTHER)], 'Dummy', RELEASE_GROUP)).toBeUndefined();
+    });
+});
+
+describe('mapTrackEnrichment on what Emby reports', () => {
+    it("files Emby's MusicBrainzTrack as the release-track id it is, never as the recording the host promotes", () => {
+        // What Emby 4.10.1 reported for a Picard-tagged file: the release track, and no recording.
+        const ids = mapTrackEnrichment({ Id: '12', ProviderIds: { MusicBrainzTrack: TRACK_ID, MusicBrainzAlbum: RELEASE } }, 'emby').externalIds;
+
+        expect(ids).toEqual([
+            { source: 'emby', id: '12' },
+            { source: 'musicbrainz-track', id: TRACK_ID },
+        ]);
+    });
+
+    it('still files a recording id under the promoted source if a server ever sends one', () => {
+        expect(mapTrackEnrichment({ Id: '12', ProviderIds: { MusicBrainzRecording: RECORDING } }, 'emby').externalIds).toContainEqual({
+            source: 'musicbrainz',
+            id: RECORDING,
+        });
     });
 });

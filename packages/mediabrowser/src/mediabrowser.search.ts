@@ -1,14 +1,14 @@
 import { normalize } from '@deadair/plugin-sdk';
 
 /**
- * How a free-text query becomes Emby searches.
+ * How a free-text query becomes MediaBrowser searches.
  *
- * Emby's `searchTerm` matches an item's NAME and nothing else, a word at a
- * time and without regard to punctuation, so a search for audio matches track
- * titles only. The station searches with `"<artist> <title>"` (that is what
- * `ProviderTrackLookup` sends for every record it commits), and against a
- * name-only match that string finds nothing at all: measured on 4.10.1, `Song 1`
- * found the track and `Test Artist Song 1` found nothing. So a query is also read as an artist at the front and a title
+ * The server's `searchTerm` matches an item's NAME and nothing else, so a search
+ * for audio matches track titles only. The station searches with
+ * `"<artist> <title>"` (that is what `ProviderTrackLookup` sends for every
+ * record it commits), and against a name-only match that string finds nothing
+ * at all: measured on Jellyfin 10.11.0 and Emby 4.10.1 alike, `Song 1` found the
+ * track and `Test Artist Song 1` found nothing. So a query is also read as an artist at the front and a title
  * after it, and the artist is looked up so the title can be searched within
  * their tracks.
  *
@@ -22,7 +22,7 @@ const ARTICLES = new Set(['the', 'a', 'an', 'el', 'la', 'las', 'los', 'le', 'les
 const bare = (word: string): string => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
 
 /**
- * The one word to ask Emby's artist search for, or nothing when the query
+ * The one word to ask the server's artist search for, or nothing when the query
  * is a single word and so cannot hold an artist AND a title.
  *
  * The first word, because the station puts the artist first; past a leading
@@ -96,7 +96,7 @@ export function longestWord(rest: string): string | undefined {
 const FIRST_YEAR = 1900;
 
 /**
- * A period as the comma-separated list Emby's `Years` filter takes, or
+ * A period as the comma-separated list the server's `Years` filter takes, or
  * `undefined` when no period was asked for.
  *
  * An open end is closed at the floor or at next year, so "1990 onwards" is a

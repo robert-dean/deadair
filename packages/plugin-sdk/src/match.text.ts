@@ -43,3 +43,20 @@ export function normalize(value: string): string {
 export function baseForm(value: string): string {
     return normalize(value.replace(PARENTHETICAL, ' ').split(/\s+[-–—]\s+/)[0] ?? value);
 }
+
+/** How well two names agree: the same in comparison form, the same once decorations are dropped, or not at all. */
+export type TextAgreement = 'exact' | 'base' | 'none';
+
+/**
+ * How well a candidate's name agrees with the one asked about, for a matcher's score.
+ *
+ * `exact` in {@link normalize}'s form, `base` in {@link baseForm}'s (so `Roads (Live)` agrees with
+ * `Roads`, more weakly), and `none` for anything else, a missing candidate included. Three library
+ * plugins scored their candidates with this same function, each with its own copy.
+ */
+export function textAgreement(candidate: string | null | undefined, reference: string): TextAgreement {
+    if (!candidate) return 'none';
+    if (normalize(candidate) === normalize(reference)) return 'exact';
+    if (baseForm(candidate) === baseForm(reference)) return 'base';
+    return 'none';
+}

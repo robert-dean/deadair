@@ -1,16 +1,14 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { captureWrites } from '#modules/render/script.history.settings.js';
-import { breakPrompt, maxWordsFor, type BreakPromptShape, type PromptSettings } from './break.prompt.js';
-import { permittedYears, readAnswer, shownWithoutRecent, writeDecline, type AnswerGuard } from './break.answer.guard.js';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
+import { type BreakPromptShape } from './break.prompt.js';
+import { permittedYears, shownWithoutRecent } from './break.answer.guard.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { DEDICATION_KIND, DEDICATION_LABEL, dedicationOf, type DedicationParts } from './dedication.writer.js';
-import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { modelList } from '#modules/llm/model.list.js';
+import { writeWithModel } from './model.break.write.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 
 /**
  * A presenter passing on a listener's dedication, with the station's own two names underneath it.
@@ -113,74 +111,35 @@ export class ModelDedicationWriter extends BreakWriter {
         const parts = dedicationOf(request);
         // Nothing for the model to add without a message: the floor says the two names exactly as well.
         if (parts?.message === undefined) return undefined;
-        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
-        if (!this.llm.canGenerate()) {
-            this.logger.debug(`director: no model to pass on a dedication with (${this.llm.explainGenerator()})`);
-            return undefined;
-        }
 
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
-        const model = models[0] ?? '';
-        const settings: PromptSettings = {
-            ...stationPromptSettings(this.config, request),
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
-            ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
-            ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
-        };
-        const messages = breakPrompt(request, settings, DEDICATION_SHAPE);
-
-        const result = await this.llm.converse(
+        const outcome = await writeWithModel(
+            { llm: this.llm, config: this.config, logger: this.logger },
             {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                ...breakGeneration(this.config),
-            },
-            // No tools, for the talk break's reason, and one more: nothing a listener typed may reach
-            // anything that fetches.
-            {
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                maxWaitMs: patienceFor(request.airsAt),
-                ...(request.priority === undefined ? {} : { priority: request.priority }),
+                request,
+                settings: {
+                    ...stationPromptSettings(this.config, request),
+                    ...(request.persona === undefined ? {} : { persona: request.persona }),
+                    ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
+                    ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
+                },
+                shape: DEDICATION_SHAPE,
+                guard: messages => ({
+                    // The one record this kind is shown, so a script that says it has already played is
+                    // refused rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See
+                    // `misCuedIn`.
+                    ...(request.next === undefined ? {} : { cues: { next: request.next } }),
+                    years: permittedYears(
+                        request.next === undefined ? [] : [request.next],
+                        request.moment,
+                        shownWithoutRecent(messages, request.recent),
+                    ),
+                }),
+                purpose: { noModel: 'pass on a dedication with', nothing: 'pass a dedication on with' },
             },
         );
-
-        const guard: AnswerGuard = {
-            maxWords: maxWordsFor(settings, DEDICATION_SHAPE),
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
-            ...(request.recent === undefined ? {} : { recent: request.recent }),
-            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
-            ...(request.moment === undefined ? {} : { moment: request.moment }),
-            // The one record this kind is shown, so a script that says it has already played is refused
-            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
-            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
-            ...languageGuard(this.config),
-            ...homeGuard(this.config),
-            ...stationGuard(this.config),
-            ...speakerGuard(this.config, request),
-            years: permittedYears(request.next === undefined ? [] : [request.next], request.moment, shownWithoutRecent(messages, request.recent)),
-        };
-        const script = readAnswer(result.text, guard);
-
-        this.lastDetail = {
-            model: result.model,
-            ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
-            ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
-        };
-
-        if (script === undefined) {
-            const declined = writeDecline(result.text, guard);
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
-            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could pass a dedication on with'}`, {
-                finish: result.finishReason,
-                persona: request.persona?.key,
-            });
-            return undefined;
-        }
-
+        this.lastDetail = outcome.detail;
+        if (outcome.written === undefined) return undefined;
+        const { script } = outcome.written;
         if (quotesListener(script, parts.message)) {
             const reason = 'the model read the listener’s message out rather than passing it on, so the station names the two people instead';
             this.lastDetail = { ...this.lastDetail, reason };

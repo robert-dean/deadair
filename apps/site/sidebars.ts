@@ -63,7 +63,13 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'Create with AI',
             collapsed: false,
-            items: ['tutorials/connect-a-model', 'tutorials/write-a-character', 'tutorials/make-a-show', 'tutorials/making-a-voice'],
+            items: [
+                'tutorials/connect-a-model',
+                'tutorials/write-a-character',
+                'tutorials/make-a-show',
+                'tutorials/recurring-shows',
+                'tutorials/making-a-voice',
+            ],
         },
         {
             type: 'category',
@@ -74,6 +80,7 @@ const sidebars: SidebarsConfig = {
                 'tutorials/news-and-weather',
                 'tutorials/carry-a-podcast',
                 'tutorials/speakers',
+                'tutorials/let-friends-listen',
                 'tutorials/chat-platforms',
                 'tutorials/home-assistant',
             ],

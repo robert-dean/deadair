@@ -29,7 +29,9 @@ station can do the rest by being asked. Each page shows both where both exist.
    before it airs.
 3. [Make a show](./make-a-show.md): a block on the timetable with a host and a brief the model
    programmes against.
-4. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
+4. [Two recurring shows](./recurring-shows.md): a Friday chart countdown and a nightly metal show, set
+   up once and aired every week.
+5. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
 
 ## Grow the station
@@ -44,6 +46,8 @@ Each of these adds one thing to a station that is already on air, and none depen
   the clock.
 - [Play the station on a speaker](./speakers.md): a Chromecast, a Sonos, a BluOS player or a UPnP renderer, started
   from the Desk.
+- [Let friends listen](./let-friends-listen.md): the station reachable from outside the house, a
+  friend invited as a listener, and the phone app with requests and the words of each record.
 - [Put the station on a chat platform](./chat-platforms.md): a bot on Telegram, Discord or Slack that
   says what is playing, takes requests, and lets you run the station from a chat.
 - [Light up an On Air sign with Home Assistant](./home-assistant.md): the station telling your own servers

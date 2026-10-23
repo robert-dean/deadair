@@ -1,4 +1,4 @@
-import { baseForm, normalize } from '@deadair/plugin-sdk';
+import { baseForm, normalize, textAgreement } from '@deadair/plugin-sdk';
 
 import type { PlexMetadata } from './plex.types.js';
 
@@ -12,15 +12,6 @@ import type { PlexMetadata } from './plex.types.js';
  */
 
 /** How well a candidate agrees with what was asked for. */
-type Agreement = 'exact' | 'base' | 'none';
-
-function agree(candidate: string | undefined, reference: string): Agreement {
-    if (!candidate) return 'none';
-    if (normalize(candidate) === normalize(reference)) return 'exact';
-    if (baseForm(candidate) === baseForm(reference)) return 'base';
-    return 'none';
-}
-
 /** What the caller knows about the track it is asking about. */
 export interface MatchRef {
     artist: string;
@@ -43,13 +34,13 @@ export function selectTrack(items: readonly PlexMetadata[], ref: MatchRef): Plex
     for (const item of items) {
         if (!item.ratingKey || item.type !== 'track') continue;
 
-        const title = agree(item.title, ref.title);
-        const own = agree(item.originalTitle, ref.artist);
-        const artist = own !== 'none' ? own : agree(item.grandparentTitle, ref.artist);
+        const title = textAgreement(item.title, ref.title);
+        const own = textAgreement(item.originalTitle, ref.artist);
+        const artist = own !== 'none' ? own : textAgreement(item.grandparentTitle, ref.artist);
         if (title === 'none' || artist === 'none') continue;
 
         const score =
-            (title === 'exact' ? 4 : 0) + (artist === 'exact' ? 2 : 0) + (ref.album && agree(item.parentTitle, ref.album) !== 'none' ? 1 : 0);
+            (title === 'exact' ? 4 : 0) + (artist === 'exact' ? 2 : 0) + (ref.album && textAgreement(item.parentTitle, ref.album) !== 'none' ? 1 : 0);
         if (!best || score > best.score) best = { item, score };
     }
 

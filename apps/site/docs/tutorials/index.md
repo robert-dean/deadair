@@ -29,7 +29,9 @@ station can do the rest by being asked. Each page shows both where both exist.
    before it airs.
 3. [Make a show](./make-a-show.md): a block on the timetable with a host and a brief the model
    programmes against.
-4. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
+4. [Two recurring shows](./recurring-shows.md): a Friday chart countdown and a nightly metal show, set
+   up once and aired every week.
+5. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
 
 ## Grow the station

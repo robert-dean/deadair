@@ -26,6 +26,17 @@ data class PlayerUiState(
 )
 
 /**
+ * The player's own reading laid over what else is known, both on bind and on every event after it.
+ *
+ * One function for both because the bind once seeded only `requested`, so a controller bound to a
+ * station already playing said "asked for and silent" until the next player event, which on a
+ * steady stream can be minutes. The Quick Settings tile binds afresh each time the shade opens, so
+ * it read "Warming up" on every open.
+ */
+internal fun PlayerUiState.withPlayer(isPlaying: Boolean, playbackState: Int, playWhenReady: Boolean): PlayerUiState =
+    copy(playing = isPlaying, buffering = playbackState == Player.STATE_BUFFERING, requested = playWhenReady)
+
+/**
  * The screen's handle on the playback service.
  *
  * A `MediaController` rather than a reference to the player, so the screen and the notification and
@@ -50,12 +61,7 @@ class PlayerConnection(private val context: Context) {
         object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 // A copy, not a fresh state: the sleep timer arrives by a different road.
-                _state.value =
-                    _state.value.copy(
-                        playing = player.isPlaying,
-                        buffering = player.playbackState == Player.STATE_BUFFERING,
-                        requested = player.playWhenReady,
-                    )
+                _state.value = _state.value.withPlayer(player.isPlaying, player.playbackState, player.playWhenReady)
             }
         }
 
@@ -87,11 +93,9 @@ class PlayerConnection(private val context: Context) {
                     }
                 controller = bound.also { it.addListener(listener) }
                 _state.value =
-                    _state.value.copy(
-                        connected = true,
-                        requested = controller?.playWhenReady ?: false,
-                        sleep = controller?.sessionExtras?.let(SleepCommands::stateOf) ?: SleepState.Off,
-                    )
+                    _state.value
+                        .withPlayer(bound.isPlaying, bound.playbackState, bound.playWhenReady)
+                        .copy(connected = true, sleep = SleepCommands.stateOf(bound.sessionExtras))
             },
             MoreExecutors.directExecutor(),
         )

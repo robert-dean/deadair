@@ -1986,6 +1986,9 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
         ...(input.requestFollowOn === undefined ? {} : { requestFollowOn: input.requestFollowOn }),
         ...(input.requestCooldownMinutes === undefined ? {} : { requestCooldownMinutes: input.requestCooldownMinutes }),
         ...(input.requestMaxOpen === undefined ? {} : { requestMaxOpen: input.requestMaxOpen }),
+        ...(input.repeatWindowDays === undefined ? {} : { repeatWindowDays: input.repeatWindowDays }),
+        ...(input.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: input.artistCooldownMinutes }),
+        ...(input.maxPerArtist === undefined ? {} : { maxPerArtist: input.maxPerArtist }),
     };
     return Object.keys(rules).length === 0 ? {} : { rules };
 }

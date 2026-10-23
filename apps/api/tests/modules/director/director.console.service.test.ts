@@ -688,6 +688,20 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { breaks: true } } });
     });
 
+    it('binds the repeat rules a broadcast lifts, keeping a zero as a lift rather than dropping it', async () => {
+        // A one-artist hour needs all three: the cooldown refuses the second record outright, the cap
+        // trims a batch to two, and the window keeps a small pool from coming round. Zero is the lift
+        // itself, so it has to survive the trip as a value and not read as "not sent".
+        const { service, posted } = build();
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 6 });
+
+        expect(posted()[0]).toMatchObject({
+            kind: 'putOnAir',
+            binding: { rules: { repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 6 } },
+        });
+    });
+
     it('leaves the rules off the binding when the operator asked for none, so the station settings stand', async () => {
         const { service, posted } = build();
 

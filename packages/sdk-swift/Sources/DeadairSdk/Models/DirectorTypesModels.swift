@@ -837,10 +837,16 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var requestCooldownMinutes: Int?
     /// How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's
     public var requestMaxOpen: Int?
+    /// Days a record rests after airing before this broadcast may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule
+    public var repeatWindowDays: Int?
+    /// Minutes an artist rests after airing during this broadcast, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    public var artistCooldownMinutes: Int?
+    /// Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    public var maxPerArtist: Int?
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -864,6 +870,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.requestFollowOn = requestFollowOn
         self.requestCooldownMinutes = requestCooldownMinutes
         self.requestMaxOpen = requestMaxOpen
+        self.repeatWindowDays = repeatWindowDays
+        self.artistCooldownMinutes = artistCooldownMinutes
+        self.maxPerArtist = maxPerArtist
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -892,6 +901,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case requestFollowOn = "requestFollowOn"
         case requestCooldownMinutes = "requestCooldownMinutes"
         case requestMaxOpen = "requestMaxOpen"
+        case repeatWindowDays = "repeatWindowDays"
+        case artistCooldownMinutes = "artistCooldownMinutes"
+        case maxPerArtist = "maxPerArtist"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -921,6 +933,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
         self.requestCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .requestCooldownMinutes)
         self.requestMaxOpen = try container.decodeIfPresent(Int.self, forKey: .requestMaxOpen)
+        self.repeatWindowDays = try container.decodeIfPresent(Int.self, forKey: .repeatWindowDays)
+        self.artistCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .artistCooldownMinutes)
+        self.maxPerArtist = try container.decodeIfPresent(Int.self, forKey: .maxPerArtist)
         self.mode = try container.decodeIfPresent(StationMode.self, forKey: .mode)
         self.onEnd = try container.decodeIfPresent(StationOnEnd.self, forKey: .onEnd)
     }
@@ -950,6 +965,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
         try container.encodeIfPresent(self.requestCooldownMinutes, forKey: .requestCooldownMinutes)
         try container.encodeIfPresent(self.requestMaxOpen, forKey: .requestMaxOpen)
+        try container.encodeIfPresent(self.repeatWindowDays, forKey: .repeatWindowDays)
+        try container.encodeIfPresent(self.artistCooldownMinutes, forKey: .artistCooldownMinutes)
+        try container.encodeIfPresent(self.maxPerArtist, forKey: .maxPerArtist)
         try container.encodeIfPresent(self.mode, forKey: .mode)
         try container.encodeIfPresent(self.onEnd, forKey: .onEnd)
     }

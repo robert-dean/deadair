@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.8] — 2026-10-23
+
+- A console served from a different address than the API is no longer refused on every call when `SPA_BASE_URL` or `APP_BASE_URL` is written with a trailing slash or a path. The station now compares the browser's origin against each address's origin rather than the address as written.
+- The HLS playlist lists fifteen segments by default (thirty seconds) instead of six, and never fewer than ten. A player starts three segments back from live however long the playlist is, so a short playlist made no one closer to live: it only left a player with nowhere to go after a brief stall, and Android listeners lost their place in the stream. A station set below ten is raised to ten, and the setting's help now says what the number actually does.
+
 ## [0.77.7] — 2026-10-23
 
 - A bulletin or link still on air when the schedule changes shows no longer announces a record that never plays. On 23 October the 9am news ended "Gunship brings us Blood for the Blood God", the clock switched to the next show while it was being read, and that show's first record followed instead. The changeover now waits for the announced record to start, plays it, and then switches. The new show starts one record later, and only when a changeover lands in the middle of a break.
@@ -1597,7 +1602,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.7...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.8...HEAD
+[0.77.8]: https://github.com/robert-dean/deadair/compare/v0.77.7...v0.77.8
 [0.77.7]: https://github.com/robert-dean/deadair/compare/v0.77.6...v0.77.7
 [0.77.6]: https://github.com/robert-dean/deadair/compare/v0.77.5...v0.77.6
 [0.77.5]: https://github.com/robert-dean/deadair/compare/v0.77.4...v0.77.5

@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.78.0] — 2026-10-23
+
+- Putting the station on air (`POST /director/air`) can now lift its repeat rules for that broadcast. `repeatWindowDays`, `artistCooldownMinutes` and `maxPerArtist` each replace the station's own setting for as long as the broadcast runs, and 0 lifts the rule. An hour of one artist sets the cooldown to 0 and raises the cap. A dislike and a never-play rule still apply.
+- A rotation block on the schedule, and a new show started from Desk, Plan, can now lift the station's repeat rules. Under **Repeat rules**, **Record rest (days)**, **Artist rest (minutes)** and **Most per artist** each replace the station's setting for that block, and 0 turns a rule off, which is what an hour of one artist needs. An empty box keeps the station's setting.
+- A schedule slot can carry its own repeat rules. `repeatWindowDays`, `artistCooldownMinutes` and `maxPerArtist` on a slot are copied onto the running order when the slot starts, so a scheduled hour of one artist can lift the cooldown and the cap for as long as it runs. Absent keeps the station's own settings.
+- A presenter now knows the mood the show is leaning into. On a slot with mood stages, every model-written break except a bulletin is told the stage it airs in as the mood of that stretch, and told not to claim any record is in it, since the records only lean that way. A stock phrasing is unchanged.
+- A running bit is no longer built on a telling whose break you rated down on the Scripts page. The presenter is shown only the tellings that went out unrated or rated up, and the nightly recap of a bit reads the same ones.
+- The Spotify plugin's Client ID help now says that an app in development mode only works while its owner has Spotify Premium, so a station that goes quiet when the subscription lapses has its reason on the settings page.
+
 ## [0.77.9] — 2026-10-23
 
 - On a chart show that is also offered the weather, a break that says the record's chart position ("at number 43") is no longer refused for stating a temperature the station was never given. Every model-written break of a countdown was being refused that way and replaced by a stock phrasing.
@@ -1606,7 +1615,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.9...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.78.0...HEAD
+[0.78.0]: https://github.com/robert-dean/deadair/compare/v0.77.9...v0.78.0
 [0.77.9]: https://github.com/robert-dean/deadair/compare/v0.77.8...v0.77.9
 [0.77.8]: https://github.com/robert-dean/deadair/compare/v0.77.7...v0.77.8
 [0.77.7]: https://github.com/robert-dean/deadair/compare/v0.77.6...v0.77.7

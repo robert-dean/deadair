@@ -1,6 +1,6 @@
 {
     "name": "@deadair/web",
-    "version": "0.77.9",
+    "version": "0.78.0",
     "private": true,
     "license": "MIT",
     "type": "module",

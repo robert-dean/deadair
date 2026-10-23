@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.78.1] — 2026-10-23
+
+- A chart countdown that falls behind its slot now still ends on number one. When nobody is listening the station pauses, and a long run of requests or talk eats time too, so a countdown fitted to its slot could reach the next show with the top of the chart still queued, and the changeover dropped it. The station now checks as the show goes on and, when number one would no longer start before the slot ends, drops the lowest-ranked records still to come instead, saying so on the activity feed. Requests, records the player already holds and anything the operator added are never dropped.
+
 ## [0.78.0] — 2026-10-23
 
 - Putting the station on air (`POST /director/air`) can now lift its repeat rules for that broadcast. `repeatWindowDays`, `artistCooldownMinutes` and `maxPerArtist` each replace the station's own setting for as long as the broadcast runs, and 0 lifts the rule. An hour of one artist sets the cooldown to 0 and raises the cap. A dislike and a never-play rule still apply.
@@ -1615,7 +1619,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.78.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.78.1...HEAD
+[0.78.1]: https://github.com/robert-dean/deadair/compare/v0.78.0...v0.78.1
 [0.78.0]: https://github.com/robert-dean/deadair/compare/v0.77.9...v0.78.0
 [0.77.9]: https://github.com/robert-dean/deadair/compare/v0.77.8...v0.77.9
 [0.77.8]: https://github.com/robert-dean/deadair/compare/v0.77.7...v0.77.8

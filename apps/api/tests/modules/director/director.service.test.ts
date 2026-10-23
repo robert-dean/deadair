@@ -30,6 +30,7 @@ import {
 import { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import { ProductionRepository } from '../../../src/modules/productions/production.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { AsRunRepository } from '../../../src/modules/director/as.run.repository.js';
 import { PodcastEpisodeRepository } from '../../../src/modules/podcasts/podcast.episode.repository.js';
 import { PersonaTellingRepository } from '../../../src/modules/personas/persona.telling.repository.js';
 import { PlaylistPositionRepository } from '../../../src/modules/schedule/playlist.position.repository.js';
@@ -235,6 +236,7 @@ function build(options: Options = {}) {
     } as unknown as StationAirRepository;
 
     const history = { record: vi.fn(async () => {}) } as unknown as PlayHistoryRepository;
+    const asRun = { record: vi.fn(async () => {}), close: vi.fn(async () => {}) } as unknown as AsRunRepository;
 
     // Somebody else's programmes: the fetch ahead of a band, which has nothing to do in any case here,
     // and the aired mark an episode gets on the same edge a record's history row is written on.
@@ -481,7 +483,9 @@ function build(options: Options = {}) {
                                                 ? personaTellings
                                                 : token === PlaylistPositionRepository
                                                   ? positions
-                                                  : history,
+                                                  : token === AsRunRepository
+                                                    ? asRun
+                                                    : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -543,6 +547,7 @@ function build(options: Options = {}) {
         saved: () => saved,
         jobs,
         history,
+        asRun,
         podcastScheduler,
         podcastEpisodes,
         personaTellings,
@@ -1439,6 +1444,21 @@ describe('DirectorService standing down', () => {
 
         const record = activity.record as unknown as ReturnType<typeof vi.fn>;
         expect(record.mock.calls.filter(call => call[0]?.kind === 'air.off')).toHaveLength(1);
+    });
+
+    it('ends the open item in the as-run log on the same edge, once', async () => {
+        // Nothing else will ever say the last item stopped being on air.
+        const { director, rundown, asRun, seed } = build();
+        await seed();
+        await director.start();
+
+        rundown.reset();
+        await settle();
+        rundown.reset();
+        await settle();
+
+        expect(asRun.close).toHaveBeenCalledOnce();
+        expect(vi.mocked(asRun.close).mock.calls[0]![0]).toBe('main');
     });
 
     it('announces coming off air on the bus once, beside the feed line', async () => {
@@ -2550,6 +2570,24 @@ describe('DirectorService committing segments', () => {
                 expect.objectContaining({ kind: 'break.claimStale', data: expect.not.objectContaining({ driftMs: expect.anything() }) }),
             );
         });
+    });
+
+    // The as-run log is the one record of what went out that is not about records, so a break is in
+    // it even though it is kept out of play history.
+    it('writes a segment into the as-run log when it airs, beside every record', async () => {
+        const { director, lineup, rundown, asRun, seed } = build({ items: ['a', 'b'], segments: [READY] });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+        await director.start();
+        await settle();
+
+        const segmentItem = rundown.upcoming().find(item => item.pluginId === RENDER_PLUGIN_ID)!;
+        await rundown.next();
+        rundown.markAired(segmentItem.id);
+        await settle();
+
+        expect(asRun.record).toHaveBeenCalledOnce();
+        expect(vi.mocked(asRun.record).mock.calls[0]![0]).toMatchObject({ item: { id: segmentItem.id }, stationKey: 'main', passedOver: 0 });
     });
 
     // Play history steers what plays NEXT: the repeat window and the artist cooldown are both

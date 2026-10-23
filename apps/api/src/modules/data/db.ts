@@ -220,6 +220,23 @@ export interface DeadairArtistSources {
   uri: string | null;
 }
 
+export interface DeadairAsRun {
+  airedAt: DateTime;
+  artists: Generated<string>;
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  endedAt: DateTime | null;
+  id: Generated<string>;
+  itemId: string;
+  kind: "record" | "break" | "programme";
+  passedOver: Generated<number>;
+  segmentId: string | null;
+  source: string | null;
+  stationKey: Generated<string>;
+  title: string;
+  trackId: string | null;
+}
+
 export interface DeadairBlockRules {
   createdAt: Generated<DateTime>;
   endsAt: DateTime | null;
@@ -1316,6 +1333,7 @@ export interface DB {
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
+  "deadair.asRun": DeadairAsRun;
   "deadair.blockRules": DeadairBlockRules;
   "deadair.breakRequests": DeadairBreakRequests;
   "deadair.callerHosts": DeadairCallerHosts;

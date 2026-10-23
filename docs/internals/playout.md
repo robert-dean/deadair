@@ -582,6 +582,21 @@ which is safe only while every `detail` is written by app code, so an upstream b
 a plugin's message must be summarized rather than quoted. That is also the line between this and `PluginLog`,
 which scrubs tokens and sits on `platform.manage` precisely because plugin output goes through it.
 
+**The as-run log is the fourth record, and the only one that is about every item.** `deadair.as_run`
+(migration 0113) holds one row per item that went out, records and breaks and programmes alike, opened on the
+rundown's `onAired` edge and closed when the next item airs or the station is stood down. It is not
+`play_history`, which holds records only because the repeat window reads it, and not the feed, which carries
+moments rather than a row per item. Two choices in it matter. **An end is only ever an observed one**: a
+process that died mid-record saw nothing end, so that row stays open rather than taking a time guessed from
+the running time, and an open row behind the item airing now is the log saying the station stopped without a
+stand-down. And **the two writes are safe in either order**, because the aired edge hands each to its own scope
+and two items a second apart can land backwards: the close reaches only rows that started earlier, pulling in
+one a later item ended too late, and an insert that arrives after a later row ends where that row began. Both
+were run against a real database with the writes deliberately reversed. Silences are not copied into it: the
+read joins `gap`, `air.on` and `air.off` from `station_events`, on the one-writer rule above. It keeps 400
+days (`AS_RUN_RETENTION_DAYS`), past the feed's 90, so the oldest stretch of the log has its items and not its
+gaps.
+
 **A heartbeat is not a health check.** `modules/shared/heartbeat.ts` is a map of name to two
 timestamps and holds no opinion about thresholds, because a five-second poll and a nightly sweep are
 both healthy and no one number describes both: it answers how long it has been and the reader

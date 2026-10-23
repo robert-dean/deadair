@@ -55,6 +55,7 @@ import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { AsRunRepository } from './as.run.repository.js';
 import { RouteRepository } from './route.repository.js';
 import { RouteService } from './route.service.js';
 import { TrackSkipsRepository } from './track.skips.repository.js';
@@ -81,6 +82,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(StationLineupRepository).useClass(StationLineupRepository).asScoped();
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
+        registry.register(AsRunRepository).useClass(AsRunRepository).asScoped();
         registry.register(RouteRepository).useClass(RouteRepository).asScoped();
         registry.register(RouteService).useClass(RouteService).asScoped();
         registry.register(TrackSkipsRepository).useClass(TrackSkipsRepository).asScoped();

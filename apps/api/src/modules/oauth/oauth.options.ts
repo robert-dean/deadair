@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { protectedResourceMetadataUrl } from '@maroonedsoftware/authentication';
+import { urlOrigin } from '#modules/shared/url.origin.js';
 
 /** Where the MCP endpoint is on the API, which is `/api/mcp` on the station's origin. */
 export const MCP_PATH = '/mcp';
@@ -34,9 +35,9 @@ export class OAuthOptions {
     ) {}
 
     static fromConfig(config: AppConfig): OAuthOptions | undefined {
-        const origin = originOf(String(config.get('APP_BASE_URL', '')));
+        const origin = urlOrigin(String(config.get('APP_BASE_URL', '')));
         if (origin === undefined) return undefined;
-        const console = originOf(String(config.get('SPA_BASE_URL', ''))) ?? origin;
+        const console = urlOrigin(String(config.get('SPA_BASE_URL', ''))) ?? origin;
         const resource = `${origin}/api${MCP_PATH}`;
         return new OAuthOptions(
             origin,
@@ -55,16 +56,5 @@ export class OAuthOptions {
      */
     isMcpPath(path: string): boolean {
         return path.replace(/\/+$/, '').toLowerCase() === this.mcpPath;
-    }
-}
-
-/** `https://radio.example.com/` as `https://radio.example.com`, or nothing for a blank or bad value. */
-function originOf(raw: string): string | undefined {
-    const trimmed = raw.trim();
-    if (trimmed === '') return undefined;
-    try {
-        return new URL(trimmed).origin;
-    } catch {
-        return undefined;
     }
 }

@@ -8,6 +8,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { RequestSearchLimiter } from './request.search.limiter.js';
 import type { RequestableTrack } from './types/requests.types.js';
+import { BoundedTtlMap } from '#modules/shared/bounded.ttl.map.js';
 
 /** How long one term's provider answer is reused, and how many terms are kept. */
 export const REQUEST_PROVIDER_TTL_MS = 60_000;
@@ -15,11 +16,6 @@ const REQUEST_PROVIDER_CACHE_MAX = 200;
 
 /** How many records the providers are asked for in all, before anything is filtered out. */
 const REQUEST_PROVIDER_LIMIT = 25;
-
-interface CacheEntry {
-    at: number;
-    tracks: FoundTrack[];
-}
 
 /**
  * The provider half of the request search: records a music provider carries that the station does
@@ -54,7 +50,7 @@ interface CacheEntry {
  */
 @Injectable()
 export class RequestProviderSearch {
-    private static readonly cache = new Map<string, CacheEntry>();
+    private static readonly cache = new BoundedTtlMap<FoundTrack[]>(REQUEST_PROVIDER_TTL_MS, REQUEST_PROVIDER_CACHE_MAX);
     private static readonly inFlight = new Map<string, Promise<FoundTrack[]>>();
 
     constructor(
@@ -74,7 +70,12 @@ export class RequestProviderSearch {
      * Provider records for `query`, minus everything above, at most `limit` of them. `callerKey` is
      * whose allowance a fresh provider search is spent from.
      */
-    async search(query: string, library: readonly { title: string; artist: string }[], limit: number, callerKey: string): Promise<RequestableTrack[]> {
+    async search(
+        query: string,
+        library: readonly { title: string; artist: string }[],
+        limit: number,
+        callerKey: string,
+    ): Promise<RequestableTrack[]> {
         const reached = await this.reach(query, callerKey);
         if (reached.length === 0) return [];
 
@@ -112,7 +113,7 @@ export class RequestProviderSearch {
     private async reach(query: string, callerKey: string): Promise<FoundTrack[]> {
         const key = query.trim().toLowerCase();
         const cached = RequestProviderSearch.cache.get(key);
-        if (cached !== undefined && Date.now() - cached.at < REQUEST_PROVIDER_TTL_MS) return cached.tracks;
+        if (cached !== undefined) return cached;
 
         const pending = RequestProviderSearch.inFlight.get(key);
         if (pending !== undefined) return pending;
@@ -134,13 +135,7 @@ export class RequestProviderSearch {
 
         const { tracks } = await this.providers.search(query, {}, REQUEST_PROVIDER_LIMIT, { operation: 'requests.search.searchTracks' });
 
-        // Oldest out first: a Map iterates in insertion order, and a re-asked term is re-inserted.
-        RequestProviderSearch.cache.delete(key);
-        if (RequestProviderSearch.cache.size >= REQUEST_PROVIDER_CACHE_MAX) {
-            const oldest = RequestProviderSearch.cache.keys().next();
-            if (oldest.done !== true) RequestProviderSearch.cache.delete(oldest.value);
-        }
-        RequestProviderSearch.cache.set(key, { at: Date.now(), tracks });
+        RequestProviderSearch.cache.set(key, tracks);
         return tracks;
     }
 
@@ -150,7 +145,7 @@ export class RequestProviderSearch {
      * Nothing once the search that found it has left the cache.
      */
     static named(pluginId: string, externalId: string): { title: string; artist: string } | undefined {
-        for (const { tracks } of RequestProviderSearch.cache.values()) {
+        for (const tracks of RequestProviderSearch.cache.values()) {
             const track = tracks.find(candidate => candidate.source === pluginId && candidate.externalId === externalId);
             if (track !== undefined) return { title: track.title, artist: track.artist };
         }

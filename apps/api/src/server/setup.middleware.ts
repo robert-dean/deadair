@@ -15,6 +15,7 @@ import { nowPlayingCorsMiddleware } from './middleware/nowplaying.cors.middlewar
 import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
 import { oauthChallengeMiddleware } from './middleware/oauth.challenge.middleware.js';
 import { oauthClientCredentialMiddleware } from './middleware/oauth.client.credential.middleware.js';
+import { consoleOrigins } from '#modules/shared/url.origin.js';
 
 export const setupMiddleware = (container: Container) => {
     const middlewares: ServerKitMiddleware[] = [];
@@ -50,9 +51,10 @@ export const setupMiddleware = (container: Container) => {
     // cookie cross-origin), so the API must answer with `Access-Control-Allow-Credentials: true` —
     // a credentialed response missing that header is blocked by the browser, which surfaced as
     // "We couldn't verify your session" when /me/sessions failed the CORS check. Credentialed CORS
-    // forbids the `*` wildcard origin, so we allow explicit origins: the SPA and API base URLs.
-    // An unset (or blank) base URL falls back to the empty default and drops out of the list.
-    const allowedOrigins = [config.get<string, string>('SPA_BASE_URL', ''), config.get<string, string>('APP_BASE_URL', '')].filter(Boolean);
+    // forbids the `*` wildcard origin, so we allow explicit origins: the SPA and API base URLs, as
+    // ORIGINS, since the check is exact and a base URL with a trailing slash matched nothing. See
+    // `consoleOrigins`. An unset (or blank) base URL drops out of the list.
+    const allowedOrigins = consoleOrigins(config);
     // OUTSIDE the CORS middleware below, so its post-`next` write is the last one and overrides
     // that answer for the HLS prefix. The stream is a broadcast and any page may fetch it, which
     // is a different policy from the console's and cannot be a further entry in the list above:

@@ -7,6 +7,28 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { clampLimit } from '#modules/shared/limit.clamp.js';
+import { BoundedTtlMap } from '#modules/shared/bounded.ttl.map.js';
+
+/**
+ * How long an answer is reused.
+ *
+ * Fifteen minutes, and the failure it exists for is small and immediate: one
+ * break that mentions a subject twice, or a pass that works through a handful of
+ * characters who share an interest, would otherwise ask the same engine the same
+ * question inside a minute. It is deliberately NOT sized to how fast the web
+ * changes — a caller that wants what is new asks with a `recency`, which is part
+ * of the key.
+ */
+export const SEARCH_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * How many questions are remembered at once.
+ *
+ * Small, because unlike an artist cache there is no working set to hold: the
+ * questions a station asks are open-ended and mostly never repeat, so this is a
+ * bound on a leak rather than a hit-rate target.
+ */
+export const SEARCH_CACHE_MAX = 200;
 
 /**
  * What the open web says about something, out of whatever search plugins are
@@ -54,7 +76,7 @@ export class SearchService {
      * all — while still looking like one in any test that used a single
      * instance.
      */
-    private static readonly cache = new Map<string, CacheEntry>();
+    private static readonly cache = new BoundedTtlMap<SearchResult[]>(SEARCH_TTL_MS, SEARCH_CACHE_MAX);
 
     constructor(
         private readonly pluginRegistry: PluginRegistry,
@@ -83,7 +105,7 @@ export class SearchService {
         const key = cacheKey(asked, options);
 
         const cached = SearchService.cache.get(key);
-        if (cached !== undefined && Date.now() - cached.at < SEARCH_TTL_MS) return cached.results.slice(0, wanted);
+        if (cached !== undefined) return cached.slice(0, wanted);
 
         const collected: SearchResult[] = [];
         const seen = new Set<string>();
@@ -141,14 +163,7 @@ export class SearchService {
 
     /** Keep an answer, evicting the oldest once the map is full. */
     private remember(key: string, results: SearchResult[]): void {
-        if (SearchService.cache.size >= SEARCH_CACHE_MAX) {
-            // Insertion order, which for a Map is oldest first. Crude, and right
-            // for a bound whose whole job is to stop a station that has been up
-            // for a month holding every question it has ever asked.
-            const oldest = SearchService.cache.keys().next();
-            if (!oldest.done) SearchService.cache.delete(oldest.value);
-        }
-        SearchService.cache.set(key, { at: Date.now(), results });
+        SearchService.cache.set(key, results);
     }
 
     /** Every plugin that can search right now, in a stable order. */
@@ -173,32 +188,6 @@ export interface SearchOptions {
  * asking a search engine for a thousand.
  */
 export const MAX_SEARCH_RESULTS = 25;
-
-/**
- * How long an answer is reused.
- *
- * Fifteen minutes, and the failure it exists for is small and immediate: one
- * break that mentions a subject twice, or a pass that works through a handful of
- * characters who share an interest, would otherwise ask the same engine the same
- * question inside a minute. It is deliberately NOT sized to how fast the web
- * changes — a caller that wants what is new asks with a `recency`, which is part
- * of the key.
- */
-export const SEARCH_TTL_MS = 15 * 60 * 1000;
-
-/**
- * How many questions are remembered at once.
- *
- * Small, because unlike an artist cache there is no working set to hold: the
- * questions a station asks are open-ended and mostly never repeat, so this is a
- * bound on a leak rather than a hit-rate target.
- */
-export const SEARCH_CACHE_MAX = 200;
-
-interface CacheEntry {
-    at: number;
-    results: SearchResult[];
-}
 
 /**
  * What makes two questions the same question.

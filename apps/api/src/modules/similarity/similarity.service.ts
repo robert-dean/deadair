@@ -8,6 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { BoundedTtlMap } from '#modules/shared/bounded.ttl.map.js';
 
 /**
  * An artist that resembles the one asked about, and which plugin said so.
@@ -76,11 +77,6 @@ export const SIMILARITY_CACHE_MAX = 2_000;
 /** How long one call into a plugin may take. Bounded well inside a refill's own budget. */
 const INVOKE_TIMEOUT_MS = 12_000;
 
-interface CacheEntry {
-    at: number;
-    artists: Neighbour[];
-}
-
 @Injectable()
 export class SimilarityService {
     /**
@@ -94,7 +90,7 @@ export class SimilarityService {
      * instance. Static, it is what the class means: one process, one memory of
      * what an upstream said.
      */
-    private static readonly cache = new Map<string, CacheEntry>();
+    private static readonly cache = new BoundedTtlMap<Neighbour[]>(SIMILARITY_TTL_MS, SIMILARITY_CACHE_MAX);
 
     constructor(
         private readonly pluginRegistry: PluginRegistry,
@@ -126,7 +122,7 @@ export class SimilarityService {
         if (key.length === 0) return [];
 
         const cached = SimilarityService.cache.get(key);
-        if (cached && Date.now() - cached.at < SIMILARITY_TTL_MS) return cached.artists.slice(0, limit);
+        if (cached !== undefined) return cached.slice(0, limit);
 
         const found: Neighbour[] = [];
         const seen = new Set<string>([key]);
@@ -239,19 +235,11 @@ export class SimilarityService {
     }
 
     /**
-     * Hold an answer, evicting the oldest when the map is full.
-     *
-     * Insertion-ordered eviction rather than least-recently-used, which would need
-     * a touch on every read. The distinction cannot matter at this size: the cap is
-     * several times a station's whole rotation, so anything evicted has not been
-     * asked about in a very long time.
+     * Hold an answer, evicting the oldest when the map is full. The cap is several times a station's
+     * whole rotation, so anything evicted has not been asked about in a very long time.
      */
     private remember(key: string, artists: Neighbour[]): void {
-        if (SimilarityService.cache.size >= SIMILARITY_CACHE_MAX) {
-            const oldest = SimilarityService.cache.keys().next();
-            if (!oldest.done) SimilarityService.cache.delete(oldest.value);
-        }
-        SimilarityService.cache.set(key, { at: Date.now(), artists });
+        SimilarityService.cache.set(key, artists);
     }
 
     /**

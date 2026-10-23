@@ -1,16 +1,14 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { captureWrites } from '#modules/render/script.history.settings.js';
-import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
+import type { BreakPromptShape } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
+import { writeWithModel } from './model.break.write.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 import { NEWS_KIND } from './news.break.writer.js';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model reading the headlines, with the station's own bulletin underneath it.
@@ -170,121 +168,51 @@ export class ModelNewsBreakWriter extends BreakWriter {
         // to say nothing rather than a reason to say something general.
         if ((request.stories?.length ?? 0) === 0) return undefined;
 
-        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
-        if (!this.llm.canGenerate()) {
-            this.logger.debug(`director: no model to read the news with (${this.llm.explainGenerator()})`);
-            return undefined;
-        }
-
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
-        const model = models[0] ?? '';
-        const messages = breakPrompt(
-            request,
+        const outcome = await writeWithModel(
+            { llm: this.llm, config: this.config, logger: this.logger },
             {
-                ...stationPromptSettings(this.config, request),
-                maxWords: NEWS_MAX_WORDS,
-                ...(request.persona === undefined ? {} : { persona: request.persona }),
+                request,
+                // `NEWS_SHAPE` offers no latitude, so `maxWordsFor` reads this ceiling back exactly.
+                settings: {
+                    ...stationPromptSettings(this.config, request),
+                    maxWords: NEWS_MAX_WORDS,
+                    ...(request.persona === undefined ? {} : { persona: request.persona }),
+                },
+                shape: NEWS_SHAPE,
+                // The prompt tells the model who it is (`persona` above, into `breakPrompt`) — a bulletin
+                // is free to sound like this station's presenter — and the guard holds it to three
+                // quarters of that. **The character is a LEAN here and not a requirement**, which is
+                // `dialect: 'optional'` and is the whole of what makes this kind different.
+                //
+                // The measurement it rests on: every News break under `wisecrack` this station wrote fell
+                // through to the deterministic floor as `out-of-character`, because "no jokes, no
+                // opinions" in `NEWS_SHAPE.opening` and "sound like nobody else" in the check are not
+                // simultaneously satisfiable. A talk break earns its persona by being about nothing but
+                // voice; a bulletin earns its keep by being correct.
+                //
+                // What this kind used to do about that was omit `persona` from the guard ENTIRELY, and
+                // that was broader than the measurement. `characterFault` is four checks and only ONE of
+                // them asks for anything: the other three forbid echoing a sample line, using wording the
+                // sheet bans, and reusing a signature the station just spent, none of which is in tension
+                // with reporting neutrally. Dropping all four re-permitted the exact failure
+                // `persona.sheet.ts` was built for and names at the top — `I said what I said` closing a
+                // talk break, a welcome AND a news bulletin. So the prohibitions are back and only the
+                // dialect is excused, which cannot cost a bulletin: all three are things a script must
+                // not DO, and the floor underneath is the operator's own news phrasings, which chain no
+                // persona templates and cannot trip them.
+                dialect: 'optional',
+                // The one record this kind is shown, so a script that says it has already played is
+                // refused rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See
+                // `misCuedIn`. No `years`: a bulletin's years belong to its stories rather than to a
+                // record, and that substrate has no guard of its own yet.
+                guard: () => (request.next === undefined ? {} : { cues: { next: request.next } }),
+                purpose: { noModel: 'read the news with', nothing: 'read as news' },
+                context: { stories: request.stories?.length },
             },
-            NEWS_SHAPE,
         );
-
-        const result = await this.llm.converse(
-            {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                ...breakGeneration(this.config),
-            },
-            // No tools. Everything this bulletin may contain is already in the prompt, and a model
-            // that could go looking for more of a story is a model that can report something the
-            // station never fetched — which is the whole failure this kind is shaped against.
-            {
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                // Derived from when this break is due rather than fixed: see `patienceFor`.
-                maxWaitMs: patienceFor(request.airsAt),
-                // See `BreakWriteRequest.priority`: absent for a bulletin that is going on air.
-                ...(request.priority === undefined ? {} : { priority: request.priority }),
-            },
-        );
-
-        // The prompt tells the model who it is (`persona` above, into `breakPrompt`) — a bulletin is
-        // free to sound like this station's presenter — and the guard holds it to three quarters of
-        // that. **The character is a LEAN here and not a requirement**, which is `dialect:
-        // 'optional'` and is the whole of what makes this kind different.
-        //
-        // The measurement it rests on: every News break under `wisecrack` this station wrote fell
-        // through to the deterministic floor as `out-of-character`, because "no jokes, no opinions"
-        // in `NEWS_SHAPE.opening` and "sound like nobody else" in the check are not simultaneously
-        // satisfiable. A talk break earns its persona by being about nothing but voice; a bulletin
-        // earns its keep by being correct.
-        //
-        // What this kind used to do about that was omit `persona` from the guard ENTIRELY, and that
-        // was broader than the measurement. `characterFault` is four checks and only ONE of them
-        // asks for anything: the other three forbid echoing a sample line, using wording the sheet
-        // bans, and reusing a signature the station just spent, none of which is in tension with
-        // reporting neutrally. Dropping all four re-permitted the exact failure `persona.sheet.ts`
-        // was built for and names at the top — `I said what I said` closing a talk break, a welcome
-        // AND a news bulletin. So the prohibitions are back and only the dialect is excused, which
-        // cannot cost a bulletin: all three are things a script must not DO, and the floor underneath
-        // is the operator's own news phrasings, which chain no persona templates and cannot trip them.
-        const guard: AnswerGuard = {
-            maxWords: NEWS_MAX_WORDS,
-            ...(request.persona === undefined ? {} : { persona: request.persona, dialect: 'optional' as const }),
-            // The list the prompt was built from, so a signature is refused here only where the
-            // prompt named it as spent. See `AnswerGuard.recent`.
-            ...(request.recent === undefined ? {} : { recent: request.recent }),
-            // The same daypart the prompt stated, so a script is refused for contradicting it
-            // only where it was actually told. See `AnswerGuard.dayPart`.
-            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
-            // Beside the daypart and off the same instant: the words are what the prompt stated and
-            // this is what the clock says, which is the half of the question a stretch cannot answer.
-            ...(request.moment === undefined ? {} : { moment: request.moment }),
-            // The one record this kind is shown, so a script that says it has already played is refused
-            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
-            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
-            ...languageGuard(this.config),
-            ...homeGuard(this.config),
-            ...stationGuard(this.config),
-            ...speakerGuard(this.config, request),
-        };
-        const script = readAnswer(result.text, guard);
-
-        this.lastDetail = {
-            // What the host RESOLVED, not what the setting said. A station that never pinned a
-            // model left this empty, so every row read "the plugin default" and the record could
-            // not answer which model wrote anything. See `LlmConversation.model`.
-            model: result.model,
-            ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
-            ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
-        };
-
-        if (script === undefined) {
-            // Why it was refused, on the row as well as in the log. See `writeDecline` and
-            // `WriteDetail.reason`.
-            const declined = writeDecline(result.text, guard);
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
-
-            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could read as news'}`, {
-                finish: result.finishReason,
-                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
-                stories: request.stories?.length,
-                persona: request.persona?.key,
-                fault: declined?.fault,
-            });
-            return undefined;
-        }
-
-        // A bulletin cut back to its last whole STORY, which is what a sentence boundary is here. See
-        // `writeTrim`, and `NEWS_MAX_WORDS` for why a cut bulletin is worth more than the floor's.
-        const trimmed = writeTrim(result.text, guard);
-        if (trimmed !== undefined) {
-            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
-            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, stories: request.stories?.length });
-        }
-
+        this.lastDetail = outcome.detail;
+        if (outcome.written === undefined) return undefined;
+        const { script, guard } = outcome.written;
         // The greeting is not offered to a bulletin, and a model opens with one anyway ("Good morning.
         // Here is the news."), so it is searched for like the two that are. Unstamped, a bulletin
         // written at twenty to twelve and re-projected past noon aired its "Good morning" in the

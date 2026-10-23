@@ -1509,6 +1509,18 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The mood the show is leaning into for this stretch, as context for the register and nothing
+    // more. Said as a lean because it is one: the draw only makes a fitting record more likely, so
+    // the record either side may be in another mood entirely, and a presenter calling it a sad song
+    // because the hour is sad is the station being wrong out loud. Not for a bulletin, whose voice is
+    // `lean` because reporting somebody else's facts is not done in a mood.
+    if (request.mood && shape.voice !== 'lean') {
+        parts.push(
+            `This stretch of the show leans toward ${request.mood}. Let that colour how you sound, without naming it, and do not say ` +
+                'that any record is in that mood: not all of them are.',
+        );
+    }
+
     if (request.clock && settings.language !== undefined) {
         // The words are English and the break is not, so they cannot come back verbatim. The time is
         // handed over as the phrase it is and the model says the same rough time in its own language.

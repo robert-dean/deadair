@@ -40,15 +40,33 @@ export function stageAt(
 /**
  * The mood a refill of `count` records after `ahead` should lean into, for the broadcast in `lineup`.
  *
+ * {@link stretchMood} measured at the batch's midpoint, which is where most of it will air.
+ */
+export async function refillMood(
+    lineup: MoodLineup,
+    ahead: readonly StationLineupItem[],
+    count: number,
+    schedule: Pick<ScheduleService, 'inForce'>,
+    config: AppConfig,
+    now = Date.now(),
+): Promise<LyricMood | undefined> {
+    return await stretchMood(lineup, batchMidpointMs(ahead, count), schedule, config, now);
+}
+
+/**
+ * The mood stage the broadcast in `lineup` is in `aheadMs` from now.
+ *
  * Stages only mean anything against the slot the broadcast was put on for, so the slot in force is
  * read and used only when it IS that slot; a broadcast an operator started by hand outside its slot, or
  * one that is still airing after a changeover moved on, leans into its first stage. A schedule that
- * cannot be read costs the stage and never the refill.
+ * cannot be read costs the stage and never the caller.
+ *
+ * The draw reads it for a refill and the break writers for the stretch a break airs in, and both
+ * read it here so the two can never disagree about which stage the station is in.
  */
-export async function refillMood(
-    lineup: { readonly moods?: readonly LyricMood[] | undefined; readonly slotId?: string | undefined },
-    ahead: readonly StationLineupItem[],
-    count: number,
+export async function stretchMood(
+    lineup: MoodLineup,
+    aheadMs: number,
     schedule: Pick<ScheduleService, 'inForce'>,
     config: AppConfig,
     now = Date.now(),
@@ -59,5 +77,11 @@ export async function refillMood(
 
     const slot = await schedule.inForce(new Date(now)).catch(() => undefined);
     if (slot?.id !== lineup.slotId) return moods[0];
-    return stageAt(moods, slot, now, batchMidpointMs(ahead, count), stationZone(config));
+    return stageAt(moods, slot, now, aheadMs, stationZone(config));
+}
+
+/** What {@link stretchMood} reads of a broadcast: its stages and the slot it was put on for. */
+export interface MoodLineup {
+    readonly moods?: readonly LyricMood[] | undefined;
+    readonly slotId?: string | undefined;
 }

@@ -1273,6 +1273,27 @@ describe('breakPrompt', () => {
         });
     });
 
+    describe('the mood of the stretch', () => {
+        it('says nothing for a broadcast that leans into none', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/leans toward/);
+        });
+
+        it('tells the presenter the mood as a lean, and never that a record is in it', () => {
+            // The draw only makes a fitting record more likely, so the record beside this break may
+            // be in another mood entirely. A presenter told otherwise says so over the wrong record.
+            const said = user(prompt({ kind: 'talkbreak', previous, mood: 'loneliness' }));
+
+            expect(said).toContain('This stretch of the show leans toward loneliness');
+            expect(said).toMatch(/do not say that any record is in that mood/i);
+        });
+
+        it("leaves it out of a bulletin, which reports in nobody's mood", () => {
+            const said = user(breakPrompt({ kind: 'news', mood: 'sadness', stories: [{ headline: 'Bridge reopens.' }] }, {}, NEWS_SHAPE));
+
+            expect(said).not.toMatch(/leans toward/);
+        });
+    });
+
     describe('a station that has to stay clean', () => {
         it('says nothing about language when the station has no such policy', () => {
             expect(system(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/broadcast-clean/i);

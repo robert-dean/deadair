@@ -7,6 +7,7 @@ import type { StationPlaylist } from '@deadair/sdk';
 import { pluginsListOptions } from '../../api/plugins.queries';
 import { i18n } from '../../i18n/i18n.setup';
 import { PlayStationPlaylistButton } from '../playout/play.playlist.button';
+import { AuthoredBadge } from '../shared/authored.badge';
 
 /** The plugin a station playlist was cloned from, by the name an operator knows it by. */
 export function usePluginName(pluginId: string | undefined): string | undefined {
@@ -35,9 +36,9 @@ export function StationPlaylistCard({ playlist }: { playlist: StationPlaylist })
                         {playlist.name}
                     </Text>
                     <Group gap="xs">
-                        <Badge size="sm" variant="light" color="grape" tt="none">
+                        <AuthoredBadge size="sm" tt="none">
                             {t('stationCard.badge')}
-                        </Badge>
+                        </AuthoredBadge>
                         {origin === undefined ? undefined : (
                             <Badge size="sm" variant="light" color="gray" tt="none">
                                 {t('stationCard.from', { origin })}

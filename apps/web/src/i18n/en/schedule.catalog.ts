@@ -9,7 +9,6 @@ export const schedule = {
         change: 'Change',
         done: 'Done',
     },
-    saved: 'Saved.',
     saveFailedTitle: 'That could not be saved',
     nothingWritten: 'Nothing was written.',
     validation: {

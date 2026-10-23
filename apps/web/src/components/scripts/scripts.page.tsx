@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionIcon, Anchor, Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
+import { ActionIcon, Anchor, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconShare } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
@@ -8,6 +8,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useRateScript, useScriptHistory } from '../../api/scripts.queries';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { FeedMoment } from '../shared/dated.feed';
 import { notifyDone } from '../shared/notify';
 import { severityColor } from '../shared/status';
@@ -239,9 +240,9 @@ function AttemptRow({ attempt }: AttemptRowProps) {
                             <StatusLamp tone={OUTCOME_TONE[attempt.outcome]} label={attempt.outcome} />
                         </Box>
 
-                        <Badge size="xs" variant="light" color={attempt.writer === 'model' ? 'grape' : 'gray'} tt="none" style={{ flexShrink: 0 }}>
+                        <AuthoredBadge size="xs" authored={attempt.writer === 'model'} tt="none" style={{ flexShrink: 0 }}>
                             {attempt.writer}
-                        </Badge>
+                        </AuthoredBadge>
 
                         {/* This row is a list entry, not the reader: a bulletin can run a dozen
                             sentences, and the full text is already one tap away in the Collapse

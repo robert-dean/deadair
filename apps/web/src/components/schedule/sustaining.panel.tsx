@@ -22,6 +22,7 @@ import {
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { SaveFooter } from '../shared/save.footer';
 
 /**
  * The settings this writes, which `ScheduleService.sustaining()` reads on the other side.
@@ -204,16 +205,7 @@ function SustainingForm({ initial, onSubmit, saving, succeeded, failure }: Susta
                     {t('sustaining.note')}
                 </Text>
 
-                <Group justify="flex-end" gap="md">
-                    {succeeded && !form.isDirty() ? (
-                        <Text size="sm" c="dimmed">
-                            {t('saved')}
-                        </Text>
-                    ) : undefined}
-                    <Button type="submit" loading={saving}>
-                        {t('action.save')}
-                    </Button>
-                </Group>
+                <SaveFooter saving={saving} saved={succeeded && !form.isDirty()} />
             </Stack>
         </form>
     );

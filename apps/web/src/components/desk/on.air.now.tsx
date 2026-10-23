@@ -14,6 +14,7 @@ import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { readSilence } from '../playout/silence.reading';
 import { StaleConfigAlert } from '../playout/stale.config.alert';
 import { Artwork } from '../shared/artwork';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { TrackLink } from '../shared/catalog.links';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
@@ -275,9 +276,9 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
 
                         {order?.brief ? (
                             <Tooltip multiline maw={360} label={t('onAir.briefHint')}>
-                                <Badge size="sm" variant="light" color="grape" tt="none" style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+                                <AuthoredBadge size="sm" tt="none" style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
                                     {t('onAir.brief', { brief: order.brief })}
-                                </Badge>
+                                </AuthoredBadge>
                             </Tooltip>
                         ) : undefined}
 

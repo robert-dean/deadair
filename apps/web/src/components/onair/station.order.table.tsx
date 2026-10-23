@@ -8,6 +8,7 @@ import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 import { i18n } from '../../i18n/i18n.setup';
 import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
 import { PhoneCard } from '../shared/phone.card';
@@ -827,35 +828,35 @@ const OrderRow = memo(function OrderRow({
                     {/* A segment is not a record and should not have to be worked
                                             out from an empty artist column. */}
                     {item.kind === 'segment' ? (
-                        <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                        <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
                             {t('order.segment')}
-                        </Badge>
+                        </AuthoredBadge>
                     ) : undefined}
                     {/* A talk-over never becomes something the player is handed: it
                                             is heard ALONGSIDE the record after it, with the music
                                             ducked under it. */}
                     {item.overAtMs === undefined ? undefined : (
-                        <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                        <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
                             {t('order.over')}
-                        </Badge>
+                        </AuthoredBadge>
                     )}
                     {/* A record the station chose to sound like the playlist around it, rather
                                             than one the playlist named. Grape, because that is the
                                             palette's colour for what the station authored. */}
                     {item.mixedIn ? (
                         <Tooltip label={t('order.mixedInHint')} multiline maw={320}>
-                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                            <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
                                 {t('order.mixedIn')}
-                            </Badge>
+                            </AuthoredBadge>
                         </Tooltip>
                     ) : undefined}
                     {/* A record the station chose to follow a listener's request, on a request
                                             show. Grape for the same reason as a mixed-in record. */}
                     {item.followsRequest ? (
                         <Tooltip label={t('order.followsRequestHint')} multiline maw={320}>
-                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                            <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
                                 {t('order.followsRequest')}
-                            </Badge>
+                            </AuthoredBadge>
                         </Tooltip>
                     ) : undefined}
                     {/* Which writer produced the words. Without it a model that
@@ -864,9 +865,9 @@ const OrderRow = memo(function OrderRow({
                                             answer has been on the row since it was written. */}
                     {item.segmentWriter === undefined ? undefined : (
                         <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
-                            <Badge size="xs" variant="light" color={item.segmentWriter === 'model' ? 'grape' : 'gray'} style={{ flexShrink: 0 }}>
+                            <AuthoredBadge size="xs" authored={item.segmentWriter === 'model'} style={{ flexShrink: 0 }}>
                                 {item.segmentWriter}
-                            </Badge>
+                            </AuthoredBadge>
                         </Tooltip>
                     )}
                     {/* The station SKIPS a segment that has no audio when it comes
@@ -1050,9 +1051,9 @@ const PhoneRow = memo(function PhoneRow({
                         {item.title}
                     </Text>
                     {item.kind === 'segment' ? (
-                        <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                        <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
                             {t('order.segment')}
-                        </Badge>
+                        </AuthoredBadge>
                     ) : undefined}
                 </>
             }

@@ -16,6 +16,7 @@ import {
     useUpdatePersonaStory,
     useWritePersonaStory,
 } from '../../api/personas.queries';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -249,9 +250,9 @@ function StoryRow({
                     What is worth seeing is whether a listener has heard it. */}
                 <StatusLamp tone="off" label={story.timesTold === 0 ? t('stories.neverTold') : t('stories.told', { count: story.timesTold })} />
                 {story.origin === 'model' ? (
-                    <Badge size="xs" variant="light" color="grape" tt="none">
+                    <AuthoredBadge size="xs" tt="none">
                         {t('shared.stationsOwn')}
-                    </Badge>
+                    </AuthoredBadge>
                 ) : undefined}
                 <Group gap="xxs" ml="auto" wrap="nowrap">
                     {editing ? (

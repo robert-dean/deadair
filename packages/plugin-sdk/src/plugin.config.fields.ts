@@ -218,7 +218,7 @@ export interface ConfigFieldColumn {
      * the whole reason it is here. A field-level `dependsOn` hides a control and the server never
      * reads it. This says the cell DOES NOT APPLY, so the console declines to send it and the host
      * declines to derive anything from it — which for a `url` column means the row contributes no
-     * hostname to the plugin's allowlist (`addressCells` in `plugin.host.factory.ts`). An address
+     * hostname to the plugin's allowlist (`addressCells` in `plugin.network.settings.ts`). An address
      * typed on a row before its kind was changed would otherwise widen the allowlist by a host the
      * plugin can never call, which is exactly the quiet widening that path exists to refuse.
      *

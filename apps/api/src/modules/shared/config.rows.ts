@@ -62,7 +62,7 @@ export const holdsRowSecrets = (field: ConfigField): boolean => secretColumnsOf(
  * agree with it: a cell the form declines to send and one the allowlist declines to read are the
  * same claim made in two places, and a plugin whose address is refused by one and accepted by the
  * other looks broken rather than misconfigured. Read by the allowlist (`addressCells` in
- * `plugin.host.factory.ts`) and by {@link splitRowSecrets}, where an address cell that does not
+ * `plugin.network.settings.ts`) and by {@link splitRowSecrets}, where an address cell that does not
  * apply is no address at all.
  *
  * Forgiving in exactly the three places the console's is, and here that is the conservative

@@ -77,7 +77,7 @@ is `nameOf`'s rule one level down: a cell is addressed by path, a dot in a path 
 nested object, and translating dots to dashes would quietly merge a plugin's `a.b` and `a-b` into
 one cell. So a column key is shaped however the plugin likes, dots included, and nothing about this
 reaches a plugin author. The HOST's allowlist reads a `fromConfig` list through the columns declared
-`url` and no others (`addressCells` in `plugin.host.factory.ts`), because `hostnameFromSetting`
+`url` and no others (`addressCells` in `plugin.network.settings.ts`), because `hostnameFromSetting`
 accepts a bare hostname and would otherwise put a category called `sport` on the allowlist. And a
 field or column may declare `optionsFrom`, a closed host vocabulary resolved by the CONSOLE — the
 third way a form learns what to offer, and the one a plugin usually cannot answer for itself, since a

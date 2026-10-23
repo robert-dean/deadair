@@ -43,13 +43,26 @@ describe('classify', () => {
 });
 
 describe('retryAfterMs', () => {
-    it('reads the seconds a 429 asks for', () => {
+    const NOW = Date.parse('Wed, 21 Oct 2026 07:28:00 GMT');
+
+    it('reads the seconds a 429 asks for, fractional ones included', () => {
         expect(retryAfterMs(sdkError(429, { 'retry-after': '4' }))).toBe(4_000);
+        // What the station's rate limiter actually sends: a sub-second wait must not floor to nothing.
+        expect(retryAfterMs(sdkError(429, { 'retry-after': '0.42' }))).toBe(420);
+    });
+
+    it('reads the HTTP-date form a proxy may rewrite the header into', () => {
+        expect(retryAfterMs(sdkError(429, { 'retry-after': 'Wed, 21 Oct 2026 07:28:30 GMT' }), NOW)).toBe(30_000);
+    });
+
+    it('takes a wait of nothing as no advice, so the poller keeps its own backoff', () => {
+        expect(retryAfterMs(sdkError(429, { 'retry-after': '0' }), NOW)).toBeUndefined();
+        expect(retryAfterMs(sdkError(429, { 'retry-after': 'Wed, 21 Oct 2026 07:27:00 GMT' }), NOW)).toBeUndefined();
     });
 
     it('answers nothing it cannot read, and nothing for anything but a 429', () => {
         expect(retryAfterMs(sdkError(429))).toBeUndefined();
-        expect(retryAfterMs(sdkError(429, { 'retry-after': 'Wed, 21 Oct 2026 07:28:00 GMT' }))).toBeUndefined();
+        expect(retryAfterMs(sdkError(429, { 'retry-after': 'soon' }))).toBeUndefined();
         expect(retryAfterMs(sdkError(503, { 'retry-after': '4' }))).toBeUndefined();
     });
 });

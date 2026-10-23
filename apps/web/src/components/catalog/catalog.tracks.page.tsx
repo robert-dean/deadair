@@ -156,7 +156,7 @@ export function CatalogTracksPage({
             {/* Under the filter and above the table, because it acts on what the filter chose and on
                 the rows drawn below it. Draws nothing outside the two fault states: most of a
                 library is `uncached`, and a bulk verb over that is a re-fetch of everything. */}
-            <TrackStateAction state={state} trackIds={rows.map(track => track.id)} />
+            <TrackStateAction state={state} measured={measured} trackIds={rows.map(track => track.id)} />
 
             {/* Three empty lists rather than two, because they are three different facts and only one
                 of them is a problem. An install with nothing ingested is the first hour of a station;

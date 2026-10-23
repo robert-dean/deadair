@@ -275,7 +275,18 @@ export const catalog = {
                 'Clears the backoff and un-benches every copy, so the station may try each of them straight away rather than waiting out its gate. This is what to press once an upstream that was failing is working again.',
             confirm: 'Try again',
         },
+        remeasure: {
+            button: 'Measure these again ({{count}})',
+            title: 'Measure these records again?',
+            consequence:
+                'Throws away each record’s measurement, so the measurement walk measures it again on its next pass. Until then a record plays untrimmed and at the stream’s own level, as an unmeasured one always does. Its audio is not touched.',
+            confirm: 'Measure again',
+        },
         outcome: {
+            remeasured_one: '{{count}} record will be measured again.',
+            remeasured_other: '{{count}} records will be measured again.',
+            remeasuredSomeRefused_one: '{{count}} record will be measured again, {{failed}} the station would not act on.',
+            remeasuredSomeRefused_other: '{{count}} records will be measured again, {{failed}} the station would not act on.',
             reopened_one: '{{count}} record reopened.',
             reopened_other: '{{count}} records reopened.',
             reopenedSomeRefused_one: '{{count}} record reopened, {{failed}} the station would not act on.',

@@ -19,8 +19,10 @@ import androidx.media3.common.Player
  *
  * - `error code=<name> (<int>) uri=<what was playing> causes=<chain>`, then the full stack, for a
  *   failure the player gave up on and the policy will retry. The stack goes to logcat only.
- * - `stall` when playback that was running starts buffering, and `resumed after <ms>` when it plays
- *   again, which is a drop the listener hears without the player ever failing.
+ * - `stall` when playback that was running starts buffering, which is a drop the listener hears
+ *   without the player ever failing.
+ * - `resumed after <ms>` when it plays again, timed by [QuietSpell] from the stall or the error that
+ *   began the silence, through any retries and restarts in between.
  *
  * The journal also gets `play`, `stop reason=<why>` and `item uri=<what is playing>`, which logcat
  * does not: a journal read a day later needs to say where each listening session began and ended,
@@ -31,37 +33,40 @@ import androidx.media3.common.Player
  * shares and the address is the one thing in it that could carry more than a place.
  */
 class PlaybackLog(private val player: Player, private val journal: (String) -> Unit = {}) : Player.Listener {
-    /** When the current stall began, or `null` when playback is not stalled. */
-    private var stalledAt: Long? = null
     private var ready = false
+    private val quiet = QuietSpell()
     private val session = SessionLines()
 
     override fun onPlayerError(error: PlaybackException) {
+        quiet.onError(SystemClock.elapsedRealtime(), player.playWhenReady, error.errorCode == PlaybackException.ERROR_CODE_TIMEOUT)
         write(Log.WARN, "error code=${error.errorCodeName} (${error.errorCode}) uri=${playing()} causes=${causes(error)}", error)
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
         when (playbackState) {
             Player.STATE_BUFFERING ->
-                if (ready && player.playWhenReady && stalledAt == null) {
-                    stalledAt = SystemClock.elapsedRealtime()
+                if (ready && player.playWhenReady && !quiet.active) {
+                    quiet.onStall(SystemClock.elapsedRealtime())
                     write(Log.INFO, "stall uri=${playing()}")
                 }
             Player.STATE_READY -> {
                 ready = true
-                stalledAt?.let { write(Log.INFO, "resumed after ${SystemClock.elapsedRealtime() - it}ms") }
-                stalledAt = null
+                quiet.onReady(SystemClock.elapsedRealtime())?.let { write(Log.INFO, it) }
             }
-            // IDLE after an error or a stop, ENDED on a drop: whatever follows is a fresh start,
-            // not the end of this stall, and the error line has already said what happened.
-            else -> {
+            // A live stream never ends on purpose, so ENDED while wanting to play is a drop, and
+            // its silence is timed like a stall's.
+            Player.STATE_ENDED -> {
                 ready = false
-                stalledAt = null
+                if (player.playWhenReady) quiet.onStall(SystemClock.elapsedRealtime())
             }
+            // IDLE after an error: the spell runs on through the retry, which is the point of it.
+            // After a stop, the stop has already forgotten it.
+            else -> ready = false
         }
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        if (!playWhenReady) quiet.onStopped()
         session.onPlayWhenReady(playWhenReady, stopReason(reason))?.let(journal)
     }
 

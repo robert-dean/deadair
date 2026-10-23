@@ -268,6 +268,7 @@ object CatalogSortSerializer : SdkEnumSerializer<CatalogSort>(
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
+ *   suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it
  */
 @Serializable(with = TrackStateSerializer::class)
 enum class TrackState {
@@ -276,6 +277,7 @@ enum class TrackState {
     UNMEASURED,
     BENCHED,
     FAILING,
+    SUSPENDED,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -293,6 +295,7 @@ object TrackStateSerializer : SdkEnumSerializer<TrackState>(
     TrackState.UNMEASURED to "unmeasured",
     TrackState.BENCHED to "benched",
     TrackState.FAILING to "failing",
+    TrackState.SUSPENDED to "suspended",
 )
 
 /**
@@ -627,6 +630,8 @@ data class TrackStateCounts(
     val enriched: Long,
     val benched: Long,
     val failing: Long,
+    /** Kept off the station right now by a suspension on the record, its release or a credited artist */
+    val suspended: Long,
     /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
     val lyrics: Long,
     /** A lyrics source has the timing of its lines, which says when the singing starts */
@@ -775,6 +780,8 @@ data class TrackRow(
     val measured: Boolean,
     /** At least one provider has answered about it */
     val enriched: Boolean,
+    /** Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended */
+    val suspended: Boolean? = null,
 )
 
 /**

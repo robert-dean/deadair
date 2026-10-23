@@ -13,7 +13,7 @@ mdx:
 > read as N of M without reaching into the pager.
 
 <details>
-<summary>Attributes (12)</summary>
+<summary>Attributes (13)</summary>
 
 | Attribute         | Type                   | Required | Description                                                                                                                  |
 | ----------------- | ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -23,6 +23,7 @@ mdx:
 | `enriched`        | `number`               | Yes      | _read-only_                                                                                                                  |
 | `benched`         | `number`               | Yes      | _read-only_                                                                                                                  |
 | `failing`         | `number`               | Yes      | _read-only_                                                                                                                  |
+| `suspended`       | `number`               | Yes      | Kept off the station right now by a suspension on the record, its release or a credited artist. _read-only_                  |
 | `lyrics`          | `number`               | Yes      | A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`. _read-only_                  |
 | `synced`          | `number`               | Yes      | A lyrics source has the timing of its lines, which says when the singing starts. _read-only_                                 |
 | `instrumental`    | `number`               | Yes      | A lyrics source says nobody sings on it. _read-only_                                                                         |

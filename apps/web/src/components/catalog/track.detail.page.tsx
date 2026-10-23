@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { TrackBinding, TrackDetail } from '@deadair/sdk';
 
-import { catalogTrackEnrichmentOptions, catalogTrackOptions, useRateTrack } from '../../api/catalog.queries';
+import { catalogTrackEnrichmentOptions, catalogTrackOptions, useRateTrack, useSuspend } from '../../api/catalog.queries';
 import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -26,6 +26,7 @@ import { RatingControl } from './rating.control';
 import { TrackClearMenu } from './track.clear.menu';
 import { LyricsCard } from './lyrics.card';
 import { VocalMarkersCard } from './vocal.markers.card';
+import { SuspendControl } from './suspend.control';
 
 /** A moment, to the minute. These are all "when did this last happen" rather than dates on a calendar. */
 const moment = (iso: Moment | undefined): string => formatMomentMinute(iso, { fallback: '—' });
@@ -94,6 +95,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
     const track = useQuery(catalogTrackOptions(trackId));
     const enrichment = useQuery(catalogTrackEnrichmentOptions(trackId));
     const rate = useRateTrack();
+    const suspend = useSuspend();
     const phone = usePhone();
 
     if (track.isPending) return <PageSkeleton variant="table" />;
@@ -152,6 +154,12 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                                 onChange={rating => {
                                     rate.mutate({ id: trackId, rating });
                                 }}
+                            />
+                            <SuspendControl
+                                {...(detail.suspendedUntil === undefined ? {} : { suspendedUntil: detail.suspendedUntil })}
+                                busy={suspend.isPending}
+                                onSuspend={days => suspend.mutate({ kind: 'track', id: trackId, days })}
+                                onLift={() => suspend.mutate({ kind: 'track', id: trackId, days: undefined })}
                             />
                         </Group>
                     </PageHeader>

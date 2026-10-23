@@ -1,5 +1,16 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { Album, Artist, CatalogSort, MeasureFailure, Rating, TrackSort, TrackState, VocalMarkersDetail, VocalMarkersInput } from '@deadair/sdk';
+import type {
+    Album,
+    Artist,
+    CatalogSort,
+    MeasureFailure,
+    Rating,
+    Track,
+    TrackSort,
+    TrackState,
+    VocalMarkersDetail,
+    VocalMarkersInput,
+} from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -263,6 +274,32 @@ export function useRateArtist() {
         onSuccess: (artist: Artist) => {
             queryClient.setQueryData(queryKeys.catalog.artist(artist.id), artist);
             invalidateCatalogLists(queryClient, 'artists');
+        },
+    });
+}
+
+/** Which of the three a suspension is about. */
+export type Suspendable = 'artist' | 'album' | 'track';
+
+/**
+ * Keep an artist, a release or a record off the station for some days, or lift that with `undefined`.
+ *
+ * The lists are invalidated beside the thing itself: a suspension changes what the tracks list's
+ * state counts and filter say, and the record's own page reads a different key from its list row.
+ */
+export function useSuspend() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ kind, id, days }: { kind: Suspendable; id: string; days: number | undefined }): Promise<Artist | Album | Track> => {
+            if (kind === 'artist') return days === undefined ? sdk.catalog.liftArtistSuspension(id) : sdk.catalog.suspendArtist(id, { days });
+            if (kind === 'album') return days === undefined ? sdk.catalog.liftAlbumSuspension(id) : sdk.catalog.suspendAlbum(id, { days });
+            return days === undefined ? sdk.catalog.liftTrackSuspension(id) : sdk.catalog.suspendTrack(id, { days });
+        },
+        onSuccess: (_answer, { kind, id }) => {
+            if (kind === 'artist') void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.artist(id) });
+            if (kind === 'album') void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.album(id) });
+            if (kind === 'track') void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.track(id) });
+            invalidateCatalogLists(queryClient, 'tracks');
         },
     });
 }

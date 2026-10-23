@@ -50,6 +50,7 @@ const COUNTED = {
     enriched: '3',
     benched: '0',
     failing: '0',
+    suspended: '1',
     lyrics: '0',
     synced: '0',
     instrumental: '0',

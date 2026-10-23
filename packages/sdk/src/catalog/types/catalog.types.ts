@@ -207,9 +207,10 @@ export type CatalogSort = 'name' | 'albums' | 'tracks' | 'year' | 'rating';
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
+ *   suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it
  * generated from [TrackState](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
  */
-export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'failing';
+export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'failing' | 'suspended';
 
 /**
  * What a track list is ordered BY. Its own enum for `TrackQuery`'s own reason: none of these keys
@@ -526,6 +527,8 @@ export interface TrackStateCounts {
     enriched: number;
     benched: number;
     failing: number;
+    /** Kept off the station right now by a suspension on the record, its release or a credited artist */
+    suspended: number;
     /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
     lyrics: number;
     /** A lyrics source has the timing of its lines, which says when the singing starts */
@@ -676,6 +679,8 @@ export interface TrackRow extends Track {
     measured: boolean;
     /** At least one provider has answered about it */
     enriched: boolean;
+    /** Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended */
+    suspended?: boolean;
 }
 
 export interface TrackRowInput extends TrackInput {}

@@ -242,7 +242,8 @@ contract CatalogQuery: Pagination & {
 #   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
 #   benched     every copy written off, which is the one state that means it CANNOT air
 #   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
-contract TrackState: enum(cached, uncached, unmeasured, benched, failing)
+#   suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it
+contract TrackState: enum(cached, uncached, unmeasured, benched, failing, suspended)
 
 # What a track list is ordered BY. Its own enum for `TrackQuery`'s own reason: none of these keys
 # means anything about an artist, and `name` is spelled `title` on a song.
@@ -276,6 +277,7 @@ contract TrackStateCounts: {
     enriched: readonly int(min=0)
     benched: readonly int(min=0)
     failing: readonly int(min=0)
+    suspended: readonly int(min=0) # Kept off the station right now by a suspension on the record, its release or a credited artist
     lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
     synced: readonly int(min=0) # A lyrics source has the timing of its lines, which says when the singing starts
     instrumental: readonly int(min=0) # A lyrics source says nobody sings on it
@@ -307,6 +309,7 @@ contract TrackRow: Track & {
     hasAudio: readonly boolean # The bytes are on this machine
     measured: readonly boolean # Measured, COMPLETE, and at a schema version the station still trusts
     enriched: readonly boolean # At least one provider has answered about it
+    suspended?: readonly boolean # Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended
 }
 
 # One page of each row type. Declared rather than inlined on the five list operations, so the shape

@@ -62,6 +62,13 @@ const FILTERS: { state: TrackStateParam; tone: string; count: (counts: TrackStat
         tone: BENCHED,
         count: counts => counts.benched,
     },
+    {
+        // Last, and in the off tone rather than a fault's: a suspension is a decision somebody made
+        // and will lapse on its own, so nothing about it is a thing to go and fix.
+        state: 'suspended',
+        tone: toneColor.off,
+        count: counts => counts.suspended,
+    },
 ];
 
 /**

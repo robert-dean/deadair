@@ -287,6 +287,8 @@ function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
             return isBenched(eb);
         case 'failing':
             return isFailing(eb);
+        case 'suspended':
+            return suspendedNow(sql.ref('deadair.tracks.id'));
     }
 }
 
@@ -488,6 +490,9 @@ export class TracksRepository extends DataRepository {
             // query and no row multiplication: a record with four copies must not come back four
             // times because one of them has bytes.
             .select(eb => [hasAudio(eb).as('hasAudio'), isMeasured(eb, schemaVersion).as('measured'), isEnriched(eb).as('enriched')])
+            // The fourth fact, and the one a filter of its own already counts: through the release and
+            // the credited artists, not only the record's own `suspended_until`.
+            .select(suspendedNow(sql.ref('deadair.tracks.id')).as('suspended'))
             .orderBy(columnFor(sortBy, TRACK_SORTS, TRACK_SORTS.title), directionFor(sort))
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)
@@ -528,6 +533,15 @@ export class TracksRepository extends DataRepository {
                 eb.fn.count<number>(eb.case().when(isEnriched(eb)).then(1).end()).as('enriched'),
                 eb.fn.count<number>(eb.case().when(isBenched(eb)).then(1).end()).as('benched'),
                 eb.fn.count<number>(eb.case().when(isFailing(eb)).then(1).end()).as('failing'),
+                eb.fn
+                    .count<number>(
+                        eb
+                            .case()
+                            .when(suspendedNow(sql.ref('deadair.tracks.id')))
+                            .then(1)
+                            .end(),
+                    )
+                    .as('suspended'),
                 eb.fn.count<number>(eb.case().when(hasLyrics(eb)).then(1).end()).as('lyrics'),
                 eb.fn.count<number>(eb.case().when(hasSyncedLyrics(eb)).then(1).end()).as('synced'),
                 eb.fn.count<number>(eb.case().when(isInstrumental(eb)).then(1).end()).as('instrumental'),
@@ -554,6 +568,7 @@ export class TracksRepository extends DataRepository {
             enriched: Number(counted.enriched),
             benched: Number(counted.benched),
             failing: Number(counted.failing),
+            suspended: Number(counted.suspended),
             lyrics: Number(counted.lyrics),
             synced: Number(counted.synced),
             instrumental: Number(counted.instrumental),

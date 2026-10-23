@@ -38,6 +38,7 @@ A record's page shows its title, artist, album, year and duration, and then:
 - **Airings**: when it has played.
 - **What the sources say**: genres, moods, label, and facts drawn from articles, each with the sentence that supports it. See [claims](./claims.md).
 - **Your rating**: liked, neutral or disliked, which can also be set on the artist and the album. A dislike anywhere wins outright. See [the programme](./programme.md).
+- **Suspend**, beside the rating on a record's, a release's or an artist's page: keep it off the station **for a day**, **for a week** or **for a month** without disliking it. Nothing already in the running order is taken out, but it is not chosen, searched up, requested or routed through until the suspension lapses, and a suspended artist is kept off records they only guest on too. Your rating stays as it was. The page says how long is left, with **Lift** to end it early, and the tracks list has a **Suspended** filter.
 
 The tracks list filters by state: On this machine, Not fetched, Unmeasured, Failing and Benched. A zero under the last two is the answer you want.
 

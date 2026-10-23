@@ -8909,8 +8909,8 @@ components:
                           '$ref': '#/components/schemas/CatalogSort'
         TrackState:
             type: string
-            enum: [cached, uncached, unmeasured, benched, failing]
-            description: "Which records to show, by what the station has of them rather than by what they are.\n\n  cached      the audio is on this machine, so it can be committed to the running order now\n  uncached    it is not, which for most of a library is ordinary rather than wrong\n  unmeasured  no trustworthy measurement, so no cue points and no level decided before air\n  benched     every copy written off, which is the one state that means it CANNOT air\n  failing     a fetch has failed and is backing off. Not benched yet, and often the state before it"
+            enum: [cached, uncached, unmeasured, benched, failing, suspended]
+            description: "Which records to show, by what the station has of them rather than by what they are.\n\n  cached      the audio is on this machine, so it can be committed to the running order now\n  uncached    it is not, which for most of a library is ordinary rather than wrong\n  unmeasured  no trustworthy measurement, so no cue points and no level decided before air\n  benched     every copy written off, which is the one state that means it CANNOT air\n  failing     a fetch has failed and is backing off. Not benched yet, and often the state before it\n  suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it"
         TrackSort:
             type: string
             enum: [title, artist, album, year, duration, rating]
@@ -8959,6 +8959,11 @@ components:
                     type: integer
                     minimum: 0
                     readOnly: true
+                suspended:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Kept off the station right now by a suspension on the record, its release or a credited artist'
                 lyrics:
                     type: integer
                     minimum: 0
@@ -8996,6 +9001,7 @@ components:
                 - enriched
                 - benched
                 - failing
+                - suspended
                 - lyrics
                 - synced
                 - instrumental
@@ -9051,6 +9057,10 @@ components:
                           type: boolean
                           readOnly: true
                           description: 'At least one provider has answered about it'
+                      suspended:
+                          type: boolean
+                          readOnly: true
+                          description: "Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended"
                   required: [hasAudio, measured, enriched]
         ArtistPage:
             type: object

@@ -4,7 +4,14 @@ import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { catalogAlbumEnrichmentOptions, catalogAlbumOptions, catalogAlbumTracksOptions, useRateAlbum, useRateTrack } from '../../api/catalog.queries';
+import {
+    catalogAlbumEnrichmentOptions,
+    catalogAlbumOptions,
+    catalogAlbumTracksOptions,
+    useRateAlbum,
+    useRateTrack,
+    useSuspend,
+} from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
 import { ArtistLink, TrackLink } from '../shared/catalog.links';
@@ -18,6 +25,7 @@ import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
 import { PlayAlbumButton } from '../playout/play.playlist.button';
 import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
+import { SuspendControl } from './suspend.control';
 
 export interface AlbumDetailPageProps {
     albumId: string;
@@ -35,6 +43,7 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
     const rateAlbum = useRateAlbum();
+    const suspend = useSuspend();
     const rateTrack = useRateTrack();
 
     return (
@@ -76,6 +85,12 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                                     onChange={rating => {
                                         rateAlbum.mutate({ id: albumId, rating });
                                     }}
+                                />
+                                <SuspendControl
+                                    {...(album.data.suspendedUntil === undefined ? {} : { suspendedUntil: album.data.suspendedUntil })}
+                                    busy={suspend.isPending}
+                                    onSuspend={days => suspend.mutate({ kind: 'album', id: albumId, days })}
+                                    onLift={() => suspend.mutate({ kind: 'album', id: albumId, days: undefined })}
                                 />
                                 <PlayAlbumButton albumId={albumId} />
                             </Group>

@@ -28,7 +28,8 @@
  */
 
 import type { RundownTrack } from '#modules/playout/rundown.js';
-import { NOMINAL_TRACK_MS, recordSpacingLength } from './air.estimate.js';
+import { NOMINAL_TRACK_MS, recordSpacingLength, spacingLengthOf } from './air.estimate.js';
+import { isTrackItem, type StationLineupItem, type StationLineupTrackItem } from './station.lineup.js';
 
 /**
  * The share of a slot held back for talk when the broadcast takes breaks.
@@ -107,4 +108,67 @@ export function fitAirtime<T extends Pick<RundownTrack, 'durationMs' | 'cueInMs'
         spent = total;
     }
     return kept;
+}
+
+/** What {@link overdueCountdown} needs to know besides the order. */
+export interface CountdownDeadline {
+    /** How long until the slot the countdown was fitted to ends, from now. Negative once it has. */
+    untilEndMs: number;
+    /** How far past that end number one's record may run, as at the fit. Absent is not at all. */
+    overrunMs?: number;
+    /** Whether the broadcast takes breaks, so a share of what is left is held back for talk. */
+    talks: boolean;
+    /** How long is left of whatever is airing now. Absent is nothing, a station between records. */
+    leadMs?: number;
+    /** Lines the station may not take out: anything pinned, and the record a held break announced. */
+    keep: (item: StationLineupItem) => boolean;
+}
+
+/**
+ * The countdown records still to come that no longer leave number one time to start before the slot
+ * ends, lowest rank first, or nothing when the countdown is on time.
+ *
+ * {@link fitAirtime} fits a countdown ONCE, when it goes on air, and every later rule then holds it
+ * where it stands: the audience gate keeps the order exactly where it stopped, a setlist cannot top
+ * itself up, and a changeover drops whatever is queued behind the record on air. Each of those is
+ * right on its own. Together they lost the top eleven of the US countdown on 2026-10-23, when nobody
+ * listened for 47 minutes mid-show and the order picked up at number 34 with the same 13:00 to beat.
+ * So this asks the fit's question again of what is left, with the fit's own arithmetic: the records
+ * still movable are fitted from number one into the time that is left, and whatever falls outside is
+ * what goes. The lowest ranks still to come, which is how a countdown on the radio is shortened.
+ *
+ * `ahead` is what is still to come, in airing order (`StationLineup.upcoming()`). A record is
+ * movable when it carries a chart placing, is still `planned`, and `keep` does not name it. Anything
+ * else ahead keeps its turn and is charged to the time first: a request costs the countdown a low
+ * rank, never its top. Nothing is removed when number one is not movable (it is in the player's
+ * hands already, or pinned), because there is then nothing left for a cut to protect, and nothing is
+ * ever added back: a countdown running early stays as it is, as it always has.
+ */
+export function overdueCountdown(ahead: readonly StationLineupItem[], deadline: CountdownDeadline): string[] {
+    const counted = ahead.filter((item): item is StationLineupTrackItem => isTrackItem(item) && item.track.chart !== undefined);
+    if (counted.length === 0) return [];
+
+    const movable = (item: StationLineupTrackItem): boolean => item.state === 'planned' && !deadline.keep(item);
+    const top = counted.reduce((best, item) => (item.track.chart!.rank < best.track.chart!.rank ? item : best));
+    if (!movable(top)) return [];
+
+    // Everything that keeps its turn is spent before the countdown gets any of what is left.
+    const fixedMs = ahead.reduce(
+        (sum, item) => (isTrackItem(item) && item.track.chart !== undefined && movable(item) ? sum : sum + spacingLengthOf(item)),
+        Math.max(0, deadline.leadMs ?? 0),
+    );
+    const budgetMs = recordBudget(deadline.untilEndMs, deadline.talks) - fixedMs;
+
+    const ranked = counted.filter(movable).sort((a, b) => a.track.chart!.rank - b.track.chart!.rank);
+    const kept = new Set(
+        fitAirtime(
+            ranked.map(item => ({ ...item.track, itemId: item.id })),
+            budgetMs,
+            { overrunMs: deadline.overrunMs ?? 0, lastAirs: 'top' },
+        ).map(track => track.itemId),
+    );
+    return ranked
+        .filter(item => !kept.has(item.id))
+        .sort((a, b) => b.track.chart!.rank - a.track.chart!.rank)
+        .map(item => item.id);
 }

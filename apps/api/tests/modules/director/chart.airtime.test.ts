@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { NOMINAL_TRACK_MS } from '../../../src/modules/director/air.estimate.js';
-import { CHART_TALK_SHARE, fitAirtime, lookupsFor, recordBudget } from '../../../src/modules/director/chart.airtime.js';
+import { CHART_TALK_SHARE, fitAirtime, lookupsFor, overdueCountdown, recordBudget } from '../../../src/modules/director/chart.airtime.js';
+import type { StationLineupItem, StationLineupItemState } from '../../../src/modules/director/station.lineup.js';
 
 const MINUTE = 60_000;
 const record = (rank: number, minutes?: number) => ({ rank, ...(minutes === undefined ? {} : { durationMs: minutes * MINUTE }) });
@@ -94,5 +95,88 @@ describe('lookupsFor', () => {
 
     it('asks for at least one', () => {
         expect(lookupsFor(0)).toBe(1);
+    });
+});
+
+describe('overdueCountdown', () => {
+    // A countdown still to come, in airing order: the lowest rank first, number one last.
+    const charted = (rank: number, minutes = 4, state: StationLineupItemState = 'planned'): StationLineupItem => ({
+        id: `rank-${rank}`,
+        kind: 'track',
+        state,
+        track: {
+            pluginId: 'test',
+            externalId: `rank-${rank}`,
+            title: `Number ${rank}`,
+            artists: ['Somebody'],
+            artist: 'Somebody',
+            durationMs: minutes * MINUTE,
+            chart: { rank, name: 'Top 100' },
+        },
+    });
+    const countdown = (...ranks: number[]) => ranks.map(rank => charted(rank));
+    const request: StationLineupItem = {
+        id: 'request',
+        kind: 'track',
+        state: 'planned',
+        pinned: true,
+        track: { pluginId: 'test', externalId: 'request', title: 'Asked for', artists: ['Listener'], artist: 'Listener', durationMs: 4 * MINUTE },
+    };
+    const nothingKept = () => false;
+
+    it('removes nothing from a countdown that is on time', () => {
+        expect(overdueCountdown(countdown(5, 4, 3, 2, 1), { untilEndMs: 30 * MINUTE, talks: false, keep: nothingKept })).toEqual([]);
+    });
+
+    it('takes out the lowest ranks still to come, so number one still starts before the end', () => {
+        // Twelve minutes is three records: 3, 2 and 1. The 47 minutes nobody listened to, in miniature.
+        expect(overdueCountdown(countdown(5, 4, 3, 2, 1), { untilEndMs: 12 * MINUTE, talks: false, keep: nothingKept })).toEqual([
+            'rank-5',
+            'rank-4',
+        ]);
+    });
+
+    it('lets number one run past the end by the overrun, as the fit does', () => {
+        // Number one starts at minute eight, inside ten, and ends at twelve, inside ten plus five.
+        expect(
+            overdueCountdown(countdown(5, 4, 3, 2, 1), { untilEndMs: 10 * MINUTE, overrunMs: 5 * MINUTE, talks: false, keep: nothingKept }),
+        ).toEqual(['rank-5', 'rank-4']);
+    });
+
+    it('holds back the talk share when the broadcast takes breaks', () => {
+        expect(overdueCountdown(countdown(5, 4, 3, 2, 1), { untilEndMs: 20 * MINUTE, talks: false, keep: nothingKept })).toEqual([]);
+        expect(overdueCountdown(countdown(5, 4, 3, 2, 1), { untilEndMs: 20 * MINUTE, talks: true, keep: nothingKept })).toEqual(['rank-5']);
+    });
+
+    it('charges what is on air, and a request that keeps its turn, to the countdown', () => {
+        const order = [charted(4), request, charted(3), charted(2), charted(1)];
+
+        expect(overdueCountdown(order, { untilEndMs: 16 * MINUTE, leadMs: 4 * MINUTE, talks: false, keep: item => item.pinned === true })).toEqual([
+            'rank-4',
+            'rank-3',
+        ]);
+    });
+
+    it('never takes out a chart record the station has to keep, and charges its time instead', () => {
+        // Number four is the record a held break announced.
+        const order = countdown(5, 4, 3, 2, 1);
+
+        expect(overdueCountdown(order, { untilEndMs: 12 * MINUTE, talks: false, keep: item => item.id === 'rank-4' })).toEqual(['rank-5', 'rank-3']);
+    });
+
+    it('never takes out a record the player already holds', () => {
+        const order = [charted(5, 4, 'handed'), ...countdown(4, 3, 2, 1)];
+
+        expect(overdueCountdown(order, { untilEndMs: 12 * MINUTE, talks: false, keep: nothingKept })).toEqual(['rank-4', 'rank-3']);
+    });
+
+    it('keeps number one when the slot has already ended, and cuts everything in front of it', () => {
+        expect(overdueCountdown(countdown(3, 2, 1), { untilEndMs: -MINUTE, talks: false, keep: nothingKept })).toEqual(['rank-3', 'rank-2']);
+    });
+
+    it('cuts nothing once number one is out of its reach', () => {
+        // Nothing left to protect: number one is in the player's hands.
+        expect(overdueCountdown([charted(2), charted(1, 4, 'handed')], { untilEndMs: -MINUTE, talks: false, keep: nothingKept })).toEqual([]);
+        expect(overdueCountdown([request], { untilEndMs: -MINUTE, talks: false, keep: nothingKept })).toEqual([]);
     });
 });

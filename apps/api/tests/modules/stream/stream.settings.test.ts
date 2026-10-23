@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ensureStreamSecrets,
+    HLS_SEGMENT_COUNT_RANGE,
     MAX_LISTENERS_RANGE,
     resolveMaxListeners,
     resolveStreamSettings,
@@ -154,6 +155,21 @@ describe('resolveStreamSettings', () => {
         const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: 'debug' });
 
         expect(resolveStreamSettings(config, encryption).logLevel).toBe(3);
+    });
+
+    it('lists fifteen HLS segments when nothing is stored, the same as radio.default.env', () => {
+        expect(resolveStreamSettings(settingsConfig().config, encryption).hlsSegmentCount).toBe(15);
+    });
+
+    it('lifts a stored three-segment HLS window to the floor rather than playing it', () => {
+        // Three is what the live station had, and it is the case the floor exists for: a player
+        // starts three segments back, so a three-segment playlist leaves it no slack whatever.
+        const read = (value: string) =>
+            resolveStreamSettings(settingsConfig({ [STREAM_KEYS.hlsSegmentCount]: value }).config, encryption).hlsSegmentCount;
+
+        expect(read('3')).toBe(HLS_SEGMENT_COUNT_RANGE.min);
+        expect(read('12')).toBe(12);
+        expect(read('500')).toBe(HLS_SEGMENT_COUNT_RANGE.max);
     });
 
     it('clamps a stored log level into the range radio.liq accepts rather than refusing the read', () => {

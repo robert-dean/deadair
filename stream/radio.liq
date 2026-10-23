@@ -2043,7 +2043,11 @@ if hls_dir != "" then
   output.file.hls(
     playlist = "live.m3u8",
     segment_duration = env_float("STREAM_HLS_SEGMENT_SECONDS", 2.),
-    segments = int_of_float(env_float("STREAM_HLS_SEGMENT_COUNT", 6.)),
+    # How much is LISTED, which is not how far behind live a listener is: a player starts three
+    # target durations back from the newest segment whatever the count. The rest of the window is
+    # how long a player can stall and still find its next segment listed. The app clamps this to
+    # 10..30 (`HLS_SEGMENT_COUNT_RANGE`); three, the old floor, left no room behind the start.
+    segments =int_of_float(env_float("STREAM_HLS_SEGMENT_COUNT", 15.)),
     # Kept BEYOND the playlist window rather than deleted with it. A player that asked for the
     # playlist a moment before a segment rolled off is about to request that segment, and
     # deleting it the instant it left the window is a 404 in the middle of somebody's listening.

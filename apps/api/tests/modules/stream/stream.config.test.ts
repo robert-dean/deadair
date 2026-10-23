@@ -57,7 +57,7 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     flacEnabled: false,
     hlsEnabled: false,
     hlsSegmentSeconds: 2,
-    hlsSegmentCount: 6,
+    hlsSegmentCount: 15,
     maxListeners: 0,
     hostname: '',
     location: '',
@@ -485,7 +485,7 @@ describe('writeStreamConfig', () => {
         expect(env.get('STREAM_HLS_DIR')).toBe('');
         // The shape of it is still written, so an operator can see what it would be.
         expect(env.get('STREAM_HLS_SEGMENT_SECONDS')).toBe('2');
-        expect(env.get('STREAM_HLS_SEGMENT_COUNT')).toBe('6');
+        expect(env.get('STREAM_HLS_SEGMENT_COUNT')).toBe('15');
     });
 
     it("writes the STREAM container's own path, not the one this app reads back", () => {

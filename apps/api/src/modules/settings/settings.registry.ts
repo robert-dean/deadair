@@ -171,6 +171,7 @@ import {
     STREAM_DEFAULTS,
     STREAM_KEYS,
     MAX_LISTENERS_RANGE,
+    HLS_SEGMENT_COUNT_RANGE,
 } from '#modules/stream/stream.settings.js';
 // Deliberately NOT in `STREAM_KEYS`: that set is what `isStreamSettingKey` marks as needing the
 // stream config re-rendered and the audio chain restarted, and this one is read per request by a
@@ -464,9 +465,9 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'HLS segments in the playlist',
         type: 'number',
         default: STREAM_DEFAULTS.hlsSegmentCount,
-        min: 3,
-        max: 20,
-        help: 'How much a player is told about at once. More is more delay and more tolerance of a bad connection; fewer is the opposite. Segment length multiplied by this is roughly how far behind live a listener starts.',
+        min: HLS_SEGMENT_COUNT_RANGE.min,
+        max: HLS_SEGMENT_COUNT_RANGE.max,
+        help: 'How much audio the station keeps listed behind the live edge. This does not change how far behind live a listener is: a player starts three segments back whatever this says. What it changes is how long a player can stall (a weak signal, a busy phone) and still pick up where it was instead of losing its place.',
     },
     {
         group: 'stream',

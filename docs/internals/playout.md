@@ -76,6 +76,25 @@ that costs is the segments, which nginx serves and the app never sees — a refu
 last playlist gave it and stalls within one window, because a live playlist is the only way to learn the next
 ones. `hls.refusal.ts` carries the whole argument.
 
+**How many segments the playlist lists is slack, not latency, and the floor is ten for that reason.** A
+live player starts three target durations back from the newest segment whatever the playlist holds: RFC 8216
+6.3.3 says a client should not start nearer, ExoPlayer's `HlsMediaSource` falls back to exactly
+`3 * targetDuration` when the playlist names no `HOLD-BACK` (read in media3 1.11.0, which the Android app
+pins), hls.js's `liveSyncDurationCount` defaults to the same three, and AVPlayer follows the RFC Apple wrote.
+So `stream.hlsSegmentCount` does not move a listener closer to live; what it decides is how much is listed
+BEHIND where the player starts, which is how long it can stall and still find its next segment. The live
+station ran at three (the floor then, and the old help text called the count "how far behind live a listener
+starts"), which put every player on the oldest segment listed, deleted at the next refresh: a six-second
+window with zero slack. The Android listener's playback journal from 2026-10-21 and 22 is what that looks
+like: `BEHIND_LIVE_WINDOW` twice, none of them a network drop, beside three of ExoPlayer's "stuck playing
+with no progress" timeouts that a window with no room behind the player is the likeliest cause of. The
+default is fifteen (thirty seconds at two-second segments, so twenty-four seconds of slack) and
+`HLS_SEGMENT_COUNT_RANGE` is 10 to 30. The resolver lifts a stored three to ten on read, and migration 0110
+rewrites the row too, so the settings page shows the figure the station is running on. Nothing about counting
+moves with it: a player re-fetches the media playlist every target duration however long it is, so the
+fifteen-second register above sees the same heartbeat. What it costs is the directory, which holds
+`count + segments_overhead` files.
+
 **Any page may read the stream, and it took a JavaScript player to notice that one could not.** Native
 playback is not a CORS request: an `<audio src>` fetches the playlist in no-cors mode and the browser applies
 no origin check, so Safari, hardware players and the console's own preview all worked while every embedded

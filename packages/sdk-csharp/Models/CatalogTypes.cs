@@ -719,6 +719,14 @@ public sealed record FactClaim
 /// </summary>
 public sealed record FactClaimInput;
 
+/// <summary>Keep something off the station for a while, without passing judgement on it</summary>
+public sealed record SuspendInput
+{
+    /// <summary>How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date</summary>
+    [JsonPropertyName("days")]
+    public required long Days { get; init; }
+}
+
 /// <summary>
 /// Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
 /// excludes it, and nothing the station programmes may turn that off.
@@ -760,6 +768,11 @@ public sealed record Artist
 
     [JsonPropertyName("rating")]
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
+
+    /// <summary>Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent</summary>
+    [JsonPropertyName("suspendedUntil")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? SuspendedUntil { get; init; }
 
     /// <summary>Unmerged albums credited to this artist</summary>
     [JsonPropertyName("albumCount")]
@@ -831,6 +844,11 @@ public sealed record Album
 
     [JsonPropertyName("rating")]
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
+
+    /// <summary>Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent</summary>
+    [JsonPropertyName("suspendedUntil")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? SuspendedUntil { get; init; }
 
     [JsonPropertyName("trackCount")]
     public required long TrackCount { get; init; }
@@ -905,6 +923,11 @@ public sealed record Track
 
     [JsonPropertyName("rating")]
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
+
+    /// <summary>Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent</summary>
+    [JsonPropertyName("suspendedUntil")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? SuspendedUntil { get; init; }
 }
 
 public sealed record TrackInput
@@ -1393,6 +1416,11 @@ public sealed record TrackRow
     [JsonPropertyName("rating")]
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 
+    /// <summary>Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent</summary>
+    [JsonPropertyName("suspendedUntil")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? SuspendedUntil { get; init; }
+
     /// <summary>The bytes are on this machine</summary>
     [JsonPropertyName("hasAudio")]
     public required bool HasAudio { get; init; }
@@ -1492,6 +1520,11 @@ public sealed record TrackDetail
 
     [JsonPropertyName("rating")]
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
+
+    /// <summary>Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent</summary>
+    [JsonPropertyName("suspendedUntil")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? SuspendedUntil { get; init; }
 
     [JsonPropertyName("bindings")]
     public required List<TrackBinding> Bindings { get; init; }

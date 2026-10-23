@@ -1410,6 +1410,135 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/Track'
+    '/catalog/artists/{id}/suspension':
+        put:
+            operationId: suspendArtist
+            summary: 'Suspend artist'
+            description: 'Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SuspendInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Artist'
+        delete:
+            operationId: liftArtist
+            summary: 'Lift artist suspension'
+            description: 'End a suspension now. Something not suspended is answered as it stands rather than refused'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Artist'
+    '/catalog/albums/{id}/suspension':
+        put:
+            operationId: suspendAlbum
+            summary: 'Suspend album'
+            description: 'Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SuspendInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Album'
+        delete:
+            operationId: liftAlbum
+            summary: 'Lift album suspension'
+            description: 'End a suspension now. Something not suspended is answered as it stands rather than refused'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Album'
+    '/catalog/tracks/{id}/suspension':
+        put:
+            operationId: suspendTrack
+            summary: 'Suspend track'
+            description: 'Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SuspendInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Track'
+        delete:
+            operationId: liftTrack
+            summary: 'Lift track suspension'
+            description: 'End a suspension now. Something not suspended is answered as it stands rather than refused'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Track'
     '/charts':
         get:
             operationId: readCharts
@@ -8314,6 +8443,11 @@ components:
                 rating:
                     '$ref': '#/components/schemas/Rating'
                     default: neutral
+                suspendedUntil:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent'
                 albumCount:
                     type: integer
                     minimum: 0
@@ -8355,6 +8489,11 @@ components:
                 rating:
                     '$ref': '#/components/schemas/Rating'
                     default: neutral
+                suspendedUntil:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent'
                 trackCount:
                     type: integer
                     minimum: 0
@@ -8401,6 +8540,11 @@ components:
                 rating:
                     '$ref': '#/components/schemas/Rating'
                     default: neutral
+                suspendedUntil:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent'
             required: [id, title, artistId, artistName, artists, rating]
         TrackBinding:
             type: object
@@ -9322,6 +9466,16 @@ components:
                     items:
                         '$ref': '#/components/schemas/FactClaim'
             required: [albumId, merged, sources, claims]
+        SuspendInput:
+            type: object
+            properties:
+                days:
+                    type: integer
+                    minimum: 1
+                    maximum: 365
+                    description: 'How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date'
+            required: [days]
+            description: 'Keep something off the station for a while, without passing judgement on it'
         StationChart:
             type: object
             properties:

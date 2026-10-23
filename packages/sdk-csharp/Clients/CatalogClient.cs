@@ -336,4 +336,85 @@ public sealed class CatalogClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<Track>(response);
     }
+
+    /// <summary>
+    /// Suspend artist
+    /// Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+    /// </summary>
+    public async Task<Artist> SuspendArtistAsync(Guid id, SuspendInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("catalog", "artists", http.Segment(id), "suspension"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Artist>(response);
+    }
+
+    /// <summary>
+    /// Lift artist suspension
+    /// End a suspension now. Something not suspended is answered as it stands rather than refused
+    /// </summary>
+    public async Task<Artist> LiftArtistSuspensionAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("catalog", "artists", http.Segment(id), "suspension"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Artist>(response);
+    }
+
+    /// <summary>
+    /// Suspend album
+    /// Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+    /// </summary>
+    public async Task<Album> SuspendAlbumAsync(Guid id, SuspendInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("catalog", "albums", http.Segment(id), "suspension"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Album>(response);
+    }
+
+    /// <summary>
+    /// Lift album suspension
+    /// End a suspension now. Something not suspended is answered as it stands rather than refused
+    /// </summary>
+    public async Task<Album> LiftAlbumSuspensionAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("catalog", "albums", http.Segment(id), "suspension"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Album>(response);
+    }
+
+    /// <summary>
+    /// Suspend track
+    /// Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+    /// </summary>
+    public async Task<Track> SuspendTrackAsync(Guid id, SuspendInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("catalog", "tracks", http.Segment(id), "suspension"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Track>(response);
+    }
+
+    /// <summary>
+    /// Lift track suspension
+    /// End a suspension now. Something not suspended is answered as it stands rather than refused
+    /// </summary>
+    public async Task<Track> LiftTrackSuspensionAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("catalog", "tracks", http.Segment(id), "suspension"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Track>(response);
+    }
 }

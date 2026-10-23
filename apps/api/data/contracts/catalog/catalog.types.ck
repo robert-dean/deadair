@@ -29,6 +29,7 @@ contract Artist: {
     mbid?: uuid # MusicBrainz artist id, absent until enrichment resolves one
     imageUrl?: string # An API-relative path: the cached copy, or the station's proxy for an uncached one
     rating: Rating = neutral
+    suspendedUntil?: readonly datetime # Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
     albumCount: readonly int(min=0) # Unmerged albums credited to this artist
     trackCount: readonly int(min=0) # Unmerged tracks credited to this artist
 }
@@ -42,6 +43,7 @@ contract Album: {
     year?: int
     imageUrl?: string # An API-relative path: the cached copy, or the station's proxy for an uncached one
     rating: Rating = neutral
+    suspendedUntil?: readonly datetime # Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
     trackCount: readonly int(min=0)
 }
 
@@ -58,6 +60,7 @@ contract Track: {
     year?: int
     durationMs?: int(min=0)
     rating: Rating = neutral
+    suspendedUntil?: readonly datetime # Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
 }
 
 # One provider's copy of a record, with whatever the station holds of it.
@@ -472,4 +475,8 @@ contract AlbumEnrichmentDetail: {
     merged: AlbumEnrichmentData
     sources: array(AlbumEnrichmentSource)
     claims: array(FactClaim)
+}
+
+contract SuspendInput: { # Keep something off the station for a while, without passing judgement on it
+    days: int(min=1, max=365) # How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date
 }

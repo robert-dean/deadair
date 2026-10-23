@@ -1,4 +1,6 @@
 import { sql, type RawBuilder } from 'kysely';
+import type { DateTime } from 'luxon';
+import { instant } from '#modules/data/timestamp.columns.js';
 
 /**
  * Whether a record is suspended right now: the record itself, its release, its lead artist, or any
@@ -46,3 +48,19 @@ export const notSuspendedNow = (trackId: RawBuilder<unknown>) => sql<boolean>`no
  * every artist never suspended would vanish from a read that asked for the ones that are not.
  */
 export const artistSuspendedNow = (column: RawBuilder<unknown>) => sql<boolean>`coalesce(${column} > now(), false)`;
+
+/**
+ * A row's suspension as the catalog reports it: the moment it lapses while it is still in force,
+ * and nothing at all once it has, so a lapsed one is absent on the wire exactly as one never set.
+ *
+ * @param column - The column in the database's own spelling, `deadair.tracks.suspended_until`.
+ */
+export const suspendedUntilColumn = (column: string) =>
+    sql<DateTime | null>`case when ${sql.ref(column)} > now() then ${sql.ref(column)} end`.as('suspendedUntil');
+
+/** How long a suspension may be asked for, in days. The contract holds it to the same figure. */
+export const MAX_SUSPENSION_DAYS = 365;
+
+/** The value to write for a suspension of `days` from `now`, or for none. */
+export const suspensionValue = (days: number | undefined, now = Date.now()) =>
+    days === undefined ? null : instant(now + Math.min(MAX_SUSPENSION_DAYS, Math.max(1, Math.floor(days))) * 24 * 60 * 60_000);

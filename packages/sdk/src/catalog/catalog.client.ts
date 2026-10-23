@@ -10,6 +10,7 @@ import type {
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
+    SuspendInput,
     Track,
     TrackClearResult,
     TrackDetail,
@@ -22,11 +23,17 @@ import type {
     VocalMarkersInput,
 } from './types/catalog.types.js';
 import {
+    reviveAlbum,
     reviveAlbumEnrichmentDetail,
+    reviveAlbumPage,
+    reviveArtist,
     reviveArtistEnrichmentDetail,
+    reviveArtistPage,
+    reviveTrack,
     reviveTrackDetail,
     reviveTrackEnrichmentDetail,
     reviveTrackLyricsSources,
+    reviveTrackPage,
 } from './types/catalog.types.js';
 
 export class CatalogClient {
@@ -41,7 +48,7 @@ export class CatalogClient {
         const result = await this.fetch(`/catalog/artists${qs}`, {
             method: 'GET',
         });
-        return await parseJson<ArtistPage>(result);
+        return reviveArtistPage(await parseJson<ArtistPage>(result));
     }
 
     /**
@@ -50,7 +57,7 @@ export class CatalogClient {
      */
     async getArtist(id: string): Promise<Artist> {
         const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}`, { method: 'GET' });
-        return await parseJson<Artist>(result);
+        return reviveArtist(await parseJson<Artist>(result));
     }
 
     /**
@@ -71,7 +78,7 @@ export class CatalogClient {
         const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/albums${qs}`, {
             method: 'GET',
         });
-        return await parseJson<AlbumPage>(result);
+        return reviveAlbumPage(await parseJson<AlbumPage>(result));
     }
 
     /**
@@ -84,7 +91,7 @@ export class CatalogClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<Artist>(result);
+        return reviveArtist(await parseJson<Artist>(result));
     }
 
     /** @name List albums */
@@ -93,13 +100,13 @@ export class CatalogClient {
         const result = await this.fetch(`/catalog/albums${qs}`, {
             method: 'GET',
         });
-        return await parseJson<AlbumPage>(result);
+        return reviveAlbumPage(await parseJson<AlbumPage>(result));
     }
 
     /** @name Get album */
     async getAlbum(id: string): Promise<Album> {
         const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}`, { method: 'GET' });
-        return await parseJson<Album>(result);
+        return reviveAlbum(await parseJson<Album>(result));
     }
 
     /**
@@ -120,7 +127,7 @@ export class CatalogClient {
         const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/tracks${qs}`, {
             method: 'GET',
         });
-        return await parseJson<TrackPage>(result);
+        return reviveTrackPage(await parseJson<TrackPage>(result));
     }
 
     /**
@@ -133,7 +140,7 @@ export class CatalogClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<Album>(result);
+        return reviveAlbum(await parseJson<Album>(result));
     }
 
     /**
@@ -260,7 +267,7 @@ export class CatalogClient {
         const result = await this.fetch(`/catalog/tracks${qs}`, {
             method: 'GET',
         });
-        return await parseJson<TrackPage>(result);
+        return reviveTrackPage(await parseJson<TrackPage>(result));
     }
 
     /**
@@ -273,6 +280,72 @@ export class CatalogClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<Track>(result);
+        return reviveTrack(await parseJson<Track>(result));
+    }
+
+    /**
+     * @name Suspend artist
+     * @description Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+     */
+    async suspendArtist(id: string, body: SuspendInput): Promise<Artist> {
+        const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/suspension`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveArtist(await parseJson<Artist>(result));
+    }
+
+    /**
+     * @name Lift artist suspension
+     * @description End a suspension now. Something not suspended is answered as it stands rather than refused
+     */
+    async liftArtistSuspension(id: string): Promise<Artist> {
+        const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/suspension`, { method: 'DELETE' });
+        return reviveArtist(await parseJson<Artist>(result));
+    }
+
+    /**
+     * @name Suspend album
+     * @description Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+     */
+    async suspendAlbum(id: string, body: SuspendInput): Promise<Album> {
+        const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/suspension`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveAlbum(await parseJson<Album>(result));
+    }
+
+    /**
+     * @name Lift album suspension
+     * @description End a suspension now. Something not suspended is answered as it stands rather than refused
+     */
+    async liftAlbumSuspension(id: string): Promise<Album> {
+        const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/suspension`, { method: 'DELETE' });
+        return reviveAlbum(await parseJson<Album>(result));
+    }
+
+    /**
+     * @name Suspend track
+     * @description Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+     */
+    async suspendTrack(id: string, body: SuspendInput): Promise<Track> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/suspension`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveTrack(await parseJson<Track>(result));
+    }
+
+    /**
+     * @name Lift track suspension
+     * @description End a suspension now. Something not suspended is answered as it stands rather than refused
+     */
+    async liftTrackSuspension(id: string): Promise<Track> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/suspension`, { method: 'DELETE' });
+        return reviveTrack(await parseJson<Track>(result));
     }
 }

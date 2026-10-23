@@ -5,6 +5,7 @@ import { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { artUrl } from './catalog.art.js';
 import { withStationCover } from '#modules/art/art.source.token.js';
+import { suspendedUntilColumn, suspensionValue } from './suspension.js';
 
 /**
  * `nameKey` is a match key for ingest and never read out; `artistName` is joined in below.
@@ -73,6 +74,7 @@ export class AlbumsRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(ALBUM_COLUMNS)
+            .select(suspendedUntilColumn('deadair.albums.suspended_until'))
             .select(artUrl(ALBUM_IMAGE_COLUMN))
             .select(eb => [trackCount(eb)])
             .orderBy(columnFor(sortBy, ALBUM_SORTS, ALBUM_SORTS.name), directionFor(sort))
@@ -92,6 +94,7 @@ export class AlbumsRepository extends DataRepository {
             .where('deadair.albums.id', '=', id)
             .where('deadair.albums.mergedIntoId', 'is', null)
             .select(ALBUM_COLUMNS)
+            .select(suspendedUntilColumn('deadair.albums.suspended_until'))
             .select(artUrl(ALBUM_IMAGE_COLUMN))
             .select(eb => [trackCount(eb)])
             .executeTakeFirst();
@@ -100,6 +103,22 @@ export class AlbumsRepository extends DataRepository {
     }
 
     /** What the station thinks of this record, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */
+    /**
+     * Keep this release off the station for `days`, or lift its suspension with `undefined`.
+     *
+     * @returns whether a row was there to change. Merged rows are not, for `setRating`'s reason.
+     */
+    async setSuspension(id: string, days: number | undefined): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.albums')
+            .set({ suspendedUntil: suspensionValue(days) })
+            .where('deadair.albums.id', '=', id)
+            .where('deadair.albums.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
     async setRating(id: string, rating: number): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.albums')

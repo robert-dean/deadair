@@ -298,6 +298,15 @@ export function reviveFactClaim(raw: FactClaim): FactClaim {
 }
 
 /**
+ * Keep something off the station for a while, without passing judgement on it
+ * generated from [SuspendInput](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface SuspendInput {
+    /** How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date */
+    days: number;
+}
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
@@ -326,6 +335,8 @@ export interface Artist {
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    suspendedUntil?: DateTime;
     /** Unmerged albums credited to this artist */
     albumCount: number;
     /** Unmerged tracks credited to this artist */
@@ -339,6 +350,15 @@ export interface ArtistInput {
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
+}
+
+/** Rehydrates every wire-encoded scalar in a Artist into its runtime type. Mutates and returns `raw`. */
+export function reviveArtist(raw: Artist): Artist {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['suspendedUntil'] != null) {
+        __o0['suspendedUntil'] = __dt(__o0['suspendedUntil'], 'Artist.suspendedUntil');
+    }
+    return raw;
 }
 
 /**
@@ -356,6 +376,8 @@ export interface Album {
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    suspendedUntil?: DateTime;
     trackCount: number;
 }
 
@@ -367,6 +389,15 @@ export interface AlbumInput {
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
+}
+
+/** Rehydrates every wire-encoded scalar in a Album into its runtime type. Mutates and returns `raw`. */
+export function reviveAlbum(raw: Album): Album {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['suspendedUntil'] != null) {
+        __o0['suspendedUntil'] = __dt(__o0['suspendedUntil'], 'Album.suspendedUntil');
+    }
+    return raw;
 }
 
 /**
@@ -388,6 +419,8 @@ export interface Track {
     year?: number;
     durationMs?: number;
     rating?: Rating;
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    suspendedUntil?: DateTime;
 }
 
 export interface TrackInput {
@@ -398,6 +431,15 @@ export interface TrackInput {
     year?: number;
     durationMs?: number;
     rating?: Rating;
+}
+
+/** Rehydrates every wire-encoded scalar in a Track into its runtime type. Mutates and returns `raw`. */
+export function reviveTrack(raw: Track): Track {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['suspendedUntil'] != null) {
+        __o0['suspendedUntil'] = __dt(__o0['suspendedUntil'], 'Track.suspendedUntil');
+    }
+    return raw;
 }
 
 /**
@@ -580,6 +622,18 @@ export interface ArtistPageInput {
     data: ArtistInput[];
 }
 
+/** Rehydrates every wire-encoded scalar in a ArtistPage into its runtime type. Mutates and returns `raw`. */
+export function reviveArtistPage(raw: ArtistPage): ArtistPage {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['data'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveArtist(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
+
 /**
  * One page of albums
  * generated from [AlbumPage](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
@@ -592,6 +646,18 @@ export interface AlbumPage {
 export interface AlbumPageInput {
     meta: PaginationInput;
     data: AlbumInput[];
+}
+
+/** Rehydrates every wire-encoded scalar in a AlbumPage into its runtime type. Mutates and returns `raw`. */
+export function reviveAlbumPage(raw: AlbumPage): AlbumPage {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['data'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveAlbum(__a1[__i2] as never);
+        }
+    }
+    return raw;
 }
 
 /**
@@ -613,6 +679,12 @@ export interface TrackRow extends Track {
 }
 
 export interface TrackRowInput extends TrackInput {}
+
+/** Rehydrates every wire-encoded scalar in a TrackRow into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackRow(raw: TrackRow): TrackRow {
+    reviveTrack(raw as never);
+    return raw;
+}
 
 /**
  * Everything one record has accumulated, in one read.
@@ -643,6 +715,7 @@ export interface TrackDetailInput extends TrackInput {
 /** Rehydrates every wire-encoded scalar in a TrackDetail into its runtime type. Mutates and returns `raw`. */
 export function reviveTrackDetail(raw: TrackDetail): TrackDetail {
     const __o0 = raw as unknown as Record<string, unknown>;
+    reviveTrack(raw as never);
     {
         const __a1 = __o0['bindings'] as unknown[];
         for (let __i2 = 0; __i2 < __a1.length; __i2++) {
@@ -840,6 +913,18 @@ export interface TrackPageInput {
     meta: PaginationInput;
     data: TrackRowInput[];
     states: TrackStateCountsInput;
+}
+
+/** Rehydrates every wire-encoded scalar in a TrackPage into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackPage(raw: TrackPage): TrackPage {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['data'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveTrackRow(__a1[__i2] as never);
+        }
+    }
+    return raw;
 }
 
 /**

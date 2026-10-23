@@ -10,7 +10,7 @@ import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js'
 import { ratingFromColumn } from './rating.js';
 import { releasedYear } from '../shared/release.year.js';
 import type { MeasureFailure, Rating, TrackState } from './types/catalog.types.js';
-import { artistSuspendedNow, notSuspendedNow, suspendedNow } from './suspension.js';
+import { artistSuspendedNow, notSuspendedNow, suspendedNow, suspendedUntilColumn, suspensionValue } from './suspension.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
 const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
@@ -480,6 +480,7 @@ export class TracksRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(TRACK_COLUMNS)
+            .select(suspendedUntilColumn('deadair.tracks.suspended_until'))
             // A track's art is its record's: nothing hangs a cover off a recording. Off the join
             // that is already there, so a list of fifty rows still costs one query.
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
@@ -1325,12 +1326,29 @@ export class TracksRepository extends DataRepository {
         const row = await this.readable()
             .where('deadair.tracks.id', '=', id)
             .select(TRACK_COLUMNS)
+            .select(suspendedUntilColumn('deadair.tracks.suspended_until'))
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
             .executeTakeFirst();
         return row === undefined ? undefined : withStationCover(row, 'albumImageUrl');
     }
 
     /** What the station thinks of this song, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */
+    /**
+     * Keep this record off the station for `days`, or lift its suspension with `undefined`.
+     *
+     * @returns whether a row was there to change. Merged rows are not, for `setRating`'s reason.
+     */
+    async setSuspension(id: string, days: number | undefined): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.tracks')
+            .set({ suspendedUntil: suspensionValue(days) })
+            .where('deadair.tracks.id', '=', id)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
     async setRating(id: string, rating: number): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.tracks')

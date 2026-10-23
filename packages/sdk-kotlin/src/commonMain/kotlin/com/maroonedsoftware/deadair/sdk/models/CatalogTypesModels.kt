@@ -401,6 +401,13 @@ data class FactClaim(
 @Serializable
 class FactClaimInput
 
+/** Keep something off the station for a while, without passing judgement on it */
+@Serializable
+data class SuspendInput(
+    /** How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date */
+    val days: Long,
+)
+
 /**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
@@ -430,6 +437,8 @@ data class Artist(
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     val imageUrl: String? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     /** Unmerged albums credited to this artist */
     val albumCount: Long,
     /** Unmerged tracks credited to this artist */
@@ -470,6 +479,8 @@ data class Album(
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     val imageUrl: String? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     val trackCount: Long,
 )
 
@@ -501,6 +512,8 @@ data class Track(
     val year: Long? = null,
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
 )
 
 @Serializable
@@ -754,6 +767,8 @@ data class TrackRow(
     val year: Long? = null,
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     /** The bytes are on this machine */
     val hasAudio: Boolean,
     /** Measured, COMPLETE, and at a schema version the station still trusts */
@@ -805,6 +820,8 @@ data class TrackDetail(
     val year: Long? = null,
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     val bindings: List<TrackBinding>,
     /** Absent for a record the walk has not reached */
     val analysis: TrackAnalysis? = null,

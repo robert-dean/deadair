@@ -16,16 +16,17 @@ mdx:
 > prefix the edge adds). The switch from the second to the first happens server-side.
 
 <details>
-<summary>Attributes (7)</summary>
+<summary>Attributes (8)</summary>
 
-| Attribute    | Type     | Required | Description                                                                       |
-| ------------ | -------- | -------- | --------------------------------------------------------------------------------- |
-| `id`         | `string` | Yes      | _read-only_                                                                       |
-| `name`       | `string` | Yes      |                                                                                   |
-| `mbid`       | `string` | No       | MusicBrainz artist id, absent until enrichment resolves one                       |
-| `imageUrl`   | `string` | No       | An API-relative path: the cached copy, or the station's proxy for an uncached one |
-| `rating`     | `Rating` | Yes      | _default: `neutral`_                                                              |
-| `albumCount` | `number` | Yes      | Unmerged albums credited to this artist. _read-only_                              |
-| `trackCount` | `number` | Yes      | Unmerged tracks credited to this artist. _read-only_                              |
+| Attribute        | Type     | Required | Description                                                                                                                                                                                          |
+| ---------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | `string` | Yes      | _read-only_                                                                                                                                                                                          |
+| `name`           | `string` | Yes      |                                                                                                                                                                                                      |
+| `mbid`           | `string` | No       | MusicBrainz artist id, absent until enrichment resolves one                                                                                                                                          |
+| `imageUrl`       | `string` | No       | An API-relative path: the cached copy, or the station's proxy for an uncached one                                                                                                                    |
+| `rating`         | `Rating` | Yes      | _default: `neutral`_                                                                                                                                                                                 |
+| `suspendedUntil` | `string` | No       | Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent. _read-only_ |
+| `albumCount`     | `number` | Yes      | Unmerged albums credited to this artist. _read-only_                                                                                                                                                 |
+| `trackCount`     | `number` | Yes      | Unmerged tracks credited to this artist. _read-only_                                                                                                                                                 |
 
 </details>

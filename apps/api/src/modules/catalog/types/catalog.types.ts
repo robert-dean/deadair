@@ -287,6 +287,19 @@ export const FactClaimInput = z.strictObject({});
 export type FactClaimInput = z.infer<typeof FactClaimInput>;
 
 /**
+ * Keep something off the station for a while, without passing judgement on it
+ * generated from [SuspendInput](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const SuspendInput = z.strictObject({
+    days: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(365))
+        .describe(
+            'How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date',
+        ),
+});
+export type SuspendInput = z.infer<typeof SuspendInput>;
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](../../../../data/contracts/catalog/catalog.types.ck)
@@ -314,6 +327,11 @@ export const Artist = z.strictObject({
     mbid: z.uuid().optional().describe('MusicBrainz artist id, absent until enrichment resolves one'),
     imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
+    suspendedUntil: _ZodDatetime
+        .optional()
+        .describe(
+            'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent',
+        ),
     albumCount: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe('Unmerged albums credited to this artist'),
@@ -343,6 +361,11 @@ export const Album = z.strictObject({
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
+    suspendedUntil: _ZodDatetime
+        .optional()
+        .describe(
+            'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent',
+        ),
     trackCount: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
 export type Album = z.infer<typeof Album>;
@@ -372,6 +395,11 @@ export const Track = z.strictObject({
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
     rating: Rating.default('neutral'),
+    suspendedUntil: _ZodDatetime
+        .optional()
+        .describe(
+            'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent',
+        ),
 });
 export type Track = z.infer<typeof Track>;
 

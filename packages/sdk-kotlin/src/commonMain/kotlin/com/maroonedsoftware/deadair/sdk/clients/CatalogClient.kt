@@ -12,6 +12,7 @@ import com.maroonedsoftware.deadair.sdk.models.ArtistPage
 import com.maroonedsoftware.deadair.sdk.models.CatalogQueryInput
 import com.maroonedsoftware.deadair.sdk.models.ClearEnrichmentQuery
 import com.maroonedsoftware.deadair.sdk.models.RateInput
+import com.maroonedsoftware.deadair.sdk.models.SuspendInput
 import com.maroonedsoftware.deadair.sdk.models.Track
 import com.maroonedsoftware.deadair.sdk.models.TrackClearResult
 import com.maroonedsoftware.deadair.sdk.models.TrackDetail
@@ -294,6 +295,75 @@ class CatalogClient(private val http: SdkHttp) {
         val response = http.execute(HttpMethod.Put) {
             path("catalog", "tracks", segment(id), "rating")
             jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Suspend artist
+     * Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+     */
+    suspend fun suspendArtist(id: Uuid, body: SuspendInput): Artist {
+        val response = http.execute(HttpMethod.Put) {
+            path("catalog", "artists", segment(id), "suspension")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Lift artist suspension
+     * End a suspension now. Something not suspended is answered as it stands rather than refused
+     */
+    suspend fun liftArtistSuspension(id: Uuid): Artist {
+        val response = http.execute(HttpMethod.Delete) {
+            path("catalog", "artists", segment(id), "suspension")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Suspend album
+     * Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+     */
+    suspend fun suspendAlbum(id: Uuid, body: SuspendInput): Album {
+        val response = http.execute(HttpMethod.Put) {
+            path("catalog", "albums", segment(id), "suspension")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Lift album suspension
+     * End a suspension now. Something not suspended is answered as it stands rather than refused
+     */
+    suspend fun liftAlbumSuspension(id: Uuid): Album {
+        val response = http.execute(HttpMethod.Delete) {
+            path("catalog", "albums", segment(id), "suspension")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Suspend track
+     * Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+     */
+    suspend fun suspendTrack(id: Uuid, body: SuspendInput): Track {
+        val response = http.execute(HttpMethod.Put) {
+            path("catalog", "tracks", segment(id), "suspension")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Lift track suspension
+     * End a suspension now. Something not suspended is answered as it stands rather than refused
+     */
+    suspend fun liftTrackSuspension(id: Uuid): Track {
+        val response = http.execute(HttpMethod.Delete) {
+            path("catalog", "tracks", segment(id), "suspension")
         }
         return http.decodeJson(response)
     }

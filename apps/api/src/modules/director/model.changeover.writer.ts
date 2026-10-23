@@ -1,28 +1,15 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { captureWrites } from '#modules/render/script.history.settings.js';
-import {
-    breakPrompt,
-    maxWordsFor,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    writeDecline,
-    writeTrim,
-    type AnswerGuard,
-    type BreakPromptShape,
-    type PromptSettings,
-} from './break.prompt.js';
+import { permittedYears, shownWithoutRecent, type BreakPromptShape, type PromptSettings } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { CHANGEOVER_KIND, spokenNames, thankedAt } from './changeover.writer.js';
-import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { modelList } from '#modules/llm/model.list.js';
+import { writeWithModel } from './model.break.write.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 
 /**
  * A model marking a change of programme, with the station's own words underneath it.
@@ -107,20 +94,10 @@ export class ModelChangeoverWriter extends BreakWriter {
     async write(asked: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         this.lastDetail = undefined;
 
-        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
-        if (!this.llm.canGenerate()) {
-            this.logger.debug(`director: no model to mark the change of programme with (${this.llm.explainGenerator()})`);
-            return undefined;
-        }
-
         // Withheld here rather than trusted to the shape: `showsPrevious: false` hides the record
         // behind, and nothing in a shape can hide the one ahead. See the note on the class.
         const { previous: _previous, next: _next, ...request } = asked;
 
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
-        const model = models[0] ?? '';
         // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: the number the model is
         // told has to be the number the guard refuses at.
         const settings: PromptSettings = {
@@ -131,65 +108,22 @@ export class ModelChangeoverWriter extends BreakWriter {
             // reason: what a kind permits belongs on the shape, in one place.
             ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
         };
-        const messages = breakPrompt(request, settings, CHANGEOVER_SHAPE);
 
-        const result = await this.llm.converse(
+        const outcome = await writeWithModel(
+            { llm: this.llm, config: this.config, logger: this.logger },
             {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                ...breakGeneration(this.config),
-            },
-            // No tools, for the talk break's reason: everything it needs is in the prompt, and a
-            // changeover is asked for with the new show's first record already on its way.
-            {
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                maxWaitMs: patienceFor(request.airsAt),
-                ...(request.priority === undefined ? {} : { priority: request.priority }),
+                request,
+                settings,
+                shape: CHANGEOVER_SHAPE,
+                // No record was shown, so no cue to judge and no year belongs in the answer but one the
+                // prompt itself carried.
+                guard: messages => ({ years: permittedYears([], request.moment, shownWithoutRecent(messages, request.recent)) }),
+                purpose: { noModel: 'mark the change of programme with', nothing: 'mark the change of programme with' },
             },
         );
-
-        const guard: AnswerGuard = {
-            maxWords: maxWordsFor(settings, CHANGEOVER_SHAPE),
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
-            ...(request.recent === undefined ? {} : { recent: request.recent }),
-            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
-            ...(request.moment === undefined ? {} : { moment: request.moment }),
-            ...languageGuard(this.config),
-            ...homeGuard(this.config),
-            ...stationGuard(this.config),
-            ...speakerGuard(this.config, request),
-            // No record was shown, so no year belongs in the answer but one the prompt itself carried.
-            years: permittedYears([], request.moment, shownWithoutRecent(messages, request.recent)),
-        };
-        const script = readAnswer(result.text, guard);
-
-        this.lastDetail = {
-            model: result.model,
-            ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
-            ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
-        };
-
-        if (script === undefined) {
-            const declined = writeDecline(result.text, guard);
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
-
-            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could mark the change of programme with'}`, {
-                finish: result.finishReason,
-                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
-                persona: request.persona?.key,
-                fault: declined?.fault,
-            });
-            return undefined;
-        }
-
-        const trimmed = writeTrim(result.text, guard);
-        if (trimmed !== undefined) {
-            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
-            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
-        }
-
+        this.lastDetail = outcome.detail;
+        if (outcome.written === undefined) return undefined;
+        const { script, guard } = outcome.written;
         const claimsTime = timeClaimFor(script, guard.language, request.greeting, request.dayPart);
 
         return {

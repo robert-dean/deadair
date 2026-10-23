@@ -638,6 +638,12 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean; host?
         // A kind of show rather than a station setting, so absent is simply no.
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),
+        // The same three-way, and absent is the mode's answer. On the order's rules rather than in
+        // the first batch, because `onEnd: 'extend'` keeps asking for more and a lift held anywhere
+        // else would be gone within the hour.
+        ...(slot.repeatWindowDays === undefined ? {} : { repeatWindowDays: slot.repeatWindowDays }),
+        ...(slot.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
+        ...(slot.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
         mode: withoutSource ? 'rotation' : slot.mode,
         onEnd: withoutSource ? 'extend' : slot.onEnd,
     };

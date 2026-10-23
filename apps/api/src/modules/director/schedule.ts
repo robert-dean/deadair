@@ -210,6 +210,14 @@ export interface ScheduleSlot {
     /** How many records follow each request on a request show. Absent is the default in `request.show.ts`. */
     requestFollowOn?: number;
     /**
+     * The repeat rules this stretch of the day lifts or tightens, copied onto the running order's rules
+     * at a changeover. Each absent is the mode's own answer and each `0` lifts that rule, exactly as
+     * on `PutOnAirInput`. All three, because a one-artist hour is refused by each of them on its own.
+     */
+    repeatWindowDays?: number;
+    artistCooldownMinutes?: number;
+    maxPerArtist?: number;
+    /**
      * Whether somebody phones in during this stretch of the day.
      *
      * Absent is no calls, exactly as it is on `PutOnAirInput.callins`: there is no station-wide

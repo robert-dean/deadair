@@ -229,6 +229,12 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var requestShow: Bool?
     /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     public var requestFollowOn: Int?
+    /// Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule
+    public var repeatWindowDays: Int?
+    /// Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    public var artistCooldownMinutes: Int?
+    /// Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    public var maxPerArtist: Int?
     /// The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
@@ -244,7 +250,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -267,6 +273,9 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.chartPositions = chartPositions
         self.requestShow = requestShow
         self.requestFollowOn = requestFollowOn
+        self.repeatWindowDays = repeatWindowDays
+        self.artistCooldownMinutes = artistCooldownMinutes
+        self.maxPerArtist = maxPerArtist
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.coHosts = coHosts
@@ -300,6 +309,9 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case chartPositions = "chartPositions"
         case requestShow = "requestShow"
         case requestFollowOn = "requestFollowOn"
+        case repeatWindowDays = "repeatWindowDays"
+        case artistCooldownMinutes = "artistCooldownMinutes"
+        case maxPerArtist = "maxPerArtist"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
         case coHosts = "coHosts"
@@ -334,6 +346,9 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
         self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
+        self.repeatWindowDays = try container.decodeIfPresent(Int.self, forKey: .repeatWindowDays)
+        self.artistCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .artistCooldownMinutes)
+        self.maxPerArtist = try container.decodeIfPresent(Int.self, forKey: .maxPerArtist)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
@@ -368,6 +383,9 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
         try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
+        try container.encodeIfPresent(self.repeatWindowDays, forKey: .repeatWindowDays)
+        try container.encodeIfPresent(self.artistCooldownMinutes, forKey: .artistCooldownMinutes)
+        try container.encodeIfPresent(self.maxPerArtist, forKey: .maxPerArtist)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
@@ -422,6 +440,12 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var requestShow: Bool?
     /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     public var requestFollowOn: Int?
+    /// Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule
+    public var repeatWindowDays: Int?
+    /// Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    public var artistCooldownMinutes: Int?
+    /// Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    public var maxPerArtist: Int?
     /// The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
@@ -437,7 +461,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -459,6 +483,9 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.chartPositions = chartPositions
         self.requestShow = requestShow
         self.requestFollowOn = requestFollowOn
+        self.repeatWindowDays = repeatWindowDays
+        self.artistCooldownMinutes = artistCooldownMinutes
+        self.maxPerArtist = maxPerArtist
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.coHosts = coHosts
@@ -491,6 +518,9 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case chartPositions = "chartPositions"
         case requestShow = "requestShow"
         case requestFollowOn = "requestFollowOn"
+        case repeatWindowDays = "repeatWindowDays"
+        case artistCooldownMinutes = "artistCooldownMinutes"
+        case maxPerArtist = "maxPerArtist"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
         case coHosts = "coHosts"
@@ -524,6 +554,9 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
         self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
+        self.repeatWindowDays = try container.decodeIfPresent(Int.self, forKey: .repeatWindowDays)
+        self.artistCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .artistCooldownMinutes)
+        self.maxPerArtist = try container.decodeIfPresent(Int.self, forKey: .maxPerArtist)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
@@ -557,6 +590,9 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
         try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
+        try container.encodeIfPresent(self.repeatWindowDays, forKey: .repeatWindowDays)
+        try container.encodeIfPresent(self.artistCooldownMinutes, forKey: .artistCooldownMinutes)
+        try container.encodeIfPresent(self.maxPerArtist, forKey: .maxPerArtist)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)

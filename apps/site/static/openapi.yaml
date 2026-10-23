@@ -15425,6 +15425,21 @@ components:
                     minimum: 0
                     maximum: 10
                     description: 'How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true'
+                repeatWindowDays:
+                    type: integer
+                    minimum: 0
+                    maximum: 365
+                    description: "Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule"
+                artistCooldownMinutes:
+                    type: integer
+                    minimum: 0
+                    maximum: 1440
+                    description: "Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms"
+                maxPerArtist:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    description: "Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms"
                 startsOn:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'

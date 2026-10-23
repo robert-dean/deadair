@@ -30,6 +30,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyQueued, notifyUndoable } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { OnAirNow } from './on.air.now';
 
 /**
@@ -186,18 +187,20 @@ export function DeskPage() {
                         </Text>
                     </Group>
 
-                    {attention.isPending ? <PageSkeleton variant="card" /> : undefined}
-
                     {/* The list failing is not the station failing, and saying which is the difference
-                    between a console an operator trusts and one they second-guess. */}
-                    {attention.error ? (
-                        <ErrorAlert title={t('page.attentionFailed')} error={attention.error} fallback={t('page.attentionFailedFallback')} />
-                    ) : undefined}
+                    between a console an operator trusts and one they second-guess.
 
-                    {/* `here` because this page is what `/onair` resolves to: without it every row
+                    `here` because this page is what `/onair` resolves to: without it every row
                     about the broadcast carried a `Desk →` button that navigated to the page it was
                     already drawn on. Its evidence links still work — they point at records. */}
-                    {attention.data ? <AttentionList items={attention.data.items} here="/" /> : undefined}
+                    <QueryView
+                        query={attention}
+                        skeleton={<PageSkeleton variant="card" />}
+                        errorTitle={t('page.attentionFailed')}
+                        errorFallback={t('page.attentionFailedFallback')}
+                    >
+                        {data => <AttentionList items={data.items} here="/" />}
+                    </QueryView>
                 </Stack>
             )}
 

@@ -9,6 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
@@ -49,11 +50,14 @@ export function PersonDrawer({ id, isSelf, onClose }: PersonDrawerProps) {
                 </Text>
             }
         >
-            {person.isPending ? <PageSkeleton variant="rows" count={4} /> : undefined}
-            {person.error ? (
-                <ErrorAlert title={t('people.drawer.unavailable.title')} error={person.error} fallback={t('people.drawer.unavailable.fallback')} />
-            ) : undefined}
-            {person.data ? <PersonDetail person={person.data} isSelf={isSelf} /> : undefined}
+            <QueryView
+                query={person}
+                skeleton={<PageSkeleton variant="rows" count={4} />}
+                errorTitle={t('people.drawer.unavailable.title')}
+                errorFallback={t('people.drawer.unavailable.fallback')}
+            >
+                {data => <PersonDetail person={data} isSelf={isSelf} />}
+            </QueryView>
         </Drawer>
     );
 }

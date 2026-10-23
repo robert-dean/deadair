@@ -4,8 +4,8 @@ import type { SigninProviderCheck } from '@deadair/sdk';
 
 import { useSettings, useSigninCheck } from '../../api/settings.queries';
 import { isForbidden } from '../../api/sdk.error';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 
 /** The setting the check is about. Named here rather than imported, as the form names every key it draws. */
@@ -50,24 +50,26 @@ export function SigninCheckCard() {
                     </Button>
                 </Group>
 
-                {check.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                {check.error ? (
-                    <ErrorAlert title={t('signinCheck.failed.title')} error={check.error} fallback={t('signinCheck.failed.fallback')} />
-                ) : undefined}
-
-                {check.data ? (
-                    <Stack gap="sm">
-                        {check.data.providers.map(provider => (
-                            <ProviderLine key={provider.name} provider={provider} />
-                        ))}
-                        {check.data.unusable.map(sentence => (
-                            <Stack key={sentence} gap={2}>
-                                <StatusLamp tone="fault" label={t('signinCheck.notOffered')} />
-                                <Text size="sm">{sentence}</Text>
-                            </Stack>
-                        ))}
-                    </Stack>
-                ) : undefined}
+                <QueryView
+                    query={check}
+                    skeleton={<PageSkeleton variant="rows" count={2} />}
+                    errorTitle={t('signinCheck.failed.title')}
+                    errorFallback={t('signinCheck.failed.fallback')}
+                >
+                    {data => (
+                        <Stack gap="sm">
+                            {data.providers.map(provider => (
+                                <ProviderLine key={provider.name} provider={provider} />
+                            ))}
+                            {data.unusable.map(sentence => (
+                                <Stack key={sentence} gap={2}>
+                                    <StatusLamp tone="fault" label={t('signinCheck.notOffered')} />
+                                    <Text size="sm">{sentence}</Text>
+                                </Stack>
+                            ))}
+                        </Stack>
+                    )}
+                </QueryView>
             </Stack>
         </Card>
     );

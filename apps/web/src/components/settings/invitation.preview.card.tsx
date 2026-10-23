@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useInvitationPreview, useSettings } from '../../api/settings.queries';
 import { isForbidden } from '../../api/sdk.error';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 
 /** The settings the preview is about. Named here rather than imported, as the form names every key it draws. */
@@ -65,49 +65,51 @@ export function InvitationPreviewCard() {
                     />
                 </Group>
 
-                {preview.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
-                {preview.error ? (
-                    <ErrorAlert title={t('invitationPreview.failed.title')} error={preview.error} fallback={t('invitationPreview.failed.fallback')} />
-                ) : undefined}
-
-                {preview.data ? (
-                    <Stack gap="sm">
-                        {preview.data.problem ? (
-                            <Alert color="yellow" variant="light" title={t('invitationPreview.unusable')}>
-                                {preview.data.problem}
-                            </Alert>
-                        ) : undefined}
-                        <StatusLamp
-                            tone={preview.data.ownWording ? 'ok' : 'off'}
-                            label={preview.data.ownWording ? t('invitationPreview.wording.yours') : t('invitationPreview.wording.station')}
-                        />
-                        <Text size="sm">
-                            <Text span c="dimmed">
-                                {t('invitationPreview.subject')}{' '}
+                <QueryView
+                    query={preview}
+                    skeleton={<PageSkeleton variant="rows" count={3} />}
+                    errorTitle={t('invitationPreview.failed.title')}
+                    errorFallback={t('invitationPreview.failed.fallback')}
+                >
+                    {data => (
+                        <Stack gap="sm">
+                            {data.problem ? (
+                                <Alert color="yellow" variant="light" title={t('invitationPreview.unusable')}>
+                                    {data.problem}
+                                </Alert>
+                            ) : undefined}
+                            <StatusLamp
+                                tone={data.ownWording ? 'ok' : 'off'}
+                                label={data.ownWording ? t('invitationPreview.wording.yours') : t('invitationPreview.wording.station')}
+                            />
+                            <Text size="sm">
+                                <Text span c="dimmed">
+                                    {t('invitationPreview.subject')}{' '}
+                                </Text>
+                                {data.subject}
                             </Text>
-                            {preview.data.subject}
-                        </Text>
-                        <Tabs defaultValue="email">
-                            <Tabs.List>
-                                <Tabs.Tab value="email">{t('invitationPreview.tab.email')}</Tabs.Tab>
-                                <Tabs.Tab value="text">{t('invitationPreview.tab.text')}</Tabs.Tab>
-                            </Tabs.List>
-                            <Tabs.Panel value="email" pt="sm">
-                                <iframe
-                                    title={t('invitationPreview.frameTitle')}
-                                    sandbox=""
-                                    srcDoc={preview.data.html}
-                                    style={{ width: '100%', height: 560, border: 0, borderRadius: 'var(--mantine-radius-sm)', display: 'block' }}
-                                />
-                            </Tabs.Panel>
-                            <Tabs.Panel value="text" pt="sm">
-                                <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                                    {preview.data.text}
-                                </Code>
-                            </Tabs.Panel>
-                        </Tabs>
-                    </Stack>
-                ) : undefined}
+                            <Tabs defaultValue="email">
+                                <Tabs.List>
+                                    <Tabs.Tab value="email">{t('invitationPreview.tab.email')}</Tabs.Tab>
+                                    <Tabs.Tab value="text">{t('invitationPreview.tab.text')}</Tabs.Tab>
+                                </Tabs.List>
+                                <Tabs.Panel value="email" pt="sm">
+                                    <iframe
+                                        title={t('invitationPreview.frameTitle')}
+                                        sandbox=""
+                                        srcDoc={data.html}
+                                        style={{ width: '100%', height: 560, border: 0, borderRadius: 'var(--mantine-radius-sm)', display: 'block' }}
+                                    />
+                                </Tabs.Panel>
+                                <Tabs.Panel value="text" pt="sm">
+                                    <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                                        {data.text}
+                                    </Code>
+                                </Tabs.Panel>
+                            </Tabs>
+                        </Stack>
+                    )}
+                </QueryView>
             </Stack>
         </Card>
     );

@@ -46,6 +46,8 @@ Each of these adds one thing to a station that is already on air, and none depen
   the clock.
 - [Play the station on a speaker](./speakers.md): a Chromecast, a Sonos, a BluOS player or a UPnP renderer, started
   from the Desk.
+- [Let friends listen](./let-friends-listen.md): the station reachable from outside the house, a
+  friend invited as a listener, and the phone app with requests and the words of each record.
 - [Put the station on a chat platform](./chat-platforms.md): a bot on Telegram, Discord or Slack that
   says what is playing, takes requests, and lets you run the station from a chat.
 - [Light up an On Air sign with Home Assistant](./home-assistant.md): the station telling your own servers

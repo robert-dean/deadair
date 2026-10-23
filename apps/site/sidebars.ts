@@ -80,6 +80,7 @@ const sidebars: SidebarsConfig = {
                 'tutorials/news-and-weather',
                 'tutorials/carry-a-podcast',
                 'tutorials/speakers',
+                'tutorials/let-friends-listen',
                 'tutorials/chat-platforms',
                 'tutorials/home-assistant',
             ],

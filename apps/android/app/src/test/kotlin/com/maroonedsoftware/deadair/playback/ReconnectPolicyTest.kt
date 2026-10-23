@@ -25,7 +25,9 @@ class ReconnectPolicyTest {
     // protected 5-arg constructor takes the extras and the timestamp explicitly instead, so an
     // anonymous subclass through it never touches the clock. It only stores the `Bundle`, so the
     // stub jar's `Bundle.EMPTY` is enough.
-    private fun error() = object : PlaybackException("boom", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED, Bundle.EMPTY, 0L) {}
+    private fun error(code: Int = PlaybackException.ERROR_CODE_IO_UNSPECIFIED) = object : PlaybackException("boom", null, code, Bundle.EMPTY, 0L) {}
+
+    private fun behindLive() = error(PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW)
 
     private fun TestScope.policy(
         wantsPlay: () -> Boolean,
@@ -34,6 +36,7 @@ class ReconnectPolicyTest {
         backoff: Backoff = Backoff(),
         offlineLimitMs: Long = 15 * 60_000L,
         restart: () -> Unit = {},
+        toLiveEdge: () -> Unit = {},
         note: (ReconnectNote) -> Unit = {},
     ) = ReconnectPolicy(
         backoff = backoff,
@@ -44,6 +47,7 @@ class ReconnectPolicyTest {
         reconnect = reconnect,
         stop = stop,
         restart = restart,
+        toLiveEdge = toLiveEdge,
         offlineLimitMs = offlineLimitMs,
         note = note,
     )
@@ -555,6 +559,89 @@ class ReconnectPolicyTest {
         offline.onPlayerError(error())
         advanceTimeBy(60_001)
         assertEquals(listOf(ReconnectNote.AwaitingNetwork, ReconnectNote.GaveUpWaiting), notes)
+    }
+
+    @Test
+    fun `falling behind the live window jumps to the live edge at once, spending no retry`() = runTest {
+        var jumps = 0
+        var reconnects = 0
+        val notes = mutableListOf<ReconnectNote>()
+        val backoff = Backoff()
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, backoff = backoff, toLiveEdge = { jumps += 1 }, note = { notes += it })
+
+        policy.onPlayerError(behindLive())
+        advanceTimeBy(5_000)
+
+        assertEquals(1, jumps)
+        assertEquals(0, reconnects)
+        assertEquals(listOf(ReconnectNote.ToLiveEdge), notes)
+        // The budget is untouched: the next ordinary failure still waits a second.
+        assertEquals(1_000L, backoff.next())
+    }
+
+    @Test
+    fun `falling behind again within thirty seconds is retried like any failure, so it cannot loop`() = runTest {
+        var jumps = 0
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, toLiveEdge = { jumps += 1 })
+
+        policy.onPlayerError(behindLive())
+        advanceTimeBy(29_000)
+        policy.onPlayerError(behindLive())
+        advanceTimeBy(1_001)
+
+        assertEquals(1, jumps)
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `falling behind again after thirty seconds jumps again`() = runTest {
+        var jumps = 0
+        val policy = policy(wantsPlay = { true }, toLiveEdge = { jumps += 1 })
+
+        policy.onPlayerError(behindLive())
+        advanceTimeBy(30_001)
+        policy.onPlayerError(behindLive())
+
+        assertEquals(2, jumps)
+    }
+
+    @Test
+    fun `a jump cancels a retry already waiting`() = runTest {
+        var reconnects = 0
+        var jumps = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, toLiveEdge = { jumps += 1 })
+
+        policy.onPlayerError(error())
+        policy.onPlayerError(behindLive())
+        advanceTimeBy(10_000)
+
+        assertEquals(1, jumps)
+        assertEquals(0, reconnects)
+    }
+
+    @Test
+    fun `behind the live window with no network waits for one like any failure`() = runTest {
+        var jumps = 0
+        val notes = mutableListOf<ReconnectNote>()
+        val policy = policy(wantsPlay = { true }, toLiveEdge = { jumps += 1 }, note = { notes += it })
+        policy.onNetwork(WIFI)
+        policy.onNetwork(null)
+
+        policy.onPlayerError(behindLive())
+
+        assertEquals(0, jumps)
+        assertEquals(listOf(ReconnectNote.AwaitingNetwork), notes)
+    }
+
+    @Test
+    fun `nothing jumps for a listener who has stopped`() = runTest {
+        var jumps = 0
+        val policy = policy(wantsPlay = { false }, toLiveEdge = { jumps += 1 })
+
+        policy.onPlayerError(behindLive())
+
+        assertEquals(0, jumps)
     }
 
     private companion object {

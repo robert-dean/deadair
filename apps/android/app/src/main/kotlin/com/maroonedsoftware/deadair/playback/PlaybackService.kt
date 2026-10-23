@@ -19,6 +19,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -641,7 +642,7 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * Tells [StallFallback] when playback that was running starts buffering, when it runs again,
-     * and when it stops: the same reading of the player's states `PlaybackLog` writes as `stall`
+     * when it fails in one of the two ways a dying wifi fails without buffering, and when it stops: the same reading of the player's states `PlaybackLog` writes as `stall`
      * and `resumed`.
      */
     private class StallWatch(private val player: Player, private val fallback: StallFallback) : Player.Listener {
@@ -663,6 +664,14 @@ class PlaybackService : MediaLibraryService() {
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!playWhenReady) fallback.onStopped()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            if (!player.playWhenReady) return
+            when (error.errorCode) {
+                PlaybackException.ERROR_CODE_TIMEOUT -> fallback.onFailure(StallFallback.Failure.Stuck)
+                PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW -> fallback.onFailure(StallFallback.Failure.BehindLive)
+            }
         }
     }
 }

@@ -182,6 +182,81 @@ class StallFallbackTest {
         assertEquals(emptyList<String>(), calls)
     }
 
+    @Test
+    fun `a stream stuck playing on wifi asks for cellular at once`() = runTest {
+        // 2026-10-21 17:28:54: stuck, with the wifi lost ten seconds later and no stall at all.
+        val fallback = onWifiWithCellular()
+
+        fallback.onFailure(StallFallback.Failure.Stuck)
+
+        assertEquals(listOf("request"), calls)
+        assertEquals(listOf("fallback: stuck playing on wifi, requesting cellular handle=$CELL"), notes)
+    }
+
+    @Test
+    fun `falling behind the live window once leaves it to the jump to the live edge`() = runTest {
+        val fallback = onWifiWithCellular()
+
+        fallback.onFailure(StallFallback.Failure.BehindLive)
+        advanceTimeBy(60_000)
+
+        assertEquals(emptyList<String>(), calls)
+    }
+
+    @Test
+    fun `falling behind twice within thirty seconds asks for cellular, and after thirty does not`() = runTest {
+        val twice = onWifiWithCellular()
+        twice.onFailure(StallFallback.Failure.BehindLive)
+        advanceTimeBy(20_000)
+        twice.onFailure(StallFallback.Failure.BehindLive)
+        assertEquals(listOf("request"), calls)
+        assertEquals("fallback: fell behind the live window twice on wifi, requesting cellular handle=$CELL", notes.last())
+
+        calls.clear()
+        val apart = onWifiWithCellular()
+        apart.onFailure(StallFallback.Failure.BehindLive)
+        advanceTimeBy(30_001)
+        apart.onFailure(StallFallback.Failure.BehindLive)
+        assertEquals(emptyList<String>(), calls)
+    }
+
+    @Test
+    fun `a failure on cellular, or already pinned, asks for nothing more`() = runTest {
+        val onCellular = fallback()
+        onCellular.onDefault(CELL, "cellular")
+        onCellular.onStandby(CELL)
+        onCellular.onFailure(StallFallback.Failure.Stuck)
+        assertEquals(emptyList<String>(), calls)
+
+        val pinned = onWifiWithCellular()
+        pinned.onFailure(StallFallback.Failure.Stuck)
+        pinned.onFailure(StallFallback.Failure.Stuck)
+        assertEquals(listOf("request"), calls)
+    }
+
+    @Test
+    fun `a failure with no cellular standing by says so`() = runTest {
+        val fallback = fallback()
+        fallback.onDefault(WIFI, "wifi")
+
+        fallback.onFailure(StallFallback.Failure.Stuck)
+
+        assertEquals(emptyList<String>(), calls)
+        assertEquals(listOf("fallback: stuck playing on wifi, no cellular standing by"), notes)
+    }
+
+    @Test
+    fun `a failure during a stall being timed moves once, not again when the timer would have fired`() = runTest {
+        val fallback = onWifiWithCellular()
+        fallback.onStall()
+        advanceTimeBy(2_000)
+
+        fallback.onFailure(StallFallback.Failure.Stuck)
+        advanceTimeBy(10_000)
+
+        assertEquals(listOf("request"), calls)
+    }
+
     private companion object {
         const val WIFI = 591_816_216_589L
         const val HOME = 596_111_183_885L

@@ -200,7 +200,16 @@ same through `ip6tables`) leaves the wifi connected, validated and default while
 nothing, which is the dying wifi exactly. On 2026-10-20 that stalled the live stream, requested
 cellular four seconds later and resumed 4.8 seconds after the stall, with `ss -tni` showing the
 stream on `eth0`'s address; Android dropped the wifi 65 seconds in, and the pin released without a
-restart. Take the rules off and `adb unroot` afterwards.
+restart. Take the rules off and `adb unroot` afterwards. **A dying wifi does not always stall**, so two
+failures move it too: stuck playing (ExoPlayer's ten seconds without progress) at once, and falling
+behind the live window a SECOND time within thirty seconds. The first behind-live is the reconnect
+policy's, which jumps to the live edge without spending a retry; on 2026-10-23 the station's HLS
+playlist held three two-second segments, so any stall over six seconds ended behind it, and the jump
+had audio back 1.35 seconds after the error on the emulator. Neither trigger can be shown there: any
+silence on wifi with cellular standing by trips the four-second stall rule first, and nothing
+provokes stuck playing on demand. A silence is timed by `QuietSpell` from the stall, drop or error
+that began it, through retries and restarts, which is what makes `resumed after` mean the same
+thing on every road back.
 
 **The format nobody chose is Automatic, and it is the absence of a choice.** `ListenerSettings.format`
 is `null` for it and the store keeps nothing, so an install from before it existed that never chose

@@ -10,10 +10,15 @@ import { UsersService } from '../../../src/modules/users/users.service.js';
 import { AuthorizationContext, type UserActor } from '../../../src/modules/permissions/authorization.context.js';
 import type { UsersRepository, UserRow } from '../../../src/modules/users/users.repository.js';
 import type { ActorsRepository } from '../../../src/modules/authentication/repositories/actors.repository.js';
-import type { SessionActivityService } from '../../../src/modules/authentication/session.activity.service.js';
+import { SessionActivityService } from '../../../src/modules/authentication/session.activity.service.js';
 import type { PlatformRoleService } from '../../../src/modules/permissions/platform.role.service.js';
 import type { StrongFactorGate } from '../../../src/modules/authentication/strong.factor.gate.js';
-import type { AuthenticationSessionService, AuthenticatorFactorService, FidoFactorService } from '@maroonedsoftware/authentication';
+import type {
+    AuthenticationSession,
+    AuthenticationSessionService,
+    AuthenticatorFactorService,
+    FidoFactorService,
+} from '@maroonedsoftware/authentication';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const FRIEND_ID = '22222222-2222-4222-8222-222222222222';
@@ -143,6 +148,39 @@ describe('UsersService.get', () => {
         ]);
         expect(person.signIns).toEqual([{ occurredAt: CREATED, method: 'password', mfaSatisfied: true, userAgent: 'deadair-android' }]);
         expect(sessions.listLoginsForActor).toHaveBeenCalledWith(FRIEND_ID, { limit: 20, offset: 0 });
+    });
+
+    // The strict `Session` contract refused a key the listing used to add (`organizationId`), so
+    // every person with a live session answered 400 and the console's drawer never loaded anyone.
+    it('answers the sessions the real listing produces, which the strict contract accepts', async () => {
+        const { service, sessions } = build();
+        const live = {
+            sessionToken: 'tok-1',
+            subject: FRIEND_ID,
+            issuedAt: CREATED,
+            expiresAt: CREATED.plus({ days: 30 }),
+            lastAccessedAt: CREATED,
+            factors: [{ method: 'password', methodId: 'p-1', kind: 'knowledge', issuedAt: CREATED, authenticatedAt: CREATED }],
+            claims: { loginIp: '10.0.0.2', loginUserAgent: 'deadair-web' },
+        } as unknown as AuthenticationSession;
+        const activity = new SessionActivityService(
+            {} as never,
+            { getSessionsForSubject: vi.fn(async () => [live]) } as unknown as AuthenticationSessionService,
+            new AuthorizationContext(actor(['admin'])),
+            { warn: vi.fn() } as never,
+        );
+        sessions.listSessionsForActor.mockImplementation(id => activity.listSessionsForActor(id) as never);
+
+        const person = await service.get(FRIEND_ID);
+
+        expect(person.sessions).toHaveLength(1);
+        expect(person.sessions[0]).toMatchObject({
+            sessionToken: 'tok-1',
+            actorId: FRIEND_ID,
+            ip: '10.0.0.2',
+            userAgent: 'deadair-web',
+            isCurrent: false,
+        });
     });
 });
 

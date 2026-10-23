@@ -46,7 +46,6 @@ export type ListedSession = {
     }[];
     ip: string | null;
     userAgent: string | null;
-    organizationId: string | null;
     isCurrent: boolean;
 };
 
@@ -156,7 +155,6 @@ export class SessionActivityService {
             })),
             ip: stringClaim(session.claims, LOGIN_IP_CLAIM),
             userAgent: stringClaim(session.claims, LOGIN_USER_AGENT_CLAIM),
-            organizationId: stringClaim(session.claims, 'organizationId'),
             isCurrent: currentSessionToken === session.sessionToken,
         };
     }

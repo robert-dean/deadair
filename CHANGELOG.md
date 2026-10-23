@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.79.0] — 2026-10-23
+
+- Check-up has an **As run** tab: every record, break and programme that went out, newest first, with when it started and how long it ran, and between them any stretch the station aired its local bed or was off air. **Read back from** jumps to a moment, and an item the station never saw end says so.
+- The station now keeps an as-run log: one row for every record, break and programme that actually went out, with when it started and when it ended, how many handed-over items the player skipped to reach it, and which broadcast it was in. An end is recorded only when the station saw one, so an item still open behind the one airing now means the station stopped without being stood down. The log is kept for 400 days.
+- `GET /history/as-run` reads the as-run log newest first: every record, break and programme that went out with when it started and ended, and between them the times the station aired its local bed instead of its running order and the times it was put on air or stood down. `until` jumps to a moment without paging back to it.
+- Once the tracks list is narrowed by **Measured by** or by a kind of failed measurement, **Measure these again** throws away the measurement of every record on the page, so the walk measures them again. It never touches their audio. This is how to re-measure what one detector got wrong without opening each record.
+- The tracks list can now be narrowed by what the measurement walk did. **Measured by** shows every record one analysis plugin measured or tried to, and failed measurements are counted and filterable by kind: could not fetch, stopped early, or would not decode. A record's page says which kind its failure was. On the API, `GET /catalog/tracks` takes `analyzer` and `measureFailure`, the state counts carry `analyzers` and `measureFailures`, and a track's analysis carries `failureCode`.
+
 ## [0.78.1] — 2026-10-23
 
 - A chart countdown that falls behind its slot now still ends on number one. When nobody is listening the station pauses, and a long run of requests or talk eats time too, so a countdown fitted to its slot could reach the next show with the top of the chart still queued, and the changeover dropped it. The station now checks as the show goes on and, when number one would no longer start before the slot ends, drops the lowest-ranked records still to come instead, saying so on the activity feed. Requests, records the player already holds and anything the operator added are never dropped.
@@ -1619,7 +1627,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.78.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.79.0...HEAD
+[0.79.0]: https://github.com/robert-dean/deadair/compare/v0.78.1...v0.79.0
 [0.78.1]: https://github.com/robert-dean/deadair/compare/v0.78.0...v0.78.1
 [0.78.0]: https://github.com/robert-dean/deadair/compare/v0.77.9...v0.78.0
 [0.77.9]: https://github.com/robert-dean/deadair/compare/v0.77.8...v0.77.9

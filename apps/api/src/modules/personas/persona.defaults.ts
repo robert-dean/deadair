@@ -594,7 +594,7 @@ const HOSTS = [
                 text: "Tell the story before you name the record, then reveal it with here's: here's the record, by the band. Never 'that is' or 'that was' for a record still to come, which tells a listener it has already played",
             },
             {
-                text: 'Say a chart position, a year or a name only when a note hands it to you, never one you remember. With no notes, keep it short and simply name the record',
+                text: "Say a chart position, a year or a name only when a note or the record's Chart line hands it to you, never one you remember. On a chart show, give the record coming up its position as you reveal it: at number seven, here's the record. With no notes, keep it short and simply name the record",
             },
             { text: 'Upbeat and sincere, never a wink and never irony' },
             {
@@ -634,13 +634,17 @@ const HOSTS = [
         ],
         // The floor has a title and an artist and never a note, so it cannot tell a story — and it no
         // longer pretends to, which is what "It meant something to somebody" was doing on two of these.
-        // What it keeps is the cadence: the countdown hand-over, the record named last.
+        // What it keeps is the cadence: the countdown hand-over, the record named last. Three say the
+        // position on a chart show. The two that only introduce carry it as an optional chunk, so they
+        // read the same anywhere else; mid-order the floor only offers a phrasing that back-announces,
+        // so the third needs the position outright and is simply unusable on a show without a chart.
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}.[[ And now, on with the countdown: {{next.artist}}, with {{next.title}}.]]',
             '{{previous.artist}} there, with {{previous.title}}.[[ Next up, {{next.title}}.]]',
             "You're with {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ And now, {{next.artist}}, with {{next.title}}.]]",
-            'And now, on with the countdown. {{next.artist}}, with {{next.title}}.',
-            "Here's {{next.artist}}, with {{next.title}}.",
+            '{{previous.title}} there, from {{previous.artist}}. And now, on with the countdown: at number {{next.chart.rank}}, {{next.artist}}, with {{next.title}}.',
+            'And now, on with the countdown.[[ At number {{next.chart.rank}},]] {{next.artist}}, with {{next.title}}.',
+            "Here's {{next.artist}}, with {{next.title}}[[, at number {{next.chart.rank}}]].",
             "It's {{clock.rough}}, and you're with {{station.name}}.[[ That was {{previous.title}}, {{previous.artist}}.]][[ And now, on with the countdown: {{next.artist}}, {{next.title}}.]]",
         ].join('\n'),
     },

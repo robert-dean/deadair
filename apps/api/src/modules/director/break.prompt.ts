@@ -730,8 +730,8 @@ function notesParagraph(trivia: PersonaTrivia | undefined): string {
             return (
                 'The notes are things the station knows to be true, and they are what your break is made of. Pick the one that tells ' +
                 'the best story about a record, or two if they tell the same story, and tell it as yourself: who made it, where it ' +
-                'came from, what happened to it. Never read a note out as it stands. A year, a name or a chart position is worth ' +
-                'saying when it is part of the story, and only exactly as the note gives it. Anything a note mentions that is not one ' +
+                'came from, what happened to it. Never read a note out as it stands. A year, a name or a chart position from a note is ' +
+                'worth saying when it is part of the story, and only exactly as the note gives it. Anything a note mentions that is not one ' +
                 'of the records above is background, never something to cue or play.'
             );
         // `sometimes` is shown a note only on a link that drew one, and is asked for it as `always` is.
@@ -1188,6 +1188,20 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             `The singing on the record coming up starts about ${Math.floor(request.talkUp.runwayMs / 1000)} seconds in. ` +
                 `Say this in ${request.talkUp.words} words or fewer and it goes out over that intro, finishing just before the singer comes in. ` +
                 'Anything longer is said before the record starts, which is fine too.',
+        );
+    }
+
+    // On a chart show the position of the record coming up is the one thing a listener is counting
+    // along to, so it is ASKED for rather than offered. Shown as a `- Chart:` line alone it was skipped
+    // on every model-written break of the US countdown on 2026-10-23: the countdown host's sheet tells
+    // the story first and reveals the title last, the keen notes paragraph files a chart position under
+    // "worth saying when it is part of the story", and the position never once made it to air. Only
+    // the record coming up, because that is the one a countdown announces; the one behind it was
+    // announced on its way in. Behind `withFacts` with the line it repeats.
+    if (withFacts && request.next?.chart !== undefined) {
+        parts.push(
+            `The record coming up is number ${request.next.chart.rank} on the chart this show is playing, and that is what the listener ` +
+                `is waiting to hear: say its position as you bring it in, "at number ${request.next.chart.rank}", exactly that number and no other.`,
         );
     }
 

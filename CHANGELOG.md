@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.80.0] — 2026-10-23
+
+- The station can be kept quiet for a while. On the desk, **Keep it from talking for** the next 3 records, the next 10 or the rest of the order takes the planned breaks out and plants none until that many records have started, then the station talks again by itself. It survives a refill, a new show and a restart, and **Talk again** ends it early. A scheduled programme still airs and a requested break is refused with the reason. Switching breaks off under Settings, Rotation now takes the breaks already planned out of the running order too, instead of leaving them to air. On the API: `PUT` and `DELETE /director/air/quiet`, and `quietRecords` on the station's air.
+- An artist, a release or a record can be kept off the station for a while without disliking it. `PUT /catalog/{artists,albums,tracks}/{id}/suspension` with `days` keeps it out of every draw, search, request and route until then, a suspended artist included on records they only guest on, and `DELETE` ends it early. The rating is left alone, so a liked artist suspended for a week is still liked when it lapses, and nothing sweeps it: it simply stops applying. Each of the three carries `suspendedUntil` while a suspension is in force.
+- A record, a release or an artist can be suspended from its page in the console: **Suspend** for a day, a week or a month keeps it off the station without touching your rating, the page says how long is left, and **Lift** ends it early. The tracks list counts and filters what is suspended and marks a suspended row, and the desktop app's record list has the same filter. On the API, `TrackState` gains `suspended` and the state counts carry `suspended`.
+
 ## [0.79.0] — 2026-10-23
 
 - Check-up has an **As run** tab: every record, break and programme that went out, newest first, with when it started and how long it ran, and between them any stretch the station aired its local bed or was off air. **Read back from** jumps to a moment, and an item the station never saw end says so.
@@ -1627,7 +1633,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.79.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.80.0...HEAD
+[0.80.0]: https://github.com/robert-dean/deadair/compare/v0.79.0...v0.80.0
 [0.79.0]: https://github.com/robert-dean/deadair/compare/v0.78.1...v0.79.0
 [0.78.1]: https://github.com/robert-dean/deadair/compare/v0.78.0...v0.78.1
 [0.78.0]: https://github.com/robert-dean/deadair/compare/v0.77.9...v0.78.0

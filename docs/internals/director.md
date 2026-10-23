@@ -179,6 +179,27 @@ or ask for is never waited on. The clock is in memory, on `ScheduleNotices`' arg
 one more wait, and nothing the tick can read says when a wait began, since a slot added at 11:55 that
 starts at 10:00 has a start in the past.
 
+**A changeover that lands inside a break waits for the record the break announced**
+(`ScheduleTickJob.holdForPromise`, `schedule/promise.wait.ts`). `putOnAir` retracts everything the
+player holds and lets only the item on air finish, so a bulletin still being read at the boundary
+finished "here is X" in front of the next programme's first record. Four of the live station's
+fifty-five changeovers in the month to 2026-10-23 did it, the last a nine o'clock bulletin naming
+Gunship followed by a chart show's Tame Impala. The edit paths already keep that record put
+(`StationLineup.staysPut`, after the same promise broke under a shuffle on 2026-10-10), but a
+changeover replaces the order rather than editing it, so nothing of the old one survives to be kept.
+The tick therefore asks `DirectorConsoleService.promiseOnAir` before it changes over (or hands a gap
+to its sustaining source) and, while the break ON AIR has a record after it still `planned` or
+`handed`, does nothing that minute. The next tick finds that record airing, changes over, and the
+record finishes as any record on air at a changeover does. It is `holdForOpening`'s bargain and not
+the refused fix of keeping the outgoing queue: nothing of the old order outlives the changeover, and
+what moves is only WHEN the tick asks. Only an airing break counts, since a handed one is retracted
+with its record and nothing it said reaches anybody; a talk-over cue promises nothing, on
+`staysPut`'s reasoning; and an operator's own put-on-air never comes through the tick. It costs the
+new programme one record, at only the changeovers that land inside a break. The bound is stateless
+and read off the break: its start, plus its length (five minutes when the transport never learned
+one), plus ninety seconds for the tick to come round, so a transport that goes on calling a break on
+air cannot hold the last programme on with it.
+
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
 airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what

@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.playback
 
+import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -31,5 +32,18 @@ class TileReadingTest {
     @Test
     fun `sound still draining after a stop reads as off`() {
         assertEquals(TileReading.STOPPED, tileReading(hasStation = true, PlayerUiState(requested = false, playing = true)))
+    }
+
+    @Test
+    fun `binding to a station already playing reads as on straight away`() {
+        val bound = PlayerUiState().withPlayer(isPlaying = true, playbackState = Player.STATE_READY, playWhenReady = true)
+        assertEquals(TileReading.PLAYING, tileReading(hasStation = true, bound))
+    }
+
+    @Test
+    fun `binding mid-buffer carries the buffering over`() {
+        val bound = PlayerUiState().withPlayer(isPlaying = false, playbackState = Player.STATE_BUFFERING, playWhenReady = true)
+        assertEquals(true, bound.buffering)
+        assertEquals(TileReading.WARMING_UP, tileReading(hasStation = true, bound))
     }
 }

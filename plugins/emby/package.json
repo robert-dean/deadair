@@ -25,6 +25,7 @@
         "zod": "^4.0.0"
     },
     "devDependencies": {
+        "@deadair/mediabrowser": "workspace:*",
         "@deadair/plugin-sdk": "workspace:*",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",

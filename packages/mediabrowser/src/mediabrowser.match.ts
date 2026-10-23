@@ -1,7 +1,7 @@
-import { baseForm, normalize } from '@deadair/plugin-sdk';
+import { baseForm, normalize, textAgreement } from '@deadair/plugin-sdk';
 
-import { providerId } from './emby.enrichment.js';
-import type { EmbyItem } from './emby.types.js';
+import { providerId } from './mediabrowser.enrichment.js';
+import type { MediaBrowserItem } from './mediabrowser.types.js';
 
 /**
  * Deciding whether a result is the track, artist or record that was asked
@@ -11,19 +11,11 @@ import type { EmbyItem } from './emby.types.js';
  * about again later, where a confident mismatch is stored and read out on air.
  * A MusicBrainz id, when both sides have one, outranks every name: equal ids
  * settle it, and different ids rule a candidate out however well it is named.
- * Emby cannot be asked for an id directly (measured on 4.10.1:
- * `AnyProviderIdEquals` answered nothing even for an id a track carried), so the
- * id is checked here, on candidates found by name.
+ * Neither server can be asked for an id directly, so the id is checked here, on
+ * candidates found by name. Measured: Jellyfin 10.11.0 ignores
+ * `AnyProviderIdEquals` and answers the whole library, and Emby 4.10.1 answers
+ * nothing even for an id a track carried.
  */
-
-type Agreement = 'exact' | 'base' | 'none';
-
-function agree(candidate: string | null | undefined, reference: string): Agreement {
-    if (!candidate) return 'none';
-    if (normalize(candidate) === normalize(reference)) return 'exact';
-    if (baseForm(candidate) === baseForm(reference)) return 'base';
-    return 'none';
-}
 
 /** Whether a candidate's id rules it out: both sides have one and they differ. */
 const otherId = (candidate: string | undefined, wanted: string | undefined): boolean =>
@@ -43,16 +35,16 @@ export interface MatchRef {
  * title must both agree, exactly or in base form, against any credited artist;
  * an album match only breaks a tie.
  */
-export function selectTrack(items: readonly EmbyItem[], ref: MatchRef): EmbyItem | undefined {
-    let best: { item: EmbyItem; score: number } | undefined;
+export function selectTrack(items: readonly MediaBrowserItem[], ref: MatchRef): MediaBrowserItem | undefined {
+    let best: { item: MediaBrowserItem; score: number } | undefined;
 
     for (const item of items) {
         if (!item.Id || item.Type !== 'Audio') continue;
         const recording = providerId(item, 'MusicBrainzRecording');
         if (otherId(recording, ref.mbid)) continue;
 
-        const title = agree(item.Name, ref.title);
-        const credits = [...(item.Artists ?? []), item.AlbumArtist].map(name => agree(name, ref.artist));
+        const title = textAgreement(item.Name, ref.title);
+        const credits = [...(item.Artists ?? []), item.AlbumArtist].map(name => textAgreement(name, ref.artist));
         const artist = credits.includes('exact') ? 'exact' : credits.includes('base') ? 'base' : 'none';
         if (title === 'none' || artist === 'none') continue;
 
@@ -60,7 +52,7 @@ export function selectTrack(items: readonly EmbyItem[], ref: MatchRef): EmbyItem
             (ref.mbid !== undefined && recording !== undefined ? 8 : 0) +
             (title === 'exact' ? 4 : 0) +
             (artist === 'exact' ? 2 : 0) +
-            (ref.album && agree(item.Album, ref.album) !== 'none' ? 1 : 0);
+            (ref.album && textAgreement(item.Album, ref.album) !== 'none' ? 1 : 0);
         if (!best || score > best.score) best = { item, score };
     }
 
@@ -72,7 +64,7 @@ export function selectTrack(items: readonly EmbyItem[], ref: MatchRef): EmbyItem
  * with a different id is somebody else; two namesakes with no id to tell them
  * apart are both refused.
  */
-export function selectArtist(items: readonly EmbyItem[], name: string, mbid: string | undefined): EmbyItem | undefined {
+export function selectArtist(items: readonly MediaBrowserItem[], name: string, mbid: string | undefined): MediaBrowserItem | undefined {
     const artists = items.filter(item => item.Id && item.Type === 'MusicArtist');
     if (mbid) {
         const byId = artists.find(item => providerId(item, 'MusicBrainzArtist') === mbid.toLowerCase());
@@ -87,7 +79,7 @@ export function selectArtist(items: readonly EmbyItem[], name: string, mbid: str
  * The record with that title, decorations aside, among one artist's records.
  * A release-group id, when both sides have one, settles it the same way.
  */
-export function selectAlbum(items: readonly EmbyItem[], name: string, mbid: string | undefined): EmbyItem | undefined {
+export function selectAlbum(items: readonly MediaBrowserItem[], name: string, mbid: string | undefined): MediaBrowserItem | undefined {
     const albums = items.filter(item => item.Id && item.Type === 'MusicAlbum' && !otherId(providerId(item, 'MusicBrainzReleaseGroup'), mbid));
     if (mbid) {
         const byId = albums.find(item => providerId(item, 'MusicBrainzReleaseGroup') === mbid.toLowerCase());

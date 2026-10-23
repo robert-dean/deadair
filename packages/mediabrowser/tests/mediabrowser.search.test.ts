@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { artistProbe, artistReadings, longestWord, titleMatches, yearsFilter } from '../src/emby.search.js';
+import { artistProbe, artistReadings, longestWord, titleMatches, yearsFilter } from '../src/mediabrowser.search.js';
 
 describe('artistProbe', () => {
     it('looks an artist up by the first word, which is where the station puts them', () => {

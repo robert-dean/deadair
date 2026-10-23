@@ -2,7 +2,7 @@
     "$schema": "https://unpkg.com/@changesets/config@4.0.0/schema.json",
     "changelog": false,
     "commit": false,
-    "fixed": [["@deadair/api", "@deadair/web", "@deadair/sdk", "@deadair/error-codes", "@deadair/plugin-*"]],
+    "fixed": [["@deadair/api", "@deadair/web", "@deadair/sdk", "@deadair/error-codes", "@deadair/mediabrowser", "@deadair/plugin-*"]],
     "linked": [],
     "access": "restricted",
     "baseBranch": "main",

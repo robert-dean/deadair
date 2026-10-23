@@ -1,26 +1,24 @@
 import type { ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 
-import type { JellyfinItem } from './jellyfin.types.js';
+import type { MediaBrowserDialect } from './mediabrowser.dialect.js';
+import type { MediaBrowserItem } from './mediabrowser.types.js';
 
 /**
- * Jellyfin's shapes as deadair's.
+ * A MediaBrowser server's shapes as deadair's.
  *
  * Pure functions with no client and no host: everything here is a rearrangement
  * of a document somebody else already fetched, which is what makes it testable
  * without a single scripted response.
  */
 
-/** Ticks per millisecond. Jellyfin measures every duration in ticks of 100 nanoseconds. */
+/** Ticks per millisecond. The server measures every duration in ticks of 100 nanoseconds. */
 const TICKS_PER_MS = 10_000;
-
-/** A Jellyfin item id: 32 hex digits, which is how the server writes a GUID in every response. */
-export const ITEM_ID = /^[0-9a-f]{32}$/i;
 
 /** Ticks to whole milliseconds, per the boundary rule that durations are integers. */
 export const durationMs = (ticks: number | null | undefined): number | undefined =>
     typeof ticks === 'number' && Number.isFinite(ticks) && ticks > 0 ? Math.round(ticks / TICKS_PER_MS) : undefined;
 
-/** A trimmed non-empty string, or nothing. Jellyfin sends `null` and `""` alike for a field it has no value for. */
+/** A trimmed non-empty string, or nothing. The server sends `null` and `""` alike for a field it has no value for. */
 export const text = (value: string | null | undefined): string | undefined => {
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
@@ -45,7 +43,7 @@ const position = (value: number | null | undefined): number | undefined =>
 const PLACEHOLDER = /^\[?(unknown|various|no) (artist|album)s?\]?$/i;
 
 /** The credited artists, primary first, with placeholders and blanks left out. */
-function artistsOf(item: JellyfinItem): string[] {
+function artistsOf(item: MediaBrowserItem): string[] {
     const named = (item.Artists ?? []).map(text).filter((name): name is string => name !== undefined && !PLACEHOLDER.test(name));
     if (named.length > 0) return named;
 
@@ -58,14 +56,14 @@ function artistsOf(item: JellyfinItem): string[] {
  * One track.
  *
  * `artworkUrl` is left to the caller, because building it needs the server's
- * address and this file has none. No `isrc`: Jellyfin reads none from a file's
+ * address and this file has none. No `isrc`: neither server reads one from a file's
  * tags.
  *
- * Anything that is not an `Audio` item is refused, because Jellyfin will hand
+ * Anything that is not an `Audio` item is refused, because the server will hand
  * back whatever an id names: a lookup by an id that turned out to be an album or
  * a folder must read as "no such track" rather than as a track called "Music".
  */
-export function mapTrack(item: JellyfinItem, artworkUrl?: string): ProviderTrack | undefined {
+export function mapTrack(item: MediaBrowserItem, artworkUrl?: string): ProviderTrack | undefined {
     const id = text(item.Id);
     if (!id || item.Type !== 'Audio') return undefined;
 
@@ -78,7 +76,7 @@ export function mapTrack(item: JellyfinItem, artworkUrl?: string): ProviderTrack
     return {
         id,
         title: text(item.Name) ?? 'Untitled',
-        // A real list, unlike Subsonic's one string: Jellyfin splits a credit on
+        // A real list, unlike Subsonic's one string: the server splits a credit on
         // the separators the operator configured, so "Tyler, The Creator" stays one.
         artists: artistsOf(item),
         ...(album && !PLACEHOLDER.test(album) ? { album } : {}),
@@ -91,17 +89,19 @@ export function mapTrack(item: JellyfinItem, artworkUrl?: string): ProviderTrack
 }
 
 /** Every track in a list, in the order the server gave them. */
-export const mapTracks = (items: JellyfinItem[] | null | undefined, artworkUrl?: (item: JellyfinItem) => string | undefined): ProviderTrack[] =>
-    (items ?? []).map(item => mapTrack(item, artworkUrl?.(item))).filter((track): track is ProviderTrack => track !== undefined);
+export const mapTracks = (
+    items: MediaBrowserItem[] | null | undefined,
+    artworkUrl?: (item: MediaBrowserItem) => string | undefined,
+): ProviderTrack[] => (items ?? []).map(item => mapTrack(item, artworkUrl?.(item))).filter((track): track is ProviderTrack => track !== undefined);
 
 /**
  * One playlist.
  *
- * `permissions` is deliberately left unset: Jellyfin reports no read/edit split
+ * `permissions` is deliberately left unset: the server reports no read/edit split
  * in this listing, and the SDK reads absent as "the source did not say" where
  * `[]` would mean "nothing is allowed" and hide the playlist from the console.
  */
-export function mapPlaylist(item: JellyfinItem, artworkUrl?: string): ProviderPlaylist | undefined {
+export function mapPlaylist(item: MediaBrowserItem, artworkUrl?: string): ProviderPlaylist | undefined {
     const id = text(item.Id);
     if (!id) return undefined;
 
@@ -116,14 +116,19 @@ export function mapPlaylist(item: JellyfinItem, artworkUrl?: string): ProviderPl
 }
 
 /**
- * The item a link into THIS server's web app names: `<baseUrl>/web/#/details?id=<id>`, which is what
- * the address bar shows on a playlist's page (`#!/details` on releases before 10.9). Only a link to the
- * server this plugin is configured for is ours: another server's ids mean nothing here.
+ * The item a link into THIS server's web app names: `<baseUrl>/web/…#/<route>?id=<id>`, which is what
+ * the address bar shows on a playlist's page, with the route the dialect names (and with or without the
+ * hashbang, which older releases used). Only a link to the server the plugin is configured for is ours:
+ * another server's ids mean nothing here.
  *
  * The link does not say what kind of item it names, so an album's page is claimed too. The playlist
  * endpoint then refuses that id, which is the right answer to somebody who pasted an album.
  */
-export function jellyfinPlaylistIdFromUrl(url: string, baseUrl: string | undefined): string | undefined {
+export function playlistIdFromUrl(
+    url: string,
+    baseUrl: string | undefined,
+    dialect: Pick<MediaBrowserDialect, 'itemId' | 'webItemRoute'>,
+): string | undefined {
     if (baseUrl === undefined) return undefined;
 
     let parsed: URL;
@@ -138,8 +143,8 @@ export function jellyfinPlaylistIdFromUrl(url: string, baseUrl: string | undefin
     const root = base.pathname.replace(/\/+$/, '');
     if (!parsed.pathname.startsWith(`${root}/web`)) return undefined;
 
-    const match = /^#!?\/details\?(.*)$/.exec(parsed.hash);
-    if (!match) return undefined;
-    const id = new URLSearchParams(match[1]).get('id') ?? undefined;
-    return id !== undefined && ITEM_ID.test(id) ? id : undefined;
+    const prefix = new RegExp(`^#!?/${dialect.webItemRoute}\\?`);
+    if (!prefix.test(parsed.hash)) return undefined;
+    const id = new URLSearchParams(parsed.hash.replace(prefix, '')).get('id') ?? undefined;
+    return id !== undefined && dialect.itemId.test(id) ? id : undefined;
 }

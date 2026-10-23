@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { durationMs, embyPlaylistIdFromUrl, mapPlaylist, mapTrack } from '../src/emby.mapping.js';
+import { durationMs, mapPlaylist, mapTrack, playlistIdFromUrl } from '../src/mediabrowser.mapping.js';
+import { EMBY, JELLYFIN } from './dialect.fixture.js';
 
-const ID = '34';
+const ID = 'd32748680b298db5650456cbd268da71';
 
 describe('mapTrack', () => {
     it('maps a tagged track', () => {
@@ -34,7 +35,7 @@ describe('mapTrack', () => {
         });
     });
 
-    it('refuses anything that is not a track, since Emby answers with whatever an id names', () => {
+    it('refuses anything that is not a track, since Jellyfin answers with whatever an id names', () => {
         expect(mapTrack({ Id: ID, Type: 'CollectionFolder', Name: 'Music' })).toBeUndefined();
         expect(mapTrack({ Type: 'Audio', Name: 'No id' })).toBeUndefined();
     });
@@ -73,21 +74,45 @@ describe('mapPlaylist', () => {
     });
 });
 
-describe('embyPlaylistIdFromUrl', () => {
-    const base = 'http://emby.local:8096';
+describe('playlistIdFromUrl on Jellyfin', () => {
+    const base = 'http://jellyfin.local:8096';
 
-    it("reads the id out of an item link on this server, which is how Emby's web app links a playlist", () => {
-        expect(embyPlaylistIdFromUrl(`${base}/web/index.html#!/item?id=${ID}&serverId=abc`, base)).toBe(ID);
+    it('reads the id out of a details link on this server', () => {
+        expect(playlistIdFromUrl(`${base}/web/#/details?id=${ID}&serverId=abc`, base, JELLYFIN)).toBe(ID);
+    });
+
+    it('reads the pre-10.9 hashbang form too', () => {
+        expect(playlistIdFromUrl(`${base}/web/index.html#!/details?id=${ID}`, base, JELLYFIN)).toBe(ID);
     });
 
     it('honours a base path', () => {
-        expect(embyPlaylistIdFromUrl(`https://media.test/emby/web/index.html#!/item?id=${ID}`, 'https://media.test/emby')).toBe(ID);
+        expect(playlistIdFromUrl(`https://media.test/jellyfin/web/#/details?id=${ID}`, 'https://media.test/jellyfin', JELLYFIN)).toBe(ID);
+    });
+
+    it('claims nothing on another server, or that is not a details page', () => {
+        expect(playlistIdFromUrl(`http://other:8096/web/#/details?id=${ID}`, base, JELLYFIN)).toBeUndefined();
+        expect(playlistIdFromUrl(`${base}/web/#/music`, base, JELLYFIN)).toBeUndefined();
+        expect(playlistIdFromUrl(`${base}/web/#/details?id=not-an-id`, base, JELLYFIN)).toBeUndefined();
+        expect(playlistIdFromUrl('not a url', base, JELLYFIN)).toBeUndefined();
+    });
+});
+
+describe('playlistIdFromUrl on Emby', () => {
+    const base = 'http://emby.local:8096';
+    const NUMBER = '34';
+
+    it("reads the id out of an item link on this server, which is how Emby's web app links a playlist", () => {
+        expect(playlistIdFromUrl(`${base}/web/index.html#!/item?id=${NUMBER}&serverId=abc`, base, EMBY)).toBe(NUMBER);
+    });
+
+    it('honours a base path', () => {
+        expect(playlistIdFromUrl(`https://media.test/emby/web/index.html#!/item?id=${NUMBER}`, 'https://media.test/emby', EMBY)).toBe(NUMBER);
     });
 
     it('claims nothing on another server, or that is not an item page, or whose id is not a number', () => {
-        expect(embyPlaylistIdFromUrl(`http://other:8096/web/index.html#!/item?id=${ID}`, base)).toBeUndefined();
-        expect(embyPlaylistIdFromUrl(`${base}/web/index.html#!/music`, base)).toBeUndefined();
-        expect(embyPlaylistIdFromUrl(`${base}/web/index.html#!/item?id=d32748680b298db5650456cbd268da71`, base)).toBeUndefined();
-        expect(embyPlaylistIdFromUrl('not a url', base)).toBeUndefined();
+        expect(playlistIdFromUrl(`http://other:8096/web/index.html#!/item?id=${NUMBER}`, base, EMBY)).toBeUndefined();
+        expect(playlistIdFromUrl(`${base}/web/index.html#!/music`, base, EMBY)).toBeUndefined();
+        expect(playlistIdFromUrl(`${base}/web/index.html#!/details?id=${NUMBER}`, base, EMBY)).toBeUndefined();
+        expect(playlistIdFromUrl(`${base}/web/index.html#!/item?id=d32748680b298db5650456cbd268da71`, base, EMBY)).toBeUndefined();
     });
 });

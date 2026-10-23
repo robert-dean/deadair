@@ -50,13 +50,23 @@ export function classify(error: unknown): Failure {
 /**
  * How long the station asked to be left alone, from a 429's `retry-after`, in milliseconds.
  *
- * Only the seconds form, which is the one the station's rate limiter sends. `undefined` for anything
- * else, so the caller falls back to its own backoff rather than trusting a date it has to parse.
+ * Both forms the header has, as the console reads them (`apps/web/src/api/retry.policy.ts`): seconds,
+ * which the station's rate limiter sends and sends FRACTIONAL (`0.42`), and an HTTP date, which a proxy
+ * in front of the station may rewrite it into. Copied rather than shared, because it is a few lines and
+ * the console's version reads its own error type.
+ *
+ * One difference from the console, on purpose: a wait of nothing (`0`, or a date already past) is no
+ * advice here, so the poller keeps its own backoff rather than asking again at once. `undefined` for
+ * that, for a header it cannot read, and for anything but a 429.
  */
-export function retryAfterMs(error: unknown): number | undefined {
+export function retryAfterMs(error: unknown, now = Date.now()): number | undefined {
     if (!(error instanceof SdkError) || error.status !== 429) return undefined;
-    const seconds = Number(error.headers.get('retry-after'));
-    return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+    const header = error.headers.get('retry-after')?.trim();
+    if (!header) return undefined;
+
+    const seconds = Number(header);
+    const wait = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - now;
+    return Number.isFinite(wait) && wait > 0 ? wait : undefined;
 }
 
 /** A failure as the key shows it (a word or two) and as a log line or the settings say it. */

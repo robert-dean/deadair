@@ -91,6 +91,12 @@ const sidebars: SidebarsConfig = {
             collapsed: false,
             items: ['tutorials/produce-a-segment', 'tutorials/throw-a-party'],
         },
+        {
+            type: 'category',
+            label: 'On your phone',
+            collapsed: false,
+            items: ['tutorials/phone-remote', 'tutorials/android-home-screen'],
+        },
     ],
 
     build: [

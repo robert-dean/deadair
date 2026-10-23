@@ -185,6 +185,20 @@ describe('PlanTheStation', () => {
         );
     });
 
+    it("lifts the repeat rules somebody typed for a new show, and keeps the station's otherwise", async () => {
+        const user = await open(running());
+
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.not.objectContaining({ artistCooldownMinutes: expect.anything() }));
+
+        await user.click(screen.getByRole('button', { name: /Plan/ }));
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.type(screen.getByRole('textbox', { name: /Artist rest \(minutes\)/ }), '0');
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.objectContaining({ artistCooldownMinutes: 0 }));
+    });
+
     it('asks for calls when somebody did', async () => {
         const user = await open(running());
 

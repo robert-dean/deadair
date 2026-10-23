@@ -569,3 +569,68 @@ export const requestRulesInput = (
 /** The request show's two fields as the API takes them: nothing at all when it is off. */
 export const requestShowInput = (on: boolean, count: number | string): { requestShow?: true; requestFollowOn?: number } =>
     on ? { requestShow: true, ...(typeof count === 'number' ? { requestFollowOn: count } : {}) } : {};
+
+/**
+ * The three repeat rules this programme lifts or tightens, in place of the station's `rotation.*`.
+ *
+ * All three, because a one-artist hour is refused by each of them on its own: the artist rest turns
+ * away the second record, the cap trims a batch to two, and the window keeps a small pool from coming
+ * round. {@link RequestRulesFields}' three-way, with a zero as a real answer: empty sends nothing and
+ * keeps the station's, and 0 turns that rule off. Drawn only for a rotation, since a setlist and a
+ * feature already have none.
+ */
+export function RepeatRulesFields({
+    window,
+    cooldown,
+    perArtist,
+}: {
+    window: GetInputPropsReturnType;
+    cooldown: GetInputPropsReturnType;
+    perArtist: GetInputPropsReturnType;
+}) {
+    const { t } = useTranslation('programme');
+    return (
+        <Input.Wrapper label={t('repeatRules.label')} description={t('repeatRules.description')}>
+            <Group grow align="flex-start" mt="xs">
+                <NumberInput
+                    label={t('repeatRules.windowLabel')}
+                    placeholder={t('repeatRules.stationPlaceholder')}
+                    min={0}
+                    max={365}
+                    allowDecimal={false}
+                    className="da-num"
+                    {...window}
+                />
+                <NumberInput
+                    label={t('repeatRules.cooldownLabel')}
+                    placeholder={t('repeatRules.stationPlaceholder')}
+                    min={0}
+                    max={1440}
+                    allowDecimal={false}
+                    className="da-num"
+                    {...cooldown}
+                />
+                <NumberInput
+                    label={t('repeatRules.perArtistLabel')}
+                    placeholder={t('repeatRules.stationPlaceholder')}
+                    min={0}
+                    max={100}
+                    allowDecimal={false}
+                    className="da-num"
+                    {...perArtist}
+                />
+            </Group>
+        </Input.Wrapper>
+    );
+}
+
+/** The repeat rules as the API takes them: only the ones somebody typed, a zero included. */
+export const repeatRulesInput = (
+    window: number | string,
+    cooldown: number | string,
+    perArtist: number | string,
+): { repeatWindowDays?: number; artistCooldownMinutes?: number; maxPerArtist?: number } => ({
+    ...(typeof window === 'number' ? { repeatWindowDays: window } : {}),
+    ...(typeof cooldown === 'number' ? { artistCooldownMinutes: cooldown } : {}),
+    ...(typeof perArtist === 'number' ? { maxPerArtist: perArtist } : {}),
+});

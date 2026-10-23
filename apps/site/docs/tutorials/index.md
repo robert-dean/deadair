@@ -60,3 +60,10 @@ Each of these adds one thing to a station that is already on air, and none depen
   demand.
 - [Throw a party](./throw-a-party.md): a code on the TV, and guests asking for records from their
   phones with no account.
+
+## On your phone
+
+- [Run the station from your phone](./phone-remote.md): sign in to the Android or iPhone app as the
+  operator, and skip, reorder, put something on and ask for the news from it.
+- [The station on your Android home screen](./android-home-screen.md): a Quick Settings tile, a
+  widget, the station as wallpaper, and a sleep timer.

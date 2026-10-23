@@ -2,27 +2,15 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
-import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { captureWrites } from '#modules/render/script.history.settings.js';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { ALMANAC_KIND } from '#modules/almanac/almanac.kind.js';
 import { SaidLog } from './almanac.source.js';
-import {
-    breakPrompt,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    writeDecline,
-    writeTrim,
-    yearsIn,
-    type AnswerGuard,
-    type BreakPromptShape,
-} from './break.prompt.js';
+import { permittedYears, shownWithoutRecent, yearsIn, type BreakPromptShape } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
-import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
-import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
-import { modelList } from '#modules/llm/model.list.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
+import { writeWithModel } from './model.break.write.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 
 /**
  * A model reading the date out, with the station's own framing underneath it.
@@ -136,103 +124,41 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
         const almanac = request.almanac;
         if (almanac === undefined || almanac.entries.length === 0) return undefined;
 
-        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
-        if (!this.llm.canGenerate()) {
-            this.logger.debug(`director: no model to read the date out with (${this.llm.explainGenerator()})`);
-            return undefined;
-        }
-
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
-        const model = models[0] ?? '';
-        const messages = breakPrompt(
-            request,
+        const outcome = await writeWithModel(
+            { llm: this.llm, config: this.config, logger: this.logger },
             {
-                ...stationPromptSettings(this.config, request),
-                maxWords: ALMANAC_MAX_WORDS,
-                ...(request.persona === undefined ? {} : { persona: request.persona }),
-            },
-            ALMANAC_SHAPE,
-        );
-
-        const result = await this.llm.converse(
-            {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                ...breakGeneration(this.config),
-            },
-            // No tools, and here that includes `get_this_day`. Everything this break may contain is
-            // already in the prompt, fetched once by `AlmanacSource` so the floor and this see the
-            // same entries — and a model that could fetch its own could read out an anniversary the
-            // station had already spent, which is the one thing `SaidLog` exists to prevent.
-            {
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                // Derived from when this break is due rather than fixed: see `patienceFor`.
-                maxWaitMs: patienceFor(request.airsAt),
-                // See `BreakWriteRequest.priority`: absent for a break that is going on air.
-                ...(request.priority === undefined ? {} : { priority: request.priority }),
+                request,
+                // `ALMANAC_SHAPE` offers no latitude, so `maxWordsFor` reads this ceiling back exactly.
+                settings: {
+                    ...stationPromptSettings(this.config, request),
+                    maxWords: ALMANAC_MAX_WORDS,
+                    ...(request.persona === undefined ? {} : { persona: request.persona }),
+                },
+                shape: ALMANAC_SHAPE,
+                // `dialect: 'optional'` for `ModelWeatherBreakWriter`'s measured reason: a kind that earns
+                // its keep by being correct must not be refused for not being sufficiently in voice. The
+                // three prohibitions in `characterFault` stay.
+                dialect: 'optional',
+                guard: messages => ({
+                    // The one record this kind is shown, so a script that says it has already played is
+                    // refused rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See
+                    // `misCuedIn`.
+                    ...(request.next === undefined ? {} : { cues: { next: request.next } }),
+                    // The check this kind lives or dies by, and it is the guard's own `invented-year` rather
+                    // than anything written here: a historical claim's checkable part IS its year, the
+                    // entries are in the prompt, and `permittedYears` reads every year it was SHOWN. A
+                    // bespoke check beside it would be two answers to one question — the mistake
+                    // `inventedFigure` made until it moved onto this guard — and it would miss what this one
+                    // catches, since `yearsIn` reads "nineteen sixty-six" as well as 1966.
+                    years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+                }),
+                purpose: { noModel: 'read the date out with', nothing: 'read as a piece of history' },
+                context: { date: almanac.day.date },
             },
         );
-
-        // `dialect: 'optional'` for `ModelWeatherBreakWriter`'s measured reason: a kind that earns
-        // its keep by being correct must not be refused for not being sufficiently in voice. The
-        // three prohibitions in `characterFault` stay.
-        const guard: AnswerGuard = {
-            maxWords: ALMANAC_MAX_WORDS,
-            ...(request.persona === undefined ? {} : { persona: request.persona, dialect: 'optional' as const }),
-            ...(request.recent === undefined ? {} : { recent: request.recent }),
-            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
-            ...(request.moment === undefined ? {} : { moment: request.moment }),
-            // The one record this kind is shown, so a script that says it has already played is refused
-            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
-            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
-            ...languageGuard(this.config),
-            ...homeGuard(this.config),
-            ...stationGuard(this.config),
-            ...speakerGuard(this.config, request),
-            // The check this kind lives or dies by, and it is the guard's own `invented-year` rather
-            // than anything written here: a historical claim's checkable part IS its year, the
-            // entries are in the prompt, and `permittedYears` reads every year it was SHOWN. A
-            // bespoke check beside it would be two answers to one question — the mistake
-            // `inventedFigure` made until it moved onto this guard — and it would miss what this one
-            // catches, since `yearsIn` reads "nineteen sixty-six" as well as 1966.
-            years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
-        };
-        const script = readAnswer(result.text, guard);
-
-        this.lastDetail = {
-            // What the host RESOLVED, not what the setting said. See `LlmConversation.model`.
-            model: result.model,
-            ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
-            ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
-        };
-
-        if (script === undefined) {
-            // Why it was refused, on the row as well as in the log. See `writeDecline` and
-            // `WriteDetail.reason`.
-            const declined = writeDecline(result.text, guard);
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
-
-            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could read as a piece of history'}`, {
-                finish: result.finishReason,
-                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
-                date: almanac.day.date,
-                persona: request.persona?.key,
-                fault: declined?.fault,
-            });
-            return undefined;
-        }
-
-        // A break cut back to its last whole sentence. See `writeTrim`.
-        const trimmed = writeTrim(result.text, guard);
-        if (trimmed !== undefined) {
-            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
-            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, date: almanac.day.date });
-        }
-
+        this.lastDetail = outcome.detail;
+        if (outcome.written === undefined) return undefined;
+        const { script, guard } = outcome.written;
         // Spent here, where the entry has actually reached a script, exactly as the floor spends it.
         // Which entry the model used is read back out of the script rather than assumed — see
         // {@link entriesUsed}.

@@ -1,28 +1,15 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { captureWrites } from '#modules/render/script.history.settings.js';
-import {
-    breakPrompt,
-    maxWordsFor,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    writeDecline,
-    writeTrim,
-    type AnswerGuard,
-    type BreakPromptShape,
-    type PromptSettings,
-} from './break.prompt.js';
+import { permittedYears, shownWithoutRecent, type BreakPromptShape, type PromptSettings } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
+import { writeWithModel } from './model.break.write.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { modelList } from '#modules/llm/model.list.js';
 
 /**
  * A model greeting somebody who has just tuned in, with the station's own words underneath it.
@@ -120,16 +107,6 @@ export class ModelWelcomeWriter extends BreakWriter {
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         this.lastDetail = undefined;
 
-        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
-        if (!this.llm.canGenerate()) {
-            this.logger.debug(`director: no model to greet with (${this.llm.explainGenerator()})`);
-            return undefined;
-        }
-
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
-        const model = models[0] ?? '';
         // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: a persona's latitude
         // decides the word ceiling now that `WELCOME_SHAPE` offers one, and the number the model is
         // told has to be the number the guard refuses at. One `maxWordsFor` call over one object.
@@ -147,89 +124,31 @@ export class ModelWelcomeWriter extends BreakWriter {
             // would put the same decision in two places.
             ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
         };
-        const messages = breakPrompt(request, settings, WELCOME_SHAPE);
 
-        const result = await this.llm.converse(
+        const outcome = await writeWithModel(
+            { llm: this.llm, config: this.config, logger: this.logger },
             {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                ...breakGeneration(this.config),
-            },
-            // No tools, for the talk break's reason: everything this needs is already in the prompt,
-            // and the one thing a greeting must not be is late.
-            {
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                // Derived from when this break is due rather than fixed: see `patienceFor`.
-                maxWaitMs: patienceFor(request.airsAt),
-                // See `BreakWriteRequest.priority`: absent for a welcome that is going on air.
-                ...(request.priority === undefined ? {} : { priority: request.priority }),
+                request,
+                settings,
+                shape: WELCOME_SHAPE,
+                guard: messages => ({
+                    // The one record this kind is shown, so a script that says it has already played is
+                    // refused rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See
+                    // `misCuedIn`.
+                    ...(request.next === undefined ? {} : { cues: { next: request.next } }),
+                    // The talk break's own guard, carried over: `WELCOME_SHAPE` never shows a previous
+                    // record (`showsPrevious: false`), so the only one a greeting is ever handed is
+                    // `request.next`, and `recent` is stripped out of the prompt before it reaches `shown`
+                    // for `permittedYears`' own reason: a year another writer invented is quoted back into
+                    // this prompt's "You said these recently" block too. See `ModelTalkBreakWriter.write`.
+                    years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+                }),
+                purpose: { noModel: 'greet with', nothing: 'greet a listener with' },
             },
         );
-
-        const guard: AnswerGuard = {
-            // The prompt's own ceiling rather than this kind's default, which for a persona with
-            // latitude is a larger number. See the note beside `settings`.
-            maxWords: maxWordsFor(settings, WELCOME_SHAPE),
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
-            // The list the prompt was built from, so a signature is refused here only where the
-            // prompt named it as spent. See `AnswerGuard.recent`.
-            ...(request.recent === undefined ? {} : { recent: request.recent }),
-            // The same daypart the prompt stated, so a script is refused for contradicting it
-            // only where it was actually told. See `AnswerGuard.dayPart`.
-            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
-            // Beside the daypart and off the same instant: the words are what the prompt stated and
-            // this is what the clock says, which is the half of the question a stretch cannot answer.
-            ...(request.moment === undefined ? {} : { moment: request.moment }),
-            // The one record this kind is shown, so a script that says it has already played is refused
-            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
-            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
-            ...languageGuard(this.config),
-            ...homeGuard(this.config),
-            ...stationGuard(this.config),
-            ...speakerGuard(this.config, request),
-            // The talk break's own guard, carried over: `WELCOME_SHAPE` never shows a previous
-            // record (`showsPrevious: false`), so the only one a greeting is ever handed is
-            // `request.next`, and `recent` is stripped out of the prompt before it reaches `shown`
-            // for `permittedYears`' own reason: a year another writer invented is quoted back into
-            // this prompt's "You said these recently" block too. See `ModelTalkBreakWriter.write`.
-            years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
-        };
-        const script = readAnswer(result.text, guard);
-
-        this.lastDetail = {
-            // What the host RESOLVED, not what the setting said. A station that never pinned a
-            // model left this empty, so every row read "the plugin default" and the record could
-            // not answer which model wrote anything. See `LlmConversation.model`.
-            model: result.model,
-            ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
-            ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
-        };
-
-        if (script === undefined) {
-            // Why it was refused, on the row as well as in the log. See `writeDecline` and
-            // `WriteDetail.reason`.
-            const declined = writeDecline(result.text, guard);
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
-
-            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could greet a listener with'}`, {
-                finish: result.finishReason,
-                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
-                persona: request.persona?.key,
-                fault: declined?.fault,
-            });
-            return undefined;
-        }
-
-        // A greeting the station cut rather than refused. See `writeTrim`, and the talk break for why
-        // it is re-derived rather than measured against what was sent.
-        const trimmed = writeTrim(result.text, guard);
-        if (trimmed !== undefined) {
-            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
-            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
-        }
-
+        this.lastDetail = outcome.detail;
+        if (outcome.written === undefined) return undefined;
+        const { script, guard } = outcome.written;
         const claimsTime = timeClaimFor(script, guard.language, request.greeting, request.dayPart);
 
         return {

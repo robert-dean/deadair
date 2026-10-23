@@ -212,6 +212,9 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
 
     async getTrack(trackId: string): Promise<ProviderTrack | undefined> {
         try {
+            // Always one id. The SDK's `tracks.get` also takes an array, which hits the
+            // batch `GET /tracks?ids=` that Spotify removed in February 2026, so fetching
+            // several tracks at once is not the cheap change it looks like.
             return mapTrack(await this.getApi().tracks.get(trackId));
         } catch (error) {
             if (error instanceof SpotifyRequestError && error.status === 404) return undefined;

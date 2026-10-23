@@ -37,7 +37,8 @@ app.plex.tv, and your **Plex token**.
 
 **Spotify**: **Client ID** and **Redirect URI** from your app on Spotify's developer dashboard, then
 both authorizations on the plugin's page, exactly as [Your first hour on air](./first-hour.md)
-describes. The audio needs Spotify Premium.
+describes. The audio needs Spotify Premium, and so does the app: an app in development mode stops
+working if its owner's Premium lapses.
 
 **YouTube Music**: the **Cookie** header copied from a browser signed in to music.youtube.com (the
 field's help says where to find it). Leave **Audio resolver URL** as it is in the station image. If

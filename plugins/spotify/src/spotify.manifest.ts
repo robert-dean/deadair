@@ -66,7 +66,7 @@ export const spotifyManifest: PluginManifest = {
             label: 'Client ID',
             type: 'string',
             required: true,
-            help: 'From your app at developer.spotify.com/dashboard.',
+            help: 'From your app at developer.spotify.com/dashboard. An app in development mode only works while its owner has Spotify Premium.',
         },
         {
             key: 'redirectUri',

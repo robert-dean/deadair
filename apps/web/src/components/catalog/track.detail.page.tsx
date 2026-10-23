@@ -1,4 +1,4 @@
-import { Anchor, Badge, Card, Group, Stack, Table, Text, Title, Tooltip } from '@mantine/core';
+import { Anchor, Card, Group, Stack, Table, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import type { TFunction } from 'i18next';
 import type { TrackBinding, TrackDetail } from '@deadair/sdk';
 
 import { catalogTrackEnrichmentOptions, catalogTrackOptions, useRateTrack } from '../../api/catalog.queries';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -209,9 +210,7 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                             </Text>
                                             {binding.origin === 'discovered' ? (
                                                 <Tooltip label={t('track.found.tooltip')}>
-                                                    <Badge size="xs" variant="light" color="grape">
-                                                        {t('track.found.badge')}
-                                                    </Badge>
+                                                    <AuthoredBadge size="xs">{t('track.found.badge')}</AuthoredBadge>
                                                 </Tooltip>
                                             ) : undefined}
                                         </Stack>
@@ -278,9 +277,7 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                                         about why a record behaves as it does. */}
                                                         {binding.origin === 'discovered' ? (
                                                             <Tooltip label={t('track.found.tooltip')}>
-                                                                <Badge size="xs" variant="light" color="grape">
-                                                                    {t('track.found.badge')}
-                                                                </Badge>
+                                                                <AuthoredBadge size="xs">{t('track.found.badge')}</AuthoredBadge>
                                                             </Tooltip>
                                                         ) : undefined}
                                                     </Group>

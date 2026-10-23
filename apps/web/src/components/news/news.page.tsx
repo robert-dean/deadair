@@ -4,6 +4,7 @@ import type { NewsStory } from '@deadair/sdk';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { useNews, useNewsFeeds } from '../../api/news.queries';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentMinute } from '../shared/feed.moment';
@@ -139,9 +140,9 @@ function Story({ story, category }: { story: NewsStory; category?: string }) {
                         signals a bulletin classifies with and the only one that does not travel
                         with the story. */}
                     {category === undefined ? undefined : (
-                        <Badge size="xs" variant="light" color="grape" tt="none">
+                        <AuthoredBadge size="xs" tt="none">
                             {category}
-                        </Badge>
+                        </AuthoredBadge>
                     )}
                     {/* And what the publisher said it was about, which is a different claim. */}
                     {(story.categories ?? []).map(one => (

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Card, Group, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { ActionIcon, Button, Card, Group, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import type { PersonaNote } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { useDeletePersonaNote, usePersonaNotes, useSetPersonaNoteState, useUpdatePersonaNote, useWritePersonaNote } from '../../api/personas.queries';
+import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -187,9 +188,9 @@ function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: 
                     the fact worth seeing, and it is what decides which turn of the prompt it lands in. */}
                 <StatusLamp tone="off" label={note.kind === 'trait' ? t('notes.kind.trait') : t('notes.kind.said')} />
                 {note.origin === 'model' ? (
-                    <Badge size="xs" variant="light" color="grape" tt="none">
+                    <AuthoredBadge size="xs" tt="none">
                         {t('shared.stationsOwn')}
-                    </Badge>
+                    </AuthoredBadge>
                 ) : undefined}
                 <Group gap="xxs" ml="auto" wrap="nowrap">
                     {onSave === undefined ? undefined : editing ? (

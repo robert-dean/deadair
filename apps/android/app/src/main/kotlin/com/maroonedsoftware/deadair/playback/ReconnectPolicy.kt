@@ -38,6 +38,11 @@ sealed interface ReconnectNote {
         override val line = "policy waiting for a network"
     }
 
+    /** An HLS stream fell behind the playlist and was moved to its live edge, spending no retry. */
+    data object ToLiveEdge : ReconnectNote {
+        override val line = "policy jump to the live edge"
+    }
+
     data object GaveUpRetrying : ReconnectNote {
         override val line = "policy stop: out of retries"
     }
@@ -72,6 +77,14 @@ sealed interface ReconnectNote {
  * when wifi goes is on the old network all the same, and so is a kept-alive connection the next one
  * reuses. Left alone, a phone leaving the house went eighteen seconds without noticing, failed on
  * the read timeout, and dropped its buffer before the retry fetched a new one (measured 2026-10-09).
+ *
+ * **Behind the live window is not a failure of the connection.** An HLS playlist slides on, and a
+ * player that stalled long enough finds the segments it wanted gone: `ERROR_CODE_BEHIND_LIVE_WINDOW`,
+ * twice in the journal on 2026-10-21. A retry prepares the same position again, which is the one
+ * that has gone; what fixes it is the live edge, so the policy calls [toLiveEdge] at once and
+ * spends nothing from the backoff. Falling behind AGAIN within [LIVE_EDGE_COOLDOWN_MS] means the
+ * edge was not the problem (the connection is), and that one is retried like any other failure,
+ * so a stream that cannot keep up never jumps in a loop.
  */
 class ReconnectPolicy(
     private val backoff: Backoff,
@@ -81,6 +94,8 @@ class ReconnectPolicy(
     private val stop: () -> Unit,
     /** Connect again from scratch, for a stream that has not failed but is on the wrong network. */
     private val restart: () -> Unit = reconnect,
+    /** Play again from the live edge, for a stream that fell behind the live window. */
+    private val toLiveEdge: () -> Unit = reconnect,
     private val offlineLimitMs: Long = OFFLINE_LIMIT_MS,
     /** Told each decision as it is made, for the playback journal. Decides nothing. */
     private val note: (ReconnectNote) -> Unit = {},
@@ -142,7 +157,18 @@ class ReconnectPolicy(
         }
     }
 
+    /** Whether a jump to the live edge was made within [LIVE_EDGE_COOLDOWN_MS]. */
+    private var jumpedRecently = false
+
     override fun onPlayerError(error: PlaybackException) {
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && !jumpedRecently && online && wantsPlay()) {
+            cancelRetry()
+            jumpedRecently = true
+            schedule(LIVE_EDGE_COOLDOWN_MS) { jumpedRecently = false }
+            note(ReconnectNote.ToLiveEdge)
+            toLiveEdge()
+            return
+        }
         retryLater()
     }
 
@@ -253,6 +279,9 @@ class ReconnectPolicy(
     }
 
     private companion object {
+        /** How long after a jump to the live edge falling behind again is a failure rather than drift. */
+        const val LIVE_EDGE_COOLDOWN_MS = 30_000L
+
         /**
          * How long a drop waits for the network before stopping. Longer than the retry budget,
          * because waiting costs nothing (no request is made), and a stretch of underground between

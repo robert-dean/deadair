@@ -113,6 +113,13 @@ class PlaybackConductor(
                     player.play()
                 }
             },
+            // The live edge of the same item: the playlist has slid past the position the player
+            // was holding, and preparing that position again is what failed.
+            toLiveEdge = {
+                player.seekToDefaultPosition()
+                player.prepare()
+                player.play()
+            },
             note = { playbackLog.note(it.line) },
         )
     /**

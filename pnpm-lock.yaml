@@ -761,6 +761,9 @@ importers:
 
   plugins/jellyfin:
     devDependencies:
+      '@deadair/mediabrowser':
+        specifier: workspace:*
+        version: link:../../packages/mediabrowser
       '@deadair/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk

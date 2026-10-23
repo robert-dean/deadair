@@ -1,4 +1,4 @@
-import { baseForm, normalize } from '@deadair/plugin-sdk';
+import { baseForm, normalize, textAgreement } from '@deadair/plugin-sdk';
 
 import { providerId } from './mediabrowser.enrichment.js';
 import type { MediaBrowserItem } from './mediabrowser.types.js';
@@ -16,15 +16,6 @@ import type { MediaBrowserItem } from './mediabrowser.types.js';
  * `AnyProviderIdEquals` and answers the whole library, and Emby 4.10.1 answers
  * nothing even for an id a track carried.
  */
-
-type Agreement = 'exact' | 'base' | 'none';
-
-function agree(candidate: string | null | undefined, reference: string): Agreement {
-    if (!candidate) return 'none';
-    if (normalize(candidate) === normalize(reference)) return 'exact';
-    if (baseForm(candidate) === baseForm(reference)) return 'base';
-    return 'none';
-}
 
 /** Whether a candidate's id rules it out: both sides have one and they differ. */
 const otherId = (candidate: string | undefined, wanted: string | undefined): boolean =>
@@ -52,8 +43,8 @@ export function selectTrack(items: readonly MediaBrowserItem[], ref: MatchRef): 
         const recording = providerId(item, 'MusicBrainzRecording');
         if (otherId(recording, ref.mbid)) continue;
 
-        const title = agree(item.Name, ref.title);
-        const credits = [...(item.Artists ?? []), item.AlbumArtist].map(name => agree(name, ref.artist));
+        const title = textAgreement(item.Name, ref.title);
+        const credits = [...(item.Artists ?? []), item.AlbumArtist].map(name => textAgreement(name, ref.artist));
         const artist = credits.includes('exact') ? 'exact' : credits.includes('base') ? 'base' : 'none';
         if (title === 'none' || artist === 'none') continue;
 
@@ -61,7 +52,7 @@ export function selectTrack(items: readonly MediaBrowserItem[], ref: MatchRef): 
             (ref.mbid !== undefined && recording !== undefined ? 8 : 0) +
             (title === 'exact' ? 4 : 0) +
             (artist === 'exact' ? 2 : 0) +
-            (ref.album && agree(item.Album, ref.album) !== 'none' ? 1 : 0);
+            (ref.album && textAgreement(item.Album, ref.album) !== 'none' ? 1 : 0);
         if (!best || score > best.score) best = { item, score };
     }
 

@@ -1701,7 +1701,7 @@ export class DirectorConsoleService {
     /**
      * The picture each kind of break in this order wears, keyed by kind.
      *
-     * `DirectorService.breakArtwork` asks the same question of the same rows on the commit pass, so
+     * `breakArtwork` in `director.artwork.ts` asks the same question of the same rows on the commit pass, so
      * that the mount and the listener's player get the picture. This is the operator's half: without
      * it the running order draws a weather forecast as a microphone while the phone showing the same
      * forecast draws the sky, which reads as one of the two being wrong.

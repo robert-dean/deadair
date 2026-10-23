@@ -298,7 +298,7 @@ export function listenerArtist(item: RundownItem, stationName: string): string {
  * syndicated programme's own cover. And, since this stopped being a rule about
  * records, the picture a KIND OF BREAK wears — a weather forecast, a news
  * bulletin — which is an ordinary art asset resolved on the commit pass, exactly
- * as a record's cover is (`DirectorService.breakArtwork`, and
+ * as a record's cover is (`breakArtwork` in `director.artwork.ts`, and
  * `art/break.art.ts` for why it is a row rather than a table of its own).
  *
  * The logo is still what a break with no picture of its own carries, along with

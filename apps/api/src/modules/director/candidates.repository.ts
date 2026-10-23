@@ -6,6 +6,7 @@ import { creditedDislikeExists, noCreditedDislike } from '#modules/catalog/credi
 import { releasedYear } from '#modules/shared/release.year.js';
 import { ADVISORY_DEFAULT, advisoryRank, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import type { TrackLengthBounds } from './track.length.js';
+import { notSuspendedNow, suspendedNow } from '#modules/catalog/suspension.js';
 
 /**
  * The catalog, read the way the director needs it: tracks that can actually be
@@ -182,6 +183,16 @@ const effectiveRating = () => sql<number>`case
     else greatest(${sql.join(RATING_COLUMNS)})
 end`;
 
+/**
+ * What the station holds against a record, as {@link CandidatesRepository.standingsFor} answers: the
+ * effective rating across the three levels, and whether a suspension is in force. Two fields rather
+ * than one number, because a suspension does not touch the rating and must not be mistaken for one.
+ */
+export interface TrackStanding {
+    rating: number;
+    suspended: boolean;
+}
+
 @Injectable()
 export class CandidatesRepository extends DataRepository {
     /**
@@ -196,7 +207,7 @@ export class CandidatesRepository extends DataRepository {
      *   and the loser's metadata is the stale half.
      * - **Nothing disliked**, at track, record or artist level, and no work with a disliked artist
      *   only guesting on it (see `noCreditedDislike`). This is the same
-     *   filter `rejectDisliked` applies in memory, and it is deliberately in both
+     *   filter `rejectBarred` applies in memory, and it is deliberately in both
      *   places: this one keeps a disliked track out of the sample at all, and that
      *   one catches anything arriving by another route.
      *
@@ -298,6 +309,8 @@ export class CandidatesRepository extends DataRepository {
             .where('deadair.artists.rating', '<>', -1)
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
             .where(eb => noCreditedDislike(eb))
+            // A suspension keeps it out of the draw exactly as a dislike does, until it lapses.
+            .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
             .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
             .$if(taggedLike !== undefined && taggedLike.length > 0, qb => qb.where(taggedLikeAny(taggedLike!)))
             .$if(refused.length > 0, qb => qb.where(sql<boolean>`not ${taggedExactly(refused)}`))
@@ -377,11 +390,12 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
-     * How the station feels about a batch of works it did not draw itself.
+     * How the station feels about a batch of works it did not draw itself, and whether any of them is
+     * suspended right now.
      *
      * The same {@link effectiveRating} {@link sample} computes, asked of ids rather than
      * produced alongside a random draw. It exists because a pick can arrive from a generator that
-     * never touched this repository — a model naming a record — and `rejectDisliked` has to be able
+     * never touched this repository — a model naming a record — and `rejectBarred` has to be able
      * to judge it anyway. A dislike is an instruction rather than a preference, so the one thing
      * that must never depend on WHICH generator chose a track is whether the operator forbade it.
      *
@@ -389,9 +403,9 @@ export class CandidatesRepository extends DataRepository {
      * "the catalog has never heard of it" are different facts, and only the caller knows which of
      * them is a reason to drop the pick.
      */
-    async ratingsFor(trackIds: readonly string[]): Promise<Map<string, number>> {
-        const ratings = new Map<string, number>();
-        if (trackIds.length === 0) return ratings;
+    async standingsFor(trackIds: readonly string[]): Promise<Map<string, TrackStanding>> {
+        const standings = new Map<string, TrackStanding>();
+        if (trackIds.length === 0) return standings;
 
         const rows = await this.db
             .selectFrom('deadair.tracks')
@@ -399,11 +413,12 @@ export class CandidatesRepository extends DataRepository {
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
             .select('deadair.tracks.id as trackId')
             .select(effectiveRating().as('rating'))
+            .select(suspendedNow(sql.ref('deadair.tracks.id')).as('suspended'))
             .where('deadair.tracks.id', 'in', [...trackIds])
             .execute();
 
-        for (const row of rows) ratings.set(row.trackId, Number(row.rating));
-        return ratings;
+        for (const row of rows) standings.set(row.trackId, { rating: Number(row.rating), suspended: row.suspended === true });
+        return standings;
     }
 
     /**
@@ -475,7 +490,7 @@ export class CandidatesRepository extends DataRepository {
     /**
      * When a batch of works was first released, as far as this catalog knows.
      *
-     * {@link ratingsFor}'s sibling, and it exists for the same reason: a pick can arrive from a
+     * {@link standingsFor}'s sibling, and it exists for the same reason: a pick can arrive from a
      * generator that never touched this repository, and the period a broadcast was asked for has to
      * be true of every pick whatever named it.
      *

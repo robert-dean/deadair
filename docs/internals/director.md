@@ -403,7 +403,7 @@ what stops that eligibility being a loophole big enough to swallow the feature.
 replaces: a range and a style are not competing claims and a number cannot be split the difference on.
 
 **It is not on `ResolvedRules`**, for `rotation.advisory`'s reason — `NO_RULES` zeroes that bag and a setlist
-would silently start playing any decade — so it is judged in `PickResolver.judge` beside `rejectDisliked`.
+would silently start playing any decade — so it is judged in `PickResolver.judge` beside `rejectBarred`.
 
 And **an era that empties the library runs SHORT rather than relaxing**, on `rotation.briefOnly`'s own rule,
 with `EraWatch` writing one `station_events` row on the edge; it must be all-or-nothing across the draw and

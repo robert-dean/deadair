@@ -147,6 +147,7 @@ export interface DeadairAlbums {
   name: string;
   nameKey: string;
   rating: Generated<number>;
+  suspendedUntil: DateTime | null;
   updatedAt: Generated<DateTime>;
   year: number | null;
 }
@@ -203,6 +204,7 @@ export interface DeadairArtists {
   mergedIntoId: string | null;
   name: string;
   rating: Generated<number>;
+  suspendedUntil: DateTime | null;
   updatedAt: Generated<DateTime>;
 }
 
@@ -1263,6 +1265,7 @@ export interface DeadairTracks {
   mbid: string | null;
   mergedIntoId: string | null;
   rating: Generated<number>;
+  suspendedUntil: DateTime | null;
   title: string;
   titleKey: string;
   trackNumber: number | null;

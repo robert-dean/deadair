@@ -11,7 +11,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
  * start swearing the moment somebody chose it, because turning the rotation rules off is exactly
  * what a setlist is FOR.
  *
- * So this follows `rejectDisliked` instead: read at the point of use, applied whatever the lineup
+ * So this follows `rejectBarred` instead: read at the point of use, applied whatever the lineup
  * says, not overridable per lineup. A dislike and a content policy are both instructions about what
  * the station MAY play rather than preferences about how often, and neither is a knob a running
  * order gets to turn off.

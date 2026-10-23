@@ -1,5 +1,7 @@
 import { Injectable } from 'injectkit';
+import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { artistSuspendedNow, notSuspendedNow } from '#modules/catalog/suspension.js';
 
 /** An artist the library can play a record by. */
 export interface OwnedArtist {
@@ -49,6 +51,8 @@ export class RouteRepository extends DataRepository {
             .where('deadair.artists.artistKey', 'in', keys)
             .where('deadair.artists.mergedIntoId', 'is', null)
             .where('deadair.artists.rating', '<>', -1)
+            // A route does not go through an artist the station is keeping off the air this week.
+            .where(sql<boolean>`not ${artistSuspendedNow(sql.ref('deadair.artists.suspended_until'))}`)
             .where(eb =>
                 eb.exists(
                     eb
@@ -119,6 +123,7 @@ export class RouteRepository extends DataRepository {
             .where('deadair.tracks.mergedIntoId', 'is', null)
             .where('deadair.tracks.rating', '<>', -1)
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+            .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
             .where(eb =>
                 eb.exists(
                     eb

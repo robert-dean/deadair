@@ -117,7 +117,7 @@ interface Options {
     /**
      * What `CandidatesRepository.effectiveRating` answers for a canonical track id, for the veto.
      *
-     * The EFFECTIVE number rather than a level's own column, because that is what `ratingsFor`
+     * The EFFECTIVE number rather than a level's own column, because that is what `standingsFor`
      * returns and the whole point of it is that it has already collapsed track, record, lead artist
      * and every credited artist into one. A case says `-1` and means "the station may not play this",
      * without having to say which of the four said so.
@@ -347,9 +347,13 @@ function build(options: Options = {}) {
         // the catalog has never heard of is absent rather than `0`, which is the fork the veto has
         // to get right — "no opinion" and "never seen" are different facts and only one is a reason
         // to keep a record.
-        ratingsFor: vi.fn(
+        standingsFor: vi.fn(
             async (ids: readonly string[]) =>
-                new Map(ids.flatMap(id => (options.effectiveRatings?.[id] === undefined ? [] : [[id, options.effectiveRatings[id]!]]))),
+                new Map(
+                    ids.flatMap(id =>
+                        options.effectiveRatings?.[id] === undefined ? [] : [[id, { rating: options.effectiveRatings[id]!, suspended: false }]],
+                    ),
+                ),
         ),
     } as unknown as CandidatesRepository;
     const trackAudio = {
@@ -2343,7 +2347,7 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
     };
 
     it('takes out every record the catalog now forbids, whatever level said so', async () => {
-        // The point of going through `ratingsFor` rather than matching on the artist: the caller
+        // The point of going through `standingsFor` rather than matching on the artist: the caller
         // says which records may not play and the veto never has to know whether it was the song,
         // the record, the lead artist or a guest credit that forbade them.
         const order = onAirWith(4);
@@ -2397,7 +2401,7 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
 
         await service.vetoDisliked('Grateful Dead');
 
-        expect(candidates.ratingsFor).toHaveBeenCalledWith(['trk_0', 'trk_1', 'trk_2']);
+        expect(candidates.standingsFor).toHaveBeenCalledWith(['trk_0', 'trk_1', 'trk_2']);
     });
 
     it('records one feed row naming what the station was told, not one per record', async () => {

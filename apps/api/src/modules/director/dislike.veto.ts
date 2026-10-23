@@ -11,7 +11,7 @@ import { DirectorConsoleService } from './director.console.service.js';
  * ## The bug this exists for
  *
  * A dislike is an instruction no lineup may turn off, and it was applied at exactly two moments:
- * when a generator draws candidates (`rejectDisliked` inside `applyRules`) and when a pick becomes a
+ * when a generator draws candidates (`rejectBarred` inside `applyRules`) and when a pick becomes a
  * track (`PickResolver.resolve`, or `vet` for a playlist put on air). Both of those BUILD a running
  * order. Nothing re-applied it to one already built — and a running order is a stored list of items
  * being walked by state, with `StationLineup.nextPlanned` reading no rating at all.

@@ -10,6 +10,7 @@ import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js'
 import { ratingFromColumn } from './rating.js';
 import { releasedYear } from '../shared/release.year.js';
 import type { MeasureFailure, Rating, TrackState } from './types/catalog.types.js';
+import { artistSuspendedNow, notSuspendedNow, suspendedNow } from './suspension.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
 const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
@@ -840,6 +841,8 @@ export class TracksRepository extends DataRepository {
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
             // A disliked artist vetoes a record they only guest on too. See `noCreditedDislike`.
             .where(eb => noCreditedDislike(eb))
+            // And a suspension, for as long as it lasts. See `suspension.ts`.
+            .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
             // Arbitrary, and stable per BROADCAST. Both halves are load-bearing and they used to be
             // one: this was `title asc`, which is stable forever, and forever is the half that was
             // wrong.
@@ -918,6 +921,7 @@ export class TracksRepository extends DataRepository {
                 'deadair.albums.rating as albumRating',
             ])
             .select(eb => [eb.not(noCreditedDislike(eb)).as('hasDislikedCredit')])
+            .select(suspendedNow(sql.ref('deadair.tracks.id')).as('suspended'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
             // A tuple `in`, so one round trip answers for the whole page. Written through `or` rather
             // than raw SQL because the pairs are model-supplied text and this keeps them parameters.
@@ -933,7 +937,7 @@ export class TracksRepository extends DataRepository {
         for (const row of rows) {
             const key = catalogKey(row.titleKey, row.artistKey);
             owned.add(key);
-            if (row.trackRating === -1 || row.albumRating === -1 || row.hasDislikedCredit) banned.add(key);
+            if (row.trackRating === -1 || row.albumRating === -1 || row.hasDislikedCredit || row.suspended === true) banned.add(key);
         }
 
         return { owned, banned };
@@ -962,7 +966,8 @@ export class TracksRepository extends DataRepository {
             .selectFrom('deadair.artists')
             .select('deadair.artists.artistKey')
             .where('deadair.artists.artistKey', 'in', keys)
-            .where('deadair.artists.rating', '=', -1)
+            // Disliked, or suspended right now: either way `PickResolver` would drop the pick.
+            .where(eb => eb.or([eb('deadair.artists.rating', '=', -1), artistSuspendedNow(sql.ref('deadair.artists.suspended_until'))]))
             .execute();
 
         return new Set(rows.map(row => row.artistKey));
@@ -1028,6 +1033,7 @@ export class TracksRepository extends DataRepository {
               and a.rating <> -1
               and (al.rating is null or al.rating <> -1)
               and not ${creditedDislikeExists(sql`t.id`)}
+              and ${notSuspendedNow(sql`t.id`)}
               and exists (
                   select 1 from deadair.track_sources s
                   where s.track_id = t.id and s.missing_at is null

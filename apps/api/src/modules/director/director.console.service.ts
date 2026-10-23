@@ -1448,7 +1448,7 @@ export class DirectorConsoleService {
      * already owns every other edit — the one funnel that cancels the reactor, writes the feed row
      * and turns a refusal into a status code.
      *
-     * **It re-judges the whole order rather than the thing that was rated.** `ratingsFor` is the
+     * **It re-judges the whole order rather than the thing that was rated.** `standingsFor` is the
      * same expression the draw and `PickResolver` use, and it collapses track, record, lead artist
      * and every credited artist into one number — so a disliked artist GUESTING on a record is
      * caught here exactly as it is caught at the draw. Asking instead "which lines are by this
@@ -1479,8 +1479,13 @@ export class DirectorConsoleService {
         const trackIds = live.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : []));
         if (trackIds.length === 0) return;
 
-        const ratings = await this.candidates.ratingsFor(trackIds);
-        const vetoed = live.filter(item => item.kind === 'track' && item.track.trackId !== undefined && ratings.get(item.track.trackId) === -1);
+        // The rating alone, deliberately: a dislike reaches into the running order and a suspension
+        // does not. A commit already made stands, and the operator has the remove button for the two
+        // or three records in front of them, which is the right scale for "not this week".
+        const standings = await this.candidates.standingsFor(trackIds);
+        const vetoed = live.filter(
+            item => item.kind === 'track' && item.track.trackId !== undefined && standings.get(item.track.trackId)?.rating === -1,
+        );
         if (vetoed.length === 0) return;
 
         // Read BEFORE the edit, because the edit is what takes these lines out of the order: after

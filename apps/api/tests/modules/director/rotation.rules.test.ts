@@ -23,7 +23,7 @@ import {
     MIX_IN_EVERY_RANGE,
     NO_RULES,
     stationAutoExtends,
-    rejectDisliked,
+    rejectBarred,
     resolveRules,
     stationRules,
     ROTATION_KEYS,
@@ -440,13 +440,19 @@ describe('filterByHistory', () => {
     });
 });
 
-describe('rejectDisliked', () => {
+describe('rejectBarred', () => {
     it('drops a disliked candidate', () => {
-        expect(rejectDisliked([candidate('A', ['One'], -1), candidate('B', ['Two'], 0)]).map(c => c.songKey)).toEqual([songKey('B', ['Two'])]);
+        expect(rejectBarred([candidate('A', ['One'], -1), candidate('B', ['Two'], 0)]).map(c => c.songKey)).toEqual([songKey('B', ['Two'])]);
     });
 
     it('keeps everything the catalog has no opinion on', () => {
-        expect(rejectDisliked([candidate('A', ['One'])])).toHaveLength(1);
+        expect(rejectBarred([candidate('A', ['One'])])).toHaveLength(1);
+    });
+
+    it('drops a suspended candidate, liked or not, and keeps the rest', () => {
+        const suspended = { ...candidate('A', ['One'], 1), suspended: true as const };
+
+        expect(rejectBarred([suspended, candidate('B', ['Two'], 1)]).map(c => c.songKey)).toEqual([songKey('B', ['Two'])]);
     });
 
     it('favours a liked track without promising it', () => {

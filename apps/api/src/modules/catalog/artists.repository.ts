@@ -5,6 +5,7 @@ import { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains, namesAsAnAct } from './catalog.query.js';
 import { artistArtUrl } from './catalog.art.js';
 import { withStationCover } from '#modules/art/art.source.token.js';
+import { artistSuspendedNow } from './suspension.js';
 
 /**
  * The columns the `Artist` contract carries. `artistKey` is a match key for ingest, never read out.
@@ -87,6 +88,7 @@ export class ArtistsRepository extends DataRepository {
             .select(['deadair.artists.name', 'deadair.artists.artistKey'])
             .where('deadair.artists.mergedIntoId', 'is', null)
             .where('deadair.artists.rating', '<>', -1)
+            .where(sql<boolean>`not ${artistSuspendedNow(sql.ref('deadair.artists.suspended_until'))}`)
             .where(sql<boolean>`length(deadair.artists.name) > 1`)
             .where(sql<boolean>`strpos(${text}, deadair.artists.name) > 0`)
             .execute();

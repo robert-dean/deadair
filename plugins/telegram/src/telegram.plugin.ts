@@ -1,9 +1,10 @@
 import {
-    errorText,
     configFlag,
     configLines,
+    errorText,
     Plugin,
     PluginError,
+    scrubSecrets,
     type MessagingAnnounceTarget,
     type MessagingPluginInstance,
     type MessagingReceiveQuery,
@@ -244,7 +245,7 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
 
     /** `text` with the token replaced, for the last line of defence before anything leaves this file. */
     private scrub(text: string): string {
-        return this.token === '' ? text : text.split(this.token).join('<token>');
+        return scrubSecrets(text, [this.token]);
     }
 
     /** Log a group's id the first time somebody there speaks, so the operator can add it to the list. */

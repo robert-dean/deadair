@@ -15,7 +15,7 @@
  * on the voice column is what makes that a minute's work.
  */
 
-import { parseRows } from '@deadair/plugin-sdk';
+import { numberCell, parseRows, rowsHaveColumns } from '@deadair/plugin-sdk';
 import type { VoiceSettingKey } from './elevenlabs.models.js';
 
 /** The config key the rows are stored under, and the field key columns hang off. */
@@ -105,13 +105,7 @@ export function voiceMapOf(raw: unknown): VoiceMap {
  * voice's own setting alone; a number is clamped into the range the API takes.
  */
 export function settingOf(raw: string | undefined, key: VoiceSettingKey): number | undefined {
-    if (raw === undefined || raw.trim().length === 0) return undefined;
-
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return undefined;
-
-    const { min, max } = SETTING_RANGES[key];
-    return Math.min(max, Math.max(min, parsed));
+    return numberCell(raw, { range: SETTING_RANGES[key] });
 }
 
 /**
@@ -122,7 +116,5 @@ export function settingOf(raw: string | undefined, key: VoiceSettingKey): number
  * behind whenever a row is added and abandoned.
  */
 export function voiceRowsAreComplete(raw: unknown): boolean {
-    if (raw === undefined) return true;
-
-    return parseRows(raw).every(row => Boolean(row[VOICE_NAME_COLUMN]?.trim()) && Boolean(row[VOICE_VOICE_COLUMN]?.trim()));
+    return rowsHaveColumns(raw, [VOICE_NAME_COLUMN, VOICE_VOICE_COLUMN]);
 }

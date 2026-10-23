@@ -1,9 +1,12 @@
 import {
-    errorText,
     configFlag,
     configLines,
+    errorText,
+    MessageInbox,
     Plugin,
     PluginError,
+    scrubSecrets,
+    variadicLogger,
     type HostFetchMethod,
     type InboundMessage,
     type MessagingAnnounceTarget,
@@ -118,9 +121,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
     /** Why Socket Mode stopped for good, until a config save starts again from scratch. */
     private fatal?: { message: string; code: PluginErrorCode };
 
-    private readonly inbox: InboundMessage[] = [];
-    private wake?: () => void;
-    private overflowed = false;
+    private readonly inbox = new MessageInbox<InboundMessage>(MAX_HELD_MESSAGES);
     private readonly responses = new Map<string, HeldResponse>();
     /** Each message's thread, so a reply to a message inside one stays inside it. */
     private readonly threads = new Map<string, string>();
@@ -142,8 +143,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
         this.register(() => {
             this.socketMode?.stop();
             this.socketMode = undefined;
-            this.wake?.();
-            this.inbox.length = 0;
+            this.inbox.close();
             this.responses.clear();
             this.threads.clear();
             this.names.clear();
@@ -197,8 +197,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
 
         await this.connect(host);
 
-        if (this.inbox.length === 0 && query.waitMs > 0) await this.waitForMessages(query.waitMs);
-        return { messages: this.inbox.splice(0) };
+        return { messages: await this.inbox.take(query.waitMs) };
     }
 
     async send(message: OutboundMessage): Promise<MessagingSendResult> {
@@ -260,7 +259,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
                 onSlashCommand: payload => this.onSlashCommand(host, client, payload),
                 onInteractive: payload => this.onInteractive(host, client, payload),
             },
-            logger: serverkitLogger(host),
+            logger: variadicLogger(host.logger),
             onError: error => {
                 this.fatal = {
                     message:
@@ -269,7 +268,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
                 };
                 host.logger.error('slack: Socket Mode stopped for good', { reason: error.message });
                 this.socketMode = undefined;
-                this.wake?.();
+                this.inbox.interrupt();
             },
         });
         this.socketMode = socketMode;
@@ -415,26 +414,9 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
         if (map.size > MAX_KNOWN_NAMES) map.delete(map.keys().next().value as string);
     }
 
+    /** Queues one message for the next `receive`, dropping the oldest past the cap. */
     private deliver(host: PluginHost, message: InboundMessage): void {
-        this.inbox.push(message);
-        if (this.inbox.length > MAX_HELD_MESSAGES) {
-            this.inbox.shift();
-            if (!this.overflowed) host.logger.warn('slack: messages arrived faster than the station read them; dropping the oldest');
-            this.overflowed = true;
-        }
-        this.wake?.();
-    }
-
-    private waitForMessages(waitMs: number): Promise<void> {
-        return new Promise(resolve => {
-            const done = (): void => {
-                clearTimeout(timer);
-                if (this.wake === done) this.wake = undefined;
-                resolve();
-            };
-            const timer = setTimeout(done, waitMs);
-            this.wake = done;
-        });
+        if (this.inbox.deliver(message)) host.logger.warn('slack: messages arrived faster than the station read them; dropping the oldest');
     }
 
     /** A Web API client for one call, speaking through the host's fetch, with no retries of its own. */
@@ -455,7 +437,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
                     timeoutMs: Math.min(REQUEST_TIMEOUT_MS, host.remainingMs()),
                 }),
         };
-        return new SlackClient(config, serverkitLogger(host));
+        return new SlackClient(config, variadicLogger(host.logger));
     }
 
     /** What went wrong, from the Web API client, a `SlackError`, or anything else, with both tokens scrubbed. */
@@ -496,9 +478,7 @@ export class SlackPlugin extends Plugin implements MessagingPluginInstance {
 
     /** `text` with both tokens replaced, for the last line of defence before anything leaves this file. */
     private scrub(text: string): string {
-        let scrubbed = text;
-        for (const token of [this.botToken, this.appToken]) if (token !== '') scrubbed = scrubbed.split(token).join('<token>');
-        return scrubbed;
+        return scrubSecrets(text, [this.botToken, this.appToken]);
     }
 
     /** Log a channel's id the first time somebody there speaks, so the operator can add it to the list. */
@@ -517,19 +497,4 @@ function codeFor(refusal: Refusal): PluginErrorCode {
     if (refusal.status === 429) return 'rate_limited';
     if (refusal.error !== undefined) return 'config';
     return refusal.status === undefined ? 'unavailable' : 'upstream';
-}
-
-/** The plugin's logger in the shape ServerKit's clients take. */
-function serverkitLogger(host: PluginHost) {
-    const meta = (rest: unknown[]): Record<string, unknown> | undefined => {
-        const first = rest[0];
-        return first !== null && typeof first === 'object' && !Array.isArray(first) ? (first as Record<string, unknown>) : undefined;
-    };
-    return {
-        error: (message: unknown, ...rest: unknown[]) => host.logger.error(String(message), meta(rest)),
-        warn: (message: unknown, ...rest: unknown[]) => host.logger.warn(String(message), meta(rest)),
-        info: (message: unknown, ...rest: unknown[]) => host.logger.info(String(message), meta(rest)),
-        debug: (message: unknown, ...rest: unknown[]) => host.logger.debug(String(message), meta(rest)),
-        trace: (message: unknown, ...rest: unknown[]) => host.logger.debug(String(message), meta(rest)),
-    };
 }

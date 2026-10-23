@@ -6,7 +6,9 @@ import {
     configFieldSchema,
     isRowSecretKey,
     parseMultiSelect,
+    numberCell,
     parseRows,
+    rowsHaveColumns,
     ROW_ID_KEY,
     rowSecretKey,
     sentToProblems,
@@ -316,5 +318,39 @@ describe('a row that holds a secret', () => {
         const [row] = parseRows(JSON.stringify([{ [ROW_ID_KEY]: 'ab12cd34', name: 'ollama' }]));
 
         expect(row).toEqual({ [ROW_ID_KEY]: 'ab12cd34', name: 'ollama' });
+    });
+});
+
+describe('rowsHaveColumns', () => {
+    it('passes an unset field and rows that fill every named column', () => {
+        expect(rowsHaveColumns(undefined, ['name', 'engine'])).toBe(true);
+        expect(rowsHaveColumns('[{"name":"Peter","engine":"af_heart"}]', ['name', 'engine'])).toBe(true);
+    });
+
+    it('refuses a row with something in it that leaves a named column blank', () => {
+        expect(rowsHaveColumns('[{"name":"Peter","engine":" "}]', ['name', 'engine'])).toBe(false);
+        expect(rowsHaveColumns('[{"engine":"af_heart"}]', ['name', 'engine'])).toBe(false);
+    });
+});
+
+describe('numberCell', () => {
+    it('reads a number, and a blank or unreadable cell as unset', () => {
+        expect(numberCell('1.25')).toBe(1.25);
+        expect(numberCell('')).toBeUndefined();
+        expect(numberCell('  ')).toBeUndefined();
+        expect(numberCell('fast')).toBeUndefined();
+        expect(numberCell(undefined)).toBeUndefined();
+    });
+
+    it('treats 0 and below as unset when only a positive value means anything', () => {
+        expect(numberCell('0', { positive: true })).toBeUndefined();
+        expect(numberCell('-1', { positive: true })).toBeUndefined();
+        expect(numberCell('0')).toBe(0);
+    });
+
+    it('clamps to a range when given one, and keeps the number as typed when not', () => {
+        expect(numberCell('9', { range: { min: 0.25, max: 4 } })).toBe(4);
+        expect(numberCell('0.1', { range: { min: 0.25, max: 4 }, positive: true })).toBe(0.25);
+        expect(numberCell('9')).toBe(9);
     });
 });

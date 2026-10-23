@@ -20,6 +20,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentStamp } from '../shared/feed.moment';
 import { notifyDone, notifySaved } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
@@ -90,50 +91,48 @@ export function EventDestinationsCard() {
                 {minted ? <SecretPanel minted={minted} onDone={() => setMinted(undefined)} /> : undefined}
                 {tested ? <TestPanel name={tested.name} result={tested.result} onDone={() => setTested(undefined)} /> : undefined}
 
-                {destinations.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                {destinations.error ? (
-                    <ErrorAlert
-                        title={t('eventDestinations.unavailable.title')}
-                        error={destinations.error}
-                        fallback={t('eventDestinations.unavailable.fallback')}
-                    />
-                ) : undefined}
-
-                {destinations.data && list.length === 0 ? (
-                    <Text size="sm" c="dimmed">
-                        {t('eventDestinations.empty')}
-                    </Text>
-                ) : undefined}
-
-                {destinations.data && list.length > 0 && phone ? (
-                    <Stack gap="xxs">
-                        {list.map(destination => (
-                            <DestinationPhoneCard key={destination.id} destination={destination} {...actions} />
-                        ))}
-                    </Stack>
-                ) : undefined}
-
-                {destinations.data && list.length > 0 && !phone ? (
-                    <Table.ScrollContainer minWidth={800}>
-                        <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th w="34%">{t('eventDestinations.column.destination')}</Table.Th>
-                                    <Table.Th>{t('eventDestinations.column.events')}</Table.Th>
-                                    <Table.Th>{t('eventDestinations.column.state')}</Table.Th>
-                                    <Table.Th w={380} ta="right">
-                                        {' '}
-                                    </Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                <QueryView
+                    query={destinations}
+                    skeleton={<PageSkeleton variant="rows" count={2} />}
+                    errorTitle={t('eventDestinations.unavailable.title')}
+                    errorFallback={t('eventDestinations.unavailable.fallback')}
+                    isEmpty={() => list.length === 0}
+                    empty={
+                        <Text size="sm" c="dimmed">
+                            {t('eventDestinations.empty')}
+                        </Text>
+                    }
+                >
+                    {() =>
+                        phone ? (
+                            <Stack gap="xxs">
                                 {list.map(destination => (
-                                    <DestinationRow key={destination.id} destination={destination} {...actions} />
+                                    <DestinationPhoneCard key={destination.id} destination={destination} {...actions} />
                                 ))}
-                            </Table.Tbody>
-                        </Table>
-                    </Table.ScrollContainer>
-                ) : undefined}
+                            </Stack>
+                        ) : (
+                            <Table.ScrollContainer minWidth={800}>
+                                <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th w="34%">{t('eventDestinations.column.destination')}</Table.Th>
+                                            <Table.Th>{t('eventDestinations.column.events')}</Table.Th>
+                                            <Table.Th>{t('eventDestinations.column.state')}</Table.Th>
+                                            <Table.Th w={380} ta="right">
+                                                {' '}
+                                            </Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {list.map(destination => (
+                                            <DestinationRow key={destination.id} destination={destination} {...actions} />
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            </Table.ScrollContainer>
+                        )
+                    }
+                </QueryView>
 
                 {destinations.data ? <NewDestinationForm onCreated={(name, secret) => setMinted({ name, secret, verb: 'created' })} /> : undefined}
             </Stack>

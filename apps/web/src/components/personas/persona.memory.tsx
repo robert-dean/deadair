@@ -8,6 +8,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { formatMomentFull } from '../shared/feed.moment';
 
 /**
@@ -119,17 +120,14 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
                         </Text>
                     ) : undefined}
 
-                    {preview.isPending ? <PageSkeleton variant="card" /> : undefined}
-
-                    {preview.error ? (
-                        <ErrorAlert
-                            title={t('memory.confirm.previewErrorTitle')}
-                            error={preview.error}
-                            fallback={t('memory.confirm.previewErrorFallback')}
-                        />
-                    ) : undefined}
-
-                    {preview.data !== undefined ? <RollbackSummary change={preview.data} /> : undefined}
+                    <QueryView
+                        query={preview}
+                        skeleton={<PageSkeleton variant="card" />}
+                        errorTitle={t('memory.confirm.previewErrorTitle')}
+                        errorFallback={t('memory.confirm.previewErrorFallback')}
+                    >
+                        {data => <RollbackSummary change={data} />}
+                    </QueryView>
 
                     <Checkbox
                         checked={relearn}

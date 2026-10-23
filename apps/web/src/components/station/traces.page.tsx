@@ -10,6 +10,7 @@ import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { severityColor } from '../shared/status';
@@ -271,36 +272,39 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
                       })()
             }
         >
-            {trace.isPending ? <PageSkeleton variant="rows" count={6} /> : undefined}
-            {trace.isError ? (
-                <ErrorAlert title={t('traces.drawerFailedTitle')} error={trace.error} fallback={t('traces.drawerFailedFallback')} />
-            ) : undefined}
-            {trace.data ? (
-                <Stack gap="md">
-                    <Stack gap="xxs">
-                        <Text size="xs" c="dimmed" className="da-num">
-                            {trace.data.decision.id}
-                        </Text>
-                        {trace.data.parent ? (
-                            <Text size="sm" c="dimmed">
-                                <Trans t={t} i18nKey="traces.causedBy" values={{ kind: trace.data.parent.kind }} components={{ code: <Code /> }} />
+            <QueryView
+                query={trace}
+                skeleton={<PageSkeleton variant="rows" count={6} />}
+                errorTitle={t('traces.drawerFailedTitle')}
+                errorFallback={t('traces.drawerFailedFallback')}
+            >
+                {data => (
+                    <Stack gap="md">
+                        <Stack gap="xxs">
+                            <Text size="xs" c="dimmed" className="da-num">
+                                {data.decision.id}
                             </Text>
-                        ) : undefined}
-                        {trace.data.decision.parent !== undefined && trace.data.parent === undefined ? (
-                            <Text size="sm" c="dimmed">
-                                {t('traces.causedByGone')}
-                            </Text>
-                        ) : undefined}
-                        {trace.data.caused.length > 0 ? (
-                            <Text size="sm" c="dimmed">
-                                {t('traces.enqueued', { kinds: trace.data.caused.map(child => child.kind).join(', ') })}
-                            </Text>
-                        ) : undefined}
-                    </Stack>
+                            {data.parent ? (
+                                <Text size="sm" c="dimmed">
+                                    <Trans t={t} i18nKey="traces.causedBy" values={{ kind: data.parent.kind }} components={{ code: <Code /> }} />
+                                </Text>
+                            ) : undefined}
+                            {data.decision.parent !== undefined && data.parent === undefined ? (
+                                <Text size="sm" c="dimmed">
+                                    {t('traces.causedByGone')}
+                                </Text>
+                            ) : undefined}
+                            {data.caused.length > 0 ? (
+                                <Text size="sm" c="dimmed">
+                                    {t('traces.enqueued', { kinds: data.caused.map(child => child.kind).join(', ') })}
+                                </Text>
+                            ) : undefined}
+                        </Stack>
 
-                    <SpanList spans={trace.data.spans} />
-                </Stack>
-            ) : undefined}
+                        <SpanList spans={data.spans} />
+                    </Stack>
+                )}
+            </QueryView>
         </Drawer>
     );
 }

@@ -14,6 +14,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
@@ -63,96 +64,100 @@ export function InvitationsCard() {
                     {t('people.invitations.list.title')}
                 </Title>
 
-                {invitations.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                {invitations.error ? (
-                    <ErrorAlert
-                        title={t('people.invitations.unavailable.title')}
-                        error={invitations.error}
-                        fallback={t('people.invitations.unavailable.fallback')}
-                    />
-                ) : undefined}
-                {invitations.data && list.length === 0 ? (
-                    <Text size="sm" c="dimmed">
-                        {t('people.invitations.list.empty')}
-                    </Text>
-                ) : undefined}
-
-                {list.length > 0 && phone ? (
-                    <Stack gap="xxs">
-                        {list.map(invitation => (
-                            <PhoneCard
-                                key={invitation.id}
-                                opacity={invitation.state === 'pending' ? 1 : 0.6}
-                                title={
-                                    <Text size="sm" fw={500} truncate>
-                                        {invitation.email}
-                                    </Text>
-                                }
-                                subtitle={
-                                    <Text size="xs" c="dimmed" truncate>
-                                        {t(`people.role.${invitation.role}`)} · {describeWhen(t, invitation)}
-                                    </Text>
-                                }
-                                figure={<StatusLamp tone={STATE_TONES[invitation.state]} label={t(`people.invitations.state.${invitation.state}`)} />}
-                                below={
-                                    <Group justify="flex-end" mt="xs">
-                                        <InvitationActions invitation={invitation} gate={gate} onShow={() => setShowing(invitation)} />
-                                    </Group>
-                                }
-                            />
-                        ))}
-                    </Stack>
-                ) : undefined}
-
-                {list.length > 0 && !phone ? (
-                    <Table.ScrollContainer minWidth={720}>
-                        <Table verticalSpacing="sm" horizontalSpacing="sm">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>{t('people.invitations.column.person')}</Table.Th>
-                                    <Table.Th>{t('people.invitations.column.role')}</Table.Th>
-                                    <Table.Th>{t('people.invitations.column.state')}</Table.Th>
-                                    <Table.Th>{t('people.invitations.column.expires')}</Table.Th>
-                                    <Table.Th>{t('people.invitations.column.invitedBy')}</Table.Th>
-                                    <Table.Th w={260} />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                <QueryView
+                    query={invitations}
+                    skeleton={<PageSkeleton variant="rows" count={2} />}
+                    errorTitle={t('people.invitations.unavailable.title')}
+                    errorFallback={t('people.invitations.unavailable.fallback')}
+                    isEmpty={() => list.length === 0}
+                    empty={
+                        <Text size="sm" c="dimmed">
+                            {t('people.invitations.list.empty')}
+                        </Text>
+                    }
+                >
+                    {() =>
+                        phone ? (
+                            <Stack gap="xxs">
                                 {list.map(invitation => (
-                                    <Table.Tr key={invitation.id} style={{ opacity: invitation.state === 'pending' ? 1 : 0.6 }}>
-                                        <Table.Td maw={260}>
+                                    <PhoneCard
+                                        key={invitation.id}
+                                        opacity={invitation.state === 'pending' ? 1 : 0.6}
+                                        title={
                                             <Text size="sm" fw={500} truncate>
                                                 {invitation.email}
                                             </Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Text size="sm">{t(`people.role.${invitation.role}`)}</Text>
-                                        </Table.Td>
-                                        <Table.Td>
+                                        }
+                                        subtitle={
+                                            <Text size="xs" c="dimmed" truncate>
+                                                {t(`people.role.${invitation.role}`)} · {describeWhen(t, invitation)}
+                                            </Text>
+                                        }
+                                        figure={
                                             <StatusLamp
                                                 tone={STATE_TONES[invitation.state]}
                                                 label={t(`people.invitations.state.${invitation.state}`)}
                                             />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Text size="sm" className="da-num">
-                                                {describeWhen(t, invitation)}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td maw={200}>
-                                            <Text size="sm" c="dimmed" truncate>
-                                                {invitation.invitedBy}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <InvitationActions invitation={invitation} gate={gate} onShow={() => setShowing(invitation)} />
-                                        </Table.Td>
-                                    </Table.Tr>
+                                        }
+                                        below={
+                                            <Group justify="flex-end" mt="xs">
+                                                <InvitationActions invitation={invitation} gate={gate} onShow={() => setShowing(invitation)} />
+                                            </Group>
+                                        }
+                                    />
                                 ))}
-                            </Table.Tbody>
-                        </Table>
-                    </Table.ScrollContainer>
-                ) : undefined}
+                            </Stack>
+                        ) : (
+                            <Table.ScrollContainer minWidth={720}>
+                                <Table verticalSpacing="sm" horizontalSpacing="sm">
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>{t('people.invitations.column.person')}</Table.Th>
+                                            <Table.Th>{t('people.invitations.column.role')}</Table.Th>
+                                            <Table.Th>{t('people.invitations.column.state')}</Table.Th>
+                                            <Table.Th>{t('people.invitations.column.expires')}</Table.Th>
+                                            <Table.Th>{t('people.invitations.column.invitedBy')}</Table.Th>
+                                            <Table.Th w={260} />
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {list.map(invitation => (
+                                            <Table.Tr key={invitation.id} style={{ opacity: invitation.state === 'pending' ? 1 : 0.6 }}>
+                                                <Table.Td maw={260}>
+                                                    <Text size="sm" fw={500} truncate>
+                                                        {invitation.email}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text size="sm">{t(`people.role.${invitation.role}`)}</Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <StatusLamp
+                                                        tone={STATE_TONES[invitation.state]}
+                                                        label={t(`people.invitations.state.${invitation.state}`)}
+                                                    />
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text size="sm" className="da-num">
+                                                        {describeWhen(t, invitation)}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td maw={200}>
+                                                    <Text size="sm" c="dimmed" truncate>
+                                                        {invitation.invitedBy}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <InvitationActions invitation={invitation} gate={gate} onShow={() => setShowing(invitation)} />
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            </Table.ScrollContainer>
+                        )
+                    }
+                </QueryView>
             </Stack>
 
             <LinkModal invitation={showing} onClose={() => setShowing(undefined)} />

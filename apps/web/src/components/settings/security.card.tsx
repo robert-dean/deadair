@@ -25,6 +25,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone, notifySaved } from '../shared/notify';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { LinkedSigninsCard } from './linked.signins.card';
 import { PasswordCard } from './password.card';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
@@ -87,26 +88,28 @@ export function SecurityCard() {
                         </Text>
                     </Stack>
 
-                    {factors.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
-                    {factors.error ? (
-                        <ErrorAlert title={t('security.unavailable.title')} error={factors.error} fallback={t('security.unavailable.fallback')} />
-                    ) : undefined}
-
-                    {factors.data ? (
-                        <Stack gap="xs">
-                            {others.map(factor => (
-                                <FactorRow key={`${factor.method}:${factor.methodId}`} factor={factor} />
-                            ))}
-                            {strong.map(factor => (
-                                <StrongFactorRow key={`${factor.method}:${factor.methodId}`} factor={factor} gate={gate} />
-                            ))}
-                            {strong.length === 0 ? (
-                                <Text size="sm" c="dimmed">
-                                    {t('security.noAuthenticator')}
-                                </Text>
-                            ) : undefined}
-                        </Stack>
-                    ) : undefined}
+                    <QueryView
+                        query={factors}
+                        skeleton={<PageSkeleton variant="rows" count={2} />}
+                        errorTitle={t('security.unavailable.title')}
+                        errorFallback={t('security.unavailable.fallback')}
+                    >
+                        {() => (
+                            <Stack gap="xs">
+                                {others.map(factor => (
+                                    <FactorRow key={`${factor.method}:${factor.methodId}`} factor={factor} />
+                                ))}
+                                {strong.map(factor => (
+                                    <StrongFactorRow key={`${factor.method}:${factor.methodId}`} factor={factor} gate={gate} />
+                                ))}
+                                {strong.length === 0 ? (
+                                    <Text size="sm" c="dimmed">
+                                        {t('security.noAuthenticator')}
+                                    </Text>
+                                ) : undefined}
+                            </Stack>
+                        )}
+                    </QueryView>
                 </Stack>
             </Card>
 

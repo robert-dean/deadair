@@ -397,6 +397,16 @@ since "number one" is also something a presenter says about a fan. The floor rea
 countdown phrasing is `[[At number {{next.chart.rank}}, ]]{{next.title}}` and simply says less for a record no
 chart named. Whether a show says its positions at all is the show's `chartPositions`, not the persona's.
 
+**On a chart show the position of the record coming up is ASKED for, not merely shown.** Shown only as the
+`- Chart:` line, it never reached air: every model-written break of the US countdown on 2026-10-23 carried
+the rank and none said it, because the countdown host's sheet tells the story first and names the record last,
+and the keen notes paragraph filed a chart position under "worth saying when it is part of the story". So
+`userPrompt` now adds one sentence whenever `next.chart` is shown, giving the number and asking for "at number
+N" as the record is brought in, exactly that number. Only the record coming up: the one behind it was announced
+on its way in. The countdown seed's quirk says the same, and its floor carries one back-announce phrasing that
+needs `{{next.chart.rank}}` outright, since mid-order the floor offers only phrasings that back-announce and an
+intro-only one with an optional rank never fires there.
+
 **A deep cut rides the same path and is said the same way: as why the record is on.** `CatalogSetGenerator`
 names a pick `deepCut` when the deep-cut lean drew it (`programming.md`), `PickResolver` copies it beside
 `chart` as the other field taken from the pick, and `describe` shows `- Deep cut: an album track this station

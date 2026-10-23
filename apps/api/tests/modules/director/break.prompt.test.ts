@@ -835,6 +835,17 @@ describe('breakPrompt', () => {
             expect(said).not.toContain('no chart placings,');
         });
 
+        it('asks for the position of the record coming up on a chart show, and only that one', () => {
+            const chart = { rank: 7, name: 'Top 100' };
+
+            expect(user(prompt({ kind: 'talkbreak', next: { ...previous, chart } }))).toContain(
+                'say its position as you bring it in, "at number 7", exactly that number and no other.',
+            );
+            // The record behind was announced on its way in; a countdown names the one to come.
+            expect(user(prompt({ kind: 'talkbreak', previous: { ...previous, chart } }))).not.toContain('say its position');
+            expect(user(prompt({ kind: 'talkbreak', next: previous }))).not.toContain('say its position');
+        });
+
         it('says a deep cut is one, as the reason it is on, and says nothing for a record that is not', () => {
             expect(user(prompt({ kind: 'talkbreak', next: { ...previous, deepCut: true } }))).toContain(
                 '- Deep cut: an album track this station has not played in months',

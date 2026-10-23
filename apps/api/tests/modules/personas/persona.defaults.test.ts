@@ -354,6 +354,31 @@ describe('the phrasings the seeded personas carry', () => {
         }
     });
 
+    it('lets the countdown host say a chart position, and reads cleanly where there is none', () => {
+        const countdown = withTemplates.find(persona => persona.key === 'countdown')!;
+        const templates = parseTemplates(countdown.templates);
+        const charted = { ...next, chart: { rank: 7, name: 'Top 100' } };
+
+        // Mid-order, where the floor offers only a phrasing that back-announces.
+        expect(usable(templates, { previous, next: charted, station: 'Deadair' }, spoken).map(one => one.script)).toContain(
+            'Solid Air there, from John Martyn. And now, on with the countdown: at number 7, Nick Drake, with Pink Moon.',
+        );
+        expect(
+            usable(templates, { previous, next, station: 'Deadair' }, spoken)
+                .map(one => one.script)
+                .join(' '),
+        ).not.toContain('at number');
+
+        // At the top of an order, where the two that only introduce are offered.
+        const opening = usable(templates, { next: charted, station: 'Deadair' }, spoken).map(one => one.script);
+        expect(opening).toContain('And now, on with the countdown. At number 7, Nick Drake, with Pink Moon.');
+        expect(opening).toContain("Here's Nick Drake, with Pink Moon, at number 7.");
+
+        const plain = usable(templates, { next, station: 'Deadair' }, spoken).map(one => one.script);
+        expect(plain).toContain('And now, on with the countdown. Nick Drake, with Pink Moon.');
+        expect(plain).toContain("Here's Nick Drake, with Pink Moon.");
+    });
+
     it('has one that knows what time it is', () => {
         // Not required of a persona an operator writes, but a seed that ignores the clock makes the
         // station's own clock bands look broken on every station that adopts it.

@@ -169,7 +169,7 @@ describe('UsersService.get', () => {
             new AuthorizationContext(actor(['admin'])),
             { warn: vi.fn() } as never,
         );
-        sessions.listSessionsForActor.mockImplementation(id => activity.listSessionsForActor(id) as never);
+        sessions.listSessionsForActor.mockImplementation(() => activity.listSessionsForActor(FRIEND_ID) as never);
 
         const person = await service.get(FRIEND_ID);
 

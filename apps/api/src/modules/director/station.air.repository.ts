@@ -23,7 +23,15 @@ export interface StationAir {
      * simply ended is changed over when the next block begins. See migration 0046.
      */
     ranOut: boolean;
+    /**
+     * How many more records the station keeps quiet for: no breaks of its own until that many have
+     * started. `0` is not quiet. See migration 0114 and `quiet.spell.ts`.
+     */
+    quietRecords: number;
 }
+
+/** The longest quiet spell, in records. The table holds it to the same figure. */
+export const MAX_QUIET_RECORDS = 500;
 
 /**
  * Storage for `deadair.station_air`: whether the station is driving.
@@ -42,10 +50,52 @@ export interface StationAir {
 export class StationAirRepository extends DataRepository {
     /** Whether this slot is driving, or `undefined` before the station has ever aired anything. */
     async get(slot = MAIN_SLOT): Promise<StationAir | undefined> {
-        const row = await this.db.selectFrom('deadair.stationAir').select(['slot', 'active', 'ranOut']).where('slot', '=', slot).executeTakeFirst();
+        const row = await this.db
+            .selectFrom('deadair.stationAir')
+            .select(['slot', 'active', 'ranOut', 'breaksQuietRecords'])
+            .where('slot', '=', slot)
+            .executeTakeFirst();
         if (!row) return undefined;
 
-        return { slot: row.slot, active: row.active, ranOut: row.ranOut };
+        return { slot: row.slot, active: row.active, ranOut: row.ranOut, quietRecords: row.breaksQuietRecords };
+    }
+
+    /**
+     * Keep the station quiet for this many records, or stop being quiet with `0`.
+     *
+     * An upsert, so a station that has never aired can be told before its first record. Clamped to
+     * the table's own range rather than refused, since the console offers fixed choices and a caller
+     * asking for more than the ceiling has asked for "as long as it can".
+     *
+     * @returns the count now stored.
+     */
+    async setQuiet(records: number, slot = MAIN_SLOT): Promise<number> {
+        const quiet = Math.max(0, Math.min(MAX_QUIET_RECORDS, Math.floor(records)));
+        await this.db
+            .insertInto('deadair.stationAir')
+            .values({ slot, active: false, ranOut: false, breaksQuietRecords: quiet })
+            .onConflict(oc => oc.column('slot').doUpdateSet({ breaksQuietRecords: quiet }))
+            .execute();
+        return quiet;
+    }
+
+    /**
+     * One record has started: take one off the quiet spell, never below zero.
+     *
+     * One statement that answers what it left, so two records starting a moment apart cannot both
+     * read the same count and write the same answer back.
+     *
+     * @returns the count now stored, or `undefined` for a station with no row.
+     */
+    async countDownQuiet(slot = MAIN_SLOT): Promise<number | undefined> {
+        const row = await this.db
+            .updateTable('deadair.stationAir')
+            .set(eb => ({ breaksQuietRecords: eb.fn('greatest', [eb.lit(0), eb('breaksQuietRecords', '-', 1)]) }))
+            .where('slot', '=', slot)
+            .where('breaksQuietRecords', '>', 0)
+            .returning('breaksQuietRecords')
+            .executeTakeFirst();
+        return row?.breaksQuietRecords;
     }
 
     /**

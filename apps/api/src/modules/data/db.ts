@@ -1099,6 +1099,7 @@ export interface DeadairSettings {
 
 export interface DeadairStationAir {
   active: Generated<boolean>;
+  breaksQuietRecords: Generated<number>;
   createdAt: Generated<DateTime>;
   ranOut: Generated<boolean>;
   slot: Generated<string>;

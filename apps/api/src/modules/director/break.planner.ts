@@ -30,6 +30,7 @@ import { WELCOME_KIND } from './welcome.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { JINGLE_KIND } from './jingle.writer.js';
 import { DEDICATION_KIND } from './dedication.writer.js';
+import { quietThrough } from './quiet.spell.js';
 
 /**
  * The kind of break whose audio already exists, because somebody recorded it and
@@ -294,7 +295,12 @@ export class BreakPlanner {
      * the slow half is deferred, and a break that is never written is skipped by
      * the director exactly like one that was never rendered.
      */
-    async plant(lineup: StationLineup, rules: ResolvedRules, clock: AirClock): Promise<number> {
+    async plant(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, quietRecords = 0): Promise<number> {
+        // The boundary a quiet spell ends at, or nothing. Every walk below that plants the station's
+        // OWN talk starts past it; a programme somebody else made is a slot in the schedule and is
+        // carried whatever the station is doing, as it is with `rules.breaks` off. See `quiet.spell.ts`.
+        const quiet = quietThrough(lineup.all(), quietRecords);
+
         // Programmes FIRST, and into the order before anything else is planned against it. An episode
         // is placed with the hour its publisher says it runs, and that hour moves every boundary behind
         // it: planned in one walk with the other bands, a bulletin meant for 10:45 was claimed against
@@ -306,6 +312,7 @@ export class BreakPlanner {
             rules,
             clock,
             bands.filter(band => isCarriedKind(band.kind)),
+            quiet,
         );
         if (!rules.breaks) return programmes;
 
@@ -327,6 +334,7 @@ export class BreakPlanner {
             clock,
             bands.filter(band => !isCarriedKind(band.kind)),
             chattinessOf(presenting),
+            quiet,
         );
         if (wanted.length === 0) return programmes;
 
@@ -370,7 +378,13 @@ export class BreakPlanner {
      * own spacing left out. It costs the band read on a station with its breaks off, which is the read
      * `ProductionScheduler` already makes there.
      */
-    private async plantProgrammes(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, programmes: readonly ClockBand[]): Promise<number> {
+    private async plantProgrammes(
+        lineup: StationLineup,
+        rules: ResolvedRules,
+        clock: AirClock,
+        programmes: readonly ClockBand[],
+        quiet: number | undefined,
+    ): Promise<number> {
         if (programmes.length === 0) return 0;
 
         const wanted = this.slotsFor(lineup, { ...rules, breakEveryMinutes: 0 }, clock, programmes, chattinessOf(undefined));
@@ -379,7 +393,7 @@ export class BreakPlanner {
         const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup));
         if (placements.length === 0) return 0;
 
-        const introduced = await this.introduce(lineup, rules, placements, wanted);
+        const introduced = await this.introduce(lineup, rules, placements, wanted, quiet);
         if (!(await this.insert(lineup, introduced))) return 0;
 
         this.logger.info('director: put a programme into the running order', {
@@ -409,6 +423,7 @@ export class BreakPlanner {
         rules: ResolvedRules,
         placements: readonly Placement[],
         wanted: readonly Slot[],
+        quiet: number | undefined,
     ): Promise<Placement[]> {
         if (!rules.breaks || !this.writers.canWrite(TALK_BREAK_KIND) || this.speech.speaker() === undefined) return [...placements];
 
@@ -419,6 +434,8 @@ export class BreakPlanner {
         for (const placement of placements) {
             introduced.push(placement);
             if (isBreakAt(items, placement.atIndex - 1)) continue;
+            // The programme airs through a quiet spell and the station's introduction to it does not.
+            if (quiet !== undefined && placement.atIndex <= quiet) continue;
 
             const at = airsAt.get(placement.atIndex);
             const intro = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break', ...(at === undefined ? {} : { airsAt: at }) });
@@ -711,9 +728,22 @@ export class BreakPlanner {
         clock: AirClock,
         bands: readonly ClockBand[],
         chattiness: PersonaChattiness,
+        // The last index a quiet spell covers. Absent is not quiet. See `quietThrough`.
+        quiet?: number,
     ): Slot[] {
         const items = lineup.all();
-        const cursor = lineup.committedThrough();
+        const committed = lineup.committedThrough();
+        // Every walk starts past the quiet rather than filtering its answer afterwards. A slot
+        // claimed inside the quiet and then dropped would still have reset that walk's count, so the
+        // first break after it would land an interval late; started past it, the walk reads the
+        // whole quiet stretch as airtime with no break in it, and the first slot it can take is the
+        // gap straight after the last quiet record.
+        const cursor = quiet === undefined ? committed : Math.max(committed, quiet);
+        // The nearest boundary any walk may take: far enough from what is committed to be programmed
+        // in time, and past the quiet. Its own figure rather than `cursor + PLANT_AHEAD`, which would
+        // measure the planting lead from the end of the quiet and put the first break after it four
+        // records late.
+        const nearest = Math.max(committed + PLANT_AHEAD, quiet === undefined ? 0 : quiet + 1);
         const zone = stationZone(this.config);
         const projected = projectAirTimes(items, clock.anchorAt, clock.from);
         // A band naming a PRODUCTION kind is not asking for a break at a boundary, and this walk is
@@ -755,7 +785,8 @@ export class BreakPlanner {
             if (!isAnchored(band)) continue;
 
             const target = nextOccurrence(band, clock.now, zone);
-            const at = nextBoundaryAtOrAfter(projected, target, cursor + PLANT_AHEAD);
+            // Never closer than PLANT_AHEAD to what is committed, and never inside a quiet spell.
+            const at = nextBoundaryAtOrAfter(projected, target, nearest);
 
             // The order does not reach that far yet. Not a failure and not worth a log: the tail is
             // topped up continuously and a later pass asks again against a longer order.
@@ -825,7 +856,7 @@ export class BreakPlanner {
             if (isAnchored(band)) continue;
 
             const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === band.kind;
-            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind), blockedBy(taken)))
+            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind), blockedBy(taken), nearest))
                 claim(at, band, projected[at]);
         }
 
@@ -839,7 +870,8 @@ export class BreakPlanner {
             // operator typed is in minutes and a floor of 11.25 is a figure nothing on the console
             // could explain.
             const everyMs = Math.max(1, Math.round(rules.breakEveryMinutes * CHATTINESS_SPACING[chattiness])) * 60_000;
-            for (const at of placementsFor(items, cursor, everyMs, isStationBreak, pending, blockedBy(taken))) claim(at, undefined, projected[at]);
+            for (const at of placementsFor(items, cursor, everyMs, isStationBreak, pending, blockedBy(taken), nearest))
+                claim(at, undefined, projected[at]);
         }
 
         // ── the station's jingles, after every break ───────────────────────────
@@ -852,7 +884,7 @@ export class BreakPlanner {
         if (rules.jingleEveryMinutes > 0) {
             const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === JINGLE_KIND;
             const everyMs = Math.max(1, Math.round(rules.jingleEveryMinutes)) * 60_000;
-            for (const at of placementsFor(items, cursor, everyMs, counts, sameKind(slots, JINGLE_KIND), blockedBy(taken)))
+            for (const at of placementsFor(items, cursor, everyMs, counts, sameKind(slots, JINGLE_KIND), blockedBy(taken), nearest))
                 claim(at, { kind: JINGLE_KIND }, projected[at]);
         }
 
@@ -1748,6 +1780,9 @@ function placementsFor(
     // the walk carries on WITHOUT resetting its count, so the break lands at the next boundary it
     // can rather than being lost for the whole interval.
     blocked: ReadonlySet<number> = new Set(),
+    // The nearest boundary this walk may take. See `slotsFor`, which is the one caller that moves it
+    // off `cursor + PLANT_AHEAD`, for a quiet spell.
+    nearest: number = cursor + PLANT_AHEAD,
 ): number[] {
     let since = elapsedSinceLastOfKind(items, cursor, counts);
     const placements: number[] = [];
@@ -1801,7 +1836,7 @@ function placementsFor(
         // over. Deliberately WITHOUT resetting the count, so the break lands at the first position
         // it legally can rather than a full interval later — it is already overdue, and pushing it
         // back again is how a station that was restarted goes quiet for twice as long as it should.
-        if (at < cursor + PLANT_AHEAD) continue;
+        if (at < nearest) continue;
 
         placements.push(at);
         since = 0;

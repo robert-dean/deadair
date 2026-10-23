@@ -330,6 +330,14 @@ export class DirectorService {
     /** The last reading of `station_air`, and when it was taken. */
     private air?: StationAir;
     private airReadAt = 0;
+    /**
+     * How many more records the station keeps its own breaks off the air for. `0` is not quiet.
+     *
+     * A copy of `station_air.breaks_quiet_records`, refreshed with every reading of the row and moved
+     * by the two things that change it: the `quiet` command and a record starting. See
+     * `quiet.spell.ts` for what the planner does with it.
+     */
+    private quietRecords = 0;
     /** When the host's name was last read for the transport. See {@link HOST_TTL_MS}. */
     private hostReadAt = 0;
     private active = false;
@@ -740,6 +748,7 @@ export class DirectorService {
         const air = await this.readAir(true);
         this.active = air?.active ?? false;
         this.airRanOut = air?.ranOut ?? false;
+        this.quietRecords = air?.quietRecords ?? 0;
 
         this.lineup = await inScope(this.container, async scope => scope.get(StationLineupRepository).load());
         if (!this.lineup) return;
@@ -900,7 +909,35 @@ export class DirectorService {
 
             case 'requestBreak':
                 return await this.takeRequest(command.request);
+
+            case 'quiet':
+                await this.keepQuiet(command.records);
+                return undefined;
         }
+    }
+
+    /**
+     * Keep the station's own breaks off the air for the next `records` records, or stop with `0`.
+     *
+     * Written THROUGH, for `active`'s reason: the next thing to read it may be a restart. The planner
+     * reads the count on the commit pass that follows.
+     */
+    private async keepQuiet(records: number): Promise<void> {
+        const stored = await inScope(this.container, async scope => scope.get(StationAirRepository).setQuiet(records));
+        this.noteQuiet(stored);
+        this.logger.info('director: the station was told to keep quiet', { records: stored });
+        if (this.active) await this.commit();
+    }
+
+    /** The quiet count as it now stands, in the copy and in the cached reading of the row. */
+    private noteQuiet(records: number): void {
+        this.quietRecords = records;
+        if (this.air !== undefined) this.air = { ...this.air, quietRecords: records };
+    }
+
+    /** How many more records the station keeps its own breaks off the air for. `0` is not quiet. */
+    quietFor(): number {
+        return this.quietRecords;
     }
 
     /**
@@ -918,6 +955,14 @@ export class DirectorService {
     private async takeRequest(request: BreakRequest): Promise<BreakRequestResult> {
         if (!this.active || this.lineup === undefined) {
             return { accepted: false, reason: 'the station is not airing anything to put a break into' };
+        }
+        // Every break the station would say, asked for or not: a quiet spell is the operator saying
+        // the station does not talk for a while, and a greeting or a requested bulletin is talking.
+        if (this.quietRecords > 0) {
+            return {
+                accepted: false,
+                reason: `the station is keeping quiet for ${this.quietRecords} more ${this.quietRecords === 1 ? 'record' : 'records'}`,
+            };
         }
         const lineup = this.lineup;
 
@@ -2221,6 +2266,7 @@ export class DirectorService {
         const air = await this.readAir();
         this.active = air?.active ?? false;
         this.airRanOut = air?.ranOut ?? false;
+        this.quietRecords = air?.quietRecords ?? 0;
         if (!this.active) return;
 
         const lineup = this.lineup;
@@ -2748,7 +2794,7 @@ export class DirectorService {
                 // and the anchor is the index of the item already airing.
                 const clock = this.airClock(lineup);
 
-                const planted = await planner.plant(lineup, rules, clock);
+                const planted = await planner.plant(lineup, rules, clock, this.quietRecords);
 
                 // Written THROUGH rather than soon, and only on a pass that planted something.
                 // What is about to be asked for is the words of breaks in this order, and the job
@@ -3612,6 +3658,17 @@ export class DirectorService {
                 error => this.logger.warn(`director: could not mark a telling aired (${errorText(error)})`),
             );
             return;
+        }
+
+        // A record has started, so a quiet spell is one shorter. Here, after the segments have
+        // returned, because a break airing is not a record the listener is counting. Taken off the
+        // copy at once so the commit pass behind this one plans against it, and then off the row in
+        // one statement that answers what it left.
+        if (this.quietRecords > 0) {
+            this.noteQuiet(this.quietRecords - 1);
+            void inScope(this.container, async scope => scope.get(StationAirRepository).countDownQuiet())
+                .then(left => this.noteQuiet(left ?? 0))
+                .catch(error => this.logger.warn(`director: could not count a quiet spell down (${errorText(error)})`));
         }
 
         const source = this.lineup?.source ?? 'director';

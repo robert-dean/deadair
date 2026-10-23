@@ -526,6 +526,40 @@ describe('BreakPlanner', () => {
 // The half that makes the station a station rather than a shuffle. A written break is planted with
 // no words in it: the row and its place in the order go down here, synchronously, and a job writes
 // the script behind them.
+describe('BreakPlanner during a quiet spell', () => {
+    it('plants nothing before the quiet ends, and talks again in the first gap after it', async () => {
+        const { planner } = build();
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock(), 6);
+
+        // The sixth record is index 5, so the first gap a break may take is index 6. The quiet stretch
+        // counts as airtime with no break in it, so the first break is there rather than an interval
+        // later, and the rest are spaced from it as ever.
+        const planted = segmentsAt(lineup);
+        expect(planted[0]).toBe(6);
+        expect(planted).toEqual([6, 11, 16, 21]);
+    });
+
+    it('plants nothing at all while the order holds fewer records than the quiet', async () => {
+        const { planner } = build();
+        const lineup = await lineupOf(8);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 2 * TRACK_MINUTES }), clock(), 10);
+
+        expect(segmentsAt(lineup)).toEqual([]);
+    });
+
+    it('plants exactly as before when the station is not quiet', async () => {
+        const { planner } = build();
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock(), 0);
+
+        expect(segmentsAt(lineup)).toEqual([4, 9, 14, 19]);
+    });
+});
+
 describe('BreakPlanner writing its own breaks', () => {
     it('plants an empty talk break, and asks nobody to write it yet', async () => {
         const { planner, plan, send } = build({ canWrite: true });
@@ -990,6 +1024,24 @@ describe('BreakPlanner carrying a programme', () => {
     const utc = (): Record<string, string> => ({ 'station.timezone': 'UTC' });
     const at = (minute: number, kind: string, hour?: number): ClockBand => ({ at: 'clock', minute, kind, ...(hour === undefined ? {} : { hour }) });
     const HOUR = 60 * 60_000;
+
+    // A quiet spell is the station not TALKING, and somebody else's programme is a slot in the
+    // schedule, carried with `rules.breaks` off for the same reason. The station's own introduction
+    // to it is talking, so that part waits.
+    it('carries a programme through a quiet spell, without the station introducing it', async () => {
+        const { planner, plan } = build({
+            settings: utc(),
+            bands: [at(30, 'syndicated')],
+            carried: { segmentId: 'episode-12', durationMs: HOUR },
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine(), 12);
+
+        expect(segmentsAt(lineup)).toEqual([6]);
+        expect((lineup.all()[6] as StationLineupSegmentItem).segmentId).toBe('episode-12');
+        expect(plan).not.toHaveBeenCalled();
+    });
 
     it('places the episode the band means at its boundary, with the length its publisher states', async () => {
         const { planner, plan, listReady } = build({

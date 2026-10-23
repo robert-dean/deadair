@@ -494,6 +494,17 @@ export interface StationLineupBinding {
      * meet.
      */
     holdUntil?: number;
+    /**
+     * When the slot this order's countdown was fitted to ends, as epoch milliseconds.
+     *
+     * Set by `putOnAir` only for a chart cut to a slot and played as a countdown, so the director can
+     * ask the fit's question again of what is left: see `overdueCountdown` in `chart.airtime.ts`. A
+     * countdown is fitted once, and the audience gate, a run of requests or breaks that ran long all
+     * push number one past the changeover that then drops it. Absent on every other order.
+     *
+     * Milliseconds for {@link holdUntil}'s reason: the binding is stored and sent.
+     */
+    countdownEndsAt?: number;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
     /** Who built it: `import`, `chart`, or `director` for anything generated. */
@@ -675,6 +686,11 @@ export class StationLineup implements LiveOrder {
     /** Until when the schedule must leave this alone, or `undefined` for no hold. `Infinity` never expires. */
     get holdUntil(): number | undefined {
         return this.binding.holdUntil;
+    }
+
+    /** See {@link StationLineupBinding.countdownEndsAt}. */
+    get countdownEndsAt(): number | undefined {
+        return this.binding.countdownEndsAt;
     }
 
     /**

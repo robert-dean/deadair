@@ -2113,6 +2113,25 @@ describe('DirectorConsoleService building a running order from a chart', () => {
             expect(titles(posted())).toEqual(['Teardrop', 'Windowlicker', 'Glory Box']);
         });
 
+        it('remembers when the slot ends, so a countdown that falls behind can be cut again', async () => {
+            vi.setSystemTime(new Date('2026-10-09T09:00:16Z'));
+            const { service, posted } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
+
+            await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+            // From the top of the minute: the block ends at 09:10, not ten minutes after 09:00:16.
+            expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { countdownEndsAt: Date.parse('2026-10-09T09:10:00Z') } });
+        });
+
+        it('remembers no end for a chart walked from the top, which a changeover already cuts at its bottom', async () => {
+            const { service, posted } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
+
+            await service.putOnAir({ chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
+
+            expect(posted()[0]).toMatchObject({ kind: 'putOnAir' });
+            expect((posted()[0] as { binding: { countdownEndsAt?: number } }).binding.countdownEndsAt).toBeUndefined();
+        });
+
         it('looks up only what could fit, rather than the whole chart', async () => {
             const { service, resolver } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
 
@@ -2123,12 +2142,13 @@ describe('DirectorConsoleService building a running order from a chart', () => {
         });
     });
 
-    it('airs the whole chart on a station with no schedule', async () => {
+    it('airs the whole chart on a station with no schedule, with no end to keep to', async () => {
         const { service, posted } = build({ chart: TOP_THREE });
 
         await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
 
         expect(titles(posted())).toHaveLength(3);
+        expect((posted()[0] as { binding: { countdownEndsAt?: number } }).binding.countdownEndsAt).toBeUndefined();
     });
 
     it('walks the published document from the top when the operator asks for that instead', async () => {

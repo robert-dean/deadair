@@ -183,6 +183,10 @@ interface Options {
     joined?: Record<string, { id: string; durationMs?: number }>;
     /** Where the singing starts on each catalogued record, keyed by track id, for the talk-up. */
     vocalMarkers?: Record<string, VocalMarkers>;
+    /** The end of the slot the order's countdown was fitted to, as `putOnAir` stamps it. */
+    countdownEndsAt?: number;
+    /** An operator's hold on the broadcast, against the schedule. */
+    holdUntil?: number;
 }
 
 function build(options: Options = {}) {
@@ -194,6 +198,8 @@ function build(options: Options = {}) {
         onEnd: options.onEnd ?? 'extend',
         source: 'import',
         rules: { callins: options.callins ?? true },
+        ...(options.countdownEndsAt === undefined ? {} : { countdownEndsAt: options.countdownEndsAt }),
+        ...(options.holdUntil === undefined ? {} : { holdUntil: options.holdUntil }),
     });
 
     let air: StationAir | undefined = {
@@ -650,6 +656,78 @@ describe('DirectorService taking the measurement again', () => {
         await director.start();
 
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
+    });
+});
+
+describe('DirectorService keeping a countdown on time', () => {
+    // A countdown is fitted to its slot once, and the audience gate, a run of requests or breaks that
+    // ran long all push number one past the changeover that drops it. The US countdown on 2026-10-23
+    // lost its top eleven to 47 minutes nobody listened to. Each record here is five minutes, and a
+    // setlist takes no breaks, so the arithmetic is the records' alone; the station's overrun is its
+    // default five minutes.
+    const NOW = Date.parse('2026-10-23T15:44:00Z');
+    const MINUTE = 60_000;
+    const charted = (rank: number): RundownTrack => ({ ...track(`rank-${rank}`), chart: { rank, name: 'Top 100' } });
+    const ranksIn = (lineup: StationLineup) =>
+        lineup
+            .all()
+            .filter(isTrackItem)
+            .map(item => item.track.chart?.rank);
+
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(NOW);
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it('takes out the lowest ranks still to come, so number one still starts before the end', async () => {
+        // Twelve minutes left: number one may start by twelve and end by seventeen, which is three records.
+        const { director, lineup, activity } = build({ mode: 'setlist', countdownEndsAt: NOW + 12 * MINUTE });
+        lineup.append([6, 5, 4, 3, 2, 1].map(charted));
+
+        await director.start();
+
+        expect(ranksIn(lineup)).toEqual([3, 2, 1]);
+        expect(activity.record).toHaveBeenCalledWith(
+            expect.objectContaining({ module: 'director', kind: 'order.countdownCut', data: expect.objectContaining({ ranks: [6, 5, 4] }) }),
+        );
+    });
+
+    it('leaves a countdown that is on time alone', async () => {
+        const { director, lineup, activity } = build({ mode: 'setlist', countdownEndsAt: NOW + 60 * MINUTE });
+        lineup.append([6, 5, 4, 3, 2, 1].map(charted));
+
+        await director.start();
+
+        expect(ranksIn(lineup)).toEqual([6, 5, 4, 3, 2, 1]);
+        expect(activity.record).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'order.countdownCut' }));
+    });
+
+    it('cuts nothing once the slot has ended, which is where a replay under repeat starts', async () => {
+        const { director, lineup } = build({ mode: 'setlist', countdownEndsAt: NOW - MINUTE });
+        lineup.append([3, 2, 1].map(charted));
+
+        await director.start();
+
+        expect(ranksIn(lineup)).toEqual([3, 2, 1]);
+    });
+
+    it('cuts nothing while an operator holds the broadcast on past its slot', async () => {
+        const { director, lineup } = build({ mode: 'setlist', countdownEndsAt: NOW + 12 * MINUTE, holdUntil: NOW + 120 * MINUTE });
+        lineup.append([6, 5, 4, 3, 2, 1].map(charted));
+
+        await director.start();
+
+        expect(ranksIn(lineup)).toEqual([6, 5, 4, 3, 2, 1]);
+    });
+
+    it('leaves an order that is not a countdown alone, whatever the clock says', async () => {
+        const { director, lineup } = build({ mode: 'setlist' });
+        lineup.append([6, 5, 4, 3, 2, 1].map(charted));
+
+        await director.start();
+
+        expect(ranksIn(lineup)).toEqual([6, 5, 4, 3, 2, 1]);
     });
 });
 

@@ -309,6 +309,25 @@ are capped to about half again what fits (`lookupsFor`), so a one-hour slot does
 records. A station with no schedule airs the whole chart, and so does `ChartSetGenerator`'s share of a
 refill, which has no shape to end on.
 
+**A countdown that falls behind is cut again, from its lowest ranks still to come.** The fit above is made
+once, and everything after it holds the order where it stands: the audience gate keeps it exactly where it
+stopped, a setlist cannot top itself up, and a changeover drops whatever is queued behind the record on air.
+The US countdown on 2026-10-23 sat out 47 minutes with nobody listening, picked up at number 34 with the same
+13:00 to beat, and never aired the top eleven. So `putOnAir` stamps `countdownEndsAt` on the order (the slot's
+end, from the top of the minute the fit read, migration 0112) for a chart cut to a slot and played as a
+countdown, and every commit pass runs `keepCountdownOnTime`, which asks `overdueCountdown` (`chart.airtime.ts`)
+the fit's question again of what is left: the countdown records still `planned` and not kept by `staysPut` are
+fitted from number one into the time to the end, with the same talk share and the same overrun, after charging
+everything else ahead of them (the rest of the record on air, anything the player holds, a request, the record a
+held break announced), and the lowest ranks that fall outside are spliced out and named on the feed
+(`order.countdownCut`). A break written for one of them is reopened as any broken promise is. Every pass rather
+than on the audience arriving, because the gate is one way to fall behind of several, and while the station is
+quiet too, so the first record a returning listener hears is already one that fits. It cuts only before the end
+and never while an operator holds the broadcast, since past the end a cut protects nothing, and that is also
+what keeps a countdown on `on_end: 'repeat'` from being cut down to number one on its replay. It never adds a
+record back: a countdown running early stays as it is. The deadline is the slot's end as it stood at `putOnAir`;
+an operator who moves the slot's end mid-show does not move it.
+
 ## The station's opinion, and the policy over it
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.

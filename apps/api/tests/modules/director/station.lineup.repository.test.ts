@@ -148,6 +148,8 @@ const lineup = () =>
             // Who put it on, which the slot stamp above cannot answer: a broadcast sustaining a gap
             // and one an operator started during that gap both carry no slot.
             placedBy: 'schedule',
+            // The end of the slot a countdown was cut to, which the director cuts it again against.
+            countdownEndsAt: Date.UTC(2026, 9, 23, 17, 0),
             mode: 'rotation',
             onEnd: 'repeat',
             source: 'playlist',

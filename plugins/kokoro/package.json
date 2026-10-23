@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-kokoro",
-    "version": "0.77.6",
+    "version": "0.77.7",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

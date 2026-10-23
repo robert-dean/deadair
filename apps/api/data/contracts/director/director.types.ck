@@ -20,6 +20,11 @@ contract StationAir: { # What the station is airing, and whether it is driving a
     airSource: AirSource # Who is driving the station right now
     held: boolean # Whether the schedule has been told to leave this broadcast alone. A takeover is otherwise replaced when the block it started inside ends
     holdUntil?: string(min=24, max=24) # When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields
+    quietRecords?: int(min=1, max=500) # How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself
+}
+
+contract QuietStationInput: { # Keep the station's own breaks off the air for a while
+    records: int(min=1, max=500) # How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends
 }
 
 contract AirSource: enum(off, schedule, sustaining, operator) # Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down

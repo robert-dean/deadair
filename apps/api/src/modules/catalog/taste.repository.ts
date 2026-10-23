@@ -4,7 +4,7 @@ import { DataRepository } from '#modules/data/data.repository.js';
 /**
  * What the operator has said they like and dislike, as something that can be shown to a model.
  *
- * ## Why this is not `CandidatesRepository.ratingsFor`
+ * ## Why this is not `CandidatesRepository.standingsFor`
  *
  * That one answers "how does the station feel about THESE tracks", which is the question a filter
  * asks: it takes ids and returns the `least(track, album, artist)` those ids resolve to. It is the

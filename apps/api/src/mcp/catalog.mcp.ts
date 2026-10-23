@@ -9,6 +9,7 @@ import { parseAndValidate } from '@maroonedsoftware/zod';
 import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
+import { SuspensionsService } from '#src/modules/catalog/suspensions.service.js';
 import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import { VocalMarkersService } from '#src/modules/lyrics/vocal.markers.service.js';
 import {
@@ -21,6 +22,7 @@ import {
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
+    SuspendInput,
     Track,
     TrackClearResult,
     TrackDetail,
@@ -61,6 +63,12 @@ const GetTrackEnrichmentArgs = z.object({ id: z.uuid() });
 const ClearTrackEnrichmentArgs = z.object({ id: z.uuid(), query: ClearEnrichmentQuery.optional() });
 const ListTracksArgs = z.object({ query: TrackQueryInput.optional() });
 const RateTrackArgs = z.object({ id: z.uuid(), body: RateInput });
+const SuspendArtistArgs = z.object({ id: z.uuid(), body: SuspendInput });
+const LiftArtistSuspensionArgs = z.object({ id: z.uuid() });
+const SuspendAlbumArgs = z.object({ id: z.uuid(), body: SuspendInput });
+const LiftAlbumSuspensionArgs = z.object({ id: z.uuid() });
+const SuspendTrackArgs = z.object({ id: z.uuid(), body: SuspendInput });
+const LiftTrackSuspensionArgs = z.object({ id: z.uuid() });
 
 /**
  * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/artists`
@@ -575,6 +583,147 @@ export class RateTrackMcpTool implements McpToolHandler {
     }
 }
 
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/artists/{id}/suspension`
+ */
+@Injectable()
+export class SuspendArtistMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'suspend_artist',
+        description:
+            'Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself',
+        inputSchema: z.toJSONSchema(SuspendArtistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Artist, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id, body } = await parseAndValidate(args, SuspendArtistArgs);
+        const result = await container.get(SuspensionsService).suspendArtist(id, body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/artists/{id}/suspension`
+ */
+@Injectable()
+export class LiftArtistSuspensionMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'lift_artist_suspension',
+        description: 'End a suspension now. Something not suspended is answered as it stands rather than refused',
+        inputSchema: z.toJSONSchema(LiftArtistSuspensionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Artist, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id } = await parseAndValidate(args, LiftArtistSuspensionArgs);
+        const result = await container.get(SuspensionsService).liftArtist(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/albums/{id}/suspension`
+ */
+@Injectable()
+export class SuspendAlbumMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'suspend_album',
+        description:
+            'Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself',
+        inputSchema: z.toJSONSchema(SuspendAlbumArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Album, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id, body } = await parseAndValidate(args, SuspendAlbumArgs);
+        const result = await container.get(SuspensionsService).suspendAlbum(id, body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/albums/{id}/suspension`
+ */
+@Injectable()
+export class LiftAlbumSuspensionMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'lift_album_suspension',
+        description: 'End a suspension now. Something not suspended is answered as it stands rather than refused',
+        inputSchema: z.toJSONSchema(LiftAlbumSuspensionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Album, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id } = await parseAndValidate(args, LiftAlbumSuspensionArgs);
+        const result = await container.get(SuspensionsService).liftAlbum(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/tracks/{id}/suspension`
+ */
+@Injectable()
+export class SuspendTrackMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'suspend_track',
+        description:
+            'Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself',
+        inputSchema: z.toJSONSchema(SuspendTrackArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Track, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id, body } = await parseAndValidate(args, SuspendTrackArgs);
+        const result = await container.get(SuspensionsService).suspendTrack(id, body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/tracks/{id}/suspension`
+ */
+@Injectable()
+export class LiftTrackSuspensionMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'lift_track_suspension',
+        description: 'End a suspension now. Something not suspended is answered as it stands rather than refused',
+        inputSchema: z.toJSONSchema(LiftTrackSuspensionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Track, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id } = await parseAndValidate(args, LiftTrackSuspensionArgs);
+        const result = await container.get(SuspensionsService).liftTrack(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
 export function registerCatalogMcpCatalog(map: McpToolHandlerMap, container: Container): void {
     map.set('list_artists', container.get(ListArtistsMcpTool));
@@ -599,6 +748,12 @@ export function registerCatalogMcpCatalog(map: McpToolHandlerMap, container: Con
     map.set('clear_track_enrichment', container.get(ClearTrackEnrichmentMcpTool));
     map.set('list_tracks', container.get(ListTracksMcpTool));
     map.set('rate_track', container.get(RateTrackMcpTool));
+    map.set('suspend_artist', container.get(SuspendArtistMcpTool));
+    map.set('lift_artist_suspension', container.get(LiftArtistSuspensionMcpTool));
+    map.set('suspend_album', container.get(SuspendAlbumMcpTool));
+    map.set('lift_album_suspension', container.get(LiftAlbumSuspensionMcpTool));
+    map.set('suspend_track', container.get(SuspendTrackMcpTool));
+    map.set('lift_track_suspension', container.get(LiftTrackSuspensionMcpTool));
 }
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
@@ -625,4 +780,10 @@ export function registerCatalogMcpToolClasses(registry: Registry): void {
     registry.register(ClearTrackEnrichmentMcpTool).useClass(ClearTrackEnrichmentMcpTool).asSingleton();
     registry.register(ListTracksMcpTool).useClass(ListTracksMcpTool).asSingleton();
     registry.register(RateTrackMcpTool).useClass(RateTrackMcpTool).asSingleton();
+    registry.register(SuspendArtistMcpTool).useClass(SuspendArtistMcpTool).asSingleton();
+    registry.register(LiftArtistSuspensionMcpTool).useClass(LiftArtistSuspensionMcpTool).asSingleton();
+    registry.register(SuspendAlbumMcpTool).useClass(SuspendAlbumMcpTool).asSingleton();
+    registry.register(LiftAlbumSuspensionMcpTool).useClass(LiftAlbumSuspensionMcpTool).asSingleton();
+    registry.register(SuspendTrackMcpTool).useClass(SuspendTrackMcpTool).asSingleton();
+    registry.register(LiftTrackSuspensionMcpTool).useClass(LiftTrackSuspensionMcpTool).asSingleton();
 }

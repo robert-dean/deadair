@@ -18,7 +18,7 @@ import { numberOr } from '#modules/shared/setting.numbers.js';
  * they are table-tested rather than trusted.
  *
  * Everything here is advisory about WHAT to play. The one thing that is not is
- * the dislike filter, which is an instruction; see {@link rejectDisliked}.
+ * the dislike filter, which is an instruction; see {@link rejectBarred}.
  */
 
 /** The rules as the director actually applies them, with nothing left to default. */
@@ -485,6 +485,12 @@ export interface RotationCandidate {
      */
     rating?: number;
     /**
+     * A suspension is in force on this work: it, its release or one of its credited artists is kept
+     * off the station until a date. Never folded into {@link rating}, because a suspension does not
+     * touch the operator's opinion and lapses on its own. See `catalog/suspension.ts`.
+     */
+    suspended?: true;
+    /**
      * How fresh this work is, from `0` (it just aired) to `1` (it last aired a smart-shuffle horizon
      * ago or longer, or never has). Absent means nothing has an opinion, which weighs exactly like `1`.
      *
@@ -553,7 +559,7 @@ export const filterByHistory = <T extends RotationCandidate>(candidates: readonl
     );
 
 /**
- * Drop anything the operator has disliked.
+ * Drop anything the operator has disliked, or suspended for now.
  *
  * **Not a rotation rule, and not disable-able by a lineup.** A dislike is an
  * instruction about what the station may play, not a preference about how often;
@@ -561,8 +567,13 @@ export const filterByHistory = <T extends RotationCandidate>(candidates: readonl
  * marked `-1`. The rating it reads takes a dislike at ANY of the three levels as
  * a dislike of the work, so disliking an artist stops the station playing them
  * rather than stopping it playing one of their songs.
+ *
+ * A suspension is the same instruction with an end date, so it is dropped HERE and nowhere else:
+ * one filter rather than a second one beside it, because a function whose whole contract is
+ * "always call me next to that one" is how the two end up enforced in different numbers of places.
  */
-export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly T[]): T[] => candidates.filter(candidate => candidate.rating !== -1);
+export const rejectBarred = <T extends RotationCandidate>(candidates: readonly T[]): T[] =>
+    candidates.filter(candidate => candidate.rating !== -1 && candidate.suspended !== true);
 
 /**
  * How much a candidate should be favoured when sampling.
@@ -672,7 +683,7 @@ export const capPerAlbum = <T extends RotationCandidate>(candidates: readonly T[
  * this one, drops what it must, and spaces last.
  */
 export const applyRules = <T extends RotationCandidate>(candidates: readonly T[], rules: ResolvedRules, recent: RecentlyAired): T[] =>
-    capPerAlbum(capPerArtist(filterByHistory(rejectDisliked(candidates), recent), rules.maxPerArtist), rules.maxPerAlbum);
+    capPerAlbum(capPerArtist(filterByHistory(rejectBarred(candidates), recent), rules.maxPerArtist), rules.maxPerAlbum);
 
 /**
  * {@link applyRules}, with the artists already queued inside the cooldown held as though they had aired.

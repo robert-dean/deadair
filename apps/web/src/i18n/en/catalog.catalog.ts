@@ -33,6 +33,7 @@ export const catalog = {
             unmeasured: 'Every record has been measured, so the station has cue points and a level for all of them.',
             failing: 'No fetch is failing.',
             benched: 'No record has had all its copies written off.',
+            suspended: 'Nothing is suspended right now.',
         },
         nothingMeasured: {
             title: 'Nothing matches',
@@ -46,7 +47,20 @@ export const catalog = {
             audio: { label: 'audio on this machine', text: 'audio', tooltip: 'Has audio on this machine' },
             measured: { label: 'measured', text: 'measured', tooltip: 'Has measured' },
             described: { label: 'described by a provider', text: 'described', tooltip: 'Has described by a provider' },
+            suspended: { label: 'suspended', text: 'suspended', tooltip: 'Kept off the station for now' },
         },
+    },
+    suspend: {
+        button: 'Suspend',
+        hint: 'Keep it off the station for a while without disliking it. It comes back by itself, and what you think of it stays as it is.',
+        day: 'For a day',
+        week: 'For a week',
+        month: 'For a month',
+        for_one: 'Off the station for 1 more day',
+        for_other: 'Off the station for {{count}} more days',
+        until: 'Off the station until {{time}}',
+        lift: 'Lift',
+        failed: 'That could not be suspended.',
     },
     measurementFilter: {
         analyzerLabel: 'Measured by',
@@ -79,6 +93,10 @@ export const catalog = {
         benched: {
             label: 'Benched',
             help: 'Every copy written off. A sync brings back the ones the provider still lists; one it refused stays off until you offer it again.',
+        },
+        suspended: {
+            label: 'Suspended',
+            help: 'Kept off the station for now, by a suspension on the record, its release, or an artist credited on it. Each one comes back by itself when it lapses.',
         },
     },
     expansion: {

@@ -13,6 +13,15 @@ export type StationMode = 'rotation' | 'setlist' | 'feature';
 export type AirMode = 'audience' | 'always';
 
 /**
+ * Keep the station's own breaks off the air for a while
+ * generated from [QuietStationInput](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface QuietStationInput {
+    /** How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends */
+    records: number;
+}
+
+/**
  * Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down
  * generated from [AirSource](../../../../../apps/api/data/contracts/director/director.types.ck)
  */
@@ -186,6 +195,8 @@ export interface StationAir {
     held: boolean;
     /** When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields */
     holdUntil?: string;
+    /** How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself */
+    quietRecords?: number;
 }
 
 /**

@@ -225,7 +225,17 @@ export type DirectorCommand =
      * what is committed and what is still free. Answers whether it took and, when it did not, a
      * sentence saying why — a decline is an ordinary outcome rather than a failure.
      */
-    | { kind: 'requestBreak'; request: BreakRequest };
+    | { kind: 'requestBreak'; request: BreakRequest }
+    /**
+     * Keep the station's own breaks off the air for the next `records` records, or stop with `0`.
+     *
+     * A command rather than a write to the row, because it changes what airs: the planner reads the
+     * count on the commit pass and the breaks already laid out across the quiet have to come out of
+     * the order, both of which are the director's to do in turn with everything else. Stored on
+     * `station_air`, so it survives an extend, a replan, a fresh running order and a restart. See
+     * `quiet.spell.ts`.
+     */
+    | { kind: 'quiet'; records: number };
 
 /** Whether a resume found a running order to pick back up. */
 export interface ResumeResult {

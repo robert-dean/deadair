@@ -103,6 +103,23 @@ public final class DirectorClient: Sendable {
         return try http.decodeJSON(StationAir.self, from: response)
     }
 
+    /// Keep the station quiet
+    /// Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count
+    public func keepTheStationQuiet(body: QuietStationInput) async throws -> StationAir {
+        var request = SdkRequest(method: "PUT", path: ["director", "air", "quiet"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationAir.self, from: response)
+    }
+
+    /// End the quiet spell
+    /// Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused
+    public func endTheQuietSpell() async throws -> StationAir {
+        let request = SdkRequest(method: "DELETE", path: ["director", "air", "quiet"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationAir.self, from: response)
+    }
+
     /// Shuffle the running order
     /// Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
     public func shuffleTheRunningOrder() async throws -> StationOrder {

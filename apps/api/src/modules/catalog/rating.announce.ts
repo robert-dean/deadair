@@ -23,7 +23,7 @@ import { Rating } from './types/catalog.types.js';
  * ## Why it is deferred rather than published inline
  *
  * `publishConfiguredAfterCommit`'s reason, and the same failure: the subscriber asks
- * `CandidatesRepository.ratingsFor` what the station now thinks of a batch of records, on its own
+ * `CandidatesRepository.standingsFor` what the station now thinks of a batch of records, on its own
  * pooled connection, and inside this request's transaction that read answers with the row as it
  * stood BEFORE the operator's write. The veto would then find nothing to do and the record would
  * air anyway — the original bug, with an extra mechanism in front of it.

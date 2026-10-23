@@ -98,6 +98,30 @@ public enum AirMode: Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
+/// Keep the station's own breaks off the air for a while
+public struct QuietStationInput: Codable, Equatable, Sendable {
+    /// How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends
+    public var records: Int
+
+    public init(records: Int) {
+        self.records = records
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case records = "records"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.records = try container.decode(Int.self, forKey: .records)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.records, forKey: .records)
+    }
+}
+
 /// Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down
 public enum AirSource: Codable, CaseIterable, Hashable, Sendable {
     case off
@@ -737,8 +761,10 @@ public struct StationAir: Codable, Equatable, Sendable {
     public var held: Bool
     /// When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields
     public var holdUntil: String?
+    /// How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself
+    public var quietRecords: Int?
 
-    public init(active: Bool, airMode: AirMode, name: String? = nil, source: String? = nil, remaining: Int, slotId: String? = nil, airSource: AirSource, held: Bool, holdUntil: String? = nil) {
+    public init(active: Bool, airMode: AirMode, name: String? = nil, source: String? = nil, remaining: Int, slotId: String? = nil, airSource: AirSource, held: Bool, holdUntil: String? = nil, quietRecords: Int? = nil) {
         self.active = active
         self.airMode = airMode
         self.name = name
@@ -748,6 +774,7 @@ public struct StationAir: Codable, Equatable, Sendable {
         self.airSource = airSource
         self.held = held
         self.holdUntil = holdUntil
+        self.quietRecords = quietRecords
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -760,6 +787,7 @@ public struct StationAir: Codable, Equatable, Sendable {
         case airSource = "airSource"
         case held = "held"
         case holdUntil = "holdUntil"
+        case quietRecords = "quietRecords"
     }
 
     public init(from decoder: Decoder) throws {
@@ -773,6 +801,7 @@ public struct StationAir: Codable, Equatable, Sendable {
         self.airSource = try container.decode(AirSource.self, forKey: .airSource)
         self.held = try container.decode(Bool.self, forKey: .held)
         self.holdUntil = try container.decodeIfPresent(String.self, forKey: .holdUntil)
+        self.quietRecords = try container.decodeIfPresent(Int.self, forKey: .quietRecords)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -786,6 +815,7 @@ public struct StationAir: Codable, Equatable, Sendable {
         try container.encode(self.airSource, forKey: .airSource)
         try container.encode(self.held, forKey: .held)
         try container.encodeIfPresent(self.holdUntil, forKey: .holdUntil)
+        try container.encodeIfPresent(self.quietRecords, forKey: .quietRecords)
     }
 }
 

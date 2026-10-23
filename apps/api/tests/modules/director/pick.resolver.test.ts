@@ -70,6 +70,8 @@ interface Options {
     byName?: Record<string, string | { trackId: string; title: string; artist: string }>;
     /** What the station thinks of each track: -1 disliked, 0 unrated, 1 liked. Absent means unrated. */
     ratings?: Record<string, number>;
+    /** Track ids with a suspension in force. */
+    suspended?: string[];
     /** Song keys inside the repeat window, as `play_history` would answer them. */
     recentSongs?: string[];
     /** The acts the library knows as acts of their own, as `knownActs` answers. */
@@ -136,11 +138,12 @@ function build(options: Options = {}) {
             const row = options.byId?.[trackId];
             return row === undefined ? undefined : { trackId, ...row };
         }),
-        ratingsFor: vi.fn(async (trackIds: readonly string[]) => {
-            const found = new Map<string, number>();
+        standingsFor: vi.fn(async (trackIds: readonly string[]) => {
+            const found = new Map<string, { rating: number; suspended: boolean }>();
             for (const id of trackIds) {
                 const rating = options.ratings?.[id];
-                if (rating !== undefined) found.set(id, rating);
+                const suspended = options.suspended?.includes(id) === true;
+                if (rating !== undefined || suspended) found.set(id, { rating: rating ?? 0, suspended });
             }
             return found;
         }),
@@ -722,8 +725,24 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
     });
 
+    it('refuses a suspended track whatever the rules, and keeps the liked rating it carries', async () => {
+        // A suspension is the dislike's instruction with an end date, so it holds through a setlist's
+        // NO_RULES for the same reason. It is judged beside the rating, never folded into it.
+        const { resolver } = build({ ...twoTracks, ratings: { 'track-1': 1 }, suspended: ['track-1'] });
+
+        const resolved = await resolver.resolve(
+            [
+                { title: 'A', artist: 'One', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules(),
+        );
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+    });
+
     it('refuses "Y feat. X" when X, a guest rather than the lead, is disliked', async () => {
-        // The veto reads through `deadair.track_artists` inside `CandidatesRepository.ratingsFor`
+        // The veto reads through `deadair.track_artists` inside `CandidatesRepository.standingsFor`
         // (see `candidates.repository.test.ts` for the SQL itself), so from here it looks exactly
         // like an ordinary dislike: the fake answers -1 for the record because SOME credited
         // artist is disliked, whether or not it is the one the pick names as lead.
@@ -1283,6 +1302,17 @@ describe('PickResolver.vet', () => {
         expect(vetted).toEqual(tracks);
     });
 
+    it('drops a suspended record from a playlist put on air', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            suspended: ['track-1'],
+        });
+
+        const tracks = [track({ trackId: 'track-1' }), track({ externalId: 'ext-2', trackId: 'track-2' })];
+
+        expect((await resolver.vet(tracks, {})).map(t => t.trackId)).toEqual(['track-2']);
+    });
+
     it('drops a disliked record', async () => {
         const { resolver } = build({
             bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
@@ -1538,7 +1568,7 @@ describe('PickResolver overruled by a listener', () => {
 
         await overruled(resolver);
 
-        expect(candidates.ratingsFor).not.toHaveBeenCalled();
+        expect(candidates.standingsFor).not.toHaveBeenCalled();
         expect(candidates.yearsFor).not.toHaveBeenCalled();
         expect(history.songKeysSince).not.toHaveBeenCalled();
         expect(history.artistKeysSince).not.toHaveBeenCalled();

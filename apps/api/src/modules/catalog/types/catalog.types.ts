@@ -199,9 +199,10 @@ export type CatalogSort = z.infer<typeof CatalogSort>;
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
+ *   suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it
  * generated from [TrackState](../../../../data/contracts/catalog/catalog.types.ck)
  */
-export const TrackState = z.enum(['cached', 'uncached', 'unmeasured', 'benched', 'failing']);
+export const TrackState = z.enum(['cached', 'uncached', 'unmeasured', 'benched', 'failing', 'suspended']);
 export type TrackState = z.infer<typeof TrackState>;
 
 /**
@@ -287,6 +288,19 @@ export const FactClaimInput = z.strictObject({});
 export type FactClaimInput = z.infer<typeof FactClaimInput>;
 
 /**
+ * Keep something off the station for a while, without passing judgement on it
+ * generated from [SuspendInput](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const SuspendInput = z.strictObject({
+    days: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(365))
+        .describe(
+            'How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date',
+        ),
+});
+export type SuspendInput = z.infer<typeof SuspendInput>;
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](../../../../data/contracts/catalog/catalog.types.ck)
@@ -314,6 +328,11 @@ export const Artist = z.strictObject({
     mbid: z.uuid().optional().describe('MusicBrainz artist id, absent until enrichment resolves one'),
     imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
+    suspendedUntil: _ZodDatetime
+        .optional()
+        .describe(
+            'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent',
+        ),
     albumCount: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe('Unmerged albums credited to this artist'),
@@ -343,6 +362,11 @@ export const Album = z.strictObject({
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
+    suspendedUntil: _ZodDatetime
+        .optional()
+        .describe(
+            'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent',
+        ),
     trackCount: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
 export type Album = z.infer<typeof Album>;
@@ -372,6 +396,11 @@ export const Track = z.strictObject({
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
     rating: Rating.default('neutral'),
+    suspendedUntil: _ZodDatetime
+        .optional()
+        .describe(
+            'Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent',
+        ),
 });
 export type Track = z.infer<typeof Track>;
 
@@ -465,6 +494,9 @@ export const TrackStateCounts = z.strictObject({
     enriched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     benched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     failing: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    suspended: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Kept off the station right now by a suspension on the record, its release or a credited artist'),
     lyrics: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe('A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`'),
@@ -623,6 +655,12 @@ export const TrackRow = Track.extend({
     enriched: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe('At least one provider has answered about it'),
+    suspended: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended",
+        ),
 });
 export type TrackRow = z.infer<typeof TrackRow>;
 

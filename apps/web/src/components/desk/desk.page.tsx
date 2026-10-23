@@ -170,6 +170,7 @@ export function DeskPage() {
                     {...(air.data?.airSource === undefined ? {} : { airSource: air.data.airSource })}
                     {...(air.data?.held === undefined ? {} : { held: air.data.held })}
                     {...(air.data?.holdUntil === undefined ? {} : { holdUntil: air.data.holdUntil })}
+                    {...(air.data?.quietRecords === undefined ? {} : { quietRecords: air.data.quietRecords })}
                 />
             ) : (
                 <PageSkeleton variant="card" />

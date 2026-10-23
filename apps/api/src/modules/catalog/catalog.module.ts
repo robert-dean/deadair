@@ -17,6 +17,7 @@ import { CatalogResolverRepository } from './ingest/catalog.resolver.repository.
 import { CatalogResolverService } from './ingest/catalog.resolver.service.js';
 import { ProviderCopyResolver } from './ingest/provider.copy.resolver.js';
 import { CatalogSyncService } from './ingest/catalog.sync.service.js';
+import { SuspensionsService } from './suspensions.service.js';
 
 export const CatalogModule: ServerKitModule = {
     name: 'Catalog',
@@ -31,6 +32,7 @@ export const CatalogModule: ServerKitModule = {
         registry.register(AlbumsRepository).useClass(AlbumsRepository).asScoped();
         registry.register(TracksService).useClass(TracksService).asScoped();
         registry.register(TracksRepository).useClass(TracksRepository).asScoped();
+        registry.register(SuspensionsService).useClass(SuspensionsService).asScoped();
         // Read by the director's prompt builder and by the model's own tool, which is why it lives
         // here rather than in either of them: the two ask the same question for different reasons,
         // and two spellings of "what has the operator rated" would eventually disagree.

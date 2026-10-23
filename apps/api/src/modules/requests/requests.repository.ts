@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { likeContains } from '#modules/catalog/catalog.query.js';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { notSuspendedNow } from '#modules/catalog/suspension.js';
 
 /** A request's lifecycle. See the migration for what each state means. */
 export type RequestStatus = 'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired';
@@ -360,30 +361,34 @@ export class RequestsRepository extends DataRepository {
      * on, so a listener is never offered a record the station has been told not to play.
      */
     private requestable() {
-        return this.db
-            .selectFrom('deadair.tracks')
-            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
-            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .select([
-                'deadair.tracks.id as trackId',
-                'deadair.tracks.title',
-                'deadair.tracks.year',
-                'deadair.artists.name as artist',
-                'deadair.albums.name as album',
-            ])
-            .where('deadair.tracks.mergedIntoId', 'is', null)
-            .where(eb =>
-                eb.exists(
-                    eb
-                        .selectFrom('deadair.trackSources')
-                        .select('deadair.trackSources.id')
-                        .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
-                        .where('deadair.trackSources.missingAt', 'is', null),
-                ),
-            )
-            .where('deadair.tracks.rating', '<>', -1)
-            .where('deadair.artists.rating', '<>', -1)
-            .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]));
+        return (
+            this.db
+                .selectFrom('deadair.tracks')
+                .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+                .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+                .select([
+                    'deadair.tracks.id as trackId',
+                    'deadair.tracks.title',
+                    'deadair.tracks.year',
+                    'deadair.artists.name as artist',
+                    'deadair.albums.name as album',
+                ])
+                .where('deadair.tracks.mergedIntoId', 'is', null)
+                .where(eb =>
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.trackSources')
+                            .select('deadair.trackSources.id')
+                            .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
+                            .where('deadair.trackSources.missingAt', 'is', null),
+                    ),
+                )
+                .where('deadair.tracks.rating', '<>', -1)
+                .where('deadair.artists.rating', '<>', -1)
+                .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+                // A suspended record is not offered either, for as long as the suspension lasts.
+                .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
+        );
     }
 }
 

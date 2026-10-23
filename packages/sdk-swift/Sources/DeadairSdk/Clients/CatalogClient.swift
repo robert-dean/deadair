@@ -209,4 +209,55 @@ public final class CatalogClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(Track.self, from: response)
     }
+
+    /// Suspend artist
+    /// Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+    public func suspendArtist(id: UUID, body: SuspendInput) async throws -> Artist {
+        var request = try SdkRequest(method: "PUT", path: ["catalog", "artists", http.segment(id), "suspension"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Artist.self, from: response)
+    }
+
+    /// Lift artist suspension
+    /// End a suspension now. Something not suspended is answered as it stands rather than refused
+    public func liftArtistSuspension(id: UUID) async throws -> Artist {
+        let request = try SdkRequest(method: "DELETE", path: ["catalog", "artists", http.segment(id), "suspension"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Artist.self, from: response)
+    }
+
+    /// Suspend album
+    /// Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+    public func suspendAlbum(id: UUID, body: SuspendInput) async throws -> Album {
+        var request = try SdkRequest(method: "PUT", path: ["catalog", "albums", http.segment(id), "suspension"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Album.self, from: response)
+    }
+
+    /// Lift album suspension
+    /// End a suspension now. Something not suspended is answered as it stands rather than refused
+    public func liftAlbumSuspension(id: UUID) async throws -> Album {
+        let request = try SdkRequest(method: "DELETE", path: ["catalog", "albums", http.segment(id), "suspension"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Album.self, from: response)
+    }
+
+    /// Suspend track
+    /// Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+    public func suspendTrack(id: UUID, body: SuspendInput) async throws -> Track {
+        var request = try SdkRequest(method: "PUT", path: ["catalog", "tracks", http.segment(id), "suspension"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Track.self, from: response)
+    }
+
+    /// Lift track suspension
+    /// End a suspension now. Something not suspended is answered as it stands rather than refused
+    public func liftTrackSuspension(id: UUID) async throws -> Track {
+        let request = try SdkRequest(method: "DELETE", path: ["catalog", "tracks", http.segment(id), "suspension"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Track.self, from: response)
+    }
 }

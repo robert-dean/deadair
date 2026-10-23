@@ -61,6 +61,7 @@ import type {
     AddStationSegmentInput,
     AddStationTrackInput,
     HoldStationInput,
+    QuietStationInput,
     ExtendStationInput,
     MoveStationItemInput,
     PutOnAirInput,
@@ -223,8 +224,43 @@ export class DirectorConsoleService {
             // `holdUntil` is when it lapses; absent while held is the hold that never does.
             held: hold !== undefined && hold > Date.now(),
             ...(hold === undefined || hold === Infinity ? {} : { holdUntil: new Date(hold).toISOString() }),
+            ...(this.director.quietFor() > 0 ? { quietRecords: this.director.quietFor() } : {}),
             remaining: status.remaining,
         };
+    }
+
+    /**
+     * Keep the station's own breaks off the air for the next so many records.
+     *
+     * A command through the mailbox rather than a write to the row, because it changes what airs:
+     * the breaks already planned across the quiet come out of the order, and that is the director's
+     * to do in turn with the commit pass. An operator action, so it is on the feed with the actor.
+     */
+    async keepQuiet(input: QuietStationInput): Promise<StationAir> {
+        await this.director.post({ kind: 'quiet', records: input.records });
+
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.quiet',
+            detail: `An operator asked the station to keep quiet for the next ${input.records} ${input.records === 1 ? 'record' : 'records'}.`,
+            data: { records: input.records },
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() }),
+        });
+        return await this.getAir();
+    }
+
+    /** End a quiet spell now. A station that is not quiet is answered as it stands, with no feed line. */
+    async endQuiet(): Promise<StationAir> {
+        if (this.director.quietFor() === 0) return await this.getAir();
+
+        await this.director.post({ kind: 'quiet', records: 0 });
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.quietEnded',
+            detail: 'An operator ended the quiet spell, so the station talks again at its next break.',
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() }),
+        });
+        return await this.getAir();
     }
 
     /**
@@ -1412,7 +1448,7 @@ export class DirectorConsoleService {
      * already owns every other edit — the one funnel that cancels the reactor, writes the feed row
      * and turns a refusal into a status code.
      *
-     * **It re-judges the whole order rather than the thing that was rated.** `ratingsFor` is the
+     * **It re-judges the whole order rather than the thing that was rated.** `standingsFor` is the
      * same expression the draw and `PickResolver` use, and it collapses track, record, lead artist
      * and every credited artist into one number — so a disliked artist GUESTING on a record is
      * caught here exactly as it is caught at the draw. Asking instead "which lines are by this
@@ -1443,8 +1479,13 @@ export class DirectorConsoleService {
         const trackIds = live.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : []));
         if (trackIds.length === 0) return;
 
-        const ratings = await this.candidates.ratingsFor(trackIds);
-        const vetoed = live.filter(item => item.kind === 'track' && item.track.trackId !== undefined && ratings.get(item.track.trackId) === -1);
+        // The rating alone, deliberately: a dislike reaches into the running order and a suspension
+        // does not. A commit already made stands, and the operator has the remove button for the two
+        // or three records in front of them, which is the right scale for "not this week".
+        const standings = await this.candidates.standingsFor(trackIds);
+        const vetoed = live.filter(
+            item => item.kind === 'track' && item.track.trackId !== undefined && standings.get(item.track.trackId)?.rating === -1,
+        );
         if (vetoed.length === 0) return;
 
         // Read BEFORE the edit, because the edit is what takes these lines out of the order: after

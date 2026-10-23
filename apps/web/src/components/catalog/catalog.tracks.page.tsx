@@ -85,7 +85,7 @@ function NothingHere({ search, state, measured, total }: { search: string; state
  * The absence of a badge already says "not yet" without a placeholder to parse. The tooltip still
  * carries the full sentence.
  */
-function StateMark({ on, kind }: { on: boolean; kind: 'audio' | 'measured' | 'described' }) {
+function StateMark({ on, kind }: { on: boolean; kind: 'audio' | 'measured' | 'described' | 'suspended' }) {
     const { t } = useTranslation('catalog');
     if (!on) return null;
 
@@ -220,11 +220,12 @@ export function CatalogTracksPage({
                                         words don't fit next to a truncating title on a 375px card the way
                                         three letters did. Only rendered when there is at least one to show,
                                         so a fresh, empty-of-facts row doesn't reserve a blank line for it. */}
-                                                {track.hasAudio || track.measured || track.enriched ? (
+                                                {track.hasAudio || track.measured || track.enriched || track.suspended === true ? (
                                                     <Group gap="xxs" wrap="wrap">
                                                         <StateMark on={track.hasAudio} kind="audio" />
                                                         <StateMark on={track.measured} kind="measured" />
                                                         <StateMark on={track.enriched} kind="described" />
+                                                        <StateMark on={track.suspended === true} kind="suspended" />
                                                     </Group>
                                                 ) : undefined}
                                                 <RatingControl
@@ -324,6 +325,7 @@ export function CatalogTracksPage({
                                                             <StateMark on={track.hasAudio} kind="audio" />
                                                             <StateMark on={track.measured} kind="measured" />
                                                             <StateMark on={track.enriched} kind="described" />
+                                                            <StateMark on={track.suspended === true} kind="suspended" />
                                                         </Group>
                                                     </Table.Td>
                                                     <Table.Td>

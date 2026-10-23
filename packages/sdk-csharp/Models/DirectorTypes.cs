@@ -130,6 +130,14 @@ public sealed class AirModeConverter : JsonConverter<AirMode>
     };
 }
 
+/// <summary>Keep the station's own breaks off the air for a while</summary>
+public sealed record QuietStationInput
+{
+    /// <summary>How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends</summary>
+    [JsonPropertyName("records")]
+    public required long Records { get; init; }
+}
+
 /// <summary>Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down</summary>
 [JsonConverter(typeof(AirSourceConverter))]
 public enum AirSource
@@ -682,6 +690,11 @@ public sealed record StationAir
     [JsonPropertyName("holdUntil")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? HoldUntil { get; init; }
+
+    /// <summary>How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself</summary>
+    [JsonPropertyName("quietRecords")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? QuietRecords { get; init; }
 }
 
 /// <summary>Put the station on air, building its running order from the top</summary>

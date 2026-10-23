@@ -67,6 +67,7 @@ const counts = (overrides: Record<string, unknown> = {}) => ({
     enriched: 0,
     benched: 0,
     failing: 0,
+    suspended: 0,
     lyrics: 0,
     synced: 0,
     instrumental: 0,
@@ -383,6 +384,28 @@ describe('CatalogTracksPage', () => {
 
         expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ state: 'failing' }));
         expect(screen.getByRole('checkbox', { name: /Failing/ })).toBeChecked();
+    });
+
+    it('counts what is suspended and marks a suspended row', async () => {
+        listTracks.mockResolvedValue(page([track({ suspended: true })], 4, counts({ total: 4, suspended: 1 })));
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
+            />,
+        );
+
+        expect(await screen.findByRole('checkbox', { name: /1 Suspended/ })).toBeInTheDocument();
+        expect(screen.getByLabelText('suspended')).toBeInTheDocument();
     });
 
     describe('the measurement filters', () => {

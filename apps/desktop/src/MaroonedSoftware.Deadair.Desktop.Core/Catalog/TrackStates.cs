@@ -39,6 +39,10 @@ public static class TrackStates
             TrackState.Benched,
             "Benched",
             "Every copy written off. A sync brings back the ones the provider still lists; one it refused stays off until you offer it again."),
+        new(
+            TrackState.Suspended,
+            "Suspended",
+            "Kept off the station for now, by a suspension on the record, its release, or an artist credited on it. Each comes back by itself when it lapses."),
     ];
 
     /// <summary>How many records a chip stands for.</summary>
@@ -53,6 +57,7 @@ public static class TrackStates
             TrackState.Unmeasured => Math.Max(0, counts.Total - counts.Measured),
             TrackState.Failing => counts.Failing,
             TrackState.Benched => counts.Benched,
+            TrackState.Suspended => counts.Suspended,
             _ => 0,
         };
     }
@@ -104,6 +109,7 @@ public static class TrackStates
             TrackState.Unmeasured => "Every record has been measured, so the station has cue points and a level for all of them.",
             TrackState.Failing => "No fetch is failing.",
             TrackState.Benched => "No record has had all its copies written off.",
+            TrackState.Suspended => "Nothing is suspended right now.",
 
             // Unreachable in practice: an unfiltered list of a non-empty catalog has rows. Answered
             // rather than left blank, because a page drawing nothing at all reads as broken.

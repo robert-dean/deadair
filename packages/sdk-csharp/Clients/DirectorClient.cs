@@ -170,6 +170,33 @@ public sealed class DirectorClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Keep the station quiet
+    /// Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count
+    /// </summary>
+    public async Task<StationAir> KeepTheStationQuietAsync(QuietStationInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("director", "air", "quiet"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationAir>(response);
+    }
+
+    /// <summary>
+    /// End the quiet spell
+    /// Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused
+    /// </summary>
+    public async Task<StationAir> EndTheQuietSpellAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("director", "air", "quiet"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationAir>(response);
+    }
+
+    /// <summary>
     /// Shuffle the running order
     /// Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
     /// </summary>

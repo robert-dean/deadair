@@ -213,7 +213,7 @@ try {
         await level('albums', track.albumId!, 0);
         await level('artists', track.artistId, 0);
     };
-    const effective = async () => (await candidates.ratingsFor([track.trackId])).get(track.trackId);
+    const effective = async () => (await candidates.standingsFor([track.trackId])).get(track.trackId)?.rating;
     /**
      * The candidate as the DRAW sees it, or `not offered`.
      *
@@ -266,7 +266,11 @@ try {
         .execute(async trx => {
             const scoped = new CandidatesRepository(trx);
             await trx.updateTable('deadair.tracks').set({ albumId: null, rating: 1 }).where('id', '=', track.trackId).execute();
-            check('a liked single filed outside any release still counts', (await scoped.ratingsFor([track.trackId])).get(track.trackId), 1);
+            check(
+                'a liked single filed outside any release still counts',
+                (await scoped.standingsFor([track.trackId])).get(track.trackId)?.rating,
+                1,
+            );
             throw new Rollback();
         })
         .catch((error: unknown) => {

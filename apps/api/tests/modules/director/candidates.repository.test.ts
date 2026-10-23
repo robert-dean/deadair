@@ -1,6 +1,6 @@
 // The rest of this repository is covered end to end by `pick.resolver.test.ts`, which fakes
 // `CandidatesRepository` outright. What is worth pinning HERE, against a real (dummy-driven)
-// compile, is that the SQL `sample` and `ratingsFor` actually send carries the credited-artist veto
+// compile, is that the SQL `sample` and `standingsFor` actually send carries the credited-artist veto
 // (`noCreditedDislike`/`creditedDislikeExists` are shared with `tracks.repository.ts`), and a typo
 // in either query's use of them would compile, run, and simply never veto anything.
 
@@ -134,10 +134,10 @@ describe('CandidatesRepository.sample length bounds', () => {
     });
 });
 
-describe('CandidatesRepository.ratingsFor', () => {
+describe('CandidatesRepository.standingsFor', () => {
     it('folds the same credited-artist veto into the effective rating it computes', async () => {
         const captured: Captured = { statements: [] };
-        await new CandidatesRepository(fakeDb(captured)).ratingsFor(['track-1']);
+        await new CandidatesRepository(fakeDb(captured)).standingsFor(['track-1']);
 
         const [statement] = captured.statements;
         // Raw form here, not `noCreditedDislike`'s Kysely `not exists`: `effectiveRating` folds
@@ -187,5 +187,26 @@ describe('CandidatesRepository.albumsWithLikes', () => {
 
         expect(await new CandidatesRepository(fakeDb(captured)).albumsWithLikes([])).toEqual(new Set());
         expect(captured.statements).toHaveLength(0);
+    });
+});
+
+describe('suspensions in the candidate reads', () => {
+    it('keeps a suspended record out of the draw, beside the dislike', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10);
+
+        const sql = captured.statements[0]?.sql ?? '';
+        expect(sql).toContain('not (');
+        expect(sql).toContain('suspended_until > now()');
+        expect(sql).toMatch(/ca\.suspended_until > now\(\)/);
+    });
+
+    it('answers whether each record is suspended beside its rating, never instead of it', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).standingsFor(['track-1']);
+
+        const sql = captured.statements[0]?.sql ?? '';
+        expect(sql).toContain('as "rating"');
+        expect(sql).toContain('as "suspended"');
     });
 });

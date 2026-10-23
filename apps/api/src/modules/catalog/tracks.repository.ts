@@ -10,6 +10,7 @@ import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js'
 import { ratingFromColumn } from './rating.js';
 import { releasedYear } from '../shared/release.year.js';
 import type { MeasureFailure, Rating, TrackState } from './types/catalog.types.js';
+import { artistSuspendedNow, notSuspendedNow, suspendedNow, suspendedUntilColumn, suspensionValue } from './suspension.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
 const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
@@ -286,6 +287,8 @@ function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
             return isBenched(eb);
         case 'failing':
             return isFailing(eb);
+        case 'suspended':
+            return suspendedNow(sql.ref('deadair.tracks.id'));
     }
 }
 
@@ -479,6 +482,7 @@ export class TracksRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(TRACK_COLUMNS)
+            .select(suspendedUntilColumn('deadair.tracks.suspended_until'))
             // A track's art is its record's: nothing hangs a cover off a recording. Off the join
             // that is already there, so a list of fifty rows still costs one query.
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
@@ -486,6 +490,9 @@ export class TracksRepository extends DataRepository {
             // query and no row multiplication: a record with four copies must not come back four
             // times because one of them has bytes.
             .select(eb => [hasAudio(eb).as('hasAudio'), isMeasured(eb, schemaVersion).as('measured'), isEnriched(eb).as('enriched')])
+            // The fourth fact, and the one a filter of its own already counts: through the release and
+            // the credited artists, not only the record's own `suspended_until`.
+            .select(suspendedNow(sql.ref('deadair.tracks.id')).as('suspended'))
             .orderBy(columnFor(sortBy, TRACK_SORTS, TRACK_SORTS.title), directionFor(sort))
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)
@@ -526,6 +533,15 @@ export class TracksRepository extends DataRepository {
                 eb.fn.count<number>(eb.case().when(isEnriched(eb)).then(1).end()).as('enriched'),
                 eb.fn.count<number>(eb.case().when(isBenched(eb)).then(1).end()).as('benched'),
                 eb.fn.count<number>(eb.case().when(isFailing(eb)).then(1).end()).as('failing'),
+                eb.fn
+                    .count<number>(
+                        eb
+                            .case()
+                            .when(suspendedNow(sql.ref('deadair.tracks.id')))
+                            .then(1)
+                            .end(),
+                    )
+                    .as('suspended'),
                 eb.fn.count<number>(eb.case().when(hasLyrics(eb)).then(1).end()).as('lyrics'),
                 eb.fn.count<number>(eb.case().when(hasSyncedLyrics(eb)).then(1).end()).as('synced'),
                 eb.fn.count<number>(eb.case().when(isInstrumental(eb)).then(1).end()).as('instrumental'),
@@ -552,6 +568,7 @@ export class TracksRepository extends DataRepository {
             enriched: Number(counted.enriched),
             benched: Number(counted.benched),
             failing: Number(counted.failing),
+            suspended: Number(counted.suspended),
             lyrics: Number(counted.lyrics),
             synced: Number(counted.synced),
             instrumental: Number(counted.instrumental),
@@ -840,6 +857,8 @@ export class TracksRepository extends DataRepository {
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
             // A disliked artist vetoes a record they only guest on too. See `noCreditedDislike`.
             .where(eb => noCreditedDislike(eb))
+            // And a suspension, for as long as it lasts. See `suspension.ts`.
+            .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
             // Arbitrary, and stable per BROADCAST. Both halves are load-bearing and they used to be
             // one: this was `title asc`, which is stable forever, and forever is the half that was
             // wrong.
@@ -918,6 +937,7 @@ export class TracksRepository extends DataRepository {
                 'deadair.albums.rating as albumRating',
             ])
             .select(eb => [eb.not(noCreditedDislike(eb)).as('hasDislikedCredit')])
+            .select(suspendedNow(sql.ref('deadair.tracks.id')).as('suspended'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
             // A tuple `in`, so one round trip answers for the whole page. Written through `or` rather
             // than raw SQL because the pairs are model-supplied text and this keeps them parameters.
@@ -933,7 +953,7 @@ export class TracksRepository extends DataRepository {
         for (const row of rows) {
             const key = catalogKey(row.titleKey, row.artistKey);
             owned.add(key);
-            if (row.trackRating === -1 || row.albumRating === -1 || row.hasDislikedCredit) banned.add(key);
+            if (row.trackRating === -1 || row.albumRating === -1 || row.hasDislikedCredit || row.suspended === true) banned.add(key);
         }
 
         return { owned, banned };
@@ -962,7 +982,8 @@ export class TracksRepository extends DataRepository {
             .selectFrom('deadair.artists')
             .select('deadair.artists.artistKey')
             .where('deadair.artists.artistKey', 'in', keys)
-            .where('deadair.artists.rating', '=', -1)
+            // Disliked, or suspended right now: either way `PickResolver` would drop the pick.
+            .where(eb => eb.or([eb('deadair.artists.rating', '=', -1), artistSuspendedNow(sql.ref('deadair.artists.suspended_until'))]))
             .execute();
 
         return new Set(rows.map(row => row.artistKey));
@@ -1028,6 +1049,7 @@ export class TracksRepository extends DataRepository {
               and a.rating <> -1
               and (al.rating is null or al.rating <> -1)
               and not ${creditedDislikeExists(sql`t.id`)}
+              and ${notSuspendedNow(sql`t.id`)}
               and exists (
                   select 1 from deadair.track_sources s
                   where s.track_id = t.id and s.missing_at is null
@@ -1319,12 +1341,29 @@ export class TracksRepository extends DataRepository {
         const row = await this.readable()
             .where('deadair.tracks.id', '=', id)
             .select(TRACK_COLUMNS)
+            .select(suspendedUntilColumn('deadair.tracks.suspended_until'))
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
             .executeTakeFirst();
         return row === undefined ? undefined : withStationCover(row, 'albumImageUrl');
     }
 
     /** What the station thinks of this song, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */
+    /**
+     * Keep this record off the station for `days`, or lift its suspension with `undefined`.
+     *
+     * @returns whether a row was there to change. Merged rows are not, for `setRating`'s reason.
+     */
+    async setSuspension(id: string, days: number | undefined): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.tracks')
+            .set({ suspendedUntil: suspensionValue(days) })
+            .where('deadair.tracks.id', '=', id)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
     async setRating(id: string, rating: number): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.tracks')

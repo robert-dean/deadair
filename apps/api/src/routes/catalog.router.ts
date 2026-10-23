@@ -4,6 +4,7 @@ import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
 import { LyricsReadService } from '#src/modules/lyrics/lyrics.read.service.js';
+import { SuspensionsService } from '#src/modules/catalog/suspensions.service.js';
 import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import { VocalMarkersService } from '#src/modules/lyrics/vocal.markers.service.js';
 import {
@@ -16,6 +17,7 @@ import {
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
+    SuspendInput,
     Track,
     TrackClearResult,
     TrackDetail,
@@ -505,6 +507,132 @@ CatalogRouter.put('/catalog/tracks/:id/rating', requirePolicy({ policy: 'platfor
 
     const service = ctx.container.get(TracksService);
     const result: Track = await service.rateTrack(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/artists/{id}/suspension`
+ */
+CatalogRouter.put('/catalog/artists/:id/suspension', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, SuspendInput);
+
+    const service = ctx.container.get(SuspensionsService);
+    const result: Artist = await service.suspendArtist(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * End a suspension now. Something not suspended is answered as it stands rather than refused
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/artists/{id}/suspension`
+ */
+CatalogRouter.delete('/catalog/artists/:id/suspension', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(SuspensionsService);
+    const result: Artist = await service.liftArtist(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/albums/{id}/suspension`
+ */
+CatalogRouter.put('/catalog/albums/:id/suspension', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, SuspendInput);
+
+    const service = ctx.container.get(SuspensionsService);
+    const result: Album = await service.suspendAlbum(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * End a suspension now. Something not suspended is answered as it stands rather than refused
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/albums/{id}/suspension`
+ */
+CatalogRouter.delete('/catalog/albums/:id/suspension', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(SuspensionsService);
+    const result: Album = await service.liftAlbum(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/tracks/{id}/suspension`
+ */
+CatalogRouter.put('/catalog/tracks/:id/suspension', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, SuspendInput);
+
+    const service = ctx.container.get(SuspensionsService);
+    const result: Track = await service.suspendTrack(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * End a suspension now. Something not suspended is answered as it stands rather than refused
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/tracks/{id}/suspension`
+ */
+CatalogRouter.delete('/catalog/tracks/:id/suspension', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(SuspensionsService);
+    const result: Track = await service.liftTrack(id);
 
     ctx.status = 200;
     ctx.type = 'application/json';

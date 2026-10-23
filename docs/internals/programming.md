@@ -196,7 +196,7 @@ going on air afterwards walks answers already held. `source` is `route`, which t
 alone. Not yet a schedule-slot source, and MusicBrainz's artist relations (members, collaborations) would be
 a second kind of fact the planner could use; neither is built.
 
-**A playlist put on air is a source, not a generator, and the instruction still applies to it.** `DirectorConsoleService.putOnAir` never names a `SetGenerator`, so it cannot go through `resolve` — and it must not, since `resolve` respaces a batch and overwrites title and artist from the catalog row, and a playlist's order and strings are the operator's own. `PickResolver.vet(tracks, { era, preference })` is the narrower method for exactly this: order-preserving, no rewritten strings, and built from the same `rejectDisliked`, `withinPeriod` and `bindingsFor` calls `resolve` makes, so a dislike, a period and the advisory policy hold for a track that arrived on a playlist exactly as they do for one a generator picked.
+**A playlist put on air is a source, not a generator, and the instruction still applies to it.** `DirectorConsoleService.putOnAir` never names a `SetGenerator`, so it cannot go through `resolve` — and it must not, since `resolve` respaces a batch and overwrites title and artist from the catalog row, and a playlist's order and strings are the operator's own. `PickResolver.vet(tracks, { era, preference })` is the narrower method for exactly this: order-preserving, no rewritten strings, and built from the same `rejectBarred`, `withinPeriod` and `bindingsFor` calls `resolve` makes, so a dislike, a period and the advisory policy hold for a track that arrived on a playlist exactly as they do for one a generator picked.
 
 **The playlist's order is the operator's, but where a schedule slot STARTS in it may be the station's.** A slot with `resumePlaylist` opens on the record after the last one from its playlist that aired, rather than on the first, so a playlist longer than the block gets through all of its records over several nights instead of airing its opening hour every time. The order itself is untouched: the vetted list is turned round, not reshuffled, and the turn happens after `vet` so the place is looked for among records the station will actually play. A record no longer there starts the playlist from the top. The place is a song key in `schedule_playlist_positions`, moved only by records the broadcast opened with as they air; how, and why it is not a cursor over the running order, is `director.md` § "Who owns the running order".
 
@@ -330,7 +330,24 @@ an operator who moves the slot's end mid-show does not move it.
 
 ## The station's opinion, and the policy over it
 
-**An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.
+**A suspension is a dislike's instruction with an end date, and it rides every read a dislike does.**
+`suspended_until` sits beside `rating` on `tracks`, `albums` and `artists` (migration 0115) and is read at the
+point of use against `now()`, after `station_lineup.hold_until`: nothing sweeps it, so nothing can fail
+overnight and leave an artist off the air, and a lapsed one reads exactly like one never set. `infinity` is
+refused, since an indefinite suspension is a dislike. It never touches the rating, which is the whole reason
+it exists: suspending a liked artist for a week must not cost the like. `catalog/suspension.ts` holds the one
+predicate (`suspendedNow`, raw so both SQL dialects here can take it), and it reaches through
+`track_artists` for `credited.dislike.ts`'s reason, so a suspended act is not back on air as somebody's
+guest. Every query that keeps a disliked record off the air carries it next to its rating clauses: the
+draw, `searchPlayable`, `ownership`, `dislikedArtistKeys`, `styleVocabulary`, the route reads, a listener's
+requestable records and the artists a brief names. In memory, `CandidatesRepository.standingsFor` (once
+`ratingsFor`) answers the rating and the suspension side by side, and `rejectBarred` (once `rejectDisliked`)
+drops both, so there is one filter rather than a second one that must always be called beside the first.
+The dislike veto that reaches into the running order (`vetoDisliked`) reads the rating alone on purpose: a
+suspension does not empty the order, and the two or three records already in front of an operator are
+theirs to remove.
+
+**An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `standingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.
 
 **A dislike also reaches a running order that is ALREADY BUILT, which for a long time it did not.** The two
 places above — the draw's own SQL and `PickResolver.resolve` / `vet` — are both places a running order is
@@ -343,7 +360,7 @@ is registered before `DirectorModule`, so the fix is the backwards edge `Station
 publishes `catalog.disliked` from an `AfterCommit` hook (published inline, the subscriber's read answers with
 the row as it stood BEFORE the write, which is the original bug with a mechanism in front of it), and
 `DislikeVeto` forwards to `DirectorConsoleService.vetoDisliked`. That **re-judges the whole remaining order
-through `ratingsFor` rather than resolving what was rated to a track list**, which is not a shortcut: it is the
+through `standingsFor` rather than resolving what was rated to a track list**, which is not a shortcut: it is the
 same expression the draw uses, so a disliked artist GUESTING on a record is caught here exactly as it is at the
 draw, where matching on the lineup's own `RundownItem.artist` would have seen the lead and only the lead. A
 line whose `trackId` the catalog does not hold is KEPT, which is `vet`'s own answer at the same fork. The edit
@@ -365,7 +382,7 @@ lyric, Spotify is passing on a marking — so **`lyrics` stays reserved for the 
 [track-lyrics](https://github.com/robert-dean/deadair/discussions/47) wants for a thing the station may read and never say; `content_rating` was
 rejected because `tracks.rating` already means the operator's `-1/0/1` opinion. It is read at the point of use
 and deliberately **not on `ResolvedRules`**, because `NO_RULES` zeroes that bag and a setlist — whose whole
-mechanism is starting from the rules off — would silently begin swearing; it follows `rejectDisliked` instead.
+mechanism is starting from the rules off — would silently begin swearing; it follows `rejectBarred` instead.
 The advisory **outranks the operator's provider preference**, since the policy is a rule about content and the
 provider list is a preference about delivery, and ranked the other way a `prefer-clean` station whose clean
 copy sits on the second-choice provider is handed the explicit one from the first with nothing saying why. And
@@ -404,7 +421,7 @@ station runs short, including for a listener request. A record nobody tagged fal
 **Enforced where a dislike is, never beside it.** `NeverPlay` (`never.play.ts`) narrows the rules once per
 call and reads tags only when one holds, through `CandidatesRepository.tagsFor`, the one place the tag union
 is written for the pick path (the enrichment `genres` arrays at the track and at its artist, never the
-promoted `tracks.genre` scalar). `PickResolver.judge` drops a blocked pick FIRST, beside `rejectDisliked`
+promoted `tracks.genre` scalar). `PickResolver.judge` drops a blocked pick FIRST, beside `rejectBarred`
 and not on `ResolvedRules`, so `NO_RULES` cannot zero it and a setlist still obeys it; `vet` holds it over a
 playlist, a chart, an album and a single record. Callers pass the broadcast they pick for (`PickBroadcast`:
 mode and slot) so a scoped rule is judged against it; one that cannot say leaves a scoped rule unjudged

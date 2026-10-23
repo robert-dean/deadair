@@ -19,7 +19,7 @@ import {
     applyRulesHoldingQueue,
     letRepeatsBackIn,
     holdArtistCooldown,
-    rejectDisliked,
+    rejectBarred,
     spaceArtists,
     type ResolvedRules,
     type RotationCandidate,
@@ -382,7 +382,7 @@ export class PickResolver {
      * caller: it ends by respacing the batch and it overwrites title and artist from the catalog row
      * (`resolve`, above), and a playlist's order is the operator's order and its strings are the
      * provider's — neither of which this may touch. So it reuses the same helpers `resolve` calls at
-     * the corresponding step — {@link rejectDisliked} over {@link CandidatesRepository.ratingsFor},
+     * the corresponding step — {@link rejectBarred} over {@link CandidatesRepository.standingsFor},
      * {@link withinPeriod} over {@link CandidatesRepository.yearsFor}, {@link CandidatesRepository.bindingsFor}
      * under {@link advisoryPolicy} — rather than a second copy of the rule that could drift from it.
      *
@@ -405,22 +405,27 @@ export class PickResolver {
         const bounds = trackLengthBounds(this.config);
         const trackIds = tracks.flatMap(track => (track.trackId === undefined ? [] : [track.trackId]));
 
-        const [blocked, ratings, years, bindings] = await Promise.all([
+        const [blocked, standings, years, bindings] = await Promise.all([
             this.neverPlay.blocked(trackIds, broadcast),
-            this.candidates.ratingsFor(trackIds),
+            this.candidates.standingsFor(trackIds),
             bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
             this.candidates.bindingsFor(trackIds, preference, policy, streamCapableIds(this.plugins.list())),
         ]);
 
-        // Built only so `rejectDisliked` can be reused rather than reimplemented: it reads nothing
-        // but `.rating`, so the other two `RotationCandidate` fields are blanks nothing here uses.
-        const rated = tracks.map(track => ({
-            track,
-            songKey: '',
-            artistKey: '',
-            rating: track.trackId === undefined ? undefined : ratings.get(track.trackId),
-        }));
-        const notDisliked = new Set(rejectDisliked(rated));
+        // Built only so `rejectBarred` can be reused rather than reimplemented: it reads nothing but
+        // `.rating` and `.suspended`, so the other two `RotationCandidate` fields are blanks nothing
+        // here uses.
+        const rated = tracks.map(track => {
+            const standing = track.trackId === undefined ? undefined : standings.get(track.trackId);
+            return {
+                track,
+                songKey: '',
+                artistKey: '',
+                rating: standing?.rating,
+                ...(standing?.suspended === true ? { suspended: true as const } : {}),
+            };
+        });
+        const notDisliked = new Set(rejectBarred(rated));
 
         const vetted: RundownTrack[] = [];
         for (const entry of rated) {
@@ -529,9 +534,9 @@ export class PickResolver {
             const blocked = await this.neverPlay.blocked(trackIds, broadcast);
             return blocked.size === 0 ? [...identified] : identified.filter(entry => !blocked.has(entry.trackId));
         }
-        const [blocked, ratings, songKeys, recentArtistKeys, years] = await Promise.all([
+        const [blocked, standings, songKeys, recentArtistKeys, years] = await Promise.all([
             this.neverPlay.blocked(trackIds, broadcast),
-            this.candidates.ratingsFor(trackIds),
+            this.candidates.standingsFor(trackIds),
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
             // Only when there is a period to judge against. An unbriefed broadcast pays no round
@@ -557,11 +562,12 @@ export class PickResolver {
         }
 
         const judged = allowed.map(entry => {
-            const rating = ratings.get(entry.trackId);
-            return rating === undefined ? entry : { ...entry, rating };
+            const standing = standings.get(entry.trackId);
+            if (standing === undefined) return entry;
+            return { ...entry, rating: standing.rating, ...(standing.suspended ? { suspended: true as const } : {}) };
         });
 
-        // Beside `rejectDisliked` rather than inside `applyRules`, and for `rotation.advisory`'s
+        // Beside `rejectBarred` rather than inside `applyRules`, and for `rotation.advisory`'s
         // reason: `NO_RULES` zeroes that bag, and a SETLIST — whose whole mechanism is starting from
         // the rules off — would silently begin playing any decade. The period is not a rotation rule,
         // it is what the broadcast IS.

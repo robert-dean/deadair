@@ -264,6 +264,23 @@ export function useHoldAgainstSchedule() {
     });
 }
 
+/**
+ * Keep the station's own breaks off the air for a number of records, or end that with `undefined`.
+ *
+ * The order is invalidated too: asking for quiet takes the breaks already planned across it out.
+ */
+export function useKeepQuiet() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (records: number | undefined) =>
+            records === undefined ? sdk.director.endTheQuietSpell() : sdk.director.keepTheStationQuiet({ records }),
+        onSuccess: air => {
+            queryClient.setQueryData(queryKeys.director.air(), air);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
+        },
+    });
+}
+
 export function useSetAirMode() {
     const queryClient = useQueryClient();
     return useMutation({

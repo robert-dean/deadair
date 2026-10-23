@@ -6,6 +6,7 @@ options {
         ArtistsService: "#src/modules/catalog/artists.service.js"
         AlbumsService: "#src/modules/catalog/albums.service.js"
         TracksService: "#src/modules/catalog/tracks.service.js"
+        SuspensionsService: "#src/modules/catalog/suspensions.service.js"
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
         VocalMarkersService: "#src/modules/lyrics/vocal.markers.service.js"
         LyricsReadService: "#src/modules/lyrics/lyrics.read.service.js"
@@ -438,6 +439,108 @@ operation /catalog/tracks/{id}/rating: {
         }
         request: {
             application/json: RateInput
+        }
+        response: {
+            200: {
+                application/json: Track
+            }
+        }
+    }
+}
+
+operation /catalog/artists/{id}/suspension: {
+    params: {
+        id: uuid
+    }
+    put: { # Keep this artist, and every record they are credited on, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+        name: Suspend artist
+        service: SuspensionsService.suspendArtist
+        security: {
+            # An operator action, like rating: it changes what the station will play.
+            policy: platform.manage
+        }
+        request: {
+            application/json: SuspendInput
+        }
+        response: {
+            200: {
+                application/json: Artist
+            }
+        }
+    }
+    delete: { # End a suspension now. Something not suspended is answered as it stands rather than refused
+        name: Lift artist suspension
+        service: SuspensionsService.liftArtist
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: Artist
+            }
+        }
+    }
+}
+
+operation /catalog/albums/{id}/suspension: {
+    params: {
+        id: uuid
+    }
+    put: { # Keep this release, and every record on it, off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+        name: Suspend album
+        service: SuspensionsService.suspendAlbum
+        security: {
+            # An operator action, like rating: it changes what the station will play.
+            policy: platform.manage
+        }
+        request: {
+            application/json: SuspendInput
+        }
+        response: {
+            200: {
+                application/json: Album
+            }
+        }
+    }
+    delete: { # End a suspension now. Something not suspended is answered as it stands rather than refused
+        name: Lift album suspension
+        service: SuspensionsService.liftAlbum
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: Album
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/suspension: {
+    params: {
+        id: uuid
+    }
+    put: { # Keep this record off the station for a number of days. Nothing already in the running order is taken out; a suspension stops it being chosen again, and lapses by itself
+        name: Suspend track
+        service: SuspensionsService.suspendTrack
+        security: {
+            # An operator action, like rating: it changes what the station will play.
+            policy: platform.manage
+        }
+        request: {
+            application/json: SuspendInput
+        }
+        response: {
+            200: {
+                application/json: Track
+            }
+        }
+    }
+    delete: { # End a suspension now. Something not suspended is answered as it stands rather than refused
+        name: Lift track suspension
+        service: SuspensionsService.liftTrack
+        security: {
+            policy: platform.manage
         }
         response: {
             200: {

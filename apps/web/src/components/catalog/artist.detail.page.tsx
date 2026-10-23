@@ -9,6 +9,7 @@ import {
     catalogArtistOptions,
     useRateAlbum,
     useRateArtist,
+    useSuspend,
 } from '../../api/catalog.queries';
 import { Artwork } from '../shared/artwork';
 import { AlbumLink } from '../shared/catalog.links';
@@ -20,6 +21,7 @@ import { CATALOG_SEARCH_DEFAULTS, type CatalogListOrder } from './catalog.page.p
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
+import { SuspendControl } from './suspend.control';
 
 export interface ArtistDetailPageProps {
     artistId: string;
@@ -36,6 +38,7 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
     const enrichment = useQuery(catalogArtistEnrichmentOptions(artistId));
     const rows = albums.data?.data ?? [];
     const rateArtist = useRateArtist();
+    const suspend = useSuspend();
     const rateAlbum = useRateAlbum();
 
     return (
@@ -74,6 +77,12 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                                     onChange={rating => {
                                         rateArtist.mutate({ id: artistId, rating });
                                     }}
+                                />
+                                <SuspendControl
+                                    {...(artist.data.suspendedUntil === undefined ? {} : { suspendedUntil: artist.data.suspendedUntil })}
+                                    busy={suspend.isPending}
+                                    onSuspend={days => suspend.mutate({ kind: 'artist', id: artistId, days })}
+                                    onLift={() => suspend.mutate({ kind: 'artist', id: artistId, days: undefined })}
                                 />
                             </Group>
                         ) : undefined}

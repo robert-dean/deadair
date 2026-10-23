@@ -581,19 +581,21 @@ public enum CatalogSort: Codable, CaseIterable, Hashable, Sendable {
 ///   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
 ///   benched     every copy written off, which is the one state that means it CANNOT air
 ///   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
+///   suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it
 public enum TrackState: Codable, CaseIterable, Hashable, Sendable {
     case cached
     case uncached
     case unmeasured
     case benched
     case failing
+    case suspended
 
     /// A value this SDK does not know, such as a member the service added after it was generated.
     /// Never sent: encoding it throws an `EncodingError`.
     case unknown
 
     /// The members the contract declares. `unknown` is not one of them.
-    public static let allCases: [TrackState] = [.cached, .uncached, .unmeasured, .benched, .failing]
+    public static let allCases: [TrackState] = [.cached, .uncached, .unmeasured, .benched, .failing, .suspended]
 
     /// The wire spelling, or `nil` for `unknown`, which has none.
     public var rawValue: String? {
@@ -603,6 +605,7 @@ public enum TrackState: Codable, CaseIterable, Hashable, Sendable {
         case .unmeasured: return "unmeasured"
         case .benched: return "benched"
         case .failing: return "failing"
+        case .suspended: return "suspended"
         case .unknown: return nil
         }
     }
@@ -615,6 +618,7 @@ public enum TrackState: Codable, CaseIterable, Hashable, Sendable {
         case "unmeasured": self = .unmeasured
         case "benched": self = .benched
         case "failing": self = .failing
+        case "suspended": self = .suspended
         default: return nil
         }
     }
@@ -932,6 +936,30 @@ public struct FactClaimInput: Codable, Equatable, Sendable {
     }
 }
 
+/// Keep something off the station for a while, without passing judgement on it
+public struct SuspendInput: Codable, Equatable, Sendable {
+    /// How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date
+    public var days: Int
+
+    public init(days: Int) {
+        self.days = days
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case days = "days"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.days = try container.decode(Int.self, forKey: .days)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.days, forKey: .days)
+    }
+}
+
 /// Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
 /// excludes it, and nothing the station programmes may turn that off.
 public struct RateInput: Codable, Equatable, Sendable {
@@ -973,17 +1001,20 @@ public struct Artist: Codable, Equatable, Sendable {
     /// An API-relative path: the cached copy, or the station's proxy for an uncached one
     public var imageUrl: String?
     public var rating: Rating
+    /// Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
+    public var suspendedUntil: Date?
     /// Unmerged albums credited to this artist
     public var albumCount: Int
     /// Unmerged tracks credited to this artist
     public var trackCount: Int
 
-    public init(id: UUID, name: String, mbid: UUID? = nil, imageUrl: String? = nil, rating: Rating = .neutral, albumCount: Int, trackCount: Int) {
+    public init(id: UUID, name: String, mbid: UUID? = nil, imageUrl: String? = nil, rating: Rating = .neutral, suspendedUntil: Date? = nil, albumCount: Int, trackCount: Int) {
         self.id = id
         self.name = name
         self.mbid = mbid
         self.imageUrl = imageUrl
         self.rating = rating
+        self.suspendedUntil = suspendedUntil
         self.albumCount = albumCount
         self.trackCount = trackCount
     }
@@ -994,6 +1025,7 @@ public struct Artist: Codable, Equatable, Sendable {
         case mbid = "mbid"
         case imageUrl = "imageUrl"
         case rating = "rating"
+        case suspendedUntil = "suspendedUntil"
         case albumCount = "albumCount"
         case trackCount = "trackCount"
     }
@@ -1005,6 +1037,7 @@ public struct Artist: Codable, Equatable, Sendable {
         self.mbid = try container.decodeIfPresent(UUID.self, forKey: .mbid)
         self.imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+        self.suspendedUntil = try container.decodeIfPresent(Date.self, forKey: .suspendedUntil)
         self.albumCount = try container.decode(Int.self, forKey: .albumCount)
         self.trackCount = try container.decode(Int.self, forKey: .trackCount)
     }
@@ -1016,6 +1049,7 @@ public struct Artist: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.mbid, forKey: .mbid)
         try container.encodeIfPresent(self.imageUrl, forKey: .imageUrl)
         try container.encode(self.rating, forKey: .rating)
+        try container.encodeIfPresent(self.suspendedUntil, forKey: .suspendedUntil)
         try container.encode(self.albumCount, forKey: .albumCount)
         try container.encode(self.trackCount, forKey: .trackCount)
     }
@@ -1081,9 +1115,11 @@ public struct Album: Codable, Equatable, Sendable {
     /// An API-relative path: the cached copy, or the station's proxy for an uncached one
     public var imageUrl: String?
     public var rating: Rating
+    /// Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
+    public var suspendedUntil: Date?
     public var trackCount: Int
 
-    public init(id: UUID, name: String, artistId: UUID, artistName: String, mbid: UUID? = nil, year: Int? = nil, imageUrl: String? = nil, rating: Rating = .neutral, trackCount: Int) {
+    public init(id: UUID, name: String, artistId: UUID, artistName: String, mbid: UUID? = nil, year: Int? = nil, imageUrl: String? = nil, rating: Rating = .neutral, suspendedUntil: Date? = nil, trackCount: Int) {
         self.id = id
         self.name = name
         self.artistId = artistId
@@ -1092,6 +1128,7 @@ public struct Album: Codable, Equatable, Sendable {
         self.year = year
         self.imageUrl = imageUrl
         self.rating = rating
+        self.suspendedUntil = suspendedUntil
         self.trackCount = trackCount
     }
 
@@ -1104,6 +1141,7 @@ public struct Album: Codable, Equatable, Sendable {
         case year = "year"
         case imageUrl = "imageUrl"
         case rating = "rating"
+        case suspendedUntil = "suspendedUntil"
         case trackCount = "trackCount"
     }
 
@@ -1117,6 +1155,7 @@ public struct Album: Codable, Equatable, Sendable {
         self.year = try container.decodeIfPresent(Int.self, forKey: .year)
         self.imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+        self.suspendedUntil = try container.decodeIfPresent(Date.self, forKey: .suspendedUntil)
         self.trackCount = try container.decode(Int.self, forKey: .trackCount)
     }
 
@@ -1130,6 +1169,7 @@ public struct Album: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.year, forKey: .year)
         try container.encodeIfPresent(self.imageUrl, forKey: .imageUrl)
         try container.encode(self.rating, forKey: .rating)
+        try container.encodeIfPresent(self.suspendedUntil, forKey: .suspendedUntil)
         try container.encode(self.trackCount, forKey: .trackCount)
     }
 }
@@ -1194,8 +1234,10 @@ public struct Track: Codable, Equatable, Sendable {
     public var year: Int?
     public var durationMs: Int?
     public var rating: Rating
+    /// Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
+    public var suspendedUntil: Date?
 
-    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral) {
+    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, suspendedUntil: Date? = nil) {
         self.id = id
         self.title = title
         self.artistId = artistId
@@ -1208,6 +1250,7 @@ public struct Track: Codable, Equatable, Sendable {
         self.year = year
         self.durationMs = durationMs
         self.rating = rating
+        self.suspendedUntil = suspendedUntil
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1223,6 +1266,7 @@ public struct Track: Codable, Equatable, Sendable {
         case year = "year"
         case durationMs = "durationMs"
         case rating = "rating"
+        case suspendedUntil = "suspendedUntil"
     }
 
     public init(from decoder: Decoder) throws {
@@ -1239,6 +1283,7 @@ public struct Track: Codable, Equatable, Sendable {
         self.year = try container.decodeIfPresent(Int.self, forKey: .year)
         self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+        self.suspendedUntil = try container.decodeIfPresent(Date.self, forKey: .suspendedUntil)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1255,6 +1300,7 @@ public struct Track: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.year, forKey: .year)
         try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
         try container.encode(self.rating, forKey: .rating)
+        try container.encodeIfPresent(self.suspendedUntil, forKey: .suspendedUntil)
     }
 }
 
@@ -1557,6 +1603,8 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
     public var enriched: Int
     public var benched: Int
     public var failing: Int
+    /// Kept off the station right now by a suspension on the record, its release or a credited artist
+    public var suspended: Int
     /// A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
     public var lyrics: Int
     /// A lyrics source has the timing of its lines, which says when the singing starts
@@ -1570,13 +1618,14 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
     /// How many measurements failed, by kind
     public var measureFailures: MeasureFailureCounts
 
-    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int, moods: Int, analyzers: [TrackAnalyzerCount], measureFailures: MeasureFailureCounts) {
+    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, suspended: Int, lyrics: Int, synced: Int, instrumental: Int, moods: Int, analyzers: [TrackAnalyzerCount], measureFailures: MeasureFailureCounts) {
         self.total = total
         self.cached = cached
         self.measured = measured
         self.enriched = enriched
         self.benched = benched
         self.failing = failing
+        self.suspended = suspended
         self.lyrics = lyrics
         self.synced = synced
         self.instrumental = instrumental
@@ -1592,6 +1641,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         case enriched = "enriched"
         case benched = "benched"
         case failing = "failing"
+        case suspended = "suspended"
         case lyrics = "lyrics"
         case synced = "synced"
         case instrumental = "instrumental"
@@ -1608,6 +1658,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         self.enriched = try container.decode(Int.self, forKey: .enriched)
         self.benched = try container.decode(Int.self, forKey: .benched)
         self.failing = try container.decode(Int.self, forKey: .failing)
+        self.suspended = try container.decode(Int.self, forKey: .suspended)
         self.lyrics = try container.decode(Int.self, forKey: .lyrics)
         self.synced = try container.decode(Int.self, forKey: .synced)
         self.instrumental = try container.decode(Int.self, forKey: .instrumental)
@@ -1624,6 +1675,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         try container.encode(self.enriched, forKey: .enriched)
         try container.encode(self.benched, forKey: .benched)
         try container.encode(self.failing, forKey: .failing)
+        try container.encode(self.suspended, forKey: .suspended)
         try container.encode(self.lyrics, forKey: .lyrics)
         try container.encode(self.synced, forKey: .synced)
         try container.encode(self.instrumental, forKey: .instrumental)
@@ -2028,14 +2080,18 @@ public struct TrackRow: Codable, Equatable, Sendable {
     public var year: Int?
     public var durationMs: Int?
     public var rating: Rating
+    /// Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
+    public var suspendedUntil: Date?
     /// The bytes are on this machine
     public var hasAudio: Bool
     /// Measured, COMPLETE, and at a schema version the station still trusts
     public var measured: Bool
     /// At least one provider has answered about it
     public var enriched: Bool
+    /// Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended
+    public var suspended: Bool?
 
-    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, hasAudio: Bool, measured: Bool, enriched: Bool) {
+    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, suspendedUntil: Date? = nil, hasAudio: Bool, measured: Bool, enriched: Bool, suspended: Bool? = nil) {
         self.id = id
         self.title = title
         self.artistId = artistId
@@ -2048,9 +2104,11 @@ public struct TrackRow: Codable, Equatable, Sendable {
         self.year = year
         self.durationMs = durationMs
         self.rating = rating
+        self.suspendedUntil = suspendedUntil
         self.hasAudio = hasAudio
         self.measured = measured
         self.enriched = enriched
+        self.suspended = suspended
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2066,9 +2124,11 @@ public struct TrackRow: Codable, Equatable, Sendable {
         case year = "year"
         case durationMs = "durationMs"
         case rating = "rating"
+        case suspendedUntil = "suspendedUntil"
         case hasAudio = "hasAudio"
         case measured = "measured"
         case enriched = "enriched"
+        case suspended = "suspended"
     }
 
     public init(from decoder: Decoder) throws {
@@ -2085,9 +2145,11 @@ public struct TrackRow: Codable, Equatable, Sendable {
         self.year = try container.decodeIfPresent(Int.self, forKey: .year)
         self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+        self.suspendedUntil = try container.decodeIfPresent(Date.self, forKey: .suspendedUntil)
         self.hasAudio = try container.decode(Bool.self, forKey: .hasAudio)
         self.measured = try container.decode(Bool.self, forKey: .measured)
         self.enriched = try container.decode(Bool.self, forKey: .enriched)
+        self.suspended = try container.decodeIfPresent(Bool.self, forKey: .suspended)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2104,9 +2166,11 @@ public struct TrackRow: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.year, forKey: .year)
         try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
         try container.encode(self.rating, forKey: .rating)
+        try container.encodeIfPresent(self.suspendedUntil, forKey: .suspendedUntil)
         try container.encode(self.hasAudio, forKey: .hasAudio)
         try container.encode(self.measured, forKey: .measured)
         try container.encode(self.enriched, forKey: .enriched)
+        try container.encodeIfPresent(self.suspended, forKey: .suspended)
     }
 }
 
@@ -2185,6 +2249,8 @@ public struct TrackDetail: Codable, Equatable, Sendable {
     public var year: Int?
     public var durationMs: Int?
     public var rating: Rating
+    /// Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent
+    public var suspendedUntil: Date?
     public var bindings: [TrackBinding]
     /// Absent for a record the walk has not reached
     public var analysis: TrackAnalysis?
@@ -2193,7 +2259,7 @@ public struct TrackDetail: Codable, Equatable, Sendable {
     /// How many times in all, which the list above is only the head of
     public var playCount: Int
 
-    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, bindings: [TrackBinding], analysis: TrackAnalysis? = nil, plays: [TrackPlay], playCount: Int) {
+    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, suspendedUntil: Date? = nil, bindings: [TrackBinding], analysis: TrackAnalysis? = nil, plays: [TrackPlay], playCount: Int) {
         self.id = id
         self.title = title
         self.artistId = artistId
@@ -2206,6 +2272,7 @@ public struct TrackDetail: Codable, Equatable, Sendable {
         self.year = year
         self.durationMs = durationMs
         self.rating = rating
+        self.suspendedUntil = suspendedUntil
         self.bindings = bindings
         self.analysis = analysis
         self.plays = plays
@@ -2225,6 +2292,7 @@ public struct TrackDetail: Codable, Equatable, Sendable {
         case year = "year"
         case durationMs = "durationMs"
         case rating = "rating"
+        case suspendedUntil = "suspendedUntil"
         case bindings = "bindings"
         case analysis = "analysis"
         case plays = "plays"
@@ -2245,6 +2313,7 @@ public struct TrackDetail: Codable, Equatable, Sendable {
         self.year = try container.decodeIfPresent(Int.self, forKey: .year)
         self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+        self.suspendedUntil = try container.decodeIfPresent(Date.self, forKey: .suspendedUntil)
         self.bindings = try container.decode([TrackBinding].self, forKey: .bindings)
         self.analysis = try container.decodeIfPresent(TrackAnalysis.self, forKey: .analysis)
         self.plays = try container.decode([TrackPlay].self, forKey: .plays)
@@ -2265,6 +2334,7 @@ public struct TrackDetail: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.year, forKey: .year)
         try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
         try container.encode(self.rating, forKey: .rating)
+        try container.encodeIfPresent(self.suspendedUntil, forKey: .suspendedUntil)
         try container.encode(self.bindings, forKey: .bindings)
         try container.encodeIfPresent(self.analysis, forKey: .analysis)
         try container.encode(self.plays, forKey: .plays)

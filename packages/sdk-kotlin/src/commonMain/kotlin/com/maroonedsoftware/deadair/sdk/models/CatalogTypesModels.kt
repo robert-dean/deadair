@@ -268,6 +268,7 @@ object CatalogSortSerializer : SdkEnumSerializer<CatalogSort>(
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
+ *   suspended   kept off the station until a date, by the record itself, its release, or an artist credited on it
  */
 @Serializable(with = TrackStateSerializer::class)
 enum class TrackState {
@@ -276,6 +277,7 @@ enum class TrackState {
     UNMEASURED,
     BENCHED,
     FAILING,
+    SUSPENDED,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -293,6 +295,7 @@ object TrackStateSerializer : SdkEnumSerializer<TrackState>(
     TrackState.UNMEASURED to "unmeasured",
     TrackState.BENCHED to "benched",
     TrackState.FAILING to "failing",
+    TrackState.SUSPENDED to "suspended",
 )
 
 /**
@@ -401,6 +404,13 @@ data class FactClaim(
 @Serializable
 class FactClaimInput
 
+/** Keep something off the station for a while, without passing judgement on it */
+@Serializable
+data class SuspendInput(
+    /** How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date */
+    val days: Long,
+)
+
 /**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
@@ -430,6 +440,8 @@ data class Artist(
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     val imageUrl: String? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     /** Unmerged albums credited to this artist */
     val albumCount: Long,
     /** Unmerged tracks credited to this artist */
@@ -470,6 +482,8 @@ data class Album(
     /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     val imageUrl: String? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     val trackCount: Long,
 )
 
@@ -501,6 +515,8 @@ data class Track(
     val year: Long? = null,
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
 )
 
 @Serializable
@@ -614,6 +630,8 @@ data class TrackStateCounts(
     val enriched: Long,
     val benched: Long,
     val failing: Long,
+    /** Kept off the station right now by a suspension on the record, its release or a credited artist */
+    val suspended: Long,
     /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
     val lyrics: Long,
     /** A lyrics source has the timing of its lines, which says when the singing starts */
@@ -754,12 +772,16 @@ data class TrackRow(
     val year: Long? = null,
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     /** The bytes are on this machine */
     val hasAudio: Boolean,
     /** Measured, COMPLETE, and at a schema version the station still trusts */
     val measured: Boolean,
     /** At least one provider has answered about it */
     val enriched: Boolean,
+    /** Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended */
+    val suspended: Boolean? = null,
 )
 
 /**
@@ -805,6 +827,8 @@ data class TrackDetail(
     val year: Long? = null,
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
+    /** Kept off the station until this moment: a scheduling decision with an end date, which leaves `rating` alone. Absent is not suspended, and a suspension that has lapsed is simply absent */
+    val suspendedUntil: Instant? = null,
     val bindings: List<TrackBinding>,
     /** Absent for a record the walk has not reached */
     val analysis: TrackAnalysis? = null,

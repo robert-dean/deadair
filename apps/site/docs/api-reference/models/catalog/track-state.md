@@ -12,7 +12,8 @@ mdx:
 > unmeasured no trustworthy measurement, so no cue points and no level decided before air
 > benched every copy written off, which is the one state that means it CANNOT air
 > failing a fetch has failed and is backing off. Not benched yet, and often the state before it
+> suspended kept off the station until a date, by the record itself, its release, or an artist credited on it
 
 ```typescript
-type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'failing';
+type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'failing' | 'suspended';
 ```

@@ -46,7 +46,7 @@ describe('DislikeVeto', () => {
 
     it('does the same for a record and for a song, because the veto re-judges the whole order', async () => {
         // The level is on the event for the feed's sake and nothing reads it to decide anything:
-        // `ratingsFor` has already collapsed all three into one number per record.
+        // `standingsFor` has already collapsed all three into one number per record.
         const { veto, bus, vetoDisliked } = build();
         veto.start();
 

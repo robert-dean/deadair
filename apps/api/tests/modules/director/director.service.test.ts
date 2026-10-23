@@ -207,6 +207,7 @@ function build(options: Options = {}) {
         slot: 'main',
         active: true,
         ranOut: false,
+        quietRecords: 0,
         ...options.air,
     };
 
@@ -231,7 +232,16 @@ function build(options: Options = {}) {
             air = air ? { ...air, active: false, ranOut } : air;
         }),
         goOnAir: vi.fn(async () => {
-            air = { slot: 'main', active: true, ranOut: false };
+            air = { slot: 'main', active: true, ranOut: false, quietRecords: air?.quietRecords ?? 0 };
+        }),
+        setQuiet: vi.fn(async (records: number) => {
+            air = { ...(air ?? { slot: 'main', active: false, ranOut: false }), quietRecords: records };
+            return records;
+        }),
+        countDownQuiet: vi.fn(async () => {
+            if (air === undefined || air.quietRecords === 0) return undefined;
+            air = { ...air, quietRecords: air.quietRecords - 1 };
+            return air.quietRecords;
         }),
     } as unknown as StationAirRepository;
 
@@ -1211,7 +1221,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(0);
 
-        setAir({ slot: 'main', active: true, ranOut: false });
+        setAir({ slot: 'main', active: true, ranOut: false, quietRecords: 0 });
         await wake(rundown);
 
         expect(rundown.upcoming().length).toBeGreaterThan(0);
@@ -1224,7 +1234,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
 
-        setAir({ slot: 'main', active: false, ranOut: false });
+        setAir({ slot: 'main', active: false, ranOut: false, quietRecords: 0 });
         // Past the throttle, because this station IS on air and a busy director reads the row
         // once every few seconds rather than on every wake.
         vi.setSystemTime(Date.now() + 10_000);
@@ -1601,6 +1611,67 @@ describe("DirectorService moving a resuming slot's place in its playlist", () =>
         await airNext(rundown);
 
         expect(history.record).toHaveBeenCalledOnce();
+    });
+});
+
+describe('DirectorService keeping quiet', () => {
+    it('stores a quiet spell and hands the planner the count', async () => {
+        const { director, seed, airRepository } = build();
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'quiet', records: 10 });
+
+        expect(airRepository.setQuiet).toHaveBeenCalledWith(10);
+        expect(director.quietFor()).toBe(10);
+    });
+
+    it('takes the breaks already planted out of the order, and retires their rows', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: Array.from({ length: 12 }, (_, index) => `t${index}`),
+            segments: [{ id: 'talk-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('talk-1', lineup.size() - 1, undefined, 'talkbreak');
+
+        await director.post({ kind: 'quiet', records: 50 });
+
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('keep quiet'), 'planned');
+    });
+
+    it('comes back quiet after a restart, from the row', async () => {
+        const { director, seed } = build({ air: { quietRecords: 4 } });
+        await seed();
+        await director.start();
+
+        expect(director.quietFor()).toBe(4);
+    });
+
+    it('counts down once per record that starts, and not for a break', async () => {
+        const { director, rundown, airRepository, seed } = build({ air: { quietRecords: 5 } });
+        await seed();
+        await director.start();
+
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(airRepository.countDownQuiet).toHaveBeenCalledOnce();
+        expect(director.quietFor()).toBe(4);
+    });
+
+    it('stops counting at zero, and asks nothing of the row on a station that is not quiet', async () => {
+        const { director, rundown, airRepository, seed } = build();
+        await seed();
+        await director.start();
+
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(airRepository.countDownQuiet).not.toHaveBeenCalled();
     });
 });
 
@@ -3077,6 +3148,26 @@ describe('DirectorService planting breaks', () => {
         expect(spacing[1]! - spacing[0]!).toBe(3);
     });
 
+    // The wart a quiet spell settled: breaks switched off mid-air used to stop new ones being planned
+    // and leave the ones already in the tail to air until it ran out.
+    it('takes the planted breaks out when the operator turns breaks off mid-air', async () => {
+        const { director, lineup, station, segmentStub, seed } = build({
+            items: Array.from({ length: 20 }, (_, index) => `t${index}`),
+            segments: [{ id: 'talk-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        await settle();
+        lineup.insertSegment('talk-1', lineup.size() - 2, undefined, 'talkbreak');
+
+        station.set(ROTATION_KEYS.breaks, 'false');
+        await director.post({ kind: 'wake' });
+        await settle();
+
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('not to interrupt'), 'planned');
+    });
+
     it('plants nothing when the operator has turned breaks off', async () => {
         const { director, lineup, station, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });
         station.set(ROTATION_KEYS.breaks, 'false');
@@ -4372,6 +4463,19 @@ describe('DirectorService opening a database scope', () => {
             expect(requests.open).toHaveBeenCalled();
             expect(requests.attachSegment).toHaveBeenCalledWith('req-1', result.segmentId);
             expect(jobs.send).toHaveBeenCalledWith('director.write_break', { segmentId: result.segmentId });
+        });
+
+        it('says no while the station is keeping quiet, and says for how long', async () => {
+            // A greeting, a requested bulletin and a dedication are all the station talking, which
+            // is what a quiet spell asked it not to do.
+            const { director, seed } = build({ air: { quietRecords: 3 }, canTalk: true });
+            await seed();
+            await director.start();
+
+            const result = await director.requestBreak({ ...asking });
+
+            expect(result.accepted).toBe(false);
+            expect(result.reason).toBe('the station is keeping quiet for 3 more records');
         });
 
         it('says no while the station is not airing anything', async () => {

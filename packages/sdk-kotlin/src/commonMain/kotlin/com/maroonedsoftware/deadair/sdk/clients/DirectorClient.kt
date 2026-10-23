@@ -8,6 +8,7 @@ import com.maroonedsoftware.deadair.sdk.models.ExtendStationInput
 import com.maroonedsoftware.deadair.sdk.models.HoldStationInput
 import com.maroonedsoftware.deadair.sdk.models.MoveStationItemInput
 import com.maroonedsoftware.deadair.sdk.models.PutOnAirInput
+import com.maroonedsoftware.deadair.sdk.models.QuietStationInput
 import com.maroonedsoftware.deadair.sdk.models.ReplanStationInput
 import com.maroonedsoftware.deadair.sdk.models.RequestStationBreakInput
 import com.maroonedsoftware.deadair.sdk.models.RoutePreviewInput
@@ -144,6 +145,29 @@ class DirectorClient(private val http: SdkHttp) {
     suspend fun releaseTheStationToTheSchedule(): StationAir {
         val response = http.execute(HttpMethod.Delete) {
             path("director", "air", "hold")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Keep the station quiet
+     * Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count
+     */
+    suspend fun keepTheStationQuiet(body: QuietStationInput): StationAir {
+        val response = http.execute(HttpMethod.Put) {
+            path("director", "air", "quiet")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * End the quiet spell
+     * Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused
+     */
+    suspend fun endTheQuietSpell(): StationAir {
+        val response = http.execute(HttpMethod.Delete) {
+            path("director", "air", "quiet")
         }
         return http.decodeJson(response)
     }

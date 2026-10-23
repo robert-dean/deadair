@@ -15,12 +15,13 @@ mdx:
 Extends [`Track`](./track.md)
 
 <details>
-<summary>Attributes (3)</summary>
+<summary>Attributes (4)</summary>
 
-| Attribute  | Type      | Required | Description                                                                       |
-| ---------- | --------- | -------- | --------------------------------------------------------------------------------- |
-| `hasAudio` | `boolean` | Yes      | The bytes are on this machine. _read-only_                                        |
-| `measured` | `boolean` | Yes      | Measured, COMPLETE, and at a schema version the station still trusts. _read-only_ |
-| `enriched` | `boolean` | Yes      | At least one provider has answered about it. _read-only_                          |
+| Attribute   | Type      | Required | Description                                                                                                                                                                                      |
+| ----------- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `hasAudio`  | `boolean` | Yes      | The bytes are on this machine. _read-only_                                                                                                                                                       |
+| `measured`  | `boolean` | Yes      | Measured, COMPLETE, and at a schema version the station still trusts. _read-only_                                                                                                                |
+| `enriched`  | `boolean` | Yes      | At least one provider has answered about it. _read-only_                                                                                                                                         |
+| `suspended` | `boolean` | No       | Kept off the station right now, by a suspension on the record, its release or an artist credited on it. `suspendedUntil` is only the record's own. Absent or false is not suspended. _read-only_ |
 
 </details>

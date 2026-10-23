@@ -5,6 +5,7 @@ import { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains, namesAsAnAct } from './catalog.query.js';
 import { artistArtUrl } from './catalog.art.js';
 import { withStationCover } from '#modules/art/art.source.token.js';
+import { artistSuspendedNow, suspendedUntilColumn, suspensionValue } from './suspension.js';
 
 /**
  * The columns the `Artist` contract carries. `artistKey` is a match key for ingest, never read out.
@@ -87,6 +88,7 @@ export class ArtistsRepository extends DataRepository {
             .select(['deadair.artists.name', 'deadair.artists.artistKey'])
             .where('deadair.artists.mergedIntoId', 'is', null)
             .where('deadair.artists.rating', '<>', -1)
+            .where(sql<boolean>`not ${artistSuspendedNow(sql.ref('deadair.artists.suspended_until'))}`)
             .where(sql<boolean>`length(deadair.artists.name) > 1`)
             .where(sql<boolean>`strpos(${text}, deadair.artists.name) > 0`)
             .execute();
@@ -105,6 +107,7 @@ export class ArtistsRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(ARTIST_COLUMNS)
+            .select(suspendedUntilColumn('deadair.artists.suspended_until'))
             .select(artistArtUrl())
             .select(eb => [albumCount(eb), trackCount(eb)])
             .orderBy(columnFor(sortBy, ARTIST_SORTS, ARTIST_SORTS.name), directionFor(sort))
@@ -126,6 +129,7 @@ export class ArtistsRepository extends DataRepository {
             .where('deadair.artists.id', '=', id)
             .where('deadair.artists.mergedIntoId', 'is', null)
             .select(ARTIST_COLUMNS)
+            .select(suspendedUntilColumn('deadair.artists.suspended_until'))
             .select(artistArtUrl())
             .select(eb => [albumCount(eb), trackCount(eb)])
             .executeTakeFirst();
@@ -140,6 +144,22 @@ export class ArtistsRepository extends DataRepository {
      * merged away: a merged row is never read out, so it is never rated either — the opinion belongs
      * on the row the catalog actually shows. `updated_at` moves through the table's own trigger.
      */
+    /**
+     * Keep this artist off the station for `days`, or lift its suspension with `undefined`.
+     *
+     * @returns whether a row was there to change. Merged rows are not, for `setRating`'s reason.
+     */
+    async setSuspension(id: string, days: number | undefined): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.artists')
+            .set({ suspendedUntil: suspensionValue(days) })
+            .where('deadair.artists.id', '=', id)
+            .where('deadair.artists.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
     async setRating(id: string, rating: number): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.artists')

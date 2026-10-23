@@ -38,7 +38,7 @@ export type TrackListOrder = CatalogOrderParams<TrackSort>;
  * Restated here rather than imported from the SDK because this file is what validates a URL, and a
  * hand-typed `?state=nonsense` has to fall back rather than reach the API at all.
  */
-export const TRACK_STATES = ['cached', 'uncached', 'unmeasured', 'benched', 'failing'] as const;
+export const TRACK_STATES = ['cached', 'uncached', 'unmeasured', 'benched', 'failing', 'suspended'] as const;
 
 export type TrackStateParam = (typeof TRACK_STATES)[number];
 

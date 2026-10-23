@@ -117,7 +117,7 @@ interface Options {
     /**
      * What `CandidatesRepository.effectiveRating` answers for a canonical track id, for the veto.
      *
-     * The EFFECTIVE number rather than a level's own column, because that is what `ratingsFor`
+     * The EFFECTIVE number rather than a level's own column, because that is what `standingsFor`
      * returns and the whole point of it is that it has already collapsed track, record, lead artist
      * and every credited artist into one. A case says `-1` and means "the station may not play this",
      * without having to say which of the four said so.
@@ -134,6 +134,7 @@ function build(options: Options = {}) {
     const posted: DirectorCommand[] = [];
     // Whatever the last hold left behind, so `getAir` reads back what `holdAgainstSchedule` wrote.
     let held: number | undefined = options.holdUntil;
+    let quiet = 0;
     // The last binding the console posted, so `status()` answers what the director WOULD be holding
     // rather than a fixed object. `getAir` derives `airSource` from `placedBy` and `slotId`, and a
     // status that never changed would report the same driver whatever was put on.
@@ -162,8 +163,11 @@ function build(options: Options = {}) {
         }),
         post: vi.fn(async (command: DirectorCommand) => {
             posted.push(command);
+            // The quiet count rides the air row, so the fake keeps it as the hold above is kept.
+            if (command.kind === 'quiet') quiet = command.records;
             return undefined;
         }),
+        quietFor: vi.fn(() => quiet),
         order: vi.fn(() => order?.toSnapshot()),
         // The real order's answer, reshaped the way the real director reshapes it.
         promisedBy: vi.fn((itemId: string) => {
@@ -343,9 +347,13 @@ function build(options: Options = {}) {
         // the catalog has never heard of is absent rather than `0`, which is the fork the veto has
         // to get right — "no opinion" and "never seen" are different facts and only one is a reason
         // to keep a record.
-        ratingsFor: vi.fn(
+        standingsFor: vi.fn(
             async (ids: readonly string[]) =>
-                new Map(ids.flatMap(id => (options.effectiveRatings?.[id] === undefined ? [] : [[id, options.effectiveRatings[id]!]]))),
+                new Map(
+                    ids.flatMap(id =>
+                        options.effectiveRatings?.[id] === undefined ? [] : [[id, { rating: options.effectiveRatings[id]!, suspended: false }]],
+                    ),
+                ),
         ),
     } as unknown as CandidatesRepository;
     const trackAudio = {
@@ -829,6 +837,35 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         const { service } = build({ holdUntil: Date.now() - 1 });
 
         expect((await service.getAir()).held).toBe(false);
+    });
+
+    it('keeps the station quiet through the director, says so on the air, and puts it on the feed', async () => {
+        const { service, posted, activity } = build();
+
+        const air = await service.keepQuiet({ records: 10 });
+
+        expect(posted()).toContainEqual({ kind: 'quiet', records: 10 });
+        expect(air.quietRecords).toBe(10);
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'air.quiet', data: { records: 10 } }));
+    });
+
+    it('leaves the count off the air of a station that is not quiet', async () => {
+        const { service } = build();
+
+        expect(await service.getAir()).not.toHaveProperty('quietRecords');
+    });
+
+    it('ends a quiet spell, and answers a station that was not quiet without a feed line', async () => {
+        const { service, posted, activity } = build();
+        await service.keepQuiet({ records: 3 });
+
+        const air = await service.endQuiet();
+        expect(posted()).toContainEqual({ kind: 'quiet', records: 0 });
+        expect(air).not.toHaveProperty('quietRecords');
+
+        vi.mocked(activity.record).mockClear();
+        await service.endQuiet();
+        expect(activity.record).not.toHaveBeenCalled();
     });
 
     it('releases a station that was never held, rather than arguing about it', async () => {
@@ -2310,7 +2347,7 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
     };
 
     it('takes out every record the catalog now forbids, whatever level said so', async () => {
-        // The point of going through `ratingsFor` rather than matching on the artist: the caller
+        // The point of going through `standingsFor` rather than matching on the artist: the caller
         // says which records may not play and the veto never has to know whether it was the song,
         // the record, the lead artist or a guest credit that forbade them.
         const order = onAirWith(4);
@@ -2364,7 +2401,7 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
 
         await service.vetoDisliked('Grateful Dead');
 
-        expect(candidates.ratingsFor).toHaveBeenCalledWith(['trk_0', 'trk_1', 'trk_2']);
+        expect(candidates.standingsFor).toHaveBeenCalledWith(['trk_0', 'trk_1', 'trk_2']);
     });
 
     it('records one feed row naming what the station was told, not one per record', async () => {

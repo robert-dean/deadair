@@ -203,6 +203,36 @@ operation /director/air/hold: {
     }
 }
 
+operation /director/air/quiet: {
+    put: { # Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count
+        name: Keep the station quiet
+        service: DirectorConsoleService.keepQuiet
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: QuietStationInput
+        }
+        response: {
+            200: {
+                application/json: StationAir
+            }
+        }
+    }
+    delete: { # Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused
+        name: End the quiet spell
+        service: DirectorConsoleService.endQuiet
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationAir
+            }
+        }
+    }
+}
+
 operation /director/air/shuffle: {
     post: { # Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
         name: Shuffle the running order

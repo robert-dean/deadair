@@ -84,5 +84,5 @@ Then hear each one in the console, as in step 2.
 ## Next
 
 - [Make a voice](./making-a-voice.md), if the trouble is the voice rather than one word.
-- [Readings](../features/narrations.md): a book the station reads aloud uses the same table, which
-  helps with one full of invented names.
+- [Read a book on air](./read-a-book.md): readings use the same table, which helps with a book full of
+  invented names.

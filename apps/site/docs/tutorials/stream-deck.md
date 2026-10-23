@@ -82,5 +82,4 @@ With nothing to rate, such as during a break, Like and Dislike go faint and do n
 
 - [Run the station from your phone](./phone-remote.md), for the rest of the desk away from the
   console.
-- [Your opinion, and the rules nothing gets round](../features/programme.md#your-opinion-and-the-rules-nothing-gets-round),
-  for what a dislike does and the rules that go further.
+- [Keep records off the air](./house-rules.md), for what a dislike does and the rules that go further.

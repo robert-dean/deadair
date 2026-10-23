@@ -41,6 +41,8 @@ A record's page shows its title, artist, album, year and duration, and then:
 
 The tracks list filters by state: On this machine, Not fetched, Unmeasured, Failing and Benched. A zero under the last two is the answer you want.
 
+Once anything has been measured, a second line filters by the measurement itself. **Measured by** lists each analyzer that has measured records here, or tried to, with how many. Choose one to see every record it touched, which is where to start when a detector has been wrong about a kind of record. Beside it, failed measurements are counted by kind: **could not fetch** and **stopped early** are tried again within the hour, and **would not decode** after a day, since retrying sooner reads the same file. A record's page says which kind its failure was.
+
 ## Measuring each record
 
 Records rarely start and stop where the file does. A measurement program beside the station decodes each record and answers with four points (where the sound starts, where the intro ends, where the ending begins, where the sound stops) and its loudness to the EBU R128 standard. With them the station trims the silence at head and tail, knows how long a presenter may talk over an intro, sizes each blend from what both records do, and sets every record to one target loudness, so a quiet 1970s pressing and a loud modern master arrive level.

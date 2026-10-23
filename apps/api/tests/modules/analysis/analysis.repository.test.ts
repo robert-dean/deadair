@@ -17,13 +17,13 @@ interface Captured {
 }
 
 /** A database that compiles the statement for real and answers with no rows, since only the SQL matters here. */
-function fakeDb(captured: Captured): Kysely<DB> {
+function fakeDb(captured: Captured, rows: unknown[] = []): Kysely<DB> {
     const postgres = new PostgresDialect({ pool: {} as never });
 
     const connection: DatabaseConnection = {
         executeQuery: async compiled => {
             captured.statements.push({ sql: compiled.sql, parameters: compiled.parameters });
-            return { rows: [] } as QueryResult<never>;
+            return { rows } as QueryResult<never>;
         },
         streamQuery: () => {
             throw new Error('nothing here streams');
@@ -85,5 +85,27 @@ describe('AnalysisRepository.listTracksNeedingAnalysis', () => {
         expect(sql).toContain('a.schema_version <');
         expect(sql).toContain("a.failure_code in ('unfetchable', 'truncated')");
         expect(sql).toContain('order by src.is_local desc, t.created_at asc');
+    });
+});
+
+describe('AnalysisRepository.stateFor', () => {
+    const stateFor = (row: Record<string, unknown>) => new AnalysisRepository(fakeDb({ statements: [] }, [row])).stateFor('t-1');
+
+    it('reports the kind of a failure the walk stored', async () => {
+        const state = await stateFor({ schemaVersion: 1, complete: false, failedAt: '2026-10-23T03:12:00Z', failureCode: 'unfetchable' });
+
+        expect(state).toMatchObject({ failureCode: 'unfetchable' });
+    });
+
+    it('reads a failure stored before the kind was kept as undecodable, the clock it is retried on', async () => {
+        const state = await stateFor({ schemaVersion: 1, complete: false, failedAt: '2026-10-23T03:12:00Z', failureCode: undefined });
+
+        expect(state).toMatchObject({ failureCode: 'undecodable' });
+    });
+
+    it('carries no kind at all for a measurement that worked', async () => {
+        const state = await stateFor({ schemaVersion: 1, complete: true, analyzedAt: '2026-10-23T03:12:00Z', failureCode: undefined });
+
+        expect(state).not.toHaveProperty('failureCode');
     });
 });

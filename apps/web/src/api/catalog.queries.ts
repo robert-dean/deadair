@@ -1,9 +1,9 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { Album, Artist, CatalogSort, Rating, TrackSort, TrackState, VocalMarkersDetail, VocalMarkersInput } from '@deadair/sdk';
+import type { Album, Artist, CatalogSort, MeasureFailure, Rating, TrackSort, TrackState, VocalMarkersDetail, VocalMarkersInput } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
-import { DEFAULT_PAGE_SIZE, TRACK_STATES } from '../components/catalog/catalog.page.params';
+import { DEFAULT_PAGE_SIZE, MEASURE_FAILURES, TRACK_STATES } from '../components/catalog/catalog.page.params';
 
 /**
  * How long a catalog read stays fresh.
@@ -46,6 +46,10 @@ export interface CatalogPageInput<TSort extends CatalogSort | TrackSort = Catalo
 /** A page of tracks, which can also be narrowed by what the station has of each record. */
 export interface CatalogTrackPageInput extends CatalogPageInput<TrackSort> {
     state?: string;
+    /** An analysis plugin id. Empty or absent is no filter. */
+    analyzer?: string;
+    /** A kind of failed measurement. Empty or absent is no filter. */
+    failure?: string;
 }
 
 /**
@@ -199,11 +203,17 @@ export function catalogTrackLyricsSourcesOptions(id: string) {
 
 export function catalogTracksOptions(input: CatalogTrackPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state, order(input)),
+        queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state, order(input), measurementOf(input)),
         // The state rides the same query as the page and the search, so a filtered list is a
         // different request rather than the same one filtered afterwards — which is what keeps
         // `meta.total` describing the set the pager is paging through.
-        queryFn: () => sdk.catalog.listTracks({ ...pageQuery(input), state: trackState(input.state) }),
+        queryFn: () =>
+            sdk.catalog.listTracks({
+                ...pageQuery(input),
+                state: trackState(input.state),
+                ...(input.analyzer ? { analyzer: input.analyzer } : {}),
+                ...(measureFailure(input.failure) === undefined ? {} : { measureFailure: measureFailure(input.failure) }),
+            }),
         staleTime: CATALOG_STALE_TIME,
         placeholderData: keepPreviousData,
     });
@@ -211,6 +221,13 @@ export function catalogTracksOptions(input: CatalogTrackPageInput) {
 
 /** An empty filter is no filter, matching how `search` is dropped rather than sent empty. */
 const trackState = (state: string | undefined): TrackState | undefined => TRACK_STATES.find((known): known is TrackState => known === state);
+
+/** {@link trackState} for the kind of failed measurement. */
+const measureFailure = (failure: string | undefined): MeasureFailure | undefined =>
+    MEASURE_FAILURES.find((known): known is MeasureFailure => known === failure);
+
+/** The two measurement filters as one key segment, so a list narrowed by either is its own cache entry. */
+const measurementOf = (input: CatalogTrackPageInput): string => `${input.analyzer ?? ''}|${input.failure ?? ''}`;
 
 /**
  * Every cached list that could be showing a row of this kind, marked stale.

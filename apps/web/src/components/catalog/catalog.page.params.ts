@@ -42,6 +42,11 @@ export const TRACK_STATES = ['cached', 'uncached', 'unmeasured', 'benched', 'fai
 
 export type TrackStateParam = (typeof TRACK_STATES)[number];
 
+/** The kinds of failed measurement, matching the API's `MeasureFailure`, restated for `TRACK_STATES`' reason. */
+export const MEASURE_FAILURES = ['unfetchable', 'undecodable', 'truncated'] as const;
+
+export type MeasureFailureParam = (typeof MEASURE_FAILURES)[number];
+
 /**
  * The two sort vocabularies, matching the API's `CatalogSort` and `TrackSort`.
  *
@@ -79,13 +84,17 @@ export interface CatalogTrackParams extends TrackListOrder {
     search: string;
     /** Empty means every record, for the same reason `search` is a string rather than undefined. */
     state: TrackStateParam | '';
+    /** The analysis plugin whose records to show. Empty means every record. */
+    analyzer: string;
+    /** The kind of failed measurement to show. Empty means every record. */
+    failure: MeasureFailureParam | '';
 }
 
 /** What the routes strip back out of the URL, so a list at rest has no query string at all. */
 export const CATALOG_SEARCH_DEFAULTS: CatalogPageParams = { page: 0, search: '', ...orderDefaults('name') };
 
 /** The tracks list carries one more, and strips it the same way. */
-export const CATALOG_TRACK_DEFAULTS: CatalogTrackParams = { page: 0, search: '', state: '', ...orderDefaults('title') };
+export const CATALOG_TRACK_DEFAULTS: CatalogTrackParams = { page: 0, search: '', state: '', analyzer: '', failure: '', ...orderDefaults('title') };
 
 /** One artist's albums, on the artist detail page: ordered like the artists list, with no search box. */
 export const CATALOG_ALBUM_DEFAULTS = { page: 0, ...orderDefaults('name') };
@@ -139,11 +148,16 @@ export function validateCatalogSearch(input: Record<string, unknown>): CatalogPa
 /** {@link validateCatalogSearch} plus the state filter, which the tracks list alone carries. */
 export function validateCatalogTracks(input: Record<string, unknown>): CatalogTrackParams {
     const state = TRACK_STATES.find(known => known === input.state);
+    const failure = MEASURE_FAILURES.find(known => known === input.failure);
     return {
         page: validatePage(input),
         search: typeof input.search === 'string' ? input.search : '',
         ...validateOrder(input, TRACK_SORTS, 'title'),
         state: state ?? '',
+        // Any plugin id at all, since which analyzers exist is the station's answer rather than this
+        // file's; one nothing measured with is an empty list, which says so.
+        analyzer: typeof input.analyzer === 'string' ? input.analyzer : '',
+        failure: failure ?? '',
     };
 }
 

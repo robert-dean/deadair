@@ -22,17 +22,21 @@ import { RatingControl } from './rating.control';
 import { TrackSortSelect } from './track.sort.select';
 import { TrackStateAction } from './track.state.action';
 import { TrackStateFilter } from './track.state.filter';
+import { TrackMeasurementFilter, type TrackMeasurement } from './track.measurement.filter';
 import { TrackEnrichmentCollapse, TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface CatalogTracksPageProps {
     page: number;
     search: string;
     state: TrackStateParam | '';
+    /** Which analysis plugin measured a record and which way it failed, beside the state. */
+    measurement: TrackMeasurement;
     /** How this list is ordered and how much of it is shown, carried in the URL. */
     order: TrackListOrder;
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
     onStateChange: (state: TrackStateParam | '') => void;
+    onMeasurementChange: (measurement: TrackMeasurement) => void;
     /** A new ordering, whole: changing any part of it is one gesture and resets the page. */
     onOrderChange: (order: TrackListOrder) => void;
 }
@@ -53,7 +57,7 @@ export interface CatalogTracksPageProps {
  * would otherwise read as an empty catalog. They deliberately do not honour the STATE, which is why
  * `total` is trustworthy as the library's size by the time the state is asked about.
  */
-function NothingHere({ search, state, total }: { search: string; state: TrackStateParam | ''; total: number }) {
+function NothingHere({ search, state, measured, total }: { search: string; state: TrackStateParam | ''; measured: boolean; total: number }) {
     const { t } = useTranslation('catalog');
     if (search !== '') {
         return <EmptyState title={t('tracks.noMatch.title', { search })}>{t('tracks.noMatch.body')}</EmptyState>;
@@ -62,6 +66,9 @@ function NothingHere({ search, state, total }: { search: string; state: TrackSta
     if (total === 0) {
         return <EmptyState title={t('tracks.empty.title')}>{t('tracks.empty.body')}</EmptyState>;
     }
+
+    // Before the state, because the state's own sentence would claim the whole library is in it.
+    if (measured) return <EmptyState title={t('tracks.nothingMeasured.title')}>{t('tracks.nothingMeasured.body')}</EmptyState>;
 
     if (state !== '') return <EmptyState title={t('tracks.nothingInState.title')}>{t(`tracks.nothingInState.${state}`)}</EmptyState>;
 
@@ -101,14 +108,17 @@ export function CatalogTracksPage({
     page,
     search,
     state,
+    measurement,
     order,
     onPageChange,
     onSearchChange,
     onStateChange,
+    onMeasurementChange,
     onOrderChange,
 }: CatalogTracksPageProps) {
     const { t } = useTranslation('catalog');
-    const tracks = useQuery(catalogTracksOptions({ page, search, state, ...order }));
+    const tracks = useQuery(catalogTracksOptions({ page, search, state, ...measurement, ...order }));
+    const measured = measurement.analyzer !== '' || measurement.failure !== '';
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
     const rate = useRateTrack();
@@ -141,6 +151,8 @@ export function CatalogTracksPage({
                 narrowed to, and reading them above the box they answer to would be backwards. */}
             <TrackStateFilter counts={tracks.data?.states} value={state} onChange={onStateChange} />
 
+            <TrackMeasurementFilter counts={tracks.data?.states} value={measurement} onChange={onMeasurementChange} />
+
             {/* Under the filter and above the table, because it acts on what the filter chose and on
                 the rows drawn below it. Draws nothing outside the two fault states: most of a
                 library is `uncached`, and a bulk verb over that is a re-fetch of everything. */}
@@ -166,7 +178,7 @@ export function CatalogTracksPage({
                 errorTitle={t('tracks.loadFailedTitle')}
                 errorFallback={t('tracks.loadFailedFallback')}
                 isEmpty={() => rows.length === 0}
-                empty={data => <NothingHere search={search} state={state} total={data.states.total} />}
+                empty={data => <NothingHere search={search} state={state} measured={measured} total={data.states.total} />}
             >
                 {data =>
                     phone ? (

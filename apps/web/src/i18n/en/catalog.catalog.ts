@@ -34,6 +34,10 @@ export const catalog = {
             failing: 'No fetch is failing.',
             benched: 'No record has had all its copies written off.',
         },
+        nothingMeasured: {
+            title: 'Nothing matches',
+            body: 'No record here was measured by that analyzer, or failed that way. Clear the measurement filter to see the rest.',
+        },
         nothingToShow: {
             title: 'Nothing to show',
             body: 'This page of the catalog has no records on it.',
@@ -42,6 +46,18 @@ export const catalog = {
             audio: { label: 'audio on this machine', text: 'audio', tooltip: 'Has audio on this machine' },
             measured: { label: 'measured', text: 'measured', tooltip: 'Has measured' },
             described: { label: 'described by a provider', text: 'described', tooltip: 'Has described by a provider' },
+        },
+    },
+    measurementFilter: {
+        analyzerLabel: 'Measured by',
+        anyAnalyzer: 'Any analyzer',
+        analyzerOption_one: '{{pluginId}} ({{records}} record)',
+        analyzerOption_other: '{{pluginId}} ({{records}} records)',
+        failedLabel: 'Measurement failed:',
+        failure: {
+            unfetchable: 'could not fetch',
+            truncated: 'stopped early',
+            undecodable: 'would not decode',
         },
     },
     stateFilter: {
@@ -124,6 +140,12 @@ export const catalog = {
             by: 'By',
             schema: 'Schema',
             whyFailed: 'Why it failed',
+            kind: 'What went wrong',
+            kinds: {
+                unfetchable: 'Could not fetch it. Tried again within the hour',
+                truncated: 'The fetch stopped early. Tried again within the hour',
+                undecodable: 'The file would not decode. Tried again after a day',
+            },
         },
         vocal: {
             eyebrow: 'Singing',

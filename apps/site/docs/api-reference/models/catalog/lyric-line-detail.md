@@ -1,6 +1,6 @@
 ---
 title: 'LyricLineDetail'
-sidebar_position: 13
+sidebar_position: 14
 mdx:
     format: 'md'
 ---

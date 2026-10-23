@@ -60,7 +60,7 @@ const track = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-const counts = (overrides: Record<string, number> = {}) => ({
+const counts = (overrides: Record<string, unknown> = {}) => ({
     total: 1,
     cached: 0,
     measured: 0,
@@ -71,8 +71,13 @@ const counts = (overrides: Record<string, number> = {}) => ({
     synced: 0,
     instrumental: 0,
     moods: 0,
+    analyzers: [] as { pluginId: string; count: number }[],
+    measureFailures: { unfetchable: 0, undecodable: 0, truncated: 0 },
     ...overrides,
 });
+
+/** No measurement filter chosen, which is how the list opens. */
+const NO_MEASUREMENT = { analyzer: '', failure: '' as const };
 
 const page = (data: unknown[], total = data.length, states = counts({ total })) => ({
     meta: { total, page: 0, pageSize: 50, sort: 'asc' },
@@ -107,6 +112,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -127,6 +134,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -149,6 +158,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -177,6 +188,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -198,6 +211,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -226,6 +241,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
         await screen.findByText('Vaka');
@@ -256,6 +273,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
         await screen.findByText('Vaka');
@@ -282,6 +301,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -308,6 +329,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -329,6 +352,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -350,12 +375,94 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={onStateChange}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
         await screen.findByText('Vaka');
 
         expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ state: 'failing' }));
         expect(screen.getByRole('checkbox', { name: /Failing/ })).toBeChecked();
+    });
+
+    describe('the measurement filters', () => {
+        const draw = (measurement: { analyzer: string; failure: '' | 'unfetchable' | 'undecodable' | 'truncated' }, onMeasurementChange = vi.fn()) =>
+            render(
+                <CatalogTracksPage
+                    order={ORDER('title')}
+                    onOrderChange={noop}
+                    page={0}
+                    search=""
+                    state=""
+                    onPageChange={noop}
+                    onSearchChange={noop}
+                    onStateChange={noop}
+                    measurement={measurement}
+                    onMeasurementChange={onMeasurementChange}
+                />,
+            );
+
+        it('offers each analyzer that measured anything, and narrows to the one chosen', async () => {
+            listTracks.mockResolvedValue(page([track()], 4, counts({ total: 4, analyzers: [{ pluginId: 'deadair.analyzer', count: 3 }] })));
+            const onMeasurementChange = vi.fn();
+            const user = userEvent.setup();
+            draw(NO_MEASUREMENT, onMeasurementChange);
+
+            await user.click(await screen.findByRole('combobox', { name: 'Measured by' }));
+            await user.click(await screen.findByRole('option', { name: 'deadair.analyzer (3 records)' }));
+
+            expect(onMeasurementChange).toHaveBeenCalledWith({ analyzer: 'deadair.analyzer', failure: '' });
+        });
+
+        it('asks for the chosen analyzer and kind of failure beside the rest of the query', async () => {
+            listTracks.mockResolvedValue(
+                page(
+                    [track()],
+                    4,
+                    counts({
+                        total: 4,
+                        analyzers: [{ pluginId: 'deadair.analyzer', count: 3 }],
+                        measureFailures: { unfetchable: 0, undecodable: 0, truncated: 2 },
+                    }),
+                ),
+            );
+            draw({ analyzer: 'deadair.analyzer', failure: 'truncated' });
+            await screen.findByText('Vaka');
+
+            expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ analyzer: 'deadair.analyzer', measureFailure: 'truncated' }));
+            expect(screen.getByRole('checkbox', { name: /stopped early/ })).toBeChecked();
+        });
+
+        it('says nothing about measurement on a station nothing has measured', async () => {
+            listTracks.mockResolvedValue(page([track()]));
+            draw(NO_MEASUREMENT);
+            await screen.findByText('Vaka');
+
+            expect(screen.queryByRole('combobox', { name: 'Measured by' })).not.toBeInTheDocument();
+            expect(screen.queryByText(/Measurement failed/)).not.toBeInTheDocument();
+        });
+
+        it('offers the kinds of failure only once a measurement has failed, each with its count', async () => {
+            listTracks.mockResolvedValue(
+                page(
+                    [track()],
+                    4,
+                    counts({
+                        total: 4,
+                        analyzers: [{ pluginId: 'deadair.analyzer', count: 3 }],
+                        measureFailures: { unfetchable: 2, undecodable: 0, truncated: 0 },
+                    }),
+                ),
+            );
+            const onMeasurementChange = vi.fn();
+            const user = userEvent.setup();
+            draw(NO_MEASUREMENT, onMeasurementChange);
+
+            await user.click(await screen.findByRole('checkbox', { name: /could not fetch/ }));
+
+            expect(onMeasurementChange).toHaveBeenCalledWith({ analyzer: '', failure: 'unfetchable' });
+            expect(screen.getByRole('checkbox', { name: /would not decode/ })).toBeDisabled();
+        });
     });
 
     // Zero benched records is a fact worth seeing, so the chip is drawn and disabled rather than
@@ -373,6 +480,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -402,6 +511,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
         await screen.findByText(/records are ready to air right now/);
@@ -432,6 +543,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -453,6 +566,8 @@ describe('CatalogTracksPage', () => {
                 onPageChange={noop}
                 onSearchChange={noop}
                 onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
             />,
         );
 
@@ -474,6 +589,8 @@ describe('CatalogTracksPage', () => {
                     onPageChange={noop}
                     onSearchChange={noop}
                     onStateChange={noop}
+                    measurement={NO_MEASUREMENT}
+                    onMeasurementChange={noop}
                 />,
             );
         };

@@ -1,6 +1,6 @@
 ---
 title: 'TrackStateCounts'
-sidebar_position: 24
+sidebar_position: 25
 mdx:
     format: 'md'
 ---
@@ -13,19 +13,21 @@ mdx:
 > read as N of M without reaching into the pager.
 
 <details>
-<summary>Attributes (10)</summary>
+<summary>Attributes (12)</summary>
 
-| Attribute      | Type     | Required | Description                                                                                                 |
-| -------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------- |
-| `total`        | `number` | Yes      | _read-only_                                                                                                 |
-| `cached`       | `number` | Yes      | _read-only_                                                                                                 |
-| `measured`     | `number` | Yes      | _read-only_                                                                                                 |
-| `enriched`     | `number` | Yes      | _read-only_                                                                                                 |
-| `benched`      | `number` | Yes      | _read-only_                                                                                                 |
-| `failing`      | `number` | Yes      | _read-only_                                                                                                 |
-| `lyrics`       | `number` | Yes      | A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`. _read-only_ |
-| `synced`       | `number` | Yes      | A lyrics source has the timing of its lines, which says when the singing starts. _read-only_                |
-| `instrumental` | `number` | Yes      | A lyrics source says nobody sings on it. _read-only_                                                        |
-| `moods`        | `number` | Yes      | A model has judged what mood it is in. _read-only_                                                          |
+| Attribute         | Type                   | Required | Description                                                                                                                  |
+| ----------------- | ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `total`           | `number`               | Yes      | _read-only_                                                                                                                  |
+| `cached`          | `number`               | Yes      | _read-only_                                                                                                                  |
+| `measured`        | `number`               | Yes      | _read-only_                                                                                                                  |
+| `enriched`        | `number`               | Yes      | _read-only_                                                                                                                  |
+| `benched`         | `number`               | Yes      | _read-only_                                                                                                                  |
+| `failing`         | `number`               | Yes      | _read-only_                                                                                                                  |
+| `lyrics`          | `number`               | Yes      | A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`. _read-only_                  |
+| `synced`          | `number`               | Yes      | A lyrics source has the timing of its lines, which says when the singing starts. _read-only_                                 |
+| `instrumental`    | `number`               | Yes      | A lyrics source says nobody sings on it. _read-only_                                                                         |
+| `moods`           | `number`               | Yes      | A model has judged what mood it is in. _read-only_                                                                           |
+| `analyzers`       | `TrackAnalyzerCount[]` | Yes      | Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from. _read-only_ |
+| `measureFailures` | `MeasureFailureCounts` | Yes      | How many measurements failed, by kind. _read-only_                                                                           |
 
 </details>

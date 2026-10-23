@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
-import type { AnalysisFailureCode, TrackAnalysis, TrackCuePoints } from '@deadair/plugin-sdk';
+import { ANALYSIS_FAILURE_CODES, type AnalysisFailureCode, type TrackAnalysis, type TrackCuePoints } from '@deadair/plugin-sdk';
 import { DataRepository } from '../data/data.repository.js';
 import { toJsonb } from '../data/jsonb.js';
 
@@ -282,11 +282,18 @@ export class AnalysisRepository extends DataRepository {
      * be something no reader will use.
      */
     async stateFor(trackId: string) {
-        return await this.db
+        const row = await this.db
             .selectFrom('deadair.trackAnalysis')
-            .select(['schemaVersion', 'complete', 'analyzer', 'analyzerPluginId', 'analyzedAt', 'failedAt', 'failureReason'])
+            .select(['schemaVersion', 'complete', 'analyzer', 'analyzerPluginId', 'analyzedAt', 'failedAt', 'failureReason', 'failureCode'])
             .where('trackId', '=', trackId)
             .executeTakeFirst();
+        if (row === undefined) return undefined;
+
+        const { failureCode, ...rest } = row;
+        // A failure written before 0086 has no code and is retried as `undecodable` is, so it is
+        // reported as one. A row that did not fail carries none at all.
+        if (row.failedAt == null) return rest;
+        return { ...rest, failureCode: isFailureCode(failureCode) ? failureCode : 'undecodable' };
     }
 
     /**
@@ -348,3 +355,7 @@ export class AnalysisRepository extends DataRepository {
         return found;
     }
 }
+
+/** Whether a stored code is one the SDK still names. The column is free text, so a read checks. */
+const isFailureCode = (code: string | null | undefined): code is AnalysisFailureCode =>
+    typeof code === 'string' && (ANALYSIS_FAILURE_CODES as readonly string[]).includes(code);

@@ -182,80 +182,59 @@ public struct TrackBindingInput: Codable, Equatable, Sendable {
     }
 }
 
-/// What the measurement sidecar made of a record.
+/// Why a measurement failed, as the station retries it.
 ///
-/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
-/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
-/// the app filters on `complete` and a page that showed only a date would be reporting a record as
-/// measured that nothing will use the measurement of.
-public struct TrackAnalysis: Codable, Equatable, Sendable {
-    public var schemaVersion: Int
-    public var complete: Bool
-    /// The measuring thing itself, which is not the plugin adapting it
-    public var analyzer: String?
-    public var analyzerPluginId: String?
-    public var analyzedAt: Date?
-    public var failedAt: Date?
-    public var failureReason: String?
+///   unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour
+///   truncated    the fetch stopped part of the way through. Tried again within the hour
+///   undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again
+///
+/// A failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on.
+public enum MeasureFailure: Codable, CaseIterable, Hashable, Sendable {
+    case unfetchable
+    case undecodable
+    case truncated
 
-    public init(schemaVersion: Int, complete: Bool, analyzer: String? = nil, analyzerPluginId: String? = nil, analyzedAt: Date? = nil, failedAt: Date? = nil, failureReason: String? = nil) {
-        self.schemaVersion = schemaVersion
-        self.complete = complete
-        self.analyzer = analyzer
-        self.analyzerPluginId = analyzerPluginId
-        self.analyzedAt = analyzedAt
-        self.failedAt = failedAt
-        self.failureReason = failureReason
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [MeasureFailure] = [.unfetchable, .undecodable, .truncated]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .unfetchable: return "unfetchable"
+        case .undecodable: return "undecodable"
+        case .truncated: return "truncated"
+        case .unknown: return nil
+        }
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case schemaVersion = "schemaVersion"
-        case complete = "complete"
-        case analyzer = "analyzer"
-        case analyzerPluginId = "analyzerPluginId"
-        case analyzedAt = "analyzedAt"
-        case failedAt = "failedAt"
-        case failureReason = "failureReason"
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "unfetchable": self = .unfetchable
+        case "undecodable": self = .undecodable
+        case "truncated": self = .truncated
+        default: return nil
+        }
     }
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
-        self.complete = try container.decode(Bool.self, forKey: .complete)
-        self.analyzer = try container.decodeIfPresent(String.self, forKey: .analyzer)
-        self.analyzerPluginId = try container.decodeIfPresent(String.self, forKey: .analyzerPluginId)
-        self.analyzedAt = try container.decodeIfPresent(Date.self, forKey: .analyzedAt)
-        self.failedAt = try container.decodeIfPresent(Date.self, forKey: .failedAt)
-        self.failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
     }
 
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.schemaVersion, forKey: .schemaVersion)
-        try container.encode(self.complete, forKey: .complete)
-        try container.encodeIfPresent(self.analyzer, forKey: .analyzer)
-        try container.encodeIfPresent(self.analyzerPluginId, forKey: .analyzerPluginId)
-        try container.encodeIfPresent(self.analyzedAt, forKey: .analyzedAt)
-        try container.encodeIfPresent(self.failedAt, forKey: .failedAt)
-        try container.encodeIfPresent(self.failureReason, forKey: .failureReason)
-    }
-}
-
-/// What the measurement sidecar made of a record.
-///
-/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
-/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
-/// the app filters on `complete` and a page that showed only a date would be reporting a record as
-/// measured that nothing will use the measurement of.
-public struct TrackAnalysisInput: Codable, Equatable, Sendable {
-    public init() {}
-
-    public init(from decoder: Decoder) throws {
-        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "MeasureFailure.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -721,90 +700,82 @@ public enum TrackSort: Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// How much of the library is in each state, over the whole filtered set rather than this page.
-///
-/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
-/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
-/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
-/// read as N of M without reaching into the pager.
-public struct TrackStateCounts: Codable, Equatable, Sendable {
-    public var total: Int
-    public var cached: Int
-    public var measured: Int
-    public var enriched: Int
-    public var benched: Int
-    public var failing: Int
-    /// A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
-    public var lyrics: Int
-    /// A lyrics source has the timing of its lines, which says when the singing starts
-    public var synced: Int
-    /// A lyrics source says nobody sings on it
-    public var instrumental: Int
-    /// A model has judged what mood it is in
-    public var moods: Int
+/// How many records one analysis plugin measured or tried to.
+public struct TrackAnalyzerCount: Codable, Equatable, Sendable {
+    public var pluginId: String
+    public var count: Int
 
-    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int, moods: Int) {
-        self.total = total
-        self.cached = cached
-        self.measured = measured
-        self.enriched = enriched
-        self.benched = benched
-        self.failing = failing
-        self.lyrics = lyrics
-        self.synced = synced
-        self.instrumental = instrumental
-        self.moods = moods
+    public init(pluginId: String, count: Int) {
+        self.pluginId = pluginId
+        self.count = count
     }
 
     private enum CodingKeys: String, CodingKey {
-        case total = "total"
-        case cached = "cached"
-        case measured = "measured"
-        case enriched = "enriched"
-        case benched = "benched"
-        case failing = "failing"
-        case lyrics = "lyrics"
-        case synced = "synced"
-        case instrumental = "instrumental"
-        case moods = "moods"
+        case pluginId = "pluginId"
+        case count = "count"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.total = try container.decode(Int.self, forKey: .total)
-        self.cached = try container.decode(Int.self, forKey: .cached)
-        self.measured = try container.decode(Int.self, forKey: .measured)
-        self.enriched = try container.decode(Int.self, forKey: .enriched)
-        self.benched = try container.decode(Int.self, forKey: .benched)
-        self.failing = try container.decode(Int.self, forKey: .failing)
-        self.lyrics = try container.decode(Int.self, forKey: .lyrics)
-        self.synced = try container.decode(Int.self, forKey: .synced)
-        self.instrumental = try container.decode(Int.self, forKey: .instrumental)
-        self.moods = try container.decode(Int.self, forKey: .moods)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.count = try container.decode(Int.self, forKey: .count)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.total, forKey: .total)
-        try container.encode(self.cached, forKey: .cached)
-        try container.encode(self.measured, forKey: .measured)
-        try container.encode(self.enriched, forKey: .enriched)
-        try container.encode(self.benched, forKey: .benched)
-        try container.encode(self.failing, forKey: .failing)
-        try container.encode(self.lyrics, forKey: .lyrics)
-        try container.encode(self.synced, forKey: .synced)
-        try container.encode(self.instrumental, forKey: .instrumental)
-        try container.encode(self.moods, forKey: .moods)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.count, forKey: .count)
     }
 }
 
-/// How much of the library is in each state, over the whole filtered set rather than this page.
-///
-/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
-/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
-/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
-/// read as N of M without reaching into the pager.
-public struct TrackStateCountsInput: Codable, Equatable, Sendable {
+/// How many records one analysis plugin measured or tried to.
+public struct TrackAnalyzerCountInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// Failed measurements by kind. See `MeasureFailure`.
+public struct MeasureFailureCounts: Codable, Equatable, Sendable {
+    public var unfetchable: Int
+    public var undecodable: Int
+    public var truncated: Int
+
+    public init(unfetchable: Int, undecodable: Int, truncated: Int) {
+        self.unfetchable = unfetchable
+        self.undecodable = undecodable
+        self.truncated = truncated
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case unfetchable = "unfetchable"
+        case undecodable = "undecodable"
+        case truncated = "truncated"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.unfetchable = try container.decode(Int.self, forKey: .unfetchable)
+        self.undecodable = try container.decode(Int.self, forKey: .undecodable)
+        self.truncated = try container.decode(Int.self, forKey: .truncated)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.unfetchable, forKey: .unfetchable)
+        try container.encode(self.undecodable, forKey: .undecodable)
+        try container.encode(self.truncated, forKey: .truncated)
+    }
+}
+
+/// Failed measurements by kind. See `MeasureFailure`.
+public struct MeasureFailureCountsInput: Codable, Equatable, Sendable {
     public init() {}
 
     public init(from decoder: Decoder) throws {
@@ -1335,6 +1306,89 @@ public struct TrackInput: Codable, Equatable, Sendable {
     }
 }
 
+/// What the measurement sidecar made of a record.
+///
+/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+/// the app filters on `complete` and a page that showed only a date would be reporting a record as
+/// measured that nothing will use the measurement of.
+public struct TrackAnalysis: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var complete: Bool
+    /// The measuring thing itself, which is not the plugin adapting it
+    public var analyzer: String?
+    public var analyzerPluginId: String?
+    public var analyzedAt: Date?
+    public var failedAt: Date?
+    public var failureReason: String?
+    /// Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is
+    public var failureCode: MeasureFailure?
+
+    public init(schemaVersion: Int, complete: Bool, analyzer: String? = nil, analyzerPluginId: String? = nil, analyzedAt: Date? = nil, failedAt: Date? = nil, failureReason: String? = nil, failureCode: MeasureFailure? = nil) {
+        self.schemaVersion = schemaVersion
+        self.complete = complete
+        self.analyzer = analyzer
+        self.analyzerPluginId = analyzerPluginId
+        self.analyzedAt = analyzedAt
+        self.failedAt = failedAt
+        self.failureReason = failureReason
+        self.failureCode = failureCode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schemaVersion"
+        case complete = "complete"
+        case analyzer = "analyzer"
+        case analyzerPluginId = "analyzerPluginId"
+        case analyzedAt = "analyzedAt"
+        case failedAt = "failedAt"
+        case failureReason = "failureReason"
+        case failureCode = "failureCode"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        self.complete = try container.decode(Bool.self, forKey: .complete)
+        self.analyzer = try container.decodeIfPresent(String.self, forKey: .analyzer)
+        self.analyzerPluginId = try container.decodeIfPresent(String.self, forKey: .analyzerPluginId)
+        self.analyzedAt = try container.decodeIfPresent(Date.self, forKey: .analyzedAt)
+        self.failedAt = try container.decodeIfPresent(Date.self, forKey: .failedAt)
+        self.failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
+        self.failureCode = try container.decodeIfPresent(MeasureFailure.self, forKey: .failureCode)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.schemaVersion, forKey: .schemaVersion)
+        try container.encode(self.complete, forKey: .complete)
+        try container.encodeIfPresent(self.analyzer, forKey: .analyzer)
+        try container.encodeIfPresent(self.analyzerPluginId, forKey: .analyzerPluginId)
+        try container.encodeIfPresent(self.analyzedAt, forKey: .analyzedAt)
+        try container.encodeIfPresent(self.failedAt, forKey: .failedAt)
+        try container.encodeIfPresent(self.failureReason, forKey: .failureReason)
+        try container.encodeIfPresent(self.failureCode, forKey: .failureCode)
+    }
+}
+
+/// What the measurement sidecar made of a record.
+///
+/// `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+/// argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+/// the app filters on `complete` and a page that showed only a date would be reporting a record as
+/// measured that nothing will use the measurement of.
+public struct TrackAnalysisInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// One timed line of a record's lyrics. Times are milliseconds from the start of the file.
 public struct LyricLineDetail: Codable, Equatable, Sendable {
     /// Where the line starts
@@ -1487,6 +1541,113 @@ public struct CatalogQueryInput: Codable, Equatable, Sendable {
         try container.encode(self.sort, forKey: .sort)
         try container.encodeIfPresent(self.search, forKey: .search)
         try container.encodeIfPresent(self.sortBy, forKey: .sortBy)
+    }
+}
+
+/// How much of the library is in each state, over the whole filtered set rather than this page.
+///
+/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+/// read as N of M without reaching into the pager.
+public struct TrackStateCounts: Codable, Equatable, Sendable {
+    public var total: Int
+    public var cached: Int
+    public var measured: Int
+    public var enriched: Int
+    public var benched: Int
+    public var failing: Int
+    /// A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
+    public var lyrics: Int
+    /// A lyrics source has the timing of its lines, which says when the singing starts
+    public var synced: Int
+    /// A lyrics source says nobody sings on it
+    public var instrumental: Int
+    /// A model has judged what mood it is in
+    public var moods: Int
+    /// Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from
+    public var analyzers: [TrackAnalyzerCount]
+    /// How many measurements failed, by kind
+    public var measureFailures: MeasureFailureCounts
+
+    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int, moods: Int, analyzers: [TrackAnalyzerCount], measureFailures: MeasureFailureCounts) {
+        self.total = total
+        self.cached = cached
+        self.measured = measured
+        self.enriched = enriched
+        self.benched = benched
+        self.failing = failing
+        self.lyrics = lyrics
+        self.synced = synced
+        self.instrumental = instrumental
+        self.moods = moods
+        self.analyzers = analyzers
+        self.measureFailures = measureFailures
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case total = "total"
+        case cached = "cached"
+        case measured = "measured"
+        case enriched = "enriched"
+        case benched = "benched"
+        case failing = "failing"
+        case lyrics = "lyrics"
+        case synced = "synced"
+        case instrumental = "instrumental"
+        case moods = "moods"
+        case analyzers = "analyzers"
+        case measureFailures = "measureFailures"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.total = try container.decode(Int.self, forKey: .total)
+        self.cached = try container.decode(Int.self, forKey: .cached)
+        self.measured = try container.decode(Int.self, forKey: .measured)
+        self.enriched = try container.decode(Int.self, forKey: .enriched)
+        self.benched = try container.decode(Int.self, forKey: .benched)
+        self.failing = try container.decode(Int.self, forKey: .failing)
+        self.lyrics = try container.decode(Int.self, forKey: .lyrics)
+        self.synced = try container.decode(Int.self, forKey: .synced)
+        self.instrumental = try container.decode(Int.self, forKey: .instrumental)
+        self.moods = try container.decode(Int.self, forKey: .moods)
+        self.analyzers = try container.decode([TrackAnalyzerCount].self, forKey: .analyzers)
+        self.measureFailures = try container.decode(MeasureFailureCounts.self, forKey: .measureFailures)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.total, forKey: .total)
+        try container.encode(self.cached, forKey: .cached)
+        try container.encode(self.measured, forKey: .measured)
+        try container.encode(self.enriched, forKey: .enriched)
+        try container.encode(self.benched, forKey: .benched)
+        try container.encode(self.failing, forKey: .failing)
+        try container.encode(self.lyrics, forKey: .lyrics)
+        try container.encode(self.synced, forKey: .synced)
+        try container.encode(self.instrumental, forKey: .instrumental)
+        try container.encode(self.moods, forKey: .moods)
+        try container.encode(self.analyzers, forKey: .analyzers)
+        try container.encode(self.measureFailures, forKey: .measureFailures)
+    }
+}
+
+/// How much of the library is in each state, over the whole filtered set rather than this page.
+///
+/// The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+/// [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+/// same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+/// read as N of M without reaching into the pager.
+public struct TrackStateCountsInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
     }
 }
 
@@ -1845,6 +2006,164 @@ public struct AlbumPageInput: Codable, Equatable, Sendable {
     }
 }
 
+/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
+///
+/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+/// the query that was already running — and everything wider (which providers, how many bytes, why the
+/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+/// the detail page in a table cell.
+public struct TrackRow: Codable, Equatable, Sendable {
+    public var id: UUID
+    public var title: String
+    public var artistId: UUID
+    public var artistName: String
+    /// Absent on a single ingested outside any release: `tracks.album_id` is nullable
+    public var albumId: UUID?
+    public var albumName: String?
+    /// The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording
+    public var albumImageUrl: String?
+    /// Display credit as written on the release ("X feat. Y"), not a join key
+    public var artists: String
+    public var genre: String?
+    public var year: Int?
+    public var durationMs: Int?
+    public var rating: Rating
+    /// The bytes are on this machine
+    public var hasAudio: Bool
+    /// Measured, COMPLETE, and at a schema version the station still trusts
+    public var measured: Bool
+    /// At least one provider has answered about it
+    public var enriched: Bool
+
+    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, hasAudio: Bool, measured: Bool, enriched: Bool) {
+        self.id = id
+        self.title = title
+        self.artistId = artistId
+        self.artistName = artistName
+        self.albumId = albumId
+        self.albumName = albumName
+        self.albumImageUrl = albumImageUrl
+        self.artists = artists
+        self.genre = genre
+        self.year = year
+        self.durationMs = durationMs
+        self.rating = rating
+        self.hasAudio = hasAudio
+        self.measured = measured
+        self.enriched = enriched
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+        case artistId = "artistId"
+        case artistName = "artistName"
+        case albumId = "albumId"
+        case albumName = "albumName"
+        case albumImageUrl = "albumImageUrl"
+        case artists = "artists"
+        case genre = "genre"
+        case year = "year"
+        case durationMs = "durationMs"
+        case rating = "rating"
+        case hasAudio = "hasAudio"
+        case measured = "measured"
+        case enriched = "enriched"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.artistId = try container.decode(UUID.self, forKey: .artistId)
+        self.artistName = try container.decode(String.self, forKey: .artistName)
+        self.albumId = try container.decodeIfPresent(UUID.self, forKey: .albumId)
+        self.albumName = try container.decodeIfPresent(String.self, forKey: .albumName)
+        self.albumImageUrl = try container.decodeIfPresent(String.self, forKey: .albumImageUrl)
+        self.artists = try container.decode(String.self, forKey: .artists)
+        self.genre = try container.decodeIfPresent(String.self, forKey: .genre)
+        self.year = try container.decodeIfPresent(Int.self, forKey: .year)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+        self.hasAudio = try container.decode(Bool.self, forKey: .hasAudio)
+        self.measured = try container.decode(Bool.self, forKey: .measured)
+        self.enriched = try container.decode(Bool.self, forKey: .enriched)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.artistId, forKey: .artistId)
+        try container.encode(self.artistName, forKey: .artistName)
+        try container.encodeIfPresent(self.albumId, forKey: .albumId)
+        try container.encodeIfPresent(self.albumName, forKey: .albumName)
+        try container.encodeIfPresent(self.albumImageUrl, forKey: .albumImageUrl)
+        try container.encode(self.artists, forKey: .artists)
+        try container.encodeIfPresent(self.genre, forKey: .genre)
+        try container.encodeIfPresent(self.year, forKey: .year)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encode(self.rating, forKey: .rating)
+        try container.encode(self.hasAudio, forKey: .hasAudio)
+        try container.encode(self.measured, forKey: .measured)
+        try container.encode(self.enriched, forKey: .enriched)
+    }
+}
+
+/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
+///
+/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+/// the query that was already running — and everything wider (which providers, how many bytes, why the
+/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+/// the detail page in a table cell.
+public struct TrackRowInput: Codable, Equatable, Sendable {
+    public var title: String
+    /// Display credit as written on the release ("X feat. Y"), not a join key
+    public var artists: String
+    public var genre: String?
+    public var year: Int?
+    public var durationMs: Int?
+    public var rating: Rating
+
+    public init(title: String, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral) {
+        self.title = title
+        self.artists = artists
+        self.genre = genre
+        self.year = year
+        self.durationMs = durationMs
+        self.rating = rating
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title = "title"
+        case artists = "artists"
+        case genre = "genre"
+        case year = "year"
+        case durationMs = "durationMs"
+        case rating = "rating"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.artists = try container.decode(String.self, forKey: .artists)
+        self.genre = try container.decodeIfPresent(String.self, forKey: .genre)
+        self.year = try container.decodeIfPresent(Int.self, forKey: .year)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.artists, forKey: .artists)
+        try container.encodeIfPresent(self.genre, forKey: .genre)
+        try container.encodeIfPresent(self.year, forKey: .year)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encode(self.rating, forKey: .rating)
+    }
+}
+
 /// Everything one record has accumulated, in one read.
 ///
 /// The enrichment is deliberately NOT here. It has its own operation already, answering
@@ -2023,164 +2342,6 @@ public struct TrackDetailInput: Codable, Equatable, Sendable {
     }
 }
 
-/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
-///
-/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
-/// the query that was already running — and everything wider (which providers, how many bytes, why the
-/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
-/// the detail page in a table cell.
-public struct TrackRow: Codable, Equatable, Sendable {
-    public var id: UUID
-    public var title: String
-    public var artistId: UUID
-    public var artistName: String
-    /// Absent on a single ingested outside any release: `tracks.album_id` is nullable
-    public var albumId: UUID?
-    public var albumName: String?
-    /// The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording
-    public var albumImageUrl: String?
-    /// Display credit as written on the release ("X feat. Y"), not a join key
-    public var artists: String
-    public var genre: String?
-    public var year: Int?
-    public var durationMs: Int?
-    public var rating: Rating
-    /// The bytes are on this machine
-    public var hasAudio: Bool
-    /// Measured, COMPLETE, and at a schema version the station still trusts
-    public var measured: Bool
-    /// At least one provider has answered about it
-    public var enriched: Bool
-
-    public init(id: UUID, title: String, artistId: UUID, artistName: String, albumId: UUID? = nil, albumName: String? = nil, albumImageUrl: String? = nil, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral, hasAudio: Bool, measured: Bool, enriched: Bool) {
-        self.id = id
-        self.title = title
-        self.artistId = artistId
-        self.artistName = artistName
-        self.albumId = albumId
-        self.albumName = albumName
-        self.albumImageUrl = albumImageUrl
-        self.artists = artists
-        self.genre = genre
-        self.year = year
-        self.durationMs = durationMs
-        self.rating = rating
-        self.hasAudio = hasAudio
-        self.measured = measured
-        self.enriched = enriched
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case title = "title"
-        case artistId = "artistId"
-        case artistName = "artistName"
-        case albumId = "albumId"
-        case albumName = "albumName"
-        case albumImageUrl = "albumImageUrl"
-        case artists = "artists"
-        case genre = "genre"
-        case year = "year"
-        case durationMs = "durationMs"
-        case rating = "rating"
-        case hasAudio = "hasAudio"
-        case measured = "measured"
-        case enriched = "enriched"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decode(UUID.self, forKey: .id)
-        self.title = try container.decode(String.self, forKey: .title)
-        self.artistId = try container.decode(UUID.self, forKey: .artistId)
-        self.artistName = try container.decode(String.self, forKey: .artistName)
-        self.albumId = try container.decodeIfPresent(UUID.self, forKey: .albumId)
-        self.albumName = try container.decodeIfPresent(String.self, forKey: .albumName)
-        self.albumImageUrl = try container.decodeIfPresent(String.self, forKey: .albumImageUrl)
-        self.artists = try container.decode(String.self, forKey: .artists)
-        self.genre = try container.decodeIfPresent(String.self, forKey: .genre)
-        self.year = try container.decodeIfPresent(Int.self, forKey: .year)
-        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
-        self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
-        self.hasAudio = try container.decode(Bool.self, forKey: .hasAudio)
-        self.measured = try container.decode(Bool.self, forKey: .measured)
-        self.enriched = try container.decode(Bool.self, forKey: .enriched)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.id, forKey: .id)
-        try container.encode(self.title, forKey: .title)
-        try container.encode(self.artistId, forKey: .artistId)
-        try container.encode(self.artistName, forKey: .artistName)
-        try container.encodeIfPresent(self.albumId, forKey: .albumId)
-        try container.encodeIfPresent(self.albumName, forKey: .albumName)
-        try container.encodeIfPresent(self.albumImageUrl, forKey: .albumImageUrl)
-        try container.encode(self.artists, forKey: .artists)
-        try container.encodeIfPresent(self.genre, forKey: .genre)
-        try container.encodeIfPresent(self.year, forKey: .year)
-        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
-        try container.encode(self.rating, forKey: .rating)
-        try container.encode(self.hasAudio, forKey: .hasAudio)
-        try container.encode(self.measured, forKey: .measured)
-        try container.encode(self.enriched, forKey: .enriched)
-    }
-}
-
-/// A track as a LIST shows it: the record, plus three facts about what the station has of it.
-///
-/// Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
-/// the query that was already running — and everything wider (which providers, how many bytes, why the
-/// last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
-/// the detail page in a table cell.
-public struct TrackRowInput: Codable, Equatable, Sendable {
-    public var title: String
-    /// Display credit as written on the release ("X feat. Y"), not a join key
-    public var artists: String
-    public var genre: String?
-    public var year: Int?
-    public var durationMs: Int?
-    public var rating: Rating
-
-    public init(title: String, artists: String, genre: String? = nil, year: Int? = nil, durationMs: Int? = nil, rating: Rating = .neutral) {
-        self.title = title
-        self.artists = artists
-        self.genre = genre
-        self.year = year
-        self.durationMs = durationMs
-        self.rating = rating
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case title = "title"
-        case artists = "artists"
-        case genre = "genre"
-        case year = "year"
-        case durationMs = "durationMs"
-        case rating = "rating"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.title = try container.decode(String.self, forKey: .title)
-        self.artists = try container.decode(String.self, forKey: .artists)
-        self.genre = try container.decodeIfPresent(String.self, forKey: .genre)
-        self.year = try container.decodeIfPresent(Int.self, forKey: .year)
-        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
-        self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating) ?? .neutral
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.title, forKey: .title)
-        try container.encode(self.artists, forKey: .artists)
-        try container.encodeIfPresent(self.genre, forKey: .genre)
-        try container.encodeIfPresent(self.year, forKey: .year)
-        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
-        try container.encode(self.rating, forKey: .rating)
-    }
-}
-
 /// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
 /// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
 /// player following along adds the record's cue-in to how long it has been on air.
@@ -2336,8 +2497,12 @@ public struct TrackQuery: Codable, Equatable, Sendable {
     public var search: String?
     public var sortBy: TrackSort?
     public var state: TrackState?
+    /// Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again
+    public var analyzer: String?
+    /// Only records whose measurement failed this way
+    public var measureFailure: MeasureFailure?
 
-    public init(page: Int = 0, pageSize: Int = 25, sort: PaginationSort = .desc, total: Int, search: String? = nil, sortBy: TrackSort? = nil, state: TrackState? = nil) {
+    public init(page: Int = 0, pageSize: Int = 25, sort: PaginationSort = .desc, total: Int, search: String? = nil, sortBy: TrackSort? = nil, state: TrackState? = nil, analyzer: String? = nil, measureFailure: MeasureFailure? = nil) {
         self.page = page
         self.pageSize = pageSize
         self.sort = sort
@@ -2345,6 +2510,8 @@ public struct TrackQuery: Codable, Equatable, Sendable {
         self.search = search
         self.sortBy = sortBy
         self.state = state
+        self.analyzer = analyzer
+        self.measureFailure = measureFailure
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2355,6 +2522,8 @@ public struct TrackQuery: Codable, Equatable, Sendable {
         case search = "search"
         case sortBy = "sortBy"
         case state = "state"
+        case analyzer = "analyzer"
+        case measureFailure = "measureFailure"
     }
 
     public init(from decoder: Decoder) throws {
@@ -2366,6 +2535,8 @@ public struct TrackQuery: Codable, Equatable, Sendable {
         self.search = try container.decodeIfPresent(String.self, forKey: .search)
         self.sortBy = try container.decodeIfPresent(TrackSort.self, forKey: .sortBy)
         self.state = try container.decodeIfPresent(TrackState.self, forKey: .state)
+        self.analyzer = try container.decodeIfPresent(String.self, forKey: .analyzer)
+        self.measureFailure = try container.decodeIfPresent(MeasureFailure.self, forKey: .measureFailure)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2377,6 +2548,8 @@ public struct TrackQuery: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.search, forKey: .search)
         try container.encodeIfPresent(self.sortBy, forKey: .sortBy)
         try container.encodeIfPresent(self.state, forKey: .state)
+        try container.encodeIfPresent(self.analyzer, forKey: .analyzer)
+        try container.encodeIfPresent(self.measureFailure, forKey: .measureFailure)
     }
 }
 
@@ -2394,14 +2567,20 @@ public struct TrackQueryInput: Codable, Equatable, Sendable {
     public var search: String?
     public var sortBy: TrackSort?
     public var state: TrackState?
+    /// Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again
+    public var analyzer: String?
+    /// Only records whose measurement failed this way
+    public var measureFailure: MeasureFailure?
 
-    public init(page: Int = 0, pageSize: Int = 25, sort: PaginationSort = .desc, search: String? = nil, sortBy: TrackSort? = nil, state: TrackState? = nil) {
+    public init(page: Int = 0, pageSize: Int = 25, sort: PaginationSort = .desc, search: String? = nil, sortBy: TrackSort? = nil, state: TrackState? = nil, analyzer: String? = nil, measureFailure: MeasureFailure? = nil) {
         self.page = page
         self.pageSize = pageSize
         self.sort = sort
         self.search = search
         self.sortBy = sortBy
         self.state = state
+        self.analyzer = analyzer
+        self.measureFailure = measureFailure
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2411,6 +2590,8 @@ public struct TrackQueryInput: Codable, Equatable, Sendable {
         case search = "search"
         case sortBy = "sortBy"
         case state = "state"
+        case analyzer = "analyzer"
+        case measureFailure = "measureFailure"
     }
 
     public init(from decoder: Decoder) throws {
@@ -2421,6 +2602,8 @@ public struct TrackQueryInput: Codable, Equatable, Sendable {
         self.search = try container.decodeIfPresent(String.self, forKey: .search)
         self.sortBy = try container.decodeIfPresent(TrackSort.self, forKey: .sortBy)
         self.state = try container.decodeIfPresent(TrackState.self, forKey: .state)
+        self.analyzer = try container.decodeIfPresent(String.self, forKey: .analyzer)
+        self.measureFailure = try container.decodeIfPresent(MeasureFailure.self, forKey: .measureFailure)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2431,6 +2614,8 @@ public struct TrackQueryInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.search, forKey: .search)
         try container.encodeIfPresent(self.sortBy, forKey: .sortBy)
         try container.encodeIfPresent(self.state, forKey: .state)
+        try container.encodeIfPresent(self.analyzer, forKey: .analyzer)
+        try container.encodeIfPresent(self.measureFailure, forKey: .measureFailure)
     }
 }
 

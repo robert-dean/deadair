@@ -89,35 +89,35 @@ data class TrackBinding(
 class TrackBindingInput
 
 /**
- * What the measurement sidecar made of a record.
+ * Why a measurement failed, as the station retries it.
  *
- * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
- * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
- * the app filters on `complete` and a page that showed only a date would be reporting a record as
- * measured that nothing will use the measurement of.
+ *   unfetchable  the bytes could not be fetched: a provider was down or a link expired. Tried again within the hour
+ *   truncated    the fetch stopped part of the way through. Tried again within the hour
+ *   undecodable  the file itself would not decode. Tried again after a day, since retrying sooner is the same bytes again
+ *
+ * A failure recorded before the station kept the kind reads as `undecodable`, because that is the clock it is retried on.
  */
-@Serializable
-data class TrackAnalysis(
-    val schemaVersion: Long,
-    val complete: Boolean,
-    /** The measuring thing itself, which is not the plugin adapting it */
-    val analyzer: String? = null,
-    val analyzerPluginId: String? = null,
-    val analyzedAt: Instant? = null,
-    val failedAt: Instant? = null,
-    val failureReason: String? = null,
-)
+@Serializable(with = MeasureFailureSerializer::class)
+enum class MeasureFailure {
+    UNFETCHABLE,
+    UNDECODABLE,
+    TRUNCATED,
 
-/**
- * What the measurement sidecar made of a record.
- *
- * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
- * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
- * the app filters on `complete` and a page that showed only a date would be reporting a record as
- * measured that nothing will use the measurement of.
- */
-@Serializable
-class TrackAnalysisInput
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [MeasureFailure] by its wire spelling. A spelling it does not know reads as [MeasureFailure.UNKNOWN]. */
+object MeasureFailureSerializer : SdkEnumSerializer<MeasureFailure>(
+    "MeasureFailure",
+    MeasureFailure.UNKNOWN,
+    MeasureFailure.UNFETCHABLE to "unfetchable",
+    MeasureFailure.UNDECODABLE to "undecodable",
+    MeasureFailure.TRUNCATED to "truncated",
+)
 
 /** One airing of a record, as this page needs it: when, and under which broadcast. */
 @Serializable
@@ -331,42 +331,28 @@ object TrackSortSerializer : SdkEnumSerializer<TrackSort>(
     TrackSort.RATING to "rating",
 )
 
-/**
- * How much of the library is in each state, over the whole filtered set rather than this page.
- *
- * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
- * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
- * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
- * read as N of M without reaching into the pager.
- */
+/** How many records one analysis plugin measured or tried to. */
 @Serializable
-data class TrackStateCounts(
-    val total: Long,
-    val cached: Long,
-    val measured: Long,
-    val enriched: Long,
-    val benched: Long,
-    val failing: Long,
-    /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
-    val lyrics: Long,
-    /** A lyrics source has the timing of its lines, which says when the singing starts */
-    val synced: Long,
-    /** A lyrics source says nobody sings on it */
-    val instrumental: Long,
-    /** A model has judged what mood it is in */
-    val moods: Long,
+data class TrackAnalyzerCount(
+    val pluginId: String,
+    val count: Long,
 )
 
-/**
- * How much of the library is in each state, over the whole filtered set rather than this page.
- *
- * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
- * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
- * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
- * read as N of M without reaching into the pager.
- */
+/** How many records one analysis plugin measured or tried to. */
 @Serializable
-class TrackStateCountsInput
+class TrackAnalyzerCountInput
+
+/** Failed measurements by kind. See `MeasureFailure`. */
+@Serializable
+data class MeasureFailureCounts(
+    val unfetchable: Long,
+    val undecodable: Long,
+    val truncated: Long,
+)
+
+/** Failed measurements by kind. See `MeasureFailure`. */
+@Serializable
+class MeasureFailureCountsInput
 
 @Serializable
 data class EnrichmentExternalId(
@@ -528,6 +514,39 @@ data class TrackInput(
     val rating: Rating? = Rating.NEUTRAL,
 )
 
+/**
+ * What the measurement sidecar made of a record.
+ *
+ * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+ * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+ * the app filters on `complete` and a page that showed only a date would be reporting a record as
+ * measured that nothing will use the measurement of.
+ */
+@Serializable
+data class TrackAnalysis(
+    val schemaVersion: Long,
+    val complete: Boolean,
+    /** The measuring thing itself, which is not the plugin adapting it */
+    val analyzer: String? = null,
+    val analyzerPluginId: String? = null,
+    val analyzedAt: Instant? = null,
+    val failedAt: Instant? = null,
+    val failureReason: String? = null,
+    /** Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is */
+    val failureCode: MeasureFailure? = null,
+)
+
+/**
+ * What the measurement sidecar made of a record.
+ *
+ * `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+ * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+ * the app filters on `complete` and a page that showed only a date would be reporting a record as
+ * measured that nothing will use the measurement of.
+ */
+@Serializable
+class TrackAnalysisInput
+
 /** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
 @Serializable
 data class LyricLineDetail(
@@ -578,6 +597,47 @@ data class CatalogQueryInput(
     val search: String? = null,
     val sortBy: CatalogSort? = null,
 )
+
+/**
+ * How much of the library is in each state, over the whole filtered set rather than this page.
+ *
+ * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+ * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+ * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+ * read as N of M without reaching into the pager.
+ */
+@Serializable
+data class TrackStateCounts(
+    val total: Long,
+    val cached: Long,
+    val measured: Long,
+    val enriched: Long,
+    val benched: Long,
+    val failing: Long,
+    /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
+    val lyrics: Long,
+    /** A lyrics source has the timing of its lines, which says when the singing starts */
+    val synced: Long,
+    /** A lyrics source says nobody sings on it */
+    val instrumental: Long,
+    /** A model has judged what mood it is in */
+    val moods: Long,
+    /** Which analysis plugins measured the records, or tried to, most first. What the `analyzer` filter is chosen from */
+    val analyzers: List<TrackAnalyzerCount>,
+    /** How many measurements failed, by kind */
+    val measureFailures: MeasureFailureCounts,
+)
+
+/**
+ * How much of the library is in each state, over the whole filtered set rather than this page.
+ *
+ * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+ * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
+ * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+ * read as N of M without reaching into the pager.
+ */
+@Serializable
+class TrackStateCountsInput
 
 /**
  * `releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers
@@ -670,6 +730,58 @@ data class AlbumPageInput(
 )
 
 /**
+ * A track as a LIST shows it: the record, plus three facts about what the station has of it.
+ *
+ * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+ * the query that was already running — and everything wider (which providers, how many bytes, why the
+ * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+ * the detail page in a table cell.
+ */
+@Serializable
+data class TrackRow(
+    val id: Uuid,
+    val title: String,
+    val artistId: Uuid,
+    val artistName: String,
+    /** Absent on a single ingested outside any release: `tracks.album_id` is nullable */
+    val albumId: Uuid? = null,
+    val albumName: String? = null,
+    /** The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording */
+    val albumImageUrl: String? = null,
+    /** Display credit as written on the release ("X feat. Y"), not a join key */
+    val artists: String,
+    val genre: String? = null,
+    val year: Long? = null,
+    val durationMs: Long? = null,
+    val rating: Rating? = Rating.NEUTRAL,
+    /** The bytes are on this machine */
+    val hasAudio: Boolean,
+    /** Measured, COMPLETE, and at a schema version the station still trusts */
+    val measured: Boolean,
+    /** At least one provider has answered about it */
+    val enriched: Boolean,
+)
+
+/**
+ * A track as a LIST shows it: the record, plus three facts about what the station has of it.
+ *
+ * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+ * the query that was already running — and everything wider (which providers, how many bytes, why the
+ * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+ * the detail page in a table cell.
+ */
+@Serializable
+data class TrackRowInput(
+    val title: String,
+    /** Display credit as written on the release ("X feat. Y"), not a join key */
+    val artists: String,
+    val genre: String? = null,
+    val year: Long? = null,
+    val durationMs: Long? = null,
+    val rating: Rating? = Rating.NEUTRAL,
+)
+
+/**
  * Everything one record has accumulated, in one read.
  *
  * The enrichment is deliberately NOT here. It has its own operation already, answering
@@ -723,58 +835,6 @@ data class TrackDetailInput(
     val analysis: TrackAnalysisInput? = null,
     /** The most recent airings, newest first */
     val plays: List<TrackPlayInput>,
-)
-
-/**
- * A track as a LIST shows it: the record, plus three facts about what the station has of it.
- *
- * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
- * the query that was already running — and everything wider (which providers, how many bytes, why the
- * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
- * the detail page in a table cell.
- */
-@Serializable
-data class TrackRow(
-    val id: Uuid,
-    val title: String,
-    val artistId: Uuid,
-    val artistName: String,
-    /** Absent on a single ingested outside any release: `tracks.album_id` is nullable */
-    val albumId: Uuid? = null,
-    val albumName: String? = null,
-    /** The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording */
-    val albumImageUrl: String? = null,
-    /** Display credit as written on the release ("X feat. Y"), not a join key */
-    val artists: String,
-    val genre: String? = null,
-    val year: Long? = null,
-    val durationMs: Long? = null,
-    val rating: Rating? = Rating.NEUTRAL,
-    /** The bytes are on this machine */
-    val hasAudio: Boolean,
-    /** Measured, COMPLETE, and at a schema version the station still trusts */
-    val measured: Boolean,
-    /** At least one provider has answered about it */
-    val enriched: Boolean,
-)
-
-/**
- * A track as a LIST shows it: the record, plus three facts about what the station has of it.
- *
- * Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
- * the query that was already running — and everything wider (which providers, how many bytes, why the
- * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
- * the detail page in a table cell.
- */
-@Serializable
-data class TrackRowInput(
-    val title: String,
-    /** Display credit as written on the release ("X feat. Y"), not a join key */
-    val artists: String,
-    val genre: String? = null,
-    val year: Long? = null,
-    val durationMs: Long? = null,
-    val rating: Rating? = Rating.NEUTRAL,
 )
 
 /**
@@ -843,6 +903,10 @@ data class TrackQuery(
     val search: String? = null,
     val sortBy: TrackSort? = null,
     val state: TrackState? = null,
+    /** Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again */
+    val analyzer: String? = null,
+    /** Only records whose measurement failed this way */
+    val measureFailure: MeasureFailure? = null,
 )
 
 /**
@@ -862,6 +926,10 @@ data class TrackQueryInput(
     val search: String? = null,
     val sortBy: TrackSort? = null,
     val state: TrackState? = null,
+    /** Only records this analysis plugin measured, or tried to and failed. The selector for measuring a detector's records again */
+    val analyzer: String? = null,
+    /** Only records whose measurement failed this way */
+    val measureFailure: MeasureFailure? = null,
 )
 
 /**

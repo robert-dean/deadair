@@ -13,16 +13,17 @@ mdx:
 > measured that nothing will use the measurement of.
 
 <details>
-<summary>Attributes (7)</summary>
+<summary>Attributes (8)</summary>
 
-| Attribute          | Type      | Required | Description                                                                  |
-| ------------------ | --------- | -------- | ---------------------------------------------------------------------------- |
-| `schemaVersion`    | `number`  | Yes      | _read-only_                                                                  |
-| `complete`         | `boolean` | Yes      | _read-only_                                                                  |
-| `analyzer`         | `string`  | No       | The measuring thing itself, which is not the plugin adapting it. _read-only_ |
-| `analyzerPluginId` | `string`  | No       | _read-only_                                                                  |
-| `analyzedAt`       | `string`  | No       | _read-only_                                                                  |
-| `failedAt`         | `string`  | No       | _read-only_                                                                  |
-| `failureReason`    | `string`  | No       | _read-only_                                                                  |
+| Attribute          | Type             | Required | Description                                                                                                        |
+| ------------------ | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `schemaVersion`    | `number`         | Yes      | _read-only_                                                                                                        |
+| `complete`         | `boolean`        | Yes      | _read-only_                                                                                                        |
+| `analyzer`         | `string`         | No       | The measuring thing itself, which is not the plugin adapting it. _read-only_                                       |
+| `analyzerPluginId` | `string`         | No       | _read-only_                                                                                                        |
+| `analyzedAt`       | `string`         | No       | _read-only_                                                                                                        |
+| `failedAt`         | `string`         | No       | _read-only_                                                                                                        |
+| `failureReason`    | `string`         | No       | _read-only_                                                                                                        |
+| `failureCode`      | `MeasureFailure` | No       | Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is. _read-only_ |
 
 </details>

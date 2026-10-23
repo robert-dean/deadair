@@ -1,16 +1,14 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { captureWrites } from '#modules/render/script.history.settings.js';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
-import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
+import type { BreakPromptShape } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
-import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
-import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
-import { modelList } from '#modules/llm/model.list.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
+import { writeWithModel } from './model.break.write.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 
 /**
  * A model giving the weather, with the station's own report underneath it.
@@ -118,104 +116,40 @@ export class ModelWeatherBreakWriter extends BreakWriter {
         const weather = request.weather;
         if (weather === undefined) return undefined;
 
-        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
-        if (!this.llm.canGenerate()) {
-            this.logger.debug(`director: no model to give the weather with (${this.llm.explainGenerator()})`);
-            return undefined;
-        }
-
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, MODEL_WRITER_KEYS.model);
-        const model = models[0] ?? '';
-        const messages = breakPrompt(
-            request,
+        const outcome = await writeWithModel(
+            { llm: this.llm, config: this.config, logger: this.logger },
             {
-                ...stationPromptSettings(this.config, request),
-                maxWords: WEATHER_MAX_WORDS,
-                ...(request.persona === undefined ? {} : { persona: request.persona }),
-            },
-            WEATHER_SHAPE,
-        );
-
-        const result = await this.llm.converse(
-            {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                ...breakGeneration(this.config),
-            },
-            // No tools, and here that includes `get_weather`. Everything this break may contain is
-            // already in the prompt, fetched once by `WeatherSource` so the floor and this see the
-            // same figures — and a model that could fetch its own could report a reading the floor
-            // underneath it would contradict.
-            {
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                // Derived from when this break is due rather than fixed: see `patienceFor`.
-                maxWaitMs: patienceFor(request.airsAt),
-                // See `BreakWriteRequest.priority`: absent for a break that is going on air.
-                ...(request.priority === undefined ? {} : { priority: request.priority }),
+                request,
+                // `WEATHER_SHAPE` offers no latitude, so `maxWordsFor` reads this ceiling back exactly.
+                settings: {
+                    ...stationPromptSettings(this.config, request),
+                    maxWords: WEATHER_MAX_WORDS,
+                    ...(request.persona === undefined ? {} : { persona: request.persona }),
+                },
+                shape: WEATHER_SHAPE,
+                // `dialect: 'optional'` for `ModelNewsBreakWriter`'s measured reason: "no advice, no scene"
+                // and "sound like nobody else" are not simultaneously satisfiable, and this kind earns its
+                // keep by being correct rather than by being in voice. The three prohibitions in
+                // `characterFault` stay, since none of them is in tension with reporting a measurement.
+                dialect: 'optional',
+                guard: () => ({
+                    // The one record this kind is shown, so a script that says it has already played is
+                    // refused rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See
+                    // `misCuedIn`.
+                    ...(request.next === undefined ? {} : { cues: { next: request.next } }),
+                    // The figures this break may say. It used to be checked after the answer had already
+                    // been judged, which was fine while this was the only kind that could be handed a
+                    // reading; the talk break being offered one made that two copies of the same question.
+                    // See `AnswerGuard.weather`.
+                    weather,
+                }),
+                purpose: { noModel: 'give the weather with', nothing: 'read as a forecast' },
+                context: { place: weather.place },
             },
         );
-
-        // `dialect: 'optional'` for `ModelNewsBreakWriter`'s measured reason: "no advice, no scene"
-        // and "sound like nobody else" are not simultaneously satisfiable, and this kind earns its
-        // keep by being correct rather than by being in voice. The three prohibitions in
-        // `characterFault` stay, since none of them is in tension with reporting a measurement.
-        const guard: AnswerGuard = {
-            maxWords: WEATHER_MAX_WORDS,
-            ...(request.persona === undefined ? {} : { persona: request.persona, dialect: 'optional' as const }),
-            ...(request.recent === undefined ? {} : { recent: request.recent }),
-            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
-            ...(request.moment === undefined ? {} : { moment: request.moment }),
-            // The one record this kind is shown, so a script that says it has already played is refused
-            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
-            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
-            ...languageGuard(this.config),
-            ...homeGuard(this.config),
-            ...stationGuard(this.config),
-            ...speakerGuard(this.config, request),
-            // The figures this break may say. It used to be checked below, after the answer had
-            // already been judged, which was fine while this was the only kind that could be handed
-            // a reading; the talk break being offered one made that two copies of the same question.
-            // See `AnswerGuard.weather`.
-            weather,
-        };
-        const script = readAnswer(result.text, guard);
-
-        this.lastDetail = {
-            // What the host RESOLVED, not what the setting said. A station that never pinned a
-            // model left this empty, so every row read "the plugin default" and the record could
-            // not answer which model wrote anything. See `LlmConversation.model`.
-            model: result.model,
-            ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
-            ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
-        };
-
-        if (script === undefined) {
-            // Why it was refused, on the row as well as in the log. See `writeDecline` and
-            // `WriteDetail.reason`.
-            const declined = writeDecline(result.text, guard);
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
-
-            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could read as a forecast'}`, {
-                finish: result.finishReason,
-                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
-                place: weather.place,
-                persona: request.persona?.key,
-                fault: declined?.fault,
-            });
-            return undefined;
-        }
-
-        // A forecast cut back to its last whole sentence. See `writeTrim`.
-        const trimmed = writeTrim(result.text, guard);
-        if (trimmed !== undefined) {
-            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
-            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, place: weather.place });
-        }
-
+        this.lastDetail = outcome.detail;
+        if (outcome.written === undefined) return undefined;
+        const { script, guard } = outcome.written;
         // The greeting too, for the bulletin's reason. See `ModelNewsBreakWriter`.
         const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart, request.greeting);
 

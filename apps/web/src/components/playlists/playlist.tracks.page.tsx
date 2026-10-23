@@ -12,9 +12,9 @@ import { PlaylistImportModal } from './playlist.import.modal';
 import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
 import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 
@@ -76,75 +76,78 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
 
             <PlaylistImportModal opened={saving} onClose={() => setSaving(false)} from={{ pluginId, playlistId, name: heading }} />
 
-            {tracks.error ? <ErrorAlert title={t('tracks.loadFailed')} error={tracks.error} fallback={t('tracks.loadFailedFallback')} /> : undefined}
-
-            {tracks.isPending ? <PageSkeleton variant="table" /> : undefined}
-
-            {tracks.data?.tracks.length === 0 ? <EmptyState>{t('tracks.empty')}</EmptyState> : undefined}
-
             {/* The phone gets cards rather than a table that scrolls sideways. What survives 375px
                 is a different selection: title, credit and duration, with the album as the dropped
                 column — it is the one a listener recognises the record without. Chosen with the
                 media query rather than `hiddenFrom`, so a long playlist is not rendered twice. */}
-            {phone && tracks.data && tracks.data.tracks.length > 0 ? (
-                <Stack gap="xxs">
-                    {tracks.data.tracks.map((track: CatalogTrack) => (
-                        <PhoneCard
-                            key={track.id}
-                            title={
-                                <TrackLink id={track.trackId} size="sm" truncate>
-                                    {track.title}
-                                </TrackLink>
-                            }
-                            subtitle={
-                                <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
-                                    {track.artists.join(', ')}
-                                </ArtistLink>
-                            }
-                            figure={
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    {formatDuration(track.durationMs)}
-                                </Text>
-                            }
-                        />
-                    ))}
-                </Stack>
-            ) : undefined}
-
-            {!phone && tracks.data && tracks.data.tracks.length > 0 ? (
-                <Table.ScrollContainer minWidth={600}>
-                    <Table>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>{t('column.title')}</Table.Th>
-                                <Table.Th>{t('column.artists')}</Table.Th>
-                                <Table.Th>{t('column.album')}</Table.Th>
-                                <Table.Th>{t('column.duration')}</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {/* A playlist is the PROVIDER's list, so most of these rows are plain text
+            <QueryView
+                query={tracks}
+                skeleton={<PageSkeleton variant="table" />}
+                errorTitle={t('tracks.loadFailed')}
+                errorFallback={t('tracks.loadFailedFallback')}
+                isEmpty={data => data.tracks.length === 0}
+                empty={<EmptyState>{t('tracks.empty')}</EmptyState>}
+            >
+                {data =>
+                    phone ? (
+                        <Stack gap="xxs">
+                            {data.tracks.map((track: CatalogTrack) => (
+                                <PhoneCard
+                                    key={track.id}
+                                    title={
+                                        <TrackLink id={track.trackId} size="sm" truncate>
+                                            {track.title}
+                                        </TrackLink>
+                                    }
+                                    subtitle={
+                                        <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
+                                            {track.artists.join(', ')}
+                                        </ArtistLink>
+                                    }
+                                    figure={
+                                        <Text size="xs" c="dimmed" className="da-num">
+                                            {formatDuration(track.durationMs)}
+                                        </Text>
+                                    }
+                                />
+                            ))}
+                        </Stack>
+                    ) : (
+                        <Table.ScrollContainer minWidth={600}>
+                            <Table>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>{t('column.title')}</Table.Th>
+                                        <Table.Th>{t('column.artists')}</Table.Th>
+                                        <Table.Th>{t('column.album')}</Table.Th>
+                                        <Table.Th>{t('column.duration')}</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {/* A playlist is the PROVIDER's list, so most of these rows are plain text
                             on a library that has not been synced: the ids arrive only for a copy
                             the station has actually ingested, and the three links draw as the words
                             they always were without one. */}
-                            {tracks.data.tracks.map((track: CatalogTrack) => (
-                                <Table.Tr key={track.id}>
-                                    <Table.Td>
-                                        <TrackLink id={track.trackId}>{track.title}</TrackLink>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <ArtistLink id={track.artistId}>{track.artists.join(', ')}</ArtistLink>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
-                                    </Table.Td>
-                                    <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                                </Table.Tr>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
-                </Table.ScrollContainer>
-            ) : undefined}
+                                    {data.tracks.map((track: CatalogTrack) => (
+                                        <Table.Tr key={track.id}>
+                                            <Table.Td>
+                                                <TrackLink id={track.trackId}>{track.title}</TrackLink>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <ArtistLink id={track.artistId}>{track.artists.join(', ')}</ArtistLink>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
+                                            </Table.Td>
+                                            <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
+                    )
+                }
+            </QueryView>
         </Stack>
     );
 }

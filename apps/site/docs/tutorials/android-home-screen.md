@@ -26,6 +26,9 @@ Press the tile to start the station and again to stop it. Between the press and 
 says it is warming up: that is the station coming on air for its first listener. If it says **Choose
 a station first**, open the app and give it your station's address.
 
+![Android's tile editor with the deadair tile dragged first, and the shade with the tile reading On while the station plays](/img/android/quick-settings.webp)
+*Fig. 1. The tile placed in the editor, then in the shade.*
+
 ## 2. A widget on the home screen
 
 1. In the app, open **Settings** and find **Home-screen widget**.
@@ -42,6 +45,9 @@ button to start and stop it. When an answer is more than two minutes old it says
 Signed in as the operator ([Run the station from your phone](./phone-remote.md)), the widget has
 **Skip this record** as well. It asks for a second press (**Press again to skip**) and forgets the
 first after five seconds, so a press in a pocket skips nothing.
+
+![Settings, Home-screen widget; the launcher's sheet for placing the deadair widget; the widget on a home screen showing the record playing and a Stop button](/img/android/widget.webp)
+*Fig. 2. Home-screen widget in Settings, the launcher placing it, and the widget at work.*
 
 ## 3. The station as your wallpaper
 
@@ -60,6 +66,9 @@ first after five seconds, so a press in a pocket skips nothing.
 
 Your old wallpaper is not touched. To take the station off, choose another wallpaper the usual way.
 
+![Settings, Station wallpaper; Android's wallpaper picker showing the cover of the record playing; a home screen with that cover as the wallpaper and the widget above it](/img/android/wallpaper.webp)
+*Fig. 3. Station wallpaper in Settings, Android's picker, and the result.*
+
 ## 4. A sleep timer
 
 Start the station, then open **Settings** and find **Sleep timer** under **Listening**. It only
@@ -77,6 +86,9 @@ Now playing is in front, so a phone on a dock by the bed can show the cover all 
 
 Left alone for a few seconds while a record plays, Now playing fades its words and controls away and
 the cover fills the screen. Touch it to bring them back.
+
+![Settings, Listening, with Keep the screen on and the sleep timer's choices open; Now playing with its words faded, showing only the cover](/img/android/sleep-timer.webp)
+*Fig. 4. The sleep timer and Keep the screen on under Listening, and Now playing left alone.*
 
 ## If it goes wrong
 

@@ -1,5 +1,6 @@
-import type { AnswerGuard } from './break.prompt.js';
-import { NOT_A_HABIT, withoutRecordNames } from './break.prompt.js';
+import type { AnswerGuard } from './break.answer.guard.js';
+import { NOT_A_HABIT } from './break.prompt.js';
+import { withoutRecordNames } from './break.answer.guard.js';
 
 /**
  * Whether a break actually told the story it was handed.

@@ -4,17 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import {
-    breakPrompt,
-    maxWordsFor,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    writeDecline,
-    writeTrim,
-    type AnswerGuard,
-    type PromptSettings,
-} from './break.prompt.js';
+import { breakPrompt, maxWordsFor, type PromptSettings } from './break.prompt.js';
+import { permittedYears, readAnswer, shownWithoutRecent, writeDecline, writeTrim, type AnswerGuard } from './break.answer.guard.js';
 import { resolveStoryWords } from './break.words.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';

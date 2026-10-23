@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { RETRYABLE_FAULTS, retryNudge, worthRetrying } from '../../../src/modules/director/break.retry.js';
-import type { WriteFault } from '../../../src/modules/director/break.prompt.js';
+import type { WriteFault } from '../../../src/modules/director/break.answer.guard.js';
 
 describe('worthRetrying', () => {
     it('asks again about a rule the model was given and broke', () => {

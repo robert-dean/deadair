@@ -5,18 +5,8 @@ import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSett
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import {
-    breakPrompt,
-    maxWordsFor,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    writeDecline,
-    writeTrim,
-    type AnswerGuard,
-    type BreakPromptShape,
-    type PromptSettings,
-} from './break.prompt.js';
+import { breakPrompt, maxWordsFor, type BreakPromptShape, type PromptSettings } from './break.prompt.js';
+import { permittedYears, readAnswer, shownWithoutRecent, writeDecline, writeTrim, type AnswerGuard } from './break.answer.guard.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { CHANGEOVER_KIND, spokenNames, thankedAt } from './changeover.writer.js';

@@ -3,7 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
 import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
 import { worthRetrying, type BreakRetry } from './break.retry.js';
-import { saidIn, type WriteFault } from './break.prompt.js';
+import { saidIn, type WriteFault } from './break.answer.guard.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { usageSpentBefore } from '#modules/llm/llm.service.js';
 

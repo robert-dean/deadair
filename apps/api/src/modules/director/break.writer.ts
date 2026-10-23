@@ -38,7 +38,7 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { StationAlmanac } from '#modules/almanac/almanac.service.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakRetry } from './break.retry.js';
-import type { WriteFault } from './break.prompt.js';
+import type { WriteFault } from './break.answer.guard.js';
 import type { RoughTime } from './clock.words.js';
 import type { ChartPlacing } from '#modules/playout/rundown.js';
 

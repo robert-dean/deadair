@@ -11,22 +11,24 @@ import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 import {
     breakPrompt,
     DEFAULT_MAX_WORDS,
-    liftDelivery,
     maxWordsFor,
-    namedRecordIn,
     offeredDeliveries,
     overusedWords,
+    TALK_BREAK_SHAPE,
+    type PromptSettings,
+} from '../../../src/modules/director/break.prompt.js';
+import {
+    liftDelivery,
+    namedRecordIn,
     permittedYears,
     readAnswer,
     shownWithoutRecent,
-    TALK_BREAK_SHAPE,
     saidIn,
     swappedCreditIn,
     writeDecline,
     writeTrim,
     yearsIn,
-    type PromptSettings,
-} from '../../../src/modules/director/break.prompt.js';
+} from '../../../src/modules/director/break.answer.guard.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 import { dayPart } from '../../../src/modules/director/clock.words.js';
 import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.writer.js';

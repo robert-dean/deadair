@@ -216,7 +216,7 @@ export function contradictsDayPart(script: string, part: RoughTime | undefined):
  * Each appears once in that corpus, and each costs one sentence to the floor.
  *
  * What it costs is the model hiding a claim inside one ("feels like midnight on Deadair"), which now
- * passes. That is a false NEGATIVE, on the bargain {@link withoutRecordNames} in `break.prompt.ts`
+ * passes. That is a false NEGATIVE, on the bargain {@link withoutRecordNames} in `break.answer.guard.ts`
  * spells out: a break wrongly passed costs one wrong word, and a break wrongly refused costs the
  * station a sentence it wanted.
  *

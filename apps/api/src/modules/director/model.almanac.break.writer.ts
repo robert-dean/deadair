@@ -8,17 +8,8 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { ALMANAC_KIND } from '#modules/almanac/almanac.kind.js';
 import { SaidLog } from './almanac.source.js';
-import {
-    breakPrompt,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    writeDecline,
-    writeTrim,
-    yearsIn,
-    type AnswerGuard,
-    type BreakPromptShape,
-} from './break.prompt.js';
+import { breakPrompt, type BreakPromptShape } from './break.prompt.js';
+import { permittedYears, readAnswer, shownWithoutRecent, writeDecline, writeTrim, yearsIn, type AnswerGuard } from './break.answer.guard.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';

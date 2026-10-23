@@ -5,21 +5,8 @@ import type { LlmReasoningEffort } from '@deadair/plugin-sdk';
 import { homeGuard, languageGuard, speakerGuard, stationGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import {
-    breakPrompt,
-    liftDelivery,
-    maxWordsFor,
-    offeredDeliveries,
-    offeredPads,
-    permittedYears,
-    readAnswer,
-    shownWithoutRecent,
-    TALK_BREAK_SHAPE,
-    writeDecline,
-    writeTrim,
-    type AnswerGuard,
-    type PromptSettings,
-} from './break.prompt.js';
+import { breakPrompt, maxWordsFor, offeredDeliveries, offeredPads, TALK_BREAK_SHAPE, type PromptSettings } from './break.prompt.js';
+import { liftDelivery, permittedYears, readAnswer, shownWithoutRecent, writeDecline, writeTrim, type AnswerGuard } from './break.answer.guard.js';
 import { resolveBreakWords } from './break.words.js';
 import { timeClaimFor } from './clock.words.js';
 import { mentionsWeather } from './weather.figures.js';

@@ -8,6 +8,11 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-10-23
+
+- The move to mobile data now also happens when the stream gets stuck on a wifi that is failing without ever pausing to buffer, or falls behind what is live twice in half a minute. The playback log also now says how long the audio was silent after any failure, not only after a pause to buffer.
+- When an HLS stream falls behind the station's playlist after a stall, the app now jumps straight to what is live instead of failing and retrying, which brought the audio back in about a second and a half. If it falls behind again within half a minute it is treated as a real failure and retried as before.
+
 ## [0.25.0] — 2026-10-21
 
 - Tap one of your past requests to ask for it again. It opens the usual request sheet for that record with the dedication and message it went with filled in, to change or keep before sending. The station decides on it like any new request.
@@ -287,7 +292,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.25.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.26.0...HEAD
+[0.26.0]: https://github.com/robert-dean/deadair/compare/android-v0.25.0...android-v0.26.0
 [0.25.0]: https://github.com/robert-dean/deadair/compare/android-v0.24.1...android-v0.25.0
 [0.24.1]: https://github.com/robert-dean/deadair/compare/android-v0.24.0...android-v0.24.1
 [0.24.0]: https://github.com/robert-dean/deadair/compare/android-v0.23.0...android-v0.24.0

@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-musicbrainz",
-    "version": "0.77.8",
+    "version": "0.77.9",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

@@ -56,6 +56,9 @@ export class OutputsSupervisor {
     start(): void {
         if (this.timer !== undefined) return;
         this.timer = setInterval(() => void this.check(), OUTPUTS_CHECK_MS);
+        // Like every other loop here: `stop` ends it on shutdown, and the timer alone must not be
+        // what keeps a process alive that has nothing else left to do.
+        this.timer.unref?.();
         void this.check();
     }
 

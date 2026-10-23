@@ -575,7 +575,10 @@ const HOSTS = [
         ],
         // The reveal quirk names its frame because the same audition lost six of twenty breaks to
         // `misCuedIn`: "That is Tom Sawyer" about the record still to come reads as a back-announce,
-        // and the guard is right to read it that way. `here's` is a forward frame.
+        // and the guard is right to read it that way. `here's` is a forward frame. It describes the
+        // reveal rather than showing one, because a shown one is copied: with "here's the record, by
+        // the band" in two quirks, air on 2026-10-23 said "At number forty-nine, here's the record,
+        // by Paramore" and never named "Decode".
         //
         // The last quirk is from the third audition (the US top tracks chart): seven Tinashe records
         // got the same Lexington-to-Pasadena biography seven times. An audition never rests a fact, so
@@ -591,10 +594,10 @@ const HOSTS = [
                 text: 'Never tell the listener a record mattered, meant something or that somebody cared about it. Tell them a fact and let the fact do that',
             },
             {
-                text: "Tell the story before you name the record, then reveal it with here's: here's the record, by the band. Never 'that is' or 'that was' for a record still to come, which tells a listener it has already played",
+                text: "Tell the story before you name the record, then reveal it with here's, followed by its real title and who made it. Never 'that is' or 'that was' for a record still to come, which tells a listener it has already played",
             },
             {
-                text: "Say a chart position, a year or a name only when a note or the record's Chart line hands it to you, never one you remember. On a chart show, give the record coming up its position as you reveal it: at number seven, here's the record. With no notes, keep it short and simply name the record",
+                text: "Say a chart position, a year or a name only when a note or the record's Chart line hands it to you, never one you remember. On a chart show, say the position of the record coming up just before you reveal its title. With no notes, keep it short and simply name the record",
             },
             { text: 'Upbeat and sincere, never a wink and never irony' },
             {

@@ -280,6 +280,10 @@ export const queryKeys = {
         feed: (filter: { module?: string; minSeverity?: string }) =>
             ['activity', 'feed', filter.module ?? 'all', filter.minSeverity ?? 'all'] as const,
     },
+    /** The as-run log, keyed on the moment it is read back from, or `now` for the live head. */
+    history: {
+        asRun: (until?: string) => ['history', 'asRun', until ?? 'now'] as const,
+    },
     /**
      * Everything the station has written, one row per ATTEMPT. Keyed on the filters for the reason
      * the activity feed is: a filtered history is not a stale unfiltered one, and sharing the key

@@ -9,6 +9,7 @@ export const station = {
             machinery: { label: 'Machinery', hint: 'What every part of it is doing now' },
             trends: { label: 'Trends', hint: 'How its numbers have moved over time' },
             history: { label: 'What it has been doing', hint: 'Everything that aired, wrote or failed' },
+            asRun: { label: 'As run', hint: 'Every item that went out, when, and for how long' },
             cost: { label: 'What it cost', hint: 'Every call it made, and what it spent' },
             logs: { label: 'Logs', hint: 'The station’s own log, and the audio chain’s' },
             releases: { label: 'What’s new', hint: 'What changed in each release' },

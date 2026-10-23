@@ -5,6 +5,7 @@
 export const common = {
     action: {
         cancel: 'Cancel',
+        save: 'Save',
         dismiss: 'Dismiss',
         tryAgain: 'Try again',
         tryNow: 'Try now',
@@ -24,6 +25,10 @@ export const common = {
     },
     notify: {
         saved: '{{what}} saved.',
+    },
+    // `SaveFooter`'s, beside the button it draws.
+    saveFooter: {
+        saved: 'Saved.',
     },
     // What an API key or a connected app may do. See `access.words.ts`.
     access: {

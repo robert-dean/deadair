@@ -25,7 +25,6 @@ export const personas = {
         done: 'Done',
         change: 'Change',
         save: 'Save',
-        saved: 'Saved.',
         edit: 'Edit',
         add: 'Add',
         accept: 'Accept',

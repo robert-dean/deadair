@@ -1,4 +1,4 @@
-import { Button, Card, Group, NumberInput, Stack, Switch, Text } from '@mantine/core';
+import { Card, NumberInput, Stack, Switch, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 
@@ -6,6 +6,7 @@ import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { SaveFooter } from '../shared/save.footer';
 
 /**
  * The settings this writes, which `ScheduleService.overrunCap()` reads on the other side.
@@ -131,16 +132,7 @@ function OverrunForm({ initial, onSubmit, saving, succeeded, failure }: OverrunF
                     {t('overrun.note')}
                 </Text>
 
-                <Group justify="flex-end" gap="md">
-                    {succeeded && !form.isDirty() ? (
-                        <Text size="sm" c="dimmed">
-                            {t('saved')}
-                        </Text>
-                    ) : undefined}
-                    <Button type="submit" loading={saving}>
-                        {t('action.save')}
-                    </Button>
-                </Group>
+                <SaveFooter saving={saving} saved={succeeded && !form.isDirty()} />
             </Stack>
         </form>
     );

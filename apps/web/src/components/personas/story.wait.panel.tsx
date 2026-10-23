@@ -8,6 +8,7 @@ import { apiErrorMessage } from '../../api/sdk.error';
 import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { SaveFooter } from '../shared/save.footer';
 
 /**
  * The setting this writes, which `resolveThreadGapMs` reads for every story in parts and running
@@ -120,16 +121,7 @@ function StoryWaitForm({ initial, onSubmit, saving, succeeded, failure }: StoryW
                     {...form.getInputProps('minutes')}
                 />
 
-                <Group justify="flex-end" gap="md">
-                    {succeeded && !form.isDirty() ? (
-                        <Text size="sm" c="dimmed">
-                            {t('shared.saved')}
-                        </Text>
-                    ) : undefined}
-                    <Button type="submit" loading={saving}>
-                        {t('shared.save')}
-                    </Button>
-                </Group>
+                <SaveFooter saving={saving} saved={succeeded && !form.isDirty()} />
             </Stack>
         </form>
     );

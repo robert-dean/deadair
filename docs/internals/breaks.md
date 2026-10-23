@@ -587,6 +587,18 @@ names them. That last one asks and never refuses, deliberately — `dictionMarke
 counted in every answer, so the cheapest way to pass the character check is to say the marker list again, and
 a check that declined over it would be refusing the character for being itself.
 
+**The writers hear the mood the show is leaning into, as a lean.** A broadcast's mood stages
+(`schedule_slots.moods`, copied onto the running order) used to steer the draw and nothing else, so a
+slot an operator set to lean lonely after ten had its records lean that way while the presenter was
+told only the time. `BreakRequestBuilder` now resolves the stage the break airs in with `stretchMood`
+(`director/mood.stage.ts`), the same reading the refill uses at its batch's midpoint, so the two cannot
+name different stages, and puts it on the request as `mood`. The prompt says it as the mood of the
+STRETCH and tells the presenter not to say any record is in it: the draw only makes a fitting record
+more likely, so the record beside the break may be in another mood entirely. A bulletin is not told
+(its shape is `voice: 'lean'`), and the floor never reads it, because a phrasing an operator typed has
+no mood of its own. The occasions calendar that would give the mood a second source on days the slot
+names none is still [station-moment](https://github.com/robert-dean/deadair/discussions/38)'s.
+
 **A talk break may choose how the whole of it is read, and the choice is a word at the front of the answer.**
 `[hushed]` or `[frantic]`, the whole of `SPEECH_DELIVERIES`, offered on the two conditions a reaction is: the
 shape permits it (`BreakPromptShape.allowsDeliveries`, on for the talk break alone, since a newsreader who reads

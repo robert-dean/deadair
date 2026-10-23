@@ -151,3 +151,30 @@ describe('PersonaStoriesRepository.tellable', () => {
         expect(story?.timesTold).toBe(2);
     });
 });
+
+describe('PersonaStoriesRepository.recappable', () => {
+    const bitRow = { id: 's1', title: 'The Barstow lights', story: 'The lights over Barstow.', heard: '3', covered: null };
+
+    it('leaves out a telling whose break was thumbed down, judged on the attempt that aired', async () => {
+        const captured: Captured = { statements: [] };
+        await repositoryOver(fakeDb([[bitRow], [{ said: 'They came back.' }]], captured)).recappable('latenight', 2);
+
+        // The second statement is the tellings read. A bit built on the telling the operator winced
+        // at is the character being taught to repeat it, and the rating that counts is the one on
+        // the segment's newest written attempt, since that is the script the telling row is for.
+        const said = captured.statements[1];
+        expect(said?.sql).toContain('deadair.persona_tellings');
+        expect(said?.sql).toContain('not exists');
+        expect(said?.sql).toContain('deadair.script_ratings');
+        expect(said?.sql).toMatch(/h\.segment_id = deadair\.persona_tellings\.segment_id/);
+        expect(said?.sql).toMatch(/order by h\.created_at desc\s+limit 1/);
+        expect(said?.sql).toContain('rated.rating = -1');
+        expect(said?.parameters.filter(parameter => parameter === STATION).length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('still reads the tellings nobody rated', async () => {
+        const [bit] = await repositoryOver(fakeDb([[bitRow], [{ said: 'They came back.' }, { said: 'Twice.' }]])).recappable('latenight', 2);
+
+        expect(bit?.said).toEqual(['They came back.', 'Twice.']);
+    });
+});

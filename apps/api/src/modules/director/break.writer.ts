@@ -28,6 +28,7 @@
  */
 
 import type { PadUseNote } from '#modules/render/pad.cues.js';
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';
@@ -650,6 +651,16 @@ export interface BreakWriteRequest {
      * re-projected past it is rewritten rather than aired.
      */
     weekday?: RoughTime;
+    /**
+     * The mood stage of the stretch this break airs in, off the running order's stages. Absent for a
+     * broadcast that leans into none.
+     *
+     * The STRETCH's mood and never the record's: the draw only leans toward it, so the record either
+     * side may not be in it at all, and a writer told otherwise would say so over a record that is
+     * not. Read by the model bindings only. The floor never says it, because a phrasing an operator
+     * typed has no mood of its own.
+     */
+    mood?: LyricMood;
     /**
      * The instant this break airs and the station's zone, for the guard rather than for the prompt.
      *

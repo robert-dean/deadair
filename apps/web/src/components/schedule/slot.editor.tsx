@@ -19,6 +19,8 @@ import {
     REQUEST_FOLLOW_ON_DEFAULT,
     RequestShowFields,
     requestShowInput,
+    RepeatRulesFields,
+    repeatRulesInput,
     AvoidMoodsField,
     MoodStagesField,
     type Mood,
@@ -150,6 +152,12 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // Only a rotation follows a request: a setlist's sequence is somebody's own.
             ...(values.mode === 'rotation' ? requestShowInput(values.requestShow, values.requestFollowOn) : {}),
             ...(values.mode === 'rotation' && slot?.breaks === false ? { breaks: false } : {}),
+            // Only a rotation is drawn the boxes, since a setlist and a feature have no repeat rules to
+            // lift. Under either of those a value set through the API is kept rather than dropped,
+            // since no box here can say it.
+            ...(values.mode === 'rotation'
+                ? repeatRulesInput(values.repeatWindowDays, values.artistCooldownMinutes, values.maxPerArtist)
+                : repeatRulesOf(slot)),
             mode: values.mode,
             onEnd: values.onEnd,
         });
@@ -333,6 +341,14 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                         />
                     ) : undefined}
 
+                    {form.values.mode === 'rotation' ? (
+                        <RepeatRulesFields
+                            window={form.getInputProps('repeatWindowDays')}
+                            cooldown={form.getInputProps('artistCooldownMinutes')}
+                            perArtist={form.getInputProps('maxPerArtist')}
+                        />
+                    ) : undefined}
+
                     <Text size="xs" c="dimmed">
                         {t('slot.savingNote')}
                     </Text>
@@ -451,6 +467,10 @@ interface FormValues {
     requestShow: boolean;
     /** Empty string is Mantine's "nothing typed", which sends no count and takes the API's default. */
     requestFollowOn: number | string;
+    /** Empty string keeps the station's setting; `0` lifts the rule. Drawn only for a rotation. See `RepeatRulesFields`. */
+    repeatWindowDays: number | string;
+    artistCooldownMinutes: number | string;
+    maxPerArtist: number | string;
     /** Who sits in for the host, and when. See `GuestHostsField`. */
     guestHosts: GuestRow[];
     /** Who presents beside the host, and when. The same rows, with "every night" offered too. */
@@ -496,12 +516,22 @@ function valuesOf(target?: EditorTarget): FormValues {
         breaks: slot?.breaks === true,
         requestShow: slot?.requestShow === true,
         requestFollowOn: slot?.requestFollowOn ?? REQUEST_FOLLOW_ON_DEFAULT,
+        repeatWindowDays: slot?.repeatWindowDays ?? '',
+        artistCooldownMinutes: slot?.artistCooldownMinutes ?? '',
+        maxPerArtist: slot?.maxPerArtist ?? '',
         guestHosts: (slot?.guestHosts ?? []).map(guestRowOf),
         coHosts: (slot?.coHosts ?? []).map(guestRowOf),
         mode: slot?.mode ?? 'rotation',
         onEnd: slot?.onEnd ?? 'extend',
     };
 }
+
+/** The repeat rules a saved slot already carries, to keep them under a mode that draws no boxes for them. */
+const repeatRulesOf = (slot: ScheduleSlot | undefined): Pick<ScheduleSlotInput, 'repeatWindowDays' | 'artistCooldownMinutes' | 'maxPerArtist'> => ({
+    ...(slot?.repeatWindowDays === undefined ? {} : { repeatWindowDays: slot.repeatWindowDays }),
+    ...(slot?.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
+    ...(slot?.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
+});
 
 /** Whether records that sound like this source can be mixed into it: a playlist of either kind, and nothing else. */
 const mixesInto = (source: ReturnType<typeof splitSource>): boolean => source?.kind === 'playlist' || source?.kind === 'station';

@@ -482,6 +482,22 @@ describe('ScheduleTickJob', () => {
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('requestFollowOn');
     });
 
+    it('carries the repeat rules a slot lifts, and says nothing for a slot that lifts none', async () => {
+        const hour = build({ inForce: slot('one-artist', { repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 20 }) });
+        await hour.tick();
+        expect(vi.mocked(hour.console.putOnAir).mock.calls[0]?.[0]).toMatchObject({
+            repeatWindowDays: 0,
+            artistCooldownMinutes: 0,
+            maxPerArtist: 20,
+        });
+
+        const { tick, console } = build({ inForce: slot('morning') });
+        await tick();
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('repeatWindowDays');
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('artistCooldownMinutes');
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('maxPerArtist');
+    });
+
     it('carries a slot keeping its chart positions quiet, and says nothing when it does not', async () => {
         const quiet = build({ inForce: slot('quiet', { chartPositions: false }) });
         await quiet.tick();

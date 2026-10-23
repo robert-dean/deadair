@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
-import { refillMood, stageAt } from '../../../src/modules/director/mood.stage.js';
+import { refillMood, stageAt, stretchMood } from '../../../src/modules/director/mood.stage.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import { NOMINAL_TRACK_MS } from '../../../src/modules/director/air.estimate.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -104,5 +104,27 @@ describe('refillMood', () => {
         const broken = { inForce: vi.fn(async () => Promise.reject(new Error('the schedule is gone'))) };
 
         expect(await refillMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, [], 4, broken, config, at(23, 30))).toBe('comfort');
+    });
+});
+
+describe('stretchMood', () => {
+    const config = settingsConfig({ 'station.timezone': ZONE }).config;
+    const schedule = (slot?: ScheduleSlot) => ({ inForce: vi.fn(async () => slot) });
+
+    it('answers the stage the moment lands in, measured ahead from now', async () => {
+        // Half past nine in an eight-to-midnight slot with two stages: the second stage starts at ten.
+        expect(await stretchMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, 0, schedule(evening), config, at(21, 30))).toBe('comfort');
+        expect(await stretchMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, HOUR, schedule(evening), config, at(21, 30))).toBe(
+            'loneliness',
+        );
+    });
+
+    it('agrees with the draw: a refill is the same reading at its own midpoint', async () => {
+        const lineup = { moods: ['comfort', 'loneliness'] as const, slotId: 'evening' };
+        const now = at(21, 55);
+
+        expect(await refillMood(lineup, [], 4, schedule(evening), config, now)).toBe(
+            await stretchMood(lineup, (4 * NOMINAL_TRACK_MS) / 2, schedule(evening), config, now),
+        );
     });
 });

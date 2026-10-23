@@ -548,6 +548,9 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.breaks === undefined ? {} : { breaks: body.breaks }),
         ...(body.requestShow === undefined ? {} : { requestShow: body.requestShow }),
         ...(body.requestFollowOn === undefined ? {} : { requestFollowOn: body.requestFollowOn }),
+        ...(body.repeatWindowDays === undefined ? {} : { repeatWindowDays: body.repeatWindowDays }),
+        ...(body.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: body.artistCooldownMinutes }),
+        ...(body.maxPerArtist === undefined ? {} : { maxPerArtist: body.maxPerArtist }),
         ...specialDatesOf(body),
         ...guestHostsOf(body),
         ...coHostsOf(body),
@@ -674,6 +677,9 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),
+        ...(slot.repeatWindowDays === undefined ? {} : { repeatWindowDays: slot.repeatWindowDays }),
+        ...(slot.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
+        ...(slot.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
         ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
         ...(slot.coHosts === undefined || slot.coHosts.length === 0
             ? {}

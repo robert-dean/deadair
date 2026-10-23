@@ -238,6 +238,7 @@ function harness(
     const plays = { duringBroadcast: vi.fn(async () => options.played ?? []) };
     const lyricLabels = { subjectsForTracks: vi.fn(async () => options.subjects ?? new Map<string, string>()) };
     const lyricTexts = { textForDerivation: vi.fn(async () => options.lyricTexts ?? new Map<string, string>()) };
+    const schedule = { inForce: vi.fn(async () => undefined) };
     const vocalMarkers = {
         forTracks: vi.fn(
             async (ids: readonly string[]) =>
@@ -272,6 +273,7 @@ function harness(
         vocalMarkers as never,
         lyricLabels as never,
         lyricTexts as never,
+        schedule as never,
         identity as never,
         speech as never,
         config as never,
@@ -568,6 +570,20 @@ describe('WriteBreakJob', () => {
 
         expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }));
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ dayPart: expect.anything() }));
+    });
+
+    it('hands the writer the mood stage the break airs in, and nothing for a broadcast with none', async () => {
+        const moody = new StationLineup({ name: 'Evenings', mode: 'rotation', onEnd: 'extend', source: 'import', moods: ['comfort'] });
+        moody.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+        moody.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+        const leaning = harness({ lineup: moody, segment: planned({ airsAt: 1_700_000_000_000 }) });
+
+        await leaning.job.run({ segmentId: 'seg-1' });
+        expect(leaning.writers.write).toHaveBeenCalledWith(expect.objectContaining({ mood: 'comfort' }));
+
+        const plain = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: 1_700_000_000_000 }) });
+        await plain.job.run({ segmentId: 'seg-1' });
+        expect(plain.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ mood: expect.anything() }));
     });
 
     it('names the hour once an operator switches it back on', async () => {

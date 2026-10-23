@@ -350,6 +350,52 @@ describe('SlotEditor', () => {
         expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ requestShow: true, requestFollowOn: 6 });
     });
 
+    it('sends only the repeat rules somebody typed, a zero as the lift it is', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('textbox', { name: /Artist rest \(minutes\)/ });
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Metallica hour');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        // Untouched boxes keep the station's own rules, which is sending nothing at all.
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('repeatWindowDays');
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('artistCooldownMinutes');
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('maxPerArtist');
+
+        await user.type(screen.getByRole('textbox', { name: /Artist rest \(minutes\)/ }), '0');
+        await user.type(screen.getByRole('textbox', { name: /Most per artist/ }), '20');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ artistCooldownMinutes: 0, maxPerArtist: 20 });
+        expect(onSubmit.mock.calls[1]?.[0]).not.toHaveProperty('repeatWindowDays');
+    });
+
+    it('opens a slot on the repeat rules it lifts, and keeps them under a mode that draws no boxes', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        const lifted = slot({ artistCooldownMinutes: 0, repeatWindowDays: 0 });
+
+        render(
+            <SlotEditor target={{ kind: 'edit', slot: lifted }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />,
+        );
+
+        expect(await screen.findByRole('textbox', { name: /Artist rest \(minutes\)/ })).toHaveValue('0');
+
+        await user.click(screen.getByRole('combobox', { name: 'Mode' }));
+        await user.click(await screen.findByRole('option', { name: 'Setlist' }));
+        expect(screen.queryByRole('textbox', { name: /Artist rest \(minutes\)/ })).toBeNull();
+
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ mode: 'setlist', artistCooldownMinutes: 0, repeatWindowDays: 0 });
+    });
+
     it('offers a request show only under a rotation', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

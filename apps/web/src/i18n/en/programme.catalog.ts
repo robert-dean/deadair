@@ -116,4 +116,13 @@ export const programme = {
         maxOpenLabel: 'Requests waiting at once',
         maxOpenDescription: 'For this show only. Empty keeps the station’s own setting.',
     },
+    repeatRules: {
+        label: 'Repeat rules',
+        description:
+            'For this show only. Empty keeps the station’s own setting and 0 turns a rule off. Most per artist counts each batch the station programmes, about an hour. For an hour of one artist, set Artist rest to 0 and raise Most per artist. A record you disliked, or one a never-play rule keeps off, stays off whatever these say.',
+        windowLabel: 'Record rest (days)',
+        cooldownLabel: 'Artist rest (minutes)',
+        perArtistLabel: 'Most per artist',
+        stationPlaceholder: 'Station’s',
+    },
 } as const;

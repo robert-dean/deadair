@@ -943,6 +943,7 @@ export interface DeadairScheduleSlotHosts {
 }
 
 export interface DeadairScheduleSlots {
+  artistCooldownMinutes: number | null;
   avoidMoods: string[] | null;
   breaks: boolean | null;
   brief: Generated<string>;
@@ -956,11 +957,13 @@ export interface DeadairScheduleSlots {
   eraTo: number | null;
   id: Generated<string>;
   label: Generated<string>;
+  maxPerArtist: number | null;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
   moods: string[] | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
+  repeatWindowDays: number | null;
   requestFollowOn: number | null;
   requestShow: boolean | null;
   resumePlaylist: Generated<boolean>;

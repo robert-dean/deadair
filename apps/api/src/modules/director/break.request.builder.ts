@@ -40,6 +40,8 @@ import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.j
 import { LyricsRepository } from '#modules/lyrics/lyrics.repository.js';
 import { lyricLines } from '#modules/lyrics/lyric.subject.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { ScheduleService } from '#modules/schedule/schedule.service.js';
+import { stretchMood } from './mood.stage.js';
 import { rotationOf } from '#modules/shared/rotation.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
@@ -236,6 +238,8 @@ export class BreakRequestBuilder {
         /** What each record is about, and its words for the guard. See {@link aboutTheRecords}. */
         private readonly lyricLabels: LyricLabelsRepository,
         private readonly lyrics: LyricsRepository,
+        /** The slot in force, for which of the broadcast's mood stages a break airs in. See `stretchMood`. */
+        private readonly schedule: ScheduleService,
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
         private readonly config: AppConfig,
@@ -267,6 +271,11 @@ export class BreakRequestBuilder {
         const part = airsAt === undefined ? undefined : dayPart(airsAt, zone);
         // And the day it falls on, for a phrasing that says "Friday". No model is told it.
         const day = airsAt === undefined ? undefined : weekday(airsAt, zone);
+        // The stage of the broadcast's moods this break airs in, off the same instant, by the same
+        // reading the draw leans on, so a presenter is never told one mood while the records lean
+        // into another. A break with no slot is measured as airing now.
+        const now = Date.now();
+        const mood = await stretchMood(lineup, Math.max(0, (airsAt ?? now) - now), this.schedule, this.config, now);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a
@@ -342,6 +351,7 @@ export class BreakRequestBuilder {
             ...(greeting === undefined ? {} : { greeting }),
             ...(part === undefined ? {} : { dayPart: part }),
             ...(day === undefined ? {} : { weekday: day }),
+            ...(mood === undefined ? {} : { mood }),
             // The same instant a fourth time, and the only one of the four nothing is TOLD. The three
             // above are the moment as words, which is what a model can use; this is the moment as a
             // number, which is what a guard needs to catch a script naming a point in the day rather

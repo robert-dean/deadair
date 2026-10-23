@@ -105,6 +105,9 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     requestFollowOn?: int(min=0, max=10) # How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     requestCooldownMinutes?: int(min=0, max=1440) # Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short
     requestMaxOpen?: int(min=1, max=20) # How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's
+    repeatWindowDays?: int(min=0, max=365) # Days a record rests after airing before this broadcast may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule
+    artistCooldownMinutes?: int(min=0, max=1440) # Minutes an artist rests after airing during this broadcast, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    maxPerArtist?: int(min=0, max=100) # Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
     mode?: StationMode
     onEnd?: StationOnEnd
 }

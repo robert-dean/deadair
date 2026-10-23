@@ -272,6 +272,14 @@ describe('ScheduleService.update', () => {
         expect(slots[0]).toMatchObject({ requestShow: true, requestFollowOn: 2 });
     });
 
+    it('stores the repeat rules a slot lifts and hands them back, a zero as a zero', async () => {
+        const service = build({ slots: [slot('one-artist', 20 * 60, 21 * 60)] });
+
+        const { slots } = await service.update('one-artist', body({ repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 20 }));
+
+        expect(slots[0]).toMatchObject({ repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 20 });
+    });
+
     describe('guest hosts', () => {
         const ROCKZO = '0a0b0c0d-0000-4000-8000-0000000000aa';
         const CALLER = '0a0b0c0d-0000-4000-8000-0000000000bb';

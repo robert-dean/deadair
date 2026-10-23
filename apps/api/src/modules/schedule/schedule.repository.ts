@@ -206,6 +206,9 @@ function columnsOf(draft: ScheduleSlotDraft) {
         breaks: draft.breaks ?? null,
         requestShow: draft.requestShow ?? null,
         requestFollowOn: draft.requestFollowOn ?? null,
+        repeatWindowDays: draft.repeatWindowDays ?? null,
+        artistCooldownMinutes: draft.artistCooldownMinutes ?? null,
+        maxPerArtist: draft.maxPerArtist ?? null,
         // Cast in SQL rather than handed over as a `DateTime`, because a date is a reading of the
         // station's calendar and not an instant: building one in JS would mean choosing a zone for a
         // value that has none.
@@ -287,6 +290,9 @@ function toSlot(row: {
     breaks: boolean | null;
     requestShow: boolean | null;
     requestFollowOn: number | null;
+    repeatWindowDays: number | null;
+    artistCooldownMinutes: number | null;
+    maxPerArtist: number | null;
     startsOn: DateTime | null;
     endsOn: DateTime | null;
     yearly: boolean;
@@ -332,6 +338,10 @@ function toSlot(row: {
         ...(row.breaks == null ? {} : { breaks: row.breaks }),
         ...(row.requestShow == null ? {} : { requestShow: row.requestShow }),
         ...(row.requestFollowOn == null ? {} : { requestFollowOn: row.requestFollowOn }),
+        // `== null` once more, and here a falsy test would be the bug itself: `0` is the lift.
+        ...(row.repeatWindowDays == null ? {} : { repeatWindowDays: row.repeatWindowDays }),
+        ...(row.artistCooldownMinutes == null ? {} : { artistCooldownMinutes: row.artistCooldownMinutes }),
+        ...(row.maxPerArtist == null ? {} : { maxPerArtist: row.maxPerArtist }),
         // Both ends or neither, which the table already checks; reading one alone as no special keeps
         // a half-written row an ordinary weekly slot rather than a special with an open end. The
         // driver parses a `date` as midnight UTC, so `toISODate` is the calendar date that was stored.

@@ -110,6 +110,12 @@ export interface ScheduleSlot {
     requestShow?: boolean;
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
     requestFollowOn?: number;
+    /** Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule */
+    repeatWindowDays?: number;
+    /** Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
+    artistCooldownMinutes?: number;
+    /** Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
+    maxPerArtist?: number;
     /** The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all */
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
@@ -168,6 +174,12 @@ export interface ScheduleSlotInput {
     requestShow?: boolean;
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
     requestFollowOn?: number;
+    /** Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule */
+    repeatWindowDays?: number;
+    /** Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
+    artistCooldownMinutes?: number;
+    /** Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
+    maxPerArtist?: number;
     /** The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all */
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */

@@ -210,6 +210,21 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? RequestFollowOn { get; init; }
 
+    /// <summary>Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule</summary>
+    [JsonPropertyName("repeatWindowDays")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RepeatWindowDays { get; init; }
+
+    /// <summary>Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms</summary>
+    [JsonPropertyName("artistCooldownMinutes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ArtistCooldownMinutes { get; init; }
+
+    /// <summary>Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms</summary>
+    [JsonPropertyName("maxPerArtist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxPerArtist { get; init; }
+
     /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
     [JsonPropertyName("startsOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -350,6 +365,21 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("requestFollowOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? RequestFollowOn { get; init; }
+
+    /// <summary>Days a record rests after airing before this stretch of the day may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule</summary>
+    [JsonPropertyName("repeatWindowDays")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RepeatWindowDays { get; init; }
+
+    /// <summary>Minutes an artist rests after airing during this stretch of the day, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms</summary>
+    [JsonPropertyName("artistCooldownMinutes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ArtistCooldownMinutes { get; init; }
+
+    /// <summary>Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms</summary>
+    [JsonPropertyName("maxPerArtist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxPerArtist { get; init; }
 
     /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
     [JsonPropertyName("startsOn")]

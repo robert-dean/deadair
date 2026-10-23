@@ -239,6 +239,12 @@ export interface PutOnAirInput {
     requestCooldownMinutes?: number;
     /** How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's */
     requestMaxOpen?: number;
+    /** Days a record rests after airing before this broadcast may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule */
+    repeatWindowDays?: number;
+    /** Minutes an artist rests after airing during this broadcast, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
+    artistCooldownMinutes?: number;
+    /** Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
+    maxPerArtist?: number;
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }

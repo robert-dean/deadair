@@ -17,6 +17,8 @@ import {
     requestRulesInput,
     RequestShowFields,
     requestShowInput,
+    RepeatRulesFields,
+    repeatRulesInput,
     ShapeFields,
     ShapeNote,
     TalkField,
@@ -145,6 +147,10 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                 ...(form.values.mode === 'rotation' && form.values.requestShow
                     ? requestRulesInput(form.values.requestCooldownMinutes, form.values.requestMaxOpen)
                     : {}),
+                // Only a rotation has repeat rules to lift: see `RepeatRulesFields`.
+                ...(form.values.mode === 'rotation'
+                    ? repeatRulesInput(form.values.repeatWindowDays, form.values.artistCooldownMinutes, form.values.maxPerArtist)
+                    : {}),
                 mode: form.values.mode,
                 onEnd: form.values.onEnd,
             },
@@ -237,6 +243,14 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                                     maxOpen={form.getInputProps('requestMaxOpen')}
                                 />
                             ) : undefined}
+
+                            {form.values.mode === 'rotation' ? (
+                                <RepeatRulesFields
+                                    window={form.getInputProps('repeatWindowDays')}
+                                    cooldown={form.getInputProps('artistCooldownMinutes')}
+                                    perArtist={form.getInputProps('maxPerArtist')}
+                                />
+                            ) : undefined}
                         </>
                     )}
 
@@ -299,6 +313,10 @@ interface FormValues {
     requestCooldownMinutes: number | string;
     /** Empty string keeps the station's `requests.maxOpen`. Sent only on a request show. */
     requestMaxOpen: number | string;
+    /** Empty string keeps the station's setting; `0` lifts the rule. Sent only for a rotation. See `RepeatRulesFields`. */
+    repeatWindowDays: number | string;
+    artistCooldownMinutes: number | string;
+    maxPerArtist: number | string;
     mode: StationMode;
     onEnd: StationOnEnd;
 }
@@ -325,6 +343,9 @@ function valuesOf(order?: StationOrder): FormValues {
         requestFollowOn: REQUEST_FOLLOW_ON_DEFAULT,
         requestCooldownMinutes: '',
         requestMaxOpen: '',
+        repeatWindowDays: '',
+        artistCooldownMinutes: '',
+        maxPerArtist: '',
         mode: 'rotation',
         onEnd: 'extend',
     };

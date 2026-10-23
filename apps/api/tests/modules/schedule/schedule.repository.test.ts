@@ -14,7 +14,7 @@ import type { DB } from '../../../src/modules/data/db.js';
 const SLOT = '00000000-0000-4000-8000-0000000000aa';
 
 /** The stored row an update hands back, with the source the case gives it. */
-const storedRow = (source: Record<string, string | null>) => ({
+const storedRow = (source: Record<string, string | number | null>) => ({
     id: SLOT,
     label: 'Late night',
     startsAtMinutes: 1320,
@@ -37,6 +37,9 @@ const storedRow = (source: Record<string, string | null>) => ({
     breaks: null,
     requestShow: null,
     requestFollowOn: null,
+    repeatWindowDays: null,
+    artistCooldownMinutes: null,
+    maxPerArtist: null,
     startsOn: null,
     endsOn: null,
     yearly: false,
@@ -138,5 +141,30 @@ describe('ScheduleRepository.update', () => {
         expect(statements[at]).toContain('"resume_playlist" = $');
         expect(parameters[at]).toContain(false);
         expect(parameters[at]).not.toContain(true);
+    });
+});
+
+describe('the repeat rules a slot lifts', () => {
+    it('writes each rule to its own column, a zero as a zero', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const lifted = { repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 6 };
+        const db = fakeDb(storedRow({}), storedRow(lifted), statements, parameters);
+        await new ScheduleRepository(db, new StationIdentity()).update(SLOT, { ...draft(undefined), ...lifted });
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        expect(statements[at]).toContain('"repeat_window_days" = $');
+        expect(statements[at]).toContain('"artist_cooldown_minutes" = $');
+        expect(statements[at]).toContain('"max_per_artist" = $');
+        expect(parameters[at]).toContain(6);
+    });
+
+    it('reads a zero back as the lift and a null as no answer at all', async () => {
+        // A falsy test here would read every lift as "not set", which is the station's own rules.
+        const db = fakeDb(storedRow({}), storedRow({ repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: null }), []);
+        const slot = await new ScheduleRepository(db, new StationIdentity()).update(SLOT, draft(undefined));
+
+        expect(slot).toMatchObject({ repeatWindowDays: 0, artistCooldownMinutes: 0 });
+        expect(slot).not.toHaveProperty('maxPerArtist');
     });
 });

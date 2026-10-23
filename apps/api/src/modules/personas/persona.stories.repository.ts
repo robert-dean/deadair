@@ -218,10 +218,12 @@ export class PersonaStoriesRepository extends DataRepository {
      * of "never name a record you were not given" further from the end of the turn, and two is
      * already enough to see where a thing has got to.
      *
-     * Nothing here judges whether a telling was any GOOD, which is the same gap
-     * `ScriptHistoryRepository.writtenBy` carries a comment about: a bit built on the one telling the
-     * operator winced at is the character being taught to repeat what did not land. The clause is
-     * one left join through `segment_id` to `deadair.script_ratings` once that table is read here.
+     * And not thumbed down, on `ScriptHistoryRepository.writtenBy`'s rule: a bit built on the one
+     * telling the operator winced at is the character being taught to repeat what did not land. The
+     * rating that counts is the one on the segment's LATEST written attempt, because
+     * `PersonaTellingRepository.replaceForSegment` keeps one row per segment for the script that won,
+     * and an earlier draft rated down and then rewritten is not what went out. A telling with no
+     * segment, or whose break nobody rated, reads as before, so only a dislike excludes.
      */
     private async saidFor(storyId: string, limit = 2): Promise<string[]> {
         const rows = await this.db
@@ -232,6 +234,20 @@ export class PersonaStoriesRepository extends DataRepository {
             .where('told', '=', true)
             .where('airedAt', 'is not', null)
             .where('said', 'is not', null)
+            .where(
+                sql<boolean>`not exists (
+                    select 1 from (
+                        select h.id from deadair.script_history h
+                        where h.station_key = ${this.station.stationKey}
+                          and h.segment_id = deadair.persona_tellings.segment_id
+                          and h.outcome = 'written'
+                        order by h.created_at desc
+                        limit 1
+                    ) aired
+                    join deadair.script_ratings rated on rated.script_id = aired.id and rated.station_key = ${this.station.stationKey}
+                    where rated.rating = -1
+                )`,
+            )
             .orderBy('createdAt', 'desc')
             .limit(limit)
             .execute();

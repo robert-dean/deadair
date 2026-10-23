@@ -117,6 +117,9 @@ stream starts it.
 
 - **Records are listed but every one is skipped.** On Spotify, the playback authorization in step 1 is
   missing.
+- **Spotify worked for months and then every call is refused.** Check that the owner of the app on
+  Spotify's developer dashboard still has Premium. An app in development mode stops working when it
+  lapses.
 - **It stays quiet with the stream open.** Open **Check-up**: it says in one sentence why the station
   is not on air.
 - **The presenter says "tonight" in the afternoon.** **Station timezone** is empty or wrong.

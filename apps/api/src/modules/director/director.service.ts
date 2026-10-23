@@ -53,6 +53,9 @@ import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { playlistKeyOf } from './playlist.resume.js';
 import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
+import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
+import { spacingLengthOf } from './air.estimate.js';
+import { overdueCountdown } from './chart.airtime.js';
 import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
 import {
@@ -2286,6 +2289,12 @@ export class DirectorService {
             await scope.get(NarrationScheduler).ripen(Date.now());
         }).catch(error => this.logger.warn(`director: could not make the readings the clock will carry (${errorText(error)})`));
 
+        // A countdown that has fallen behind loses its lowest ranks still to come, so number one still
+        // airs before the changeover that would drop it. Before the dedication check below, which is
+        // what notices a dedication whose record this took out, and before planting, so the breaks
+        // are planted among the records that will actually air.
+        await this.keepCountdownOnTime(lineup, rules);
+
         // Before planting and before `ripen`, which is the one that would otherwise find a dedication
         // whose record has gone, judge its claim broken and have it written again about whatever is
         // behind it now. An edit runs this pass, so this is also the edit's half of the rule.
@@ -2814,6 +2823,75 @@ export class DirectorService {
         } catch (error) {
             this.logger.warn(`director: could not plan breaks for the running order (${errorText(error)})`);
         }
+    }
+
+    /**
+     * Cut a countdown that has fallen behind, so number one still airs before its slot ends.
+     *
+     * The countdown was fitted to its slot once, at `putOnAir`, and everything since holds it where
+     * it stands: the audience gate keeps the order exactly where it stopped, a setlist cannot top
+     * itself up, and the changeover drops whatever is queued behind the record on air. The US
+     * countdown on 2026-10-23 sat out 47 minutes with nobody listening, picked up at number 34 with
+     * the same 13:00 to beat, and never aired the top eleven. So every pass asks `overdueCountdown`
+     * the fit's question again and splices out the lowest ranks still to come that no longer leave
+     * number one time.
+     *
+     * Every pass rather than on the audience arriving, because the gate is only one way to fall
+     * behind (a run of requests or a long phone-in is another), and while the station is quiet too,
+     * so the first record a returning listener hears is already one that fits. It is arithmetic over
+     * the order, and an order with no countdown end returns at the first line.
+     *
+     * Only BEFORE the end, and never while an operator holds the broadcast. Past the end a changeover
+     * has either happened, and this order is gone, or something is keeping it on deliberately, and in
+     * both cases a cut protects nothing. That also keeps a countdown on `on_end: 'repeat'`, whose
+     * replay starts after the end, from being cut down to number one.
+     */
+    private async keepCountdownOnTime(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
+        const endsAt = lineup.countdownEndsAt;
+        const now = Date.now();
+        if (endsAt === undefined || now >= endsAt || lineup.heldAt(now)) return;
+
+        const overdue = overdueCountdown(lineup.upcoming(), {
+            untilEndMs: endsAt - now,
+            overrunMs: resolveOverrunMinutes(this.config.get(OVERRUN_MINUTES_KEY, DEFAULT_OVERRUN_MINUTES)) * 60_000,
+            talks: rules.breaks,
+            leadMs: this.airingLeftMs(lineup, now),
+            keep: lineup.staysPut(),
+        });
+        if (overdue.length === 0) return;
+
+        // Read before the splice, which takes the rows out of the order.
+        const ranks = overdue.flatMap(id => {
+            const item = lineup.all().find(line => line.id === id);
+            return item !== undefined && isTrackItem(item) && item.track.chart !== undefined ? [item.track.chart.rank] : [];
+        });
+        for (const id of overdue) lineup.remove(id);
+        await this.persist();
+
+        const which = ranks.length === 1 ? `number ${ranks[0]}` : `numbers ${Math.max(...ranks)} to ${Math.min(...ranks)}`;
+        this.logger.info('director: cut a countdown that fell behind, so it still reaches number one', {
+            ranks,
+            endsAt: new Date(endsAt).toISOString(),
+        });
+        void this.activity.record({
+            module: 'director',
+            kind: 'order.countdownCut',
+            detail: `The countdown fell behind, so ${which} will not air: number one still starts before the show ends.`,
+            data: { ranks, endsAt: new Date(endsAt).toISOString() },
+        });
+        // A break written for one of those records now sits in front of a different one.
+        void this.reopenPromises(overdue);
+    }
+
+    /**
+     * How long is left of the record on air, by its length in the order and when it started, or
+     * nothing when nothing is airing. {@link airClock}'s anchor, read for one item.
+     */
+    private airingLeftMs(lineup: StationLineup, now: number): number {
+        const playing = this.rundown.nowPlaying();
+        const airing = lineup.airing();
+        if (playing === undefined || airing === undefined || playing.item.id !== airing.id) return 0;
+        return Math.max(0, playing.startedAt + spacingLengthOf(airing) - now);
     }
 
     /**

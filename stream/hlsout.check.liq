@@ -31,7 +31,7 @@ streams = [("aac", %fdkaac(bitrate=192))]
 output.file.hls(
   playlist = "live.m3u8",
   segment_duration = 2.0,
-  segments = 6,
+  segments = 15,
   segments_overhead = 5,
   persist_at = environment.get("CHECK_PERSIST_AT", default="/tmp/hlscheck/state.json"),
   environment.get("CHECK_HLS_DIR", default="/tmp/hlscheck"),

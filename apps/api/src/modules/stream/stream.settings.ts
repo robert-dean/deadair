@@ -237,11 +237,14 @@ export const STREAM_DEFAULTS = {
     aacBitrate: '192',
     flacEnabled: false,
     hlsEnabled: false,
-    // Two seconds, six of them: about 6-12s behind the live edge, which is the good end
-    // of what HLS does. Shorter segments cut the latency and cost a request per listener
-    // per segment; a longer window costs latency and buys resilience on a bad connection.
+    // Two seconds, fifteen of them: a thirty-second window. The window is NOT the latency. A
+    // player starts three target durations back from the live edge however long the playlist is
+    // (RFC 8216 6.3.3, and ExoPlayer's fallback when the playlist names no hold-back), so a
+    // listener is about six seconds behind live at any count. What the count buys is room BEHIND
+    // that start: a player that stalls for longer than (count - 3) segments has had the segment
+    // it needs next deleted, and that is BEHIND_LIVE_WINDOW. See `HLS_SEGMENT_COUNT_RANGE`.
     hlsSegmentSeconds: 2,
-    hlsSegmentCount: 6,
+    hlsSegmentCount: 15,
     // No cap. A station that never asked for one must not start turning listeners away, and an
     // upgrade must render exactly the file it rendered before.
     maxListeners: 0,
@@ -302,7 +305,11 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         // already stored, and a setting that will not load stops the render behind it. The
         // console refuses an out-of-range figure at the point somebody types one.
         hlsSegmentSeconds: clamp(numberOr(config, STREAM_KEYS.hlsSegmentSeconds, STREAM_DEFAULTS.hlsSegmentSeconds), 1, 10),
-        hlsSegmentCount: clamp(numberOr(config, STREAM_KEYS.hlsSegmentCount, STREAM_DEFAULTS.hlsSegmentCount), 3, 20),
+        hlsSegmentCount: clamp(
+            numberOr(config, STREAM_KEYS.hlsSegmentCount, STREAM_DEFAULTS.hlsSegmentCount),
+            HLS_SEGMENT_COUNT_RANGE.min,
+            HLS_SEGMENT_COUNT_RANGE.max,
+        ),
         maxListeners: resolveMaxListeners(config),
         hostname: values.get(STREAM_KEYS.hostname) ?? STREAM_DEFAULTS.hostname,
         location: values.get(STREAM_KEYS.location) ?? STREAM_DEFAULTS.location,
@@ -540,6 +547,19 @@ export function resolveMountSettings(config: AppConfig): MountSettings {
         hlsEnabled: settingIsOn(config, STREAM_KEYS.hlsEnabled, STREAM_DEFAULTS.hlsEnabled),
     };
 }
+
+/**
+ * The range `stream.hlsSegmentCount` takes, shared with the registry for the reason every range there is.
+ *
+ * **The floor is ten because three was a trap.** A player starts three segments back from the live
+ * edge, so a three-segment playlist puts it on the OLDEST segment listed, which the next refresh
+ * deletes: no slack at all, and any stall past one segment leaves it behind the window. That is what
+ * the live station ran on in October 2026 (the old help text said the count was the latency, which
+ * it is not), and the Android listener logged `BEHIND_LIVE_WINDOW` and stuck-playing timeouts on it.
+ * Ten leaves seven segments behind the start. The ceiling is only there so the directory stays
+ * small: it holds `count + segments_overhead` files.
+ */
+export const HLS_SEGMENT_COUNT_RANGE = { min: 10, max: 30 } as const;
 
 /** The range `stream.maxListeners` takes, shared with the registry for the reason every range there is. */
 export const MAX_LISTENERS_RANGE = { min: 0, max: 10_000 } as const;

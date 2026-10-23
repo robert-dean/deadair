@@ -21,7 +21,7 @@
  * from the SDK because the CONSOLE writes it.
  */
 
-import { parseRows } from '@deadair/plugin-sdk';
+import { numberCell, parseRows, rowsHaveColumns } from '@deadair/plugin-sdk';
 
 /** The config key the rows are stored under, and the field key columns hang off. */
 export const VOICES_FIELD = 'voices';
@@ -134,12 +134,7 @@ export function voiceMapOf(raw: unknown): VoiceMap {
  * can do beats ignoring them.
  */
 export function speedOf(raw: string | undefined): number | undefined {
-    if (raw === undefined || raw.trim().length === 0) return undefined;
-
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-
-    return Math.min(MAX_SPEED, Math.max(MIN_SPEED, parsed));
+    return numberCell(raw, { range: { min: MIN_SPEED, max: MAX_SPEED }, positive: true });
 }
 
 /**
@@ -149,12 +144,7 @@ export function speedOf(raw: string | undefined): number | undefined {
  * zero is kept. Clamped rather than refused, for the same reason a speed is.
  */
 export function dialOf(raw: string | undefined, min: number, max: number): number | undefined {
-    if (raw === undefined || raw.trim().length === 0) return undefined;
-
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return undefined;
-
-    return Math.min(max, Math.max(min, parsed));
+    return numberCell(raw, { range: { min, max } });
 }
 
 /**
@@ -166,7 +156,5 @@ export function dialOf(raw: string | undefined, min: number, max: number): numbe
  * leaves behind when a row is added and abandoned.
  */
 export function voiceRowsAreComplete(raw: unknown): boolean {
-    if (raw === undefined) return true;
-
-    return parseRows(raw).every(row => Boolean(row[VOICE_NAME_COLUMN]?.trim()) && Boolean(row[VOICE_ENGINE_COLUMN]?.trim()));
+    return rowsHaveColumns(raw, [VOICE_NAME_COLUMN, VOICE_ENGINE_COLUMN]);
 }

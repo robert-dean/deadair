@@ -24,7 +24,7 @@
  * fills in the column once, at the top of the form, and never again.
  */
 
-import { parseRows } from '@deadair/plugin-sdk';
+import { numberCell, parseRows, rowsHaveColumns } from '@deadair/plugin-sdk';
 
 /** The config key the rows are stored under, and the field key columns hang off. */
 export const VOICES_FIELD = 'voices';
@@ -125,10 +125,7 @@ export function voiceMapOf(raw: unknown): VoiceMap {
  * no speed dial would refuse.
  */
 export function speedOf(raw: string | undefined): number | undefined {
-    if (raw === undefined || raw.trim().length === 0) return undefined;
-
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    return numberCell(raw, { positive: true });
 }
 
 /**
@@ -145,14 +142,7 @@ export function speedOf(raw: string | undefined): number | undefined {
  * would produce is the default one under somebody else's name.
  */
 export function voiceRowsAreComplete(raw: unknown): boolean {
-    if (raw === undefined) return true;
-
-    return parseRows(raw).every(row => {
-        const name = row[VOICE_NAME_COLUMN]?.trim();
-        const voice = row[VOICE_VOICE_COLUMN]?.trim();
-
-        // `parseRows` already drops a row whose every cell is blank, so anything here has something
-        // in it and owes both halves.
-        return Boolean(name) && Boolean(voice);
-    });
+    // `parseRows` already drops a row whose every cell is blank, so anything here has something in it
+    // and owes both halves.
+    return rowsHaveColumns(raw, [VOICE_NAME_COLUMN, VOICE_VOICE_COLUMN]);
 }

@@ -30,7 +30,7 @@
  * refilled from the table in front of the operator.
  */
 
-import { parseRows } from '@deadair/plugin-sdk';
+import { numberCell, parseRows, rowsHaveColumns } from '@deadair/plugin-sdk';
 
 /** The config key the rows are stored under, and the field key columns hang off. */
 export const VOICES_FIELD = 'voices';
@@ -110,12 +110,7 @@ export function voiceMapOf(raw: unknown): VoiceMap {
  * all is absent, which means the engine's own pace.
  */
 export function speedOf(raw: string | undefined): number | undefined {
-    if (raw === undefined || raw.trim().length === 0) return undefined;
-
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-
-    return Math.min(MAX_SPEED, Math.max(MIN_SPEED, parsed));
+    return numberCell(raw, { range: { min: MIN_SPEED, max: MAX_SPEED }, positive: true });
 }
 
 /**
@@ -131,14 +126,5 @@ export function speedOf(raw: string | undefined): number | undefined {
  * fighting the operator.
  */
 export function voiceRowsAreComplete(raw: unknown): boolean {
-    if (raw === undefined) return true;
-
-    return parseRows(raw).every(row => {
-        const name = row[VOICE_NAME_COLUMN]?.trim();
-        const engine = row[VOICE_ENGINE_COLUMN]?.trim();
-
-        // `parseRows` already drops a row whose every cell is blank, so anything
-        // here has something in it and owes both halves.
-        return Boolean(name) && Boolean(engine);
-    });
+    return rowsHaveColumns(raw, [VOICE_NAME_COLUMN, VOICE_ENGINE_COLUMN]);
 }

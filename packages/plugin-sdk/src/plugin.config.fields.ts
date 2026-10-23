@@ -351,6 +351,36 @@ export function parseRows(raw: unknown): Record<string, string>[] {
 }
 
 /**
+ * Whether every row an operator typed fills `columns`, for a config schema's refinement.
+ *
+ * An unset field passes: no rows is a choice. A row with something in it owes every named column,
+ * since {@link parseRows} has already dropped the rows with nothing in them. The four speech plugins
+ * each checked their voice table this way.
+ */
+export function rowsHaveColumns(raw: unknown, columns: readonly string[]): boolean {
+    if (raw === undefined) return true;
+    return parseRows(raw).every(row => columns.every(column => Boolean(row[column]?.trim())));
+}
+
+/**
+ * One cell of a row as a number, or `undefined` when it holds none.
+ *
+ * Every cell is text, so a blank one is unset rather than 0. `positive` makes 0 and below unset as
+ * well, for a value like a reading speed where they mean nothing; `range` clamps what is left, for a
+ * dial the engine only accepts between two bounds. Without a range the number is kept as typed, for
+ * an engine that declares its own bounds and is asked for them.
+ */
+export function numberCell(raw: string | undefined, options: { range?: { min: number; max: number }; positive?: boolean } = {}): number | undefined {
+    if (raw === undefined || raw.trim().length === 0) return undefined;
+
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return undefined;
+    if (options.positive === true && parsed <= 0) return undefined;
+
+    return options.range === undefined ? parsed : Math.min(options.range.max, Math.max(options.range.min, parsed));
+}
+
+/**
  * A row a `list` field offers to start from, instead of an empty one.
  *
  * For a list whose rows usually describe one of a few well-known things: an identity provider that

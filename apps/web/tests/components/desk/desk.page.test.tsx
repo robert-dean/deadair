@@ -24,6 +24,8 @@ const getPlayoutStatus = vi.fn();
 const readStationAttention = vi.fn();
 const skipTheCurrentItem = vi.fn();
 const stopPlayout = vi.fn();
+const keepTheStationQuiet = vi.fn();
+const endTheQuietSpell = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -35,6 +37,8 @@ vi.mock('../../../src/api/client', () => ({
             replanTheRunningOrder: () => Promise.resolve({}),
             removeARunningOrderItem: () => Promise.resolve(order()),
             recastTheBroadcast: () => Promise.resolve(order()),
+            keepTheStationQuiet: (body: unknown) => keepTheStationQuiet(body),
+            endTheQuietSpell: () => endTheQuietSpell(),
         },
         playout: {
             getPlayoutStatus: () => getPlayoutStatus(),
@@ -339,5 +343,41 @@ describe('DeskPage', () => {
 
         expect(await screen.findByRole('button', { name: 'Keep it on past the next block' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Keep it on for two hours' })).toBeInTheDocument();
+    });
+
+    // A station quiet on purpose and one that has silently stopped talking sound the same, so the
+    // state and the way out of it are one control.
+    it('keeps the station quiet for a number of records, and says so until it ends', async () => {
+        arrange();
+        keepTheStationQuiet.mockResolvedValue(stationAir({ quietRecords: 3 }));
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'the next 3 records' }));
+
+        expect(keepTheStationQuiet).toHaveBeenCalledWith({ records: 3 });
+        expect(await screen.findByText('Quiet for the next 3 records. The station talks again after them.')).toBeInTheDocument();
+    });
+
+    it('ends a quiet spell from the line that reports it', async () => {
+        arrange();
+        getStationAir.mockResolvedValue(stationAir({ quietRecords: 1 }));
+        endTheQuietSpell.mockResolvedValue(stationAir());
+        const user = setupUser();
+        render(<DeskPage />);
+
+        expect(await screen.findByText('Quiet for the next record. The station talks again after it.')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Talk again' }));
+
+        expect(endTheQuietSpell).toHaveBeenCalled();
+    });
+
+    it('offers no quiet on a station that is stood down', async () => {
+        arrange();
+        getStationAir.mockResolvedValue(stationAir({ active: false, airSource: 'off' }));
+        render(<DeskPage />);
+
+        expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'the next 3 records' })).not.toBeInTheDocument();
     });
 });

@@ -1,7 +1,7 @@
 ---
 title: 'Read the genre steer'
 sidebar_label: 'Read the genre steer'
-sidebar_position: 24
+sidebar_position: 26
 mdx:
     format: 'md'
 ---

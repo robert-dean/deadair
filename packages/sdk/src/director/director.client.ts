@@ -9,6 +9,7 @@ import type {
     HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
+    QuietStationInput,
     ReplanStationInput,
     RequestStationBreakInput,
     RoutePreviewInput,
@@ -194,6 +195,28 @@ export class DirectorClient {
      */
     async releaseTheStationToTheSchedule(): Promise<StationAir> {
         const result = await this.fetch(`/director/air/hold`, { method: 'DELETE' });
+        return await parseJson<StationAir>(result);
+    }
+
+    /**
+     * @name Keep the station quiet
+     * @description Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count
+     */
+    async keepTheStationQuiet(body: QuietStationInput): Promise<StationAir> {
+        const result = await this.fetch(`/director/air/quiet`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationAir>(result);
+    }
+
+    /**
+     * @name End the quiet spell
+     * @description Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused
+     */
+    async endTheQuietSpell(): Promise<StationAir> {
+        const result = await this.fetch(`/director/air/quiet`, { method: 'DELETE' });
         return await parseJson<StationAir>(result);
     }
 

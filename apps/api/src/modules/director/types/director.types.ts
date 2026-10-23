@@ -16,6 +16,19 @@ export const AirMode = z.enum(['audience', 'always']);
 export type AirMode = z.infer<typeof AirMode>;
 
 /**
+ * Keep the station's own breaks off the air for a while
+ * generated from [QuietStationInput](../../../../data/contracts/director/director.types.ck)
+ */
+export const QuietStationInput = z.strictObject({
+    records: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(500))
+        .describe(
+            "How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends",
+        ),
+});
+export type QuietStationInput = z.infer<typeof QuietStationInput>;
+
+/**
  * Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down
  * generated from [AirSource](../../../../data/contracts/director/director.types.ck)
  */
@@ -246,6 +259,12 @@ export const StationAir = z.strictObject({
         .optional()
         .describe(
             'When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields',
+        ),
+    quietRecords: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(500))
+        .optional()
+        .describe(
+            'How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself',
         ),
 });
 export type StationAir = z.infer<typeof StationAir>;

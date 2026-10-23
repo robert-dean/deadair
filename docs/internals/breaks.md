@@ -39,6 +39,24 @@ writes the break exactly as it would have. A year, a figure or a run of lyric th
 added to an otherwise sound break, the same mistake as `unoffered-weather`, and the fix is to drop it. A
 lyric is the one fault whose refused answer is not quoted back, because the answer is the quotation.
 
+**A quiet spell is the station not talking for N records, and it is counted where the planner counts.**
+`station_air.breaks_quiet_records` (migration 0114) holds the count. The `quiet` director command sets it,
+and `DirectorService.remember` takes one off as each record STARTS, so it only runs down while somebody can
+hear it. The operator says it in records and the planner spaces in airtime, and the two meet in
+`quiet.spell.ts`: `quietThrough` turns the count into the last index the quiet covers, and `slotsFor` starts
+every walk of the station's own talk past it, with the planting lead given its own floor (`nearest`) so it is
+measured from what is committed rather than from the end of the quiet. Starting past it rather than
+filtering the answer afterwards is the point. A slot claimed inside the quiet and then dropped would still
+reset that walk's count, so the first break after the quiet would land an interval late. Started past it,
+the walk reads the quiet stretch as airtime with no break, so the first slot is the gap after the last
+quiet record, and it is planted and written ahead like any other. Somebody else's programme is still
+carried, as with `rotation.breaks` off; the station's introduction to it is not. A requested break is
+refused in `takeRequest` with the count in the sentence. Asking for quiet also withdraws the planted tail
+(`StationLineup.withdrawBreaks`), and so does every commit pass with `rotation.breaks` off, which used to
+stop new breaks and leave the planted ones airing until the tail ran out. The withdrawal SPLICES rather than
+marking `removed`: a mark means "this slot is cut, do not refill it" and resets the walk's count where it
+sits, which would keep the station quiet for an interval past what was asked.
+
 **The talk-break phrasings are the character's.** A persona's own `templates`, one per line, with the
 station's own five (`DEFAULT_TEMPLATES`) behind them, so clearing a character's box restores those rather
 than producing a silent DJ, and the way to stop it talking stays `rotation.breaks`. There used to be a

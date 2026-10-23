@@ -10,6 +10,7 @@ import {
     HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
+    QuietStationInput,
     ReplanStationInput,
     RequestStationBreakInput,
     RoutePreviewInput,
@@ -175,6 +176,34 @@ DirectorRouter.patch('/director/air/hold', requirePolicy({ policy: 'platform.man
 DirectorRouter.delete('/director/air/hold', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(DirectorConsoleService);
     const result: StationAir = await service.releaseToSchedule();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count
+ * from [director.ck](../../data/contracts/director/director.ck) `PUT /director/air/quiet`
+ */
+DirectorRouter.put('/director/air/quiet', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, QuietStationInput);
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationAir = await service.keepQuiet(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused
+ * from [director.ck](../../data/contracts/director/director.ck) `DELETE /director/air/quiet`
+ */
+DirectorRouter.delete('/director/air/quiet', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationAir = await service.endQuiet();
 
     ctx.status = 200;
     ctx.type = 'application/json';

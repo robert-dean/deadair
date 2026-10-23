@@ -52,6 +52,13 @@ object AirModeSerializer : SdkEnumSerializer<AirMode>(
     AirMode.ALWAYS to "always",
 )
 
+/** Keep the station's own breaks off the air for a while */
+@Serializable
+data class QuietStationInput(
+    /** How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends */
+    val records: Long,
+)
+
 /** Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down */
 @Serializable(with = AirSourceSerializer::class)
 enum class AirSource {
@@ -305,6 +312,8 @@ data class StationAir(
     val held: Boolean,
     /** When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields */
     val holdUntil: String? = null,
+    /** How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself */
+    val quietRecords: Long? = null,
 )
 
 /** Put the station on air, building its running order from the top */

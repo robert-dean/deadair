@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { PlayoutStatus, StationOrder } from '@deadair/sdk';
 
-import { useHoldAgainstSchedule, useSetAirMode } from '../../api/director.queries';
+import { useHoldAgainstSchedule, useKeepQuiet, useSetAirMode } from '../../api/director.queries';
 import { useStartCast, useStopCast } from '../../api/outputs.queries';
 import { useStartPlayout, useStopPlayout, useSkipCurrent } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -53,7 +53,17 @@ export interface OnAirNowProps {
      * fields. Absent with `held` false is simply no hold.
      */
     holdUntil?: string;
+    /** How many more records the station keeps its own breaks off the air for. Absent is not quiet. */
+    quietRecords?: number;
 }
+
+/** The two fixed lengths of quiet on offer, in records. "The rest of the order" is the third, counted. */
+const QUIET_SHORT = 3;
+const QUIET_LONG = 10;
+
+/** Records in the order still to start, which is what "the rest of the order" keeps quiet for. */
+const recordsToCome = (order: StationOrder | undefined): number =>
+    order?.items.filter(item => item.kind === 'track' && (item.state === 'planned' || item.state === 'handed')).length ?? 0;
 
 /** How long an armed Stop stays armed before it forgets, in ms. */
 const STOP_ARMED_MS = 5_000;
@@ -122,9 +132,11 @@ function useArmedStop(fire: () => void) {
  * Of the three controls only Stop asks twice — see {@link useArmedStop}. Skip ends one record and
  * Start puts a station back on air, and neither is a press worth a second thought.
  */
-export function OnAirNow({ status, order, standingDown, airMode, airSource, held = false, holdUntil }: OnAirNowProps) {
+export function OnAirNow({ status, order, standingDown, airMode, airSource, held = false, holdUntil, quietRecords }: OnAirNowProps) {
     const { t } = useTranslation('desk');
     const hold = useHoldAgainstSchedule();
+    const quiet = useKeepQuiet();
+    const rest = recordsToCome(order);
     const [why, setWhy] = useState(false);
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
@@ -148,6 +160,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
         start.isError ? apiErrorMessage(start.error, t('onAir.startFailed')) : undefined,
         startCast.isError ? apiErrorMessage(startCast.error, t('onAir.cast.startFailed')) : undefined,
         stopCast.isError ? apiErrorMessage(stopCast.error, t('onAir.cast.stopFailed')) : undefined,
+        quiet.isError ? apiErrorMessage(quiet.error, t('onAir.quietFailed')) : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -268,6 +281,71 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                             onClick={() => hold.mutate(undefined)}
                                         >
                                             {t('onAir.release')}
+                                        </Anchor>
+                                    </>
+                                )}
+                            </Group>
+                        ) : undefined}
+
+                        {/* The same shape as the hold above and for its reason: a station that has
+                            gone quiet on purpose and one that has silently stopped talking look the
+                            same from the speaker, so the state and the way out of it are one control.
+                            Offered only while the station is on, since there is nothing to keep
+                            quiet on a station stood down. */}
+                        {!standingDown && order ? (
+                            <Group gap="xs" align="baseline" wrap="wrap">
+                                {quietRecords === undefined ? (
+                                    <>
+                                        <Tooltip multiline maw={320} label={t('onAir.quietHint')}>
+                                            <Text size="xs" c="dimmed">
+                                                {t('onAir.quietOffer')}
+                                            </Text>
+                                        </Tooltip>
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="xs"
+                                            disabled={quiet.isPending}
+                                            onClick={() => quiet.mutate(QUIET_SHORT)}
+                                        >
+                                            {t('onAir.quietThree')}
+                                        </Anchor>
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="xs"
+                                            disabled={quiet.isPending}
+                                            onClick={() => quiet.mutate(QUIET_LONG)}
+                                        >
+                                            {t('onAir.quietTen')}
+                                        </Anchor>
+                                        {/* Only when the order holds more than the longer of the two,
+                                            or it would offer the same thing twice. */}
+                                        {rest > QUIET_LONG ? (
+                                            <Anchor
+                                                component="button"
+                                                type="button"
+                                                size="xs"
+                                                disabled={quiet.isPending}
+                                                onClick={() => quiet.mutate(rest)}
+                                            >
+                                                {t('onAir.quietRest')}
+                                            </Anchor>
+                                        ) : undefined}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text size="xs" c="orange.4">
+                                            {t('onAir.quietFor', { count: quietRecords })}
+                                        </Text>
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="xs"
+                                            disabled={quiet.isPending}
+                                            onClick={() => quiet.mutate(undefined)}
+                                        >
+                                            {t('onAir.talkAgain')}
                                         </Anchor>
                                     </>
                                 )}

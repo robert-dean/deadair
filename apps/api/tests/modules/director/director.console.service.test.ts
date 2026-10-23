@@ -134,6 +134,7 @@ function build(options: Options = {}) {
     const posted: DirectorCommand[] = [];
     // Whatever the last hold left behind, so `getAir` reads back what `holdAgainstSchedule` wrote.
     let held: number | undefined = options.holdUntil;
+    let quiet = 0;
     // The last binding the console posted, so `status()` answers what the director WOULD be holding
     // rather than a fixed object. `getAir` derives `airSource` from `placedBy` and `slotId`, and a
     // status that never changed would report the same driver whatever was put on.
@@ -162,8 +163,11 @@ function build(options: Options = {}) {
         }),
         post: vi.fn(async (command: DirectorCommand) => {
             posted.push(command);
+            // The quiet count rides the air row, so the fake keeps it as the hold above is kept.
+            if (command.kind === 'quiet') quiet = command.records;
             return undefined;
         }),
+        quietFor: vi.fn(() => quiet),
         order: vi.fn(() => order?.toSnapshot()),
         // The real order's answer, reshaped the way the real director reshapes it.
         promisedBy: vi.fn((itemId: string) => {
@@ -829,6 +833,35 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         const { service } = build({ holdUntil: Date.now() - 1 });
 
         expect((await service.getAir()).held).toBe(false);
+    });
+
+    it('keeps the station quiet through the director, says so on the air, and puts it on the feed', async () => {
+        const { service, posted, activity } = build();
+
+        const air = await service.keepQuiet({ records: 10 });
+
+        expect(posted()).toContainEqual({ kind: 'quiet', records: 10 });
+        expect(air.quietRecords).toBe(10);
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'air.quiet', data: { records: 10 } }));
+    });
+
+    it('leaves the count off the air of a station that is not quiet', async () => {
+        const { service } = build();
+
+        expect(await service.getAir()).not.toHaveProperty('quietRecords');
+    });
+
+    it('ends a quiet spell, and answers a station that was not quiet without a feed line', async () => {
+        const { service, posted, activity } = build();
+        await service.keepQuiet({ records: 3 });
+
+        const air = await service.endQuiet();
+        expect(posted()).toContainEqual({ kind: 'quiet', records: 0 });
+        expect(air).not.toHaveProperty('quietRecords');
+
+        vi.mocked(activity.record).mockClear();
+        await service.endQuiet();
+        expect(activity.record).not.toHaveBeenCalled();
     });
 
     it('releases a station that was never held, rather than arguing about it', async () => {

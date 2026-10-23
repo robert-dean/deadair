@@ -61,6 +61,7 @@ import type {
     AddStationSegmentInput,
     AddStationTrackInput,
     HoldStationInput,
+    QuietStationInput,
     ExtendStationInput,
     MoveStationItemInput,
     PutOnAirInput,
@@ -223,8 +224,43 @@ export class DirectorConsoleService {
             // `holdUntil` is when it lapses; absent while held is the hold that never does.
             held: hold !== undefined && hold > Date.now(),
             ...(hold === undefined || hold === Infinity ? {} : { holdUntil: new Date(hold).toISOString() }),
+            ...(this.director.quietFor() > 0 ? { quietRecords: this.director.quietFor() } : {}),
             remaining: status.remaining,
         };
+    }
+
+    /**
+     * Keep the station's own breaks off the air for the next so many records.
+     *
+     * A command through the mailbox rather than a write to the row, because it changes what airs:
+     * the breaks already planned across the quiet come out of the order, and that is the director's
+     * to do in turn with the commit pass. An operator action, so it is on the feed with the actor.
+     */
+    async keepQuiet(input: QuietStationInput): Promise<StationAir> {
+        await this.director.post({ kind: 'quiet', records: input.records });
+
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.quiet',
+            detail: `An operator asked the station to keep quiet for the next ${input.records} ${input.records === 1 ? 'record' : 'records'}.`,
+            data: { records: input.records },
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() }),
+        });
+        return await this.getAir();
+    }
+
+    /** End a quiet spell now. A station that is not quiet is answered as it stands, with no feed line. */
+    async endQuiet(): Promise<StationAir> {
+        if (this.director.quietFor() === 0) return await this.getAir();
+
+        await this.director.post({ kind: 'quiet', records: 0 });
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.quietEnded',
+            detail: 'An operator ended the quiet spell, so the station talks again at its next break.',
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() }),
+        });
+        return await this.getAir();
     }
 
     /**

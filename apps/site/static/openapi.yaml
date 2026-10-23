@@ -1700,6 +1700,35 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationAir'
+    '/director/air/quiet':
+        put:
+            operationId: keepQuiet
+            summary: 'Keep the station quiet'
+            description: "Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/QuietStationInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationAir'
+        delete:
+            operationId: endQuiet
+            summary: 'End the quiet spell'
+            description: 'Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationAir'
     '/director/air/shuffle':
         post:
             operationId: shuffleOrder
@@ -9500,8 +9529,23 @@ components:
                     minLength: 24
                     maxLength: 24
                     description: 'When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields'
+                quietRecords:
+                    type: integer
+                    minimum: 1
+                    maximum: 500
+                    description: 'How many more records the station keeps its own breaks off the air for. Absent is not quiet. It counts down as each record starts, so it only runs while somebody can hear it, and ends by itself'
             required: [active, airMode, remaining, airSource, held]
             description: 'What the station is airing, and whether it is driving at all'
+        QuietStationInput:
+            type: object
+            properties:
+                records:
+                    type: integer
+                    minimum: 1
+                    maximum: 500
+                    description: "How many records, from the next one to start. The breaks already planned across them come out at once. Somebody else's programme is still carried, and a break somebody asks for is refused until the quiet ends"
+            required: [records]
+            description: "Keep the station's own breaks off the air for a while"
         AirSource:
             type: string
             enum: ['off', schedule, sustaining, operator]

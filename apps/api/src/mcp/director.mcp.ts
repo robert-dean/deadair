@@ -16,6 +16,7 @@ import {
     HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
+    QuietStationInput,
     ReplanStationInput,
     RequestStationBreakInput,
     RoutePreviewInput,
@@ -45,6 +46,8 @@ const RequestABreakArgs = z.object({ body: RequestStationBreakInput });
 const PreviewAnArtistRouteArgs = z.object({ body: RoutePreviewInput });
 const HoldTheStationAgainstTheScheduleArgs = z.object({ body: HoldStationInput });
 const ReleaseTheStationToTheScheduleArgs = z.object({});
+const KeepTheStationQuietArgs = z.object({ body: QuietStationInput });
+const EndTheQuietSpellArgs = z.object({});
 const ShuffleTheRunningOrderArgs = z.object({});
 const AddASegmentToTheRunningOrderArgs = z.object({ body: AddStationSegmentInput });
 const AddARecordToTheRunningOrderArgs = z.object({ body: AddStationTrackInput });
@@ -310,6 +313,53 @@ export class ReleaseTheStationToTheScheduleMcpTool implements McpToolHandler {
 }
 
 /**
+ * from [director.ck](../../data/contracts/director/director.ck) `PUT /director/air/quiet`
+ */
+@Injectable()
+export class KeepTheStationQuietMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'keep_the_station_quiet',
+        description:
+            "Keeps the station's own breaks off the air for the next so many records, and takes out the ones already planned across them. Asking again replaces the count",
+        inputSchema: z.toJSONSchema(KeepTheStationQuietArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(StationAir, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, KeepTheStationQuietArgs);
+        const result = await container.get(DirectorConsoleService).keepQuiet(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [director.ck](../../data/contracts/director/director.ck) `DELETE /director/air/quiet`
+ */
+@Injectable()
+export class EndTheQuietSpellMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'end_the_quiet_spell',
+        description:
+            'Ends a quiet spell now, so the station talks again at its next break. A station that is not quiet is unchanged rather than refused',
+        inputSchema: z.toJSONSchema(EndTheQuietSpellArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(StationAir, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const result = await container.get(DirectorConsoleService).endQuiet();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
  * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/shuffle`
  */
 @Injectable()
@@ -463,6 +513,8 @@ export function registerDirectorMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('preview_an_artist_route', container.get(PreviewAnArtistRouteMcpTool));
     map.set('hold_the_station_against_the_schedule', container.get(HoldTheStationAgainstTheScheduleMcpTool));
     map.set('release_the_station_to_the_schedule', container.get(ReleaseTheStationToTheScheduleMcpTool));
+    map.set('keep_the_station_quiet', container.get(KeepTheStationQuietMcpTool));
+    map.set('end_the_quiet_spell', container.get(EndTheQuietSpellMcpTool));
     map.set('shuffle_the_running_order', container.get(ShuffleTheRunningOrderMcpTool));
     map.set('add_a_segment_to_the_running_order', container.get(AddASegmentToTheRunningOrderMcpTool));
     map.set('add_a_record_to_the_running_order', container.get(AddARecordToTheRunningOrderMcpTool));
@@ -484,6 +536,8 @@ export function registerDirectorMcpToolClasses(registry: Registry): void {
     registry.register(PreviewAnArtistRouteMcpTool).useClass(PreviewAnArtistRouteMcpTool).asSingleton();
     registry.register(HoldTheStationAgainstTheScheduleMcpTool).useClass(HoldTheStationAgainstTheScheduleMcpTool).asSingleton();
     registry.register(ReleaseTheStationToTheScheduleMcpTool).useClass(ReleaseTheStationToTheScheduleMcpTool).asSingleton();
+    registry.register(KeepTheStationQuietMcpTool).useClass(KeepTheStationQuietMcpTool).asSingleton();
+    registry.register(EndTheQuietSpellMcpTool).useClass(EndTheQuietSpellMcpTool).asSingleton();
     registry.register(ShuffleTheRunningOrderMcpTool).useClass(ShuffleTheRunningOrderMcpTool).asSingleton();
     registry.register(AddASegmentToTheRunningOrderMcpTool).useClass(AddASegmentToTheRunningOrderMcpTool).asSingleton();
     registry.register(AddARecordToTheRunningOrderMcpTool).useClass(AddARecordToTheRunningOrderMcpTool).asSingleton();

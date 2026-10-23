@@ -77,8 +77,10 @@ const sidebars: SidebarsConfig = {
             collapsed: false,
             items: [
                 'tutorials/another-music-source',
+                'tutorials/house-rules',
                 'tutorials/news-and-weather',
                 'tutorials/carry-a-podcast',
+                'tutorials/read-a-book',
                 'tutorials/speakers',
                 'tutorials/let-friends-listen',
                 'tutorials/chat-platforms',

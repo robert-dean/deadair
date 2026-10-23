@@ -40,10 +40,14 @@ Each of these adds one thing to a station that is already on air, and none depen
 
 - [Add a second music source](./another-music-source.md): a second provider beside the first, and a
   playlist brought in from either by its link.
+- [Keep records off the air](./house-rules.md): a dislike for one record or artist, a never-play rule
+  for a whole genre or live recordings, and keeping the station clean.
 - [News and weather in the breaks](./news-and-weather.md): headlines from your own feeds, a forecast
   for where the station is, and a bulletin at the top of the hour.
 - [Carry a podcast](./carry-a-podcast.md): subscribe to a show and give its newest episode a time on
   the clock.
+- [Read a book on air](./read-a-book.md): a chapter every night, read in the station's own voice from
+  an EPUB, picking up where it left off.
 - [Play the station on a speaker](./speakers.md): a Chromecast, a Sonos, a BluOS player or a UPnP renderer, started
   from the Desk.
 - [Let friends listen](./let-friends-listen.md): the station reachable from outside the house, a

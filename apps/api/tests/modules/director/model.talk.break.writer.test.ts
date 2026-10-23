@@ -629,6 +629,26 @@ describe('ModelTalkBreakWriter and a reading it was offered', () => {
 
         expect(written?.script).toContain('Summer 68');
     });
+
+    it('does not read the chart position it was asked to say as a temperature', async () => {
+        // The US countdown on 2026-10-23: asked for "at number 43", every model break was refused
+        // for saying 43, and all six aired from the floor.
+        const charted = { ...next, chart: { rank: 43, name: 'Top 100', weeksOn: 11 } };
+        const { writer } = build({ answer: 'At number 43, eleven weeks in and still climbing, here is Pink Moon by Nick Drake.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next: charted, weather, weatherFreshUntil: freshUntil });
+
+        expect(written?.script).toContain('At number 43');
+    });
+
+    it('still declines an invented reading beside a chart position', async () => {
+        const charted = { ...next, chart: { rank: 43, name: 'Top 100' } };
+        const { writer } = build({ answer: "It's 31 degrees out there. At number 43, Pink Moon to cool you down." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next: charted, weather, weatherFreshUntil: freshUntil });
+
+        expect(written).toBeUndefined();
+    });
 });
 
 // The same dimension arriving through the other offer, and the same posture for the same reason: a

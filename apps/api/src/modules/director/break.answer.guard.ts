@@ -1241,7 +1241,30 @@ export function permittedYears(
  * and a break that back-announced one has said nothing about a temperature.
  */
 const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefined =>
-    guard.weather === undefined ? undefined : inventedFigure(withoutRecordNames(script, guard), guard.weather, guard.language);
+    guard.weather === undefined
+        ? undefined
+        : inventedFigure(withoutChartFigures(withoutRecordNames(script, guard), guard), guard.weather, guard.language);
+
+/**
+ * The script with every figure a shown record's chart placing carried taken out, so a position is
+ * not mistaken for a temperature.
+ *
+ * A chart show asks for "at number 43", and a talk break is OFFERED the weather, so the figure check
+ * reads every break on that show. With the rank left in, it refused every model-written break of the
+ * US countdown from 09:44 on 2026-10-23, all six aired from the floor, and the reason given each time
+ * was the very rank the prompt had asked for. Any figure equal to one the placing carried is out, not
+ * only one after "number": "43 on the chart" and "eleven weeks" are the same true claim. What it costs
+ * is an invented reading that happens to equal a rank, which is the narrow miss this file prefers.
+ */
+function withoutChartFigures(script: string, guard: AnswerGuard): string {
+    const figures = new Set(
+        (guard.names ?? []).flatMap(record =>
+            record?.chart === undefined ? [] : [record.chart.rank, record.chart.peak, record.chart.weeksOn].filter(value => value !== undefined),
+        ),
+    );
+    // A number standing on its own, so a rank of 9 never takes the hour out of "9:30" or a digit out of "9.5".
+    return figures.size === 0 ? script : script.replace(/(?<![\d:.,])\d+(?![\d:]|[.,]\d)/g, digits => (figures.has(Number(digits)) ? ' ' : digits));
+}
 
 /**
  * The lyric line a script quotes {@link SUBJECT_ECHO_WORDS} words of in a row, or `undefined`.

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.9] — 2026-10-23
+
+- On a chart show that is also offered the weather, a break that says the record's chart position ("at number 43") is no longer refused for stating a temperature the station was never given. Every model-written break of a countdown was being refused that way and replaced by a stock phrasing.
+
 ## [0.77.8] — 2026-10-23
 
 - A console served from a different address than the API is no longer refused on every call when `SPA_BASE_URL` or `APP_BASE_URL` is written with a trailing slash or a path. The station now compares the browser's origin against each address's origin rather than the address as written.
@@ -1602,7 +1606,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.8...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.9...HEAD
+[0.77.9]: https://github.com/robert-dean/deadair/compare/v0.77.8...v0.77.9
 [0.77.8]: https://github.com/robert-dean/deadair/compare/v0.77.7...v0.77.8
 [0.77.7]: https://github.com/robert-dean/deadair/compare/v0.77.6...v0.77.7
 [0.77.6]: https://github.com/robert-dean/deadair/compare/v0.77.5...v0.77.6

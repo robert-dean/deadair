@@ -60,6 +60,9 @@ The address the station needs is `http://<your Home Assistant>:8123/api/webhook/
 
 Open **Settings → Event destinations**.
 
+![Event destinations: no destinations yet, and the form for a new one](/img/console/settings.events.webp)
+*Fig. 1. **Settings → Event destinations** on a station that sends events nowhere yet.*
+
 1. **Name** it, say _On Air light_, and paste the address from step 1 into **Address**.
 2. Under **Events to send**, choose `track.started`, `talk.started`, `production.started`,
    `programme.started` and `station.offAir`. Left empty, a destination is sent every event, including

@@ -63,6 +63,9 @@ Open **Settings → Plugins** and open **Telegram**, **Discord** or **Slack**.
    to it one to one, and linking your own account in step 6 needs it.
 4. Press **Save configuration**.
 
+![The Telegram plugin: the bot token, direct messages, and the groups it answers and announces in](/img/console/plugins.telegram.webp)
+*Fig. 1. **Settings → Plugins → Telegram**, with a token stored and the plugin not yet switched on.*
+
 Saving restarts the plugin with the new settings, so there is nothing else to restart. **You should
 see** the plugin's status turn to **Active**. Send the bot `/now` in a direct message: it answers with
 what is on air, such as `Now playing on Dead Air: Teardrop by Massive Attack (Mezzanine)`.

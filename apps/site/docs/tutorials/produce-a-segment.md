@@ -19,6 +19,10 @@ station; guests you write yourself ([Write a character](./write-a-character.md))
 ## Ask for a production
 
 1. Open **Voice → Productions** and press **Ask for one**.
+
+   ![The Ask for one form: a title, what it should be about, notes, sources, kind and minutes](/img/console/voice.productions.ask.webp)
+   *Fig. 1. The form **Ask for one** opens.*
+
 2. Fill in the form:
 
    | Field | Example |
@@ -50,7 +54,7 @@ Nothing is made while you wait. The production appears in the list and moves thr
 When every beat has been spoken it goes into the running order and shows **in the running order**.
 
 ![Productions: what the station is making, and how far along each one is](/img/console/voice.productions.webp)
-*Fig. 1. Voice → Productions.*
+*Fig. 2. Voice → Productions.*
 
 **To make them regularly,** add a band to the format clock instead (Programme → Today → **Add band**)
 with `podcast` as the **Sort of break**. One is commissioned ahead of every time the band comes round.

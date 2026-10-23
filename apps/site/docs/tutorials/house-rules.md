@@ -58,6 +58,9 @@ a never-play rule.
 
 The rule applies from the next record the station chooses. Records already queued stay.
 
+![Leans and rules: a lean toward some genres, and the never-play rules with the form for a new one](/img/console/schedule.rules.webp)
+*Fig. 1. **Programme → Leans and rules**, with one rule already in force: no live recordings.*
+
 **A record nobody tagged is never refused by a rule.** A rule matches the genres and tags the station
 holds for a record, so it is only as good as those. A record that slips through can still
 be disliked.

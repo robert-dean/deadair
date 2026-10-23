@@ -22,6 +22,9 @@ go through the pronunciations the station found for itself.
 
 It is in **Said this way** now, and the station says it your way from the next break on.
 
+![Pronunciations: each name as written, and as the station says it](/img/console/voice.pronunciations.webp)
+*Fig. 1. **Voice → Pronunciations**. The rows with a sentence beside them came from the article the station found the name in.*
+
 **Write the "said" form however your speech engine reads best.** It goes to the engine untouched.
 Plain respelling, with hyphens between syllables, works on every engine. An engine that takes its
 own phoneme markup, such as Kokoro, can be given that instead.

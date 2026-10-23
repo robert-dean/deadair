@@ -21,11 +21,17 @@ plays** on under Settings → Words ([Give the station a model](./connect-a-mode
 
 Open **Programme → Specials** and press **New special**.
 
+![Programme, Specials, with no specials yet and the New special button](/img/console/schedule.specials.webp)
+*Fig. 1. **Programme → Specials** on a station with no specials yet.*
+
 ## 2. Fill it in
 
 The editor is the weekly show's, with dates added. This one runs 20:00 to midnight on Halloween,
 which on the station this site is written from lands in the middle of The Boneyard, its weeknight
 metal show:
+
+![The New special editor: a name, hours, dates, and whether it repeats every year](/img/console/schedule.special.editor.webp)
+*Fig. 2. The **New special** editor, before anything is filled in.*
 
 | Field | For Halloween night |
 | --- | --- |

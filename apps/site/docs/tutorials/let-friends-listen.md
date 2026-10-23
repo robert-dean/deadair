@@ -62,6 +62,9 @@ While you are in **Settings → Stream**, two more settings are worth a look for
 - **Most listeners on each stream** caps how many people can listen at once. Saving it drops everybody
   listening for a few seconds, so change it when nobody is.
 
+![Settings, Stream: the bitrates, the extra formats, and the HLS settings](/img/console/settings.stream.webp)
+*Fig. 1. **Settings → Stream**. **Public URL** and **Most listeners on each stream** are further down.*
+
 ## 3. Invite them
 
 1. Open the console **at its public address**, not at `localhost` or your network address. A link

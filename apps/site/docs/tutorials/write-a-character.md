@@ -20,6 +20,10 @@ nothing is waiting on it.
 ### 1. Describe them
 
 1. Open **Voice → Characters**.
+
+   ![Characters: the roster of hosts and callers](/img/console/voice.characters.webp)
+   *Fig. 1. **Voice → Characters**, with **New host** at the top right.*
+
 2. Press **New host**. For somebody who rings in, drops by or reads the news, open **New caller or
    guest…** and choose **New caller**, **New guest** or **New newsreader** instead.
 3. Under **Start from a description**, write one sentence about who they are. Be specific about the
@@ -29,6 +33,9 @@ nothing is waiting on it.
 
 After a few seconds the fields below fill in: who they are, how they talk, the lines they fall back
 on, sample lines and the words that prove a break came back in character. Nothing is saved yet.
+
+![The New host editor: start from a description, then who they are and what they do](/img/console/voice.characters.new.webp)
+*Fig. 2. The **New host** editor. **Start from a description** is at the top.*
 
 The lines they fall back on are **Their own phrasings**, what the character says when no model writes
 the break. The model writes six: what just played and what is next, only what is next, the station's

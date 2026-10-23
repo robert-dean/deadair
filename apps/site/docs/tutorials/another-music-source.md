@@ -21,6 +21,9 @@ Open **Settings → Plugins** and open the plugin for the source you are adding.
 its settings, and press **Save configuration**. Saving restarts the plugin, so there is nothing else
 to restart. Then press **Test connection**: **You should see** "Connected."
 
+![The Navidrome plugin before it is switched on: server URL, username, password and stream format](/img/console/plugins.navidrome.webp)
+*Fig. 1. **Settings → Plugins → Navidrome**, before it is switched on. Every source has a page like this one.*
+
 Every field is described on the plugin's own page. In brief:
 
 **Navidrome**, or another Subsonic server: **Server URL**, **Username** and **Password**. **Stream

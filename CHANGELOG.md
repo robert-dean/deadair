@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.6] — 2026-10-22
+
+- A numeric setting left blank, or holding only spaces, now takes its default. It used to read as zero, so clearing a field in the console could set a length, a count or a timeout to nothing instead of putting it back.
+- When Deezer refuses a request inside an otherwise successful answer, the plugin's error no longer reports the upstream status as 200. It still carries Deezer's own error code, which is what says what went wrong.
+- A record's subject and mood, a fact read from an article, a persona's story proposals and recaps, and a production's outline are now read from a model's answer the same forgiving way a persona is: after the model's thinking, past a stray second object, and with a sentence it wrapped across lines repaired. Answers like those used to be thrown away and asked for again.
+- A numeric setting with something after the number, such as `12abc` or `30 minutes`, now takes its default instead of the number at its start, the same way every other numeric setting already read it.
+- Saving a plugin's settings while it is mid-request no longer turns that request's ordinary failure into a plugin fault. Ten plugins read their connection to the station again after waiting on a server, which throws once a save has reloaded them, and three such faults take a plugin off the air. They now hold the connection from the start of the request.
+- The plugin SDK reads a multi-line config field as a list (`configLines`) and an on/off field as a boolean (`configFlag`), so the chat plugins and Chatterbox no longer each carry their own copy.
+
 ## [0.77.5] — 2026-10-22
 
 - A show that names an act no longer plays a different act whose name merely contains it. A rock hour asking for Boston aired the techno duo Boston 168 twice, because "Boston 168" holds the word "Boston". When the model runs out of time and the station falls back to what it searched for, an artist now counts only when the search names the whole act. A credit joining several acts, such as "WWE, Motörhead", still counts for each of them.
@@ -1580,7 +1589,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.6...HEAD
+[0.77.6]: https://github.com/robert-dean/deadair/compare/v0.77.5...v0.77.6
 [0.77.5]: https://github.com/robert-dean/deadair/compare/v0.77.4...v0.77.5
 [0.77.4]: https://github.com/robert-dean/deadair/compare/v0.77.3...v0.77.4
 [0.77.3]: https://github.com/robert-dean/deadair/compare/v0.77.2...v0.77.3

@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
 import { Artwork } from '../shared/artwork';
 import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { SortableTh } from '../shared/sortable.th';
 import type { CatalogSort } from '@deadair/sdk';
 import { CATALOG_ALBUM_DEFAULTS, type CatalogListOrder } from './catalog.page.params';
@@ -55,92 +55,93 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                 list now, and a hand-written link beside the search duplicated it. */}
             <CatalogSearch value={search} placeholder={t('artists.search')} onChange={onSearchChange} />
 
-            {artists.error ? (
-                <ErrorAlert title={t('artists.loadFailedTitle')} error={artists.error} fallback={t('tracks.loadFailedFallback')} />
-            ) : undefined}
-
-            {artists.isPending ? <PageSkeleton variant="table" /> : undefined}
-
-            {artists.data && rows.length === 0 ? (
-                <EmptyState title={search === '' ? t('tracks.empty.title') : t('tracks.noMatch.title', { search })}>
-                    {search === '' ? t('tracks.empty.body') : t('artists.noMatch')}
-                </EmptyState>
-            ) : undefined}
-
-            {artists.data && rows.length > 0 ? (
-                <>
-                    <Table.ScrollContainer minWidth={600}>
-                        <Table highlightOnHover>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th w={56} />
-                                    <SortableTh sortBy="name" {...sorting}>
-                                        {t('columns.artist')}
-                                    </SortableTh>
-                                    <SortableTh sortBy="albums" w={120} {...sorting}>
-                                        {t('columns.albums')}
-                                    </SortableTh>
-                                    <SortableTh sortBy="tracks" w={120} {...sorting}>
-                                        {t('columns.tracks')}
-                                    </SortableTh>
-                                    <SortableTh sortBy="rating" w={150} {...sorting}>
-                                        {t('columns.rating')}
-                                    </SortableTh>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {rows.map(artist => (
-                                    <Table.Tr key={artist.id}>
-                                        <Table.Td>
-                                            <Artwork src={artist.imageUrl} alt={artist.name} size={40} />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
+            <QueryView
+                query={artists}
+                skeleton={<PageSkeleton variant="table" />}
+                errorTitle={t('artists.loadFailedTitle')}
+                errorFallback={t('tracks.loadFailedFallback')}
+                isEmpty={() => rows.length === 0}
+                empty={
+                    <EmptyState title={search === '' ? t('tracks.empty.title') : t('tracks.noMatch.title', { search })}>
+                        {search === '' ? t('tracks.empty.body') : t('artists.noMatch')}
+                    </EmptyState>
+                }
+            >
+                {data => (
+                    <>
+                        <Table.ScrollContainer minWidth={600}>
+                            <Table highlightOnHover>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th w={56} />
+                                        <SortableTh sortBy="name" {...sorting}>
+                                            {t('columns.artist')}
+                                        </SortableTh>
+                                        <SortableTh sortBy="albums" w={120} {...sorting}>
+                                            {t('columns.albums')}
+                                        </SortableTh>
+                                        <SortableTh sortBy="tracks" w={120} {...sorting}>
+                                            {t('columns.tracks')}
+                                        </SortableTh>
+                                        <SortableTh sortBy="rating" w={150} {...sorting}>
+                                            {t('columns.rating')}
+                                        </SortableTh>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {rows.map(artist => (
+                                        <Table.Tr key={artist.id}>
+                                            <Table.Td>
+                                                <Artwork src={artist.imageUrl} alt={artist.name} size={40} />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
                                             the router's own types, and with them the check that `params` matches the path. */}
-                                            <Anchor
-                                                renderRoot={(props: object) => (
-                                                    <Link
-                                                        to="/catalog/artists/$artistId"
-                                                        params={{ artistId: artist.id }}
-                                                        search={CATALOG_ALBUM_DEFAULTS}
-                                                        {...props}
-                                                    />
-                                                )}
-                                            >
-                                                {artist.name}
-                                            </Anchor>
-                                        </Table.Td>
-                                        <Table.Td className="da-num">{artist.albumCount}</Table.Td>
-                                        <Table.Td className="da-num">{artist.trackCount}</Table.Td>
-                                        <Table.Td>
-                                            {/* Rating from the list rather than only from the detail
+                                                <Anchor
+                                                    renderRoot={(props: object) => (
+                                                        <Link
+                                                            to="/catalog/artists/$artistId"
+                                                            params={{ artistId: artist.id }}
+                                                            search={CATALOG_ALBUM_DEFAULTS}
+                                                            {...props}
+                                                        />
+                                                    )}
+                                                >
+                                                    {artist.name}
+                                                </Anchor>
+                                            </Table.Td>
+                                            <Table.Td className="da-num">{artist.albumCount}</Table.Td>
+                                            <Table.Td className="da-num">{artist.trackCount}</Table.Td>
+                                            <Table.Td>
+                                                {/* Rating from the list rather than only from the detail
                                             page: an operator forms most of these opinions while
                                             browsing, and a rating that costs a navigation each way
                                             is one they will not bother recording. */}
-                                            <RatingControl
-                                                size="xs"
-                                                rating={artist.rating}
-                                                label={artist.name}
-                                                busy={rate.isPending && rate.variables?.id === artist.id}
-                                                onChange={rating => {
-                                                    rate.mutate({ id: artist.id, rating });
-                                                }}
-                                            />
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
-                    </Table.ScrollContainer>
-                    <CatalogPagination
-                        total={artists.data.meta.total}
-                        pageSize={order.pageSize}
-                        page={page}
-                        onChange={onPageChange}
-                        onPageSizeChange={pageSize => onOrderChange({ ...order, pageSize })}
-                    />
-                </>
-            ) : undefined}
+                                                <RatingControl
+                                                    size="xs"
+                                                    rating={artist.rating}
+                                                    label={artist.name}
+                                                    busy={rate.isPending && rate.variables?.id === artist.id}
+                                                    onChange={rating => {
+                                                        rate.mutate({ id: artist.id, rating });
+                                                    }}
+                                                />
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
+                        <CatalogPagination
+                            total={data.meta.total}
+                            pageSize={order.pageSize}
+                            page={page}
+                            onChange={onPageChange}
+                            onPageSizeChange={pageSize => onOrderChange({ ...order, pageSize })}
+                        />
+                    </>
+                )}
+            </QueryView>
         </Stack>
     );
 }

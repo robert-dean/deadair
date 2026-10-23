@@ -307,3 +307,18 @@ export function toPluginError(error: unknown, fallback: PluginErrorCode = 'inter
  * about a failure wants the error itself.
  */
 export const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/**
+ * `text` with every secret in it replaced by `<token>`, for the last line of defence before an error
+ * from a client library leaves a plugin.
+ *
+ * A library that echoes the URL or the header it called with puts the token in its error message, and
+ * that message is what reaches a log line and the plugin page. Blank secrets are skipped, since
+ * splitting on an empty string would scatter the placeholder through every character. The three chat
+ * plugins each wrote this.
+ */
+export function scrubSecrets(text: string, secrets: readonly string[]): string {
+    let scrubbed = text;
+    for (const secret of secrets) if (secret !== '') scrubbed = scrubbed.split(secret).join('<token>');
+    return scrubbed;
+}

@@ -1,9 +1,12 @@
 import {
-    errorText,
     configFlag,
     configLines,
+    errorText,
+    MessageInbox,
     Plugin,
     PluginError,
+    scrubSecrets,
+    variadicLogger,
     type HostFetchMethod,
     type InboundMessage,
     type MessagingAnnounceTarget,
@@ -112,9 +115,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
     private fatal?: { message: string; code: PluginErrorCode };
     private applicationId?: string;
 
-    private readonly inbox: InboundMessage[] = [];
-    private wake?: () => void;
-    private overflowed = false;
+    private readonly inbox = new MessageInbox<InboundMessage>(MAX_HELD_MESSAGES);
     private readonly interactions = new Map<string, HeldInteraction>();
     /** Channels somebody spoke in that are not on the list, each logged once so the operator can find its id. */
     private readonly unlistedChannels = new Set<string>();
@@ -132,8 +133,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
         this.register(() => {
             this.gateway?.stop();
             this.gateway = undefined;
-            this.wake?.();
-            this.inbox.length = 0;
+            this.inbox.close();
             this.interactions.clear();
             this.unlistedChannels.clear();
         });
@@ -201,8 +201,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
 
         await this.connect(host);
 
-        if (this.inbox.length === 0 && query.waitMs > 0) await this.waitForMessages(query.waitMs);
-        return { messages: this.inbox.splice(0) };
+        return { messages: await this.inbox.take(query.waitMs) };
     }
 
     async send(message: OutboundMessage): Promise<MessagingSendResult> {
@@ -255,13 +254,13 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
             gatewayUrl: async () => (await client.getGatewayBot()).url,
             connect: url => host.socket(url),
             onDispatch: (event, data) => this.onDispatch(host, event, data),
-            logger: serverkitLogger(host),
+            logger: variadicLogger(host.logger),
             onError: error => {
                 const code = typeof error.internalDetails?.code === 'number' ? error.internalDetails.code : undefined;
                 this.fatal = fatalFor(code, error.message);
                 host.logger.error('discord: the Gateway stopped for good', { code, reason: this.fatal.message });
                 this.gateway = undefined;
-                this.wake?.();
+                this.inbox.interrupt();
             },
         });
         this.gateway = gateway;
@@ -339,26 +338,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
 
     /** Queues one message for the next `receive`, dropping the oldest past the cap. */
     private deliver(host: PluginHost, message: InboundMessage): void {
-        this.inbox.push(message);
-        if (this.inbox.length > MAX_HELD_MESSAGES) {
-            this.inbox.shift();
-            if (!this.overflowed) host.logger.warn('discord: messages arrived faster than the station read them; dropping the oldest');
-            this.overflowed = true;
-        }
-        this.wake?.();
-    }
-
-    /** Waits until a message is queued, the wait runs out, or the plugin is disposed. */
-    private waitForMessages(waitMs: number): Promise<void> {
-        return new Promise(resolve => {
-            const done = (): void => {
-                clearTimeout(timer);
-                if (this.wake === done) this.wake = undefined;
-                resolve();
-            };
-            const timer = setTimeout(done, waitMs);
-            this.wake = done;
-        });
+        if (this.inbox.deliver(message)) host.logger.warn('discord: messages arrived faster than the station read them; dropping the oldest');
     }
 
     /** The held interaction a reply is to, if it is still young enough to answer through. */
@@ -405,7 +385,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
                     timeoutMs: host.remainingMs(),
                 }),
         };
-        return new DiscordClient(config, serverkitLogger(host));
+        return new DiscordClient(config, variadicLogger(host.logger));
     }
 
     /** What went wrong, from a `DiscordError` or anything else, with the token scrubbed. */
@@ -428,7 +408,7 @@ export class DiscordPlugin extends Plugin implements MessagingPluginInstance {
 
     /** `text` with the token replaced, for the last line of defence before anything leaves this file. */
     private scrub(text: string): string {
-        return this.token === '' ? text : text.split(this.token).join('<token>');
+        return scrubSecrets(text, [this.token]);
     }
 
     /** Log a channel's id the first time somebody there speaks, so the operator can add it to the list. */
@@ -470,19 +450,4 @@ function fatalFor(code: number | undefined, message: string): { message: string;
         };
     }
     return { message: `Discord closed the Gateway and said not to reconnect: ${message}`, code: 'config' };
-}
-
-/** The plugin's logger in the shape ServerKit's clients take. */
-function serverkitLogger(host: PluginHost) {
-    const meta = (rest: unknown[]): Record<string, unknown> | undefined => {
-        const first = rest[0];
-        return first !== null && typeof first === 'object' && !Array.isArray(first) ? (first as Record<string, unknown>) : undefined;
-    };
-    return {
-        error: (message: unknown, ...rest: unknown[]) => host.logger.error(String(message), meta(rest)),
-        warn: (message: unknown, ...rest: unknown[]) => host.logger.warn(String(message), meta(rest)),
-        info: (message: unknown, ...rest: unknown[]) => host.logger.info(String(message), meta(rest)),
-        debug: (message: unknown, ...rest: unknown[]) => host.logger.debug(String(message), meta(rest)),
-        trace: (message: unknown, ...rest: unknown[]) => host.logger.debug(String(message), meta(rest)),
-    };
 }

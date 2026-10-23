@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.77.7] — 2026-10-23
+
+- A bulletin or link still on air when the schedule changes shows no longer announces a record that never plays. On 23 October the 9am news ended "Gunship brings us Blood for the Blood God", the clock switched to the next show while it was being read, and that show's first record followed instead. The changeover now waits for the announced record to start, plays it, and then switches. The new show starts one record later, and only when a changeover lands in the middle of a break.
+- The seeded countdown host's sheet no longer shows its reveal as words ("here's the record, by the band"), which a model copied out loud: a break aired "At number forty-nine, here's the record, by Paramore" without ever naming the song. It now asks for "here's" followed by the record's real title and who made it, and for the chart position just before the title. A station that already has the countdown host keeps its own sheet, which can be edited on the Personas page.
+- On a chart show, the host now says where the record coming up sits on the chart ("at number 7") as they introduce it. The position was already in front of the writer, but only as material it could skip, and the countdown host skipped it every time. The seeded countdown host's sheet now asks for it too, and one of its stock phrasings says the position when the station falls back to them. A station that already has the countdown host keeps its own sheet: add a phrasing using `{{next.chart.rank}}` on the Personas page to get the same from the stock phrasings.
+- A dedication the station cut back to its last whole sentence now says so on its script history row, as every other model-written break already did. The eight model break writers now share one path for asking the model, so the next fix to it lands on all of them at once.
+- A person's page under Settings, People loads again. Opening anyone who was signed in somewhere answered 400 ("organizationId: Unrecognized key"), and the same refusal hid the sessions list under your own account.
+
 ## [0.77.6] — 2026-10-22
 
 - A numeric setting left blank, or holding only spaces, now takes its default. It used to read as zero, so clearing a field in the console could set a length, a count or a timeout to nothing instead of putting it back.
@@ -1589,7 +1597,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.6...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.77.7...HEAD
+[0.77.7]: https://github.com/robert-dean/deadair/compare/v0.77.6...v0.77.7
 [0.77.6]: https://github.com/robert-dean/deadair/compare/v0.77.5...v0.77.6
 [0.77.5]: https://github.com/robert-dean/deadair/compare/v0.77.4...v0.77.5
 [0.77.4]: https://github.com/robert-dean/deadair/compare/v0.77.3...v0.77.4

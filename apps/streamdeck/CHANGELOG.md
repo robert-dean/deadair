@@ -8,6 +8,10 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-10-23
+
+- When the station asks the keys to slow down with a date rather than a number of seconds, which a proxy in front of it may do, the plugin now waits until then instead of falling back to its own backoff.
+
 ## [0.2.4] — 2026-10-21
 
 - Skip in the console and on the Stream Deck now names the record it was showing. If that record finished in the seconds before the press reached the station, nothing is skipped, and you are told so ("That had already finished, so nothing was skipped." in the console, the warning triangle and a line in the log on the deck). Before, the press cut the record that had just started.
@@ -34,7 +38,8 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 - Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
 - With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering. When the station stops answering, the last cover stays on the key, faint.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.5...HEAD
+[0.2.5]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.4...streamdeck-v0.2.5
 [0.2.4]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.3...streamdeck-v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.2...streamdeck-v0.2.3
 [0.2.2]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.1...streamdeck-v0.2.2

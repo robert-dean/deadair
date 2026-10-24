@@ -225,6 +225,39 @@ export function voteSvg(face: VoteFace): string {
     );
 }
 
+/** What a Request key draws. */
+export interface RequestFace {
+    /** The key has nothing it could ask for: no record, one from another station, or no station at all. */
+    dim: boolean;
+}
+
+/**
+ * A Request key as an SVG: a record, its label in the console's standby blue with a plus on it, above
+ * the title the app draws along the bottom.
+ *
+ * The record and not the mark, because the mark is what Now Playing draws when nothing is on, and a
+ * deck with both would show the same picture meaning two things. The record is the placeholder that
+ * key used to draw, which is a picture of exactly what this key asks for. Blue rather than a vote's
+ * green or Stop's red, because a request is neither an opinion nor the transport: it is the station
+ * being asked, and standby is the console's colour for the station being ready.
+ *
+ * Faint by the rule every key follows: nothing may look live on a key that would refuse the press.
+ */
+export function requestSvg(face: RequestFace): string {
+    const plus = `<rect x="64" y="58" width="16" height="4" rx="1" fill="${CARBON}"/><rect x="70" y="52" width="4" height="16" rx="1" fill="${CARBON}"/>`;
+    return (
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` +
+        `<rect width="${SIZE}" height="${SIZE}" fill="${CARBON}"/>` +
+        `<g${face.dim ? ` opacity="${FAINT}"` : ''}>` +
+        `<circle cx="72" cy="60" r="38" fill="#161A18" stroke="#3E4744" stroke-width="2"/>` +
+        `<circle cx="72" cy="60" r="29" fill="none" stroke="${GROOVE}" stroke-width="2"/>` +
+        `<circle cx="72" cy="60" r="16" fill="${TONE_COLOURS.standby}"/>` +
+        plus +
+        `</g>` +
+        `</svg>`
+    );
+}
+
 /** An SVG as `setImage` takes one, which is URI-encoded and not base64. */
 export function svgDataUri(svg: string): string {
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;

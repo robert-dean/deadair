@@ -30,6 +30,17 @@ describe('inspectorMessages', () => {
         });
         expect(isToPlugin(message.payload)).toBe(true);
     });
+
+    it('asks the plugin to search for a Request key, as the action it was opened on', () => {
+        const message = out.searchRecords('pale blue');
+        expect(message).toEqual({
+            event: 'sendToPlugin',
+            action: 'radio.deadair.streamdeck.skip',
+            context: 'pi-uuid',
+            payload: { event: 'searchRecords', q: 'pale blue' },
+        });
+        expect(isToPlugin(message.payload)).toBe(true);
+    });
 });
 
 describe('settingsFrom', () => {
@@ -52,5 +63,9 @@ describe('the messages back', () => {
         expect(isToInspector({ event: 'connection', ok: 'yes', text: 'Connected.' })).toBe(false);
         expect(isToInspector(null)).toBe(false);
         expect(isToPlugin({ event: 'somethingElse' })).toBe(false);
+        expect(isToPlugin({ event: 'searchRecords' })).toBe(false);
+        expect(isToInspector({ event: 'records', q: 'x', records: [], station: 'https://radio.example.com' })).toBe(true);
+        expect(isToInspector({ event: 'records', q: 'x', text: 'Nothing matches.' })).toBe(true);
+        expect(isToInspector({ event: 'records', q: 'x', records: [] })).toBe(false);
     });
 });

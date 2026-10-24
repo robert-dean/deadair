@@ -1,4 +1,5 @@
 import type { NowPlayingSettings } from '../actions/now.playing.options.js';
+import type { RequestSettings } from '../actions/request.reading.js';
 import { parseAddress, type StationSettings } from '../station/station.settings.js';
 import type { ToPlugin } from './inspector.messages.js';
 
@@ -15,8 +16,9 @@ export function inspectorMessages(uuid: string, action: string) {
         getGlobalSettings: () => ({ event: 'getGlobalSettings', context: uuid }),
         setGlobalSettings: (settings: StationSettings) => ({ event: 'setGlobalSettings', context: uuid, payload: settings }),
         /** The settings of the one key the panel was opened on. */
-        setSettings: (settings: NowPlayingSettings) => ({ event: 'setSettings', context: uuid, payload: settings }),
+        setSettings: (settings: NowPlayingSettings | RequestSettings) => ({ event: 'setSettings', context: uuid, payload: settings }),
         testConnection: () => ({ event: 'sendToPlugin', action, context: uuid, payload: { event: 'testConnection' } satisfies ToPlugin }),
+        searchRecords: (q: string) => ({ event: 'sendToPlugin', action, context: uuid, payload: { event: 'searchRecords', q } satisfies ToPlugin }),
         openUrl: (url: string) => ({ event: 'openUrl', payload: { url } }),
     };
 }

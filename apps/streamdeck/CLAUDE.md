@@ -2,8 +2,9 @@
 
 `apps/streamdeck` is an Elgato Stream Deck plugin: a Now Playing key (the cover, the title, a moving
 playhead), Skip, one key that is Stop while the station is on air and Start once it is stood down,
-and Like and Dislike, which write the station's opinion of the record on air. It is the operator's
-desk in hardware, and only the desk: it never plays the station.
+Like and Dislike, which write the station's opinion of the record on air, and Request, which asks the
+station for one chosen record. It is the operator's desk in hardware, and only the desk: it never
+plays the station.
 
 Every paragraph records a decision or a measured failure and the reason for it. The always-loaded
 index is [`CLAUDE.md`](../../CLAUDE.md); the operator-facing half is [`README.md`](README.md).
@@ -253,6 +254,47 @@ have no row in the catalog, or a record the station is airing without ever havin
 keys draw unlit on a stale reading however well the last opinion is known, by the rule the rest of
 this plugin follows: the opinion may be about the record before this one.
 
+## Request
+
+**A press is `POST /requests`, the phone apps' own call, so the deck is held to a listener's rules.**
+The API key acts as the account that issued it (`requireRequester` admits a key as the user it
+belongs to), and `requests.ask` admits a Read-only key, so any key can ask. What that buys is that
+the station decides everything, as for Skip: one open request per account, the cooldown, the cap on
+the line, the station's taste, and `requests.approval`. A row of Request keys is therefore a shortlist
+asked from one at a time, and that is the arbiter working rather than a fault to design around.
+
+**The record is chosen in the key's settings panel, from `GET /requests/search`, never the
+library's**, for the phone apps' reason: a record the desk would refuse at the door is never offered,
+and what the music providers carry fills the rest. A provider's row is saved by its `source` and
+taken into the library on the first press, which `ProviderCopyResolver` finds by binding on every
+press after, so the key never has to rewrite its own settings to the `trackId` the station made.
+
+**The panel asks the PLUGIN to search**, in `searchRecords` / `records` messages beside the
+connection check, and never calls the station itself. That is the connection check's arrangement for
+its reason: the search runs with the station and key the keys actually use, and the key never sits in
+a browser page. The plugin reduces each row to what is saved and what is shown (`FoundRecord`) before
+it crosses, so the panel holds plain JSON and decides nothing about a row; the SDK's own types also
+are not JSON-safe for the app's socket, which `tsc` said first. A slow answer to a replaced search is
+dropped by its `q`.
+
+**Action settings, holding the record AND the station it was found on.** Every key asks for its own
+record, and a track id and a title are fine in an exported profile. The station's origin is kept
+beside the record because a track id names a record on one station: pointed elsewhere, the key draws
+"Pick again", faint, and refuses the press rather than sending an id the new station would read as
+another record or none. `StationLink.onChange` redraws every Request key, as it empties the ratings.
+
+**A refusal is a 201, not an error.** The station answers `declined` with its own `reason`, so the
+key shows the warning triangle and the log carries the station's sentence; every other answer
+(`waiting`, `pending`, `queued`) is the tick, because the press did all a press can. Following the
+request on to `queued` and `aired` was considered and left out: it is another poll (`/requests/mine`)
+on a rate-limit bucket the whole network shares, for a state the console already shows.
+
+**These keys take no hold on the poller.** Nothing they draw depends on what is on air, so a deck of
+Request keys asks the station nothing until one is pressed or its panel searches. They draw a record
+with a plus on a standby-blue label (`requestSvg`): the old Now Playing placeholder, which is a
+picture of what the key asks for, and not the mark, which Now Playing draws when nothing is on. Faint
+when it would refuse the press, by the rule every key follows.
+
 ## What the Now Playing key draws
 
 **The cover is embedded in an SVG the app rasterises**, so no image decoder ships: a native one cannot
@@ -375,6 +417,11 @@ break and a stale reading both refusing the press, and a Read-only key reading t
 refused the write with voting's own sentence in the log. Two Now Playing keys with different settings, one drawing the cover alone, and
 a settings change redrawing only its own key; the panel's checkboxes opened on a key's own settings
 and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
+A Request key with no record drawing faint, the panel's search crossing to the plugin and back with
+both a library and a provider row, a row picked and saved on the key with its station, the key then
+titled with the record, a press sending its `trackId` with the bearer and ticking, and a refusal
+showing the triangle with the station's reason in the log; the panel itself in a browser listing
+three rows and marking the one picked. Not yet on a Stream Deck.
 
 On a Stream Deck: Robert ran it linked, in developer mode, on a Stream Deck+ with the Stream Deck app
 7.5.1 against his own station on 2026-09-15, and it works. The Now Playing key shows the cover, which

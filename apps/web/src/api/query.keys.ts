@@ -363,6 +363,8 @@ export const queryKeys = {
         clock: () => ['director', 'clock'] as const,
         rules: () => ['director', 'rules'] as const,
         steer: () => ['director', 'steer'] as const,
+        /** The kinds of break the operator writes. One key: every write answers with the whole list. */
+        breakKinds: () => ['director', 'breakKinds'] as const,
     },
     /**
      * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins

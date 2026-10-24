@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { i18n } from '../../i18n/i18n.setup';
 import type { voice } from '../../i18n/en/voice.catalog';
 
+import { BreakKindsPage } from '../breaks/break.kinds.page';
 import { PadsPage } from '../pads/pads.page';
 import { PersonasPage } from '../personas/personas.page';
 import { PersonaAuditionsPage } from '../personas/persona.auditions.page';
@@ -44,6 +45,7 @@ export const VOICE_TABS = [
     voiceTab('pronunciations'),
     voiceTab('soundboard'),
     voiceTab('phrasings'),
+    voiceTab('kinds'),
     voiceTab('subjects'),
     voiceTab('productions'),
     voiceTab('said'),
@@ -132,6 +134,8 @@ function body(tab: VoiceTab, segment?: string, persona?: string) {
             return <PadsPage />;
         case 'phrasings':
             return <PhrasingsPage />;
+        case 'kinds':
+            return <BreakKindsPage />;
         case 'subjects':
             return <TopicsPage />;
         case 'productions':

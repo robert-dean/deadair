@@ -9,6 +9,7 @@ export const voice = {
         pronunciations: { label: 'Pronunciations', hint: 'Names it was getting wrong' },
         soundboard: { label: 'Soundboard', hint: 'Beds, stings and what plays under a break' },
         phrasings: { label: 'Phrasings', hint: 'Its words around a greeting, a jingle or a bulletin' },
+        kinds: { label: 'Kinds of break', hint: 'Breaks you write a brief for' },
         subjects: { label: 'Subjects', hint: 'What it is allowed to talk about' },
         productions: { label: 'Productions', hint: 'Phone-ins and anything with more than one voice' },
         said: { label: 'What it said', hint: 'Every break it has written, and every one it declined' },

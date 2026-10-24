@@ -25,6 +25,7 @@ import { runsDryAt, whatHappensThen } from '../onair/order.runs.dry';
 import { PlanTheStation } from '../onair/plan.the.station';
 import { BringInAGuest, TakeACall } from '../onair/take.a.call';
 import { StationOrderTable } from '../onair/station.order.table';
+import { RequestARecord } from '../requests/request.a.record';
 import { AttentionList } from '../station/attention.list';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -240,6 +241,9 @@ export function DeskPage() {
                                 than on Voice. */}
                             <TakeACall {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
                             <BringInAGuest {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
+                            {/* Not disabled with nothing on: the station decides on a request, off
+                                air included, and the dialog shows its reason. */}
+                            <RequestARecord />
                         </Group>
                     ) : undefined}
                 </Group>

@@ -248,9 +248,12 @@ record with 6s of leading silence is 2s of runway on air. `lyrics/vocal.runway.t
 that shift is made, and both readers (this and the writer's budget) go through it: a comparable
 station had three call sites spelling it three ways, and the prompt and the timing then disagreed
 about one clip. `talkUpAt` then ends the link `breaks.talkUpSafetyMs` before the post, counts the
-duck's 300ms ramp after the last word as part of the link, allows for Liquidsoap's cue clock running
-about 3.5% slow (measured beside `on_air_elapsed` in `radio.liq`), and on an intro of 18s or more
-starts two seconds in rather than hanging silent until the post.
+duck's 300ms ramp after the last word as part of the link, allows `CUE_CLOCK_LAG_MS` (two ticks) for a
+cue firing late, and on an intro of 18s or more
+starts two seconds in rather than hanging silent until the post. The allowance was a RATIO until the cue
+clock was fixed: `on_air_elapsed` added a fixed tick per run and ran 3.5% slow, and now adds the time
+that actually passed (see its note in `radio.liq`), so the lag is the same 6s in as 170s in. That fix is
+what makes a cue timed against the END of a record possible at all.
 
 **The writer is told the intro's length as an offer, never as a tighter ceiling.** `BreakRequestBuilder.talkUp`
 reads the next record's runway through the same `runwayFor`, and `talkUpBudget` turns it into a word

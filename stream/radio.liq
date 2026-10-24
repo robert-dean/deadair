@@ -382,14 +382,16 @@ on_air_item = ref("")
 # The buffer growing or shrinking afterwards, as it re-sizes for the next boundary, moves the source
 # pointer and not this clock, so it does not enter into it either.
 #
-# **It does run about 3% slow**, which is a separate and much smaller thing, measured twice by
-# stream/voicecue.check.liq: a break due at 6s landed at 6.22s, one due at 14s landed at 14.48s. The
-# cause is right here — this counter ADDS a fixed tick rather than measuring how long a tick actually
-# took, and `thread.run` does not fire on the nail. So a talk-up drifts later the further into a
-# record it is placed: a fifth of a second at 6s, two thirds at 20s. Tolerable for an intro cue and
-# not for anything timed against the end of a record. Fixing it means measuring elapsed time instead
-# of counting ticks, which gives up the clock-step immunity the paragraph above is about, so it is a
-# trade rather than a bug fix and has not been made.
+# **It adds the time that actually passed, not a fixed tick.** It used to add `voice_tick` on every
+# run, and `thread.run` does not fire on the nail, so it ran slow: a break due at 6s landed at 6.22s
+# and one due at 14s at 14.48s (stream/voicecue.check.liq), which is tolerable for an intro cue and
+# seven seconds late for one timed against the end of a three-minute record. So each run now adds
+# the gap since the last one, read off `time()`. That alone would give up the immunity to a stepped
+# clock the first paragraph is about, so a gap it cannot believe — the clock going backwards, or
+# more than a second between two runs a tenth of a second apart — counts as one tick, exactly what
+# the old counter added. A step then costs a tenth of a second of cue rather than the whole step.
+# Measured by stream/voiceclock.check.liq, both counters side by side over one record: due at 170s,
+# the old one fired at 173.0s and this one at 170.03s, within a tick at every distance.
 #
 # Measured, not argued: stream/voicecue.check.liq arms a cue 6s into a record with a 4s blend in and
 # an 8s blend out. The version of this file that added the blend to the due time landed that break
@@ -401,8 +403,14 @@ on_air_item = ref("")
 on_air_elapsed = ref(0.)
 voice_tick = 0.1
 
+voice_clock_last = ref(time())
+
 def voice_countup() =
-  on_air_elapsed := on_air_elapsed() + voice_tick
+  now = time()
+  step = now - voice_clock_last()
+  voice_clock_last := now
+  on_air_elapsed :=
+    on_air_elapsed() + (if step < 0. or step > 1. then voice_tick else step end)
 end
 thread.run(every=voice_tick, voice_countup)
 

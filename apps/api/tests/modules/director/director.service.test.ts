@@ -3317,7 +3317,7 @@ describe('DirectorService talking a link up to the post', () => {
     const link = (durationMs: number) => ({ id: 'seg-1', kind: 'talkbreak', state: 'ready' as const, label: 'A link', source: 'render', durationMs });
     // The singing starts fifteen seconds into 'a'. With the default room of a second and a half and
     // the duck's 300ms ramp after the last word, a six-second link must start by
-    // (15000 - 1500 - 6300) / 1.035 = 6956ms, allowing for the cue clock running slow.
+    // 15000 - 1500 - 6300 - 200 = 7000ms, allowing for the cue firing up to two ticks late.
     const sung = { kind: 'ranges' as const, onsetMs: 15_000, endMs: 200_000, ranges: [] };
 
     async function run(options: { durationMs?: number; markers?: VocalMarkers; setting?: string }) {
@@ -3348,9 +3348,9 @@ describe('DirectorService talking a link up to the post', () => {
         const { rundown, lineup } = await run({ markers: sung, setting: 'true' });
         const record = rundown.upcoming().find(item => item.externalId === 'a');
 
-        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 6_956, itemId: lineup.all()[0]!.id });
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: lineup.all()[0]!.id });
         // Stored as a talk-over, so the sweep that runs when 'a' starts does not count it as missed.
-        expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+        expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 7_000 } });
     });
 
     it('airs a link too long for the intro in the gap rather than trimming it', async () => {
@@ -3380,14 +3380,14 @@ describe('DirectorService talking a link up to the post', () => {
         const cueItemId = built.lineup.all()[1]!.id;
         await built.director.start();
         await settle();
-        expect(built.lineup.all()[1]).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+        expect(built.lineup.all()[1]).toMatchObject({ state: 'handed', over: { atMs: 7_000 } });
 
         // However it comes back, it comes back as a talk-over the director is already holding.
         built.lineup.reclaim([cueItemId]);
         await airNext(built.rundown);
 
         expect(built.lineup.all()[1]?.state).not.toBe('skipped');
-        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 6_956, itemId: cueItemId });
+        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: cueItemId });
     });
 });
 

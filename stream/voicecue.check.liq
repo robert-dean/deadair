@@ -52,9 +52,14 @@ end
 on_air_item = ref("")
 on_air_elapsed = ref(0.)
 voice_tick = 0.1
+voice_clock_last = ref(time())
 
 def voice_countup() =
-  on_air_elapsed := on_air_elapsed() + voice_tick
+  now = time()
+  step = now - voice_clock_last()
+  voice_clock_last := now
+  on_air_elapsed :=
+    on_air_elapsed() + (if step < 0. or step > 1. then voice_tick else step end)
 end
 
 thread.run(every=voice_tick, voice_countup)

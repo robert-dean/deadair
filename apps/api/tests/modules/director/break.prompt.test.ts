@@ -137,6 +137,20 @@ describe('the intro of the record coming up', () => {
     });
 });
 
+describe('the end of the record just finished', () => {
+    it('offers a word budget for talking over it, as an offer rather than a ceiling', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next, talkOut: { tailMs: 10_400, words: 20 } }));
+
+        expect(words).toContain('runs on for about 10 seconds after its last sung line');
+        expect(words).toContain('20 words or fewer');
+        expect(words).toContain('said after the record ends, which is fine too');
+    });
+
+    it('says nothing about an ending when it has not been told one', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('after its last sung line');
+    });
+});
+
 describe('breakPrompt', () => {
     it('is a system turn and a user turn, in that order', () => {
         const messages = prompt({ kind: 'talkbreak', previous });

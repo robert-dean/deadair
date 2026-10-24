@@ -16,6 +16,18 @@ Read the ones covering whatever you are about to change. The always-loaded index
 or throws is the same outcome — ask the next — so the fall-through lives there rather than inside any one
 writer, and `llm.breakWriter` being off is just the first one declining early.
 
+**The operator may turn the pair round, and the registry still holds one list.** `llm.breakWriterOrder`
+(`writer.order.ts`) is `model` (the default, registration order) or `station`, which moves every binding named
+`model` behind the writers with no model in them and keeps each side's own order. It reaches the registry as an
+ARGUMENT to `write` and `writersFor`, resolved per break by `WriteBreakJob`, rather than as a field of
+`BreakWriteRequest`: no writer reads it, and a field there is something every writer is handed and
+`break.freshness.ts` must classify. The retry rule above is unchanged, since it keys on the attempt's fault
+rather than on its position. With the station in front, "the floor" is the model, so `BreakFloorWatch` is handed
+the same order and stays quiet about a model the operator chose not to rely on. A show can choose its own:
+`ScheduleSlot.writerOrder` (migration 0116) and `PutOnAirInput.writerOrder` land on
+`StationLineupRules.writerOrder`, the job reads that first and the station setting behind it, and absent is
+the station's, on `chartPositions`' argument that it is a rule about the show rather than the persona.
+
 **The floor cannot fail**, which is what makes a slow model cost a better sentence rather than a silent
 station. The registry answers with every ATTEMPT rather than only the winner, because a model that declined
 and a floor that covered for it are two facts and the second alone reads as a station that never had a model.
@@ -135,6 +147,17 @@ running order is written through a THROTTLE, so a job can pick up a break the pe
 the neighbours are therefore read before the claim, and absent-from-the-order means early rather than
 has-no-neighbours.
 
+**A break nothing could write stays failed until the operator asks again.** `ripen` never re-offers a `failed`
+row with no words on it, because the usual reason is that nothing true could be said about those two records.
+An operator who has since edited the phrasings or switched the model on has changed exactly that, so
+`POST /director/air/items/{itemId}/rewrite` posts a `rewrite` edit and `DirectorService.rewrite` sends the row
+back to `planned` through `SegmentRepository.reopenForRewrite`, the one reopen that admits `failed` (and clears
+its error). The item stays where it is, and `ripen` asks for the words once its slot is inside the window. It
+works on any break the station wrote and has not handed over, ready ones included, and refuses a recording, a
+carried programme, a production's turn on `recast`'s argument, a kind no writer claims, and a row whose job
+holds it. There is deliberately no route for last night's failures: a break written now about two records that
+have already aired has nowhere true to go.
+
 **That rule has exactly one exception, and reading it as absolute cost every welcome the station ever tried to
 give.** An `interrupt` or `next` REQUEST is rendered before it is injected, so `BreakPlanner.prepareRequested`
 gives its segment no position on purpose and `DirectorService.injectReady` finds it one once the audio exists
@@ -225,9 +248,12 @@ record with 6s of leading silence is 2s of runway on air. `lyrics/vocal.runway.t
 that shift is made, and both readers (this and the writer's budget) go through it: a comparable
 station had three call sites spelling it three ways, and the prompt and the timing then disagreed
 about one clip. `talkUpAt` then ends the link `breaks.talkUpSafetyMs` before the post, counts the
-duck's 300ms ramp after the last word as part of the link, allows for Liquidsoap's cue clock running
-about 3.5% slow (measured beside `on_air_elapsed` in `radio.liq`), and on an intro of 18s or more
-starts two seconds in rather than hanging silent until the post.
+duck's 300ms ramp after the last word as part of the link, allows `CUE_CLOCK_LAG_MS` (two ticks) for a
+cue firing late, and on an intro of 18s or more
+starts two seconds in rather than hanging silent until the post. The allowance was a RATIO until the cue
+clock was fixed: `on_air_elapsed` added a fixed tick per run and ran 3.5% slow, and now adds the time
+that actually passed (see its note in `radio.liq`), so the lag is the same 6s in as 170s in. That fix is
+what makes a cue timed against the END of a record possible at all.
 
 **The writer is told the intro's length as an offer, never as a tighter ceiling.** `BreakRequestBuilder.talkUp`
 reads the next record's runway through the same `runwayFor`, and `talkUpBudget` turns it into a word
@@ -248,6 +274,49 @@ was swept as skipped the moment its own record began.
 The markers come from the record's timed lyrics, or from an operator's correction on the record's
 page, which wins until it is cleared. No audio is cut or joined for any of this: the mixer does exactly
 what it does for an interrupting talk-over ([`playout.md`](playout.md) § "What decides a blend").
+
+## Talking over the end of a record
+
+**A link that fits between the last sung word of the record before it and that record's end is said
+over its outro, and that record does not blend into the next.** `breaks.talkOut`, off (`talk.out.ts`).
+The talk-up's mirror and decided the same way, at hand-over, on the clip's real length, failing open link
+by link. Three things differ, and each was a choice.
+
+**It is decided at the RECORD's hand-over, not the link's.** The cue rides the record before it, and that
+record goes to the player first, usually a record ahead of when the link would be taken from the order.
+So `DirectorService.talkOutCues` asks, for each record in the batch, whether `segmentRightAfter` is a
+ready, measured talk link whose claims hold with this record behind it and the next in front, and
+`handOverTalkingOut` makes it a cue then, `over: { atMs, endOf: true }`. The loop skips that link when it
+reaches it, since read as an ordinary talk-over it would ride the record AFTER it. Two links are left
+where they were: one that fits the next record's intro while the talk-up is on (the talk-up was here
+first, so switching this on changes nothing it already does), and one with a `claimsTime`, which would
+air a record earlier than anything checked it for.
+
+**The talk-over owns the boundary.** `annotate.ts` stamps a hard join on a record whose voice is
+`endOf`, whatever `blendFor` would say, and the link ends at the record's measured `cue_out`. Ending
+it before the blend instead keeps the mix and puts the cue's timing against the cross buffer, which
+`radio.liq`'s note on `on_air_elapsed` records an earlier version getting wrong. It was measured
+possible only once that clock stopped running 3.5% slow: a cue due 170s in landed three seconds late.
+
+**The tail runs from the last sung word, and an unknown end is no tail.** `tailFor` needs both the
+markers' `endMs` and a measured `cueOutMs`, shifted onto the aired timeline as `runwayFor` does the
+onset, and the link may not start inside `breaks.talkUpSafetyMs` of that last word. An operator's
+correction of the post alone answers `endMs == onsetMs`, which is read as nothing known about the
+outro rather than a tail the length of the record. An instrumental airs its link in the gap, as for
+the talk-up: "nothing sung" is a claim, and talking over a record somebody mislabelled is talking over
+the singing.
+
+**The writer is told the tail's length as an offer, on the talk-up's terms.** `BreakRequestBuilder.talkOut`
+reads the previous record's tail through the same `tailFor` and `talkOutBudget` turns it into words after
+the same room, ramp and lag; `breakPrompt` says the record runs on for about N seconds after its last
+sung line and that a link of that many words can go out over that ending. Only between the floor and the
+ceiling, `not-spoken` in `break.freshness.ts`, and never a tighter ceiling: a link offered both endings is
+said over one of them or in the gap, never stretched to cover both.
+
+**A cue on an end that is reclaimed becomes an ordinary link again.** `StationLineup.reclaim` drops its
+`over`, since a retract or a restart offering it again as a cue would read it as riding the next record
+at an offset measured into the previous one. And `markAiring` does not exempt it when the next record
+starts, unlike a cue on a start: its record is over by then, so a cue still `handed` never fired.
 
 ## What a record is about, and the words it never says
 

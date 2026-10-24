@@ -225,6 +225,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? MaxPerArtist { get; init; }
 
+    /// <summary>Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off</summary>
+    [JsonPropertyName("writerOrder")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScheduleSlotWriterOrder? WriterOrder { get; init; }
+
     /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
     [JsonPropertyName("startsOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -380,6 +385,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("maxPerArtist")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? MaxPerArtist { get; init; }
+
+    /// <summary>Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off</summary>
+    [JsonPropertyName("writerOrder")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScheduleSlotWriterOrder? WriterOrder { get; init; }
 
     /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
     [JsonPropertyName("startsOn")]
@@ -707,6 +717,63 @@ public sealed class ScheduleSlotAvoidMoodsConverter : JsonConverter<ScheduleSlot
         ScheduleSlotAvoidMoods.Anger => "anger",
         ScheduleSlotAvoidMoods.Fear => "fear",
         _ => throw new JsonException($"ScheduleSlotAvoidMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off</summary>
+[JsonConverter(typeof(ScheduleSlotWriterOrderConverter))]
+public enum ScheduleSlotWriterOrder
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("model")]
+    Model,
+
+    [JsonStringEnumMemberName("station")]
+    Station,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotWriterOrder"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotWriterOrder.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotWriterOrderConverter : JsonConverter<ScheduleSlotWriterOrder>
+{
+    public override ScheduleSlotWriterOrder Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotWriterOrder, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotWriterOrder value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotWriterOrder ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotWriterOrder value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotWriterOrder FromWire(string? text) => text switch
+    {
+        "model" => ScheduleSlotWriterOrder.Model,
+        "station" => ScheduleSlotWriterOrder.Station,
+        _ => ScheduleSlotWriterOrder.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotWriterOrder value) => value switch
+    {
+        ScheduleSlotWriterOrder.Model => "model",
+        ScheduleSlotWriterOrder.Station => "station",
+        _ => throw new JsonException($"ScheduleSlotWriterOrder.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

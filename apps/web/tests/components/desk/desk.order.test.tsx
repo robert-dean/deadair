@@ -14,7 +14,7 @@ import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 import { clearSession, setSession } from '../../../src/auth/session.store';
 import { DeskPage } from '../../../src/components/desk/desk.page';
 import { measureTheOrderPort } from '../../utils/order.port';
-import { notifyUndoable } from '../../../src/components/shared/notify';
+import { notifyDone, notifyUndoable } from '../../../src/components/shared/notify';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { stationAir } from '../../utils/station.fixture';
 import { render, screen, waitFor } from '../../utils/render';
@@ -29,6 +29,7 @@ const removeARunningOrderItem = vi.fn();
 const addARecordToTheRunningOrder = vi.fn();
 const moveARunningOrderItem = vi.fn();
 const skipToARunningOrderItem = vi.fn();
+const writeARunningOrderBreakAgain = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
 const replanTheRunningOrder = vi.fn();
@@ -46,6 +47,7 @@ vi.mock('../../../src/api/client', () => ({
             addARecordToTheRunningOrder: (...args: unknown[]) => addARecordToTheRunningOrder(...args),
             moveARunningOrderItem: (...args: unknown[]) => moveARunningOrderItem(...args),
             skipToARunningOrderItem: (...args: unknown[]) => skipToARunningOrderItem(...args),
+            writeARunningOrderBreakAgain: (...args: unknown[]) => writeARunningOrderBreakAgain(...args),
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
             replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...args),
@@ -77,6 +79,7 @@ vi.mock('../../../src/api/client', () => ({
 vi.mock('../../../src/components/shared/notify', async importOriginal => ({
     ...(await importOriginal<typeof import('../../../src/components/shared/notify')>()),
     notifyUndoable: vi.fn(),
+    notifyDone: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -549,6 +552,41 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         await userEvent.click(await screen.findByRole('button', { name: 'Skip to Ageispolis' }));
 
         expect(await screen.findByText(/could not be skipped to/i)).toBeInTheDocument();
+    });
+
+    it('asks for a failed break to be written again, and says the station will', async () => {
+        const failed = order({
+            items: [
+                orderItem({ id: 'item-2', state: 'airing', title: 'Windowlicker' }),
+                orderItem({ id: 'item-5', kind: 'segment', title: 'Talk break', artists: [], segmentId: 'seg-1', segmentState: 'failed' }),
+                orderItem({ id: 'item-4', state: 'planned', title: 'Ageispolis' }),
+            ],
+        });
+        getTheRunningOrder.mockResolvedValue(failed);
+        writeARunningOrderBreakAgain.mockResolvedValue(failed);
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Write Talk break again' }));
+
+        await waitFor(() => expect(writeARunningOrderBreakAgain).toHaveBeenCalledWith('item-5'));
+        await waitFor(() => expect(notifyDone).toHaveBeenCalledWith('Talk break will be written again as its slot comes near.'));
+    });
+
+    it('says why a rewrite was refused', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-2', state: 'airing', title: 'Windowlicker' }),
+                    orderItem({ id: 'item-5', kind: 'segment', title: 'Talk break', artists: [], segmentId: 'seg-1', segmentState: 'failed' }),
+                ],
+            }),
+        );
+        writeARunningOrderBreakAgain.mockRejectedValue(new Error('a turn of a programme is made again with the whole programme'));
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Write Talk break again' }));
+
+        expect(await screen.findByText(/could not be written again|made again with the whole programme/i)).toBeInTheDocument();
     });
 
     it('shows a segment the station will pass over rather than hiding it', async () => {

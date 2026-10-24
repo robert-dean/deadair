@@ -316,6 +316,14 @@ export interface BreakWriteRequest {
      */
     talkUp?: { runwayMs: number; words: number };
     /**
+     * How long {@link previous} runs on after its last sung word, and how many words would fit over it.
+     *
+     * {@link talkUp}'s mirror: present only for a talk break, with talking over a record's end
+     * switched on, after a record whose timed lyrics say where the singing stops and whose end was
+     * measured. Advice to a writer that can use it; the hand-over decides. See `talk.out.ts`.
+     */
+    talkOut?: { tailMs: number; words: number };
+    /**
      * The lyric lines of the records either side, for the GUARD and never for the prompt.
      *
      * Read by `AnswerGuard.lyrics` to refuse a script that quotes one: a model shown only what a

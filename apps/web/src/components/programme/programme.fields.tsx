@@ -634,3 +634,38 @@ export const repeatRulesInput = (
     ...(typeof cooldown === 'number' ? { artistCooldownMinutes: cooldown } : {}),
     ...(typeof perArtist === 'number' ? { maxPerArtist: perArtist } : {}),
 });
+
+/** What the writer-order picker holds: the API's two orders, or the station's own setting. */
+export type WriterOrderChoice = 'inherit' | 'model' | 'station';
+
+/**
+ * Which writer this programme asks first for its breaks, in place of the station's
+ * `llm.breakWriterOrder`.
+ *
+ * A third option rather than two, because "follow the station" is a real answer and the one almost
+ * every show wants: a show that chose nothing moves when the station setting moves. Shown whatever
+ * the model switch says, since a show set to its own words keeps them when the model is turned on.
+ */
+export function WriterOrderField(input: GetInputPropsReturnType) {
+    const { t } = useTranslation('programme');
+    return (
+        <Select
+            label={t('writerOrder.label')}
+            description={t('writerOrder.description')}
+            data={[
+                { value: 'inherit', label: t('writerOrder.inherit') },
+                { value: 'model', label: t('writerOrder.model') },
+                { value: 'station', label: t('writerOrder.station') },
+            ]}
+            allowDeselect={false}
+            {...input}
+        />
+    );
+}
+
+/** The writer order as the API takes it: nothing at all for the station's own. */
+export const writerOrderInput = (choice: WriterOrderChoice): { writerOrder?: 'model' | 'station' } =>
+    choice === 'inherit' ? {} : { writerOrder: choice };
+
+/** The picker's value for a saved order, or for none. */
+export const writerOrderChoice = (order: 'model' | 'station' | undefined): WriterOrderChoice => order ?? 'inherit';

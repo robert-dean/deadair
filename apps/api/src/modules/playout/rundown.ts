@@ -174,6 +174,12 @@ export interface RundownItem {
          * falls back to the boundary sweep, exactly as before this existed.
          */
         itemId?: string;
+        /**
+         * The cue is said over this record's END rather than its start (`talk.out.ts`), so the
+         * boundary after it is a hard join whatever the measurement would blend: the talk-over owns
+         * those seconds. Read by `annotate.ts`.
+         */
+        endOf?: true;
     };
 
     /**

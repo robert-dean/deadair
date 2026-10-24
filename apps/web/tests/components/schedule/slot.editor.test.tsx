@@ -396,6 +396,48 @@ describe('SlotEditor', () => {
         expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ mode: 'setlist', artistCooldownMinutes: 0, repeatWindowDays: 0 });
     });
 
+    it('sends a writer order only when the slot chose one, and keeps it under a feature', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('combobox', { name: /Who writes the breaks first/ });
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Own words');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        // Following the station is sending nothing at all.
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('writerOrder');
+
+        await user.click(screen.getByRole('combobox', { name: /Who writes the breaks first/ }));
+        await user.click(await screen.findByRole('option', { name: 'The phrasings, with the model underneath' }));
+        await user.click(screen.getByRole('combobox', { name: 'Mode' }));
+        await user.click(await screen.findByRole('option', { name: 'Feature' }));
+        expect(screen.queryByRole('combobox', { name: /Who writes the breaks first/ })).toBeNull();
+
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ mode: 'feature', writerOrder: 'station' });
+    });
+
+    it('opens a slot on the writer order it chose', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ writerOrder: 'station' }) }}
+                onClose={noop}
+                onSubmit={vi.fn()}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        expect(await screen.findByRole('combobox', { name: /Who writes the breaks first/ })).toHaveValue('The phrasings, with the model underneath');
+    });
+
     it('offers a request show only under a rotation', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

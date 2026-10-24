@@ -55,6 +55,7 @@ import type { StoredBreakRequest } from '../../../src/modules/director/break.req
 import { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
 import { PersonaArtworkService } from '../../../src/modules/art/persona.artwork.service.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
+import { BreakWriterRegistry } from '../../../src/modules/director/break.writer.registry.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationBus } from '../../../src/modules/shared/station.bus.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -63,6 +64,7 @@ import { WARMUP_KIND } from '../../../src/modules/director/warmup.writer.js';
 import { VocalMarkersReader } from '../../../src/modules/lyrics/vocal.markers.reader.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
+import { TALK_OUT_KEYS } from '../../../src/modules/director/talk.out.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -344,8 +346,13 @@ function build(options: Options = {}) {
         // ordinal, so it is the programme rather than a beat of it.
         beatsOf: vi.fn(async (productionId: string) => options.beats?.[productionId] ?? []),
         joinedOf: vi.fn(async (productionId: string) => options.joined?.[productionId]),
+        // An operator's "write it again". True is a row it moved back to `planned`; a test about a
+        // break whose job holds it replaces this with one answering false.
+        reopenForRewrite: vi.fn(async (_id: string) => true),
     };
     const segments = segmentStub as unknown as SegmentRepository;
+    // What can be written, for the rewrite: every kind but one a test names as having no writer.
+    const writers = { canWrite: vi.fn((kind: string) => kind !== 'unwritten') };
 
     const candidates = {
         bindingsFor: vi.fn(
@@ -495,7 +502,9 @@ function build(options: Options = {}) {
                                                   ? positions
                                                   : token === AsRunRepository
                                                     ? asRun
-                                                    : history,
+                                                    : token === BreakWriterRegistry
+                                                      ? writers
+                                                      : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -3309,7 +3318,7 @@ describe('DirectorService talking a link up to the post', () => {
     const link = (durationMs: number) => ({ id: 'seg-1', kind: 'talkbreak', state: 'ready' as const, label: 'A link', source: 'render', durationMs });
     // The singing starts fifteen seconds into 'a'. With the default room of a second and a half and
     // the duck's 300ms ramp after the last word, a six-second link must start by
-    // (15000 - 1500 - 6300) / 1.035 = 6956ms, allowing for the cue clock running slow.
+    // 15000 - 1500 - 6300 - 200 = 7000ms, allowing for the cue firing up to two ticks late.
     const sung = { kind: 'ranges' as const, onsetMs: 15_000, endMs: 200_000, ranges: [] };
 
     async function run(options: { durationMs?: number; markers?: VocalMarkers; setting?: string }) {
@@ -3340,9 +3349,9 @@ describe('DirectorService talking a link up to the post', () => {
         const { rundown, lineup } = await run({ markers: sung, setting: 'true' });
         const record = rundown.upcoming().find(item => item.externalId === 'a');
 
-        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 6_956, itemId: lineup.all()[0]!.id });
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: lineup.all()[0]!.id });
         // Stored as a talk-over, so the sweep that runs when 'a' starts does not count it as missed.
-        expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+        expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 7_000 } });
     });
 
     it('airs a link too long for the intro in the gap rather than trimming it', async () => {
@@ -3372,14 +3381,91 @@ describe('DirectorService talking a link up to the post', () => {
         const cueItemId = built.lineup.all()[1]!.id;
         await built.director.start();
         await settle();
-        expect(built.lineup.all()[1]).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+        expect(built.lineup.all()[1]).toMatchObject({ state: 'handed', over: { atMs: 7_000 } });
 
         // However it comes back, it comes back as a talk-over the director is already holding.
         built.lineup.reclaim([cueItemId]);
         await airNext(built.rundown);
 
         expect(built.lineup.all()[1]?.state).not.toBe('skipped');
-        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 6_956, itemId: cueItemId });
+        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: cueItemId });
+    });
+});
+
+// Talking over a record's end: a link short enough to fit between the last sung word of the record
+// before it and that record's end rides that record, ending as it ends. Off by default, decided at
+// the RECORD's hand-over, and anything it cannot judge airs in the gap as before.
+describe('DirectorService talking a link over the end of a record', () => {
+    const link = (durationMs: number, extra: Partial<Segment> = {}) => ({
+        id: 'seg-1',
+        kind: 'talkbreak',
+        state: 'ready' as const,
+        label: 'A link',
+        source: 'render',
+        durationMs,
+        ...extra,
+    });
+    // The singing on 'a' stops at 190s, and 'a' is measured from 0.1s to 210s, so it airs for
+    // 209.9s. A six-second link ends at that end with the duck's ramp and two ticks allowed for:
+    // 209900 - 6000 - 300 - 200 = 203400ms in.
+    const sung = { kind: 'ranges' as const, onsetMs: 15_000, endMs: 190_000, ranges: [] };
+
+    async function run(options: { segment?: ReturnType<typeof link>; markers?: Record<string, VocalMarkers>; talkOut?: string; talkUp?: string }) {
+        const built = build({
+            items: ['a', 'b'],
+            analysed: ['a', 'b'],
+            segments: [options.segment ?? link(6_000)],
+            vocalMarkers: options.markers ?? { 'track-a': sung },
+        });
+        if (options.talkOut !== undefined) built.station.set(TALK_OUT_KEYS.enabled, options.talkOut);
+        if (options.talkUp !== undefined) built.station.set(TALK_UP_KEYS.enabled, options.talkUp);
+        await built.seedCatalogued();
+        built.lineup.insertSegment('seg-1', 1);
+        await built.director.start();
+        await settle();
+        return built;
+    }
+
+    it('airs the link in the gap when it has never been switched on', async () => {
+        const { rundown } = await run({});
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('rides the record before it, ending as that record ends', async () => {
+        const { rundown, lineup } = await run({ talkOut: 'true' });
+        const record = rundown.upcoming().find(item => item.externalId === 'a');
+        const linkItem = lineup.all()[1]!;
+
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 203_400, itemId: linkItem.id, endOf: true });
+        expect(linkItem).toMatchObject({ state: 'handed', over: { atMs: 203_400, endOf: true } });
+
+        // And it is not offered again as a talk-over of the record after it once that one is handed over.
+        await airNext(rundown);
+        const after = rundown.upcoming().find(item => item.externalId === 'b');
+        expect(after).toBeDefined();
+        expect(after?.voice).toBeUndefined();
+    });
+
+    it('airs a link too long for the tail in the gap rather than trimming it', async () => {
+        const { rundown } = await run({ talkOut: 'true', segment: link(19_000) });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('airs it in the gap when nothing says where the singing stops', async () => {
+        const { rundown } = await run({ talkOut: 'true', markers: {} });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('leaves a link that fits the next record’s intro to the talk-up', async () => {
+        const { rundown, lineup } = await run({ talkOut: 'true', talkUp: 'true', markers: { 'track-a': sung, 'track-b': sung } });
+
+        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toBeUndefined();
+        expect(lineup.all()[1]).not.toMatchObject({ over: { endOf: true } });
+    });
+
+    it('leaves alone a link that says the time, which would air earlier than it was checked for', async () => {
+        const { rundown } = await run({ talkOut: 'true', segment: link(6_000, { claimsTime: { from: 0, until: Date.now() + 3_600_000 } }) });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
     });
 });
 
@@ -3678,6 +3764,82 @@ describe('DirectorService editing what is on air', () => {
         await director.applyEdit({ kind: 'remove', itemId: lineup.all()[3]!.id });
 
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
+    });
+
+    describe('writing a break again', () => {
+        const talk = (overrides: Partial<Segment> = {}): Partial<Segment> => ({
+            id: 'seg-1',
+            kind: 'talkbreak',
+            state: 'failed',
+            label: 'A break',
+            source: 'render',
+            ...overrides,
+        });
+        const breakItem = (lineup: StationLineup): string => lineup.all().find(item => item.kind === 'segment')!.id;
+
+        it('reopens a failed break still to come and leaves the order where it was', async () => {
+            const { director, lineup, segmentStub, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [talk()] });
+            await seed();
+            lineup.insertSegment('seg-1', 3);
+            await director.start();
+            const before = lineup.all().map(item => item.id);
+
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: breakItem(lineup) })).toEqual({ ok: true });
+
+            expect(segmentStub.reopenForRewrite).toHaveBeenCalledWith('seg-1');
+            expect(lineup.all().map(item => item.id)).toEqual(before);
+        });
+
+        it('refuses a record, a recording, a programme’s turn and a kind nothing writes', async () => {
+            const { director, lineup, segmentStub, seed } = build({
+                items: ['a', 'b', 'c', 'd'],
+                segments: [
+                    talk({ id: 'rec', source: 'library' }),
+                    talk({ id: 'beat', productionId: 'prod-1' }),
+                    talk({ id: 'odd', kind: 'unwritten' }),
+                ],
+            });
+            await seed();
+            lineup.insertSegment('rec', 3);
+            lineup.insertSegment('beat', 3);
+            lineup.insertSegment('odd', 3);
+            await director.start();
+            const itemFor = (segmentId: string): string => lineup.all().find(item => item.kind === 'segment' && item.segmentId === segmentId)!.id;
+
+            const record = lineup.all().filter(isTrackItem)[3]!.id;
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: record })).toMatchObject({ ok: false, reason: 'not-rewritable' });
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: itemFor('rec') })).toMatchObject({ ok: false, reason: 'not-rewritable' });
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: itemFor('beat') })).toMatchObject({ ok: false, reason: 'not-rewritable' });
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: itemFor('odd') })).toMatchObject({
+                ok: false,
+                message: 'nothing knows how to write a "unwritten"',
+            });
+            expect(segmentStub.reopenForRewrite).not.toHaveBeenCalled();
+        });
+
+        it('refuses a break the player already has, and one its job holds', async () => {
+            const { director, lineup, segmentStub, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [talk()] });
+            await seed();
+            lineup.insertSegment('seg-1', 3);
+            await director.start();
+            segmentStub.reopenForRewrite = vi.fn(async () => false);
+
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: breakItem(lineup) })).toMatchObject({
+                ok: false,
+                message: 'that break is being written or spoken right now; ask again once it is done',
+            });
+
+            lineup.markHanded(breakItem(lineup));
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: breakItem(lineup) })).toMatchObject({ ok: false, reason: 'already-aired' });
+        });
+
+        it('answers not found for an item the order does not hold', async () => {
+            const { director, seed } = build({ items: ['a', 'b'] });
+            await seed();
+            await director.start();
+
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: 'nowhere' })).toMatchObject({ ok: false, reason: 'not-found' });
+        });
     });
 
     describe('skipping to a record', () => {

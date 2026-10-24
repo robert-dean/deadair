@@ -524,7 +524,7 @@ export function duckAnnotations(targetLufs: number, trimDb: number): Record<stri
  * the same number. See {@link HARD_JOIN_MS} for what a zero actually does.
  */
 function crossAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
-    const out = blendFor(item, context.next, context);
+    const out = blendOutOf(item, context);
     const into = context.previousBlendMs ?? 0;
 
     return {
@@ -542,6 +542,9 @@ function crossAnnotations(item: RundownItem, context: AnnotationContext): Record
  * running order may have moved.
  */
 export function blendOutOf(item: RundownItem, context: AnnotationContext): number {
+    // A link said over this record's end owns the seconds a blend would have taken: it ends at the
+    // record's end and the next record starts straight after. See `talk.out.ts`.
+    if (item.voice?.endOf === true) return 0;
     return blendFor(item, context.next, context);
 }
 

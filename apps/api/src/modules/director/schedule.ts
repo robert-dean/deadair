@@ -49,6 +49,7 @@ import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ChartOrder } from './chart.picks.js';
 import { readClock } from './clock.bands.js';
 import type { StationLineupMode, StationLineupOnEnd } from './station.lineup.js';
+import type { WriterOrder } from './writer.order.js';
 
 /** Minutes in a day, which is the space {@link ScheduleSlot.startsAtMinutes} lives in. */
 export const MINUTES_IN_DAY = 24 * 60;
@@ -217,6 +218,11 @@ export interface ScheduleSlot {
     repeatWindowDays?: number;
     artistCooldownMinutes?: number;
     maxPerArtist?: number;
+    /**
+     * Which writer this stretch of the day asks first for its breaks, copied onto the running order's
+     * rules at a changeover. Absent is the station's own `llm.breakWriterOrder`; see `writer.order.ts`.
+     */
+    writerOrder?: WriterOrder;
     /**
      * Whether somebody phones in during this stretch of the day.
      *

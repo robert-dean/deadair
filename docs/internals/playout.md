@@ -346,6 +346,11 @@ as a `voice` cue on the record it rides, armed with `X-Voice-At-Ms` like an inte
 bed ducks under it and nothing is faded into speech. Where the cue lands and why is
 [`breaks.md`](breaks.md) § "Talking up to the post".
 
+**A link said over the END of a record makes that record a hard join.** Its voice is stamped `endOf`
+(`RundownItem.voice.endOf`), `blendOutOf` answers zero for it, and the link ends at the record's
+measured end, so the next record starts straight after the last word. See [`breaks.md`](breaks.md)
+§ "Talking over the end of a record" for why the talk-over takes those seconds rather than sharing them.
+
 **A cue is `handed` and the player never holds it, so the rundown never counts one.** The director marks a
 cue handed the moment it attaches it to a record, and it is armed on the mic chain rather than queued.
 `Rundown.handedIds` counted it anyway, so every reading found the player one item short: the cue was

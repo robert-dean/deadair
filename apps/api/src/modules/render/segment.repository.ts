@@ -1196,6 +1196,28 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * The operator asked for this break to be written again, and the one repair here that reaches a
+     * `failed` row.
+     *
+     * Every other reopen leaves `failed` alone, and `ripen` never re-offers one with no words on it,
+     * because the usual reason nothing could be written is that nothing true could be said about
+     * those two records and asking again does not change that. An operator who has since edited the
+     * phrasings, or switched the model on, has changed exactly that, and this is their way of
+     * saying so. A failed render is reached as well: its words go and it is written afresh, which is
+     * what "write it again" means and is not the render retry `releaseForRetry` makes.
+     *
+     * The same statement as {@link reopen} with `failed` admitted and the error cleared, since a
+     * planned row still showing why it failed last time would read as a break that cannot be made.
+     * `writing` and `rendering` are still refused, as everywhere: both are a job's claim.
+     *
+     * @returns whether the row was reopened. `false` is a break being written or spoken right now.
+     */
+    async reopenForRewrite(id: string): Promise<boolean> {
+        const reopened = await this.reopen(['id'], [id], 'the operator asked for it to be written again', undefined, { failed: true });
+        return reopened.length > 0;
+    }
+
+    /**
      * Back to `planned`, for whichever rows the caller named.
      *
      * The state guard is the load-bearing part and is why this is one method rather than two
@@ -1232,8 +1254,9 @@ export class SegmentRepository extends DataRepository {
         values: readonly string[],
         reason: string,
         host?: { personaId?: string; coHosts?: readonly string[]; recast: true },
+        also?: { failed: true },
     ): Promise<string[]> {
-        const guard = this.reopening(by, values, host);
+        const guard = this.reopening(by, values, host, also);
 
         const query = this.db
             .with('before', db => db.selectFrom('deadair.segments').select(['deadair.segments.id', 'deadair.segments.state']).where(guard))
@@ -1253,6 +1276,9 @@ export class SegmentRepository extends DataRepository {
                 claimsReadingUntil: null,
                 // So does the reading the model chose for them.
                 delivery: null,
+                // And, for the one caller that reaches a failed row, why it failed last time. See
+                // `reopenForRewrite`.
+                ...(also?.failed === true ? { error: null } : {}),
                 ...(host === undefined
                     ? {}
                     : {
@@ -1290,7 +1316,8 @@ export class SegmentRepository extends DataRepository {
      *
      * **`writing` and `rendering` are never reset**, because both are a job's claim and a row moved
      * underneath one finishes into a state its caller no longer owns. `failed` is out for a
-     * different reason — the words on it are gone, so there is nothing to un-write.
+     * different reason — the words on it are gone, so there is nothing to un-write — except when the
+     * operator asks for a rewrite, which is what `also.failed` is for (see `reopenForRewrite`).
      *
      * **A row with no persona is not recast.** A canned ident, a break written while the station had
      * no persona at all, or a script an operator typed themselves is not in anybody's character, and
@@ -1317,6 +1344,7 @@ export class SegmentRepository extends DataRepository {
         by: readonly ('id' | 'claimsItemId' | 'claimsPreviousItemId')[],
         values: readonly string[],
         host?: { personaId?: string; coHosts?: readonly string[] },
+        also?: { failed: true },
     ): Expression<SqlBool> {
         const eb = expressionBuilder<DB, 'deadair.segments'>();
 
@@ -1325,7 +1353,7 @@ export class SegmentRepository extends DataRepository {
         // so a row naming both a forward and a backward claim is still touched once.
         const clauses = [
             eb.or(by.map(column => eb(`deadair.segments.${column}`, 'in', [...values]))),
-            eb('deadair.segments.state', 'in', ['planned', 'written', 'ready']),
+            eb('deadair.segments.state', 'in', also?.failed === true ? ['planned', 'written', 'ready', 'failed'] : ['planned', 'written', 'ready']),
         ];
 
         if (host !== undefined) {

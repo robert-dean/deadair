@@ -137,6 +137,7 @@ export const onair = {
         backToAir: 'Back to what is on air',
         segment: 'segment',
         over: 'over the next record',
+        overEnd: 'over the end of the last record',
         mixedInHint: 'The station mixed this in because it sounds like the record before it. The playlist did not name it.',
         mixedIn: 'mixed in',
         followsRequestHint: 'The station chose this because it sounds like the listener request before it, on a request show.',
@@ -147,6 +148,9 @@ export const onair = {
             'Moves this in front of everything the player is not already holding. Not necessarily the next thing heard: whatever has been handed over plays first.',
         playNext: 'Play {{title}} next',
         dropHint: 'Drop this item',
+        rewriteHint:
+            'Writes this break again from nothing as its slot comes near, under whoever is presenting by then. A break that failed because nothing could be written is tried again, so do this after changing the phrasings or switching the model on.',
+        rewrite: 'Write {{title}} again',
         drop: 'Drop {{title}}',
     },
 } as const;

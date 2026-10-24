@@ -39,14 +39,15 @@ export const TALK_UP_SAFETY_RANGE = { min: 500, max: 5_000 } as const;
 export const SETTLE_MS = 2_000;
 
 /**
- * How much later Liquidsoap fires a cue than it was asked to, as a fraction of how far in it is.
+ * How much later Liquidsoap fires a cue than it was asked to, in milliseconds, wherever it is due.
  *
- * Measured by `stream/voicecue.check.liq` and documented beside `on_air_elapsed` in `radio.liq`: the
- * counter adds a fixed tick rather than measuring one, so a cue due at 6s landed at 6.22s and one at
- * 14s at 14.48s. Without this a link timed to end at the post would end a few hundred milliseconds
- * into the vocal on a long intro.
+ * Two ticks of `voice_tick`: the counter's own, since `on_air_elapsed` only moves when its thread
+ * runs, and the cue check's, which runs on a tick of its own. A constant rather than a fraction of
+ * how far in, because the counter now adds the time that actually passed (see `on_air_elapsed` in
+ * `radio.liq`). It used to add a fixed tick and ran 3.5% slow, which this allowed for as a ratio; a
+ * cue due 170s in landed at 173s that way, and at 170.03s now (`stream/voiceclock.check.liq`).
  */
-export const CUE_CLOCK_DRIFT = 0.035;
+export const CUE_CLOCK_LAG_MS = 200;
 
 export interface TalkUpSettings {
     enabled: boolean;
@@ -74,7 +75,7 @@ export interface TalkUpQuestion {
  * How far into the next record to start the link, or `undefined` for "air it in the gap as before".
  *
  * Ends the link at the post (`runway - safety`), allowing for the duck's ramp after the last word and
- * for the cue clock running slow. On an intro long enough not to bind, starts at {@link SETTLE_MS}
+ * for the cue firing a tick or two late. On an intro long enough not to bind, starts at {@link SETTLE_MS}
  * instead of hanging silent until the post. Never trims and never re-renders: a link that does not
  * fit is simply aired in the gap.
  */
@@ -85,8 +86,8 @@ export function talkUpAt({ voiceMs, runway, safetyMs, duckFadeMs }: TalkUpQuesti
 
     const post = runway.ms - safetyMs;
     const spoken = voiceMs + duckFadeMs;
-    // Solve start * (1 + drift) + spoken <= post for the latest start that still lands in time.
-    const latest = Math.floor((post - spoken) / (1 + CUE_CLOCK_DRIFT));
+    // The latest start that still lands in time when the cue fires a lag late.
+    const latest = Math.floor(post - spoken - CUE_CLOCK_LAG_MS);
     if (latest < 0) return undefined;
 
     return runway.ms >= RUNWAY_CEILING_MS ? Math.min(latest, SETTLE_MS) : latest;
@@ -107,7 +108,7 @@ export const MIN_TALK_UP_WORDS = 4;
 export function talkUpBudget(runway: Runway, safetyMs: number): { runwayMs: number; words: number } | undefined {
     if (runway.kind !== 'ms' || runway.ms < RUNWAY_FLOOR_MS || runway.ms >= RUNWAY_CEILING_MS) return undefined;
 
-    const spokenMs = (runway.ms - safetyMs - DUCK_FADE_MS) / (1 + CUE_CLOCK_DRIFT);
+    const spokenMs = runway.ms - safetyMs - DUCK_FADE_MS - CUE_CLOCK_LAG_MS;
     const words = Math.floor((spokenMs / 1000) * WORDS_PER_SECOND);
     return words < MIN_TALK_UP_WORDS ? undefined : { runwayMs: runway.ms, words };
 }

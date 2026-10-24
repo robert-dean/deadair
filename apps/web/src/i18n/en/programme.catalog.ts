@@ -125,4 +125,12 @@ export const programme = {
         perArtistLabel: 'Most per artist',
         stationPlaceholder: 'Station’s',
     },
+    writerOrder: {
+        label: 'Who writes the breaks first',
+        description:
+            'For this show only. The station’s own words are the presenter’s phrasings, the headlines as published and your stories as written; whichever goes second writes only where the first has nothing to say. Changes nothing while the model is switched off.',
+        inherit: 'The station’s setting',
+        model: 'The model, with the phrasings underneath',
+        station: 'The phrasings, with the model underneath',
+    },
 } as const;

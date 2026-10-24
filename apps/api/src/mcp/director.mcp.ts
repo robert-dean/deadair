@@ -53,6 +53,7 @@ const AddASegmentToTheRunningOrderArgs = z.object({ body: AddStationSegmentInput
 const AddARecordToTheRunningOrderArgs = z.object({ body: AddStationTrackInput });
 const MoveARunningOrderItemArgs = z.object({ itemId: z.string().min(1).max(100), body: MoveStationItemInput });
 const RemoveARunningOrderItemArgs = z.object({ itemId: z.string().min(1).max(100) });
+const WriteARunningOrderBreakAgainArgs = z.object({ itemId: z.string().min(1).max(100) });
 const SkipToARunningOrderItemArgs = z.object({ itemId: z.string().min(1).max(100) });
 
 /**
@@ -477,6 +478,30 @@ export class RemoveARunningOrderItemMcpTool implements McpToolHandler {
 }
 
 /**
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/items/{itemId}/rewrite`
+ */
+@Injectable()
+export class WriteARunningOrderBreakAgainMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'write_a_running_order_break_again',
+        description:
+            'Writes a break still to come again from nothing: its words, and any audio already made of them, are thrown away and the station writes it afresh as its slot nears, under whoever is presenting by then. Reaches a break that failed to be written, which nothing else retries, so a break that had nothing to say can be asked again after the phrasings change or the model is switched on. Only a break the station wrote itself and has not handed to the player, and never one turn of a programme on its own',
+        inputSchema: z.toJSONSchema(WriteARunningOrderBreakAgainArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(StationOrder, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { itemId } = await parseAndValidate(args, WriteARunningOrderBreakAgainArgs);
+        const result = await container.get(DirectorConsoleService).rewriteOrderItem(itemId);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
  * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/items/{itemId}/skip-to`
  */
 @Injectable()
@@ -520,6 +545,7 @@ export function registerDirectorMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('add_a_record_to_the_running_order', container.get(AddARecordToTheRunningOrderMcpTool));
     map.set('move_a_running_order_item', container.get(MoveARunningOrderItemMcpTool));
     map.set('remove_a_running_order_item', container.get(RemoveARunningOrderItemMcpTool));
+    map.set('write_a_running_order_break_again', container.get(WriteARunningOrderBreakAgainMcpTool));
     map.set('skip_to_a_running_order_item', container.get(SkipToARunningOrderItemMcpTool));
 }
 
@@ -543,5 +569,6 @@ export function registerDirectorMcpToolClasses(registry: Registry): void {
     registry.register(AddARecordToTheRunningOrderMcpTool).useClass(AddARecordToTheRunningOrderMcpTool).asSingleton();
     registry.register(MoveARunningOrderItemMcpTool).useClass(MoveARunningOrderItemMcpTool).asSingleton();
     registry.register(RemoveARunningOrderItemMcpTool).useClass(RemoveARunningOrderItemMcpTool).asSingleton();
+    registry.register(WriteARunningOrderBreakAgainMcpTool).useClass(WriteARunningOrderBreakAgainMcpTool).asSingleton();
     registry.register(SkipToARunningOrderItemMcpTool).useClass(SkipToARunningOrderItemMcpTool).asSingleton();
 }

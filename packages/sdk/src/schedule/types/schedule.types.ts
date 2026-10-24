@@ -116,6 +116,8 @@ export interface ScheduleSlot {
     artistCooldownMinutes?: number;
     /** Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     maxPerArtist?: number;
+    /** Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    writerOrder?: 'model' | 'station';
     /** The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all */
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
@@ -180,6 +182,8 @@ export interface ScheduleSlotInput {
     artistCooldownMinutes?: number;
     /** Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     maxPerArtist?: number;
+    /** Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    writerOrder?: 'model' | 'station';
     /** The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all */
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */

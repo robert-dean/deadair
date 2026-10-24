@@ -873,10 +873,12 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var artistCooldownMinutes: Int?
     /// Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
     public var maxPerArtist: Int?
+    /// Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
+    public var writerOrder: PutOnAirInputWriterOrder?
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: PutOnAirInputWriterOrder? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -903,6 +905,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.repeatWindowDays = repeatWindowDays
         self.artistCooldownMinutes = artistCooldownMinutes
         self.maxPerArtist = maxPerArtist
+        self.writerOrder = writerOrder
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -934,6 +937,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case repeatWindowDays = "repeatWindowDays"
         case artistCooldownMinutes = "artistCooldownMinutes"
         case maxPerArtist = "maxPerArtist"
+        case writerOrder = "writerOrder"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -966,6 +970,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.repeatWindowDays = try container.decodeIfPresent(Int.self, forKey: .repeatWindowDays)
         self.artistCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .artistCooldownMinutes)
         self.maxPerArtist = try container.decodeIfPresent(Int.self, forKey: .maxPerArtist)
+        self.writerOrder = try container.decodeIfPresent(PutOnAirInputWriterOrder.self, forKey: .writerOrder)
         self.mode = try container.decodeIfPresent(StationMode.self, forKey: .mode)
         self.onEnd = try container.decodeIfPresent(StationOnEnd.self, forKey: .onEnd)
     }
@@ -998,6 +1003,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.repeatWindowDays, forKey: .repeatWindowDays)
         try container.encodeIfPresent(self.artistCooldownMinutes, forKey: .artistCooldownMinutes)
         try container.encodeIfPresent(self.maxPerArtist, forKey: .maxPerArtist)
+        try container.encodeIfPresent(self.writerOrder, forKey: .writerOrder)
         try container.encodeIfPresent(self.mode, forKey: .mode)
         try container.encodeIfPresent(self.onEnd, forKey: .onEnd)
     }
@@ -1045,8 +1051,10 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     public var segmentWriter: String?
     /// Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
     public var overAtMs: Int?
+    /// Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over
+    public var overEndOf: Bool?
 
-    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil) {
+    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil, overEndOf: Bool? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -1070,6 +1078,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.segmentError = segmentError
         self.segmentWriter = segmentWriter
         self.overAtMs = overAtMs
+        self.overEndOf = overEndOf
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1096,6 +1105,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         case segmentError = "segmentError"
         case segmentWriter = "segmentWriter"
         case overAtMs = "overAtMs"
+        case overEndOf = "overEndOf"
     }
 
     public init(from decoder: Decoder) throws {
@@ -1123,6 +1133,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.segmentError = try container.decodeIfPresent(String.self, forKey: .segmentError)
         self.segmentWriter = try container.decodeIfPresent(String.self, forKey: .segmentWriter)
         self.overAtMs = try container.decodeIfPresent(Int.self, forKey: .overAtMs)
+        self.overEndOf = try container.decodeIfPresent(Bool.self, forKey: .overEndOf)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1150,6 +1161,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.segmentError, forKey: .segmentError)
         try container.encodeIfPresent(self.segmentWriter, forKey: .segmentWriter)
         try container.encodeIfPresent(self.overAtMs, forKey: .overAtMs)
+        try container.encodeIfPresent(self.overEndOf, forKey: .overEndOf)
     }
 }
 
@@ -1601,6 +1613,53 @@ public enum PutOnAirInputAvoidMoods: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PutOnAirInputAvoidMoods.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
+public enum PutOnAirInputWriterOrder: Codable, CaseIterable, Hashable, Sendable {
+    case model
+    case station
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PutOnAirInputWriterOrder] = [.model, .station]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .model: return "model"
+        case .station: return "station"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "model": self = .model
+        case "station": self = .station
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PutOnAirInputWriterOrder.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

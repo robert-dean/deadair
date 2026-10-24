@@ -15,7 +15,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { nowPlayingSvg, PROGRESS_STEPS, voteSvg } from '../src/display/key.image.ts';
+import { grantSvg, nowPlayingSvg, PROGRESS_STEPS, requestSvg, voteSvg } from '../src/display/key.image.ts';
 
 const here = resolve(import.meta.dirname, '..');
 const plugin = join(here, 'radio.deadair.streamdeck.sdPlugin');
@@ -84,6 +84,8 @@ const nowPlaying = (face, title) => ({ image: svgUri(nowPlayingSvg({ mark, ...fa
 const manifestKey = path => fileUri(join(plugin, path), 'image/svg+xml');
 const skull = fileUri(join(plugin, 'imgs/plugin/skull.png'), 'image/png');
 const vote = (v, lit) => svgUri(voteSvg({ vote: v, lit, dim: false, skull }));
+const request = dim => svgUri(requestSvg({ dim }));
+const grant = count => svgUri(count === undefined ? grantSvg({ dim: true }) : grantSvg({ dim: false, count }));
 
 /** A headline and a line under it, top left. */
 function heading(title, line) {
@@ -110,27 +112,33 @@ const pages = {
         `<image x="150" y="230" width="420" height="420" xlink:href="${fileUri(join(plugin, 'imgs/plugin/icon@2x.png'), 'image/png')}"/>` +
             `<text x="660" y="400" font-family="${FONT}" font-weight="700" font-size="120" fill="${TEXT}">deadair</text>` +
             `<text x="664" y="480" font-family="${FONT}" font-size="46" fill="${DIM}">Your station on a Stream Deck</text>` +
-            key(664, 560, 220, playing.image, playing.title) +
-            key(914, 560, 220, manifestKey('imgs/actions/skip/key.svg')) +
-            key(1164, 560, 220, manifestKey('imgs/actions/transport/stop.svg')) +
-            key(1414, 560, 220, vote('liked', true)) +
-            key(1664, 560, 220, vote('disliked', false)),
+            key(664, 580, 180, playing.image, playing.title) +
+            key(869, 580, 180, manifestKey('imgs/actions/skip/key.svg')) +
+            key(1074, 580, 180, manifestKey('imgs/actions/transport/stop.svg')) +
+            key(1279, 580, 180, vote('liked', true)) +
+            key(1484, 580, 180, request(false)) +
+            key(1689, 580, 180, grant(3)),
     ),
     'gallery-1-now-playing': page(
         heading('What is on air', 'The cover, the title, and a bar that fills as the record plays. Press it to open the console.') +
             key(760, 320, 400, playing.image, playing.title),
     ),
-    // Six keys in one row rather than a fourth gallery image, because the Maker Console's gallery is
-    // the three this listing has always had and a limit nobody can read from here is not one to test
-    // on a submission.
+    // Two rows rather than a fourth gallery image, because the Maker Console's gallery is the three
+    // this listing has always had and a limit nobody can read from here is not one to test on a
+    // submission (Elgato's documentation does not give one, checked 2026-10-24). The requests row is
+    // the second because it is the newer pair.
     'gallery-2-transport': page(
-        heading('The keys that do something', 'Stop asks twice and forgets after five seconds. Like and Dislike rate the record on air.') +
-            key(90, 420, 240, manifestKey('imgs/actions/skip/key.svg'), '', 'Skip') +
-            key(390, 420, 240, manifestKey('imgs/actions/transport/stop.svg'), '', 'Stop') +
-            key(690, 420, 240, manifestKey('imgs/actions/transport/stop.svg'), 'Confirm', 'Pressed once') +
-            key(990, 420, 240, manifestKey('imgs/actions/transport/start.svg'), '', 'Start') +
-            key(1290, 420, 240, vote('liked', true), '', 'Liked') +
-            key(1590, 420, 240, vote('disliked', false), '', 'Dislike'),
+        heading('The keys that do something', 'Stop asks twice. Like and Dislike rate the record. Request asks for one.') +
+            key(185, 300, 200, manifestKey('imgs/actions/skip/key.svg'), '', 'Skip') +
+            key(455, 300, 200, manifestKey('imgs/actions/transport/stop.svg'), '', 'Stop') +
+            key(725, 300, 200, manifestKey('imgs/actions/transport/stop.svg'), 'Confirm', 'Pressed once') +
+            key(995, 300, 200, manifestKey('imgs/actions/transport/start.svg'), '', 'Start') +
+            key(1265, 300, 200, vote('liked', true), '', 'Liked') +
+            key(1535, 300, 200, vote('disliked', false), '', 'Dislike') +
+            key(455, 610, 200, request(false), '', 'Request') +
+            key(725, 610, 200, grant(3), '', 'Grant: 3 waiting') +
+            key(995, 610, 200, grant(12), '', '12 waiting') +
+            key(1265, 610, 200, grant(undefined), '', 'None waiting'),
     ),
     'gallery-3-states': page(
         heading('It says why it is quiet', 'In the console’s own words, and never in the on-air colour when the reading is old.') +

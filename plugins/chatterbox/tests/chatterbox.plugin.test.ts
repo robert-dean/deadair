@@ -42,6 +42,8 @@ interface FakeHostOptions {
     openapiStatus?: number;
     /** What the server's UI bootstrap reports as `config.generation_defaults`. Absent answers 404. */
     generationDefaults?: Record<string, unknown>;
+    /** Whether the station is on air when the plugin loads. Off, as a real station is before it first decides. */
+    onAir?: boolean;
 }
 
 /**
@@ -100,6 +102,7 @@ function fakeHost(options: FakeHostOptions = {}) {
     });
 
     host.seedConfig({ baseUrl: BASE_URL, ...options.config });
+    if (options.onAir === true) host.setOnAir(true);
 
     return { host, calls: host.calls };
 }
@@ -478,7 +481,7 @@ describe('freeing the GPU between breaks', () => {
     });
 });
 
-describe('freeing the GPU after a quiet spell', () => {
+describe('freeing the GPU after a while off air', () => {
     afterEach(() => {
         vi.useRealTimers();
     });
@@ -603,6 +606,128 @@ describe('freeing the GPU after a quiet spell', () => {
         vi.advanceTimersByTime(60 * 60_000);
 
         expect(reached(calls)).not.toContain('unload');
+    });
+});
+
+describe('holding the model while the station is on air', () => {
+    // The idle window used to be the only clock, and a quiet spell of several records outlasted it:
+    // the break after paid for a cold start mid-programme. On air is the host's fact, not a guess.
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('keeps the model past the idle window while the station is on air', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ onAir: true });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('starts the countdown when the station stands down, not when it last spoke', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started({ onAir: true });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(40 * 60_000);
+        host.setOnAir(false);
+
+        vi.advanceTimersByTime(15 * 60_000 - 1);
+        expect(reached(calls)).not.toContain('unload');
+
+        vi.advanceTimersByTime(1);
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('stops the countdown when the station comes back on', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started();
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(10 * 60_000);
+        host.setOnAir(true);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('never unloads a model it did not load when the station stands down', async () => {
+        // The server may have one resident from its own startup, or from another instance. Standing
+        // down is a reason to put back what this plugin took, not to empty somebody else's card.
+        vi.useFakeTimers();
+        const { calls, host } = await started({ onAir: true });
+
+        host.setOnAir(false);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('does not count down again after an idle unload until it loads once more', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started();
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(15 * 60_000);
+        expect(reached(calls).filter(call => call === 'unload')).toHaveLength(1);
+
+        host.setOnAir(true);
+        host.setOnAir(false);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls).filter(call => call === 'unload')).toHaveLength(1);
+    });
+
+    it('adds no unload of its own when the model is already dropped after every break', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started({ onAir: true, config: { unloadAfterRender: 'true' } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        calls.length = 0; // The render's own unload already happened.
+        host.setOnAir(false);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('reads a stored "0" as never, on the stand-down edge too', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started({ onAir: true, config: { unloadAfterIdleMinutes: '0' } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        host.setOnAir(false);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('counts a stored "5" as five minutes from standing down', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started({ onAir: true, config: { unloadAfterIdleMinutes: '5' } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        host.setOnAir(false);
+        vi.advanceTimersByTime(5 * 60_000);
+
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('stops listening for the air once disposed', async () => {
+        const { plugin, host } = await started();
+        expect(host.airListenerCount()).toBe(1);
+
+        await plugin.dispose();
+
+        expect(host.airListenerCount()).toBe(0);
     });
 });
 

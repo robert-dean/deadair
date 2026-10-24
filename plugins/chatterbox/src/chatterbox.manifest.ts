@@ -312,12 +312,13 @@ export const chatterboxManifest: PluginManifest = {
         },
         {
             key: 'unloadAfterIdleMinutes',
-            label: 'Free the GPU after a quiet spell',
+            label: 'Free the GPU once the station stops airing',
             type: 'number',
             default: DEFAULT_UNLOAD_AFTER_IDLE_MINUTES,
             help:
-                `Drops the model out of the GPU after this many minutes with nothing spoken. The next break loads it again, which costs that break some seconds. Set it to 0 to never unload this way. ` +
-                'Unlike "Free the GPU between breaks" above, which drops it after every single break, this only fires once the station has actually gone quiet for a while. An ordinary gap between breaks never trips it. Has no effect while that setting is on, since the model is already gone by then.',
+                `Drops the model out of the GPU after the station has been off the air this many minutes with nothing spoken. While the station is on the air the model stays loaded however long it goes between breaks, so the first break after a long run of records never waits for it. ` +
+                'The station is off the air when its running order runs out, when it is stopped, and a few minutes after the last listener leaves. The next break after an unload loads the model again, which costs that break some seconds. Set it to 0 to never unload this way. ' +
+                'Has no effect while "Free the GPU between breaks" above is on, since the model is already gone after every break.',
         },
     ],
     configSchema,

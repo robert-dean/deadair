@@ -150,11 +150,18 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     private unloadAfterRender = DEFAULT_UNLOAD_AFTER_RENDER;
     private unloadAfterIdleMinutes = DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
     private lifecycle?: ModelLifecycle;
-    // Rearmed after every synthesis ends and cleared the moment the next one starts, so the model is
-    // only ever let go once the station has genuinely gone quiet rather than merely between two
-    // breaks. `unref()`'d because a station with nothing left to say should not be kept alive by its
-    // own housekeeping.
+    // Armed only while the station is OFF air: when a synthesis ends off air, and when the station
+    // stands down with this plugin holding a model. Cleared the moment the next synthesis starts or
+    // the station comes back on. On air the model is kept however long the station goes between
+    // breaks, because a quiet spell of several records outlasts any idle window and the break after
+    // it would pay for a cold start. `unref()`'d because a station with nothing left to say should
+    // not be kept alive by its own housekeeping.
     private idleTimer?: ReturnType<typeof setTimeout>;
+    // What the host last said about the air. Off until it says otherwise, as `host.air` is.
+    private onAir = false;
+    // Whether this instance has a model it asked for and has not yet let go of, so standing down
+    // never unloads a model this plugin did not load: the disposer's rule, applied to the timer.
+    private holding = false;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -168,6 +175,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         this.unloadAfterRender = configFlag(config.unloadAfterRender, false);
         this.unloadAfterIdleMinutes = minutesOrDefault(config.unloadAfterIdleMinutes);
         this.apiKey = await this.host.secrets.get('apiKey');
+        this.onAir = this.host.air.isOn();
 
         this.lifecycle =
             this.baseUrl.length === 0
@@ -187,6 +195,9 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
             this.clearIdleTimer();
             if (this.unloadAfterRender) await this.lifecycle?.unload();
         });
+        // Registered after the disposer above, so it runs FIRST on the way out: nothing arms a timer
+        // between that one clearing it and the instance being gone.
+        this.register(this.host.air.onChange(on => this.airChanged(on)));
 
         this.host.logger.info('chatterbox ready', {
             baseUrl: this.baseUrl,
@@ -194,6 +205,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
             voices: Object.keys(this.voices).length,
             unloadAfterRender: this.unloadAfterRender,
             unloadAfterIdleMinutes: this.unloadAfterIdleMinutes,
+            onAir: this.onAir,
         });
     }
 
@@ -287,7 +299,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      * expressiveness dials, which only the `original` and `multilingual` models read, and those are the
      * two that perform no cues. So a server holding `turbo` answers cues here and nothing for this, and
      * one holding either of the others answers the reverse. Both follow the model that is RESIDENT, so
-     * a server that has let its model go after a quiet spell answers neither until the next break loads
+     * a server that has let its model go after a while off air answers neither until the next break loads
      * one, which costs that one break an ordinary reading rather than anything worse.
      *
      * Answers empty rather than throwing, for the reason {@link listCues} does.
@@ -379,6 +391,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // the code that keeps the segment's words on its row for the next pass. What it answers is
         // WHICH model proved resident, which decides whether the dials below are worth sending.
         const model = await lifecycle.ensureLoaded();
+        this.holding = true;
 
         const format = isResponseFormat(request.format) ? request.format : this.format;
         const mapping = this.resolveVoice(host, request.voice);
@@ -459,27 +472,54 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     /** Drop the model if the operator asked for that, and never let it cost the audio. */
     private releaseModel(): void {
         if (this.unloadAfterRender) {
-            void this.lifecycle?.unload();
+            this.letGo();
             return;
         }
 
-        this.armIdleTimer();
+        // On air the model stays: the station will want it again, and how long until then is the
+        // running order's business rather than something an idle window can guess.
+        if (!this.onAir) this.armIdleTimer();
     }
 
     /**
-     * Starts the countdown to letting the model go, from the moment a synthesis just ended.
+     * The station went on or off air.
      *
-     * Skipped when `unloadAfterRender` is on, because {@link releaseModel} has already dropped the
-     * model by the time this would run, and when the minutes are `0`, which is the operator's "never".
-     * `unref()`'d so this timer alone never keeps the process alive.
+     * On is a reason to keep the model, so any countdown stops. Off starts one, from this moment,
+     * but only over a model this instance is holding: one it never loaded is not its to drop, and
+     * with `unloadAfterRender` on there is nothing held to drop. A synthesis still running when the
+     * station stands down rearms the same countdown as it ends, which is the same minutes from a
+     * later start and never a shorter wait.
+     */
+    private airChanged(on: boolean): void {
+        this.onAir = on;
+        if (on) {
+            this.clearIdleTimer();
+            return;
+        }
+
+        if (this.holding && !this.unloadAfterRender) this.armIdleTimer();
+    }
+
+    /**
+     * Starts the countdown to letting the model go, from now: a synthesis that ended off air, or
+     * the station standing down.
+     *
+     * Skipped when the minutes are `0`, which is the operator's "never". `unref()`'d so this timer
+     * alone never keeps the process alive.
      */
     private armIdleTimer(): void {
         this.clearIdleTimer();
         if (this.unloadAfterIdleMinutes === 0) return;
 
-        const timer = setTimeout(() => void this.lifecycle?.unload(), this.unloadAfterIdleMinutes * 60_000);
+        const timer = setTimeout(() => this.letGo(), this.unloadAfterIdleMinutes * 60_000);
         timer.unref?.();
         this.idleTimer = timer;
+    }
+
+    /** Ask the server to drop the model this instance was holding. Never throws: see `unload`. */
+    private letGo(): void {
+        this.holding = false;
+        void this.lifecycle?.unload();
     }
 
     private clearIdleTimer(): void {

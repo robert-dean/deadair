@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type Ref, type RefObject } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
-import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconPlayerTrackNext, IconX } from '@tabler/icons-react';
+import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconPencil, IconPlayerTrackNext, IconX } from '@tabler/icons-react';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
@@ -41,6 +41,14 @@ export interface StationOrderTableProps {
     /** Whether a skip is in flight, on the same terms as {@link removingItemId}. */
     skippingToItemId?: string;
     /**
+     * Having a break still to come written again from nothing. Absent draws no rewrite controls.
+     *
+     * Offered only where the API can say yes: see {@link canRewrite}.
+     */
+    onRewrite?: (item: StationOrderItem) => void;
+    /** Whether a rewrite is in flight, on the same terms as {@link removingItemId}. */
+    rewritingItemId?: string;
+    /**
      * What the station thinks of the record on a row. Absent draws no rating controls at all.
      *
      * Offered on a SPENT row as well as a planned one, unlike every other control here: the record
@@ -74,6 +82,20 @@ const isSpent = (state: StationItemState): boolean => state !== 'planned';
  * queue back itself.
  */
 const canSkipTo = (item: StationOrderItem): boolean => item.kind === 'track' && (item.state === 'planned' || item.state === 'handed');
+
+/**
+ * Whether a break can be written again from here.
+ *
+ * A break still to come that the station wrote: a failed one, which is the case the control exists
+ * for since nothing else retries it, or one whose words have a writer. A recording has none, so it
+ * is not offered, and one being written or spoken right now is left to finish. The API has the last
+ * word, and refuses one turn of a programme, which this row cannot tell from a break.
+ */
+const canRewrite = (item: StationOrderItem): boolean =>
+    item.kind === 'segment' &&
+    item.state === 'planned' &&
+    item.overAtMs === undefined &&
+    (item.segmentState === 'failed' || ((item.segmentState === 'written' || item.segmentState === 'ready') && item.segmentWriter !== undefined));
 
 /**
  * The lowest position an item may be moved to, and the only one this table ever asks for.
@@ -421,12 +443,14 @@ export function StationOrderTable({
     movingItemId,
     onSkipTo,
     skippingToItemId,
+    onRewrite,
+    rewritingItemId,
     onRate,
     ratingTrackId,
     collapseHistory = false,
 }: StationOrderTableProps) {
     const { t } = useTranslation('onair');
-    const editable = onRemove !== undefined || onMove !== undefined || onSkipTo !== undefined;
+    const editable = onRemove !== undefined || onMove !== undefined || onSkipTo !== undefined || onRewrite !== undefined;
     const nextUp = firstPlannedIndex(items);
     const anchor = anchorOf(items);
     const [historyOpen, setHistoryOpen] = useState(false);
@@ -531,6 +555,8 @@ export function StationOrderTable({
                             removing={removingItemId === item.id}
                             onSkipTo={onSkipTo && canSkipTo(item) ? onSkipTo : undefined}
                             skippingTo={skippingToItemId === item.id}
+                            onRewrite={onRewrite && canRewrite(item) ? onRewrite : undefined}
+                            rewriting={rewritingItemId === item.id}
                         />
                     ))}
                 </Stack>
@@ -568,7 +594,7 @@ export function StationOrderTable({
                             <Table.Th visibleFrom="xl">{t('order.column.album')}</Table.Th>
                             <Table.Th w={90}>{t('order.column.duration')}</Table.Th>
                             {onRate ? <Table.Th w={112}>{t('order.column.rating')}</Table.Th> : undefined}
-                            {editable ? <Table.Th w={60 + (onMove ? 36 : 0) + (onSkipTo ? 32 : 0)} /> : undefined}
+                            {editable ? <Table.Th w={60 + (onMove ? 36 : 0) + (onSkipTo ? 32 : 0) + (onRewrite ? 32 : 0)} /> : undefined}
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -599,6 +625,8 @@ export function StationOrderTable({
                                     moving={movingItemId === item.id}
                                     onSkipTo={onSkipTo}
                                     skippingTo={skippingToItemId === item.id}
+                                    onRewrite={onRewrite}
+                                    rewriting={rewritingItemId === item.id}
                                     onRate={onRate}
                                     writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
                                 />
@@ -653,6 +681,8 @@ interface OrderRowProps {
     moving: boolean;
     onSkipTo?: (item: StationOrderItem) => void;
     skippingTo: boolean;
+    onRewrite?: (item: StationOrderItem) => void;
+    rewriting: boolean;
     onRate?: (trackId: string, rating: Rating) => void;
     writingRating: boolean;
     /** How the virtualizer's measurement finds the item this element belongs to. */
@@ -682,6 +712,7 @@ function useRowStops() {
     const ratingStopRef = useRef<HTMLSpanElement>(null);
     const skipToRef = useRef<HTMLButtonElement>(null);
     const playNextRef = useRef<HTMLButtonElement>(null);
+    const rewriteRef = useRef<HTMLButtonElement>(null);
     const dropRef = useRef<HTMLButtonElement>(null);
 
     const stops = useCallback((): HTMLElement[] => {
@@ -694,12 +725,13 @@ function useRowStops() {
                 : null,
             skipToRef.current,
             playNextRef.current,
+            rewriteRef.current,
             dropRef.current,
         ];
         return found.filter((element): element is HTMLElement => element !== null);
     }, []);
 
-    return { titleStopRef, artistStopRef, ratingStopRef, skipToRef, playNextRef, dropRef, stops };
+    return { titleStopRef, artistStopRef, ratingStopRef, skipToRef, playNextRef, rewriteRef, dropRef, stops };
 }
 
 /**
@@ -729,6 +761,8 @@ const OrderRow = memo(function OrderRow({
     moving,
     onSkipTo,
     skippingTo,
+    onRewrite,
+    rewriting,
     onRate,
     writingRating,
     'data-index': dataIndex,
@@ -742,7 +776,7 @@ const OrderRow = memo(function OrderRow({
     const trackId = item.kind === 'track' ? item.trackId : undefined;
 
     const rowRef = useRef<HTMLTableRowElement>(null);
-    const { titleStopRef, artistStopRef, ratingStopRef, skipToRef, playNextRef, dropRef, stops } = useRowStops();
+    const { titleStopRef, artistStopRef, ratingStopRef, skipToRef, playNextRef, rewriteRef, dropRef, stops } = useRowStops();
 
     // Two keys only. `ArrowUp`/`ArrowDown` are untouched — see {@link useRowStops} — and every
     // other key on the row falls through to whatever it already does (a native click on a link,
@@ -987,6 +1021,25 @@ const OrderRow = memo(function OrderRow({
                                 </ActionIcon>
                             </Tooltip>
                         ) : undefined}
+                        {/* The one way a failed break comes back: nothing else retries
+                                            it, because the usual reason it failed is that there was
+                                            nothing true to say, which an edit to the phrasings or a
+                                            model switched on is exactly what changes. */}
+                        {onRewrite && canRewrite(item) ? (
+                            <Tooltip label={t('order.rewriteHint')} multiline maw={340}>
+                                <ActionIcon
+                                    ref={rewriteRef}
+                                    variant="subtle"
+                                    color="gray"
+                                    aria-label={t('order.rewrite', { title: item.title })}
+                                    tabIndex={-1}
+                                    loading={rewriting}
+                                    onClick={() => onRewrite(item)}
+                                >
+                                    <IconPencil size={15} stroke={1.8} />
+                                </ActionIcon>
+                            </Tooltip>
+                        ) : undefined}
                         {/* Nothing at all on a spent item, rather than a disabled
                                             control: the player is holding it or it is behind us, and an
                                             affordance that could only ever answer 422 is worse than no
@@ -1031,12 +1084,16 @@ const PhoneRow = memo(function PhoneRow({
     removing,
     onSkipTo,
     skippingTo,
+    onRewrite,
+    rewriting,
 }: {
     item: StationOrderItem;
     onRemove?: (item: StationOrderItem) => void;
     removing: boolean;
     onSkipTo?: (item: StationOrderItem) => void;
     skippingTo: boolean;
+    onRewrite?: (item: StationOrderItem) => void;
+    rewriting: boolean;
 }) {
     const { t } = useTranslation('onair');
     const state = stateReading(item.state);
@@ -1084,7 +1141,7 @@ const PhoneRow = memo(function PhoneRow({
             // at all where neither applies, rather than a disabled affordance that could only ever
             // answer 422.
             action={
-                onRemove || onSkipTo ? (
+                onRemove || onSkipTo || onRewrite ? (
                     <Group gap={0} wrap="nowrap">
                         {onSkipTo ? (
                             <ActionIcon
@@ -1097,6 +1154,19 @@ const PhoneRow = memo(function PhoneRow({
                                 onClick={() => onSkipTo(item)}
                             >
                                 <IconPlayerTrackNext size={16} stroke={1.8} />
+                            </ActionIcon>
+                        ) : undefined}
+                        {onRewrite ? (
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                w={44}
+                                h={44}
+                                aria-label={t('order.rewrite', { title: item.title })}
+                                loading={rewriting}
+                                onClick={() => onRewrite(item)}
+                            >
+                                <IconPencil size={16} stroke={1.8} />
                             </ActionIcon>
                         ) : undefined}
                         {onRemove ? (

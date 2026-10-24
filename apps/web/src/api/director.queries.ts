@@ -150,6 +150,15 @@ export function useRemoveOrderItem() {
 }
 
 /**
+ * Has a break still to come written again from nothing, a failed one included. The order does not
+ * move, so the reply is the order as it was, with the break's state on its way back to `planned`.
+ */
+export function useRewriteOrderItem() {
+    const queryClient = useQueryClient();
+    return useMutation(orderMutation<string>(queryClient, itemId => sdk.director.writeARunningOrderBreakAgain(itemId)));
+}
+
+/**
  * Makes a record further down the running order the next thing heard, passing over everything in
  * front of it and cutting what is on air.
  *

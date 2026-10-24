@@ -258,3 +258,47 @@ describe('StationOrderTable: reaching a row by keyboard', () => {
         expect(clicked).toHaveBeenCalled();
     });
 });
+
+describe('StationOrderTable: writing a break again', () => {
+    const talk = (index: number, overrides: Partial<StationOrderItem> = {}): StationOrderItem =>
+        orderItem(index, {
+            kind: 'segment',
+            title: `Break ${index}`,
+            artists: [],
+            segmentId: `seg-${index}`,
+            segmentState: 'failed',
+            ...overrides,
+        });
+
+    it('offers it on a failed break and on one a writer wrote, and asks with that row', async () => {
+        const onRewrite = vi.fn();
+        const user = setupUser();
+        render(
+            <StationOrderTable
+                items={[orderItem(0, { state: 'airing' }), talk(1), talk(2, { segmentState: 'ready', segmentWriter: 'model' })]}
+                onRewrite={onRewrite}
+            />,
+        );
+
+        await user.click(screen.getByRole('button', { name: 'Write Break 1 again' }));
+        expect(onRewrite).toHaveBeenCalledWith(expect.objectContaining({ id: 'item-1' }));
+        expect(screen.getByRole('button', { name: 'Write Break 2 again' })).toBeInTheDocument();
+    });
+
+    it('does not offer it on a recording, a break being made, one the player has, or a record', () => {
+        render(
+            <StationOrderTable
+                items={[
+                    orderItem(0, { state: 'airing' }),
+                    talk(1, { segmentState: 'ready' }),
+                    talk(2, { segmentState: 'rendering', segmentWriter: 'model' }),
+                    talk(3, { state: 'handed' }),
+                    orderItem(4),
+                ]}
+                onRewrite={vi.fn()}
+            />,
+        );
+
+        expect(screen.queryByRole('button', { name: /^Write .* again$/ })).toBeNull();
+    });
+});

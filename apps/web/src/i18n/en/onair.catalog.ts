@@ -147,6 +147,9 @@ export const onair = {
             'Moves this in front of everything the player is not already holding. Not necessarily the next thing heard: whatever has been handed over plays first.',
         playNext: 'Play {{title}} next',
         dropHint: 'Drop this item',
+        rewriteHint:
+            'Writes this break again from nothing as its slot comes near, under whoever is presenting by then. A break that failed because nothing could be written is tried again, so do this after changing the phrasings or switching the model on.',
+        rewrite: 'Write {{title}} again',
         drop: 'Drop {{title}}',
     },
 } as const;

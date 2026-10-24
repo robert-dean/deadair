@@ -14,6 +14,7 @@ import {
     useRemoveOrderItem,
     useShuffleOrder,
     useSkipToOrderItem,
+    useRewriteOrderItem,
     useStationAir,
     useStationOrder,
 } from '../../api/director.queries';
@@ -28,7 +29,7 @@ import { StationOrderTable } from '../onair/station.order.table';
 import { AttentionList } from '../station/attention.list';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
-import { notifyQueued, notifyUndoable } from '../shared/notify';
+import { notifyDone, notifyQueued, notifyUndoable } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { OnAirNow } from './on.air.now';
@@ -89,6 +90,7 @@ export function DeskPage() {
     const addTrack = useAddOrderTrack();
     const moveItem = useMoveOrderItem();
     const skipTo = useSkipToOrderItem();
+    const rewrite = useRewriteOrderItem();
     const rateTrack = useRateTrack();
 
     // Stable across renders, so the table's memoised rows survive the five-second poll instead of
@@ -99,6 +101,7 @@ export function DeskPage() {
     const { mutate: addOrderTrack } = addTrack;
     const { mutate: moveOrderItem } = moveItem;
     const { mutate: skipToOrderItem } = skipTo;
+    const { mutate: rewriteOrderItem } = rewrite;
     const { mutate: rateRecord } = rateTrack;
     // A record is spliced out of the order entirely when it is dropped — unlike a segment, which is
     // only marked `removed`, on the ownership rule's argument (`docs/internals/director.md` § "Who
@@ -130,6 +133,12 @@ export function DeskPage() {
     // passes over everything in front of the record, the player's own queue included, and cuts
     // what is on air.
     const onSkipTo = useCallback((item: StationOrderItem) => skipToOrderItem(item.id), [skipToOrderItem]);
+    // A break still to come, written again. Said on success, because nothing on the row changes
+    // until the next poll and a button that looks ignored gets pressed twice.
+    const onRewrite = useCallback(
+        (item: StationOrderItem) => rewriteOrderItem(item.id, { onSuccess: () => notifyDone(t('page.rewriting', { title: item.title })) }),
+        [rewriteOrderItem, t],
+    );
     // The running order is where an operator actually forms an opinion about a record: they are
     // hearing it. The write goes to the catalog rather than to the order, and the order is re-read
     // because it carries each row's rating.
@@ -157,6 +166,9 @@ export function DeskPage() {
         // The same race as a move's: the record can reach the air, or pass it, between the row
         // being drawn and the click.
         skipTo.isError ? apiErrorMessage(skipTo.error, t('page.skipToFailed')) : undefined,
+        // The API's sentence is the useful part: a programme's turn, a recording, or a break being
+        // written right now each say which.
+        rewrite.isError ? apiErrorMessage(rewrite.error, t('page.rewriteFailed')) : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -276,6 +288,8 @@ export function DeskPage() {
                         onMove={onMove}
                         skippingToItemId={skipTo.isPending ? skipTo.variables : undefined}
                         onSkipTo={onSkipTo}
+                        rewritingItemId={rewrite.isPending ? rewrite.variables : undefined}
+                        onRewrite={onRewrite}
                         ratingTrackId={rateTrack.isPending ? rateTrack.variables?.id : undefined}
                         onRate={onRate}
                     />

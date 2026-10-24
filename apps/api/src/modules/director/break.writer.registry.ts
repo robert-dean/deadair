@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
-import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
+import type { BreakKindClaimant, BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
 import { worthRetrying, type BreakRetry } from './break.retry.js';
 import { saidIn, type WriteFault } from './break.answer.guard.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -27,6 +27,14 @@ import { usageSpentBefore } from '#modules/llm/llm.service.js';
  *
  * Falling through lives HERE rather than inside a model writer, so a fifth kind of break gets it
  * without reimplementing it, and so does a writer with no model in it at all.
+ *
+ * ## Kinds that arrive after the list
+ *
+ * The list is the station's own kinds. A kind an operator writes is a row, and reaches the registry
+ * through a {@link BreakKindClaimant} instead: asked last, only for a kind none of the listed writers
+ * claims, and asked again every time, so a kind switched on or off is written or not on the next
+ * question rather than the next deploy. Everything else here (falling through, the record of
+ * attempts, the one retry) is the same for a claimed kind as for a listed one.
  *
  * ## It answers with everything it tried
  *
@@ -97,6 +105,8 @@ export class BreakWriterRegistry {
     constructor(
         writers: readonly BreakWriter[],
         private readonly logger: Logger,
+        // Last, and optional, because almost every test of the registry is about the listed writers.
+        private readonly claimants: readonly BreakKindClaimant[] = [],
     ) {
         this.byKind = new Map();
         for (const writer of writers) {
@@ -121,7 +131,7 @@ export class BreakWriterRegistry {
 
     /** Whether anything can write this kind of break. What the planner asks before planting one. */
     canWrite(kind: string): boolean {
-        return this.byKind.has(kind);
+        return this.writersOf(kind).length > 0;
     }
 
     /**
@@ -130,17 +140,35 @@ export class BreakWriterRegistry {
      * question is about the kind: a recording an operator made is one they meant to be heard.
      */
     yieldsToRecordings(kind: string): boolean {
-        return (this.byKind.get(kind) ?? []).some(writer => writer.yieldsToRecordings === true);
+        return this.writersOf(kind).some(writer => writer.yieldsToRecordings === true);
     }
 
-    /** Every kind something can write. */
+    /** Every kind something can write: the listed ones first, then whatever the claimants hold now. */
     kinds(): string[] {
-        return [...this.byKind.keys()];
+        const kinds = new Set(this.byKind.keys());
+        for (const claimant of this.claimants) {
+            for (const kind of claimant.kindsNow()) kinds.add(kind);
+        }
+        return [...kinds];
     }
 
     /** Which bindings write a kind, in the order they will be asked. */
     writersFor(kind: string): string[] {
-        return (this.byKind.get(kind) ?? []).map(writer => writer.name);
+        return this.writersOf(kind).map(writer => writer.name);
+    }
+
+    /**
+     * The writers for a kind, in the order they are asked.
+     *
+     * The listed writers when any claim it, and the claimants only when none do: a claim on a kind
+     * the station already writes is ignored rather than ranked, so a row named `talkbreak` changes
+     * nothing. Worked out on every call, because a claimant's kinds move while the registry stands.
+     */
+    private writersOf(kind: string): readonly BreakWriter[] {
+        const listed = this.byKind.get(kind);
+        if (listed !== undefined) return listed;
+
+        return this.claimants.filter(claimant => claimant.kindsNow().includes(kind)).map(claimant => claimant.writerFor(kind));
     }
 
     /**
@@ -151,7 +179,7 @@ export class BreakWriterRegistry {
      * quiet for a break.
      */
     async write(request: BreakWriteRequest): Promise<BreakWriteResult> {
-        const writers = this.byKind.get(request.kind) ?? [];
+        const writers = this.writersOf(request.kind);
         if (writers.length === 0) return { attempts: [], reason: `nothing knows how to write a "${request.kind}"` };
 
         const attempts: WriteAttempt[] = [];

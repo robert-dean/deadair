@@ -532,3 +532,97 @@ describe('BreakWriterRegistry: what a failed model attempt spent', () => {
         expect(result.attempts[0]?.detail).toBeUndefined();
     });
 });
+
+describe('BreakWriterRegistry, kinds claimed at run time', () => {
+    // The kinds an operator writes: rows, read long after the module list handed over its writers.
+
+    /** A claimant over a set the test can change, as a catalog refreshed after a save would. */
+    function claimant(answer: () => Promise<WrittenBreak | undefined> = words('a poem about the moment')) {
+        const held = new Set<string>();
+        const built: string[] = [];
+        return {
+            held,
+            built,
+            claimant: {
+                kindsNow: () => [...held],
+                writerFor: (kind: string) => {
+                    built.push(kind);
+                    return new StubWriter(kind, 'authored', answer);
+                },
+            },
+        };
+    }
+
+    it('writes a kind a claimant holds, through the same fall-through as any other', async () => {
+        const claim = claimant();
+        claim.held.add('poem');
+        const registry = new BreakWriterRegistry([new StubWriter('talkbreak', 'stub', words('talking'))], logger() as never, [claim.claimant]);
+
+        const result = await registry.write({ kind: 'poem' });
+
+        expect(result.written).toEqual({ script: 'a poem about the moment', label: 'a break' });
+        expect(result.writer).toBe('authored');
+        expect(result.attempts.map(attempt => attempt.writer)).toEqual(['authored']);
+    });
+
+    it('answers for a claimed kind in every question the planner and the console ask', () => {
+        const claim = claimant();
+        claim.held.add('poem');
+        const registry = new BreakWriterRegistry([new StubWriter('talkbreak', 'stub', words('talking'))], logger() as never, [claim.claimant]);
+
+        expect(registry.canWrite('poem')).toBe(true);
+        expect(registry.writersFor('poem')).toEqual(['authored']);
+        expect(registry.yieldsToRecordings('poem')).toBe(false);
+        expect(registry.kinds()).toEqual(['talkbreak', 'poem']);
+    });
+
+    it('follows the claimant as its kinds change, with no new registry', async () => {
+        const claim = claimant();
+        const registry = new BreakWriterRegistry([], logger() as never, [claim.claimant]);
+
+        expect(registry.canWrite('poem')).toBe(false);
+        claim.held.add('poem');
+        expect(registry.canWrite('poem')).toBe(true);
+        claim.held.delete('poem');
+        expect(registry.canWrite('poem')).toBe(false);
+        expect((await registry.write({ kind: 'poem' })).reason).toBe('nothing knows how to write a "poem"');
+    });
+
+    it('ignores a claim on a kind the station already writes, rather than ranking it', async () => {
+        // No row can take over a talk break, in front of the model or behind the floor.
+        const claim = claimant(words('a row pretending to be a talk break'));
+        claim.held.add('talkbreak');
+        const registry = new BreakWriterRegistry([new StubWriter('talkbreak', 'stub', words('talking'))], logger() as never, [claim.claimant]);
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(result.written?.script).toBe('talking');
+        expect(registry.writersFor('talkbreak')).toEqual(['stub']);
+        expect(registry.kinds()).toEqual(['talkbreak']);
+        expect(claim.built).toEqual([]);
+    });
+
+    it('records a claimed writer that throws as a failure, never an exception', async () => {
+        const claim = claimant(throws('the model went away'));
+        claim.held.add('poem');
+        const registry = new BreakWriterRegistry([], logger() as never, [claim.claimant]);
+
+        const result = await registry.write({ kind: 'poem' });
+
+        expect(result.written).toBeUndefined();
+        expect(result.attempts).toMatchObject([{ writer: 'authored', outcome: 'failed' }]);
+    });
+
+    it('lists a kind two claimants hold once, and asks both in the order they were given', async () => {
+        const first = claimant(nothing);
+        const second = claimant(words('the second had something'));
+        first.held.add('poem');
+        second.held.add('poem');
+        const registry = new BreakWriterRegistry([], logger() as never, [first.claimant, second.claimant]);
+
+        const result = await registry.write({ kind: 'poem' });
+
+        expect(registry.kinds()).toEqual(['poem']);
+        expect(result.attempts.map(attempt => attempt.outcome)).toEqual(['declined', 'written']);
+    });
+});

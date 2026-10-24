@@ -895,6 +895,27 @@ export abstract class BreakWriter {
     detailOfLastWrite?(): WriteDetail | undefined;
 }
 
+/**
+ * Writers for kinds of break nobody knew when the station was built: the ones an operator writes.
+ *
+ * A {@link BreakWriter} says its kind once, in code, which is right for every kind the station ships
+ * and is exactly what an operator-written kind cannot do: it arrives as a row, long after the module
+ * list handed the registry its writers. So a claimant answers the question the other way round. It
+ * says which kinds it writes at this moment, and hands back a writer for one of them, whose `kind` is
+ * that kind like any other writer's.
+ *
+ * {@link kindsNow} is synchronous because the planner asks `canWrite` on every pass and cannot wait on
+ * a read for it, so a claimant answers from memory and keeps that memory current itself. A kind the
+ * station already writes is never a claimant's: the registry's own writers for it win, and the claim
+ * is ignored rather than ranked beside them, so no row can take over a talk break or a bulletin.
+ */
+export interface BreakKindClaimant {
+    /** The kinds this writes right now. Read on every question the registry is asked, so answer from memory. */
+    kindsNow(): readonly string[];
+    /** A writer for one of {@link kindsNow}. Its `kind` must be `kind`. */
+    writerFor(kind: string): BreakWriter;
+}
+
 /** A guest host's regular presenter, by on-air name, and the show they usually present. JSON-safe. */
 export interface SittingIn {
     name: string;

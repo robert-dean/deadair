@@ -1664,9 +1664,13 @@ no "end after start" rule to break them; a name is required although the station
 because "Untitled" tells an operator nothing. **Overlaps are the station's to refuse**, as they are
 on the web console: it answers 409 with a sentence naming the other block, shown on the dialog, and
 it expands empty days and a wrapping block's tail onto the next weekday in ways a second copy here
-would one day disagree with. `PUT` replaces the row, so the editor sends every field, including the two it does not draw:
-a slot's mood and a special's dates ride through untouched in `SlotDraft.Kept`, because an edit here
-that dropped them would turn Halloween into a show every night. Specials are made and dated on the
+would one day disagree with. `PUT` replaces the row, so the editor sends every field, including the ones it does not draw:
+a slot's mood, a special's dates, its guest hosts and co-hosts, whether it resumes its playlist,
+`breaks`, `chartPositions`, the request show and its follow-on, and the slot's own repeat window,
+artist cooldown and per-artist cap all ride through untouched in `SlotDraft.Kept`, because an edit
+here that dropped them would turn Halloween into a show every night and silence a countdown's host.
+**A new `ScheduleSlot` field the editor does not draw goes into `SlotPassthrough`, `From` and
+`ToInput` in the same change**, or saving from the desk resets it to the station's default. Specials are made and dated on the
 web console's Specials tab; the list here says a special's dates where a weekly slot says its days
 (`SlotText.When`). Calls and
 mixing in go only when ON (absent is no calls, and absent leaves the station's own mixing setting

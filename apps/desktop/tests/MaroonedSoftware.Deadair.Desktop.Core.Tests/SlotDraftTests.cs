@@ -188,6 +188,62 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void ACountdownWithAHostStillTalksAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { Mode = ScheduleSlotMode.Setlist, Breaks = true }).ToInput()!;
+
+        Assert.True(input.Breaks);
+    }
+
+    [Fact]
+    public void AChartAiredWithoutItsPositionsStaysThatWayAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { ChartPositions = false }).ToInput()!;
+
+        Assert.False(input.ChartPositions);
+    }
+
+    [Fact]
+    public void ARequestShowIsStillOneAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { RequestShow = true }).ToInput()!;
+
+        Assert.True(input.RequestShow);
+    }
+
+    [Fact]
+    public void HowManyRecordsFollowARequestSurvivesASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { RequestShow = true, RequestFollowOn = 7 }).ToInput()!;
+
+        Assert.Equal(7, input.RequestFollowOn);
+    }
+
+    [Fact]
+    public void ASlotsOwnRepeatWindowSurvivesASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { RepeatWindowDays = 0 }).ToInput()!;
+
+        Assert.Equal(0, input.RepeatWindowDays);
+    }
+
+    [Fact]
+    public void ASlotsOwnArtistCooldownSurvivesASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { ArtistCooldownMinutes = 0 }).ToInput()!;
+
+        Assert.Equal(0, input.ArtistCooldownMinutes);
+    }
+
+    [Fact]
+    public void ASlotsOwnPerArtistCapSurvivesASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { MaxPerArtist = 3 }).ToInput()!;
+
+        Assert.Equal(3, input.MaxPerArtist);
+    }
+
+    [Fact]
     public void AWeeklySlotSendsNoDates()
     {
         var input = SlotDraft.From(Slot()).ToInput()!;

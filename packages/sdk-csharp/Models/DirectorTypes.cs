@@ -830,6 +830,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? MaxPerArtist { get; init; }
 
+    /// <summary>Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off</summary>
+    [JsonPropertyName("writerOrder")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PutOnAirInputWriterOrder? WriterOrder { get; init; }
+
     [JsonPropertyName("mode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public StationMode? Mode { get; init; }
@@ -1407,6 +1412,63 @@ public sealed class PutOnAirInputAvoidMoodsConverter : JsonConverter<PutOnAirInp
         PutOnAirInputAvoidMoods.Anger => "anger",
         PutOnAirInputAvoidMoods.Fear => "fear",
         _ => throw new JsonException($"PutOnAirInputAvoidMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off</summary>
+[JsonConverter(typeof(PutOnAirInputWriterOrderConverter))]
+public enum PutOnAirInputWriterOrder
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("model")]
+    Model,
+
+    [JsonStringEnumMemberName("station")]
+    Station,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PutOnAirInputWriterOrder"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PutOnAirInputWriterOrder.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PutOnAirInputWriterOrderConverter : JsonConverter<PutOnAirInputWriterOrder>
+{
+    public override PutOnAirInputWriterOrder Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PutOnAirInputWriterOrder, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PutOnAirInputWriterOrder value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PutOnAirInputWriterOrder ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PutOnAirInputWriterOrder value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PutOnAirInputWriterOrder FromWire(string? text) => text switch
+    {
+        "model" => PutOnAirInputWriterOrder.Model,
+        "station" => PutOnAirInputWriterOrder.Station,
+        _ => PutOnAirInputWriterOrder.Unknown,
+    };
+
+    private static string ToWire(PutOnAirInputWriterOrder value) => value switch
+    {
+        PutOnAirInputWriterOrder.Model => "model",
+        PutOnAirInputWriterOrder.Station => "station",
+        _ => throw new JsonException($"PutOnAirInputWriterOrder.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

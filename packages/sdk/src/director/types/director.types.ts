@@ -256,6 +256,8 @@ export interface PutOnAirInput {
     artistCooldownMinutes?: number;
     /** Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     maxPerArtist?: number;
+    /** Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    writerOrder?: 'model' | 'station';
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }

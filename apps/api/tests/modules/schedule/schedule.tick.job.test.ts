@@ -482,6 +482,16 @@ describe('ScheduleTickJob', () => {
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('requestFollowOn');
     });
 
+    it('carries which writer a slot asks first, and says nothing for a slot that follows the station', async () => {
+        const phrasings = build({ inForce: slot('phrasings', { writerOrder: 'station' }) });
+        await phrasings.tick();
+        expect(vi.mocked(phrasings.console.putOnAir).mock.calls[0]?.[0]).toMatchObject({ writerOrder: 'station' });
+
+        const { tick, console } = build({ inForce: slot('morning') });
+        await tick();
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('writerOrder');
+    });
+
     it('carries the repeat rules a slot lifts, and says nothing for a slot that lifts none', async () => {
         const hour = build({ inForce: slot('one-artist', { repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 20 }) });
         await hour.tick();

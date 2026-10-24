@@ -494,6 +494,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.repeatWindowDays === undefined ? {} : { repeatWindowDays: slot.repeatWindowDays }),
         ...(slot.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
         ...(slot.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
+        ...(slot.writerOrder === undefined ? {} : { writerOrder: slot.writerOrder }),
         ...(slot.startsOn === undefined ? {} : { startsOn: slot.startsOn }),
         ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
         ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),

@@ -10016,6 +10016,10 @@ components:
                     minimum: 0
                     maximum: 100
                     description: "Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms"
+                writerOrder:
+                    type: string
+                    enum: [model, station]
+                    description: "Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off"
                 mode:
                     '$ref': '#/components/schemas/StationMode'
                 onEnd:
@@ -15854,6 +15858,10 @@ components:
                     minimum: 0
                     maximum: 100
                     description: "Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms"
+                writerOrder:
+                    type: string
+                    enum: [model, station]
+                    description: "Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off"
                 startsOn:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'

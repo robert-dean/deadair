@@ -371,6 +371,8 @@ data class PutOnAirInput(
     val artistCooldownMinutes: Long? = null,
     /** Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     val maxPerArtist: Long? = null,
+    /** Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    val writerOrder: PutOnAirInputWriterOrder? = null,
     val mode: StationMode? = null,
     val onEnd: StationOnEnd? = null,
 )
@@ -604,6 +606,27 @@ object PutOnAirInputAvoidMoodsSerializer : SdkEnumSerializer<PutOnAirInputAvoidM
     PutOnAirInputAvoidMoods.LONELINESS to "loneliness",
     PutOnAirInputAvoidMoods.ANGER to "anger",
     PutOnAirInputAvoidMoods.FEAR to "fear",
+)
+
+/** Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+@Serializable(with = PutOnAirInputWriterOrderSerializer::class)
+enum class PutOnAirInputWriterOrder {
+    MODEL,
+    STATION,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PutOnAirInputWriterOrder] by its wire spelling. A spelling it does not know reads as [PutOnAirInputWriterOrder.UNKNOWN]. */
+object PutOnAirInputWriterOrderSerializer : SdkEnumSerializer<PutOnAirInputWriterOrder>(
+    "PutOnAirInputWriterOrder",
+    PutOnAirInputWriterOrder.UNKNOWN,
+    PutOnAirInputWriterOrder.MODEL to "model",
+    PutOnAirInputWriterOrder.STATION to "station",
 )
 
 /** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */

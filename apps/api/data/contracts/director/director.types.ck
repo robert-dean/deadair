@@ -113,6 +113,7 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     repeatWindowDays?: int(min=0, max=365) # Days a record rests after airing before this broadcast may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule
     artistCooldownMinutes?: int(min=0, max=1440) # Minutes an artist rests after airing during this broadcast, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
     maxPerArtist?: int(min=0, max=100) # Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    writerOrder?: enum(model, station) # Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
     mode?: StationMode
     onEnd?: StationOnEnd
 }

@@ -710,6 +710,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         });
     });
 
+    it('puts the writer order the operator asked for on the broadcast’s rules', async () => {
+        const { service, posted } = build();
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', writerOrder: 'station' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { writerOrder: 'station' } } });
+    });
+
     it('leaves the rules off the binding when the operator asked for none, so the station settings stand', async () => {
         const { service, posted } = build();
 

@@ -1641,7 +1641,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             { value: 'model', label: 'The model, with the phrasings underneath' },
             { value: 'station', label: 'The phrasings, with the model underneath' },
         ],
-        help: "Which writer gets each break first. The model first is the usual way round. Putting the station's own words first airs the phrasings, the headlines as published and your stories as written, and asks the model only where those have nothing to say. Every kind of break follows this.",
+        help: "Which writer gets each break first. The model first is the usual way round. Putting the station's own words first airs the phrasings, the headlines as published and your stories as written, and asks the model only where those have nothing to say. Every kind of break follows this, and a show can choose otherwise on the schedule or on Desk, Plan.",
     },
     {
         group: 'llm',

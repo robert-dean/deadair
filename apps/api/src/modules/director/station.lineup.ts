@@ -5,6 +5,7 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 import { artistKey, creditKey, songKey } from './rotation.keys.js';
 import { spaceArtists } from './rotation.rules.js';
 import { MEASUREMENT_FIELDS, type TrackMeasurement } from './track.measurement.js';
+import type { WriterOrder } from './writer.order.js';
 
 /**
  * The station's live running order: every item it means to air, in order, each
@@ -316,6 +317,13 @@ export interface StationLineupRules {
     artistCooldownMinutes?: number;
     /** Most tracks by one artist in a generated batch. `0` disables the cap. */
     maxPerArtist?: number;
+    /**
+     * Which writer this broadcast asks first for its breaks. Absent is the station's own
+     * `llm.breakWriterOrder`, read by `WriteBreakJob` per break; see `writer.order.ts`. A show rule
+     * rather than a persona's for `chartPositions`' reason: one host presents a model-written show
+     * one night and a show in their own phrasings the next.
+     */
+    writerOrder?: WriterOrder;
     /** Whether the station may put its own segments into this order. */
     breaks?: boolean;
     /** Whether the station greets somebody who tunes in to an empty room during this broadcast. */

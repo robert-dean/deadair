@@ -644,6 +644,8 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean; host?
         ...(slot.repeatWindowDays === undefined ? {} : { repeatWindowDays: slot.repeatWindowDays }),
         ...(slot.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
         ...(slot.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
+        // A show rule like the ones above: absent leaves the station's `llm.breakWriterOrder` standing.
+        ...(slot.writerOrder === undefined ? {} : { writerOrder: slot.writerOrder }),
         mode: withoutSource ? 'rotation' : slot.mode,
         onEnd: withoutSource ? 'extend' : slot.onEnd,
     };

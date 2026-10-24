@@ -1578,6 +1578,23 @@ describe('WriteBreakJob', () => {
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }), 'model');
     });
 
+    it('asks the writers in the show’s order over the station’s', async () => {
+        const lineup = new StationLineup({
+            name: 'Phrasings',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            rules: { writerOrder: 'station' },
+        });
+        lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup, settings: { [WRITER_ORDER_KEY]: 'model' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }), 'station');
+    });
+
     it('keeps the position from the writer on a show that does not say them', async () => {
         const lineup = new StationLineup({ name: 'Top 100', mode: 'rotation', onEnd: 'extend', source: 'chart', rules: { chartPositions: false } });
         lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), chart: { rank: 7, name: 'Top 100' } }]);

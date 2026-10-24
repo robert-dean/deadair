@@ -204,9 +204,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(asked === undefined ? {} : { priority: priorityForUrgency(asked.urgency) }),
         });
 
-        // Which writer is asked first. Read per break rather than once, so an operator's change is
-        // heard from the next break written. See `writer.order.ts`.
-        const writerOrder = resolveWriterOrder(this.config);
+        // Which writer is asked first: the show's choice where it made one, the station's otherwise.
+        // Read per break rather than once, so an operator's change is heard from the next break
+        // written. See `writer.order.ts`.
+        const writerOrder = lineup.rules.writerOrder ?? resolveWriterOrder(this.config);
         const result = await this.writers.write(built, writerOrder);
 
         // Before the row is touched, and before any early return below, so an attempt is recorded

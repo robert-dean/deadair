@@ -23,7 +23,10 @@ ARGUMENT to `write` and `writersFor`, resolved per break by `WriteBreakJob`, rat
 `BreakWriteRequest`: no writer reads it, and a field there is something every writer is handed and
 `break.freshness.ts` must classify. The retry rule above is unchanged, since it keys on the attempt's fault
 rather than on its position. With the station in front, "the floor" is the model, so `BreakFloorWatch` is handed
-the same order and stays quiet about a model the operator chose not to rely on.
+the same order and stays quiet about a model the operator chose not to rely on. A show can choose its own:
+`ScheduleSlot.writerOrder` (migration 0116) and `PutOnAirInput.writerOrder` land on
+`StationLineupRules.writerOrder`, the job reads that first and the station setting behind it, and absent is
+the station's, on `chartPositions`' argument that it is a rule about the show rather than the persona.
 
 **The floor cannot fail**, which is what makes a slow model cost a better sentence rather than a silent
 station. The registry answers with every ATTEMPT rather than only the winner, because a model that declined

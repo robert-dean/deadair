@@ -2049,6 +2049,7 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
         ...(input.repeatWindowDays === undefined ? {} : { repeatWindowDays: input.repeatWindowDays }),
         ...(input.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: input.artistCooldownMinutes }),
         ...(input.maxPerArtist === undefined ? {} : { maxPerArtist: input.maxPerArtist }),
+        ...(input.writerOrder === undefined ? {} : { writerOrder: input.writerOrder }),
     };
     return Object.keys(rules).length === 0 ? {} : { rules };
 }

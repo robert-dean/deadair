@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.81.0] — 2026-10-24
+
+- Chatterbox keeps its model loaded for as long as the station is on the air. **Free the GPU once the station stops airing** (it was **Free the GPU after a quiet spell**) now counts its minutes from the moment the station goes off the air, rather than from the last thing spoken, so the first break after a long run of records, or after a quiet spell, no longer waits for the model to load. When the station comes on the air, the model is loaded straight away, so the first break after a listener arrives does not wait for it either (except while **Free the GPU between breaks** is on). The station is off the air when its running order runs out, when it is stopped, and a few minutes after the last listener leaves. The default is still 15 minutes, and 0 still means never.
+- The Desk opens its Request a record dialog when its address ends in `?request=1`, which is what the Stream Deck's Request key opens when no record is picked on it.
+- Plugins can now tell whether the station is on air. `host.air.isOn()` answers it and `host.air.onChange` hears each change, where "on air" means the station has something to play and somebody to hear it, or the operator has told it to air regardless. It goes off when the running order runs out, when the station is stopped, and a few minutes after the last listener leaves. Nothing uses it yet; it is for a speech plugin that holds a model on a graphics card and should keep it while the station airs rather than guess from how long it has been since it last spoke.
+- A record can be requested from the desk. **Request a record**, beside Take a call, searches the records the station holds and the ones its music providers carry, then sends the request the way a listener does: held to the station's request rules, with an optional name, dedication and message the presenter can pass on. It lands under Programme, Requests with everybody else's, and a refusal stays in the dialog with the station's reason.
+
 ## [0.80.0] — 2026-10-23
 
 - The station can be kept quiet for a while. On the desk, **Keep it from talking for** the next 3 records, the next 10 or the rest of the order takes the planned breaks out and plants none until that many records have started, then the station talks again by itself. It survives a refill, a new show and a restart, and **Talk again** ends it early. A scheduled programme still airs and a requested break is refused with the reason. Switching breaks off under Settings, Rotation now takes the breaks already planned out of the running order too, instead of leaving them to air. On the API: `PUT` and `DELETE /director/air/quiet`, and `quietRecords` on the station's air.
@@ -1633,7 +1640,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.80.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.81.0...HEAD
+[0.81.0]: https://github.com/robert-dean/deadair/compare/v0.80.0...v0.81.0
 [0.80.0]: https://github.com/robert-dean/deadair/compare/v0.79.0...v0.80.0
 [0.79.0]: https://github.com/robert-dean/deadair/compare/v0.78.1...v0.79.0
 [0.78.1]: https://github.com/robert-dean/deadair/compare/v0.78.0...v0.78.1

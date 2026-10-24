@@ -290,6 +290,13 @@ key shows the warning triangle and the log carries the station's sentence; every
 request on to `queued` and `aired` was considered and left out: it is another poll (`/requests/mine`)
 on a rate-limit bucket the whole network shares, for a state the console already shows.
 
+**The title is the app's own, so the operator can switch it off.** The manifest leaves the Request
+action's title controls ON (every other action turns them off) and gives the state "Pick a record"
+as its title, which is what the plugin also sends a key with no record. The app's Show Title switch
+is meant to hide whatever the plugin sends, the record's name included, for an operator who wants
+the icon alone; that it does so for a title set by `setTitle` is not yet confirmed on a device. What it does not do is keep a title somebody TYPES: the plugin sends the record's name on
+every redraw, which replaces it.
+
 **These keys take no hold on the poller.** Nothing they draw depends on what is on air, so a deck of
 Request keys asks the station nothing until one is pressed or its panel searches. They draw the
 listener apps' own Request icon (`requestSvg`): a speech bubble with a note in it, from the paths of

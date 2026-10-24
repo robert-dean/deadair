@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { GRANT } from '../src/actions/grant.reading.js';
 import { NOW_PLAYING } from '../src/actions/now.playing.options.js';
-import { REQUEST } from '../src/actions/request.reading.js';
+import { REQUEST, requestView } from '../src/actions/request.reading.js';
 import { DISLIKE, LIKE } from '../src/actions/vote.reading.js';
 
 // `streamdeck validate` checks all of this too, but it fetches the manifest's URLs first and so needs
@@ -14,12 +14,14 @@ const plugin = resolve(import.meta.dirname, '../radio.deadair.streamdeck.sdPlugi
 
 interface State {
     Image: string;
+    Title?: string;
 }
 interface Action {
     UUID: string;
     Icon: string;
     States: State[];
     Controllers: string[];
+    UserTitleEnabled?: boolean;
 }
 interface Manifest {
     UUID: string;
@@ -56,6 +58,12 @@ describe('the plugin manifest', () => {
         for (const uuid of [LIKE, DISLIKE]) {
             expect(manifest.Actions.find(action => action.UUID === uuid)?.States).toHaveLength(1);
         }
+    });
+
+    it('lets the app show or hide the Request key’s title, which starts as what an unset key says', () => {
+        const request = manifest.Actions.find(action => action.UUID === REQUEST);
+        expect(request?.UserTitleEnabled).not.toBe(false);
+        expect(request?.States[0]?.Title).toBe(requestView({}, 'https://radio.example.com').title);
     });
 
     it('names every action under the plugin’s own id', () => {

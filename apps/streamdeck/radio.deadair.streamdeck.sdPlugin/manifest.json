@@ -95,10 +95,10 @@
             "Icon": "imgs/actions/request/icon",
             "Controllers": ["Keypad"],
             "SupportedInMultiActions": false,
-            "UserTitleEnabled": false,
             "States": [
                 {
                     "Image": "imgs/actions/request/key",
+                    "Title": "Pick a\nrecord",
                     "TitleAlignment": "bottom",
                     "FontSize": 9
                 }

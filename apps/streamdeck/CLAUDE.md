@@ -291,12 +291,22 @@ request on to `queued` and `aired` was considered and left out: it is another po
 on a rate-limit bucket the whole network shares, for a state the console already shows.
 
 **The key sends no title at all, and the title is the operator's.** It is the icon alone, faint
-when it would refuse the press, and the sentence for why (no record, a record from another station,
-no station) goes to the log on the press rather than onto the key. The manifest leaves the action's
+when it would refuse the press, and the sentence for why (a record from another station, no station)
+goes to the log on the press rather than onto the key. The manifest leaves the action's
 title controls ON (every other action turns them off) and names no title, so a label the operator
 types in the app stays, because the plugin never calls `setTitle` to replace it. This was the
 record's title and artist first, then "Pick a record" made the app's title so Show Title could hide
 it; Robert's call after that was to drop the text outright.
+
+**A key with no record opens the console's request dialog** (`<origin>/?request=1`, through the
+app's `openUrl`, as Now Playing opens the console) rather than refusing. The Desk's route reads the
+parameter (`validateDeskSearch` in `apps/web/src/routes/index.tsx`), opens `RequestARecord` once and
+takes it back out of the address with a `replace`, so neither a reload nor the back button opens it
+again. That makes one key both things an operator wants: a record chosen once, or a choice made each
+time with the console's search, name, dedication and the station's answer on screen, none of which a
+key has room for. A plugin-side text box was the other way to get the second, through `osascript`
+on a Mac, and was not built: the console already had the dialog, and a browser works on Windows
+too. A record from another station still refuses, faint, because picking it again is the fix.
 
 **These keys take no hold on the poller.** Nothing they draw depends on what is on air, so a deck of
 Request keys asks the station nothing until one is pressed or its panel searches. They draw the
@@ -474,7 +484,7 @@ break and a stale reading both refusing the press, and a Read-only key reading t
 refused the write with voting's own sentence in the log. Two Now Playing keys with different settings, one drawing the cover alone, and
 a settings change redrawing only its own key; the panel's checkboxes opened on a key's own settings
 and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
-A Request key with no record drawing faint, the panel's search crossing to the plugin and back with
+A Request key with no record drawing live and opening `/?request=1` on a press, the panel's search crossing to the plugin and back with
 both a library and a provider row, a row picked and saved on the key with its station, the key then
 drawn live, a press sending its `trackId` with the bearer and ticking, and a refusal
 showing the triangle with the station's reason in the log; the panel itself in a browser listing

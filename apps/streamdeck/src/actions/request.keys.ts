@@ -19,11 +19,14 @@ export interface RequestKeysOptions {
     requests: () => Requests | undefined;
     /** The origin of the station in use, which a key's record has to have been found on. */
     origin: () => string | undefined;
+    /** Open an address in the operator's browser: the console's request dialog, for a key with no record. */
+    openUrl: (url: string) => Promise<void>;
     log: Log;
 }
 
 /**
- * Request: one record, chosen in the key's settings, asked for on a press.
+ * Request: one record, chosen in the key's settings, asked for on a press. A key with no record
+ * opens the console's request dialog in the browser instead, to choose one there.
  *
  * `POST /requests`, which is the phone apps' own call, so the station alone decides: the API key acts
  * as the account that issued it, and that account is held to the same rules a listener is — one open
@@ -74,6 +77,12 @@ export class RequestKeys {
         if (view.dim) this.options.log(view.refusal);
         if (view.dim || this.busy.has(id)) {
             await face?.showAlert().catch(() => undefined);
+            return;
+        }
+        if ('open' in view) {
+            // The browser does the asking from here: the console's dialog searches, takes a name and a
+            // dedication, and shows the station's answer, none of which a key has room for.
+            await this.options.openUrl(view.open).catch(() => undefined);
             return;
         }
         const press = view.press;

@@ -76,7 +76,12 @@ window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, _info, action
     const showPick = (settings: unknown): void => {
         requestSettings = requestSettingsFrom(settings);
         const record = requestSettings.record;
-        picked.textContent = record === undefined ? 'No record yet.' : record.artist ? `${record.title}, by ${record.artist}` : record.title;
+        picked.textContent =
+            record === undefined
+                ? 'Nothing yet. A press opens the console’s request dialog.'
+                : record.artist
+                  ? `${record.title}, by ${record.artist}`
+                  : record.title;
     };
     const runSearch = (): void => {
         lastSearch = search.value;

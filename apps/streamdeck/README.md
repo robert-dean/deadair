@@ -34,9 +34,10 @@ and the station takes the request as it takes one from the phone app, from the a
 API key: a tick when it is taken (playing soon, or waiting for an operator to approve it), the warning
 triangle when the station turns it down, with the station's reason in the log. The station takes one
 open request at a time from each account, so several Request keys are a shortlist to ask from in
-turn. A key with no record yet goes faint and refuses the press, and so does one whose record came
-from another station, since the first station's records are not the second's: pick it again in the
-key's settings. The log says which.
+turn. A key with no record picked opens the console's request dialog in your browser instead, so you
+can choose a record there, add a name and a dedication, and see the station's answer. A key whose
+record came from another station goes faint and refuses the press, since the first station's records
+are not the second's: pick it again in the key's settings.
 
 **Grant request** is for a station that waits for an operator to approve each request. It shows the
 request icon with a green tick, and a red badge counting how many are waiting (9+ past nine); a press
@@ -87,8 +88,8 @@ settings. A Grant request key asks which requests are waiting every fifteen seco
 - **No station**: nothing answered at the address. Check it, and that the station is running.
 - **Key refused**: the station does not accept the key. It may be mistyped, revoked or expired.
 - **Not allowed**: the account that issued the key may not read the station.
-- **The warning triangle on Request**: the key has no record yet, its record came from another
-  station, or the station turned the request down. The log says which, in the station's own words.
+- **The warning triangle on Request**: its record came from another station, or the station turned
+  the request down. The log says which, in the station's own words.
 - **The warning triangle on Grant request**: nothing was waiting, somebody approved or turned it down
   first, the station was not answering, or the key is Read only. The log says which.
 - **The warning triangle on Skip, Stop, Like or Dislike**: there was nothing to skip or to rate, the

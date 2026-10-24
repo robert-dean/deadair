@@ -40,7 +40,10 @@ export type RequestSettings = {
  * theirs and is never replaced.
  */
 export type RequestView =
+    /** A record of its own: a press asks for it. */
     | { dim: false; press: ListenerRequestCreate }
+    /** No record of its own: a press opens the console's request dialog at this address, to choose one there. */
+    | { dim: false; open: string }
     /** The key has nothing it could ask for: drawn faint, and `refusal` is the log's sentence for a press. */
     | { dim: true; refusal: string };
 
@@ -78,15 +81,16 @@ export function requestSettingsFrom(settings: unknown): RequestSettings {
 /**
  * What a Request key shows, given its settings and the station the plugin is talking to now.
  *
- * A key with no record refuses the press. So does a key whose record was found on another station,
- * rather than sending an id the station in use would read as a different record or none: the
+ * A key with no record opens the console's own request dialog, so the one key is both: a record
+ * chosen once, or a choice made each time at the desk. A key whose record was found on another
+ * station refuses the press, rather than sending an id the station in use would read as a different record or none: the
  * operator moved the deck to another station, and the key cannot know what that record is called
  * there. With no station set up at all it says what every key says.
  */
 export function requestView(settings: RequestSettings, origin: string | undefined): RequestView {
     const record = settings.record;
     if (origin === undefined) return { dim: true, refusal: describe('unconfigured').sentence };
-    if (record === undefined) return { dim: true, refusal: 'This Request key has no record yet. Open its settings and pick one.' };
+    if (record === undefined) return { dim: false, open: requestDialogAt(origin) };
     if (settings.station !== origin) {
         return {
             dim: true,
@@ -115,4 +119,12 @@ export function samePick(found: RequestedRecord, record: RequestedRecord | undef
     return (
         found.trackId === undefined && found.source?.pluginId === record.source?.pluginId && found.source?.externalId === record.source?.externalId
     );
+}
+
+/**
+ * The console's Desk with its request dialog open: `/?request=1`, which the Desk's route reads
+ * (`apps/web/src/routes/index.tsx`) and takes back out of the address once the dialog is up.
+ */
+export function requestDialogAt(origin: string): string {
+    return `${origin}/?request=1`;
 }

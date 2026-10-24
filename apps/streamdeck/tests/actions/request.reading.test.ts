@@ -42,8 +42,9 @@ describe('requestView', () => {
         expect(requestView({ record: carried, station: ORIGIN }, ORIGIN)).toEqual({ dim: false, press: { source: carried.source } });
     });
 
-    it('refuses a press with no record, saying so', () => {
-        expect(requestView({}, ORIGIN)).toEqual({ dim: true, refusal: 'This Request key has no record yet. Open its settings and pick one.' });
+    it('opens the console’s request dialog for a key with no record, under a path the station is mounted at', () => {
+        expect(requestView({}, ORIGIN)).toEqual({ dim: false, open: `${ORIGIN}/?request=1` });
+        expect(requestView({}, 'https://example.com/radio')).toEqual({ dim: false, open: 'https://example.com/radio/?request=1' });
     });
 
     it('refuses a record found on another station, because its id names another record there', () => {

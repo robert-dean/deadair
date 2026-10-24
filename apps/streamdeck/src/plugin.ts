@@ -77,7 +77,12 @@ streamDeck.actions.registerAction(new SkipAction(new SkipKeys(poller, warn)));
 streamDeck.actions.registerAction(new TransportAction(new TransportKeys(poller, warn)));
 streamDeck.actions.registerAction(new LikeAction(new VoteKeys('liked', ratings, poller, warn, skull)));
 streamDeck.actions.registerAction(new DislikeAction(new VoteKeys('disliked', ratings, poller, warn, skull)));
-const requestKeys = new RequestKeys({ requests: () => link.sdk?.requests, origin: () => link.station?.origin, log: warn });
+const requestKeys = new RequestKeys({
+    requests: () => link.sdk?.requests,
+    origin: () => link.station?.origin,
+    openUrl: url => streamDeck.system.openUrl(url),
+    log: warn,
+});
 // A Request key's record was found on one station, so every key looks again when the station changes.
 link.onChange(() => requestKeys.refresh());
 streamDeck.actions.registerAction(new RequestAction(requestKeys));

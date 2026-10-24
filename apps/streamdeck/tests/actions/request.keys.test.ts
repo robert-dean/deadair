@@ -15,13 +15,15 @@ function answer(overrides: Partial<RequestAnswer> = {}): RequestAnswer {
 function deck(requests: Requests | undefined = { createRequest: vi.fn(async () => answer()) }) {
     const log = vi.fn();
     let origin: string | undefined = ORIGIN;
-    const keys = new RequestKeys({ requests: () => requests, origin: () => origin, log });
+    const opened: string[] = [];
+    const keys = new RequestKeys({ requests: () => requests, origin: () => origin, openUrl: async url => void opened.push(url), log });
     const key = fakeKey('request');
     return {
         keys,
         key,
         log,
         requests,
+        opened,
         moveTo(next: string | undefined) {
             origin = next;
             keys.refresh();
@@ -61,15 +63,15 @@ describe('RequestKeys', () => {
         expect(log).toHaveBeenCalledWith(`The station turned down the request for “Pale Blue Eyes”: ${reason}`);
     });
 
-    it('asks nothing for a key with no record, draws it faint, and says why in the log when pressed', async () => {
-        const { keys, key, requests, log } = deck();
+    it('opens the console’s request dialog for a key with no record, live, and asks the station nothing itself', async () => {
+        const { keys, key, requests, opened } = deck();
         keys.show(key, {});
 
-        expect(key.calls).toEqual([face(true)]);
+        expect(key.calls).toEqual([face(false)]);
         await keys.press('request');
+        expect(opened).toEqual([`${ORIGIN}/?request=1`]);
         expect(requests!.createRequest).not.toHaveBeenCalled();
-        expect(key.calls.at(-1)).toBe('alert');
-        expect(log).toHaveBeenCalledWith('This Request key has no record yet. Open its settings and pick one.');
+        expect(key.calls).not.toContain('alert');
     });
 
     it('stops asking for a record once the deck is pointed at another station', async () => {
@@ -80,11 +82,13 @@ describe('RequestKeys', () => {
         expect(last(key.calls, 'image')).toBe(face(true));
         await keys.press('request');
         expect(requests!.createRequest).not.toHaveBeenCalled();
+        expect(key.calls.at(-1)).toBe('alert');
     });
 
     it('redraws the one key whose settings changed, and never sends a title', () => {
         const { keys, key } = deck();
-        keys.show(key, {});
+        keys.show(key, { record, station: 'https://elsewhere.example.com' });
+        expect(last(key.calls, 'image')).toBe(face(true));
         keys.configure('request', { record, station: ORIGIN });
         expect(last(key.calls, 'image')).toBe(face(false));
         expect(key.calls.some(call => call.startsWith('title'))).toBe(false);

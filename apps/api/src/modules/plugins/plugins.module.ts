@@ -4,6 +4,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { Logger } from '@maroonedsoftware/logger';
 import { getLogStore } from '#src/logging/log.store.js';
 import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
+import { PluginAirState } from './plugin.air.state.js';
 import { PluginConfigRepository } from './plugin.config.repository.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { PluginHostFactory, PluginHostFactoryOptions } from './plugin.host.factory.js';
@@ -25,6 +26,10 @@ import { bundledPluginDirs } from './plugins.bundled.js';
 import { PluginsService } from './plugins.service.js';
 import { PluginLogLevel } from './types/plugins.types.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { StationBus } from '#modules/shared/station.bus.js';
+
+/** Undoes `PluginAirState.follow`. Module state, because a module object has nowhere else to keep it. */
+let stopFollowingAir: (() => void) | undefined;
 
 /** Where operator-installed plugins are mounted when `PLUGINS_DIR` is unset. */
 const DEFAULT_PLUGINS_DIR = './data/plugins';
@@ -133,6 +138,8 @@ export const PluginsModule: ServerKitModule = {
         // what these would do with a request's transaction: keep using it after
         // the request that opened it had committed.
         registry.register(PluginGrantsService).useClass(PluginGrantsService).asSingleton();
+        // Before the factory that hands it out. A singleton because every host reads the one fact.
+        registry.register(PluginAirState).useClass(PluginAirState).asSingleton();
         registry.register(PluginHostFactory).useClass(PluginHostFactory).asSingleton();
 
         registry.register(PluginLifecycleManager).useClass(PluginLifecycleManager).asSingleton();
@@ -141,6 +148,12 @@ export const PluginsModule: ServerKitModule = {
     start: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         const logger = container.get(Logger);
+
+        // In `start`, so it is listening well before the pusher's first pass says what the station
+        // wants: the pusher starts in playout's `ready`, and every `start` runs before any `ready`.
+        stopFollowingAir?.();
+        stopFollowingAir = container.get(PluginAirState).follow(container.get(StationBus));
+
         try {
             await container.get(PluginLifecycleManager).discoverAll();
         } catch (error) {
@@ -172,6 +185,9 @@ export const PluginsModule: ServerKitModule = {
 
     shutdown: async (container: Container) => {
         const logger = container.get(Logger);
+
+        stopFollowingAir?.();
+        stopFollowingAir = undefined;
 
         // First, so a quarantined plugin's recovery timer cannot start a probe against an instance
         // the next line is disposing. Synchronous and cannot throw.

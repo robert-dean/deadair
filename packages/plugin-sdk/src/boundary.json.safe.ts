@@ -423,6 +423,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'PluginConfigAccess',
     'PluginOAuth',
     'PluginEvents',
+    'PluginAir',
     'PluginTrackFetcher',
     'PluginSocket',
     'PluginTlsSocket',

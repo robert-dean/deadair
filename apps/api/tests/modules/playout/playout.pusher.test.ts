@@ -10,6 +10,7 @@ import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechAimL
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
+import { StationBus } from '../../../src/modules/shared/station.bus.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
@@ -1320,5 +1321,67 @@ describe('PlayoutPusher.health', () => {
         pusher.stop();
 
         expect(pusher.health().stalledForMs).toBeUndefined();
+    });
+});
+
+describe('PlayoutPusher air.wanted', () => {
+    // What `host.air` tells every plugin. The pusher is the one place that asks for a programme and
+    // an audience together, so it is the one place that may say the station wants the air.
+    function wanting(ids: string[], reading: QueueStatus | undefined, audience = true) {
+        const rundown = new Rundown(new StubResolver(), logger);
+        if (ids.length > 0) seed(rundown, ids.map(track));
+        const { control } = stubControl(reading);
+        const gate = stubAudience(audience);
+        const bus = new StationBus(logger);
+        const said: boolean[] = [];
+        bus.subscribe('air.wanted', event => said.push(event.on));
+        const pusher = new PlayoutPusher(rundown, control, gate.audience, config, new Heartbeat(), logger, undefined, bus);
+        return { pusher, gate, said };
+    }
+
+    it('says what the station wants on the first pass, and nothing more while that holds', async () => {
+        const { pusher, said } = wanting(['a', 'b'], { queued: 0, ready: false });
+
+        await pusher.reconcile();
+        await pusher.reconcile();
+        await pusher.reconcile();
+
+        expect(said).toEqual([true]);
+    });
+
+    it('says off on the first pass too, so a station waking up with nobody listening is not left unsaid', async () => {
+        const { pusher, said } = wanting(['a'], { queued: 0, ready: false }, false);
+
+        await pusher.reconcile();
+
+        expect(said).toEqual([false]);
+    });
+
+    it('says off with nothing to play, whoever is listening', async () => {
+        const { pusher, said } = wanting([], { queued: 0, ready: false });
+
+        await pusher.reconcile();
+
+        expect(said).toEqual([false]);
+    });
+
+    it('follows the audience gate closing and opening again', async () => {
+        const { pusher, gate, said } = wanting(['a', 'b', 'c'], { queued: 0, ready: false });
+
+        await pusher.reconcile();
+        gate.set(false);
+        await pusher.reconcile();
+        gate.set(true);
+        await pusher.reconcile();
+
+        expect(said).toEqual([true, false, true]);
+    });
+
+    it('says it while the stream is not answering, because it is what the station intends', async () => {
+        const { pusher, said } = wanting(['a'], undefined);
+
+        await pusher.reconcile();
+
+        expect(said).toEqual([true]);
     });
 });

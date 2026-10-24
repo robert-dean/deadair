@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Group, Loader, Modal, Stack, Text, TextInput, Textarea, Tooltip, UnstyledButton } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import type { ListenerRequest, RequestableTrack } from '@deadair/sdk';
@@ -8,6 +8,13 @@ import { useCreateRequest, useRequestSearch } from '../../api/requests.queries';
 import { EMPTY_FORM, PARTY_RULES, outcomeOf, requestBody, rowKey, searchTerm, type PartyForm } from '../../party/party.rules';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyQueued } from '../shared/notify';
+
+export interface RequestARecordProps {
+    /** Open the dialog as the page arrives, because the address asked for it. */
+    openOnArrival?: boolean;
+    /** Told once the dialog has opened for the address, to take the ask back out of it. */
+    onArrived?: () => void;
+}
 
 /**
  * Ask for a record from the desk, the way a listener would.
@@ -27,9 +34,22 @@ import { notifyQueued } from '../shared/notify';
  * other answer: it stays in the dialog with the station's reason, because the operator is still
  * looking at it, and only a request that is on its way closes it.
  */
-export function RequestARecord() {
+export function RequestARecord({ openOnArrival = false, onArrived }: RequestARecordProps) {
     const { t } = useTranslation(['requests', 'common']);
-    const [open, setOpen] = useState(false);
+    // Arriving at `/?request=1` (the Stream Deck's Request key with no record of its own) opens the
+    // dialog, on first render or when the ask arrives on a Desk already showing. It is adjusted while
+    // rendering rather than in an effect, as React asks, so the dialog is open in the first frame. The
+    // page then takes the parameter back out of the address, so a reload or the back button does not
+    // open it again behind the operator's back.
+    const [open, setOpen] = useState(openOnArrival);
+    const [asked, setAsked] = useState(openOnArrival);
+    if (openOnArrival !== asked) {
+        setAsked(openOnArrival);
+        if (openOnArrival) setOpen(true);
+    }
+    useEffect(() => {
+        if (openOnArrival) onArrived?.();
+    }, [openOnArrival, onArrived]);
     const [typed, setTyped] = useState('');
     const [settled] = useDebouncedValue(typed, PARTY_RULES.searchDebounceMs);
     const term = searchTerm(settled);

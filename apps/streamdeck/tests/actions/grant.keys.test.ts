@@ -32,7 +32,8 @@ async function deck(line = [newer, older]) {
 }
 
 const last = (calls: string[], what: string): string | undefined => calls.filter(call => call.startsWith(what)).at(-1);
-const face = (dim: boolean): string => `image ${svgDataUri(grantSvg({ dim }))}`;
+const faint = `image ${svgDataUri(grantSvg({ dim: true }))}`;
+const counting = (count: number): string => `image ${svgDataUri(grantSvg({ dim: false, count }))}`;
 
 describe('grantView', () => {
     it('counts the line and offers the request that has waited longest', () => {
@@ -43,39 +44,46 @@ describe('grantView', () => {
             ],
             stale: false,
         });
-        expect(view).toEqual({ title: '2 waiting\nPale Blue…', dim: false, press: { id: 'r1', title: 'Pale Blue Eyes' } });
+        expect(view).toEqual({ dim: false, count: 2, press: { id: 'r1', title: 'Pale Blue Eyes' } });
     });
 
     it('refuses with nothing waiting, and on a failed or stale reading', () => {
-        expect(grantView({ waiting: [], stale: false })).toEqual({ title: 'None\nwaiting', dim: true });
-        expect(grantView({ stale: false })).toEqual({ title: '', dim: true });
-        expect(grantView({ waiting: [{ id: 'r1', title: 't', artist: 'a' }], failure: 'unreachable', stale: true })).toEqual({
-            title: 'No station',
+        expect(grantView({ waiting: [], stale: false })).toEqual({ dim: true, refusal: 'No request is waiting for approval.' });
+        expect(grantView({ stale: false })).toMatchObject({ dim: true, refusal: expect.stringMatching(/has not said yet/) });
+        expect(grantView({ waiting: [{ id: 'r1', title: 't', artist: 'a' }], failure: 'unreachable', stale: true })).toMatchObject({
             dim: true,
+            refusal: expect.stringMatching(/did not answer/),
         });
     });
 });
 
 describe('GrantKeys', () => {
-    it('shows the line and lets the oldest through on a press', async () => {
+    it('badges the count, sends no title, and lets the oldest through on a press', async () => {
         const { keys, key, desk } = await deck();
-        expect(last(key.calls, 'title')).toBe('title 2 waiting\nPale Blue…');
-        expect(last(key.calls, 'image')).toBe(face(false));
+        expect(last(key.calls, 'image')).toBe(counting(2));
 
         await keys.press('grant');
         expect(desk.grantRequest).toHaveBeenCalledWith('r1');
         expect(key.calls).toContain('ok');
-        expect(last(key.calls, 'title')).toBe('title 1 waiting\nHeroin');
+        expect(last(key.calls, 'image')).toBe(counting(1));
+        expect(key.calls.some(call => call.startsWith('title'))).toBe(false);
     });
 
-    it('goes faint with nothing waiting and asks nothing on a press', async () => {
-        const { keys, key, desk } = await deck([]);
-        expect(last(key.calls, 'title')).toBe('title None\nwaiting');
-        expect(last(key.calls, 'image')).toBe(face(true));
+    it('draws one "9+" face for every count past nine', async () => {
+        const line = Array.from({ length: 12 }, (_, i) => waitingRequest(`r${i}`, `Record ${i}`));
+        const { key } = await deck(line);
+        expect(last(key.calls, 'image')).toBe(counting(10));
+        expect(counting(10)).toBe(counting(12));
+    });
+
+    it('goes faint with nothing waiting, asks nothing on a press, and says why in the log', async () => {
+        const { keys, key, desk, log } = await deck([]);
+        expect(last(key.calls, 'image')).toBe(faint);
 
         await keys.press('grant');
         expect(desk.grantRequest).not.toHaveBeenCalled();
         expect(key.calls.at(-1)).toBe('alert');
+        expect(log).toHaveBeenCalledWith('No request is waiting for approval.');
     });
 
     it('says a Read-only key may not grant, in words of its own', async () => {
@@ -95,7 +103,7 @@ describe('GrantKeys', () => {
         expect(key.calls).toContain('alert');
         expect(log.mock.calls[0]?.[0]).toMatch(/“Pale Blue Eyes” was no longer waiting/);
         await vi.advanceTimersByTimeAsync(0);
-        expect(last(key.calls, 'title')).toBe('title 1 waiting\nHeroin');
+        expect(last(key.calls, 'image')).toBe(counting(1));
     });
 
     it('stops asking once its last key goes', async () => {

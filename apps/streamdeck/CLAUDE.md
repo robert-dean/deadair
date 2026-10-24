@@ -312,7 +312,7 @@ either key had been on a device.
 and a Read-only key is told so in the log in Grant's own sentence. It lets through the request that
 has waited LONGEST: a key pressed without looking should take the line in order, never pick. Only of
 use while `requests.approval` holds every request for an operator; otherwise nothing waits and the
-key sits faint saying "None waiting". Declining was left off the deck: a refusal is a judgement
+key sits faint. Declining was left off the deck: a refusal is a judgement
 about one request and wants the console's reason field, where a grant is the same act every time.
 
 **The line is its own poller (`WaitingPoller`), not a field on the transport reading.** `GET
@@ -328,8 +328,8 @@ poller turns it round.
 **A grant takes the request out of the line at once**, then reads the line again. Without that, a
 second press inside the next reading would grant the same request and be answered 409. A 409 is still
 possible, from the console or another deck deciding first, and the log says that in so many words,
-then the reading after shows the line as it is. Before the first reading the key says nothing, rather
-than a "None waiting" it does not know.
+then the reading after shows the line as it is. Before the first reading the key is faint and a press
+says the station has not answered yet, rather than claiming nothing is waiting.
 
 **The same icon as Request with a green tick badge on the bubble's corner** (`grantSvg`): both keys
 are about a request and should look it, and the badge is what makes this one the approving one at a
@@ -339,6 +339,16 @@ the bubble, this, and a playlist with a tick). The action-list icon has to be on
 transparency with no masks, so its bubble is a STROKE that stops short of the badge and the tick is
 cut out of the badge by an even-odd path; drawn the key's way, the bubble's edge would show through
 the tick.
+
+**The count is a badge on the key, not a title.** A red disc on the bubble's upper corner with the
+number in it, "9+" past nine, which is what a waiting count looks like everywhere else; red because
+that is the convention, and small enough not to be read as Stop. It is SVG `<text>`, which no other
+key draws: the record's title under the icon was the first face, and Robert's call was to drop the
+text from both request keys and centre the icon. The plugin sends no title, so the manifest leaves
+the title controls on and a label the operator types stays, as on Request. A press on a faint key
+says why in the log (nothing waiting, not read yet, or the failure's sentence), since the key no
+longer can. Faces are composed once per count shown and remembered, ten at most. Whether Qt's
+renderer draws the number in the font asked for is the thing a device has to settle.
 
 ## What the Now Playing key draws
 

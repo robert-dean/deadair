@@ -60,10 +60,12 @@ describe('the plugin manifest', () => {
         }
     });
 
-    it('leaves the Request key’s title to the operator: the plugin sends none, and the manifest gives none', () => {
-        const request = manifest.Actions.find(action => action.UUID === REQUEST);
-        expect(request?.UserTitleEnabled).not.toBe(false);
-        expect(request?.States[0]?.Title).toBeUndefined();
+    it('leaves the Request and Grant keys’ titles to the operator: the plugin sends none, and the manifest gives none', () => {
+        for (const uuid of [REQUEST, GRANT]) {
+            const declared = manifest.Actions.find(action => action.UUID === uuid);
+            expect(declared?.UserTitleEnabled, uuid).not.toBe(false);
+            expect(declared?.States[0]?.Title, uuid).toBeUndefined();
+        }
     });
 
     it('names every action under the plugin’s own id', () => {

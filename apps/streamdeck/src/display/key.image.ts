@@ -242,16 +242,19 @@ const BUBBLE_OUTLINE = 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1
 const NOTE = 'M12 5.5v5.275c-.295-.17-.635-.275-1-.275-1.105 0-2 .895-2 2s.895 2 2 2 2-.895 2-2V7.5h2v-2h-3z';
 
 /**
- * Where the icon sits on the key: 84 units square, centred across and clear of the title the app
- * draws along the bottom, where the record placeholder's disc used to sit.
+ * Where the icon sits on the key: 84 units square, centred both ways. These keys carry no title, so
+ * there is nothing along the bottom to keep clear of.
  */
 const ICON_SCALE = 3.5;
 const ICON_X = 30;
-const ICON_Y = 14;
+const ICON_Y = 30;
+
+/** The most a count badge says in full. Past it the badge says "9+", which is as much as fits. */
+export const BADGE_MAX = 9;
 
 /**
  * A Request key as an SVG: the apps' Request icon, the bubble outlined and the note inside it, in
- * the console's standby blue above the title the app draws along the bottom.
+ * the console's standby blue, alone in the middle of the key.
  *
  * Blue rather than a vote's green or Stop's red, because a request is neither an opinion nor the
  * transport: it is the station being asked, and standby is the console's colour for the station
@@ -263,23 +266,43 @@ export function requestSvg(face: RequestFace): string {
     return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>`, face.dim);
 }
 
+/** What a Grant key draws. */
+export interface GrantFace {
+    /** Nothing a press could let through, or a reading that is not current. */
+    dim: boolean;
+    /** How many requests are waiting. A badge is drawn only for one or more on a key that is not faint. */
+    count?: number;
+}
+
 /**
- * A Grant key as an SVG: the Request key's icon with a green tick badge on the bubble's corner, the
- * request approved.
+ * A Grant key as an SVG: the Request key's icon with a green tick badge on the bubble's lower corner,
+ * the request approved, and a count badge on its upper corner saying how many are waiting.
  *
  * The same bubble and note, because both keys are about a request and the deck should say so; the
- * badge is what makes it the approving one, read at a glance beside a Request key. The green is
- * Like's, which is the other key on the deck that means yes. The badge sits on a ring of the key's
- * own ground so it reads as laid over the bubble rather than run into it. Faint when there is
- * nothing waiting to let through.
+ * tick is what makes it the approving one, read at a glance beside a Request key. The green is
+ * Like's, which is the other key on the deck that means yes. The count is red because that is what a
+ * waiting-count badge is everywhere else a person has seen one, and it is small enough not to be
+ * mistaken for Stop. Both badges sit on a ring of the key's own ground so they read as laid over the
+ * bubble rather than run into it.
+ *
+ * The number is SVG text, which no other key draws: a title would put it under the icon, where the
+ * operator asked for none. Past {@link BADGE_MAX} it says "9+". Faint, and with no count, when there
+ * is nothing waiting to let through.
  */
-export function grantSvg(face: RequestFace): string {
+export function grantSvg(face: GrantFace): string {
     const blue = TONE_COLOURS.standby;
-    const badge =
+    const tick =
         `<circle cx="19" cy="17.5" r="5.2" fill="${CARBON}"/>` +
         `<circle cx="19" cy="17.5" r="4.2" fill="${VOTE_COLOURS.liked}"/>` +
         `<path d="M16.9 17.6 L18.4 19.1 L21.1 16.3" fill="none" stroke="${CARBON}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
-    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>${badge}`, face.dim);
+    const count = face.dim || face.count === undefined || face.count < 1 ? undefined : face.count > BADGE_MAX ? `${BADGE_MAX}+` : String(face.count);
+    const badge =
+        count === undefined
+            ? ''
+            : `<circle cx="20.5" cy="3.5" r="6" fill="${CARBON}"/>` +
+              `<circle cx="20.5" cy="3.5" r="5" fill="${TONE_COLOURS.live}"/>` +
+              `<text x="20.5" y="5.6" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${count.length > 1 ? 5.2 : 6.2}" fill="#FFFFFF">${count}</text>`;
+    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>${tick}${badge}`, face.dim);
 }
 
 /** The Request icon's paths placed on a key, faint or not. */

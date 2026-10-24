@@ -1,4 +1,4 @@
-import { grantSvg, svgDataUri } from '../display/key.image.js';
+import { BADGE_MAX, grantSvg, svgDataUri } from '../display/key.image.js';
 import type { WaitingPoller, WaitingReading } from '../station/waiting.requests.js';
 import { runCommand, type Log } from './command.outcome.js';
 import { FacePainter, type KeyFace } from './key.face.js';
@@ -10,14 +10,15 @@ import { grantView } from './grant.reading.js';
  * `POST /requests/{id}/grant`, the console's own, so the station decides who may: `platform.manage`,
  * which a key issued Read only does not carry, and which says so in the log. Only of use while the
  * station holds every request for approval (`requests.approval`); otherwise nothing ever waits and the
- * key sits faint saying so.
+ * key sits faint.
  *
  * Every Grant key on the deck draws from one {@link WaitingPoller}, held while any of them shows, so a
  * deck without one asks the station nothing about requests.
  */
 export class GrantKeys {
     private readonly painter = new FacePainter();
-    private readonly faces = { live: svgDataUri(grantSvg({ dim: false })), dim: svgDataUri(grantSvg({ dim: true })) };
+    /** The composed faces, one per count shown, since a face is redrawn on every reading and changes only with the count. */
+    private readonly faces = new Map<string, string>();
     private reading: WaitingReading = { stale: false };
     private busy = false;
     private release?: () => void;
@@ -52,11 +53,13 @@ export class GrantKeys {
 
     async press(id: string): Promise<void> {
         const face = this.painter.get(id);
-        const press = grantView(this.reading).press;
-        if (this.busy || press === undefined) {
+        const view = grantView(this.reading);
+        if (view.dim) this.log(view.refusal);
+        if (this.busy || view.dim) {
             await face?.showAlert().catch(() => undefined);
             return;
         }
+        const press = view.press;
         this.busy = true;
         try {
             await runCommand(face, () => this.line.grant(press.id), this.log, {
@@ -70,6 +73,18 @@ export class GrantKeys {
 
     private render(): void {
         const view = grantView(this.reading);
-        this.painter.paintAll({ image: view.dim ? this.faces.dim : this.faces.live, title: view.title });
+        // The image alone: a title the operator typed in the app is left as it is.
+        this.painter.paintAll({ image: this.faceFor(view.dim ? undefined : Math.min(view.count, BADGE_MAX + 1)) });
+    }
+
+    /** The face for a count, or the faint one for none. Counts past the badge's limit all draw "9+", so they share one. */
+    private faceFor(count: number | undefined): string {
+        const key = count === undefined ? 'dim' : String(count);
+        let face = this.faces.get(key);
+        if (face === undefined) {
+            face = svgDataUri(count === undefined ? grantSvg({ dim: true }) : grantSvg({ dim: false, count }));
+            this.faces.set(key, face);
+        }
+        return face;
     }
 }

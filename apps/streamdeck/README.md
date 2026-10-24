@@ -28,7 +28,7 @@ answering — the key goes faint and refuses the press with the warning triangle
 
 **Request** asks the station to play one record, which you choose in the key's settings: search by
 title or artist and pick a row. The search offers what the station would accept, from your library
-first and then from your music providers. The key shows the request icon and no text; its settings
+first and then from your music providers. The key shows the request icon, centred, and no text; its settings
 say which record it asks for, and you can give it a title of your own in the Stream Deck app. Press it
 and the station takes the request as it takes one from the phone app, from the account that issued the
 API key: a tick when it is taken (playing soon, or waiting for an operator to approve it), the warning
@@ -38,9 +38,11 @@ turn. A key with no record yet goes faint and refuses the press, and so does one
 from another station, since the first station's records are not the second's: pick it again in the
 key's settings. The log says which.
 
-**Grant request** is for a station that waits for an operator to approve each request. It shows how
-many are waiting and the title of the one that has waited longest, and a press lets that one through.
-With nothing waiting it goes faint and says so. It needs a key with **Read and manage**.
+**Grant request** is for a station that waits for an operator to approve each request. It shows the
+request icon with a green tick, and a red badge counting how many are waiting (9+ past nine); a press
+lets through the one that has waited longest. With nothing waiting it goes faint, and a press says so
+in the log. Like Request it shows no text, so you can give it a title of your own. It needs a key
+with **Read and manage**.
 
 **Stop or start** is Stop while the station is on air. Press it once and it says _Confirm_; press it
 again within five seconds and the station stops. Leave it and it forgets. Once the station is stopped

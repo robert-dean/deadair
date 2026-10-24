@@ -110,7 +110,6 @@
             "Icon": "imgs/actions/grant/icon",
             "Controllers": ["Keypad"],
             "SupportedInMultiActions": false,
-            "UserTitleEnabled": false,
             "States": [
                 {
                     "Image": "imgs/actions/grant/key",

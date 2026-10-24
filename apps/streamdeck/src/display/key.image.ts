@@ -245,14 +245,30 @@ export interface RequestFace {
  */
 export function requestSvg(face: RequestFace): string {
     const plus = `<rect x="64" y="58" width="16" height="4" rx="1" fill="${CARBON}"/><rect x="70" y="52" width="4" height="16" rx="1" fill="${CARBON}"/>`;
+    return labelledRecord(plus, face.dim);
+}
+
+/**
+ * A Grant key as an SVG: the Request key's record with a tick on its label where the plus was.
+ *
+ * The same record, because both keys are about a request and the deck should say so; the glyph says
+ * which side of it. Faint when there is nothing waiting to let through.
+ */
+export function grantSvg(face: RequestFace): string {
+    const tick = `<path d="M64 60.5 L69.5 66 L80 55" fill="none" stroke="${CARBON}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return labelledRecord(tick, face.dim);
+}
+
+/** A record with a glyph on its standby-blue label, faint or not. */
+function labelledRecord(glyph: string, dim: boolean): string {
     return (
         `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` +
         `<rect width="${SIZE}" height="${SIZE}" fill="${CARBON}"/>` +
-        `<g${face.dim ? ` opacity="${FAINT}"` : ''}>` +
+        `<g${dim ? ` opacity="${FAINT}"` : ''}>` +
         `<circle cx="72" cy="60" r="38" fill="#161A18" stroke="#3E4744" stroke-width="2"/>` +
         `<circle cx="72" cy="60" r="29" fill="none" stroke="${GROOVE}" stroke-width="2"/>` +
         `<circle cx="72" cy="60" r="16" fill="${TONE_COLOURS.standby}"/>` +
-        plus +
+        glyph +
         `</g>` +
         `</svg>`
     );

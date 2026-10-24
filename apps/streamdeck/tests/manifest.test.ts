@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { GRANT } from '../src/actions/grant.reading.js';
 import { NOW_PLAYING } from '../src/actions/now.playing.options.js';
 import { REQUEST } from '../src/actions/request.reading.js';
 import { DISLIKE, LIKE } from '../src/actions/vote.reading.js';
@@ -48,7 +49,7 @@ function imageExists(path: string): boolean {
 describe('the plugin manifest', () => {
     it('declares the actions the code registers by the ids it registers them under', () => {
         const declared = manifest.Actions.map(action => action.UUID);
-        for (const uuid of [NOW_PLAYING, LIKE, DISLIKE, REQUEST]) expect(declared).toContain(uuid);
+        for (const uuid of [NOW_PLAYING, LIKE, DISLIKE, REQUEST, GRANT]) expect(declared).toContain(uuid);
     });
 
     it('gives each vote key one state, because the plugin draws its face rather than switching between two', () => {

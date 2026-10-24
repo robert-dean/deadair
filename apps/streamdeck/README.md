@@ -1,7 +1,7 @@
 # deadair for Stream Deck
 
 Your station on an Elgato Stream Deck: what is on air, Skip, a Stop that asks twice, a heart on the
-record playing, and a key that asks for a record.
+record playing, a key that asks for a record, and one that approves listeners' requests.
 
 ## The keys
 
@@ -36,6 +36,10 @@ open request at a time from each account, so several Request keys are a shortlis
 turn. If you point the plugin at another station, each Request key asks you to pick its record again,
 since the first station's records are not the second's.
 
+**Grant request** is for a station that waits for an operator to approve each request. It shows how
+many are waiting and the title of the one that has waited longest, and a press lets that one through.
+With nothing waiting it goes faint and says so. It needs a key with **Read and manage**.
+
 **Stop or start** is Stop while the station is on air. Press it once and it says _Confirm_; press it
 again within five seconds and the station stops. Leave it and it forgets. Once the station is stopped
 the same key is Start, which brings it back at once.
@@ -50,7 +54,7 @@ the last record it knew, faint and never in the on-air colour.
    [release](https://github.com/robert-dean/deadair/releases?q=streamdeck). It needs the Stream Deck
    app 7.1 or later.
 2. In the station's console, go to **Settings, Sign-in and security, API keys** and issue a key. Choose **Read
-   and manage** if you want Skip, Stop and voting to work; **Read only** is enough for Now playing,
+   and manage** if you want Skip, Stop, voting and Grant request to work; **Read only** is enough for Now playing,
    and for Like and Dislike to show you what the station already thinks. Copy the key: the console
    shows it once. Request works with either.
 3. Drag a deadair key onto your Stream Deck, open its settings, and enter the station's address (the
@@ -71,7 +75,7 @@ more when the record on air is due to end, so a new record shows within a second
 while no deadair key is showing. It fetches covers from wherever the station says they are, without the key.
 With a Like or Dislike key on the deck it also asks what the station thinks of each record once, when
 that record starts. A Request key asks nothing until it is pressed, apart from the search in its
-settings.
+settings. A Grant request key asks which requests are waiting every fifteen seconds while it shows.
 
 ## When something is wrong
 
@@ -81,6 +85,8 @@ settings.
 - **Not allowed**: the account that issued the key may not read the station.
 - **The warning triangle on Request**: the key has no record yet, its record came from another
   station, or the station turned the request down. The log says which, in the station's own words.
+- **The warning triangle on Grant request**: nothing was waiting, somebody approved or turned it down
+  first, the station was not answering, or the key is Read only. The log says which.
 - **The warning triangle on Skip, Stop, Like or Dislike**: there was nothing to skip or to rate, the
   station was not answering, or the key is Read only. The log says which; for the last, issue a key
   with Read and manage.

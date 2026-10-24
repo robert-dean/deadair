@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import streamDeck from '@elgato/streamdeck';
 
+import { GrantAction } from './actions/grant.action.js';
+import { GrantKeys } from './actions/grant.keys.js';
 import { NowPlayingAction } from './actions/now.playing.action.js';
 import { NowPlayingKeys } from './actions/now.playing.js';
 import { RequestAction } from './actions/request.action.js';
@@ -22,6 +24,7 @@ import { probeStation } from './station/station.probe.js';
 import { redact, type StationSettings } from './station/station.settings.js';
 import { StatusPoller } from './station/status.poller.js';
 import { RatingStore } from './station/track.rating.js';
+import { WaitingPoller } from './station/waiting.requests.js';
 
 streamDeck.logger.setLevel('info');
 const logger = streamDeck.logger.createScope('deadair');
@@ -78,6 +81,11 @@ const requestKeys = new RequestKeys({ requests: () => link.sdk?.requests, origin
 // A Request key's record was found on one station, so every key looks again when the station changes.
 link.onChange(() => requestKeys.refresh());
 streamDeck.actions.registerAction(new RequestAction(requestKeys));
+// The requests waiting for an operator, polled only while a Grant key shows. Pointed at the station
+// here rather than by the link, which exists for the transport poller.
+const waiting = new WaitingPoller();
+link.onChange(() => waiting.reconfigure(link.sdk?.requests));
+streamDeck.actions.registerAction(new GrantAction(new GrantKeys(waiting, warn)));
 
 // A failure is logged when it starts and when it ends, not on every poll that repeats it: a station
 // that is down for an hour is two lines in the log, not eighteen hundred. It starts out as "no station"

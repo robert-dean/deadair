@@ -2,8 +2,9 @@
 
 `apps/streamdeck` is an Elgato Stream Deck plugin: a Now Playing key (the cover, the title, a moving
 playhead), Skip, one key that is Stop while the station is on air and Start once it is stood down,
-Like and Dislike, which write the station's opinion of the record on air, and Request, which asks the
-station for one chosen record. It is the operator's desk in hardware, and only the desk: it never
+Like and Dislike, which write the station's opinion of the record on air, Request, which asks the
+station for one chosen record, and Grant, which lets through the request that has waited longest
+for an operator. It is the operator's desk in hardware, and only the desk: it never
 plays the station.
 
 Every paragraph records a decision or a measured failure and the reason for it. The always-loaded
@@ -295,6 +296,34 @@ with a plus on a standby-blue label (`requestSvg`): the old Now Playing placehol
 picture of what the key asks for, and not the mark, which Now Playing draws when nothing is on. Faint
 when it would refuse the press, by the rule every key follows.
 
+## Grant
+
+**A press is `POST /requests/{id}/grant`, the console's own**, so `platform.manage` decides who may,
+and a Read-only key is told so in the log in Grant's own sentence. It lets through the request that
+has waited LONGEST: a key pressed without looking should take the line in order, never pick. Only of
+use while `requests.approval` holds every request for an operator; otherwise nothing waits and the
+key sits faint saying "None waiting". Declining was left off the deck: a refusal is a judgement
+about one request and wants the console's reason field, where a grant is the same act every time.
+
+**The line is its own poller (`WaitingPoller`), not a field on the transport reading.** `GET
+/requests?status=waiting` every fifteen seconds while a Grant key holds it, and never otherwise, so
+neither the transport poller nor a deck without a Grant key pays for a route only this key reads.
+Fifteen is the phone apps' pace for a listener's own requests, and a request waiting for an operator
+waits minutes. It keeps the transport poller's rules at that pace: one reading for every key, the
+last line kept through a failure and marked stale (which refuses the press, since the request on the
+key may have been decided from the console), a doubling backoff to a minute that waits at least as
+long as a 429 asks, and an answer from a replaced station dropped. The station lists newest first; the
+poller turns it round.
+
+**A grant takes the request out of the line at once**, then reads the line again. Without that, a
+second press inside the next reading would grant the same request and be answered 409. A 409 is still
+possible, from the console or another deck deciding first, and the log says that in so many words,
+then the reading after shows the line as it is. Before the first reading the key says nothing, rather
+than a "None waiting" it does not know.
+
+**The same record as Request, with a tick where the plus was** (`grantSvg`), because both keys are
+about a request and the glyph says which side of it.
+
 ## What the Now Playing key draws
 
 **The cover is embedded in an SVG the app rasterises**, so no image decoder ships: a native one cannot
@@ -421,7 +450,9 @@ A Request key with no record drawing faint, the panel's search crossing to the p
 both a library and a provider row, a row picked and saved on the key with its station, the key then
 titled with the record, a press sending its `trackId` with the bearer and ticking, and a refusal
 showing the triangle with the station's reason in the log; the panel itself in a browser listing
-three rows and marking the one picked. Not yet on a Stream Deck.
+three rows and marking the one picked. A Grant key reading the line oldest first, a press granting
+the oldest and the next press the one after, and a press with nothing waiting refusing without asking.
+Neither Request nor Grant has been on a Stream Deck yet.
 
 On a Stream Deck: Robert ran it linked, in developer mode, on a Stream Deck+ with the Stream Deck app
 7.5.1 against his own station on 2026-09-15, and it works. The Now Playing key shows the cover, which

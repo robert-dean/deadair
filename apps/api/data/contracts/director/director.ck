@@ -317,6 +317,24 @@ operation /director/air/items/{itemId}: {
     }
 }
 
+operation /director/air/items/{itemId}/rewrite: {
+    params: {
+        itemId: string(min=1, max=100)
+    }
+    post: { # Writes a break still to come again from nothing: its words, and any audio already made of them, are thrown away and the station writes it afresh as its slot nears, under whoever is presenting by then. Reaches a break that failed to be written, which nothing else retries, so a break that had nothing to say can be asked again after the phrasings change or the model is switched on. Only a break the station wrote itself and has not handed to the player, and never one turn of a programme on its own
+        name: Write a running order break again
+        service: DirectorConsoleService.rewriteOrderItem
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}
+
 operation /director/air/items/{itemId}/skip-to: {
     params: {
         itemId: string(min=1, max=100)

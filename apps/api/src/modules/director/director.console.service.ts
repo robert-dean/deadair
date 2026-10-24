@@ -1411,6 +1411,16 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Write a break still to come again from nothing, a failed one included. See `DirectorService.rewrite`.
+     *
+     * @throws 404 when the order does not hold the item, and 422 when it is not a break the station
+     *   can write again, or has already been handed over.
+     */
+    async rewriteOrderItem(itemId: string): Promise<StationOrder> {
+        return await this.editOrder({ kind: 'rewrite', itemId });
+    }
+
+    /**
      * Make a record further down the order the next thing heard.
      *
      * Two halves, in this order. The director passes over everything in front of the record and
@@ -1994,6 +2004,8 @@ function describeEdit(edit: OrderEdit): string {
             return 'An operator skipped the station ahead to a record further down the running order, passing over everything in front of it.';
         case 'vetoDisliked':
             return `An operator told the station not to play ${edit.forbidden}, so the records that are now forbidden were taken out of the running order.`;
+        case 'rewrite':
+            return 'An operator asked for a break still to come to be written again.';
     }
 }
 

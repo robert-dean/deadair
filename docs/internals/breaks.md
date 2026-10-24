@@ -147,6 +147,17 @@ running order is written through a THROTTLE, so a job can pick up a break the pe
 the neighbours are therefore read before the claim, and absent-from-the-order means early rather than
 has-no-neighbours.
 
+**A break nothing could write stays failed until the operator asks again.** `ripen` never re-offers a `failed`
+row with no words on it, because the usual reason is that nothing true could be said about those two records.
+An operator who has since edited the phrasings or switched the model on has changed exactly that, so
+`POST /director/air/items/{itemId}/rewrite` posts a `rewrite` edit and `DirectorService.rewrite` sends the row
+back to `planned` through `SegmentRepository.reopenForRewrite`, the one reopen that admits `failed` (and clears
+its error). The item stays where it is, and `ripen` asks for the words once its slot is inside the window. It
+works on any break the station wrote and has not handed over, ready ones included, and refuses a recording, a
+carried programme, a production's turn on `recast`'s argument, a kind no writer claims, and a row whose job
+holds it. There is deliberately no route for last night's failures: a break written now about two records that
+have already aired has nowhere true to go.
+
 **That rule has exactly one exception, and reading it as absolute cost every welcome the station ever tried to
 give.** An `interrupt` or `next` REQUEST is rendered before it is injected, so `BreakPlanner.prepareRequested`
 gives its segment no position on purpose and `DirectorService.injectReady` finds it one once the audio exists

@@ -545,7 +545,7 @@ export interface StationLineupSnapshot extends StationLineupBinding {
 }
 
 /** Why an edit was refused, for a console that has to tell someone standing at the desk. */
-export type EditRefusal = 'not-found' | 'already-aired' | 'empty' | 'not-a-record' | 'no-gap';
+export type EditRefusal = 'not-found' | 'already-aired' | 'empty' | 'not-a-record' | 'no-gap' | 'not-rewritable';
 
 /** The outcome of an edit: it happened, or precisely why it did not. */
 export type EditResult = { ok: true } | { ok: false; reason: EditRefusal; message: string };

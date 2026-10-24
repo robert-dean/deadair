@@ -184,6 +184,14 @@ function build(options: Options = {}) {
             if (edit.kind === 'skipTo') return order.skipTo(edit.itemId).result;
             if (edit.kind === 'vetoDisliked') return order.veto(edit.itemIds).result;
             if (edit.kind === 'insertRequested') return order.insertRequested(edit.track, edit.requestId).result;
+            // Which breaks may be written again is the director's question and is tested there; here
+            // a segment still to come may be and anything else may not.
+            if (edit.kind === 'rewrite') {
+                const item = order.find(edit.itemId);
+                return item?.kind === 'segment' && item.state === 'planned'
+                    ? ({ ok: true } as const)
+                    : ({ ok: false, reason: 'not-rewritable', message: 'only a break can be written again' } as const);
+            }
             return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());
         }),
     } as unknown as DirectorService;
@@ -1457,6 +1465,25 @@ describe('DirectorConsoleService editing the running order', () => {
         const { service } = build({ order });
 
         expect(await statusOf(service.removeOrderItem(order.all()[0]!.id))).toBe(422);
+    });
+
+    it('asks the director to write a break again and says so on the feed', async () => {
+        const order = onAirWith(3);
+        order.insertSegment('seg-1', 2);
+        const { service, director, activity } = build({ order });
+        const item = order.all().find(line => line.kind === 'segment')!.id;
+
+        await service.rewriteOrderItem(item);
+
+        expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'rewrite', itemId: item });
+        expect(activity.record.mock.calls[0]![0]).toMatchObject({ kind: 'order.rewrite', data: { kind: 'rewrite', itemId: item } });
+    });
+
+    it('maps a rewrite of something that is not a break still to come onto an unprocessable request', async () => {
+        const order = onAirWith(3);
+        const { service } = build({ order });
+
+        expect(await statusOf(service.rewriteOrderItem(order.all()[2]!.id))).toBe(422);
     });
 
     it('maps a shuffle with nothing left onto an unprocessable request', async () => {

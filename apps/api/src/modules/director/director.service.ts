@@ -28,7 +28,8 @@ import { NarrationScheduler } from '#modules/narrations/narration.scheduler.js';
 import { isNarrationKind } from '#modules/narrations/narration.kind.js';
 import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repository.js';
 import { PodcastScheduler } from '#modules/podcasts/podcast.scheduler.js';
-import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { RENDER_SOURCE, SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { BreakWriterRegistry } from './break.writer.registry.js';
 import { WARMUP_KIND } from './warmup.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
@@ -1946,6 +1947,7 @@ export class DirectorService {
         if (!lineup) return { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
         if (edit.kind === 'skipTo') return await this.skipTo(lineup, edit.itemId);
         if (edit.kind === 'vetoDisliked') return await this.vetoDisliked(lineup, edit.itemIds);
+        if (edit.kind === 'rewrite') return await this.rewrite(lineup, edit.itemId);
 
         const { result, dropped } = this.applyTo(lineup, edit);
         if (!result.ok) return result;
@@ -1972,6 +1974,49 @@ export class DirectorService {
         // so the pass runs.
         await this.commit();
         return result;
+    }
+
+    /**
+     * Somebody at the desk wants a break still to come written again.
+     *
+     * The order does not move: the item stays where it is and only the row behind it goes back to
+     * `planned`, through `SegmentRepository.reopenForRewrite`, which is the one reopen that reaches a
+     * `failed` row. The commit pass below then offers it through `ripen` if its slot is already
+     * inside the write-ahead window, and a later pass does if it is not.
+     *
+     * Refused for anything the station did not write itself or cannot write again: a recording, a
+     * programme it carries, a turn of a production (re-making one turn of a programme leaves a hole
+     * in the middle of it, `recast`'s reason), and a kind no writer claims. And refused for a break
+     * the player already has, since its words are already on the way out, or one whose job holds
+     * it right now.
+     *
+     * Only a break still in the order can be written again, which is why there is no route for a
+     * failure from last night: a break written now about two records that have already aired has
+     * nowhere true to go.
+     */
+    private async rewrite(lineup: StationLineup, itemId: string): Promise<EditResult> {
+        const item = lineup.find(itemId);
+        if (item === undefined) return { ok: false, reason: 'not-found', message: 'that item is not in the running order' };
+        if (item.kind !== 'segment') return { ok: false, reason: 'not-rewritable', message: 'only a break can be written again' };
+        if (item.state !== 'planned') return { ok: false, reason: 'already-aired', message: 'that break has already been handed to the player' };
+        if (item.groupId !== undefined)
+            return { ok: false, reason: 'not-rewritable', message: 'a turn of a programme is made again with the whole programme, not on its own' };
+
+        const refusal = await inScope(this.container, async scope => {
+            const segment = await scope.get(SegmentRepository).findById(item.segmentId);
+            if (segment === undefined) return 'that break is no longer in the library';
+            if (segment.source !== RENDER_SOURCE || segment.productionId !== undefined)
+                return 'the station did not write this one, so it cannot write it again';
+            if (!scope.get(BreakWriterRegistry).canWrite(segment.kind)) return `nothing knows how to write a "${segment.kind}"`;
+            if (!(await scope.get(SegmentRepository).reopenForRewrite(segment.id)))
+                return 'that break is being written or spoken right now; ask again once it is done';
+            return undefined;
+        });
+        if (refusal !== undefined) return { ok: false, reason: 'not-rewritable', message: refusal };
+
+        this.logger.info('director: an operator asked for a break to be written again', { item: itemId, segment: item.segmentId });
+        await this.commit();
+        return { ok: true };
     }
 
     /**
@@ -2229,7 +2274,7 @@ export class DirectorService {
      * the switch below exhaustive — a seventh edit arm fails to compile here until it is handled
      * somewhere.
      */
-    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' | 'vetoDisliked' }>): ShuffleResult {
+    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' | 'vetoDisliked' | 'rewrite' }>): ShuffleResult {
         switch (edit.kind) {
             case 'shuffle':
                 return lineup.shuffleRemaining(edit.smart === undefined ? undefined : { recentSongKeys: new Set(edit.smart.recentSongKeys) });

@@ -296,6 +296,26 @@ DirectorRouter.delete('/director/air/items/:itemId', requirePolicy({ policy: 'pl
 });
 
 /**
+ * Writes a break still to come again from nothing: its words, and any audio already made of them, are thrown away and the station writes it afresh as its slot nears, under whoever is presenting by then. Reaches a break that failed to be written, which nothing else retries, so a break that had nothing to say can be asked again after the phrasings change or the model is switched on. Only a break the station wrote itself and has not handed to the player, and never one turn of a programme on its own
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/items/{itemId}/rewrite`
+ */
+DirectorRouter.post('/director/air/items/:itemId/rewrite', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { itemId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            itemId: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationOrder = await service.rewriteOrderItem(itemId);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
  * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/items/{itemId}/skip-to`
  */

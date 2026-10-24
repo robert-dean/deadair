@@ -55,6 +55,7 @@ import type { StoredBreakRequest } from '../../../src/modules/director/break.req
 import { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
 import { PersonaArtworkService } from '../../../src/modules/art/persona.artwork.service.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
+import { BreakWriterRegistry } from '../../../src/modules/director/break.writer.registry.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationBus } from '../../../src/modules/shared/station.bus.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -344,8 +345,13 @@ function build(options: Options = {}) {
         // ordinal, so it is the programme rather than a beat of it.
         beatsOf: vi.fn(async (productionId: string) => options.beats?.[productionId] ?? []),
         joinedOf: vi.fn(async (productionId: string) => options.joined?.[productionId]),
+        // An operator's "write it again". True is a row it moved back to `planned`; a test about a
+        // break whose job holds it replaces this with one answering false.
+        reopenForRewrite: vi.fn(async (_id: string) => true),
     };
     const segments = segmentStub as unknown as SegmentRepository;
+    // What can be written, for the rewrite: every kind but one a test names as having no writer.
+    const writers = { canWrite: vi.fn((kind: string) => kind !== 'unwritten') };
 
     const candidates = {
         bindingsFor: vi.fn(
@@ -495,7 +501,9 @@ function build(options: Options = {}) {
                                                   ? positions
                                                   : token === AsRunRepository
                                                     ? asRun
-                                                    : history,
+                                                    : token === BreakWriterRegistry
+                                                      ? writers
+                                                      : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -3678,6 +3686,82 @@ describe('DirectorService editing what is on air', () => {
         await director.applyEdit({ kind: 'remove', itemId: lineup.all()[3]!.id });
 
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
+    });
+
+    describe('writing a break again', () => {
+        const talk = (overrides: Partial<Segment> = {}): Partial<Segment> => ({
+            id: 'seg-1',
+            kind: 'talkbreak',
+            state: 'failed',
+            label: 'A break',
+            source: 'render',
+            ...overrides,
+        });
+        const breakItem = (lineup: StationLineup): string => lineup.all().find(item => item.kind === 'segment')!.id;
+
+        it('reopens a failed break still to come and leaves the order where it was', async () => {
+            const { director, lineup, segmentStub, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [talk()] });
+            await seed();
+            lineup.insertSegment('seg-1', 3);
+            await director.start();
+            const before = lineup.all().map(item => item.id);
+
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: breakItem(lineup) })).toEqual({ ok: true });
+
+            expect(segmentStub.reopenForRewrite).toHaveBeenCalledWith('seg-1');
+            expect(lineup.all().map(item => item.id)).toEqual(before);
+        });
+
+        it('refuses a record, a recording, a programme’s turn and a kind nothing writes', async () => {
+            const { director, lineup, segmentStub, seed } = build({
+                items: ['a', 'b', 'c', 'd'],
+                segments: [
+                    talk({ id: 'rec', source: 'library' }),
+                    talk({ id: 'beat', productionId: 'prod-1' }),
+                    talk({ id: 'odd', kind: 'unwritten' }),
+                ],
+            });
+            await seed();
+            lineup.insertSegment('rec', 3);
+            lineup.insertSegment('beat', 3);
+            lineup.insertSegment('odd', 3);
+            await director.start();
+            const itemFor = (segmentId: string): string => lineup.all().find(item => item.kind === 'segment' && item.segmentId === segmentId)!.id;
+
+            const record = lineup.all().filter(isTrackItem)[3]!.id;
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: record })).toMatchObject({ ok: false, reason: 'not-rewritable' });
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: itemFor('rec') })).toMatchObject({ ok: false, reason: 'not-rewritable' });
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: itemFor('beat') })).toMatchObject({ ok: false, reason: 'not-rewritable' });
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: itemFor('odd') })).toMatchObject({
+                ok: false,
+                message: 'nothing knows how to write a "unwritten"',
+            });
+            expect(segmentStub.reopenForRewrite).not.toHaveBeenCalled();
+        });
+
+        it('refuses a break the player already has, and one its job holds', async () => {
+            const { director, lineup, segmentStub, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [talk()] });
+            await seed();
+            lineup.insertSegment('seg-1', 3);
+            await director.start();
+            segmentStub.reopenForRewrite = vi.fn(async () => false);
+
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: breakItem(lineup) })).toMatchObject({
+                ok: false,
+                message: 'that break is being written or spoken right now; ask again once it is done',
+            });
+
+            lineup.markHanded(breakItem(lineup));
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: breakItem(lineup) })).toMatchObject({ ok: false, reason: 'already-aired' });
+        });
+
+        it('answers not found for an item the order does not hold', async () => {
+            const { director, seed } = build({ items: ['a', 'b'] });
+            await seed();
+            await director.start();
+
+            expect(await director.applyEdit({ kind: 'rewrite', itemId: 'nowhere' })).toMatchObject({ ok: false, reason: 'not-found' });
+        });
     });
 
     describe('skipping to a record', () => {

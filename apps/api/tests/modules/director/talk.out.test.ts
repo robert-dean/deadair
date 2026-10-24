@@ -3,8 +3,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { CUE_CLOCK_LAG_MS } from '../../../src/modules/director/talk.up.js';
-import { tailFor, talkOutAt, talkOutIsOn, TALK_OUT_KEYS, type Tail } from '../../../src/modules/director/talk.out.js';
-import { RUNWAY_FLOOR_MS } from '../../../src/modules/lyrics/vocal.runway.js';
+import { tailFor, talkOutAt, talkOutBudget, talkOutIsOn, TALK_OUT_KEYS, type Tail } from '../../../src/modules/director/talk.out.js';
+import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS } from '../../../src/modules/lyrics/vocal.runway.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -63,5 +63,18 @@ describe('talkOutIsOn', () => {
         expect(talkOutIsOn(settingsConfig().config)).toBe(false);
         expect(talkOutIsOn(settingsConfig({ [TALK_OUT_KEYS.enabled]: 'false' }).config)).toBe(false);
         expect(talkOutIsOn(settingsConfig({ [TALK_OUT_KEYS.enabled]: 'true' }).config)).toBe(true);
+    });
+});
+
+describe('talkOutBudget', () => {
+    it('offers the words that fit after the room, the ramp and the lag', () => {
+        // 10s of tail: 10000 - 1500 - 300 - 200 = 8000ms at 2.6 words a second.
+        expect(talkOutBudget(tail(190_000, 200_000), 1_500)).toEqual({ tailMs: 10_000, words: 20 });
+    });
+
+    it('says nothing about a tail too short to bind on, or one any link fits', () => {
+        expect(talkOutBudget(tail(200_000 - RUNWAY_FLOOR_MS + 1, 200_000), 1_500)).toBeUndefined();
+        expect(talkOutBudget(tail(100_000, 100_000 + RUNWAY_CEILING_MS), 1_500)).toBeUndefined();
+        expect(talkOutBudget({ kind: 'none' }, 1_500)).toBeUndefined();
     });
 });

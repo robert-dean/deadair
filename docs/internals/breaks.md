@@ -306,6 +306,13 @@ outro rather than a tail the length of the record. An instrumental airs its link
 the talk-up: "nothing sung" is a claim, and talking over a record somebody mislabelled is talking over
 the singing.
 
+**The writer is told the tail's length as an offer, on the talk-up's terms.** `BreakRequestBuilder.talkOut`
+reads the previous record's tail through the same `tailFor` and `talkOutBudget` turns it into words after
+the same room, ramp and lag; `breakPrompt` says the record runs on for about N seconds after its last
+sung line and that a link of that many words can go out over that ending. Only between the floor and the
+ceiling, `not-spoken` in `break.freshness.ts`, and never a tighter ceiling: a link offered both endings is
+said over one of them or in the gap, never stretched to cover both.
+
 **A cue on an end that is reclaimed becomes an ordinary link again.** `StationLineup.reclaim` drops its
 `over`, since a retract or a restart offering it again as a cue would read it as riding the next record
 at an offset measured into the previous one. And `markAiring` does not exempt it when the next record

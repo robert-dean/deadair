@@ -19,6 +19,7 @@ import type { SpokenWeather } from '../../../src/modules/weather/weather.words.j
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
+import { TALK_OUT_KEYS } from '../../../src/modules/director/talk.out.js';
 import { WRITER_ORDER_KEY } from '../../../src/modules/director/writer.order.js';
 import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
@@ -459,6 +460,56 @@ describe('WriteBreakJob', () => {
                 expect.objectContaining({ next: expect.not.objectContaining({ about: expect.anything() }) }),
                 'model',
             );
+        });
+    });
+
+    describe('the end of the record just finished', () => {
+        // The singing on 'Solid Air' stops at 190s and the record is measured to end at 200s, so with
+        // the default room, the duck's ramp and the cue's lag, 20 words fit over its ending.
+        const sung: VocalMarkers = { kind: 'ranges', onsetMs: 15_000, endMs: 190_000, ranges: [] };
+        const measuredLineup = () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([
+                { ...track('Solid Air', 'John Martyn', 't-solid'), cueInMs: 0, cueOutMs: 200_000 },
+                track('Pink Moon', 'Nick Drake', 't-pink'),
+            ]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+
+        it('tells a talk link how many words fit over it, when talking over an end is on', async () => {
+            const { job, writers } = harness({
+                lineup: measuredLineup(),
+                vocalMarkers: { 't-solid': sung },
+                settings: { [TALK_OUT_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ talkOut: { tailMs: 10_000, words: 20 } }), 'model');
+        });
+
+        it('says nothing with it off, stored as the string false', async () => {
+            const { job, writers } = harness({
+                lineup: measuredLineup(),
+                vocalMarkers: { 't-solid': sung },
+                settings: { [TALK_OUT_KEYS.enabled]: 'false' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkOut: expect.anything() }), 'model');
+        });
+
+        it('says nothing after a record nobody measured', async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 't-solid'), track('Pink Moon', 'Nick Drake', 't-pink')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            const { job, writers } = harness({ lineup, vocalMarkers: { 't-solid': sung }, settings: { [TALK_OUT_KEYS.enabled]: 'true' } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkOut: expect.anything() }), 'model');
         });
     });
 

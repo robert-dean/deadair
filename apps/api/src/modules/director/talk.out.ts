@@ -1,8 +1,10 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { RUNWAY_FLOOR_MS } from '#modules/lyrics/vocal.runway.js';
+import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS } from '#modules/lyrics/vocal.runway.js';
 import type { VocalMarkers } from '#modules/lyrics/vocal.ranges.js';
-import { CUE_CLOCK_LAG_MS } from './talk.up.js';
+import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
+import { WORDS_PER_SECOND } from './break.prompt.js';
+import { CUE_CLOCK_LAG_MS, MIN_TALK_UP_WORDS } from './talk.up.js';
 
 /**
  * Talking over the end of a record: airing a link over the instrumental tail of the record before it,
@@ -99,4 +101,22 @@ export function talkOutAt({ voiceMs, tail, safetyMs, duckFadeMs }: TalkOutQuesti
 
     const latest = Math.floor(tail.endMs - voiceMs - duckFadeMs - CUE_CLOCK_LAG_MS);
     return latest < tail.fromMs + safetyMs ? undefined : latest;
+}
+
+/**
+ * What the writer of a link is told about the record before it: how long its tail runs after the last
+ * sung word, and how many words would fit over it. `undefined` when there is nothing useful to say.
+ *
+ * Advice, as `talkUpBudget` is: the hand-over decides on the clip's real length, so a link that runs
+ * long simply airs in the gap. Only a tail inside the band where it binds is worth a sentence: below
+ * the floor nothing fits, and past the ceiling any link the station writes does.
+ */
+export function talkOutBudget(tail: Tail, safetyMs: number): { tailMs: number; words: number } | undefined {
+    if (tail.kind !== 'ms') return undefined;
+    const tailMs = tail.endMs - tail.fromMs;
+    if (tailMs < RUNWAY_FLOOR_MS || tailMs >= RUNWAY_CEILING_MS) return undefined;
+
+    const spokenMs = tailMs - safetyMs - DUCK_FADE_MS - CUE_CLOCK_LAG_MS;
+    const words = Math.floor((spokenMs / 1000) * WORDS_PER_SECOND);
+    return words < MIN_TALK_UP_WORDS ? undefined : { tailMs, words };
 }

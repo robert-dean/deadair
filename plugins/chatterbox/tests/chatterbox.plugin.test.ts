@@ -44,6 +44,8 @@ interface FakeHostOptions {
     generationDefaults?: Record<string, unknown>;
     /** Whether the station is on air when the plugin loads. Off, as a real station is before it first decides. */
     onAir?: boolean;
+    /** Status for `/restart_server`, the load. 200 unless a test means the load to fail. */
+    loadStatus?: number;
 }
 
 /**
@@ -87,7 +89,7 @@ function fakeHost(options: FakeHostOptions = {}) {
                 ? new Response('{}', { status: 404 })
                 : new Response(JSON.stringify({ config: { generation_defaults: options.generationDefaults } }), { status: 200 });
         }
-        if (url.endsWith('/restart_server')) return new Response('{}', { status: 200 });
+        if (url.endsWith('/restart_server')) return new Response('{}', { status: options.loadStatus ?? 200 });
         if (url.endsWith('/api/unload')) return new Response('{}', { status: 200 });
         if (url.endsWith('/get_predefined_voices')) {
             return new Response(JSON.stringify(options.predefined ?? [{ filename: 'Olivia.wav', display_name: 'Olivia' }]), {
@@ -728,6 +730,112 @@ describe('holding the model while the station is on air', () => {
         await plugin.dispose();
 
         expect(host.airListenerCount()).toBe(0);
+    });
+});
+
+describe('loading the model when the station comes on air', () => {
+    // The break after a listener arrives is usually the welcome, and it should not be the one that
+    // waits out the load.
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    const loads = (calls: RecordedFetchCall[]) => reached(calls).filter(call => call === 'load');
+
+    it('loads the model as the station comes on air, before anything is spoken', async () => {
+        vi.useFakeTimers();
+        const { calls, host } = await started({ loaded: [false, true] });
+
+        host.setOnAir(true);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(loads(calls)).toHaveLength(1);
+        expect(reached(calls)).not.toContain('speak');
+    });
+
+    it('asks only whether one is resident when the server already holds it', async () => {
+        vi.useFakeTimers();
+        const { calls, host } = await started({ loaded: [true] });
+
+        host.setOnAir(true);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(reached(calls)).toEqual(['info']);
+    });
+
+    it('shares one load with a break that starts while it is under way', async () => {
+        // A second `/restart_server` hot-swaps the engine under the first, mid-synthesis.
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started({ loaded: [false, false, true] });
+
+        // Two "no" answers, so a break that asked for itself rather than joining would see an empty
+        // server too and load again. The poll inside the load sleeps, hence the clock.
+        host.setOnAir(true);
+        const speaking = plugin.speak({ text: 'welcome' });
+        await vi.advanceTimersByTimeAsync(30_000);
+        const handle = await speaking;
+        await drain(handle.audio);
+
+        expect(loads(calls)).toHaveLength(1);
+        expect(reached(calls)).toContain('speak');
+    });
+
+    it('loads nothing ahead when the model is dropped after every break', async () => {
+        vi.useFakeTimers();
+        const { calls, host } = await started({ loaded: [false, true], config: { unloadAfterRender: 'true' } });
+
+        host.setOnAir(true);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(calls).toHaveLength(0);
+    });
+
+    it('counts down over the model it loaded once the station stands down', async () => {
+        vi.useFakeTimers();
+        const { calls, host } = await started({ loaded: [false, true] });
+
+        host.setOnAir(true);
+        await vi.advanceTimersByTimeAsync(0);
+        host.setOnAir(false);
+        await vi.advanceTimersByTimeAsync(15 * 60_000);
+
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('starts the countdown itself when the station stood down while the model was loading', async () => {
+        vi.useFakeTimers();
+        const { calls, host } = await started({ loaded: [false, true] });
+
+        host.setOnAir(true);
+        host.setOnAir(false);
+        await vi.advanceTimersByTimeAsync(15 * 60_000 - 1);
+        expect(reached(calls)).not.toContain('unload');
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('arms nothing when it finishes loading after the plugin was disposed', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls, host } = await started({ loaded: [false, true] });
+
+        host.setOnAir(true);
+        host.setOnAir(false);
+        await plugin.dispose();
+        await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('logs a load that fails and leaves the first break to try again', async () => {
+        vi.useFakeTimers();
+        const { calls, host } = await started({ loaded: [false], loadStatus: 500 });
+
+        host.setOnAir(true);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(loads(calls).length).toBeGreaterThan(0);
+        expect(host.logger.warn).toHaveBeenCalledWith(expect.stringContaining('ahead of the first break'), expect.anything());
     });
 });
 

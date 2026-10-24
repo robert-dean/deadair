@@ -162,6 +162,12 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     // Whether this instance has a model it asked for and has not yet let go of, so standing down
     // never unloads a model this plugin did not load: the disposer's rule, applied to the timer.
     private holding = false;
+    // The load in flight, shared by whoever asks while it runs. A warm-up on the station coming on
+    // air and the first break's own check could otherwise both ask the server to load, and a second
+    // `/restart_server` hot-swaps the engine under the first.
+    private loading?: Promise<ModelInfo>;
+    // Set by the disposer, so a warm-up that finishes after this instance is gone arms nothing.
+    private disposed = false;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -192,6 +198,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // shutting down mid-hour, is exactly when a held card is least excusable — and it is a
         // no-op on a station that never turned the setting on.
         this.register(async () => {
+            this.disposed = true;
             this.clearIdleTimer();
             if (this.unloadAfterRender) await this.lifecycle?.unload();
         });
@@ -390,7 +397,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // synthesis against an empty one is a 503 rather than a wait. Throws `unavailable`, which is
         // the code that keeps the segment's words on its row for the next pass. What it answers is
         // WHICH model proved resident, which decides whether the dials below are worth sending.
-        const model = await lifecycle.ensureLoaded();
+        const model = await this.ensureModel(lifecycle);
         this.holding = true;
 
         const format = isResponseFormat(request.format) ? request.format : this.format;
@@ -484,7 +491,8 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     /**
      * The station went on or off air.
      *
-     * On is a reason to keep the model, so any countdown stops. Off starts one, from this moment,
+     * On is a reason to keep the model, so any countdown stops and one is loaded ahead of the first
+     * break ({@link warm}). Off starts a countdown, from this moment,
      * but only over a model this instance is holding: one it never loaded is not its to drop, and
      * with `unloadAfterRender` on there is nothing held to drop. A synthesis still running when the
      * station stands down rearms the same countdown as it ends, which is the same minutes from a
@@ -494,10 +502,55 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         this.onAir = on;
         if (on) {
             this.clearIdleTimer();
+            this.warm();
             return;
         }
 
         if (this.holding && !this.unloadAfterRender) this.armIdleTimer();
+    }
+
+    /**
+     * Load the model ahead of the first break, because the station just came on air.
+     *
+     * The break after a listener arrives is usually the welcome, written and spoken at once, and
+     * without this it is the one that waits out the load. Skipped when `unloadAfterRender` is on:
+     * the operator has asked for the card to be free between breaks, and a model loaded now would sit
+     * there until the first one. Only on the edge and never at load, deliberately: `onLoad` runs
+     * inside the host's call to `init`, whose deadline a load would outlive, and a reinit in the
+     * middle of a programme finds the model already resident anyway.
+     *
+     * A failure is logged and dropped. The first break checks again and throws `unavailable` if the
+     * server still cannot load, which is the code that keeps its words for the next pass.
+     */
+    private warm(): void {
+        const lifecycle = this.lifecycle;
+        if (lifecycle === undefined || this.unloadAfterRender) return;
+
+        // Captured here, where the host is still this instance's: the load ends long after.
+        const logger = this.host.logger;
+        void this.ensureModel(lifecycle).then(
+            () => {
+                if (this.disposed) return;
+                this.holding = true;
+                // The station stood down while the model was loading, when there was nothing held to
+                // count down over. Start the countdown that edge would have started.
+                if (!this.onAir) this.armIdleTimer();
+            },
+            (error: unknown) => {
+                logger.warn('chatterbox could not load its model ahead of the first break; that break will try again', { error: errorText(error) });
+            },
+        );
+    }
+
+    /** Make sure the server has a model, joining a load already under way rather than starting a second. */
+    private ensureModel(lifecycle: ModelLifecycle): Promise<ModelInfo> {
+        if (this.loading !== undefined) return this.loading;
+
+        const loading = lifecycle.ensureLoaded().finally(() => {
+            if (this.loading === loading) this.loading = undefined;
+        });
+        this.loading = loading;
+        return loading;
     }
 
     /**

@@ -308,16 +308,18 @@ export const chatterboxManifest: PluginManifest = {
             help:
                 'Drops the model out of the GPU after each break and loads it again for the next one. Worth it only when something else wants that card — a local language model, most likely. ' +
                 'Measured: an unload reclaims roughly 70% of what the model held, because the graphics runtime keeps the rest until the server exits, and the load before the next break is a new way for that break to be late or to fail. ' +
+                'While this is on, the model is also not loaded ahead of time when the station comes on the air: the first break loads it. ' +
                 'Off unless you know the card is contended.',
         },
         {
             key: 'unloadAfterIdleMinutes',
-            label: 'Free the GPU after a quiet spell',
+            label: 'Free the GPU once the station stops airing',
             type: 'number',
             default: DEFAULT_UNLOAD_AFTER_IDLE_MINUTES,
             help:
-                `Drops the model out of the GPU after this many minutes with nothing spoken. The next break loads it again, which costs that break some seconds. Set it to 0 to never unload this way. ` +
-                'Unlike "Free the GPU between breaks" above, which drops it after every single break, this only fires once the station has actually gone quiet for a while. An ordinary gap between breaks never trips it. Has no effect while that setting is on, since the model is already gone by then.',
+                `Drops the model out of the GPU after the station has been off the air this many minutes with nothing spoken. While the station is on the air the model stays loaded however long it goes between breaks, so the first break after a long run of records never waits for it, and when the station comes back on the air the model is loaded straight away rather than by the first break. ` +
+                'The station is off the air when its running order runs out, when it is stopped, and a few minutes after the last listener leaves. The next break after an unload loads the model again, which costs that break some seconds. Set it to 0 to never unload this way. ' +
+                'Has no effect while "Free the GPU between breaks" above is on, since the model is already gone after every break.',
         },
     ],
     configSchema,

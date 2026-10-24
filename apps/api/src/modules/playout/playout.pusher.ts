@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { CoverResolver } from '#modules/art/cover.resolver.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import {
     annotateUri,
     blendOutOf,
@@ -158,6 +159,14 @@ export class PlayoutPusher {
      */
     private waitingCues: { carrierId: string; uri: string; atMs: number }[] = [];
 
+    /**
+     * What {@link wantsAir} answered on the last pass that told anybody, so `air.wanted` is
+     * published on the change and not on every tick. Absent until the first pass, which always
+     * publishes: a subscriber starts from "off", and a station that wakes up wanting air would
+     * otherwise never say so.
+     */
+    private announcedWant?: boolean;
+
     constructor(
         private readonly rundown: Rundown,
         private readonly control: PlayoutControlClient,
@@ -169,6 +178,9 @@ export class PlayoutPusher {
         // only so a test that is not about artwork need not build one: absent leaves such a record
         // under the logo, which is what it wore before this existed.
         private readonly covers?: CoverResolver,
+        // Where `air.wanted` is said. Optional for the same reason as `covers`: a test about the
+        // transport need not build one, and nothing on the transport waits on who hears it.
+        private readonly bus?: StationBus,
     ) {}
 
     /**
@@ -402,6 +414,10 @@ export class PlayoutPusher {
             // benefits from spending them. `always` mode opens the gate permanently and
             // gets exactly the behaviour this loop had before the gate existed.
             const onAir = this.wantsAir();
+            // Before the reading, deliberately: this is what the station INTENDS, which a Liquidsoap
+            // that is not up yet does not change, and the early return below would otherwise keep a
+            // station whose stream is down from ever saying it wants the air.
+            this.announceWant(onAir);
             const reading = onAir ? await this.renewAndRead() : await this.control.status();
             // Stream not up, or not yet reachable. Try again next tick.
             if (!reading) return;
@@ -736,6 +752,13 @@ export class PlayoutPusher {
      */
     wantsAir(): boolean {
         return this.rundown.hasProgramme() && this.audience.gateOpen();
+    }
+
+    /** Say `air.wanted` when {@link wantsAir} has moved since it was last said. See {@link announcedWant}. */
+    private announceWant(on: boolean): void {
+        if (on === this.announcedWant) return;
+        this.announcedWant = on;
+        this.bus?.publish('air.wanted', { on, at: Date.now() });
     }
 
     /**

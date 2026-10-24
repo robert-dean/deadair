@@ -101,6 +101,23 @@ export interface StationEvents {
     'air.changed': { on: boolean; reason: 'programme' | 'resumed' | 'stopped' | 'ranOut'; programme?: string; at: number };
 
     /**
+     * The station started or stopped wanting its mount: a programme AND an audience, the two
+     * halves `PlayoutPusher.wantsAir` asks for together before it renews the lease.
+     *
+     * Not `air.changed` beside it, which is the programme half alone. An audience-gated station
+     * with a running order and nobody listening is `on` there and standing down here, and that is
+     * the difference a plugin holding a speech model on a graphics card needs to see. The
+     * audience half already waits out `AudienceWatch`'s linger window, so a listener dropping out
+     * for a moment does not move this.
+     *
+     * Published by the pusher on the reconcile pass where the answer changed, so at most once a
+     * tick, and once on the first pass whatever the answer is. The subscriber is `PluginAirState`
+     * in `plugins`, which backs `host.air` and is registered long before `playout`. `at` is epoch
+     * milliseconds, taken by the pass that noticed.
+     */
+    'air.wanted': { on: boolean; at: number };
+
+    /**
      * A listener asked for a record: from an app, the console, a party pass or a chat.
      *
      * Published by `RequestDesk.submit` once the row is written and, when it could be, placed, so

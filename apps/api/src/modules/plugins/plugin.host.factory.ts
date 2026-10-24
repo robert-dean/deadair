@@ -26,6 +26,7 @@ import type {
 } from '@deadair/plugin-sdk';
 import { SpotifyShimClient, type FetchedPlaylistTrack } from '#modules/stream/spotify.shim.client.js';
 import { ApplePlayerClient } from '#modules/stream/apple.player.client.js';
+import { PluginAirState } from './plugin.air.state.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { DISCOVERY_DEFAULT_TIMEOUT_MS, DISCOVERY_MAX_TIMEOUT_MS, SystemDiscoverer, type NetworkDiscoverer } from './plugin.discovery.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
@@ -314,6 +315,9 @@ export class PluginHostFactory {
      */
     private readonly auditedBypasses = new Set<string>();
 
+    /** What backs every `host.air`. See {@link PluginAirState}. */
+    private readonly air: PluginAirState;
+
     constructor(
         private readonly options: PluginHostFactoryOptions,
         private readonly container: Container,
@@ -321,7 +325,12 @@ export class PluginHostFactory {
         private readonly spotifyShimClient: SpotifyShimClient,
         private readonly applePlayerClient: ApplePlayerClient,
         private readonly grants: PluginGrantsService,
-    ) {}
+        // Optional only so a test about some other part of the host need not build one: absent is a
+        // station that never goes on air, which is what `host.air` reads before the first pass anyway.
+        air?: PluginAirState,
+    ) {
+        this.air = air ?? new PluginAirState();
+    }
 
     // `PluginConfigService` and `PluginStorageRepository` are scoped, so every capability call
     // below opens its own scope (see `#modules/shared/scoped.work.js`). InjectKit's rejection of
@@ -383,6 +392,7 @@ export class PluginHostFactory {
             config: this.createConfig(manifest),
             oauth: this.createOAuth(manifest),
             events: this.createEvents(manifest, logger),
+            air: this.air.hostFor(manifest.id, logger),
             trackFetcher: this.createTrackFetcher(manifest),
         };
     }
@@ -787,6 +797,17 @@ export class PluginHostFactory {
 
         registry.closed = true;
         for (const close of [...registry.sockets, ...registry.tls]) close();
+    }
+
+    /**
+     * Drops every `host.air` listener a plugin still holds, called beside {@link closeOpenSockets}
+     * once it is disposed, so a listener the plugin forgot cannot be told about a station it no
+     * longer has a part in.
+     *
+     * Safe to call for a plugin that never listened, and safe to call twice.
+     */
+    releaseAirListeners(pluginId: string): void {
+        this.air.release(pluginId);
     }
 
     /**

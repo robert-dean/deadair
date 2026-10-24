@@ -133,6 +133,15 @@ export interface FakePluginHost extends PluginHost {
      * is found until a test says otherwise, which is what a station on a bridge network sees.
      */
     seedDiscovery(found: DiscoveredService[] | ((query: DiscoveryQuery) => DiscoveredService[])): void;
+    /**
+     * Put the station on or off air, telling every `host.air` listener when it actually changed.
+     * Off until a test says otherwise, as on a real station before it first decides. Synchronous,
+     * where the real host tells listeners just after the change: a listener that returns a promise
+     * is not awaited, so a test that cares awaits what the plugin started.
+     */
+    setOnAir(on: boolean): void;
+    /** How many `host.air` listeners the plugin still holds, so a test can see one was let go of. */
+    airListenerCount(): number;
 }
 
 /**
@@ -325,6 +334,8 @@ export function createFakePluginHost(): FakePluginHost {
     let tlsRefusal: Error | undefined;
     let tlsOpened: ((socket: FakePluginTlsSocket) => void) | undefined;
     let discovered: (query: DiscoveryQuery) => DiscoveredService[] = () => [];
+    let onAir = false;
+    const airListeners = new Set<(on: boolean) => void | Promise<void>>();
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -375,6 +386,15 @@ export function createFakePluginHost(): FakePluginHost {
             getTokens: vi.fn(async () => tokens),
         },
         events: { emit: vi.fn() },
+        air: {
+            isOn: vi.fn(() => onAir),
+            onChange: vi.fn((listener: (on: boolean) => void | Promise<void>) => {
+                airListeners.add(listener);
+                return () => {
+                    airListeners.delete(listener);
+                };
+            }),
+        },
         trackFetcher: {
             serve: vi.fn(async () => fetchedTrack),
             // Answers the same canned stream as `serve`: a plugin under test cares that it asked the
@@ -401,6 +421,14 @@ export function createFakePluginHost(): FakePluginHost {
         },
         seedDiscovery(found) {
             discovered = typeof found === 'function' ? found : () => found;
+        },
+        setOnAir(on) {
+            if (on === onAir) return;
+            onAir = on;
+            for (const listener of [...airListeners]) void listener(on);
+        },
+        airListenerCount() {
+            return airListeners.size;
         },
         seedRemainingMs(ms) {
             remainingMs = ms;

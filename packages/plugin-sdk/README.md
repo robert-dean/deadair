@@ -443,6 +443,36 @@ it, including the time `host.fetch` parks waiting for rate-limit headroom, and
 `host.fetch` caps its own timeout by it. Read a small number as advice to wrap
 up, not as permission to run that long.
 
+## Knowing whether the station is on air
+
+`host.air` says whether the station is on air: it has a programme to play and
+somebody to hear it, or the operator has told it to air regardless. It goes off
+when the running order runs out, when the operator stops the station, and once
+the last listener has been gone for a few minutes. A listener dropping out for
+a moment does not move it.
+
+It is for a plugin holding something expensive that is only worth holding while
+the station airs, a speech model on a graphics card being the case it was
+written for. The tempting alternative is a timer since you were last called,
+and that is a guess at this fact: a station can be on air with nothing to say
+for longer than any idle window, and off air a second after your last call.
+
+```ts
+protected async onLoad(): Promise<void> {
+    const host = this.host;
+    this.holdModel(host.air.isOn());
+    this.register(host.air.onChange(on => this.holdModel(on)));
+}
+```
+
+`isOn()` reads the current state, which is off until the station first decides,
+so read it at load rather than waiting to be told. `onChange` hears each change
+once, with the new state. You are told just after the change rather than inside
+whatever made it, and outside any host call, so `host.signal` never aborts in
+there. A listener that throws or rejects is logged and never counted against
+your plugin. Disposing your plugin drops any listener it still holds; return the
+unsubscribe from a `register` disposer anyway, as above.
+
 ## When your platform talks over a socket
 
 Some platforms only deliver over a WebSocket you hold open: Slack's Socket Mode

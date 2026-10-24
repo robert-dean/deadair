@@ -213,6 +213,44 @@ export interface PluginEvents {
 }
 
 /**
+ * Whether the station is on air, as a fact the host knows rather than one a plugin guesses at.
+ *
+ * "On air" is the station holding its mount: it has a programme to play AND somebody to hear it
+ * (or the operator has said to air regardless). It is the same question the station asks itself
+ * before it puts anything on, so it goes off when the running order runs out, when the operator
+ * stops it, and when the last listener has been gone for a while, and on again when any of those
+ * is undone. A listener dropping out for a moment does not move it: the station waits a few
+ * minutes before it calls an empty room empty.
+ *
+ * Exists for a plugin holding something expensive that is worth keeping only while the station
+ * is airing, a speech model on a graphics card being the case it was written for. The tempting
+ * alternative is a timer since the plugin was last called, and that is a guess: a station can be
+ * on air with nothing to say for longer than any idle window, and off air a second after the
+ * last call.
+ *
+ * Off until the station has said otherwise, so a plugin initialized before the station first
+ * decides reads `false` and then hears the change.
+ */
+export interface PluginAir {
+    /** Whether the station is on air at this moment. */
+    isOn(): boolean;
+
+    /**
+     * Hear the station go on or off air. Returns the unsubscribe.
+     *
+     * Called with the new state, once per change and never twice with the same value. Called
+     * after the change rather than inside whatever made it, so a slow listener holds nothing
+     * up, and outside any host call, so {@link PluginHost.signal} never aborts in it. A listener
+     * that throws or rejects is logged and never counted against your plugin.
+     *
+     * Disposing your plugin drops every listener it still has, so a forgotten one cannot outlive
+     * the instance. Unsubscribe in a `register` disposer all the same; the host's is the
+     * backstop, not the plan.
+     */
+    onChange(listener: (on: boolean) => void | Promise<void>): () => void;
+}
+
+/**
  * A login the station's track fetcher opens its own session with.
  *
  * Handed to {@link PluginTrackFetcher.serve} and nowhere else: it is not
@@ -478,6 +516,9 @@ export interface PluginHost {
     oauth: PluginOAuth;
 
     events: PluginEvents;
+
+    /** Whether the station is on air, and when that changes. See {@link PluginAir}. */
+    air: PluginAir;
 
     trackFetcher: PluginTrackFetcher;
 }

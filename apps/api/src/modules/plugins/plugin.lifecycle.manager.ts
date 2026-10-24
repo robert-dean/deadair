@@ -286,9 +286,11 @@ export class PluginLifecycleManager {
         // do. It is the backstop for the other case, and it must run even when
         // dispose threw, or a plugin that crashed on the way out would leave a
         // socket held open by an instance nothing can reach any more. The same
-        // goes for a WebSocket the plugin opened and never closed.
+        // goes for a WebSocket the plugin opened and never closed, and for a `host.air` listener it
+        // never unsubscribed.
         this.pluginHostFactory.cancelOpenBodies(pluginId);
         this.pluginHostFactory.closeOpenSockets(pluginId);
+        this.pluginHostFactory.releaseAirListeners(pluginId);
 
         // Transient: an init immediately after (the reinit path) overwrites this
         // with the real outcome.

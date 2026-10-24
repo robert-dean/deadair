@@ -41,6 +41,7 @@ export const queryKeys = {
     },
     requests: {
         list: () => ['requests', 'list'] as const,
+        search: (term: string) => ['requests', 'search', term] as const,
     },
     /** Chat accounts linked to the signed-in account, so they can run operator commands from a chat. */
     messaging: {

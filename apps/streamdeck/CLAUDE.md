@@ -2,8 +2,10 @@
 
 `apps/streamdeck` is an Elgato Stream Deck plugin: a Now Playing key (the cover, the title, a moving
 playhead), Skip, one key that is Stop while the station is on air and Start once it is stood down,
-and Like and Dislike, which write the station's opinion of the record on air. It is the operator's
-desk in hardware, and only the desk: it never plays the station.
+Like and Dislike, which write the station's opinion of the record on air, Request, which asks the
+station for one chosen record, and Grant, which lets through the request that has waited longest
+for an operator. It is the operator's desk in hardware, and only the desk: it never
+plays the station.
 
 Every paragraph records a decision or a measured failure and the reason for it. The always-loaded
 index is [`CLAUDE.md`](../../CLAUDE.md); the operator-facing half is [`README.md`](README.md).
@@ -253,6 +255,113 @@ have no row in the catalog, or a record the station is airing without ever havin
 keys draw unlit on a stale reading however well the last opinion is known, by the rule the rest of
 this plugin follows: the opinion may be about the record before this one.
 
+## Request
+
+**A press is `POST /requests`, the phone apps' own call, so the deck is held to a listener's rules.**
+The API key acts as the account that issued it (`requireRequester` admits a key as the user it
+belongs to), and `requests.ask` admits a Read-only key, so any key can ask. What that buys is that
+the station decides everything, as for Skip: one open request per account, the cooldown, the cap on
+the line, the station's taste, and `requests.approval`. A row of Request keys is therefore a shortlist
+asked from one at a time, and that is the arbiter working rather than a fault to design around.
+
+**The record is chosen in the key's settings panel, from `GET /requests/search`, never the
+library's**, for the phone apps' reason: a record the desk would refuse at the door is never offered,
+and what the music providers carry fills the rest. A provider's row is saved by its `source` and
+taken into the library on the first press, which `ProviderCopyResolver` finds by binding on every
+press after, so the key never has to rewrite its own settings to the `trackId` the station made.
+
+**The panel asks the PLUGIN to search**, in `searchRecords` / `records` messages beside the
+connection check, and never calls the station itself. That is the connection check's arrangement for
+its reason: the search runs with the station and key the keys actually use, and the key never sits in
+a browser page. The plugin reduces each row to what is saved and what is shown (`FoundRecord`) before
+it crosses, so the panel holds plain JSON and decides nothing about a row; the SDK's own types also
+are not JSON-safe for the app's socket, which `tsc` said first. A slow answer to a replaced search is
+dropped by its `q`.
+
+**Action settings, holding the record AND the station it was found on.** Every key asks for its own
+record, and a track id and a title are fine in an exported profile. The station's origin is kept
+beside the record because a track id names a record on one station: pointed elsewhere, the key draws
+faint and refuses the press rather than sending an id the new station would read as
+another record or none. `StationLink.onChange` redraws every Request key, as it empties the ratings.
+
+**A refusal is a 201, not an error.** The station answers `declined` with its own `reason`, so the
+key shows the warning triangle and the log carries the station's sentence; every other answer
+(`waiting`, `pending`, `queued`) is the tick, because the press did all a press can. Following the
+request on to `queued` and `aired` was considered and left out: it is another poll (`/requests/mine`)
+on a rate-limit bucket the whole network shares, for a state the console already shows.
+
+**The key sends no title at all, and the title is the operator's.** It is the icon alone, faint
+when it would refuse the press, and the sentence for why (a record from another station, no station)
+goes to the log on the press rather than onto the key. The manifest leaves the action's
+title controls ON (every other action turns them off) and names no title, so a label the operator
+types in the app stays, because the plugin never calls `setTitle` to replace it. This was the
+record's title and artist first, then "Pick a record" made the app's title so Show Title could hide
+it; Robert's call after that was to drop the text outright.
+
+**A key with no record opens the console's request dialog** (`<origin>/?request=1`, through the
+app's `openUrl`, as Now Playing opens the console) rather than refusing. The Desk's route reads the
+parameter (`validateDeskSearch` in `apps/web/src/routes/index.tsx`), opens `RequestARecord` once and
+takes it back out of the address with a `replace`, so neither a reload nor the back button opens it
+again. That makes one key both things an operator wants: a record chosen once, or a choice made each
+time with the console's search, name, dedication and the station's answer on screen, none of which a
+key has room for. A plugin-side text box was the other way to get the second, through `osascript`
+on a Mac, and was not built: the console already had the dialog, and a browser works on Windows
+too. A record from another station still refuses, faint, because picking it again is the fix.
+
+**These keys take no hold on the poller.** Nothing they draw depends on what is on air, so a deck of
+Request keys asks the station nothing until one is pressed or its panel searches. They draw the
+listener apps' own Request icon (`requestSvg`): a speech bubble with a note in it, from the paths of
+Android's `ic_request`, which iOS's `RequestIcon` draws from the matching system symbols, so the deck
+wears the picture a listener already knows for asking. In the station's phosphor green (the console's
+accent and the mark's field; standby blue came first and was replaced on Robert's call), faint when it
+would refuse the press. A record with a plus on its label came first and was replaced on Robert's call, before
+either key had been on a device.
+
+## Grant
+
+**A press is `POST /requests/{id}/grant`, the console's own**, so `platform.manage` decides who may,
+and a Read-only key is told so in the log in Grant's own sentence. It lets through the request that
+has waited LONGEST: a key pressed without looking should take the line in order, never pick. Only of
+use while `requests.approval` holds every request for an operator; otherwise nothing waits and the
+key sits faint. Declining was left off the deck: a refusal is a judgement
+about one request and wants the console's reason field, where a grant is the same act every time.
+
+**The line is its own poller (`WaitingPoller`), not a field on the transport reading.** `GET
+/requests?status=waiting` every fifteen seconds while a Grant key holds it, and never otherwise, so
+neither the transport poller nor a deck without a Grant key pays for a route only this key reads.
+Fifteen is the phone apps' pace for a listener's own requests, and a request waiting for an operator
+waits minutes. It keeps the transport poller's rules at that pace: one reading for every key, the
+last line kept through a failure and marked stale (which refuses the press, since the request on the
+key may have been decided from the console), a doubling backoff to a minute that waits at least as
+long as a 429 asks, and an answer from a replaced station dropped. The station lists newest first; the
+poller turns it round.
+
+**A grant takes the request out of the line at once**, then reads the line again. Without that, a
+second press inside the next reading would grant the same request and be answered 409. A 409 is still
+possible, from the console or another deck deciding first, and the log says that in so many words,
+then the reading after shows the line as it is. Before the first reading the key is faint and a press
+says the station has not answered yet, rather than claiming nothing is waiting.
+
+**The same icon as Request with a green tick badge on the bubble's corner** (`grantSvg`): both keys
+are about a request and should look it, and the badge is what makes this one the approving one at a
+glance. Every green on it is the same phosphor as the bubble, which is also Like's: the tick still
+reads because its badge sits on a ring of the key's own ground. A filled bubble came first
+and was replaced on Robert's call, chosen from four drawn side by side (a filled bubble, a tick in
+the bubble, this, and a playlist with a tick). The action-list icon has to be one colour on
+transparency with no masks, so its bubble is a STROKE that stops short of the badge and the tick is
+cut out of the badge by an even-odd path; drawn the key's way, the bubble's edge would show through
+the tick.
+
+**The count is a badge on the key, not a title.** A red disc on the bubble's upper corner with the
+number in it, "9+" past nine, which is what a waiting count looks like everywhere else; red because
+that is the convention, and small enough not to be read as Stop. It is SVG `<text>`, which no other
+key draws: the record's title under the icon was the first face, and Robert's call was to drop the
+text from both request keys and centre the icon. The plugin sends no title, so the manifest leaves
+the title controls on and a label the operator types stays, as on Request. A press on a faint key
+says why in the log (nothing waiting, not read yet, or the failure's sentence), since the key no
+longer can. Faces are composed once per count shown and remembered, ten at most. Whether Qt's
+renderer draws the number in the font asked for is the thing a device has to settle.
+
 ## What the Now Playing key draws
 
 **The cover is embedded in an SVG the app rasterises**, so no image decoder ships: a native one cannot
@@ -375,6 +484,13 @@ break and a stale reading both refusing the press, and a Read-only key reading t
 refused the write with voting's own sentence in the log. Two Now Playing keys with different settings, one drawing the cover alone, and
 a settings change redrawing only its own key; the panel's checkboxes opened on a key's own settings
 and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
+A Request key with no record drawing live and opening `/?request=1` on a press, the panel's search crossing to the plugin and back with
+both a library and a provider row, a row picked and saved on the key with its station, the key then
+drawn live, a press sending its `trackId` with the bearer and ticking, and a refusal
+showing the triangle with the station's reason in the log; the panel itself in a browser listing
+three rows and marking the one picked. A Grant key reading the line oldest first, a press granting
+the oldest and the next press the one after, and a press with nothing waiting refusing without asking.
+Neither Request nor Grant has been on a Stream Deck yet.
 
 On a Stream Deck: Robert ran it linked, in developer mode, on a Stream Deck+ with the Stream Deck app
 7.5.1 against his own station on 2026-09-15, and it works. The Now Playing key shows the cover, which

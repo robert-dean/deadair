@@ -2,7 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { GRANT } from '../src/actions/grant.reading.js';
 import { NOW_PLAYING } from '../src/actions/now.playing.options.js';
+import { REQUEST } from '../src/actions/request.reading.js';
 import { DISLIKE, LIKE } from '../src/actions/vote.reading.js';
 
 // `streamdeck validate` checks all of this too, but it fetches the manifest's URLs first and so needs
@@ -12,12 +14,14 @@ const plugin = resolve(import.meta.dirname, '../radio.deadair.streamdeck.sdPlugi
 
 interface State {
     Image: string;
+    Title?: string;
 }
 interface Action {
     UUID: string;
     Icon: string;
     States: State[];
     Controllers: string[];
+    UserTitleEnabled?: boolean;
 }
 interface Manifest {
     UUID: string;
@@ -47,12 +51,20 @@ function imageExists(path: string): boolean {
 describe('the plugin manifest', () => {
     it('declares the actions the code registers by the ids it registers them under', () => {
         const declared = manifest.Actions.map(action => action.UUID);
-        for (const uuid of [NOW_PLAYING, LIKE, DISLIKE]) expect(declared).toContain(uuid);
+        for (const uuid of [NOW_PLAYING, LIKE, DISLIKE, REQUEST, GRANT]) expect(declared).toContain(uuid);
     });
 
     it('gives each vote key one state, because the plugin draws its face rather than switching between two', () => {
         for (const uuid of [LIKE, DISLIKE]) {
             expect(manifest.Actions.find(action => action.UUID === uuid)?.States).toHaveLength(1);
+        }
+    });
+
+    it('leaves the Request and Grant keys’ titles to the operator: the plugin sends none, and the manifest gives none', () => {
+        for (const uuid of [REQUEST, GRANT]) {
+            const declared = manifest.Actions.find(action => action.UUID === uuid);
+            expect(declared?.UserTitleEnabled, uuid).not.toBe(false);
+            expect(declared?.States[0]?.Title, uuid).toBeUndefined();
         }
     });
 

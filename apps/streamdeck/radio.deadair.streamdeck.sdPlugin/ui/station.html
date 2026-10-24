@@ -84,6 +84,31 @@
                 height: auto;
                 margin: 0;
             }
+            .results {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                margin: 0;
+                padding: 0;
+                list-style: none;
+            }
+            .results:empty {
+                display: none;
+            }
+            .results button {
+                width: 100%;
+                height: auto;
+                padding: 4px 6px;
+                text-align: left;
+                line-height: 1.3;
+            }
+            .results button[aria-pressed='true'] {
+                border-color: #5a8ee0;
+            }
+            .results .by {
+                display: block;
+                color: #969696;
+            }
             section + section {
                 margin-top: 16px;
             }
@@ -111,6 +136,37 @@
             <div class="item">
                 <span></span>
                 <p class="hint">When nothing is playing, or the station is not answering, the key still says why.</p>
+            </div>
+        </section>
+        <section id="request" hidden>
+            <h2>This key</h2>
+            <div class="item">
+                <span class="label">Asks for</span>
+                <p id="picked">Nothing yet. A press opens the console’s request dialog.</p>
+            </div>
+            <div class="item">
+                <label for="search">Search</label>
+                <input id="search" type="search" placeholder="A title or an artist" spellcheck="false" autocomplete="off" />
+            </div>
+            <div class="item">
+                <span></span>
+                <button id="find" type="button">Find</button>
+            </div>
+            <div class="item">
+                <span></span>
+                <p id="found" class="hint" role="status"></p>
+            </div>
+            <div class="item">
+                <span></span>
+                <ul id="results" class="results"></ul>
+            </div>
+            <div class="item">
+                <span></span>
+                <p class="hint">
+                    A press asks the station for this record as the account that issued the API key. The station allows one open request at a time,
+                    and may wait for an operator to approve it. With no record picked, a press opens the request dialog in the station's console
+                    instead.
+                </p>
             </div>
         </section>
         <section>

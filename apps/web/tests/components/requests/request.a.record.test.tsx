@@ -67,4 +67,17 @@ describe('RequestARecord', () => {
         expect(await screen.findByText('It aired an hour ago.')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Send the request' })).toBeDisabled();
     });
+
+    it('opens itself when the address asked for it, and says so once so the ask can leave the address', async () => {
+        const arrived = vi.fn();
+        render(<RequestARecord openOnArrival onArrived={arrived} />);
+
+        expect(await screen.findByLabelText('Search for a record')).toBeInTheDocument();
+        expect(arrived).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays shut without the ask', () => {
+        render(<RequestARecord />);
+        expect(screen.queryByLabelText('Search for a record')).not.toBeInTheDocument();
+    });
 });

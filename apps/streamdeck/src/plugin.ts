@@ -2,8 +2,12 @@ import { readFileSync } from 'node:fs';
 
 import streamDeck from '@elgato/streamdeck';
 
+import { GrantAction } from './actions/grant.action.js';
+import { GrantKeys } from './actions/grant.keys.js';
 import { NowPlayingAction } from './actions/now.playing.action.js';
 import { NowPlayingKeys } from './actions/now.playing.js';
+import { RequestAction } from './actions/request.action.js';
+import { RequestKeys } from './actions/request.keys.js';
 import { SkipAction } from './actions/skip.action.js';
 import { SkipKeys } from './actions/skip.keys.js';
 import { TransportAction } from './actions/transport.action.js';
@@ -13,12 +17,14 @@ import { VoteKeys } from './actions/vote.keys.js';
 import { ArtworkCache } from './display/artwork.js';
 import { isToPlugin, type ToInspector } from './inspector/inspector.messages.js';
 import { describe, type Failure } from './station/connection.failure.js';
+import { searchRecords } from './station/record.search.js';
 import { createPublicSdk, createStationSdk } from './station/station.client.js';
 import { StationLink } from './station/station.link.js';
 import { probeStation } from './station/station.probe.js';
 import { redact, type StationSettings } from './station/station.settings.js';
 import { StatusPoller } from './station/status.poller.js';
 import { RatingStore } from './station/track.rating.js';
+import { WaitingPoller } from './station/waiting.requests.js';
 
 streamDeck.logger.setLevel('info');
 const logger = streamDeck.logger.createScope('deadair');
@@ -71,6 +77,20 @@ streamDeck.actions.registerAction(new SkipAction(new SkipKeys(poller, warn)));
 streamDeck.actions.registerAction(new TransportAction(new TransportKeys(poller, warn)));
 streamDeck.actions.registerAction(new LikeAction(new VoteKeys('liked', ratings, poller, warn, skull)));
 streamDeck.actions.registerAction(new DislikeAction(new VoteKeys('disliked', ratings, poller, warn, skull)));
+const requestKeys = new RequestKeys({
+    requests: () => link.sdk?.requests,
+    origin: () => link.station?.origin,
+    openUrl: url => streamDeck.system.openUrl(url),
+    log: warn,
+});
+// A Request key's record was found on one station, so every key looks again when the station changes.
+link.onChange(() => requestKeys.refresh());
+streamDeck.actions.registerAction(new RequestAction(requestKeys));
+// The requests waiting for an operator, polled only while a Grant key shows. Pointed at the station
+// here rather than by the link, which exists for the transport poller.
+const waiting = new WaitingPoller();
+link.onChange(() => waiting.reconfigure(link.sdk?.requests));
+streamDeck.actions.registerAction(new GrantAction(new GrantKeys(waiting, warn)));
 
 // A failure is logged when it starts and when it ends, not on every poll that repeats it: a station
 // that is down for an hour is two lines in the log, not eighteen hundred. It starts out as "no station"
@@ -108,8 +128,16 @@ streamDeck.settings.onDidReceiveGlobalSettings<StationSettings>(ev => {
     link.apply(settings);
     void reportConnection();
 });
+/** Searches for a Request key's settings panel, as the station and key the keys are using. */
+async function reportRecords(q: string): Promise<void> {
+    const message: ToInspector = await searchRecords(q, link.sdk?.requests, link.station?.origin);
+    await streamDeck.ui.sendToPropertyInspector(message);
+}
+
 streamDeck.ui.onSendToPlugin(ev => {
-    if (isToPlugin(ev.payload)) void reportConnection();
+    if (!isToPlugin(ev.payload)) return;
+    if (ev.payload.event === 'searchRecords') void reportRecords(ev.payload.q);
+    else void reportConnection();
 });
 streamDeck.system.onSystemDidWakeUp(() => link.refresh());
 

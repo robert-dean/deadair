@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { nowPlayingSvg, voteSvg } from '../src/display/key.image.ts';
+import { grantSvg, nowPlayingSvg, requestSvg, voteSvg } from '../src/display/key.image.ts';
 
 const plugin = resolve(import.meta.dirname, '../radio.deadair.streamdeck.sdPlugin');
 const picture = name => `data:image/png;base64,${readFileSync(join(plugin, `imgs/plugin/${name}`)).toString('base64')}`;
@@ -28,3 +28,9 @@ write('imgs/actions/now-playing/key.svg', nowPlayingSvg({ tone: 'standby', stale
 for (const vote of ['liked', 'disliked']) {
     write(`imgs/actions/${vote === 'liked' ? 'like' : 'dislike'}/key.svg`, voteSvg({ vote, lit: false, dim: false, skull }));
 }
+
+// A Request key before the plugin draws it is one with no record chosen yet, which is faint.
+write('imgs/actions/request/key.svg', requestSvg({ dim: true }));
+
+// A Grant key before the plugin draws it has read no line yet, and nothing waiting is faint.
+write('imgs/actions/grant/key.svg', grantSvg({ dim: true }));

@@ -31,8 +31,8 @@ The keys talk to the station with an API key, never your password.
 
 1. In the console, open **Settings → Sign-in and security** and find **API keys**.
 2. Under **New key**, name it for what will use it: `Stream Deck`.
-3. Choose its access. **Read only** is enough for Now playing alone. Skip, Like, Dislike and Stop
-   need **Read and manage**.
+3. Choose its access. **Read only** is enough for Now playing and Request. Skip, Like, Dislike, Stop
+   and Grant request need **Read and manage**.
 4. Choose when it expires, or **Never**.
 5. Press **Create key**, and copy the key. The station shows it once and keeps only a fingerprint, so
    it can never show it again. It starts with `da_`.
@@ -62,6 +62,12 @@ shared profile does not share access to your station.
   opinion back. A dislike keeps the record off the air for good.
 - **Stop or start**: press once and it says _Confirm_, press again within five seconds and the
   station stops. Leave it and it forgets. Once stopped, the same key starts it.
+- **Request** asks the station for a record, as a listener would. Search for one in the key's
+  settings and pick it, and every press asks for that record. With none picked, a press opens the
+  console's **Request a record** dialog in your browser instead.
+- **Grant request** shows how many requests are waiting for approval on a red badge, and a press
+  lets through the one that has waited longest. It only has work to do if the station holds requests
+  for approval.
 
 With nothing to rate, such as during a break, Like and Dislike go faint and do nothing.
 

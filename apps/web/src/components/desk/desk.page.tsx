@@ -64,7 +64,14 @@ import { OnAirNow } from './on.air.now';
  * to tell. The rows carry their destination as a button — the action, honestly named. Giving the
  * station a remedy verb to send is the change that would make the design's version true.
  */
-export function DeskPage() {
+export interface DeskPageProps {
+    /** The address asked for the request dialog (`/?request=1`), which the Stream Deck's Request key opens. */
+    requestOnArrival?: boolean;
+    /** The dialog opened for the address: take the ask back out of it. */
+    onRequestArrived?: () => void;
+}
+
+export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPageProps = {}) {
     // Every one of these shares a query key with the shell's own polling, so the desk is one more
     // reader of one reading rather than a second request per panel. Gated on the session as the
     // shell's are: one reader enabled is enough to keep a shared query polling after the session dies.
@@ -243,7 +250,7 @@ export function DeskPage() {
                             <BringInAGuest {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
                             {/* Not disabled with nothing on: the station decides on a request, off
                                 air included, and the dialog shows its reason. */}
-                            <RequestARecord />
+                            <RequestARecord openOnArrival={requestOnArrival} {...(onRequestArrived === undefined ? {} : { onArrived: onRequestArrived })} />
                         </Group>
                     ) : undefined}
                 </Group>

@@ -8,6 +8,11 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-24
+
+- A Grant request key, for a station that waits for an operator to approve requests: it shows how many are waiting and the one that has waited longest, and a press lets that one through.
+- A Request key: choose a record in the key's settings by searching the station, and a press asks the station to play it, as a request from the phone app would. A tick means the station took it; the warning triangle means it turned it down, with its reason in the plugin's log. With no record picked, a press opens the console's request dialog instead.
+
 ## [0.2.5] — 2026-10-23
 
 - When the station asks the keys to slow down with a date rather than a number of seconds, which a proxy in front of it may do, the plugin now waits until then instead of falling back to its own backoff.
@@ -38,7 +43,8 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 - Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
 - With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering. When the station stops answering, the last cover stays on the key, faint.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.3.0...HEAD
+[0.3.0]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.5...streamdeck-v0.3.0
 [0.2.5]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.4...streamdeck-v0.2.5
 [0.2.4]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.3...streamdeck-v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.2...streamdeck-v0.2.3

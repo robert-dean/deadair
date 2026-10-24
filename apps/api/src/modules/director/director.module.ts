@@ -36,6 +36,7 @@ import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
 import { BreakKindCatalog } from './break.kind.catalog.js';
+import { AuthoredKinds } from './authored.break.writer.js';
 import { BreakKindRepository } from './break.kind.repository.js';
 import { BreakKindsService } from './break.kinds.service.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -308,6 +309,9 @@ export const DirectorModule: ServerKitModule = {
                             container.get(ChangeoverWriter),
                         ],
                         container.get(Logger),
+                        // The kinds an operator writes (Ideas #24), asked only for a kind nothing
+                        // above claims, and only while there is a model to write one.
+                        [container.get(AuthoredKinds)],
                     ),
             )
             .asScoped();
@@ -337,6 +341,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(BreakKindRepository).useClass(BreakKindRepository).asScoped();
         registry.register(BreakKindsService).useClass(BreakKindsService).asScoped();
         registry.register(BreakKindCatalog).useClass(BreakKindCatalog).asSingleton();
+        registry.register(AuthoredKinds).useClass(AuthoredKinds).asScoped();
         // Never-play rules and the genre steer: the repository is read by the pick path as well as
         // the console, so it is scoped like every other repository here. See `block.rules.ts`.
         registry.register(BlockRulesRepository).useClass(BlockRulesRepository).asScoped();

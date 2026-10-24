@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.2] — 2026-10-24
+
+- Saving a slot from the desk's Timetable no longer resets the settings the editor does not draw. Whether the host talks, whether chart positions are read out, a request show and how many records follow each request, and the slot's own repeat window, artist cooldown and per-artist cap are now sent back exactly as the station holds them.
+
 ## [0.17.1] — 2026-10-24
 
 - Saving a slot from the Timetable keeps which writer it asks first for its breaks, which is set on the web console.
@@ -179,7 +183,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...HEAD
+[0.17.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.1...desktop-v0.17.2
 [0.17.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.0...desktop-v0.17.1
 [0.17.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.1...desktop-v0.17.0
 [0.16.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.0...desktop-v0.16.1

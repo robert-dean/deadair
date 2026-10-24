@@ -19,37 +19,39 @@ Under the console's 1,500 characters.
 > deadair is an AI radio station you run yourself: it picks the records, writes what the presenter
 > says between them, speaks it and streams it. This plugin puts its desk on your Stream Deck.
 >
-> Now playing shows what is on air: the cover, the title and who it is by, and a bar that fills as the
-> record plays. When the station is quiet it says why, in the console's own words: ready, off air,
-> warming up. Press it to open the station's console. The bar, and the title and artist, can each be
-> turned off per key.
+> Now playing shows the cover, the title and artist, and a bar that fills as the record plays. When
+> the station is quiet it says why: ready, off air, warming up. Press it to open the console. The bar
+> and the title can each be turned off per key.
 >
-> Skip ends the record or break on air and plays the next one.
+> Skip ends the record or break on air.
 >
-> Like and Dislike set what the station thinks of the record playing, the same opinion you would
-> set from the running order in the console: a like plays it more often, a dislike means never
-> again. The heart fills with colour when the station already agrees; press the lit one to take it
-> back.
+> Like and Dislike set what the station thinks of the record playing: a like plays it more often, a
+> dislike means never again. The heart fills when the station already agrees; press it again to take
+> it back.
 >
 > Stop or start stops the station on the second press within five seconds, so a stray press never
-> takes it off air, and once it is stopped the same key starts it again.
+> takes it off air, and then starts it again.
 >
-> You enter your station's address and an API key once, in any deadair key's settings, and every
-> key shares them. The key is issued in the station's console under Settings, Sign-in and security, API keys:
-> Read only is enough for Now playing, and for seeing what the station thinks of a record; Skip,
-> Stop and voting need Read and manage. It stays on your computer and never goes into a Stream Deck
-> profile you export.
+> Request asks the station for a record, as a listener would: pick one in the key's settings, or
+> leave it unpicked and a press opens the console's request dialog. Grant request counts the requests
+> waiting for approval and lets the longest-waiting one through.
 >
-> The plugin needs a deadair station to talk to. deadair is free and open source:
-> https://deadair.radio
+> Enter your station's address and an API key once, in any deadair key's settings. Issue the key in
+> the console under Settings, Sign-in and security: Read only is enough for Now playing and Request,
+> and the other keys need Read and manage. It stays on your computer and never goes into a profile
+> you export.
+>
+> The plugin needs a deadair station, which is free and open source: https://deadair.radio
 
 ## Release notes (0.1.0)
 
 The first release: Now playing, Skip, and Stop or start.
 
-## Release notes (next)
+## Release notes (0.3.0)
 
-Like and Dislike: rate the record on air from the deck, and press the lit key again to take it back.
+Two new keys. Request asks the station for a record you pick in its settings, or opens the console's
+request dialog when none is picked. Grant request shows how many requests are waiting for approval
+and lets the longest-waiting one through.
 
 ## Links
 

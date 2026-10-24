@@ -323,10 +323,14 @@ possible, from the console or another deck deciding first, and the log says that
 then the reading after shows the line as it is. Before the first reading the key says nothing, rather
 than a "None waiting" it does not know.
 
-**The same icon as Request with the bubble FILLED** and the note cut out of it in the key's ground
-(`grantSvg`): both keys are about a request and should look it, and the filled bubble against the
-outlined one is what tells them apart without a second glyph. The action-list icons follow, the
-Grant one a single even-odd path because an icon is one colour on transparency.
+**The same icon as Request with a green tick badge on the bubble's corner** (`grantSvg`): both keys
+are about a request and should look it, and the badge is what makes this one the approving one at a
+glance. The green is Like's, the other key on the deck that means yes. A filled bubble came first
+and was replaced on Robert's call, chosen from four drawn side by side (a filled bubble, a tick in
+the bubble, this, and a playlist with a tick). The action-list icon has to be one colour on
+transparency with no masks, so its bubble is a STROKE that stops short of the badge and the tick is
+cut out of the badge by an even-odd path; drawn the key's way, the bubble's edge would show through
+the tick.
 
 ## What the Now Playing key draws
 

@@ -238,7 +238,6 @@ export interface RequestFace {
  * request keys wear the picture a listener already knows for asking.
  */
 const BUBBLE_OUTLINE = 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM20 16H6l-2 2V4h16v12z';
-const BUBBLE_FILLED = 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z';
 /** The note, already at the half scale and offset `ic_request` places it at inside the bubble. */
 const NOTE = 'M12 5.5v5.275c-.295-.17-.635-.275-1-.275-1.105 0-2 .895-2 2s.895 2 2 2 2-.895 2-2V7.5h2v-2h-3z';
 
@@ -265,15 +264,22 @@ export function requestSvg(face: RequestFace): string {
 }
 
 /**
- * A Grant key as an SVG: the same icon with the bubble FILLED and the note cut out of it in the
- * key's own ground.
+ * A Grant key as an SVG: the Request key's icon with a green tick badge on the bubble's corner, the
+ * request approved.
  *
- * The same picture, because both keys are about a request and the deck should say so; the filled
- * bubble is the request answered rather than asked, and the title ("2 waiting") says the rest.
- * Faint when there is nothing waiting to let through.
+ * The same bubble and note, because both keys are about a request and the deck should say so; the
+ * badge is what makes it the approving one, read at a glance beside a Request key. The green is
+ * Like's, which is the other key on the deck that means yes. The badge sits on a ring of the key's
+ * own ground so it reads as laid over the bubble rather than run into it. Faint when there is
+ * nothing waiting to let through.
  */
 export function grantSvg(face: RequestFace): string {
-    return requestIcon(`<path d="${BUBBLE_FILLED}" fill="${TONE_COLOURS.standby}"/><path d="${NOTE}" fill="${CARBON}"/>`, face.dim);
+    const blue = TONE_COLOURS.standby;
+    const badge =
+        `<circle cx="19" cy="17.5" r="5.2" fill="${CARBON}"/>` +
+        `<circle cx="19" cy="17.5" r="4.2" fill="${VOTE_COLOURS.liked}"/>` +
+        `<path d="M16.9 17.6 L18.4 19.1 L21.1 16.3" fill="none" stroke="${CARBON}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>${badge}`, face.dim);
 }
 
 /** The Request icon's paths placed on a key, faint or not. */

@@ -16,6 +16,15 @@ Read the ones covering whatever you are about to change. The always-loaded index
 or throws is the same outcome — ask the next — so the fall-through lives there rather than inside any one
 writer, and `llm.breakWriter` being off is just the first one declining early.
 
+**The operator may turn the pair round, and the registry still holds one list.** `llm.breakWriterOrder`
+(`writer.order.ts`) is `model` (the default, registration order) or `station`, which moves every binding named
+`model` behind the writers with no model in them and keeps each side's own order. It reaches the registry as an
+ARGUMENT to `write` and `writersFor`, resolved per break by `WriteBreakJob`, rather than as a field of
+`BreakWriteRequest`: no writer reads it, and a field there is something every writer is handed and
+`break.freshness.ts` must classify. The retry rule above is unchanged, since it keys on the attempt's fault
+rather than on its position. With the station in front, "the floor" is the model, so `BreakFloorWatch` is handed
+the same order and stays quiet about a model the operator chose not to rely on.
+
 **The floor cannot fail**, which is what makes a slow model cost a better sentence rather than a silent
 station. The registry answers with every ATTEMPT rather than only the winner, because a model that declined
 and a floor that covered for it are two facts and the second alone reads as a station that never had a model.

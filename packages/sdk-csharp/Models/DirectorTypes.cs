@@ -950,6 +950,11 @@ public sealed record StationOrderItem
     [JsonPropertyName("overAtMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? OverAtMs { get; init; }
+
+    /// <summary>Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over</summary>
+    [JsonPropertyName("overEndOf")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? OverEndOf { get; init; }
 }
 
 /// <summary>Ask the station to say something. The station decides where it goes, and may decline</summary>

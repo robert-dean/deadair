@@ -1955,7 +1955,7 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
     // sentence the row has been carrying all along.
     ...(segment?.error === undefined ? {} : { segmentError: segment.error }),
     ...(segment?.writer === undefined ? {} : { segmentWriter: segment.writer }),
-    ...(item.over === undefined ? {} : { overAtMs: item.over.atMs }),
+    ...(item.over === undefined ? {} : { overAtMs: item.over.atMs, ...(item.over.endOf === true ? { overEndOf: true } : {}) }),
     ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
 });
 

@@ -64,6 +64,7 @@ import { WARMUP_KIND } from '../../../src/modules/director/warmup.writer.js';
 import { VocalMarkersReader } from '../../../src/modules/lyrics/vocal.markers.reader.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
+import { TALK_OUT_KEYS } from '../../../src/modules/director/talk.out.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -3388,6 +3389,83 @@ describe('DirectorService talking a link up to the post', () => {
 
         expect(built.lineup.all()[1]?.state).not.toBe('skipped');
         expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: cueItemId });
+    });
+});
+
+// Talking over a record's end: a link short enough to fit between the last sung word of the record
+// before it and that record's end rides that record, ending as it ends. Off by default, decided at
+// the RECORD's hand-over, and anything it cannot judge airs in the gap as before.
+describe('DirectorService talking a link over the end of a record', () => {
+    const link = (durationMs: number, extra: Partial<Segment> = {}) => ({
+        id: 'seg-1',
+        kind: 'talkbreak',
+        state: 'ready' as const,
+        label: 'A link',
+        source: 'render',
+        durationMs,
+        ...extra,
+    });
+    // The singing on 'a' stops at 190s, and 'a' is measured from 0.1s to 210s, so it airs for
+    // 209.9s. A six-second link ends at that end with the duck's ramp and two ticks allowed for:
+    // 209900 - 6000 - 300 - 200 = 203400ms in.
+    const sung = { kind: 'ranges' as const, onsetMs: 15_000, endMs: 190_000, ranges: [] };
+
+    async function run(options: { segment?: ReturnType<typeof link>; markers?: Record<string, VocalMarkers>; talkOut?: string; talkUp?: string }) {
+        const built = build({
+            items: ['a', 'b'],
+            analysed: ['a', 'b'],
+            segments: [options.segment ?? link(6_000)],
+            vocalMarkers: options.markers ?? { 'track-a': sung },
+        });
+        if (options.talkOut !== undefined) built.station.set(TALK_OUT_KEYS.enabled, options.talkOut);
+        if (options.talkUp !== undefined) built.station.set(TALK_UP_KEYS.enabled, options.talkUp);
+        await built.seedCatalogued();
+        built.lineup.insertSegment('seg-1', 1);
+        await built.director.start();
+        await settle();
+        return built;
+    }
+
+    it('airs the link in the gap when it has never been switched on', async () => {
+        const { rundown } = await run({});
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('rides the record before it, ending as that record ends', async () => {
+        const { rundown, lineup } = await run({ talkOut: 'true' });
+        const record = rundown.upcoming().find(item => item.externalId === 'a');
+        const linkItem = lineup.all()[1]!;
+
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 203_400, itemId: linkItem.id, endOf: true });
+        expect(linkItem).toMatchObject({ state: 'handed', over: { atMs: 203_400, endOf: true } });
+
+        // And it is not offered again as a talk-over of the record after it once that one is handed over.
+        await airNext(rundown);
+        const after = rundown.upcoming().find(item => item.externalId === 'b');
+        expect(after).toBeDefined();
+        expect(after?.voice).toBeUndefined();
+    });
+
+    it('airs a link too long for the tail in the gap rather than trimming it', async () => {
+        const { rundown } = await run({ talkOut: 'true', segment: link(19_000) });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('airs it in the gap when nothing says where the singing stops', async () => {
+        const { rundown } = await run({ talkOut: 'true', markers: {} });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('leaves a link that fits the next record’s intro to the talk-up', async () => {
+        const { rundown, lineup } = await run({ talkOut: 'true', talkUp: 'true', markers: { 'track-a': sung, 'track-b': sung } });
+
+        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toBeUndefined();
+        expect(lineup.all()[1]).not.toMatchObject({ over: { endOf: true } });
+    });
+
+    it('leaves alone a link that says the time, which would air earlier than it was checked for', async () => {
+        const { rundown } = await run({ talkOut: 'true', segment: link(6_000, { claimsTime: { from: 0, until: Date.now() + 3_600_000 } }) });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
     });
 });
 

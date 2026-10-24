@@ -89,6 +89,15 @@ The format clock decides when the station talks, but an operator can ask it to s
 
 The station may decline, and says why rather than failing: breaks are off, the station has been asked to keep quiet for a while, there is no voice, nothing on the station writes that kind, the same request was taken a moment ago (a double press asks once), or the running order has no room. Accepted is not the same as aired: a bulletin with no story left unread is still passed over when it is written, as one the clock asked for would be.
 
+## Over the start or the end of a record
+
+Two settings under Settings, Breaks let a link be said over a record instead of in the gap, and both are off on a fresh install. Both need the records' timed lyrics (switched on under Measurement), since that is how the station knows where the singing is, and a record without them has its link in the gap as before. A link is never cut short to fit: one that does not fit simply airs in the gap.
+
+- **Talk up to the post**: a link short enough to finish before the singing starts on the next record is said over that record's intro, the last word landing just before the first sung one.
+- **Talk over the end of a record**: a link short enough to fit between the last sung word of the record before it and that record's end is said over its outro, finishing as the record finishes. The next record then starts straight after, with no crossfade. Where the record ends comes from its measurement. A link that says the time is not moved this way, and one that would fit over the next record's intro is talked up there when that is on.
+
+**Room left around the singing** is how far from the singing either one keeps.
+
 ## Writing one again
 
 A break nothing could write is not tried again on its own, because the usual reason is that nothing true could be said about the records either side. After you change the phrasings or switch the model on, the pencil on the break's row on the **Desk** (**Write it again**) throws its words away and has it written afresh as its slot comes near, under whoever is presenting by then. It works on any break the station wrote that has not reached the player yet, finished ones included, but not on a recording, somebody else's programme, or one turn of a phone-in or other production. A break whose records have already aired cannot be written again, since there is nowhere true for it to go. Through the API it is `POST /api/director/air/items/{itemId}/rewrite`.

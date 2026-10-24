@@ -302,3 +302,29 @@ describe('StationOrderTable: writing a break again', () => {
         expect(screen.queryByRole('button', { name: /^Write .* again$/ })).toBeNull();
     });
 });
+
+describe('StationOrderTable: which record a talk-over rides', () => {
+    it('says a link over the end of a record rides the one before it, and an ordinary one the one after', () => {
+        render(
+            <StationOrderTable
+                items={[
+                    orderItem(0, { state: 'airing' }),
+                    orderItem(1, {
+                        kind: 'segment',
+                        state: 'handed',
+                        title: 'Back-sell',
+                        artists: [],
+                        segmentId: 'seg-1',
+                        overAtMs: 203_400,
+                        overEndOf: true,
+                    }),
+                    orderItem(2, { kind: 'segment', state: 'handed', title: 'Talk-up', artists: [], segmentId: 'seg-2', overAtMs: 7_000 }),
+                    orderItem(3),
+                ]}
+            />,
+        );
+
+        expect(screen.getByText('over the end of the last record')).toBeInTheDocument();
+        expect(screen.getByText('over the next record')).toBeInTheDocument();
+    });
+});

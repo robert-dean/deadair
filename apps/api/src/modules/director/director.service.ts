@@ -39,7 +39,8 @@ import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor, type Runway } from '#modules/lyrics/vocal.runway.js';
 import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
-import { resolveTalkUp, talkUpAt } from './talk.up.js';
+import { resolveTalkUp, talkUpAt, type TalkUpSettings } from './talk.up.js';
+import { tailFor, talkOutAt, talkOutIsOn } from './talk.out.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
@@ -3076,6 +3077,91 @@ export class DirectorService {
     }
 
     /**
+     * Which records in this batch carry a link over their end, keyed by the RECORD's item id.
+     *
+     * A record qualifies when the line directly after it is an ordinary talk link, rendered and
+     * measured, not already a talk-over, whose claims still hold with this record behind it and the
+     * next record in front; and when the record's own tail has room for it (`talk.out.ts`). Read at
+     * the RECORD's hand-over, since the cue goes to the player with the record, which is usually a
+     * record before the link itself would be taken from the order.
+     *
+     * Two things leave a link where it was. A link that would fit over the next record's intro is left
+     * to the talk-up when that is on: hitting the post is the rarer thing to get right and the one
+     * that was here first, so switching this on changes nothing a talk-up already does. And a link
+     * that says the time is left alone, since it would air a record earlier than the projection it
+     * was checked against, which is the one direction a time claim never allows.
+     *
+     * Every read failing costs the cues and never the links, which then air in the gap.
+     */
+    private async talkOutCues(
+        items: readonly StationLineupItem[],
+        talkUp: TalkUpSettings,
+    ): Promise<Map<string, { linkId: string; segmentId: string; atMs: number; loudnessLufs?: number }>> {
+        const lineup = this.lineup;
+        if (lineup === undefined) return new Map();
+
+        const pairs = items.flatMap(item => {
+            if (item.kind !== 'track' || item.track.trackId === undefined || item.track.cueOutMs === undefined) return [];
+            const link = lineup.segmentRightAfter(item.id);
+            if (link === undefined || link.state !== 'planned' || link.over !== undefined || link.groupId !== undefined) return [];
+            return [{ record: item, link }];
+        });
+        if (pairs.length === 0) return new Map();
+
+        try {
+            return await inScope(this.container, async scope => {
+                const segments = await scope.get(SegmentRepository).findByIds(pairs.map(pair => pair.link.segmentId));
+                const ready = pairs.flatMap(pair => {
+                    const segment = segments.get(pair.link.segmentId);
+                    if (segment?.state !== 'ready' || segment.kind !== TALK_BREAK_KIND || segment.durationMs === undefined) return [];
+                    if (segment.claimsTime !== undefined) return [];
+                    const next = lineup.nextTrackAfter(pair.link.id);
+                    if (brokenClaim(segment, { previous: pair.record.id, next: next?.id }, Date.now()) !== undefined) return [];
+                    return [{ ...pair, segment, next: lineup.trackRightAfter(pair.link.id) }];
+                });
+                if (ready.length === 0) return new Map();
+
+                const trackIds = ready.flatMap(pair => [
+                    pair.record.track.trackId!,
+                    ...(pair.next?.track.trackId === undefined ? [] : [pair.next.track.trackId]),
+                ]);
+                const markers = await scope.get(VocalMarkersReader).forTracks(trackIds);
+
+                return new Map(
+                    ready.flatMap(({ record, link, segment, next }) => {
+                        const voiceMs = segment.durationMs!;
+                        const nextMarkers = next?.track.trackId === undefined ? undefined : markers.get(next.track.trackId);
+                        if (talkUp.enabled && nextMarkers !== undefined) {
+                            const runway = runwayFor(nextMarkers, next?.track.cueInMs);
+                            if (talkUpAt({ voiceMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS }) !== undefined) return [];
+                        }
+
+                        const own = markers.get(record.track.trackId!);
+                        if (own === undefined) return [];
+                        const atMs = talkOutAt({ voiceMs, tail: tailFor(own, record.track), safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS });
+                        if (atMs === undefined) return [];
+
+                        return [
+                            [
+                                record.id,
+                                {
+                                    linkId: link.id,
+                                    segmentId: segment.id,
+                                    atMs,
+                                    ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
+                                },
+                            ] as const,
+                        ];
+                    }),
+                );
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not work out which links fit over a record's end, so they air in the gap (${errorText(error)})`);
+            return new Map();
+        }
+    }
+
+    /**
      * Turn the items just taken from the order into the form the player can be
      * handed, and say which of them the station will pass over.
      *
@@ -3166,6 +3252,10 @@ export class DirectorService {
         // once for the batch and only when talking up is switched on. See `talk.up.ts`.
         const talkUp = resolveTalkUp(this.config);
         const runways = talkUp.enabled ? await this.talkUpRunways(items, segments) : new Map<string, Runway>();
+        // And which records carry a link over their end, decided at the record's own hand-over. See
+        // `talk.out.ts`. A link riding a record this way is skipped when the loop reaches it below.
+        const talkOuts = talkOutIsOn(this.config) ? await this.talkOutCues(items, talkUp) : new Map<string, never>();
+        const ridingAnEnd = new Set<string>();
 
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
@@ -3206,24 +3296,48 @@ export class DirectorService {
                 // was PICKED, which is the upstream URL for anything the station had not cached by
                 // then. See {@link stationArtwork} and {@link coverFields}.
                 const { artworkUrl: pickedCover, ...track } = item.track;
+                // A link over this record's END, when nothing is already riding its start: one voice per
+                // record, since two would be one talking over the other.
+                const out = pending === undefined ? talkOuts.get(item.id) : undefined;
+                const endOf = out !== undefined && this.lineup?.handOverTalkingOut(out.linkId, out.atMs) === true ? out : undefined;
+                if (endOf !== undefined) {
+                    ridingAnEnd.add(endOf.linkId);
+                    this.logger.info('director: talking a link over the end of a record', {
+                        record: item.id,
+                        segment: endOf.segmentId,
+                        atMs: endOf.atMs,
+                    });
+                }
+                const voice =
+                    pending !== undefined
+                        ? {
+                              segmentId: pending.segmentId,
+                              atMs: pending.atMs,
+                              itemId: pending.itemId,
+                              ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
+                          }
+                        : endOf === undefined
+                          ? undefined
+                          : {
+                                segmentId: endOf.segmentId,
+                                atMs: endOf.atMs,
+                                itemId: endOf.linkId,
+                                endOf: true as const,
+                                ...(endOf.loudnessLufs === undefined ? {} : { loudnessLufs: endOf.loudnessLufs }),
+                            };
                 playable.push({
                     ...track,
                     id: item.id,
                     ...coverFields(pickedCover, artwork),
-                    ...(pending === undefined
-                        ? {}
-                        : {
-                              voice: {
-                                  segmentId: pending.segmentId,
-                                  atMs: pending.atMs,
-                                  itemId: pending.itemId,
-                                  ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
-                              },
-                          }),
+                    ...(voice === undefined ? {} : { voice }),
                 });
                 pending = undefined;
                 continue;
             }
+
+            // Already riding the end of the record before it, decided above. It is not handed over in
+            // its own right and must not be taken for a talk-over of the record after it.
+            if (ridingAnEnd.has(item.id)) continue;
 
             const segment = segments.get(item.segmentId);
             if (segment?.state !== 'ready') {

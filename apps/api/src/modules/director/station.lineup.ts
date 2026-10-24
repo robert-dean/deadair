@@ -235,8 +235,12 @@ export interface StationLineupSegmentItem extends StationLineupLine {
      * ducks the bed under it `atMs` into the next record, which is what a DJ talking
      * over an intro actually is. Liquidsoap does the measuring; nothing here
      * schedules against a clock.
+     *
+     * `endOf` turns it round: the cue rides the record BEFORE it, `atMs` into that
+     * one, which is a link said over the end of a record (`talk.out.ts`). Set only at
+     * hand-over, by {@link StationLineup.handOverTalkingOut}.
      */
-    over?: { atMs: number };
+    over?: { atMs: number; endOf?: true };
     /**
      * The block this belongs to, when it is one beat of something bigger.
      *
@@ -998,6 +1002,41 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * Hand a link over as a talk-over of the record BEFORE it: said over that record's end.
+     *
+     * {@link handOverTalkingUp}'s mirror and for its reason: the link becomes a cue on the order
+     * itself, marked `endOf` so every reader knows which record it rides. Handed here, at the
+     * record's own hand-over, because the record goes to the player first and the cue goes with it.
+     */
+    handOverTalkingOut(itemId: string, atMs: number): boolean {
+        const item = this.itemList.find(candidate => candidate.id === itemId);
+        if (item?.kind !== 'segment' || item.state !== 'planned' || item.over !== undefined) return false;
+
+        item.over = { atMs, endOf: true };
+        item.state = 'handed';
+        return true;
+    }
+
+    /**
+     * The line directly after this one, when it is a break that could be said over this record's end.
+     *
+     * {@link trackRightAfter}'s question asked from the other side, with the same walk past lines that
+     * will never air. A link with another record, or anything else, between it and this record is not
+     * about this record's end.
+     */
+    segmentRightAfter(itemId: string): StationLineupSegmentItem | undefined {
+        const at = this.itemList.findIndex(item => item.id === itemId);
+        if (at < 0) return undefined;
+
+        for (let index = at + 1; index < this.itemList.length; index++) {
+            const item = this.itemList[index]!;
+            if (item.state === 'skipped' || item.state === 'unavailable' || item.state === 'removed') continue;
+            return item.kind === 'segment' ? item : undefined;
+        }
+        return undefined;
+    }
+
+    /**
      * The player says a listener is hearing this one.
      *
      * Everything committed BEFORE it that never aired is marked `skipped` in the same
@@ -1041,7 +1080,15 @@ export class StationLineup implements LiveOrder {
                 return;
             }
             if (earlier.state !== 'handed' && earlier.state !== 'planned') return;
-            if (earlier.kind === 'segment' && earlier.state === 'handed' && earlier.over !== undefined && ridesTheRecordStarting(earlierIndex))
+            // Not a cue riding the END of a record: that record is over once the next one starts, so a
+            // cue still handed then never fired, and is swept like anything else.
+            if (
+                earlier.kind === 'segment' &&
+                earlier.state === 'handed' &&
+                earlier.over !== undefined &&
+                earlier.over.endOf !== true &&
+                ridesTheRecordStarting(earlierIndex)
+            )
                 return;
 
             earlier.state = 'skipped';
@@ -1111,6 +1158,11 @@ export class StationLineup implements LiveOrder {
         for (const item of this.itemList) {
             if (!wanted.has(item.id) || item.state !== 'handed') continue;
             item.state = 'planned';
+            // A link that was to ride the END of the record before it goes back to being an ordinary
+            // link. Kept as a cue, the next pass would read it as a talk-over of the record AFTER it,
+            // at an offset measured into the other one. Whether it rides an end again is decided
+            // afresh when that record is handed over.
+            if (item.kind === 'segment' && item.over?.endOf === true) delete item.over;
             count += 1;
         }
         return count;

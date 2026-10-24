@@ -275,6 +275,42 @@ The markers come from the record's timed lyrics, or from an operator's correctio
 page, which wins until it is cleared. No audio is cut or joined for any of this: the mixer does exactly
 what it does for an interrupting talk-over ([`playout.md`](playout.md) § "What decides a blend").
 
+## Talking over the end of a record
+
+**A link that fits between the last sung word of the record before it and that record's end is said
+over its outro, and that record does not blend into the next.** `breaks.talkOut`, off (`talk.out.ts`).
+The talk-up's mirror and decided the same way, at hand-over, on the clip's real length, failing open link
+by link. Three things differ, and each was a choice.
+
+**It is decided at the RECORD's hand-over, not the link's.** The cue rides the record before it, and that
+record goes to the player first, usually a record ahead of when the link would be taken from the order.
+So `DirectorService.talkOutCues` asks, for each record in the batch, whether `segmentRightAfter` is a
+ready, measured talk link whose claims hold with this record behind it and the next in front, and
+`handOverTalkingOut` makes it a cue then, `over: { atMs, endOf: true }`. The loop skips that link when it
+reaches it, since read as an ordinary talk-over it would ride the record AFTER it. Two links are left
+where they were: one that fits the next record's intro while the talk-up is on (the talk-up was here
+first, so switching this on changes nothing it already does), and one with a `claimsTime`, which would
+air a record earlier than anything checked it for.
+
+**The talk-over owns the boundary.** `annotate.ts` stamps a hard join on a record whose voice is
+`endOf`, whatever `blendFor` would say, and the link ends at the record's measured `cue_out`. Ending
+it before the blend instead keeps the mix and puts the cue's timing against the cross buffer, which
+`radio.liq`'s note on `on_air_elapsed` records an earlier version getting wrong. It was measured
+possible only once that clock stopped running 3.5% slow: a cue due 170s in landed three seconds late.
+
+**The tail runs from the last sung word, and an unknown end is no tail.** `tailFor` needs both the
+markers' `endMs` and a measured `cueOutMs`, shifted onto the aired timeline as `runwayFor` does the
+onset, and the link may not start inside `breaks.talkUpSafetyMs` of that last word. An operator's
+correction of the post alone answers `endMs == onsetMs`, which is read as nothing known about the
+outro rather than a tail the length of the record. An instrumental airs its link in the gap, as for
+the talk-up: "nothing sung" is a claim, and talking over a record somebody mislabelled is talking over
+the singing.
+
+**A cue on an end that is reclaimed becomes an ordinary link again.** `StationLineup.reclaim` drops its
+`over`, since a retract or a restart offering it again as a cue would read it as riding the next record
+at an offset measured into the previous one. And `markAiring` does not exempt it when the next record
+starts, unlike a cue on a start: its record is over by then, so a cue still `handed` never fired.
+
 ## What a record is about, and the words it never says
 
 **The writer of a link is shown a sentence about each record and never its lyric**, with

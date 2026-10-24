@@ -1051,8 +1051,10 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     public var segmentWriter: String?
     /// Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
     public var overAtMs: Int?
+    /// Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over
+    public var overEndOf: Bool?
 
-    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil) {
+    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil, overEndOf: Bool? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -1076,6 +1078,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.segmentError = segmentError
         self.segmentWriter = segmentWriter
         self.overAtMs = overAtMs
+        self.overEndOf = overEndOf
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1102,6 +1105,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         case segmentError = "segmentError"
         case segmentWriter = "segmentWriter"
         case overAtMs = "overAtMs"
+        case overEndOf = "overEndOf"
     }
 
     public init(from decoder: Decoder) throws {
@@ -1129,6 +1133,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.segmentError = try container.decodeIfPresent(String.self, forKey: .segmentError)
         self.segmentWriter = try container.decodeIfPresent(String.self, forKey: .segmentWriter)
         self.overAtMs = try container.decodeIfPresent(Int.self, forKey: .overAtMs)
+        self.overEndOf = try container.decodeIfPresent(Bool.self, forKey: .overEndOf)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1156,6 +1161,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.segmentError, forKey: .segmentError)
         try container.encodeIfPresent(self.segmentWriter, forKey: .segmentWriter)
         try container.encodeIfPresent(self.overAtMs, forKey: .overAtMs)
+        try container.encodeIfPresent(self.overEndOf, forKey: .overEndOf)
     }
 }
 

@@ -507,6 +507,12 @@ export const StationOrderItem = z.strictObject({
         .describe(
             'Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right',
         ),
+    overEndOf: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over',
+        ),
 });
 export type StationOrderItem = z.infer<typeof StationOrderItem>;
 

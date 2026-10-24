@@ -137,6 +137,7 @@ export const onair = {
         backToAir: 'Back to what is on air',
         segment: 'segment',
         over: 'over the next record',
+        overEnd: 'over the end of the last record',
         mixedInHint: 'The station mixed this in because it sounds like the record before it. The playlist did not name it.',
         mixedIn: 'mixed in',
         followsRequestHint: 'The station chose this because it sounds like the listener request before it, on a request show.',

@@ -420,6 +420,8 @@ data class StationOrderItem(
     val segmentWriter: String? = null,
     /** Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right */
     val overAtMs: Long? = null,
+    /** Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over */
+    val overEndOf: Boolean? = null,
 )
 
 /** Ask the station to say something. The station decides where it goes, and may decline */

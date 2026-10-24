@@ -871,7 +871,7 @@ const OrderRow = memo(function OrderRow({
                                             ducked under it. */}
                     {item.overAtMs === undefined ? undefined : (
                         <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
-                            {t('order.over')}
+                            {item.overEndOf ? t('order.overEnd') : t('order.over')}
                         </AuthoredBadge>
                     )}
                     {/* A record the station chose to sound like the playlist around it, rather

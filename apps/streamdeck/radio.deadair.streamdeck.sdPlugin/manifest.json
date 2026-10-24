@@ -98,7 +98,6 @@
             "States": [
                 {
                     "Image": "imgs/actions/request/key",
-                    "Title": "Pick a\nrecord",
                     "TitleAlignment": "bottom",
                     "FontSize": 9
                 }

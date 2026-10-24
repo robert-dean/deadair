@@ -281,7 +281,7 @@ dropped by its `q`.
 **Action settings, holding the record AND the station it was found on.** Every key asks for its own
 record, and a track id and a title are fine in an exported profile. The station's origin is kept
 beside the record because a track id names a record on one station: pointed elsewhere, the key draws
-"Pick again", faint, and refuses the press rather than sending an id the new station would read as
+faint and refuses the press rather than sending an id the new station would read as
 another record or none. `StationLink.onChange` redraws every Request key, as it empties the ratings.
 
 **A refusal is a 201, not an error.** The station answers `declined` with its own `reason`, so the
@@ -290,12 +290,13 @@ key shows the warning triangle and the log carries the station's sentence; every
 request on to `queued` and `aired` was considered and left out: it is another poll (`/requests/mine`)
 on a rate-limit bucket the whole network shares, for a state the console already shows.
 
-**The title is the app's own, so the operator can switch it off.** The manifest leaves the Request
-action's title controls ON (every other action turns them off) and gives the state "Pick a record"
-as its title, which is what the plugin also sends a key with no record. The app's Show Title switch
-is meant to hide whatever the plugin sends, the record's name included, for an operator who wants
-the icon alone; that it does so for a title set by `setTitle` is not yet confirmed on a device. What it does not do is keep a title somebody TYPES: the plugin sends the record's name on
-every redraw, which replaces it.
+**The key sends no title at all, and the title is the operator's.** It is the icon alone, faint
+when it would refuse the press, and the sentence for why (no record, a record from another station,
+no station) goes to the log on the press rather than onto the key. The manifest leaves the action's
+title controls ON (every other action turns them off) and names no title, so a label the operator
+types in the app stays, because the plugin never calls `setTitle` to replace it. This was the
+record's title and artist first, then "Pick a record" made the app's title so Show Title could hide
+it; Robert's call after that was to drop the text outright.
 
 **These keys take no hold on the poller.** Nothing they draw depends on what is on air, so a deck of
 Request keys asks the station nothing until one is pressed or its panel searches. They draw the
@@ -463,7 +464,7 @@ a settings change redrawing only its own key; the panel's checkboxes opened on a
 and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
 A Request key with no record drawing faint, the panel's search crossing to the plugin and back with
 both a library and a provider row, a row picked and saved on the key with its station, the key then
-titled with the record, a press sending its `trackId` with the bearer and ticking, and a refusal
+drawn live, a press sending its `trackId` with the bearer and ticking, and a refusal
 showing the triangle with the station's reason in the log; the panel itself in a browser listing
 three rows and marking the one picked. A Grant key reading the line oldest first, a press granting
 the oldest and the next press the one after, and a press with nothing waiting refusing without asking.

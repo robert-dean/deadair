@@ -70,11 +70,13 @@ export class RequestKeys {
 
     async press(id: string): Promise<void> {
         const face = this.painter.get(id);
-        const press = this.view(id).press;
-        if (press === undefined || this.busy.has(id)) {
+        const view = this.view(id);
+        if (view.dim) this.options.log(view.refusal);
+        if (view.dim || this.busy.has(id)) {
             await face?.showAlert().catch(() => undefined);
             return;
         }
+        const press = view.press;
         this.busy.add(id);
         try {
             const requests = this.options.requests();
@@ -101,7 +103,8 @@ export class RequestKeys {
 
     private render(id: string): void {
         const view = this.view(id);
-        this.painter.paint(id, { image: view.dim ? this.faces.dim : this.faces.live, title: view.title });
+        // The image alone: a title the operator typed in the app is left as it is.
+        this.painter.paint(id, { image: view.dim ? this.faces.dim : this.faces.live });
     }
 
     private view(id: string) {

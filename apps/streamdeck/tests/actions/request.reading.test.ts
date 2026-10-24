@@ -34,28 +34,30 @@ describe('requestSettingsFrom', () => {
 });
 
 describe('requestView', () => {
-    it('asks for the record by its track id, titled as Now Playing titles one', () => {
-        expect(requestView({ record: held, station: ORIGIN }, ORIGIN)).toEqual({
-            title: 'Pale Blue…\nThe Velvet…',
-            dim: false,
-            press: { trackId: held.trackId },
-        });
+    it('asks for the record by its track id', () => {
+        expect(requestView({ record: held, station: ORIGIN }, ORIGIN)).toEqual({ dim: false, press: { trackId: held.trackId } });
     });
 
     it('asks for a provider’s record by its source', () => {
-        expect(requestView({ record: carried, station: ORIGIN }, ORIGIN).press).toEqual({ source: carried.source });
+        expect(requestView({ record: carried, station: ORIGIN }, ORIGIN)).toEqual({ dim: false, press: { source: carried.source } });
     });
 
     it('refuses a press with no record, saying so', () => {
-        expect(requestView({}, ORIGIN)).toEqual({ title: 'Pick a\nrecord', dim: true });
+        expect(requestView({}, ORIGIN)).toEqual({ dim: true, refusal: 'This Request key has no record yet. Open its settings and pick one.' });
     });
 
     it('refuses a record found on another station, because its id names another record there', () => {
-        expect(requestView({ record: held, station: 'https://elsewhere.example.com' }, ORIGIN)).toEqual({ title: 'Pick again', dim: true });
+        expect(requestView({ record: held, station: 'https://elsewhere.example.com' }, ORIGIN)).toEqual({
+            dim: true,
+            refusal: "This Request key's record, “Pale Blue Eyes”, was picked on another station. Open its settings and pick it again.",
+        });
     });
 
     it('refuses everything with no station set up', () => {
-        expect(requestView({ record: held, station: ORIGIN }, undefined)).toEqual({ title: 'Set up', dim: true });
+        expect(requestView({ record: held, station: ORIGIN }, undefined)).toMatchObject({
+            dim: true,
+            refusal: expect.stringMatching(/No station yet/),
+        });
     });
 });
 

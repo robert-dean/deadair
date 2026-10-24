@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { GRANT } from '../src/actions/grant.reading.js';
 import { NOW_PLAYING } from '../src/actions/now.playing.options.js';
-import { REQUEST, requestView } from '../src/actions/request.reading.js';
+import { REQUEST } from '../src/actions/request.reading.js';
 import { DISLIKE, LIKE } from '../src/actions/vote.reading.js';
 
 // `streamdeck validate` checks all of this too, but it fetches the manifest's URLs first and so needs
@@ -60,10 +60,10 @@ describe('the plugin manifest', () => {
         }
     });
 
-    it('lets the app show or hide the Request key’s title, which starts as what an unset key says', () => {
+    it('leaves the Request key’s title to the operator: the plugin sends none, and the manifest gives none', () => {
         const request = manifest.Actions.find(action => action.UUID === REQUEST);
         expect(request?.UserTitleEnabled).not.toBe(false);
-        expect(request?.States[0]?.Title).toBe(requestView({}, 'https://radio.example.com').title);
+        expect(request?.States[0]?.Title).toBeUndefined();
     });
 
     it('names every action under the plugin’s own id', () => {

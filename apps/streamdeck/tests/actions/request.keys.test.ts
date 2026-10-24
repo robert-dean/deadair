@@ -33,12 +33,11 @@ const last = (calls: string[], what: string): string | undefined => calls.filter
 const face = (dim: boolean): string => `image ${svgDataUri(requestSvg({ dim }))}`;
 
 describe('RequestKeys', () => {
-    it('draws its record and asks for it on a press, with a tick for a request the station took', async () => {
+    it('draws the icon alone and asks for its record on a press, with a tick for a request the station took', async () => {
         const { keys, key, requests } = deck();
         keys.show(key, { record, station: ORIGIN });
 
-        expect(last(key.calls, 'title')).toBe('title Pale Blue…\nThe Velvet…');
-        expect(last(key.calls, 'image')).toBe(face(false));
+        expect(key.calls).toEqual([face(false)]);
 
         await keys.press('request');
         expect(requests!.createRequest).toHaveBeenCalledWith({ trackId: record.trackId } satisfies ListenerRequestCreate);
@@ -62,15 +61,15 @@ describe('RequestKeys', () => {
         expect(log).toHaveBeenCalledWith(`The station turned down the request for “Pale Blue Eyes”: ${reason}`);
     });
 
-    it('asks nothing for a key with no record, and draws it faint', async () => {
-        const { keys, key, requests } = deck();
+    it('asks nothing for a key with no record, draws it faint, and says why in the log when pressed', async () => {
+        const { keys, key, requests, log } = deck();
         keys.show(key, {});
 
-        expect(last(key.calls, 'title')).toBe('title Pick a\nrecord');
-        expect(last(key.calls, 'image')).toBe(face(true));
+        expect(key.calls).toEqual([face(true)]);
         await keys.press('request');
         expect(requests!.createRequest).not.toHaveBeenCalled();
         expect(key.calls.at(-1)).toBe('alert');
+        expect(log).toHaveBeenCalledWith('This Request key has no record yet. Open its settings and pick one.');
     });
 
     it('stops asking for a record once the deck is pointed at another station', async () => {
@@ -78,16 +77,17 @@ describe('RequestKeys', () => {
         keys.show(key, { record, station: ORIGIN });
 
         moveTo('https://elsewhere.example.com');
-        expect(last(key.calls, 'title')).toBe('title Pick again');
+        expect(last(key.calls, 'image')).toBe(face(true));
         await keys.press('request');
         expect(requests!.createRequest).not.toHaveBeenCalled();
     });
 
-    it('redraws the one key whose settings changed', () => {
+    it('redraws the one key whose settings changed, and never sends a title', () => {
         const { keys, key } = deck();
         keys.show(key, {});
         keys.configure('request', { record, station: ORIGIN });
-        expect(last(key.calls, 'title')).toBe('title Pale Blue…\nThe Velvet…');
+        expect(last(key.calls, 'image')).toBe(face(false));
+        expect(key.calls.some(call => call.startsWith('title'))).toBe(false);
     });
 
     it('says in the log why a key may not ask, in words of its own', async () => {

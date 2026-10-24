@@ -1,6 +1,6 @@
 import type { ListenerRequestCreate, RequestableTrack } from '@deadair/sdk';
 
-import { fitLine } from '../display/key.title.js';
+import { describe } from '../station/connection.failure.js';
 
 /** The Request action's id, as the manifest names it. Fixed the day it is published. */
 export const REQUEST = 'radio.deadair.streamdeck.request';
@@ -10,7 +10,7 @@ export const REQUEST = 'radio.deadair.streamdeck.request';
  *
  * Exactly one of `trackId` and `source`, as `POST /requests` takes them: a record the station holds,
  * or one a music provider carries that the station takes in on the first press. The title and artist
- * are kept beside it because the key draws them and the station is asked nothing to do so.
+ * are kept beside it so the settings panel can say what the key asks for without asking the station.
  */
 export type RequestedRecord = {
     trackId?: string;
@@ -32,15 +32,17 @@ export type RequestSettings = {
     station?: string;
 };
 
-/** What one Request key shows, and what pressing it would ask. */
-export interface RequestView {
-    /** The record's title and artist, or what the key needs before it can ask. */
-    title: string;
-    /** The key has nothing it could ask for: drawn faint, as nothing on it is live. */
-    dim: boolean;
-    /** The body a press sends. Absent on a key that refuses the press and asks nothing. */
-    press?: ListenerRequestCreate;
-}
+/**
+ * What one Request key shows, and what pressing it would ask.
+ *
+ * No title: the key is the icon alone, faint when it would refuse the press, and what it would say
+ * about why goes to the log when it is pressed. A title the operator types in the Stream Deck app is
+ * theirs and is never replaced.
+ */
+export type RequestView =
+    | { dim: false; press: ListenerRequestCreate }
+    /** The key has nothing it could ask for: drawn faint, and `refusal` is the log's sentence for a press. */
+    | { dim: true; refusal: string };
 
 /**
  * The record a search row is saved as, keeping only what a press sends and the key draws.
@@ -76,23 +78,28 @@ export function requestSettingsFrom(settings: unknown): RequestSettings {
 /**
  * What a Request key shows, given its settings and the station the plugin is talking to now.
  *
- * A key with no record says so. A key whose record was found on another station refuses the press
- * and asks to be set again, rather than sending an id the station in use would read as a different
- * record or none: the operator moved the deck to another station, and the key cannot know what that
- * record is called there. With no station set up at all it says what every key says.
+ * A key with no record refuses the press. So does a key whose record was found on another station,
+ * rather than sending an id the station in use would read as a different record or none: the
+ * operator moved the deck to another station, and the key cannot know what that record is called
+ * there. With no station set up at all it says what every key says.
  */
 export function requestView(settings: RequestSettings, origin: string | undefined): RequestView {
     const record = settings.record;
-    if (origin === undefined) return { title: 'Set up', dim: true };
-    if (record === undefined) return { title: 'Pick a\nrecord', dim: true };
-    if (settings.station !== origin) return { title: 'Pick again', dim: true };
+    if (origin === undefined) return { dim: true, refusal: describe('unconfigured').sentence };
+    if (record === undefined) return { dim: true, refusal: 'This Request key has no record yet. Open its settings and pick one.' };
+    if (settings.station !== origin) {
+        return {
+            dim: true,
+            refusal: `This Request key's record, “${record.title}”, was picked on another station. Open its settings and pick it again.`,
+        };
+    }
     const press: ListenerRequestCreate = record.trackId !== undefined ? { trackId: record.trackId } : { source: record.source! };
-    return { title: requestTitle(record), dim: false, press };
+    return { dim: false, press };
 }
 
 /**
  * A search row as the settings panel lists it: the title, then what tells it from another recording
- * of the same title — the artist, the album, the year — and the provider, for a record the station
+ * of the same title (the artist, the album, the year), and the provider, for a record the station
  * does not hold yet and would take in on the first press.
  */
 export function rowLines(track: RequestableTrack): { title: string; by: string } {
@@ -108,9 +115,4 @@ export function samePick(found: RequestedRecord, record: RequestedRecord | undef
     return (
         found.trackId === undefined && found.source?.pluginId === record.source?.pluginId && found.source?.externalId === record.source?.externalId
     );
-}
-
-/** The record under the key, as the Now Playing key titles one: two lines, each cut to fit. */
-export function requestTitle(record: Pick<RequestedRecord, 'title' | 'artist'>): string {
-    return record.artist.trim() === '' ? fitLine(record.title) : `${fitLine(record.title)}\n${fitLine(record.artist)}`;
 }

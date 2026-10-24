@@ -28,13 +28,15 @@ answering — the key goes faint and refuses the press with the warning triangle
 
 **Request** asks the station to play one record, which you choose in the key's settings: search by
 title or artist and pick a row. The search offers what the station would accept, from your library
-first and then from your music providers. The key shows the record's title and who it is by. Press it
+first and then from your music providers. The key shows the request icon and no text; its settings
+say which record it asks for, and you can give it a title of your own in the Stream Deck app. Press it
 and the station takes the request as it takes one from the phone app, from the account that issued the
 API key: a tick when it is taken (playing soon, or waiting for an operator to approve it), the warning
 triangle when the station turns it down, with the station's reason in the log. The station takes one
 open request at a time from each account, so several Request keys are a shortlist to ask from in
-turn. If you point the plugin at another station, each Request key asks you to pick its record again,
-since the first station's records are not the second's.
+turn. A key with no record yet goes faint and refuses the press, and so does one whose record came
+from another station, since the first station's records are not the second's: pick it again in the
+key's settings. The log says which.
 
 **Grant request** is for a station that waits for an operator to approve each request. It shows how
 many are waiting and the title of the one that has waited longest, and a press lets that one through.

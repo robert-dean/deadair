@@ -102,6 +102,50 @@ public sealed record BreakKindInput
     public required long Position { get; init; }
 }
 
+/// <summary>One kind of break in a file: everything that says what it is, and nothing about how this station has it set</summary>
+public sealed record BreakKindFileKind
+{
+    /// <summary>What identifies the kind across two stations, and what a band on the format clock names</summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("brief")]
+    public required string Brief { get; init; }
+
+    [JsonPropertyName("rules")]
+    public required List<string> Rules { get; init; }
+
+    [JsonPropertyName("showsPrevious")]
+    public required bool ShowsPrevious { get; init; }
+
+    [JsonPropertyName("showsPlayed")]
+    public required bool ShowsPlayed { get; init; }
+
+    [JsonPropertyName("showsFacts")]
+    public required bool ShowsFacts { get; init; }
+
+    [JsonPropertyName("showsNotebook")]
+    public required bool ShowsNotebook { get; init; }
+}
+
+/// <summary>Something to know before pressing Import</summary>
+public sealed record BreakKindImportNotice
+{
+    /// <summary>Which sort, so a console can group by it rather than parsing the sentence</summary>
+    [JsonPropertyName("kind")]
+    public required BreakKindImportNoticeKind Kind { get; init; }
+
+    /// <summary>The whole of it, in the station's own words</summary>
+    [JsonPropertyName("message")]
+    public required string Message { get; init; }
+}
+
+/// <summary>Something to know before pressing Import</summary>
+public sealed record BreakKindImportNoticeInput;
+
 public sealed record BreakKindList
 {
     [JsonPropertyName("kinds")]
@@ -112,4 +156,231 @@ public sealed record BreakKindListInput
 {
     [JsonPropertyName("kinds")]
     public required List<BreakKindInput> Kinds { get; init; }
+}
+
+/// <summary>Kinds of break as a file, to move between stations. No id, no place in a list and no switch: a kind arrives switched off wherever it lands, so it is read back before it airs</summary>
+public sealed record BreakKindFile
+{
+    /// <summary>What shape this is, so a file from a later build says so rather than being read wrongly</summary>
+    [JsonPropertyName("format")]
+    public required string Format { get; init; }
+
+    /// <summary>When it was exported, ISO-8601</summary>
+    [JsonPropertyName("takenAt")]
+    public required string TakenAt { get; init; }
+
+    /// <summary>The station it was taken from. Provenance only</summary>
+    [JsonPropertyName("station")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Station { get; init; }
+
+    [JsonPropertyName("kinds")]
+    public required List<BreakKindFileKind> Kinds { get; init; }
+}
+
+/// <summary>One kind in a file, and what would become of it here</summary>
+public sealed record BreakKindImportEntry
+{
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>New here; already here and named in `replace`, so rewritten; already here and left alone; or a key this station uses for a break of its own, which no file can take</summary>
+    [JsonPropertyName("outcome")]
+    public required BreakKindImportEntryOutcome Outcome { get; init; }
+
+    [JsonPropertyName("notices")]
+    public required List<BreakKindImportNotice> Notices { get; init; }
+}
+
+/// <summary>One kind in a file, and what would become of it here</summary>
+public sealed record BreakKindImportEntryInput;
+
+/// <summary>What importing a file WOULD do here, worked out by the same code the import runs and written nowhere</summary>
+public sealed record BreakKindImportPlan
+{
+    /// <summary>What the file said it was</summary>
+    [JsonPropertyName("format")]
+    public required string Format { get; init; }
+
+    /// <summary>The station it was taken from, when it said</summary>
+    [JsonPropertyName("station")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Station { get; init; }
+
+    /// <summary>When it was taken, when it said</summary>
+    [JsonPropertyName("takenAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TakenAt { get; init; }
+
+    /// <summary>About the file rather than any one kind in it</summary>
+    [JsonPropertyName("notices")]
+    public required List<BreakKindImportNotice> Notices { get; init; }
+
+    [JsonPropertyName("kinds")]
+    public required List<BreakKindImportEntry> Kinds { get; init; }
+}
+
+/// <summary>What importing a file WOULD do here, worked out by the same code the import runs and written nowhere</summary>
+public sealed record BreakKindImportPlanInput;
+
+/// <summary>What importing did, with the plan it did it from. All or nothing</summary>
+public sealed record BreakKindImportResult
+{
+    [JsonPropertyName("plan")]
+    public required BreakKindImportPlan Plan { get; init; }
+
+    [JsonPropertyName("created")]
+    public required long Created { get; init; }
+
+    /// <summary>Kinds rewritten from the file, and switched off until read back</summary>
+    [JsonPropertyName("updated")]
+    public required long Updated { get; init; }
+
+    /// <summary>Kinds this station already held and was not asked to replace, or could not take</summary>
+    [JsonPropertyName("skipped")]
+    public required long Skipped { get; init; }
+
+    /// <summary>The list as it now stands</summary>
+    [JsonPropertyName("kinds")]
+    public required List<BreakKind> Kinds { get; init; }
+}
+
+/// <summary>What importing did, with the plan it did it from. All or nothing</summary>
+public sealed record BreakKindImportResultInput;
+
+/// <summary>New here; already here and named in `replace`, so rewritten; already here and left alone; or a key this station uses for a break of its own, which no file can take</summary>
+[JsonConverter(typeof(BreakKindImportEntryOutcomeConverter))]
+public enum BreakKindImportEntryOutcome
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("create")]
+    Create,
+
+    [JsonStringEnumMemberName("update")]
+    Update,
+
+    [JsonStringEnumMemberName("skip")]
+    Skip,
+
+    [JsonStringEnumMemberName("refuse")]
+    Refuse,
+}
+
+/// <summary>
+/// Reads and writes <see cref="BreakKindImportEntryOutcome"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="BreakKindImportEntryOutcome.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class BreakKindImportEntryOutcomeConverter : JsonConverter<BreakKindImportEntryOutcome>
+{
+    public override BreakKindImportEntryOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for BreakKindImportEntryOutcome, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, BreakKindImportEntryOutcome value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override BreakKindImportEntryOutcome ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, BreakKindImportEntryOutcome value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static BreakKindImportEntryOutcome FromWire(string? text) => text switch
+    {
+        "create" => BreakKindImportEntryOutcome.Create,
+        "update" => BreakKindImportEntryOutcome.Update,
+        "skip" => BreakKindImportEntryOutcome.Skip,
+        "refuse" => BreakKindImportEntryOutcome.Refuse,
+        _ => BreakKindImportEntryOutcome.Unknown,
+    };
+
+    private static string ToWire(BreakKindImportEntryOutcome value) => value switch
+    {
+        BreakKindImportEntryOutcome.Create => "create",
+        BreakKindImportEntryOutcome.Update => "update",
+        BreakKindImportEntryOutcome.Skip => "skip",
+        BreakKindImportEntryOutcome.Refuse => "refuse",
+        _ => throw new JsonException($"BreakKindImportEntryOutcome.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>Which sort, so a console can group by it rather than parsing the sentence</summary>
+[JsonConverter(typeof(BreakKindImportNoticeKindConverter))]
+public enum BreakKindImportNoticeKind
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("format")]
+    Format,
+
+    [JsonStringEnumMemberName("duplicate")]
+    Duplicate,
+
+    [JsonStringEnumMemberName("switched-off")]
+    SwitchedOff,
+
+    [JsonStringEnumMemberName("refused")]
+    Refused,
+}
+
+/// <summary>
+/// Reads and writes <see cref="BreakKindImportNoticeKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="BreakKindImportNoticeKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class BreakKindImportNoticeKindConverter : JsonConverter<BreakKindImportNoticeKind>
+{
+    public override BreakKindImportNoticeKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for BreakKindImportNoticeKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, BreakKindImportNoticeKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override BreakKindImportNoticeKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, BreakKindImportNoticeKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static BreakKindImportNoticeKind FromWire(string? text) => text switch
+    {
+        "format" => BreakKindImportNoticeKind.Format,
+        "duplicate" => BreakKindImportNoticeKind.Duplicate,
+        "switched-off" => BreakKindImportNoticeKind.SwitchedOff,
+        "refused" => BreakKindImportNoticeKind.Refused,
+        _ => BreakKindImportNoticeKind.Unknown,
+    };
+
+    private static string ToWire(BreakKindImportNoticeKind value) => value switch
+    {
+        BreakKindImportNoticeKind.Format => "format",
+        BreakKindImportNoticeKind.Duplicate => "duplicate",
+        BreakKindImportNoticeKind.SwitchedOff => "switched-off",
+        BreakKindImportNoticeKind.Refused => "refused",
+        _ => throw new JsonException($"BreakKindImportNoticeKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

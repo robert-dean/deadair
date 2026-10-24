@@ -1,7 +1,7 @@
 ---
 title: 'Create clock band'
 sidebar_label: 'Create clock band'
-sidebar_position: 6
+sidebar_position: 10
 mdx:
     format: 'md'
 ---

@@ -1,6 +1,6 @@
 ---
 title: 'QuietStationInput'
-sidebar_position: 8
+sidebar_position: 14
 mdx:
     format: 'md'
 ---

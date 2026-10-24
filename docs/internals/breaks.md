@@ -1127,7 +1127,12 @@ the clock, with no second check anywhere to agree with it. A single-writer kind 
 `BreakFloorWatch`, which only watches a model in front of a floor.
 
 **Off when written, and the key is for life.** `enabled` defaults false, so an operator reads a kind
-back before it airs, and an import will arrive the same way. The key is what a band asks for and what
+back before it airs, and an import arrives the same way: `deadair.break-kinds/1` (`break.kind.file.ts`)
+carries no id, no place and no switch, and every kind it writes, new or rewritten, lands off. A key
+already held is skipped unless the import names it in `replace`, because a key match is not consent,
+and a key the station makes itself is refused per kind rather than failing the file. Preview and import
+both run `planImport`, so what the preview said is what happens, and the import is all or nothing inside
+the request's transaction. The key is what a band asks for and what
 every planted segment carries, so `BreakKindsService` refuses a change to it and refuses a delete while a
 band names it; the band is the operator's to remove first, because that is the edit whose consequence
 they can see. A key the station already makes is refused at the form (a listed writer's kind, a produced

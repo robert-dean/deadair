@@ -1,7 +1,7 @@
 ---
 title: 'Stop steering'
 sidebar_label: 'Stop steering'
-sidebar_position: 32
+sidebar_position: 36
 mdx:
     format: 'md'
 ---

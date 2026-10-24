@@ -1660,6 +1660,104 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/BreakKindList'
+    '/breaks/kinds/export':
+        get:
+            operationId: exportAll
+            summary: 'Export break kinds'
+            description: 'Every kind of break you have written, as one file'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakKindFile'
+                    headers:
+                        Content-Disposition:
+                            schema:
+                                type: string
+    '/breaks/kinds/{id}/export':
+        get:
+            operationId: exportOne
+            summary: 'Export break kind'
+            description: 'One kind of break, as a file'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakKindFile'
+                    headers:
+                        Content-Disposition:
+                            schema:
+                                type: string
+                '404':
+                    description: 'Not found'
+    '/breaks/kinds/import/preview':
+        post:
+            operationId: preview
+            summary: 'Preview break kind import'
+            description: 'Reads a file and reports what importing it would create, rewrite, skip and refuse. Writes nothing'
+            parameters:
+                - name: replace
+                  in: query
+                  required: false
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                          minLength: 1
+                          maxLength: 60
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/BreakKindFile'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakKindImportPlan'
+    '/breaks/kinds/import':
+        post:
+            operationId: import
+            summary: 'Import break kinds'
+            description: 'Writes a file into this station and answers with what it did. Every kind it writes arrives switched off'
+            parameters:
+                - name: replace
+                  in: query
+                  required: false
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                          minLength: 1
+                          maxLength: 60
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/BreakKindFile'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakKindImportResult'
     '/clock/bands':
         get:
             operationId: listClockBands
@@ -1858,7 +1956,7 @@ paths:
                                 '$ref': '#/components/schemas/StationBreakRequest'
     '/director/route/preview':
         post:
-            operationId: preview
+            operationId: previewAnArtistRoute
             summary: 'Preview an artist route'
             description: 'Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be'
             requestBody:
@@ -2428,7 +2526,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/ConsoleLanguagePack'
         put:
-            operationId: import
+            operationId: importConsoleLanguage
             summary: 'Import console language'
             description: "Installs a language pack, replacing any pack already installed for the language. The tag in the path must be the pack's own"
             parameters:
@@ -9729,6 +9827,173 @@ components:
                     items:
                         '$ref': '#/components/schemas/BreakKind'
             required: [kinds]
+        BreakKindFile:
+            type: object
+            properties:
+                format:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                    description: 'What shape this is, so a file from a later build says so rather than being read wrongly'
+                takenAt:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'When it was exported, ISO-8601'
+                station:
+                    type: string
+                    maxLength: 100
+                    description: 'The station it was taken from. Provenance only'
+                kinds:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BreakKindFileKind'
+                    maxItems: 200
+            required: [format, takenAt, kinds]
+            description: 'Kinds of break as a file, to move between stations. No id, no place in a list and no switch: a kind arrives switched off wherever it lands, so it is read back before it airs'
+        BreakKindFileKind:
+            type: object
+            properties:
+                key:
+                    type: string
+                    minLength: 1
+                    maxLength: 60
+                    pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                    description: 'What identifies the kind across two stations, and what a band on the format clock names'
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                brief:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+                rules:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 500
+                    maxItems: 20
+                showsPrevious:
+                    type: boolean
+                showsPlayed:
+                    type: boolean
+                showsFacts:
+                    type: boolean
+                showsNotebook:
+                    type: boolean
+            required:
+                - key
+                - name
+                - brief
+                - rules
+                - showsPrevious
+                - showsPlayed
+                - showsFacts
+                - showsNotebook
+            description: 'One kind of break in a file: everything that says what it is, and nothing about how this station has it set'
+        BreakKindImportPlan:
+            type: object
+            properties:
+                format:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                    readOnly: true
+                    description: 'What the file said it was'
+                station:
+                    type: string
+                    maxLength: 100
+                    readOnly: true
+                    description: 'The station it was taken from, when it said'
+                takenAt:
+                    type: string
+                    maxLength: 40
+                    readOnly: true
+                    description: 'When it was taken, when it said'
+                notices:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BreakKindImportNotice'
+                    readOnly: true
+                    description: 'About the file rather than any one kind in it'
+                kinds:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BreakKindImportEntry'
+                    readOnly: true
+            required: [format, notices, kinds]
+            description: 'What importing a file WOULD do here, worked out by the same code the import runs and written nowhere'
+        BreakKindImportEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                    minLength: 1
+                    maxLength: 60
+                    readOnly: true
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    readOnly: true
+                outcome:
+                    type: string
+                    enum: [create, update, skip, refuse]
+                    readOnly: true
+                    description: 'New here; already here and named in `replace`, so rewritten; already here and left alone; or a key this station uses for a break of its own, which no file can take'
+                notices:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BreakKindImportNotice'
+                    readOnly: true
+            required: [key, name, outcome, notices]
+            description: 'One kind in a file, and what would become of it here'
+        BreakKindImportNotice:
+            type: object
+            properties:
+                kind:
+                    type: string
+                    enum: [format, duplicate, switched-off, refused]
+                    readOnly: true
+                    description: 'Which sort, so a console can group by it rather than parsing the sentence'
+                message:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                    readOnly: true
+                    description: "The whole of it, in the station's own words"
+            required: [kind, message]
+            description: 'Something to know before pressing Import'
+        BreakKindImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/BreakKindImportPlan'
+                    readOnly: true
+                created:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                updated:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Kinds rewritten from the file, and switched off until read back'
+                skipped:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Kinds this station already held and was not asked to replace, or could not take'
+                kinds:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BreakKind'
+                    readOnly: true
+                    description: 'The list as it now stands'
+            required: [plan, created, updated, skipped, kinds]
+            description: 'What importing did, with the plan it did it from. All or nothing'
         ClockBand:
             type: object
             properties:

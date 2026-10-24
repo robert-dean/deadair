@@ -1,6 +1,7 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import type { BreakKindInput, BreakKindList } from '@deadair/sdk';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { BreakKindFile, BreakKindImportPlan, BreakKindImportResult, BreakKindInput, BreakKindList } from '@deadair/sdk';
 
+import { downloadFilename, saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
 import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
@@ -39,3 +40,37 @@ export const useUpdateBreakKind = () =>
     useBreakKindWrite(({ id, body }: { id: string; body: BreakKindInput }) => sdk.director.updateBreakKind(id, body));
 
 export const useDeleteBreakKind = () => useBreakKindWrite((id: string) => sdk.director.deleteBreakKind(id));
+
+/**
+ * Save the kinds to the operator's disk: one of them, or all of them. A plain function rather than a
+ * mutation, on `exportPersonas`' rule: the result is a file rather than state this app holds, and the
+ * filename is the server's, off `Content-Disposition`.
+ */
+export async function exportBreakKinds(id?: string): Promise<void> {
+    const { data, headers } = id === undefined ? await sdk.director.exportBreakKinds() : await sdk.director.exportBreakKind(id);
+
+    saveJsonDownload(data, downloadFilename(headers.contentDisposition, id === undefined ? 'break-kinds.json' : `${id}.json`));
+}
+
+/** What a file would do here. Writes nothing, so it touches no cache. */
+export const usePreviewBreakKindImport = () =>
+    useMutation<BreakKindImportPlan, Error, { file: BreakKindFile; replace: string[] }>({
+        mutationFn: ({ file, replace }) => sdk.director.previewBreakKindImport(file, replace.length === 0 ? undefined : { replace }),
+    });
+
+/**
+ * Write a file into the station. `replace` names the kinds already here the operator chose to rewrite;
+ * every other one already here is skipped, which is the API's default, so nothing is overwritten by
+ * forgetting to ask.
+ */
+export function useImportBreakKinds() {
+    const queryClient = useQueryClient();
+    return useMutation<BreakKindImportResult, Error, { file: BreakKindFile; replace: string[] }>({
+        mutationFn: ({ file, replace }) => sdk.director.importBreakKinds(file, replace.length === 0 ? undefined : { replace }),
+        onSuccess: result => {
+            queryClient.setQueryData<BreakKindList>(queryKeys.director.breakKinds(), { kinds: result.kinds });
+            // A rewritten kind is switched off, which changes what the clock can produce.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.clock() });
+        },
+    });
+}

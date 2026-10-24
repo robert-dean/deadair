@@ -5,6 +5,10 @@ export const breaks = {
         description:
             'A kind of break you write yourself: a short brief saying what it is for, and what the presenter may see while writing one. Switch it on, then add a band for it on the format clock, and the station writes one whenever the band comes round, in the voice of whoever is presenting.',
         new: 'New kind of break',
+        import: 'Import',
+        exportAll: 'Export all',
+        exportAriaLabel: 'Export {{name}}',
+        exportFailedTitle: 'Could not export',
         loadFailedTitle: 'Could not load your kinds of break',
         loadFailedFallback: 'The station did not answer.',
         deleteFailedTitle: 'Could not delete that kind of break',
@@ -39,6 +43,48 @@ export const breaks = {
         notes: {
             rules: 'The station’s own rules for every break still apply on top of whatever you write here: a break stays in character, names no record it was not shown and states nothing it was not told.',
         },
+    },
+    import: {
+        title: 'Import kinds of break',
+        intro: 'Choose a file exported from this or another station. You see what it would do before anything is written, and every kind it writes arrives switched off, so you can read it back first.',
+        choose: 'Choose a file',
+        chooseAnother: 'Choose another file',
+        unreadable: '{{name}} is not a file this console can read.',
+        previewFailedTitle: 'Could not read that file',
+        previewFailedFallback: 'The station did not say why.',
+        writeFailedTitle: 'Could not import it',
+        writeFailedFallback: 'Nothing was written.',
+        held: {
+            title_one: 'You already have {{count}} of these',
+            title_other: 'You already have {{count}} of these',
+            body: 'A kind you already have is left alone unless you choose to replace it. Replacing rewrites it from the file and switches it off.',
+        },
+        column: {
+            kind: 'Kind of break',
+            landsAs: 'Here it would be',
+        },
+        choice: {
+            label: 'What to do with {{name}}',
+            skip: 'Keep mine',
+            replace: 'Replace',
+        },
+        outcome: {
+            create: 'New',
+            update: 'Replaced',
+            skip: 'Kept',
+            refuse: 'Not allowed',
+        },
+        button: {
+            nothing: 'Nothing to import',
+            write_one: 'Import {{count}} kind',
+            write_other: 'Import {{count}} kinds',
+        },
+        result: {
+            title: 'Imported',
+            summary: '{{created}} new, {{updated}} replaced, {{skipped}} left as they were.',
+            off: 'Everything imported is switched off. Read each one back, then switch it on.',
+        },
+        done: 'Done',
     },
     editor: {
         newTitle: 'New kind of break',

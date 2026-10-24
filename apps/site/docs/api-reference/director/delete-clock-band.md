@@ -1,7 +1,7 @@
 ---
 title: 'Delete clock band'
 sidebar_label: 'Delete clock band'
-sidebar_position: 8
+sidebar_position: 12
 mdx:
     format: 'md'
 ---

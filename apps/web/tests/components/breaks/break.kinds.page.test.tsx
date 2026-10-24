@@ -13,6 +13,16 @@ const createBreakKind = vi.fn();
 const updateBreakKind = vi.fn();
 const deleteBreakKind = vi.fn();
 const listClockBands = vi.fn();
+const exportBreakKinds = vi.fn();
+const exportBreakKind = vi.fn();
+const previewBreakKindImport = vi.fn();
+const importBreakKinds = vi.fn();
+const saveJsonDownload = vi.fn();
+
+vi.mock('../../../src/components/shared/download', async importOriginal => ({
+    ...(await importOriginal<typeof import('../../../src/components/shared/download')>()),
+    saveJsonDownload: (document: unknown, filename: string) => saveJsonDownload(document, filename),
+}));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -22,6 +32,10 @@ vi.mock('../../../src/api/client', () => ({
             updateBreakKind: (id: string, body: unknown) => updateBreakKind(id, body),
             deleteBreakKind: (id: string) => deleteBreakKind(id),
             listClockBands: () => listClockBands(),
+            exportBreakKinds: () => exportBreakKinds(),
+            exportBreakKind: (id: string) => exportBreakKind(id),
+            previewBreakKindImport: (body: unknown, query: unknown) => previewBreakKindImport(body, query),
+            importBreakKinds: (body: unknown, query: unknown) => importBreakKinds(body, query),
         },
     },
 }));
@@ -164,5 +178,71 @@ describe('BreakKindsPage', () => {
         await user.click(await screen.findByRole('button', { name: 'Delete' }));
 
         expect(await screen.findByText(/still names "poem"/)).toBeTruthy();
+    });
+
+    it('exports one kind under the filename the station gives it', async () => {
+        listBreakKinds.mockResolvedValue(list(kind()));
+        listClockBands.mockResolvedValue(clock([], ['poem']));
+        const body = { format: 'deadair.break-kinds/1', takenAt: '2026-10-24T12:00:00.000Z', kinds: [] };
+        exportBreakKind.mockResolvedValue({ data: body, headers: { contentDisposition: 'attachment; filename="poem-2026-10-24.json"' } });
+        const user = setupUser();
+
+        render(<BreakKindsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Export A poem about the moment' }));
+
+        await waitFor(() => expect(saveJsonDownload).toHaveBeenCalledWith(body, 'poem-2026-10-24.json'));
+        expect(exportBreakKind).toHaveBeenCalledWith('kind-1');
+    });
+
+    it('previews a chosen file, offers to replace a kind already here, and says everything arrives switched off', async () => {
+        listBreakKinds.mockResolvedValue(list(kind()));
+        listClockBands.mockResolvedValue(clock([], ['poem']));
+        const plan = (outcome: 'skip' | 'update') => ({
+            format: 'deadair.break-kinds/1',
+            notices: [],
+            kinds: [
+                { key: 'poem', name: 'A poem about the moment', outcome, notices: [] },
+                { key: 'taping', name: 'Taping off the radio', outcome: 'create', notices: [] },
+            ],
+        });
+        previewBreakKindImport.mockImplementation(async (_body: unknown, query?: { replace?: string[] }) =>
+            plan(query?.replace?.includes('poem') ? 'update' : 'skip'),
+        );
+        importBreakKinds.mockResolvedValue({ plan: plan('update'), created: 1, updated: 1, skipped: 0, kinds: [kind({ enabled: false })] });
+        const user = setupUser();
+
+        render(<BreakKindsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        const chosen = new File([JSON.stringify({ format: 'deadair.break-kinds/1', takenAt: 'x', kinds: [] })], 'kinds.json', {
+            type: 'application/json',
+        });
+        await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, chosen);
+
+        expect(await screen.findByText('Taping off the radio')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Import 1 kind' })).toBeTruthy();
+
+        await user.click(screen.getByText('Replace'));
+        await waitFor(() => expect(previewBreakKindImport).toHaveBeenLastCalledWith(expect.anything(), { replace: ['poem'] }));
+        await user.click(await screen.findByRole('button', { name: 'Import 2 kinds' }));
+
+        await waitFor(() => expect(importBreakKinds).toHaveBeenCalledWith(expect.anything(), { replace: ['poem'] }));
+        expect(await screen.findByText('Everything imported is switched off. Read each one back, then switch it on.')).toBeTruthy();
+    });
+
+    it('says a file it cannot read is unreadable, and asks the station nothing', async () => {
+        listBreakKinds.mockResolvedValue(list());
+        listClockBands.mockResolvedValue(clock([], []));
+        previewBreakKindImport.mockClear();
+        const user = setupUser();
+
+        render(<BreakKindsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        await user.upload(
+            document.querySelector('input[type="file"]') as HTMLInputElement,
+            new File(['not json'], 'notes.json', { type: 'application/json' }),
+        );
+
+        expect(await screen.findByText('notes.json is not a file this console can read.')).toBeTruthy();
+        expect(previewBreakKindImport).not.toHaveBeenCalled();
     });
 });

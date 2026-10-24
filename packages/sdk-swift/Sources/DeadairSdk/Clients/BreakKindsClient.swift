@@ -42,4 +42,113 @@ public final class BreakKindsClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(BreakKindList.self, from: response)
     }
+
+    /// Export break kinds
+    /// Every kind of break you have written, as one file
+    public func exportBreakKinds() async throws -> ExportBreakKindsResult {
+        let request = SdkRequest(method: "GET", path: ["breaks", "kinds", "export"])
+        let response = try await http.execute(request)
+        let headers = try ExportBreakKindsHeaders(
+            contentDisposition: http.optionalHeader(response, "Content-Disposition", as: String.self)
+        )
+        return ExportBreakKindsResult(data: try http.decodeJSON(BreakKindFile.self, from: response), headers: headers)
+    }
+
+    /// Export break kind
+    /// One kind of break, as a file
+    /// - Throws: `SdkError` on 404
+    public func exportBreakKind(id: String) async throws -> ExportBreakKindResult {
+        let request = try SdkRequest(method: "GET", path: ["breaks", "kinds", http.segment(id), "export"])
+        let response = try await http.execute(request)
+        let headers = try ExportBreakKindHeaders(
+            contentDisposition: http.optionalHeader(response, "Content-Disposition", as: String.self)
+        )
+        return ExportBreakKindResult(data: try http.decodeJSON(BreakKindFile.self, from: response), headers: headers)
+    }
+
+    /// Preview break kind import
+    /// Reads a file and reports what importing it would create, rewrite, skip and refuse. Writes nothing
+    public func previewBreakKindImport(body: BreakKindFile, query: PreviewBreakKindImportQuery? = nil) async throws -> BreakKindImportPlan {
+        var request = SdkRequest(method: "POST", path: ["breaks", "kinds", "import", "preview"])
+        try http.addQuery(&request, query)
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(BreakKindImportPlan.self, from: response)
+    }
+
+    /// Import break kinds
+    /// Writes a file into this station and answers with what it did. Every kind it writes arrives switched off
+    public func importBreakKinds(body: BreakKindFile, query: ImportBreakKindsQuery? = nil) async throws -> BreakKindImportResult {
+        var request = SdkRequest(method: "POST", path: ["breaks", "kinds", "import"])
+        try http.addQuery(&request, query)
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(BreakKindImportResult.self, from: response)
+    }
+}
+
+/// Response headers declared on GET /breaks/kinds/export.
+public struct ExportBreakKindsHeaders: Equatable, Sendable {
+    public let contentDisposition: String?
+
+    public init(contentDisposition: String?) {
+        self.contentDisposition = contentDisposition
+    }
+}
+
+/// The body of GET /breaks/kinds/export, with the response headers the contract declares.
+public struct ExportBreakKindsResult: Equatable, Sendable {
+    public let data: BreakKindFile
+    public let headers: ExportBreakKindsHeaders
+
+    public init(data: BreakKindFile, headers: ExportBreakKindsHeaders) {
+        self.data = data
+        self.headers = headers
+    }
+}
+
+/// Response headers declared on GET /breaks/kinds/{id}/export.
+public struct ExportBreakKindHeaders: Equatable, Sendable {
+    public let contentDisposition: String?
+
+    public init(contentDisposition: String?) {
+        self.contentDisposition = contentDisposition
+    }
+}
+
+/// The body of GET /breaks/kinds/{id}/export, with the response headers the contract declares.
+public struct ExportBreakKindResult: Equatable, Sendable {
+    public let data: BreakKindFile
+    public let headers: ExportBreakKindHeaders
+
+    public init(data: BreakKindFile, headers: ExportBreakKindHeaders) {
+        self.data = data
+        self.headers = headers
+    }
+}
+
+/// Query parameters for POST /breaks/kinds/import/preview.
+public struct PreviewBreakKindImportQuery: Encodable, Equatable, Sendable {
+    public var replace: [String]?
+
+    public init(replace: [String]? = nil) {
+        self.replace = replace
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case replace = "replace"
+    }
+}
+
+/// Query parameters for POST /breaks/kinds/import.
+public struct ImportBreakKindsQuery: Encodable, Equatable, Sendable {
+    public var replace: [String]?
+
+    public init(replace: [String]? = nil) {
+        self.replace = replace
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case replace = "replace"
+    }
 }

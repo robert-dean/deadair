@@ -4,6 +4,7 @@ options {
     }
     services: {
         BreakKindsService: "#src/modules/director/break.kinds.service.js"
+        BreakKindFileService: "#src/modules/director/break.kind.file.service.js"
     }
     security: {
         # The floor is the WRITE end, as in the clock and the topics: this file is one read and three
@@ -69,6 +70,89 @@ operation /breaks/kinds/{id}: {
         response: {
             200: {
                 application/json: BreakKindList
+            }
+        }
+    }
+}
+
+# The kinds as a file, to move between stations. A kind is prose the console already shows in full and
+# carries no credential, so reading one is the read floor, as the persona export is.
+operation /breaks/kinds/export: {
+    get: { # Every kind of break you have written, as one file
+        name: Export break kinds
+        security: {
+            policy: platform.view
+        }
+        service: BreakKindFileService.exportAll
+        response: {
+            200: {
+                application/json: BreakKindFile
+                headers: {
+                    Content-Disposition?: string
+                }
+            }
+        }
+    }
+}
+
+operation /breaks/kinds/{id}/export: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # One kind of break, as a file
+        name: Export break kind
+        security: {
+            policy: platform.view
+        }
+        service: BreakKindFileService.exportOne
+        response: {
+            200: {
+                application/json: BreakKindFile
+                headers: {
+                    Content-Disposition?: string
+                }
+            }
+            404:
+        }
+    }
+}
+
+# What a file WOULD do here, written nowhere. Its own verb rather than a flag on the import, so the
+# console can preview the moment a file is chosen and offer Import as a second, deliberate act.
+operation /breaks/kinds/import/preview: {
+    post: { # Reads a file and reports what importing it would create, rewrite, skip and refuse. Writes nothing
+        name: Preview break kind import
+        service: BreakKindFileService.preview
+        query: {
+            replace?: array(string(min=1, max=60)) # Keys of kinds this station already holds that the import should rewrite. Every other one it holds is skipped
+        }
+        request: {
+            application/json: BreakKindFile
+        }
+        response: {
+            200: {
+                application/json: BreakKindImportPlan
+            }
+        }
+    }
+}
+
+# Takes a file in. A kind this station does not hold is created; one it holds is skipped unless named
+# in `replace`, because a key match is not consent. Every kind written, new or rewritten, is switched
+# off, so a brief read from a file is read back here before it airs. All or nothing.
+operation /breaks/kinds/import: {
+    post: { # Writes a file into this station and answers with what it did. Every kind it writes arrives switched off
+        name: Import break kinds
+        service: BreakKindFileService.import
+        query: {
+            replace?: array(string(min=1, max=60)) # Keys of kinds this station already holds that the file should rewrite
+        }
+        request: {
+            application/json: BreakKindFile
+        }
+        response: {
+            200: {
+                application/json: BreakKindImportResult
             }
         }
     }

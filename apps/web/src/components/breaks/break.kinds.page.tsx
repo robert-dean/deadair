@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ActionIcon, Box, Button, Code, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
-import { IconTrash } from '@tabler/icons-react';
+import { IconDownload, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { BreakKind, BreakKindInput, ClockBandList } from '@deadair/sdk';
 
-import { useBreakKinds, useCreateBreakKind, useDeleteBreakKind, useUpdateBreakKind } from '../../api/break.kinds.queries';
+import { exportBreakKinds, useBreakKinds, useCreateBreakKind, useDeleteBreakKind, useUpdateBreakKind } from '../../api/break.kinds.queries';
 import { useClockBands } from '../../api/clock.queries';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
@@ -15,6 +15,10 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 import { BreakKindEditor, type BreakKindTarget } from './break.kind.editor';
+import { BreakKindImportModal } from './break.kind.import';
+
+/** What `exporting` holds while the whole list is being saved rather than one kind. */
+const ALL = '*';
 
 /**
  * The kinds of break an operator writes. Ideas #24.
@@ -42,6 +46,22 @@ export function BreakKindsPage() {
 
     const [editing, setEditing] = useState<BreakKindTarget | undefined>(undefined);
     const [deleting, setDeleting] = useState<BreakKind | undefined>(undefined);
+    const [importing, setImporting] = useState(false);
+    const [exporting, setExporting] = useState<string | undefined>(undefined);
+    const [exportFailure, setExportFailure] = useState<unknown>(undefined);
+
+    // One kind, or all of them. The failure is reported once at the top of the page whichever it was.
+    const save = async (id?: string) => {
+        setExporting(id ?? ALL);
+        setExportFailure(undefined);
+        try {
+            await exportBreakKinds(id);
+        } catch (error) {
+            setExportFailure(error);
+        } finally {
+            setExporting(undefined);
+        }
+    };
 
     const close = () => {
         setEditing(undefined);
@@ -69,8 +89,24 @@ export function BreakKindsPage() {
                         {t('page.description')}
                     </Text>
                 }
-                actions={<Button onClick={() => setEditing({ kind: 'new' })}>{t('page.new')}</Button>}
+                actions={
+                    <Group gap="xs">
+                        <Button variant="default" onClick={() => setImporting(true)}>
+                            {t('page.import')}
+                        </Button>
+                        {all.length > 0 ? (
+                            <Button variant="default" loading={exporting === ALL} onClick={() => void save()}>
+                                {t('page.exportAll')}
+                            </Button>
+                        ) : undefined}
+                        <Button onClick={() => setEditing({ kind: 'new' })}>{t('page.new')}</Button>
+                    </Group>
+                }
             />
+
+            {exportFailure ? (
+                <ErrorAlert title={t('page.exportFailedTitle')} error={exportFailure} fallback={t('page.loadFailedFallback')} />
+            ) : undefined}
 
             {remove.error && deleting === undefined ? (
                 <ErrorAlert title={t('page.deleteFailedTitle')} error={remove.error} fallback={t('page.nothingRemoved')} />
@@ -92,7 +128,7 @@ export function BreakKindsPage() {
                                     <Table.Th>{t('page.column.name')}</Table.Th>
                                     <Table.Th>{t('page.column.key')}</Table.Th>
                                     <Table.Th>{t('page.column.state')}</Table.Th>
-                                    <Table.Th w={48} />
+                                    <Table.Th w={72} />
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
@@ -117,7 +153,17 @@ export function BreakKindsPage() {
                                             </Group>
                                         </Table.Td>
                                         <Table.Td>
-                                            <Group justify="flex-end" onClick={event => event.stopPropagation()}>
+                                            <Group gap={2} justify="flex-end" onClick={event => event.stopPropagation()}>
+                                                <ActionIcon
+                                                    size="sm"
+                                                    variant="subtle"
+                                                    color="gray"
+                                                    aria-label={t('page.exportAriaLabel', { name: breakKind.name })}
+                                                    loading={exporting === breakKind.id}
+                                                    onClick={() => void save(breakKind.id)}
+                                                >
+                                                    <IconDownload size={14} />
+                                                </ActionIcon>
                                                 <ActionIcon
                                                     size="sm"
                                                     variant="subtle"
@@ -155,6 +201,8 @@ export function BreakKindsPage() {
                     error={create.error ?? update.error}
                 />
             ) : undefined}
+
+            <BreakKindImportModal opened={importing} onClose={() => setImporting(false)} />
 
             <ConfirmModal
                 opened={deleting !== undefined}

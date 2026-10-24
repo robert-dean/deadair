@@ -98,17 +98,22 @@ export class BreakKindsService {
         return await this.list();
     }
 
-    /**
-     * Every kind the station makes on its own: what its listed writers claim, what it produces or
-     * carries, and the kind every unlabelled recording is filed under.
-     */
     private stationKinds(): Set<string> {
-        return new Set([...this.writers.listedKinds(), ...productionKinds(this.config), SYNDICATED_KIND, NARRATION_KIND, DEFAULT_KIND]);
+        return stationMadeKinds(this.writers, this.config);
     }
 
     private refreshAfterCommit(): void {
         this.afterCommit.add(() => this.catalog.refresh());
     }
+}
+
+/**
+ * Every kind the station makes on its own: what its listed writers claim, what it produces or
+ * carries, and the kind every unlabelled recording is filed under. What no kind an operator writes,
+ * or imports, may be called.
+ */
+export function stationMadeKinds(writers: BreakWriterRegistry, config: AppConfig): Set<string> {
+    return new Set([...writers.listedKinds(), ...productionKinds(config), SYNDICATED_KIND, NARRATION_KIND, DEFAULT_KIND]);
 }
 
 /** A kind as the form sent it, trimmed, with blank rules dropped rather than kept as empty instructions. */

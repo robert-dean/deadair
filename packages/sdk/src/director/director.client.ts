@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { BreakKindInput, BreakKindList } from './types/break.kinds.types.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type { BreakKindFile, BreakKindImportPlan, BreakKindImportResult, BreakKindInput, BreakKindList } from './types/break.kinds.types.js';
 import type { ClockBandInput, ClockBandList } from './types/clock.types.js';
 import type {
     AddStationSegmentInput,
@@ -68,6 +68,54 @@ export class DirectorClient {
     async deleteBreakKind(id: string): Promise<BreakKindList> {
         const result = await this.fetch(`/breaks/kinds/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return await parseJson<BreakKindList>(result);
+    }
+
+    /**
+     * @name Export break kinds
+     * @description Every kind of break you have written, as one file
+     */
+    async exportBreakKinds(): Promise<{ data: BreakKindFile; headers: { contentDisposition?: string } }> {
+        const result = await this.fetch(`/breaks/kinds/export`, { method: 'GET' });
+        const data = await parseJson<BreakKindFile>(result);
+        return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
+    }
+
+    /**
+     * @name Export break kind
+     * @description One kind of break, as a file
+     */
+    async exportBreakKind(id: string): Promise<{ data: BreakKindFile; headers: { contentDisposition?: string } }> {
+        const result = await this.fetch(`/breaks/kinds/${encodeURIComponent(id)}/export`, { method: 'GET' });
+        const data = await parseJson<BreakKindFile>(result);
+        return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
+    }
+
+    /**
+     * @name Preview break kind import
+     * @description Reads a file and reports what importing it would create, rewrite, skip and refuse. Writes nothing
+     */
+    async previewBreakKindImport(body: BreakKindFile, query?: { replace?: string[] }): Promise<BreakKindImportPlan> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/breaks/kinds/import/preview${qs}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<BreakKindImportPlan>(result);
+    }
+
+    /**
+     * @name Import break kinds
+     * @description Writes a file into this station and answers with what it did. Every kind it writes arrives switched off
+     */
+    async importBreakKinds(body: BreakKindFile, query?: { replace?: string[] }): Promise<BreakKindImportResult> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/breaks/kinds/import${qs}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<BreakKindImportResult>(result);
     }
 
     /**

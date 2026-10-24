@@ -39,6 +39,7 @@ import { BreakKindCatalog } from './break.kind.catalog.js';
 import { AuthoredKinds } from './authored.break.writer.js';
 import { BreakKindRepository } from './break.kind.repository.js';
 import { BreakKindsService } from './break.kinds.service.js';
+import { BreakKindFileService } from './break.kind.file.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { BlockRulesService } from './block.rules.service.js';
@@ -340,6 +341,7 @@ export const DirectorModule: ServerKitModule = {
         // the switched-on ones held in memory, because the registry answers `canWrite` from memory.
         registry.register(BreakKindRepository).useClass(BreakKindRepository).asScoped();
         registry.register(BreakKindsService).useClass(BreakKindsService).asScoped();
+        registry.register(BreakKindFileService).useClass(BreakKindFileService).asScoped();
         registry.register(BreakKindCatalog).useClass(BreakKindCatalog).asSingleton();
         registry.register(AuthoredKinds).useClass(AuthoredKinds).asScoped();
         // Never-play rules and the genre steer: the repository is read by the pick path as well as

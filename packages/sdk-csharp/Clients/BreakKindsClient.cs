@@ -73,4 +73,93 @@ public sealed class BreakKindsClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<BreakKindList>(response);
     }
+
+    /// <summary>
+    /// Export break kinds
+    /// Every kind of break you have written, as one file
+    /// </summary>
+    public async Task<ExportBreakKindsResult> ExportBreakKindsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("breaks", "kinds", "export"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var headers = new ExportBreakKindsHeaders(
+            response.Header("Content-Disposition") is { } contentDisposition ? contentDisposition : null);
+        return new ExportBreakKindsResult(http.ReadJson<BreakKindFile>(response), headers);
+    }
+
+    /// <summary>
+    /// Export break kind
+    /// One kind of break, as a file
+    /// </summary>
+    /// <exception cref="SdkException">On 404.</exception>
+    public async Task<ExportBreakKindResult> ExportBreakKindAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("breaks", "kinds", http.Segment(id), "export"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var headers = new ExportBreakKindHeaders(
+            response.Header("Content-Disposition") is { } contentDisposition ? contentDisposition : null);
+        return new ExportBreakKindResult(http.ReadJson<BreakKindFile>(response), headers);
+    }
+
+    /// <summary>
+    /// Preview break kind import
+    /// Reads a file and reports what importing it would create, rewrite, skip and refuse. Writes nothing
+    /// </summary>
+    public async Task<BreakKindImportPlan> PreviewBreakKindImportAsync(BreakKindFile body, PreviewBreakKindImportQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("breaks", "kinds", "import", "preview"),
+            query: http.Params(query),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<BreakKindImportPlan>(response);
+    }
+
+    /// <summary>
+    /// Import break kinds
+    /// Writes a file into this station and answers with what it did. Every kind it writes arrives switched off
+    /// </summary>
+    public async Task<BreakKindImportResult> ImportBreakKindsAsync(BreakKindFile body, ImportBreakKindsQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("breaks", "kinds", "import"),
+            query: http.Params(query),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<BreakKindImportResult>(response);
+    }
+}
+
+/// <summary>Response headers declared on GET /breaks/kinds/export.</summary>
+public sealed record ExportBreakKindsHeaders(string? ContentDisposition);
+
+/// <summary>The body of GET /breaks/kinds/export, with the response headers the contract declares.</summary>
+public sealed record ExportBreakKindsResult(BreakKindFile Data, ExportBreakKindsHeaders Headers);
+
+/// <summary>Response headers declared on GET /breaks/kinds/{id}/export.</summary>
+public sealed record ExportBreakKindHeaders(string? ContentDisposition);
+
+/// <summary>The body of GET /breaks/kinds/{id}/export, with the response headers the contract declares.</summary>
+public sealed record ExportBreakKindResult(BreakKindFile Data, ExportBreakKindHeaders Headers);
+
+/// <summary>The query parameters declared on POST /breaks/kinds/import/preview.</summary>
+public sealed record PreviewBreakKindImportQuery
+{
+    [JsonPropertyName("replace")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Replace { get; init; }
+}
+
+/// <summary>The query parameters declared on POST /breaks/kinds/import.</summary>
+public sealed record ImportBreakKindsQuery
+{
+    [JsonPropertyName("replace")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Replace { get; init; }
 }

@@ -1,6 +1,6 @@
 ---
 title: 'RequestableBreakKind'
-sidebar_position: 23
+sidebar_position: 29
 mdx:
     format: 'md'
 ---

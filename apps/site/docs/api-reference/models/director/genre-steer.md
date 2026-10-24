@@ -1,6 +1,6 @@
 ---
 title: 'GenreSteer'
-sidebar_position: 32
+sidebar_position: 38
 mdx:
     format: 'md'
 ---

@@ -123,10 +123,9 @@ const pages = {
         heading('What is on air', 'The cover, the title, and a bar that fills as the record plays. Press it to open the console.') +
             key(760, 320, 400, playing.image, playing.title),
     ),
-    // Two rows rather than a fourth gallery image, because the Maker Console's gallery is the three
-    // this listing has always had and a limit nobody can read from here is not one to test on a
-    // submission (Elgato's documentation does not give one, checked 2026-10-24). The requests row is
-    // the second because it is the newer pair.
+    // Two rows, so every key that does something is on one image. The requests row is the second
+    // because it is the newer pair. The gallery holds more than three (see `marketplace/listing.md`),
+    // but one image per kind of key reads better than an image per key.
     'gallery-2-transport': page(
         heading('The keys that do something', 'Stop asks twice. Like and Dislike rate the record. Request asks for one.') +
             key(185, 300, 200, manifestKey('imgs/actions/skip/key.svg'), '', 'Skip') +

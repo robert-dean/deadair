@@ -152,6 +152,14 @@ export class BreakWriterRegistry {
         return [...kinds];
     }
 
+    /**
+     * The kinds the listed writers claim, without anything a claimant holds: what the station makes
+     * on its own, which is what a kind an operator writes may not be called.
+     */
+    listedKinds(): string[] {
+        return [...this.byKind.keys()];
+    }
+
     /** Which bindings write a kind, in the order they will be asked. */
     writersFor(kind: string): string[] {
         return this.writersOf(kind).map(writer => writer.name);

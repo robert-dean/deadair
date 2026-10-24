@@ -4,6 +4,7 @@ import { registerActivityMcpCatalog, registerActivityMcpToolClasses } from './ac
 import { registerArtBreaksMcpCatalog, registerArtBreaksMcpToolClasses } from './art.breaks.mcp.js';
 import { registerArtPersonasMcpCatalog, registerArtPersonasMcpToolClasses } from './art.personas.mcp.js';
 import { registerAuthenticationSessionsMcpCatalog, registerAuthenticationSessionsMcpToolClasses } from './authentication.sessions.mcp.js';
+import { registerBreakKindsMcpCatalog, registerBreakKindsMcpToolClasses } from './break.kinds.mcp.js';
 import { registerCatalogMcpCatalog, registerCatalogMcpToolClasses } from './catalog.mcp.js';
 import { registerChartsMcpCatalog, registerChartsMcpToolClasses } from './charts.mcp.js';
 import { registerClockMcpCatalog, registerClockMcpToolClasses } from './clock.mcp.js';
@@ -75,6 +76,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerArtBreaksMcpCatalog(map, container);
     registerArtPersonasMcpCatalog(map, container);
     registerAuthenticationSessionsMcpCatalog(map, container);
+    registerBreakKindsMcpCatalog(map, container);
     registerCatalogMcpCatalog(map, container);
     registerChartsMcpCatalog(map, container);
     registerClockMcpCatalog(map, container);
@@ -120,6 +122,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerArtBreaksMcpToolClasses(registry);
     registerArtPersonasMcpToolClasses(registry);
     registerAuthenticationSessionsMcpToolClasses(registry);
+    registerBreakKindsMcpToolClasses(registry);
     registerCatalogMcpToolClasses(registry);
     registerChartsMcpToolClasses(registry);
     registerClockMcpToolClasses(registry);

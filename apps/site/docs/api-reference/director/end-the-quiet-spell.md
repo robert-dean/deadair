@@ -1,7 +1,7 @@
 ---
 title: 'End the quiet spell'
 sidebar_label: 'End the quiet spell'
-sidebar_position: 17
+sidebar_position: 21
 mdx:
     format: 'md'
 ---

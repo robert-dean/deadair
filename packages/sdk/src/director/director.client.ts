@@ -1,5 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
+import type { BreakKindInput, BreakKindList } from './types/break.kinds.types.js';
 import type { ClockBandInput, ClockBandList } from './types/clock.types.js';
 import type {
     AddStationSegmentInput,
@@ -24,6 +25,50 @@ import { reviveBlockRuleList, reviveGenreSteerReading } from './types/rules.type
 
 export class DirectorClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List break kinds
+     * @description Every kind of break you have written, switched on or not, in your own order
+     */
+    async listBreakKinds(): Promise<BreakKindList> {
+        const result = await this.fetch(`/breaks/kinds`, { method: 'GET' });
+        return await parseJson<BreakKindList>(result);
+    }
+
+    /**
+     * @name Create break kind
+     * @description Writes a new kind of break. Nothing airs it until it is switched on and a band on the format clock names it
+     */
+    async createBreakKind(body: BreakKindInput): Promise<BreakKindList> {
+        const result = await this.fetch(`/breaks/kinds`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<BreakKindList>(result);
+    }
+
+    /**
+     * @name Update break kind
+     * @description Rewrites one kind of break. Its key cannot change. A break already written keeps the words it was given
+     */
+    async updateBreakKind(id: string, body: BreakKindInput): Promise<BreakKindList> {
+        const result = await this.fetch(`/breaks/kinds/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<BreakKindList>(result);
+    }
+
+    /**
+     * @name Delete break kind
+     * @description Removes a kind of break. Refused while a band on the format clock still names it
+     */
+    async deleteBreakKind(id: string): Promise<BreakKindList> {
+        const result = await this.fetch(`/breaks/kinds/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<BreakKindList>(result);
+    }
 
     /**
      * @name List clock bands

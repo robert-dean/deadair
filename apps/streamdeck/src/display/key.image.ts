@@ -118,8 +118,11 @@ function placeholder(colour: string): string {
     );
 }
 
+/** The console's accent (`phosphor` in `apps/web/src/theme.ts`), which is also the mark's field. */
+const PHOSPHOR = '#2FD98C';
+
 /** The colour a vote key's heart takes when the station holds that opinion. */
-const VOTE_COLOURS = { liked: '#2FD98C', disliked: '#FF4B4B' } as const;
+const VOTE_COLOURS = { liked: PHOSPHOR, disliked: '#FF4B4B' } as const;
 
 /** The mark's own ink, and the edge an unlit heart needs instead of it. */
 const INK = '#101413';
@@ -254,16 +257,15 @@ export const BADGE_MAX = 9;
 
 /**
  * A Request key as an SVG: the apps' Request icon, the bubble outlined and the note inside it, in
- * the console's standby blue, alone in the middle of the key.
+ * the station's phosphor green, alone in the middle of the key.
  *
- * Blue rather than a vote's green or Stop's red, because a request is neither an opinion nor the
- * transport: it is the station being asked, and standby is the console's colour for the station
- * being ready. Faint by the rule every key follows: nothing may look live on a key that would refuse
- * the press.
+ * Phosphor is the console's accent and the mark's field, so the request keys wear the station's own
+ * colour. It is also Like's lit heart; the two keys are told apart by their shapes, and a heart is
+ * green only when the station agrees, where these are green whenever they can be pressed. Faint by
+ * the rule every key follows: nothing may look live on a key that would refuse the press.
  */
 export function requestSvg(face: RequestFace): string {
-    const blue = TONE_COLOURS.standby;
-    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>`, face.dim);
+    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${PHOSPHOR}"/><path d="${NOTE}" fill="${PHOSPHOR}"/>`, face.dim);
 }
 
 /** What a Grant key draws. */
@@ -279,8 +281,9 @@ export interface GrantFace {
  * the request approved, and a count badge on its upper corner saying how many are waiting.
  *
  * The same bubble and note, because both keys are about a request and the deck should say so; the
- * tick is what makes it the approving one, read at a glance beside a Request key. The green is
- * Like's, which is the other key on the deck that means yes. The count is red because that is what a
+ * tick is what makes it the approving one, read at a glance beside a Request key. Everything green
+ * here is the same phosphor, and the tick still reads against the bubble because its badge sits on a
+ * ring of the key's own ground. The count is red because that is what a
  * waiting-count badge is everywhere else a person has seen one, and it is small enough not to be
  * mistaken for Stop. Both badges sit on a ring of the key's own ground so they read as laid over the
  * bubble rather than run into it.
@@ -290,10 +293,9 @@ export interface GrantFace {
  * is nothing waiting to let through.
  */
 export function grantSvg(face: GrantFace): string {
-    const blue = TONE_COLOURS.standby;
     const tick =
         `<circle cx="19" cy="17.5" r="5.2" fill="${CARBON}"/>` +
-        `<circle cx="19" cy="17.5" r="4.2" fill="${VOTE_COLOURS.liked}"/>` +
+        `<circle cx="19" cy="17.5" r="4.2" fill="${PHOSPHOR}"/>` +
         `<path d="M16.9 17.6 L18.4 19.1 L21.1 16.3" fill="none" stroke="${CARBON}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
     const count = face.dim || face.count === undefined || face.count < 1 ? undefined : face.count > BADGE_MAX ? `${BADGE_MAX}+` : String(face.count);
     const badge =
@@ -302,7 +304,7 @@ export function grantSvg(face: GrantFace): string {
             : `<circle cx="20.5" cy="3.5" r="6" fill="${CARBON}"/>` +
               `<circle cx="20.5" cy="3.5" r="5" fill="${TONE_COLOURS.live}"/>` +
               `<text x="20.5" y="5.6" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${count.length > 1 ? 5.2 : 6.2}" fill="#FFFFFF">${count}</text>`;
-    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>${tick}${badge}`, face.dim);
+    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${PHOSPHOR}"/><path d="${NOTE}" fill="${PHOSPHOR}"/>${tick}${badge}`, face.dim);
 }
 
 /** The Request icon's paths placed on a key, faint or not. */

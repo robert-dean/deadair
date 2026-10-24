@@ -302,8 +302,9 @@ it; Robert's call after that was to drop the text outright.
 Request keys asks the station nothing until one is pressed or its panel searches. They draw the
 listener apps' own Request icon (`requestSvg`): a speech bubble with a note in it, from the paths of
 Android's `ic_request`, which iOS's `RequestIcon` draws from the matching system symbols, so the deck
-wears the picture a listener already knows for asking. In standby blue, faint when it would refuse
-the press. A record with a plus on its label came first and was replaced on Robert's call, before
+wears the picture a listener already knows for asking. In the station's phosphor green (the console's
+accent and the mark's field; standby blue came first and was replaced on Robert's call), faint when it
+would refuse the press. A record with a plus on its label came first and was replaced on Robert's call, before
 either key had been on a device.
 
 ## Grant
@@ -333,7 +334,8 @@ says the station has not answered yet, rather than claiming nothing is waiting.
 
 **The same icon as Request with a green tick badge on the bubble's corner** (`grantSvg`): both keys
 are about a request and should look it, and the badge is what makes this one the approving one at a
-glance. The green is Like's, the other key on the deck that means yes. A filled bubble came first
+glance. Every green on it is the same phosphor as the bubble, which is also Like's: the tick still
+reads because its badge sits on a ring of the key's own ground. A filled bubble came first
 and was replaced on Robert's call, chosen from four drawn side by side (a filled bubble, a tick in
 the bubble, this, and a playlist with a tick). The action-list icon has to be one colour on
 transparency with no masks, so its bubble is a STROKE that stops short of the badge and the tick is

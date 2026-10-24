@@ -9,6 +9,18 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.82.0] — 2026-10-24
+
+- A break still to come on the Desk has a **Write it again** button (the pencil on its row), which throws its words away and has it written afresh as its slot nears. It is offered on a break that failed because nothing could be written, so one can be tried again after the phrasings change or the model is switched on, and on any break the station wrote that the player does not have yet.
+- A block on the schedule, and a new show started from Desk, Plan, can say **Who writes the breaks first**: the model with the phrasings underneath, or the phrasings with the model underneath. **The station's setting** follows Settings, Words.
+- `POST /director/air/items/{itemId}/rewrite` writes a break still to come again from nothing, including one that failed because nothing could be written, so a break can be asked for again after the phrasings change or the model is switched on. It works on any break the station wrote and has not handed to the player, and refuses recordings, carried programmes and one turn of a production.
+- A schedule slot and `PutOnAirInput` take `writerOrder` (`model` or `station`), which is copied onto the running order's rules and decides which writer that show's breaks ask first, in place of the station's `llm.breakWriterOrder`. Absent follows the station.
+- Breaks: **Talk over the end of a record** (Settings, Breaks, off by default) says a link over the outro of the record before it when it fits between the last sung word and the record's measured end, finishing as the record finishes, and the next record starts straight after with no crossfade. It needs the record's timed lyrics and its measurement, and anything it cannot judge airs in the gap as before. A running-order item carries `overEndOf` when it rides the end of the record before it.
+- Breaks: "Who is asked first" under Settings, Words puts the station's own words ahead of the model, so the phrasings, headlines as published and stories as written air, and the model writes only where they have nothing to say.
+- With **Talk over the end of a record** on, a model writing a link is told how long the record just finished runs on after its last sung line and how many words would fit over it, as an offer, so more links are short enough to go out over that ending.
+- A link said over the end of a record is marked "over the end of the last record" in the running order, where a talk-up says "over the next record".
+- The clock that times a link said over a record now measures the time that has passed rather than counting ticks, so it no longer runs about 3.5% slow. A link talked up to the post lands within a tenth of a second of where it was aimed however far into the record it starts, and the room left before the singing is no longer spent allowing for the drift.
+
 ## [0.81.0] — 2026-10-24
 
 - Chatterbox keeps its model loaded for as long as the station is on the air. **Free the GPU once the station stops airing** (it was **Free the GPU after a quiet spell**) now counts its minutes from the moment the station goes off the air, rather than from the last thing spoken, so the first break after a long run of records, or after a quiet spell, no longer waits for the model to load. When the station comes on the air, the model is loaded straight away, so the first break after a listener arrives does not wait for it either (except while **Free the GPU between breaks** is on). The station is off the air when its running order runs out, when it is stopped, and a few minutes after the last listener leaves. The default is still 15 minutes, and 0 still means never.
@@ -1640,7 +1652,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.81.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.82.0...HEAD
+[0.82.0]: https://github.com/robert-dean/deadair/compare/v0.81.0...v0.82.0
 [0.81.0]: https://github.com/robert-dean/deadair/compare/v0.80.0...v0.81.0
 [0.80.0]: https://github.com/robert-dean/deadair/compare/v0.79.0...v0.80.0
 [0.79.0]: https://github.com/robert-dean/deadair/compare/v0.78.1...v0.79.0

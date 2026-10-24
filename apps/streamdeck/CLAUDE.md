@@ -291,10 +291,12 @@ request on to `queued` and `aired` was considered and left out: it is another po
 on a rate-limit bucket the whole network shares, for a state the console already shows.
 
 **These keys take no hold on the poller.** Nothing they draw depends on what is on air, so a deck of
-Request keys asks the station nothing until one is pressed or its panel searches. They draw a record
-with a plus on a standby-blue label (`requestSvg`): the old Now Playing placeholder, which is a
-picture of what the key asks for, and not the mark, which Now Playing draws when nothing is on. Faint
-when it would refuse the press, by the rule every key follows.
+Request keys asks the station nothing until one is pressed or its panel searches. They draw the
+listener apps' own Request icon (`requestSvg`): a speech bubble with a note in it, from the paths of
+Android's `ic_request`, which iOS's `RequestIcon` draws from the matching system symbols, so the deck
+wears the picture a listener already knows for asking. In standby blue, faint when it would refuse
+the press. A record with a plus on its label came first and was replaced on Robert's call, before
+either key had been on a device.
 
 ## Grant
 
@@ -321,8 +323,10 @@ possible, from the console or another deck deciding first, and the log says that
 then the reading after shows the line as it is. Before the first reading the key says nothing, rather
 than a "None waiting" it does not know.
 
-**The same record as Request, with a tick where the plus was** (`grantSvg`), because both keys are
-about a request and the glyph says which side of it.
+**The same icon as Request with the bubble FILLED** and the note cut out of it in the key's ground
+(`grantSvg`): both keys are about a request and should look it, and the filled bubble against the
+outlined one is what tells them apart without a second glyph. The action-list icons follow, the
+Grant one a single even-odd path because an icon is one colour on transparency.
 
 ## What the Now Playing key draws
 

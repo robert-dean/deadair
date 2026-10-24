@@ -232,44 +232,56 @@ export interface RequestFace {
 }
 
 /**
- * A Request key as an SVG: a record, its label in the console's standby blue with a plus on it, above
- * the title the app draws along the bottom.
+ * The listener apps' Request icon, in its own 24-unit space: a speech bubble with a note in it,
+ * asking the station for a record. The paths are Android's `ic_request` (Material's chat bubble and
+ * music note), which iOS's `RequestIcon` draws from the matching system symbols, so the deck's
+ * request keys wear the picture a listener already knows for asking.
+ */
+const BUBBLE_OUTLINE = 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM20 16H6l-2 2V4h16v12z';
+const BUBBLE_FILLED = 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z';
+/** The note, already at the half scale and offset `ic_request` places it at inside the bubble. */
+const NOTE = 'M12 5.5v5.275c-.295-.17-.635-.275-1-.275-1.105 0-2 .895-2 2s.895 2 2 2 2-.895 2-2V7.5h2v-2h-3z';
+
+/**
+ * Where the icon sits on the key: 84 units square, centred across and clear of the title the app
+ * draws along the bottom, where the record placeholder's disc used to sit.
+ */
+const ICON_SCALE = 3.5;
+const ICON_X = 30;
+const ICON_Y = 14;
+
+/**
+ * A Request key as an SVG: the apps' Request icon, the bubble outlined and the note inside it, in
+ * the console's standby blue above the title the app draws along the bottom.
  *
- * The record and not the mark, because the mark is what Now Playing draws when nothing is on, and a
- * deck with both would show the same picture meaning two things. The record is the placeholder that
- * key used to draw, which is a picture of exactly what this key asks for. Blue rather than a vote's
- * green or Stop's red, because a request is neither an opinion nor the transport: it is the station
- * being asked, and standby is the console's colour for the station being ready.
- *
- * Faint by the rule every key follows: nothing may look live on a key that would refuse the press.
+ * Blue rather than a vote's green or Stop's red, because a request is neither an opinion nor the
+ * transport: it is the station being asked, and standby is the console's colour for the station
+ * being ready. Faint by the rule every key follows: nothing may look live on a key that would refuse
+ * the press.
  */
 export function requestSvg(face: RequestFace): string {
-    const plus = `<rect x="64" y="58" width="16" height="4" rx="1" fill="${CARBON}"/><rect x="70" y="52" width="4" height="16" rx="1" fill="${CARBON}"/>`;
-    return labelledRecord(plus, face.dim);
+    const blue = TONE_COLOURS.standby;
+    return requestIcon(`<path d="${BUBBLE_OUTLINE}" fill="${blue}"/><path d="${NOTE}" fill="${blue}"/>`, face.dim);
 }
 
 /**
- * A Grant key as an SVG: the Request key's record with a tick on its label where the plus was.
+ * A Grant key as an SVG: the same icon with the bubble FILLED and the note cut out of it in the
+ * key's own ground.
  *
- * The same record, because both keys are about a request and the deck should say so; the glyph says
- * which side of it. Faint when there is nothing waiting to let through.
+ * The same picture, because both keys are about a request and the deck should say so; the filled
+ * bubble is the request answered rather than asked, and the title ("2 waiting") says the rest.
+ * Faint when there is nothing waiting to let through.
  */
 export function grantSvg(face: RequestFace): string {
-    const tick = `<path d="M64 60.5 L69.5 66 L80 55" fill="none" stroke="${CARBON}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
-    return labelledRecord(tick, face.dim);
+    return requestIcon(`<path d="${BUBBLE_FILLED}" fill="${TONE_COLOURS.standby}"/><path d="${NOTE}" fill="${CARBON}"/>`, face.dim);
 }
 
-/** A record with a glyph on its standby-blue label, faint or not. */
-function labelledRecord(glyph: string, dim: boolean): string {
+/** The Request icon's paths placed on a key, faint or not. */
+function requestIcon(paths: string, dim: boolean): string {
     return (
         `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` +
         `<rect width="${SIZE}" height="${SIZE}" fill="${CARBON}"/>` +
-        `<g${dim ? ` opacity="${FAINT}"` : ''}>` +
-        `<circle cx="72" cy="60" r="38" fill="#161A18" stroke="#3E4744" stroke-width="2"/>` +
-        `<circle cx="72" cy="60" r="29" fill="none" stroke="${GROOVE}" stroke-width="2"/>` +
-        `<circle cx="72" cy="60" r="16" fill="${TONE_COLOURS.standby}"/>` +
-        glyph +
-        `</g>` +
+        `<g transform="translate(${ICON_X} ${ICON_Y}) scale(${ICON_SCALE})"${dim ? ` opacity="${FAINT}"` : ''}>${paths}</g>` +
         `</svg>`
     );
 }

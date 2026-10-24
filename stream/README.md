@@ -278,6 +278,17 @@ docker compose exec -T liquidsoap sh -c 'cat > /tmp/v.liq; timeout 120 liquidsoa
 python3 stream/voicecue.check.py
 ```
 
+`voiceclock.check.liq` answers how far off that clock is the further into a record a cue is due. It
+runs the counter as it is and the one it replaced side by side over a three-minute record and prints
+the real time that had passed when each reached 6, 30, 60, 120 and 170 seconds. It needs no audio
+analysis and no dev stack, only the pinned image, and takes as long as the record:
+
+```
+docker run --rm --entrypoint liquidsoap -v "$PWD/stream:/s:ro" savonet/liquidsoap:v2.4.5 /s/voiceclock.check.liq
+```
+
+Measured 2026-10-24: the fixed-tick counter reached 170s at 173.0s real, and the measured one at 170.03s.
+
 **A cross needs no correction there, which is the opposite of what it looks like.** `on_air_elapsed`
 is a wall clock zeroed by an `on_track` below the cross, so it looks like it must run ahead of the
 audience by the buffer. It does not: with a buffer of L the operator pulls its source L ahead, so the

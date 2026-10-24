@@ -10,6 +10,8 @@ export const desk = {
         dropFailed: 'That item could not be dropped.',
         moveFailed: 'That item could not be moved.',
         skipToFailed: 'The station could not be skipped to that record.',
+        rewriteFailed: 'That break could not be written again.',
+        rewriting: '{{title}} will be written again as its slot comes near.',
         needsYou: 'Needs you',
         attentionFailed: 'The station could not be asked what needs you',
         attentionFailedFallback: 'Nothing is known to be wrong; this list is what is unavailable.',

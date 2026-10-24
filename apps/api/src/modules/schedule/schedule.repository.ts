@@ -4,6 +4,7 @@ import { Kysely, sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import type { WriterOrder } from '#modules/director/writer.order.js';
 import {
     isChartSource,
     isPlaylistSource,
@@ -209,6 +210,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         repeatWindowDays: draft.repeatWindowDays ?? null,
         artistCooldownMinutes: draft.artistCooldownMinutes ?? null,
         maxPerArtist: draft.maxPerArtist ?? null,
+        writerOrder: draft.writerOrder ?? null,
         // Cast in SQL rather than handed over as a `DateTime`, because a date is a reading of the
         // station's calendar and not an instant: building one in JS would mean choosing a zone for a
         // value that has none.
@@ -293,6 +295,7 @@ function toSlot(row: {
     repeatWindowDays: number | null;
     artistCooldownMinutes: number | null;
     maxPerArtist: number | null;
+    writerOrder: WriterOrder | null;
     startsOn: DateTime | null;
     endsOn: DateTime | null;
     yearly: boolean;
@@ -342,6 +345,7 @@ function toSlot(row: {
         ...(row.repeatWindowDays == null ? {} : { repeatWindowDays: row.repeatWindowDays }),
         ...(row.artistCooldownMinutes == null ? {} : { artistCooldownMinutes: row.artistCooldownMinutes }),
         ...(row.maxPerArtist == null ? {} : { maxPerArtist: row.maxPerArtist }),
+        ...(row.writerOrder == null ? {} : { writerOrder: row.writerOrder }),
         // Both ends or neither, which the table already checks; reading one alone as no special keeps
         // a half-written row an ordinary weekly slot rather than a special with an open end. The
         // driver parses a `date` as midnight UTC, so `toISODate` is the calendar date that was stored.

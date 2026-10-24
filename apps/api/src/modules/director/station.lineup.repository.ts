@@ -271,7 +271,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   groupId?: unknown;
                   durationMs?: unknown;
                   dedicates?: unknown;
-                  over?: { atMs?: unknown };
+                  over?: { atMs?: unknown; endOf?: unknown };
                   mixedIn?: unknown;
                   requestId?: unknown;
                   followsRequestId?: unknown;
@@ -306,7 +306,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 state,
                 segmentId: line.segmentId,
                 ...(typeof line.segmentKind === 'string' ? { segmentKind: line.segmentKind } : {}),
-                ...(atMs === undefined ? {} : { over: { atMs } }),
+                ...(atMs === undefined ? {} : { over: { atMs, ...(line.over?.endOf === true ? { endOf: true as const } : {}) } }),
                 ...(typeof line.groupId === 'string' ? { groupId: line.groupId } : {}),
                 ...(line.pinned === true ? { pinned: true as const } : {}),
                 // Which record a dedication was said for. Without it a restart falls back to "the

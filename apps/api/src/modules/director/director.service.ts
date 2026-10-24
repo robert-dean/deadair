@@ -28,7 +28,8 @@ import { NarrationScheduler } from '#modules/narrations/narration.scheduler.js';
 import { isNarrationKind } from '#modules/narrations/narration.kind.js';
 import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repository.js';
 import { PodcastScheduler } from '#modules/podcasts/podcast.scheduler.js';
-import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { RENDER_SOURCE, SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { BreakWriterRegistry } from './break.writer.registry.js';
 import { WARMUP_KIND } from './warmup.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
@@ -38,7 +39,8 @@ import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor, type Runway } from '#modules/lyrics/vocal.runway.js';
 import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
-import { resolveTalkUp, talkUpAt } from './talk.up.js';
+import { resolveTalkUp, talkUpAt, type TalkUpSettings } from './talk.up.js';
+import { tailFor, talkOutAt, talkOutIsOn } from './talk.out.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
@@ -1946,6 +1948,7 @@ export class DirectorService {
         if (!lineup) return { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
         if (edit.kind === 'skipTo') return await this.skipTo(lineup, edit.itemId);
         if (edit.kind === 'vetoDisliked') return await this.vetoDisliked(lineup, edit.itemIds);
+        if (edit.kind === 'rewrite') return await this.rewrite(lineup, edit.itemId);
 
         const { result, dropped } = this.applyTo(lineup, edit);
         if (!result.ok) return result;
@@ -1972,6 +1975,49 @@ export class DirectorService {
         // so the pass runs.
         await this.commit();
         return result;
+    }
+
+    /**
+     * Somebody at the desk wants a break still to come written again.
+     *
+     * The order does not move: the item stays where it is and only the row behind it goes back to
+     * `planned`, through `SegmentRepository.reopenForRewrite`, which is the one reopen that reaches a
+     * `failed` row. The commit pass below then offers it through `ripen` if its slot is already
+     * inside the write-ahead window, and a later pass does if it is not.
+     *
+     * Refused for anything the station did not write itself or cannot write again: a recording, a
+     * programme it carries, a turn of a production (re-making one turn of a programme leaves a hole
+     * in the middle of it, `recast`'s reason), and a kind no writer claims. And refused for a break
+     * the player already has, since its words are already on the way out, or one whose job holds
+     * it right now.
+     *
+     * Only a break still in the order can be written again, which is why there is no route for a
+     * failure from last night: a break written now about two records that have already aired has
+     * nowhere true to go.
+     */
+    private async rewrite(lineup: StationLineup, itemId: string): Promise<EditResult> {
+        const item = lineup.find(itemId);
+        if (item === undefined) return { ok: false, reason: 'not-found', message: 'that item is not in the running order' };
+        if (item.kind !== 'segment') return { ok: false, reason: 'not-rewritable', message: 'only a break can be written again' };
+        if (item.state !== 'planned') return { ok: false, reason: 'already-aired', message: 'that break has already been handed to the player' };
+        if (item.groupId !== undefined)
+            return { ok: false, reason: 'not-rewritable', message: 'a turn of a programme is made again with the whole programme, not on its own' };
+
+        const refusal = await inScope(this.container, async scope => {
+            const segment = await scope.get(SegmentRepository).findById(item.segmentId);
+            if (segment === undefined) return 'that break is no longer in the library';
+            if (segment.source !== RENDER_SOURCE || segment.productionId !== undefined)
+                return 'the station did not write this one, so it cannot write it again';
+            if (!scope.get(BreakWriterRegistry).canWrite(segment.kind)) return `nothing knows how to write a "${segment.kind}"`;
+            if (!(await scope.get(SegmentRepository).reopenForRewrite(segment.id)))
+                return 'that break is being written or spoken right now; ask again once it is done';
+            return undefined;
+        });
+        if (refusal !== undefined) return { ok: false, reason: 'not-rewritable', message: refusal };
+
+        this.logger.info('director: an operator asked for a break to be written again', { item: itemId, segment: item.segmentId });
+        await this.commit();
+        return { ok: true };
     }
 
     /**
@@ -2229,7 +2275,7 @@ export class DirectorService {
      * the switch below exhaustive — a seventh edit arm fails to compile here until it is handled
      * somewhere.
      */
-    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' | 'vetoDisliked' }>): ShuffleResult {
+    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' | 'vetoDisliked' | 'rewrite' }>): ShuffleResult {
         switch (edit.kind) {
             case 'shuffle':
                 return lineup.shuffleRemaining(edit.smart === undefined ? undefined : { recentSongKeys: new Set(edit.smart.recentSongKeys) });
@@ -3031,6 +3077,91 @@ export class DirectorService {
     }
 
     /**
+     * Which records in this batch carry a link over their end, keyed by the RECORD's item id.
+     *
+     * A record qualifies when the line directly after it is an ordinary talk link, rendered and
+     * measured, not already a talk-over, whose claims still hold with this record behind it and the
+     * next record in front; and when the record's own tail has room for it (`talk.out.ts`). Read at
+     * the RECORD's hand-over, since the cue goes to the player with the record, which is usually a
+     * record before the link itself would be taken from the order.
+     *
+     * Two things leave a link where it was. A link that would fit over the next record's intro is left
+     * to the talk-up when that is on: hitting the post is the rarer thing to get right and the one
+     * that was here first, so switching this on changes nothing a talk-up already does. And a link
+     * that says the time is left alone, since it would air a record earlier than the projection it
+     * was checked against, which is the one direction a time claim never allows.
+     *
+     * Every read failing costs the cues and never the links, which then air in the gap.
+     */
+    private async talkOutCues(
+        items: readonly StationLineupItem[],
+        talkUp: TalkUpSettings,
+    ): Promise<Map<string, { linkId: string; segmentId: string; atMs: number; loudnessLufs?: number }>> {
+        const lineup = this.lineup;
+        if (lineup === undefined) return new Map();
+
+        const pairs = items.flatMap(item => {
+            if (item.kind !== 'track' || item.track.trackId === undefined || item.track.cueOutMs === undefined) return [];
+            const link = lineup.segmentRightAfter(item.id);
+            if (link === undefined || link.state !== 'planned' || link.over !== undefined || link.groupId !== undefined) return [];
+            return [{ record: item, link }];
+        });
+        if (pairs.length === 0) return new Map();
+
+        try {
+            return await inScope(this.container, async scope => {
+                const segments = await scope.get(SegmentRepository).findByIds(pairs.map(pair => pair.link.segmentId));
+                const ready = pairs.flatMap(pair => {
+                    const segment = segments.get(pair.link.segmentId);
+                    if (segment?.state !== 'ready' || segment.kind !== TALK_BREAK_KIND || segment.durationMs === undefined) return [];
+                    if (segment.claimsTime !== undefined) return [];
+                    const next = lineup.nextTrackAfter(pair.link.id);
+                    if (brokenClaim(segment, { previous: pair.record.id, next: next?.id }, Date.now()) !== undefined) return [];
+                    return [{ ...pair, segment, next: lineup.trackRightAfter(pair.link.id) }];
+                });
+                if (ready.length === 0) return new Map();
+
+                const trackIds = ready.flatMap(pair => [
+                    pair.record.track.trackId!,
+                    ...(pair.next?.track.trackId === undefined ? [] : [pair.next.track.trackId]),
+                ]);
+                const markers = await scope.get(VocalMarkersReader).forTracks(trackIds);
+
+                return new Map(
+                    ready.flatMap(({ record, link, segment, next }) => {
+                        const voiceMs = segment.durationMs!;
+                        const nextMarkers = next?.track.trackId === undefined ? undefined : markers.get(next.track.trackId);
+                        if (talkUp.enabled && nextMarkers !== undefined) {
+                            const runway = runwayFor(nextMarkers, next?.track.cueInMs);
+                            if (talkUpAt({ voiceMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS }) !== undefined) return [];
+                        }
+
+                        const own = markers.get(record.track.trackId!);
+                        if (own === undefined) return [];
+                        const atMs = talkOutAt({ voiceMs, tail: tailFor(own, record.track), safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS });
+                        if (atMs === undefined) return [];
+
+                        return [
+                            [
+                                record.id,
+                                {
+                                    linkId: link.id,
+                                    segmentId: segment.id,
+                                    atMs,
+                                    ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
+                                },
+                            ] as const,
+                        ];
+                    }),
+                );
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not work out which links fit over a record's end, so they air in the gap (${errorText(error)})`);
+            return new Map();
+        }
+    }
+
+    /**
      * Turn the items just taken from the order into the form the player can be
      * handed, and say which of them the station will pass over.
      *
@@ -3121,6 +3252,10 @@ export class DirectorService {
         // once for the batch and only when talking up is switched on. See `talk.up.ts`.
         const talkUp = resolveTalkUp(this.config);
         const runways = talkUp.enabled ? await this.talkUpRunways(items, segments) : new Map<string, Runway>();
+        // And which records carry a link over their end, decided at the record's own hand-over. See
+        // `talk.out.ts`. A link riding a record this way is skipped when the loop reaches it below.
+        const talkOuts = talkOutIsOn(this.config) ? await this.talkOutCues(items, talkUp) : new Map<string, never>();
+        const ridingAnEnd = new Set<string>();
 
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
@@ -3161,24 +3296,48 @@ export class DirectorService {
                 // was PICKED, which is the upstream URL for anything the station had not cached by
                 // then. See {@link stationArtwork} and {@link coverFields}.
                 const { artworkUrl: pickedCover, ...track } = item.track;
+                // A link over this record's END, when nothing is already riding its start: one voice per
+                // record, since two would be one talking over the other.
+                const out = pending === undefined ? talkOuts.get(item.id) : undefined;
+                const endOf = out !== undefined && this.lineup?.handOverTalkingOut(out.linkId, out.atMs) === true ? out : undefined;
+                if (endOf !== undefined) {
+                    ridingAnEnd.add(endOf.linkId);
+                    this.logger.info('director: talking a link over the end of a record', {
+                        record: item.id,
+                        segment: endOf.segmentId,
+                        atMs: endOf.atMs,
+                    });
+                }
+                const voice =
+                    pending !== undefined
+                        ? {
+                              segmentId: pending.segmentId,
+                              atMs: pending.atMs,
+                              itemId: pending.itemId,
+                              ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
+                          }
+                        : endOf === undefined
+                          ? undefined
+                          : {
+                                segmentId: endOf.segmentId,
+                                atMs: endOf.atMs,
+                                itemId: endOf.linkId,
+                                endOf: true as const,
+                                ...(endOf.loudnessLufs === undefined ? {} : { loudnessLufs: endOf.loudnessLufs }),
+                            };
                 playable.push({
                     ...track,
                     id: item.id,
                     ...coverFields(pickedCover, artwork),
-                    ...(pending === undefined
-                        ? {}
-                        : {
-                              voice: {
-                                  segmentId: pending.segmentId,
-                                  atMs: pending.atMs,
-                                  itemId: pending.itemId,
-                                  ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
-                              },
-                          }),
+                    ...(voice === undefined ? {} : { voice }),
                 });
                 pending = undefined;
                 continue;
             }
+
+            // Already riding the end of the record before it, decided above. It is not handed over in
+            // its own right and must not be taken for a talk-over of the record after it.
+            if (ridingAnEnd.has(item.id)) continue;
 
             const segment = segments.get(item.segmentId);
             if (segment?.state !== 'ready') {

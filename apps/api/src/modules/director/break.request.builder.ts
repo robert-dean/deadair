@@ -35,6 +35,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor } from '#modules/lyrics/vocal.runway.js';
 import { resolveTalkUp, talkUpBudget } from './talk.up.js';
+import { tailFor, talkOutBudget, talkOutIsOn } from './talk.out.js';
 import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from './about.the.record.js';
 import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.js';
 import { LyricsRepository } from '#modules/lyrics/lyrics.repository.js';
@@ -375,6 +376,7 @@ export class BreakRequestBuilder {
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             ...(await this.talkUp(lineup, kind, neighbours.next)),
+            ...(await this.talkOut(lineup, kind, neighbours.previous)),
             ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(kind)),
@@ -530,6 +532,35 @@ export class BreakRequestBuilder {
             return budget === undefined ? {} : { talkUp: budget };
         } catch (error) {
             this.logger.warn('write break: could not read where the singing starts on the next record', { error: errorText(error) });
+            return {};
+        }
+    }
+
+    /**
+     * How long the record this link follows runs on after its singing, for a writer that can aim at it.
+     *
+     * {@link talkUp}'s mirror, for talking over a record's end: only for a talk break, only with that
+     * switched on, and only after a record whose markers say where the singing stops and whose end was
+     * measured. A failure to read them costs the advice and never the break.
+     */
+    private async talkOut(
+        lineup: StationLineup,
+        kind: string,
+        previous: Neighbour | undefined,
+    ): Promise<Partial<Pick<BreakWriteRequest, 'talkOut'>>> {
+        if (kind !== TALK_BREAK_KIND || previous?.track.trackId === undefined) return {};
+        if (!talkOutIsOn(this.config)) return {};
+
+        const item = lineup.all().find(candidate => candidate.id === previous.itemId);
+        if (item === undefined || !isTrackItem(item)) return {};
+        const trackId = previous.track.trackId;
+
+        try {
+            const markers = (await this.vocalMarkers.forTracks([trackId])).get(trackId);
+            const budget = markers === undefined ? undefined : talkOutBudget(tailFor(markers, item.track), resolveTalkUp(this.config).safetyMs);
+            return budget === undefined ? {} : { talkOut: budget };
+        } catch (error) {
+            this.logger.warn('write break: could not read where the singing stops on the record before', { error: errorText(error) });
             return {};
         }
     }

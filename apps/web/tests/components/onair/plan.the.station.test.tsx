@@ -199,6 +199,21 @@ describe('PlanTheStation', () => {
         expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.objectContaining({ artistCooldownMinutes: 0 }));
     });
 
+    it('asks a new show for the writer order somebody chose, and for nothing otherwise', async () => {
+        const user = await open(running());
+
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.not.objectContaining({ writerOrder: expect.anything() }));
+
+        await user.click(screen.getByRole('button', { name: /Plan/ }));
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByRole('combobox', { name: /Who writes the breaks first/ }));
+        await user.click(await screen.findByRole('option', { name: 'The phrasings, with the model underneath' }));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.objectContaining({ writerOrder: 'station' }));
+    });
+
     it('asks for calls when somebody did', async () => {
         const user = await open(running());
 

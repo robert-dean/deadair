@@ -40,6 +40,7 @@ const storedRow = (source: Record<string, string | number | null>) => ({
     repeatWindowDays: null,
     artistCooldownMinutes: null,
     maxPerArtist: null,
+    writerOrder: null,
     startsOn: null,
     endsOn: null,
     yearly: false,
@@ -141,6 +142,23 @@ describe('ScheduleRepository.update', () => {
         expect(statements[at]).toContain('"resume_playlist" = $');
         expect(parameters[at]).toContain(false);
         expect(parameters[at]).not.toContain(true);
+    });
+});
+
+describe('which writer a slot asks first', () => {
+    it('writes the order to its own column, and reads a null back as the station’s own', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const db = fakeDb(storedRow({}), storedRow({ writerOrder: 'station' }), statements, parameters);
+        const slot = await new ScheduleRepository(db, new StationIdentity()).update(SLOT, { ...draft(undefined), writerOrder: 'station' });
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        expect(statements[at]).toContain('"writer_order" = $');
+        expect(parameters[at]).toContain('station');
+        expect(slot).toMatchObject({ writerOrder: 'station' });
+
+        const unset = await new ScheduleRepository(fakeDb(storedRow({}), storedRow({}), []), new StationIdentity()).update(SLOT, draft(undefined));
+        expect(unset).not.toHaveProperty('writerOrder');
     });
 });
 

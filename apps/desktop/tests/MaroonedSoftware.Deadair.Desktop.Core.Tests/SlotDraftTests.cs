@@ -180,6 +180,14 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void ASlotKeepsWhichWriterItAsksFirstAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { WriterOrder = ScheduleSlotWriterOrder.Station }).ToInput()!;
+
+        Assert.Equal(ScheduleSlotWriterOrder.Station, input.WriterOrder);
+    }
+
+    [Fact]
     public void AWeeklySlotSendsNoDates()
     {
         var input = SlotDraft.From(Slot()).ToInput()!;

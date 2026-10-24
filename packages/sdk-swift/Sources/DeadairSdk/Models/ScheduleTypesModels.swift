@@ -235,6 +235,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var artistCooldownMinutes: Int?
     /// Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
     public var maxPerArtist: Int?
+    /// Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
+    public var writerOrder: ScheduleSlotWriterOrder?
     /// The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
@@ -250,7 +252,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -276,6 +278,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.repeatWindowDays = repeatWindowDays
         self.artistCooldownMinutes = artistCooldownMinutes
         self.maxPerArtist = maxPerArtist
+        self.writerOrder = writerOrder
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.coHosts = coHosts
@@ -312,6 +315,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case repeatWindowDays = "repeatWindowDays"
         case artistCooldownMinutes = "artistCooldownMinutes"
         case maxPerArtist = "maxPerArtist"
+        case writerOrder = "writerOrder"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
         case coHosts = "coHosts"
@@ -349,6 +353,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.repeatWindowDays = try container.decodeIfPresent(Int.self, forKey: .repeatWindowDays)
         self.artistCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .artistCooldownMinutes)
         self.maxPerArtist = try container.decodeIfPresent(Int.self, forKey: .maxPerArtist)
+        self.writerOrder = try container.decodeIfPresent(ScheduleSlotWriterOrder.self, forKey: .writerOrder)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
@@ -386,6 +391,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.repeatWindowDays, forKey: .repeatWindowDays)
         try container.encodeIfPresent(self.artistCooldownMinutes, forKey: .artistCooldownMinutes)
         try container.encodeIfPresent(self.maxPerArtist, forKey: .maxPerArtist)
+        try container.encodeIfPresent(self.writerOrder, forKey: .writerOrder)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
@@ -446,6 +452,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var artistCooldownMinutes: Int?
     /// Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
     public var maxPerArtist: Int?
+    /// Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
+    public var writerOrder: ScheduleSlotWriterOrder?
     /// The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
@@ -461,7 +469,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -486,6 +494,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.repeatWindowDays = repeatWindowDays
         self.artistCooldownMinutes = artistCooldownMinutes
         self.maxPerArtist = maxPerArtist
+        self.writerOrder = writerOrder
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.coHosts = coHosts
@@ -521,6 +530,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case repeatWindowDays = "repeatWindowDays"
         case artistCooldownMinutes = "artistCooldownMinutes"
         case maxPerArtist = "maxPerArtist"
+        case writerOrder = "writerOrder"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
         case coHosts = "coHosts"
@@ -557,6 +567,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.repeatWindowDays = try container.decodeIfPresent(Int.self, forKey: .repeatWindowDays)
         self.artistCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .artistCooldownMinutes)
         self.maxPerArtist = try container.decodeIfPresent(Int.self, forKey: .maxPerArtist)
+        self.writerOrder = try container.decodeIfPresent(ScheduleSlotWriterOrder.self, forKey: .writerOrder)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
@@ -593,6 +604,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.repeatWindowDays, forKey: .repeatWindowDays)
         try container.encodeIfPresent(self.artistCooldownMinutes, forKey: .artistCooldownMinutes)
         try container.encodeIfPresent(self.maxPerArtist, forKey: .maxPerArtist)
+        try container.encodeIfPresent(self.writerOrder, forKey: .writerOrder)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
@@ -913,6 +925,53 @@ public enum ScheduleSlotAvoidMoods: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotAvoidMoods.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
+public enum ScheduleSlotWriterOrder: Codable, CaseIterable, Hashable, Sendable {
+    case model
+    case station
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotWriterOrder] = [.model, .station]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .model: return "model"
+        case .station: return "station"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "model": self = .model
+        case "station": self = .station
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotWriterOrder.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

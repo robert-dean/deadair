@@ -93,6 +93,7 @@ import {
 } from '#modules/director/rediscover.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { DEFAULT_BREAK_REASONING, MAX_OUTPUT_TOKENS, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
+import { DEFAULT_WRITER_ORDER, WRITER_ORDER_KEY } from '#modules/director/writer.order.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ALWAYS_REACH_DEFAULT, MUSIC_SEARCH_KEYS } from '#modules/llm/music.search.tool.js';
 import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
@@ -122,6 +123,7 @@ import {
     LYRICS_KEYS,
 } from '#modules/lyrics/lyrics.keys.js';
 import { DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_DEFAULT, TALK_UP_KEYS, TALK_UP_SAFETY_RANGE } from '#modules/director/talk.up.js';
+import { TALK_OUT_DEFAULT, TALK_OUT_KEYS } from '#modules/director/talk.out.js';
 import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from '#modules/director/about.the.record.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
@@ -1107,13 +1109,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'breaks',
         key: TALK_UP_KEYS.safetyMs,
-        label: 'Room left before the singing (ms)',
+        label: 'Room left around the singing (ms)',
         type: 'number',
         default: DEFAULT_TALK_UP_SAFETY_MS,
-        dependsOn: TALK_UP_KEYS.enabled,
+        // On breaks rather than on the talk-up, since talking over a record's end reads it too.
+        dependsOn: ROTATION_KEYS.breaks,
         min: TALK_UP_SAFETY_RANGE.min,
         max: TALK_UP_SAFETY_RANGE.max,
-        help: 'How long before the first sung word the presenter has to have finished. Lyric timings are typed by people and can be a little early or late, so the default leaves a second and a half.',
+        help: 'How long before the first sung word the presenter has to have finished when talking up to it, and how long after the last sung word before they may start when talking over a record’s end. Lyric timings are typed by people and can be a little early or late, so the default leaves a second and a half.',
+    },
+    {
+        group: 'breaks',
+        key: TALK_OUT_KEYS.enabled,
+        label: 'Talk over the end of a record',
+        type: 'boolean',
+        default: TALK_OUT_DEFAULT,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'When a link is short enough to fit between the last sung word of a record and its end, the presenter says it over that record’s outro instead of in the gap, finishing as the record finishes, and the next record starts straight after with no crossfade. Where the singing stops comes from the record’s timed lyrics and where the record ends from its measurement, so a record missing either is followed by its link in the gap as before. A link that fits over the next record’s intro is talked up there instead when that is on. The room left after the singing is the same as the one before it, above.',
     },
     {
         group: 'breaks',
@@ -1628,6 +1640,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: MODEL_WRITER_DEFAULT,
         help: 'With this off the station writes its own breaks from the phrasings above, which it does instantly and cannot fail at. With it on the model writes them and those phrasings become the floor underneath: a model that is slow, missing or rambling costs a better sentence rather than a silent station.',
+    },
+    {
+        group: 'llm',
+        key: WRITER_ORDER_KEY,
+        label: 'Who is asked first',
+        type: 'select',
+        default: DEFAULT_WRITER_ORDER,
+        dependsOn: MODEL_WRITER_KEYS.enabled,
+        options: [
+            { value: 'model', label: 'The model, with the phrasings underneath' },
+            { value: 'station', label: 'The phrasings, with the model underneath' },
+        ],
+        help: "Which writer gets each break first. The model first is the usual way round. Putting the station's own words first airs the phrasings, the headlines as published and your stories as written, and asks the model only where those have nothing to say. Every kind of break follows this, and a show can choose otherwise on the schedule or on Desk, Plan.",
     },
     {
         group: 'llm',

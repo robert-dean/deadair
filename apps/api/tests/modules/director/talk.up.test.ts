@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    CUE_CLOCK_DRIFT,
+    CUE_CLOCK_LAG_MS,
     DEFAULT_TALK_UP_SAFETY_MS,
     resolveTalkUp,
     SETTLE_MS,
@@ -16,11 +16,16 @@ import { settingsConfig } from '../../utils/settings.config.js';
 const ask = (runwayMs: number, voiceMs = 5_000) => talkUpAt({ voiceMs, runway: { kind: 'ms', ms: runwayMs }, safetyMs: 1_500, duckFadeMs: 300 });
 
 describe('talkUpAt', () => {
-    it('ends the link at the post, allowing for the bed coming back up and the cue clock running slow', () => {
+    it('ends the link at the post, allowing for the bed coming back up and the cue firing a tick or two late', () => {
         const at = ask(12_000)!;
-        // The cue lands about 3.5% later than asked, so the last word lands at the post rather than past it.
-        expect(at * (1 + CUE_CLOCK_DRIFT) + 5_000 + 300).toBeLessThanOrEqual(12_000 - 1_500);
-        expect(at * (1 + CUE_CLOCK_DRIFT) + 5_000 + 300).toBeGreaterThan(12_000 - 1_500 - 2);
+        // The cue lands up to two ticks later than asked, so the last word lands at the post rather than past it.
+        expect(at + CUE_CLOCK_LAG_MS + 5_000 + 300).toBeLessThanOrEqual(12_000 - 1_500);
+        expect(at + CUE_CLOCK_LAG_MS + 5_000 + 300).toBeGreaterThan(12_000 - 1_500 - 2);
+    });
+
+    it('allows the same lag 6s in as 60s in, since the clock no longer runs slow', () => {
+        const long = talkUpAt({ voiceMs: 5_000, runway: { kind: 'ms', ms: 17_000 }, safetyMs: 1_500, duckFadeMs: 300 })!;
+        expect(17_000 - 1_500 - (long + CUE_CLOCK_LAG_MS + 5_000 + 300)).toBeLessThan(2);
     });
 
     it('airs in the gap a link that would not finish before the singing', () => {
@@ -28,7 +33,7 @@ describe('talkUpAt', () => {
     });
 
     it('can start a link at the top of the record when that is what fits', () => {
-        expect(ask(6_800, 5_000)).toBe(0);
+        expect(ask(7_000, 5_000)).toBe(0);
     });
 
     it('refuses a runway under the floor, whatever the link', () => {

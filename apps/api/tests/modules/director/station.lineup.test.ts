@@ -173,6 +173,50 @@ describe('StationLineup and what the player has done', () => {
         expect(link).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
     });
 
+    it('hands a link over as a cue on the end of the record before it, and finds that link', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        const [a, link, b] = lineup.all();
+
+        expect(lineup.segmentRightAfter(a!.id)?.id).toBe(link!.id);
+        expect(lineup.segmentRightAfter(b!.id)).toBeUndefined();
+        expect(lineup.handOverTalkingOut(link!.id, 190_000)).toBe(true);
+        expect(link).toMatchObject({ state: 'handed', over: { atMs: 190_000, endOf: true } });
+        // Once a cue, not again.
+        expect(lineup.handOverTalkingOut(link!.id, 1)).toBe(false);
+    });
+
+    it('sweeps a cue on the end of a record that is over when the next one starts', () => {
+        // Unlike a cue riding the record now STARTING, one riding the record that just ENDED and
+        // still unsettled never fired: its record is gone.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        const [a, link, b] = lineup.all();
+
+        lineup.markHanded(a!.id);
+        lineup.markAiring(a!.id);
+        lineup.handOverTalkingOut(link!.id, 190_000);
+        lineup.markHanded(b!.id);
+
+        expect(lineup.markAiring(b!.id)).toEqual({ passedOver: 1 });
+        expect(link!.state).toBe('skipped');
+    });
+
+    it('turns a reclaimed cue on a record’s end back into an ordinary link', () => {
+        // Kept as a cue, the next pass would read it as riding the record AFTER it, at an offset
+        // measured into the one before.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        const [a, link] = lineup.all();
+        lineup.markHanded(a!.id);
+        lineup.handOverTalkingOut(link!.id, 190_000);
+
+        lineup.reclaimAll();
+
+        expect(link).toMatchObject({ state: 'planned' });
+        expect(link).not.toHaveProperty('over');
+    });
+
     it('will not talk up a line that is already a talk-over or already handed', () => {
         const lineup = lineupWith(['a']);
         lineup.insertSegment('cue', 0, { atMs: 500 });

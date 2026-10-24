@@ -6,6 +6,7 @@ import { worthRetrying, type BreakRetry } from './break.retry.js';
 import { saidIn, type WriteFault } from './break.answer.guard.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { usageSpentBefore } from '#modules/llm/llm.service.js';
+import { DEFAULT_WRITER_ORDER, inWriterOrder, type WriterOrder } from './writer.order.js';
 
 /**
  * Which writers write which kind of break, in the order they are asked.
@@ -14,7 +15,9 @@ import { usageSpentBefore } from '#modules/llm/llm.service.js';
  * say is one readable line in `director.module.ts` rather than the sum of whatever registered
  * itself. Several writers may claim one kind, and **registration order IS preference order** — a
  * model binding goes at the front and the station's own words stay at the back, so ranking them is
- * one line of a module rather than a search.
+ * one line of a module rather than a search. The one thing that reorders it is the operator's
+ * {@link WriterOrder}, handed in per write, which moves the model behind the station's own words
+ * without anything here learning which writer is which beyond its name (`writer.order.ts`).
  *
  * ## Nothing here throws, and the last writer is the floor
  *
@@ -138,9 +141,14 @@ export class BreakWriterRegistry {
         return [...this.byKind.keys()];
     }
 
-    /** Which bindings write a kind, in the order they will be asked. */
-    writersFor(kind: string): string[] {
-        return (this.byKind.get(kind) ?? []).map(writer => writer.name);
+    /** Which bindings write a kind, in the order they will be asked under `order`. */
+    writersFor(kind: string, order: WriterOrder = DEFAULT_WRITER_ORDER): string[] {
+        return this.ordered(kind, order).map(writer => writer.name);
+    }
+
+    /** A kind's writers, in the order a write under `order` asks them. */
+    private ordered(kind: string, order: WriterOrder): BreakWriter[] {
+        return inWriterOrder(this.byKind.get(kind) ?? [], order);
     }
 
     /**
@@ -149,9 +157,14 @@ export class BreakWriterRegistry {
      * The reason on a total failure is a sentence rather than a code because its destination is
      * `segment_events.reason` and a console, which is to say a person wondering why the station went
      * quiet for a break.
+     *
+     * `order` is the operator's, resolved by the caller: see `writer.order.ts`. It is an argument
+     * rather than a field of the request because no writer reads it, and a field on
+     * {@link BreakWriteRequest} is something every writer is handed and `break.freshness.ts` has to
+     * classify.
      */
-    async write(request: BreakWriteRequest): Promise<BreakWriteResult> {
-        const writers = this.byKind.get(request.kind) ?? [];
+    async write(request: BreakWriteRequest, order: WriterOrder = DEFAULT_WRITER_ORDER): Promise<BreakWriteResult> {
+        const writers = this.ordered(request.kind, order);
         if (writers.length === 0) return { attempts: [], reason: `nothing knows how to write a "${request.kind}"` };
 
         const attempts: WriteAttempt[] = [];

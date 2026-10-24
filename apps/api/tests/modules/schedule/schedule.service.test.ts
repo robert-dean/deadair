@@ -272,6 +272,14 @@ describe('ScheduleService.update', () => {
         expect(slots[0]).toMatchObject({ requestShow: true, requestFollowOn: 2 });
     });
 
+    it('stores which writer a slot asks first and hands it back', async () => {
+        const service = build({ slots: [slot('phrasings', 20 * 60, 21 * 60)] });
+
+        const { slots } = await service.update('phrasings', body({ writerOrder: 'station' }));
+
+        expect(slots[0]).toMatchObject({ writerOrder: 'station' });
+    });
+
     it('stores the repeat rules a slot lifts and hands them back, a zero as a zero', async () => {
         const service = build({ slots: [slot('one-artist', 20 * 60, 21 * 60)] });
 

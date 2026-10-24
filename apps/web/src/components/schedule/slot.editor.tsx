@@ -28,6 +28,10 @@ import {
     ShapeNote,
     TalkField,
     SourceField,
+    WriterOrderField,
+    writerOrderChoice,
+    writerOrderInput,
+    type WriterOrderChoice,
     sourceValue,
     splitSource,
     stationSourceValue,
@@ -158,6 +162,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             ...(values.mode === 'rotation'
                 ? repeatRulesInput(values.repeatWindowDays, values.artistCooldownMinutes, values.maxPerArtist)
                 : repeatRulesOf(slot)),
+            // Sent whatever the mode, since a feature that is silent today may be given a host later and
+            // the field is only hidden there, not cleared. Nothing at all for the station's own.
+            ...writerOrderInput(values.writerOrder),
             mode: values.mode,
             onEnd: values.onEnd,
         });
@@ -341,6 +348,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                         />
                     ) : undefined}
 
+                    {/* A feature airs without a word from the host, so there is nothing to write first. */}
+                    {form.values.mode === 'feature' ? undefined : <WriterOrderField {...form.getInputProps('writerOrder')} />}
+
                     {form.values.mode === 'rotation' ? (
                         <RepeatRulesFields
                             window={form.getInputProps('repeatWindowDays')}
@@ -471,6 +481,8 @@ interface FormValues {
     repeatWindowDays: number | string;
     artistCooldownMinutes: number | string;
     maxPerArtist: number | string;
+    /** Which writer the block asks first, or the station's own. See `WriterOrderField`. */
+    writerOrder: WriterOrderChoice;
     /** Who sits in for the host, and when. See `GuestHostsField`. */
     guestHosts: GuestRow[];
     /** Who presents beside the host, and when. The same rows, with "every night" offered too. */
@@ -519,6 +531,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         repeatWindowDays: slot?.repeatWindowDays ?? '',
         artistCooldownMinutes: slot?.artistCooldownMinutes ?? '',
         maxPerArtist: slot?.maxPerArtist ?? '',
+        writerOrder: writerOrderChoice(slot?.writerOrder),
         guestHosts: (slot?.guestHosts ?? []).map(guestRowOf),
         coHosts: (slot?.coHosts ?? []).map(guestRowOf),
         mode: slot?.mode ?? 'rotation',

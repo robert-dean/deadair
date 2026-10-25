@@ -46,13 +46,13 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     background: var(--da-phosphor);
-    color: #050706;
+    color: var(--da-on-accent);
     border: 1px solid var(--da-phosphor);
 }
 
 .primary:hover {
     background: var(--ifm-color-primary-light);
-    color: #050706;
+    color: var(--da-on-accent);
     text-decoration: none;
 }
 

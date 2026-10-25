@@ -8,8 +8,12 @@
  * Sans at a medium weight, tracked in, because a page that is read rather than operated wants quiet
  * headings. Chakra Petch is kept for the wordmark, where it is the brand.
  *
- * The site is dark only (`colorMode` in the config), and Infima states its dark palette on
- * `[data-theme='dark']`, which outranks a bare `:root`. Hence both selectors.
+ * Carbon is the dark theme and the console's Studio White is the light one, each restated from
+ * `tokens.css`. The site follows the reader's system setting and has a switch in the navbar
+ * (`colorMode` in the config). Infima states its dark palette on `[data-theme='dark']`, which
+ * outranks a bare `:root`, hence both selectors on carbon; Studio White then restates only the
+ * colours, on `[data-theme='light']`. A colour used anywhere on the site is a token here, so a rule
+ * that names a hex reads right in one theme only.
  */
 
 :root,
@@ -27,11 +31,14 @@ html[data-theme='dark'] {
     --da-tally: #ff4b4b;
     --da-bg-glow: #10130f;
 
-    /* The site's own rather than the console's: the pill buttons and their hover, and the
-       see-through navbar. */
+    /* The site's own rather than the console's: ink on a phosphor fill, the pill buttons and their
+       hover, the see-through navbar, and the shadow and backdrop a screenshot sits on. */
+    --da-on-accent: #050706;
     --da-pill: var(--da-text);
     --da-pill-hover: #ffffff;
     --da-chrome: rgb(12 14 13 / 80%);
+    --da-shadow: 0 0 0 1px rgb(0 0 0 / 40%), 0 24px 60px -20px rgb(0 0 0 / 70%);
+    --da-scrim: rgb(5 7 6 / 85%);
 
     --da-font-display: 'Chakra Petch', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
     --da-font-heading: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -69,6 +76,56 @@ html[data-theme='dark'] {
     --ifm-global-radius: 4px;
     --ifm-navbar-shadow: none;
     --docusaurus-highlighted-code-line-bg: rgb(47 217 140 / 12%);
+}
+
+/*
+ * Studio White: daylight and paper. The accent is darker rather than lighter, because a phosphor
+ * green that reads as an instrument on a black desk reads as highlighter on white; the tally stays
+ * red, one step deeper so it holds its contrast on paper.
+ */
+html[data-theme='light'] {
+    --da-bg: #f4f1ea;
+    --da-panel: #ffffff;
+    --da-raised: #efebe1;
+    --da-border: #ddd6c8;
+    --da-border-strong: #c3b9a5;
+    --da-text: #18160f;
+    --da-text-secondary: #56504a;
+    --da-text-dimmed: #6b6257;
+    --da-phosphor: #0e7247;
+    --da-phosphor-glow: rgb(14 114 71 / 18%);
+    --da-tally: #db2222;
+    --da-bg-glow: #fbf9f4;
+
+    --da-on-accent: #ffffff;
+    --da-pill-hover: #000000;
+    --da-chrome: rgb(244 241 234 / 80%);
+    --da-shadow: 0 0 0 1px rgb(24 22 15 / 6%), 0 24px 60px -24px rgb(24 22 15 / 25%);
+    --da-scrim: rgb(24 22 15 / 70%);
+
+    /* Studio White's printer's green, anchored the same way. */
+    --ifm-color-primary: #0e7247;
+    --ifm-color-primary-dark: #0d6740;
+    --ifm-color-primary-darker: #0c613c;
+    --ifm-color-primary-darkest: #0a5032;
+    --ifm-color-primary-light: #107d4e;
+    --ifm-color-primary-lighter: #118352;
+    --ifm-color-primary-lightest: #13945c;
+
+    --ifm-background-color: var(--da-bg);
+    --ifm-background-surface-color: var(--da-panel);
+    --ifm-font-color-base: var(--da-text);
+    --ifm-font-color-secondary: var(--da-text-secondary);
+    --ifm-heading-color: var(--da-text);
+    --ifm-link-color: var(--da-phosphor);
+    --ifm-hr-background-color: var(--da-border);
+    --ifm-toc-border-color: var(--da-border);
+    --ifm-table-border-color: var(--da-border-strong);
+    --ifm-table-stripe-background: var(--da-panel);
+    --ifm-code-background: var(--da-raised);
+    --ifm-menu-color-background-active: rgb(14 114 71 / 10%);
+    --ifm-menu-color-background-hover: var(--da-raised);
+    --docusaurus-highlighted-code-line-bg: rgb(14 114 71 / 12%);
 }
 
 h1,

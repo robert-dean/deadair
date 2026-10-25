@@ -1159,6 +1159,59 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
+## Kinds an operator writes
+
+**A kind of break can be a ROW, and what it costs is that it has no floor.** `deadair.break_kinds`
+(migration 0117, [#24](https://github.com/robert-dean/deadair/discussions/24)) holds a key, a name, a
+brief in the operator's prose, rules of its own, and the four data fields of `BreakPromptShape` a kind
+may set: `showsPrevious`, `showsPlayed`, `showsFacts`, `showsNotebook`. `AuthoredKinds` hands every
+switched-on row to the registry as a `BreakKindClaimant`, and `AuthoredBreakWriter` turns one into a
+shape (the station's own framing sentence, then the brief, as `job`) and writes it through
+`writeWithModel`, so it is guarded exactly as the station's own model writers are. A band on the format
+clock names it like any other kind, and it is spaced like the other band-driven kinds rather than as one
+of the station's own breaks (`isStationKind`). Five things are load-bearing.
+
+**Prose only.** A kind that fetched live data would be code, and code here is a plugin with everything
+`packages/plugin-sdk/CLAUDE.md` § "Trust and egress" says about one. Subjects from `topics` are not
+offered either: `BulletinSource` and `WeatherSource` each refuse every kind but their own, so a kind
+that took subjects would need its own design rather than borrowing theirs.
+
+**No row can switch a refusal off.** A kind's rules are APPENDED to the shared list, never in place of
+it, and the guard is built in the writer rather than from anything on the row: the cue check, the year
+rule (`permittedYears`, with past scripts stripped by `shownWithoutRecent`, which matters most for a
+brief that invites a memory), the lyrics check and everything `writeWithModel` applies to every kind.
+`mustNameRecord`, latitude, cues, pads, deliveries, stories, the weather and the date stay off, because
+each is a decision about what a kind is for that the station made for its own, and a field that could
+turn one on would be a field that could turn a check off. A record the row says not to show is taken out
+of the REQUEST, not only hidden by the shape, for `ModelChangeoverWriter`'s reason: the guard and the
+claims read the request.
+
+**No floor, so no claim without a model.** Every kind the station ships has a floor that cannot fail.
+A poem about the moment has no honest deterministic version, and a floor of the operator's own lines
+would make a kind into a phrasing, which is the reading of #24 it warns against: a kind is what the
+station is trying to say, a phrasing is what it says when it cannot. So `AuthoredKinds.kindsNow`
+answers nothing while `llm.breakWriter` is off or nothing can generate, and that one answer makes the
+registry unable to write the kind, the planner pass the band over and `producibleKinds` leave it off
+the clock, with no second check anywhere to agree with it. A single-writer kind is also outside
+`BreakFloorWatch`, which only watches a model in front of a floor.
+
+**Off when written, and the key is for life.** `enabled` defaults false, so an operator reads a kind
+back before it airs, and an import arrives the same way: `deadair.break-kinds/1` (`break.kind.file.ts`)
+carries no id, no place and no switch, and every kind it writes, new or rewritten, lands off. A key
+already held is skipped unless the import names it in `replace`, because a key match is not consent,
+and a key the station makes itself is refused per kind rather than failing the file. Preview and import
+both run `planImport`, so what the preview said is what happens, and the import is all or nothing inside
+the request's transaction. The key is what a band asks for and what
+every planted segment carries, so `BreakKindsService` refuses a change to it and refuses a delete while a
+band names it; the band is the operator's to remove first, because that is the edit whose consequence
+they can see. A key the station already makes is refused at the form (a listed writer's kind, a produced
+or carried kind, `ident`), and the registry ignores such a claim anyway (`BreakWriterRegistry.writersOf`).
+
+**Read from memory, refreshed after commit.** The planner asks `canWrite` on every pass and cannot
+wait on a read, so `BreakKindCatalog` holds the switched-on rows in a map, read at the director's
+`ready` before its first pass and again from `AfterCommit` after every save, never inside the save's
+transaction, where it would read the table as it stood before. A failed read leaves the map as it was.
+
 ## The station's language
 
 **One language per station, and it is `stream.language`.** The key Icecast's `Content-Language` already

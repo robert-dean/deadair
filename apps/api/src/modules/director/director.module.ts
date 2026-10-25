@@ -35,6 +35,12 @@ import { BreakRequestBuilder } from './break.request.builder.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
+import { BreakKindCatalog } from './break.kind.catalog.js';
+import { AuthoredKinds } from './authored.break.writer.js';
+import { BreakKindRepository } from './break.kind.repository.js';
+import { BreakKindsService } from './break.kinds.service.js';
+import { BreakKindFileService } from './break.kind.file.service.js';
+import { errorText } from '#modules/shared/error.text.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { BlockRulesService } from './block.rules.service.js';
 import { NeverPlay } from './never.play.js';
@@ -304,6 +310,9 @@ export const DirectorModule: ServerKitModule = {
                             container.get(ChangeoverWriter),
                         ],
                         container.get(Logger),
+                        // The kinds an operator writes (Ideas #24), asked only for a kind nothing
+                        // above claims, and only while there is a model to write one.
+                        [container.get(AuthoredKinds)],
                     ),
             )
             .asScoped();
@@ -328,6 +337,13 @@ export const DirectorModule: ServerKitModule = {
         // The operator's half of the format clock. Scoped like every other request-facing service,
         // and it tells the director nothing: a band is read off the table on the next commit pass.
         registry.register(ClockService).useClass(ClockService).asScoped();
+        // The kinds of break an operator writes (Ideas #24): the rows, the console's half of them, and
+        // the switched-on ones held in memory, because the registry answers `canWrite` from memory.
+        registry.register(BreakKindRepository).useClass(BreakKindRepository).asScoped();
+        registry.register(BreakKindsService).useClass(BreakKindsService).asScoped();
+        registry.register(BreakKindFileService).useClass(BreakKindFileService).asScoped();
+        registry.register(BreakKindCatalog).useClass(BreakKindCatalog).asSingleton();
+        registry.register(AuthoredKinds).useClass(AuthoredKinds).asScoped();
         // Never-play rules and the genre steer: the repository is read by the pick path as well as
         // the console, so it is scoped like every other repository here. See `block.rules.ts`.
         registry.register(BlockRulesRepository).useClass(BlockRulesRepository).asScoped();
@@ -348,6 +364,17 @@ export const DirectorModule: ServerKitModule = {
 
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
+
+        // Before the director, so its first pass already knows which kinds an operator has switched
+        // on. A failure leaves the catalog empty: the station's own kinds air as they always did, and
+        // an authored one waits for the next save to be read.
+        try {
+            await container.get(BreakKindCatalog).refresh();
+        } catch (error) {
+            container.get(Logger).error('director: the kinds of break you wrote could not be read; none of them will air until one is saved', {
+                error: errorText(error),
+            });
+        }
 
         // In `ready` rather than `start`: it reads what was on air before the restart,
         // which is work the first request does not depend on, and it drives a rundown

@@ -1,7 +1,7 @@
 ---
 title: 'Get station air'
 sidebar_label: 'Get station air'
-sidebar_position: 5
+sidebar_position: 13
 mdx:
     format: 'md'
 ---

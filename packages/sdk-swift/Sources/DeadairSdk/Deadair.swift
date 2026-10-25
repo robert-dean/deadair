@@ -16,6 +16,7 @@ public final class Deadair: Sendable {
     public let authenticationSessions: AuthenticationSessionsClient
     public let catalog: CatalogClient
     public let charts: ChartsClient
+    public let breakKinds: BreakKindsClient
     public let clock: ClockClient
     public let director: DirectorClient
     public let rules: RulesClient
@@ -65,6 +66,7 @@ public final class Deadair: Sendable {
         self.authenticationSessions = AuthenticationSessionsClient(http: http)
         self.catalog = CatalogClient(http: http)
         self.charts = ChartsClient(http: http)
+        self.breakKinds = BreakKindsClient(http: http)
         self.clock = ClockClient(http: http)
         self.director = DirectorClient(http: http)
         self.rules = RulesClient(http: http)

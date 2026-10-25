@@ -2,6 +2,7 @@ import { account } from './account.catalog.ts';
 import { activity } from './activity.catalog.ts';
 import { api } from './api.catalog.ts';
 import { auth } from './auth.catalog.ts';
+import { breaks } from './breaks.catalog.ts';
 import { catalog } from './catalog.catalog.ts';
 import { charts } from './charts.catalog.ts';
 import { common } from './common.catalog.ts';
@@ -53,6 +54,7 @@ export const en = {
     settings,
     plugins,
     topics,
+    breaks,
     catalog,
     library,
     schedule,

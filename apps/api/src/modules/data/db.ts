@@ -255,6 +255,23 @@ export interface DeadairBlockRules {
   value: string;
 }
 
+export interface DeadairBreakKinds {
+  brief: string;
+  createdAt: Generated<DateTime>;
+  enabled: Generated<boolean>;
+  id: Generated<string>;
+  key: string;
+  name: string;
+  position: Generated<number>;
+  rules: Generated<string[]>;
+  showsFacts: Generated<boolean>;
+  showsNotebook: Generated<boolean>;
+  showsPlayed: Generated<boolean>;
+  showsPrevious: Generated<boolean>;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairBreakRequests {
   broadcastId: string | null;
   context: Json | null;
@@ -1340,6 +1357,7 @@ export interface DB {
   "deadair.artistSources": DeadairArtistSources;
   "deadair.asRun": DeadairAsRun;
   "deadair.blockRules": DeadairBlockRules;
+  "deadair.breakKinds": DeadairBreakKinds;
   "deadair.breakRequests": DeadairBreakRequests;
   "deadair.callerHosts": DeadairCallerHosts;
   "deadair.clockBands": DeadairClockBands;

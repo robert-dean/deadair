@@ -1,6 +1,6 @@
 ---
 title: 'AirMode'
-sidebar_position: 4
+sidebar_position: 12
 mdx:
     format: 'md'
 ---

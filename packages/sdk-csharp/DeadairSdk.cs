@@ -29,6 +29,7 @@ public sealed class DeadairSdk : IDisposable
         AuthenticationSessions = new AuthenticationSessionsClient(Http);
         Catalog = new CatalogClient(Http);
         Charts = new ChartsClient(Http);
+        BreakKinds = new BreakKindsClient(Http);
         Clock = new ClockClient(Http);
         Director = new DirectorClient(Http);
         Rules = new RulesClient(Http);
@@ -87,6 +88,8 @@ public sealed class DeadairSdk : IDisposable
     public CatalogClient Catalog { get; }
 
     public ChartsClient Charts { get; }
+
+    public BreakKindsClient BreakKinds { get; }
 
     public ClockClient Clock { get; }
 

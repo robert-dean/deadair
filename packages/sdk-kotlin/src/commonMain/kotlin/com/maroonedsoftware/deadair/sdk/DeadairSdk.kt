@@ -11,6 +11,7 @@ import com.maroonedsoftware.deadair.sdk.clients.AuthenticationFactorClient
 import com.maroonedsoftware.deadair.sdk.clients.AuthenticationSessionsClient
 import com.maroonedsoftware.deadair.sdk.clients.CatalogClient
 import com.maroonedsoftware.deadair.sdk.clients.ChartsClient
+import com.maroonedsoftware.deadair.sdk.clients.BreakKindsClient
 import com.maroonedsoftware.deadair.sdk.clients.ClockClient
 import com.maroonedsoftware.deadair.sdk.clients.DirectorClient
 import com.maroonedsoftware.deadair.sdk.clients.RulesClient
@@ -67,6 +68,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val authenticationSessions: AuthenticationSessionsClient = AuthenticationSessionsClient(http)
     val catalog: CatalogClient = CatalogClient(http)
     val charts: ChartsClient = ChartsClient(http)
+    val breakKinds: BreakKindsClient = BreakKindsClient(http)
     val clock: ClockClient = ClockClient(http)
     val director: DirectorClient = DirectorClient(http)
     val rules: RulesClient = RulesClient(http)

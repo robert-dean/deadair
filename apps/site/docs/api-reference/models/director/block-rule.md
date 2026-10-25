@@ -1,6 +1,6 @@
 ---
 title: 'BlockRule'
-sidebar_position: 28
+sidebar_position: 36
 mdx:
     format: 'md'
 ---

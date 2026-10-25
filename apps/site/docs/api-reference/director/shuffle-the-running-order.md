@@ -1,7 +1,7 @@
 ---
 title: 'Shuffle the running order'
 sidebar_label: 'Shuffle the running order'
-sidebar_position: 18
+sidebar_position: 26
 mdx:
     format: 'md'
 ---

@@ -1,7 +1,7 @@
 ---
 title: 'Add a record to the running order'
 sidebar_label: 'Add a record to the running order'
-sidebar_position: 20
+sidebar_position: 28
 mdx:
     format: 'md'
 ---

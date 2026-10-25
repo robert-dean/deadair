@@ -1,73 +1,93 @@
 .page {
-    background: radial-gradient(ellipse 120% 40% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    background: radial-gradient(ellipse 90% 30% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 70%);
     padding-bottom: 6rem;
     overflow-x: clip;
 }
 
-.page h2 {
-    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem);
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-}
-
-/* The hero: words centred over one big screenshot. */
+/* The hero: a left-aligned headline, then the lede and the ways in, with the facts opposite. */
 
 .hero {
-    max-width: 56rem;
+    max-width: 82rem;
     margin: 0 auto;
-    padding: 6rem 1.5rem 3rem;
-    text-align: center;
+    padding: 8rem 1.5rem 4rem;
 }
 
 .headline {
-    font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.4rem);
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-    margin-bottom: 1.25rem;
+    font-size: clamp(2.6rem, 1.4rem + 4.6vw, 5rem);
+    font-weight: 500;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    max-width: 13ch;
+    margin-bottom: 2.5rem;
+}
+
+.heroFoot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem 4rem;
+    align-items: end;
 }
 
 .lede {
-    font-size: 1.2rem;
-    line-height: 1.6;
+    font-size: 1.15rem;
+    line-height: 1.55;
     color: var(--da-text-secondary);
-    max-width: 42rem;
-    margin: 0 auto 2rem;
+    max-width: 34rem;
+    margin-bottom: 1.75rem;
 }
 
 .actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     gap: 0.75rem;
 }
 
-/* Four facts in a mono strip, dot-separated, like the rule under a masthead. */
+.heroAside {
+    display: grid;
+    justify-items: end;
+    gap: 1.25rem;
+    text-align: right;
+}
+
 .facts {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.4rem 0;
     list-style: none;
-    margin: 2.25rem 0 0;
+    margin: 0;
     padding: 0;
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.78rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    line-height: 1.9;
     color: var(--da-text-dimmed);
 }
 
-.facts li + li::before {
-    content: '·';
-    margin: 0 0.9rem;
-    color: var(--da-border-strong);
-}
+/* The desk on a lit stage, fading into the page at its foot. */
 
 .showcase {
-    max-width: 82rem;
+    max-width: 86rem;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 1rem;
+}
+
+.stage {
+    position: relative;
+    padding: 1.5rem 1.5rem 0;
+    border: 1px solid var(--da-border);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(180deg, var(--da-raised) 0%, var(--da-bg) 85%);
+}
+
+.stage::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 40%;
+    background: linear-gradient(180deg, transparent, var(--da-bg));
+    pointer-events: none;
+}
+
+/* The figure's caption would sit inside the fade; the hero has already said what this is. */
+.stage figcaption {
+    display: none;
 }
 
 /* The one-line statement under the showcase. */
@@ -221,5 +241,21 @@
 
     .section {
         padding-top: 4.5rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .heroFoot {
+        grid-template-columns: 1fr;
+    }
+
+    .heroAside {
+        justify-items: start;
+        text-align: left;
+    }
+
+    .stage {
+        padding: 0.75rem 0.75rem 0;
+        border-radius: 12px 12px 0 0;
     }
 }

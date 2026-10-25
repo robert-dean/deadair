@@ -69,32 +69,40 @@ export default function Home() {
         <Layout description="deadair picks the records, writes what the presenter says between them, speaks it, and streams the result. Self-hosted and MIT licensed.">
             <main className={styles.page}>
                 <header className={styles.hero}>
-                    <p className="da-eyebrow">Self-hosted AI radio</p>
                     <h1 className={styles.headline}>An AI radio station you run yourself.</h1>
-                    <p className={styles.lede}>
-                        It picks the records, writes what the presenter says between them, speaks it in that presenter’s voice, and streams the
-                        result. One mount, one running order, and everybody hears the same thing at the same moment.
-                    </p>
-                    <div className={styles.actions}>
-                        <Link className="da-button" to="/docs/quick-start">
-                            Quick start
-                        </Link>
-                        <Link className="da-button-ghost" to="/community/stations">
-                            Hear a station
-                        </Link>
-                        <Link className="da-button-ghost" href={repository}>
-                            Read the source
-                        </Link>
+                    <div className={styles.heroFoot}>
+                        <div>
+                            <p className={styles.lede}>
+                                It picks the records, writes what the presenter says between them, speaks it in that presenter’s voice, and streams
+                                the result.
+                            </p>
+                            <div className={styles.actions}>
+                                <Link className="da-button" to="/docs/quick-start">
+                                    Quick start
+                                </Link>
+                                <Link className="da-button-ghost" href={repository}>
+                                    Read the source
+                                </Link>
+                            </div>
+                        </div>
+                        <div className={styles.heroAside}>
+                            <ul className={styles.facts}>
+                                {facts.map(fact => (
+                                    <li key={fact}>{fact}</li>
+                                ))}
+                            </ul>
+                            <Link className="da-more" to="/community/stations">
+                                Hear a station
+                            </Link>
+                        </div>
                     </div>
-                    <ul className={styles.facts}>
-                        {facts.map(fact => (
-                            <li key={fact}>{fact}</li>
-                        ))}
-                    </ul>
                 </header>
 
+                {/* The desk on a lit stage that fades into the page, the way the hero hands over to the first section. */}
                 <div className={styles.showcase}>
-                    <Figure shot="desk" number={1} caption="The Desk, on air" eager />
+                    <div className={styles.stage}>
+                        <Figure shot="desk" number={1} caption="The Desk, on air" aspect={16 / 9} eager />
+                    </div>
                 </div>
 
                 <section className={styles.statement}>

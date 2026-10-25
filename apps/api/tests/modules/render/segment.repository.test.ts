@@ -135,6 +135,35 @@ describe('SegmentRepository.recast', () => {
     });
 });
 
+describe('SegmentRepository.reopenForRewrite', () => {
+    it('admits a failed row, which no other reopen does, and clears why it failed', async () => {
+        const statements: Statement[] = [];
+        const reopened = await new SegmentRepository(fakeDb([{ id: 'seg-1', previous: 'failed' }], statements), identity()).reopenForRewrite('seg-1');
+
+        expect(reopened).toBe(true);
+        const update = statements[0]!;
+        expect(update.sql).toMatch(/"error" = \$\d+/);
+        expect(update.parameters).toEqual(expect.arrayContaining(['planned', 'written', 'ready', 'failed']));
+        // Never a job's claim: a break being written or spoken right now is not reset under it.
+        expect(update.parameters).not.toContain('writing');
+        expect(update.parameters).not.toContain('rendering');
+    });
+
+    it('answers false when nothing was reopened, which is a break whose job holds it', async () => {
+        const reopened = await new SegmentRepository(fakeDb([], []), identity()).reopenForRewrite('seg-1');
+
+        expect(reopened).toBe(false);
+    });
+
+    it('leaves a failed row alone on every other reopen', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).reopenSegments(['seg-1'], 'the order moved');
+
+        expect(statements[0]?.parameters).not.toContain('failed');
+        expect(statements[0]?.sql).not.toMatch(/"error" = /);
+    });
+});
+
 describe('SegmentRepository.plan', () => {
     it('keeps a delivery planted beside its words', async () => {
         const statements: Statement[] = [];

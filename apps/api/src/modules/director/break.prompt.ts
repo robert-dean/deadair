@@ -1175,6 +1175,17 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The other end: the record just finished runs on after its last sung line, and a link short
+    // enough goes out over that ending. The same offer on the same terms (`talk.out.ts`), and when
+    // both are made the link is said over one of them or in the gap, never stretched to cover both.
+    if (previous && request.talkOut !== undefined) {
+        parts.push(
+            `The record that just finished runs on for about ${Math.floor(request.talkOut.tailMs / 1000)} seconds after its last sung line. ` +
+                `Say this in ${request.talkOut.words} words or fewer and it can go out over that ending, finishing as the record does. ` +
+                'Anything longer is said after the record ends, which is fine too.',
+        );
+    }
+
     // On a chart show the position of the record coming up is the one thing a listener is counting
     // along to, so it is ASKED for rather than offered. Shown as a `- Chart:` line alone it was skipped
     // on every model-written break of the US countdown on 2026-10-23: the countdown host's sheet tells

@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    blendOutOf,
     DUCK_BED_KEY,
     duckAnnotations,
     itemAnnotations,
@@ -382,5 +383,30 @@ describe('listenerArtwork, through itemAnnotations', () => {
 
         expect(itemAnnotations(item, context(true)).url).toBeUndefined();
         expect(itemAnnotations(labelled('Station ident'), context(true)).url).toBeUndefined();
+    });
+});
+
+describe('blendOutOf: a record carrying a link over its end', () => {
+    const measured = (id: string, voice?: RundownItem['voice']): RundownItem => ({
+        ...record(-9),
+        id,
+        cueInMs: 0,
+        introEndMs: 8_000,
+        outroStartMs: 200_000,
+        cueOutMs: 210_000,
+        ...(voice === undefined ? {} : { voice }),
+    });
+    const blending = (next: RundownItem): AnnotationContext => ({ ...context(true), crossfade: true, next });
+
+    it('blends a measured pair as the measurement says', () => {
+        expect(blendOutOf(measured('a'), blending(measured('b')))).toBe(8_000);
+    });
+
+    it('is a hard join when a link is said over its end, so the talk-over owns those seconds', () => {
+        expect(blendOutOf(measured('a', { segmentId: 'seg-1', atMs: 200_000, endOf: true }), blending(measured('b')))).toBe(0);
+    });
+
+    it('still blends a record carrying a talk-over of its start', () => {
+        expect(blendOutOf(measured('a', { segmentId: 'seg-1', atMs: 2_000 }), blending(measured('b')))).toBe(8_000);
     });
 });

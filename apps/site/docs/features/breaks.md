@@ -15,6 +15,8 @@ Each kind of break has a model writer in front and the station's own phrasings b
 
 The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather, stories and the line marking a change of show. Connecting a model is covered in [Models and voices](./models-and-voices.md).
 
+With the model on, "Who is asked first" (Settings, Words) can turn the pair round. Asking the phrasings first airs your own words, the headlines as published and your stories as written, and asks the model only where those have nothing to say. Every kind of break follows it. A block on the schedule, or a show started from **Desk → Plan**, can choose otherwise under **Who writes the breaks first**, and leaving it on **The station's setting** follows this one.
+
 The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md), and [writing phrasings](./characters.md#writing-phrasings) for every placeholder. The words around everything else it says (a welcome, a jingle, a change of show, the news, the weather and the date) belong to the station rather than to a character, and are under Voice, Phrasings, in the same syntax.
 
 There is one model slot, and a break has priority on it over background work. A break that waits too long for it gives up and lets the floor write. Breaks are written as their slot nears, up to eight items ahead, and a station off the air writes nothing.
@@ -86,6 +88,19 @@ Every attempt to write a break is kept: the words or why there were none, the wr
 The format clock decides when the station talks, but an operator can ask it to say something now: the news, the weather or a word from the host. **Say something** does it from the listener apps signed in as the operator (in the Up next menu on Android, under **Manage** on the iPhone, and beside **Take a call** on the desktop app's desk), and so can Claude or anything else with an [API key](../develop/api.md) (`POST /api/director/air/breaks`). A request from the apps goes between the record on air and the one after, once it has been written and spoken. Through the API it can also ask for This day in history, a story or a jingle, for a news category or a place by its key, and for how soon: at the first moment there is time to write it, after this record, within a few records, or at the next ordinary slot.
 
 The station may decline, and says why rather than failing: breaks are off, the station has been asked to keep quiet for a while, there is no voice, nothing on the station writes that kind, the same request was taken a moment ago (a double press asks once), or the running order has no room. Accepted is not the same as aired: a bulletin with no story left unread is still passed over when it is written, as one the clock asked for would be.
+
+## Over the start or the end of a record
+
+Two settings under Settings, Breaks let a link be said over a record instead of in the gap, and both are off on a fresh install. Both need the records' timed lyrics (switched on under Measurement), since that is how the station knows where the singing is, and a record without them has its link in the gap as before. A link is never cut short to fit: one that does not fit simply airs in the gap.
+
+- **Talk up to the post**: a link short enough to finish before the singing starts on the next record is said over that record's intro, the last word landing just before the first sung one.
+- **Talk over the end of a record**: a link short enough to fit between the last sung word of the record before it and that record's end is said over its outro, finishing as the record finishes. The next record then starts straight after, with no crossfade. Where the record ends comes from its measurement. A link that says the time is not moved this way, and one that would fit over the next record's intro is talked up there when that is on.
+
+**Room left around the singing** is how far from the singing either one keeps.
+
+## Writing one again
+
+A break nothing could write is not tried again on its own, because the usual reason is that nothing true could be said about the records either side. After you change the phrasings or switch the model on, the pencil on the break's row on the **Desk** (**Write it again**) throws its words away and has it written afresh as its slot comes near, under whoever is presenting by then. It works on any break the station wrote that has not reached the player yet, finished ones included, but not on a recording, somebody else's programme, or one turn of a phone-in or other production. A break whose records have already aired cannot be written again, since there is nowhere true for it to go. Through the API it is `POST /api/director/air/items/{itemId}/rewrite`.
 
 ## Keeping it quiet for a while
 

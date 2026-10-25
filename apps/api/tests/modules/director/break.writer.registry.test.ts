@@ -134,6 +134,30 @@ describe('BreakWriterRegistry', () => {
             expect(registry.writersFor('talkbreak')).toEqual(['model', 'floor']);
         });
 
+        it('asks the station’s own words first when the operator put them there', async () => {
+            const model = vi.fn(words('the model'));
+            const registry = stacked(model);
+
+            const result = await registry.write({ kind: 'talkbreak' }, 'station');
+
+            expect(result.written?.script).toBe('the floor');
+            expect(result.writer).toBe('floor');
+            expect(model).not.toHaveBeenCalled();
+            expect(registry.writersFor('talkbreak', 'station')).toEqual(['floor', 'model']);
+        });
+
+        it('falls through to the model when the station’s own words decline under the station order', async () => {
+            const registry = new BreakWriterRegistry(
+                [new StubWriter('talkbreak', 'model', words('the model')), new StubWriter('talkbreak', 'floor', nothing)],
+                logger() as never,
+            );
+
+            const result = await registry.write({ kind: 'talkbreak' }, 'station');
+
+            expect(result.writer).toBe('model');
+            expect(result.attempts.map(attempt => attempt.writer)).toEqual(['floor', 'model']);
+        });
+
         it('falls through to the floor when the first declines', async () => {
             const result = await stacked(nothing).write({ kind: 'talkbreak' });
 

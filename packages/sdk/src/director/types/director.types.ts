@@ -256,6 +256,8 @@ export interface PutOnAirInput {
     artistCooldownMinutes?: number;
     /** Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     maxPerArtist?: number;
+    /** Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    writerOrder?: 'model' | 'station';
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }
@@ -305,6 +307,8 @@ export interface StationOrderItem {
     segmentWriter?: string;
     /** Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right */
     overAtMs?: number;
+    /** Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over */
+    overEndOf?: boolean;
 }
 
 /**

@@ -22,6 +22,9 @@ import {
     ShapeFields,
     ShapeNote,
     TalkField,
+    WriterOrderField,
+    writerOrderInput,
+    type WriterOrderChoice,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { RouteFields } from './route.fields';
@@ -151,6 +154,8 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                 ...(form.values.mode === 'rotation'
                     ? repeatRulesInput(form.values.repeatWindowDays, form.values.artistCooldownMinutes, form.values.maxPerArtist)
                     : {}),
+                // Nothing for a feature, which has no host to write for; see `WriterOrderField`.
+                ...(form.values.mode === 'feature' ? {} : writerOrderInput(form.values.writerOrder)),
                 mode: form.values.mode,
                 onEnd: form.values.onEnd,
             },
@@ -251,6 +256,8 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                                     perArtist={form.getInputProps('maxPerArtist')}
                                 />
                             ) : undefined}
+
+                            {form.values.mode === 'feature' ? undefined : <WriterOrderField {...form.getInputProps('writerOrder')} />}
                         </>
                     )}
 
@@ -317,6 +324,8 @@ interface FormValues {
     repeatWindowDays: number | string;
     artistCooldownMinutes: number | string;
     maxPerArtist: number | string;
+    /** Which writer the broadcast asks first, or the station's own. Not sent for a feature. See `WriterOrderField`. */
+    writerOrder: WriterOrderChoice;
     mode: StationMode;
     onEnd: StationOnEnd;
 }
@@ -346,6 +355,7 @@ function valuesOf(order?: StationOrder): FormValues {
         repeatWindowDays: '',
         artistCooldownMinutes: '',
         maxPerArtist: '',
+        writerOrder: 'inherit',
         mode: 'rotation',
         onEnd: 'extend',
     };

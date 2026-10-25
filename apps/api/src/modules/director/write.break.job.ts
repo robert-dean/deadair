@@ -19,6 +19,7 @@ import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './
 import type { BreakTrack, WrittenBreak } from './break.writer.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
+import { resolveWriterOrder } from './writer.order.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { isTrackItem, type StationLineup, type StationLineupItem } from './station.lineup.js';
 import { songKey } from './rotation.keys.js';
@@ -203,7 +204,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(asked === undefined ? {} : { priority: priorityForUrgency(asked.urgency) }),
         });
 
-        const result = await this.writers.write(built);
+        // Which writer is asked first: the show's choice where it made one, the station's otherwise.
+        // Read per break rather than once, so an operator's change is heard from the next break
+        // written. See `writer.order.ts`.
+        const writerOrder = lineup.rules.writerOrder ?? resolveWriterOrder(this.config);
+        const result = await this.writers.write(built, writerOrder);
 
         // Before the row is touched, and before any early return below, so an attempt is recorded
         // whichever way this goes. What the station TRIED is as much of the record as what it said.
@@ -322,7 +327,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
 
         // The row above is one break. Whether the MODEL has been gone for an hour is a run across many,
         // and only the watch can see it. See `BreakFloorWatch`.
-        this.floorWatch.observe(result, this.writers.writersFor(segment.kind));
+        this.floorWatch.observe(result, this.writers.writersFor(segment.kind, writerOrder));
     }
 
     /**

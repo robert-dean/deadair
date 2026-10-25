@@ -371,6 +371,15 @@ export class DirectorClient {
     }
 
     /**
+     * @name Write a running order break again
+     * @description Writes a break still to come again from nothing: its words, and any audio already made of them, are thrown away and the station writes it afresh as its slot nears, under whoever is presenting by then. Reaches a break that failed to be written, which nothing else retries, so a break that had nothing to say can be asked again after the phrasings change or the model is switched on. Only a break the station wrote itself and has not handed to the player, and never one turn of a programme on its own
+     */
+    async writeARunningOrderBreakAgain(itemId: string): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}/rewrite`, { method: 'POST' });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
      * @name Skip to a running order item
      * @description Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
      */

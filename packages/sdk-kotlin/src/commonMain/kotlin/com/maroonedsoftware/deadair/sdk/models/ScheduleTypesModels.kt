@@ -114,6 +114,8 @@ data class ScheduleSlot(
     val artistCooldownMinutes: Long? = null,
     /** Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     val maxPerArtist: Long? = null,
+    /** Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    val writerOrder: ScheduleSlotWriterOrder? = null,
     /** The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all */
     val startsOn: String? = null,
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
@@ -180,6 +182,8 @@ data class ScheduleSlotInput(
     val artistCooldownMinutes: Long? = null,
     /** Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms */
     val maxPerArtist: Long? = null,
+    /** Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+    val writerOrder: ScheduleSlotWriterOrder? = null,
     /** The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all */
     val startsOn: String? = null,
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
@@ -317,6 +321,27 @@ object ScheduleSlotAvoidMoodsSerializer : SdkEnumSerializer<ScheduleSlotAvoidMoo
     ScheduleSlotAvoidMoods.LONELINESS to "loneliness",
     ScheduleSlotAvoidMoods.ANGER to "anger",
     ScheduleSlotAvoidMoods.FEAR to "fear",
+)
+
+/** Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off */
+@Serializable(with = ScheduleSlotWriterOrderSerializer::class)
+enum class ScheduleSlotWriterOrder {
+    MODEL,
+    STATION,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [ScheduleSlotWriterOrder] by its wire spelling. A spelling it does not know reads as [ScheduleSlotWriterOrder.UNKNOWN]. */
+object ScheduleSlotWriterOrderSerializer : SdkEnumSerializer<ScheduleSlotWriterOrder>(
+    "ScheduleSlotWriterOrder",
+    ScheduleSlotWriterOrder.UNKNOWN,
+    ScheduleSlotWriterOrder.MODEL to "model",
+    ScheduleSlotWriterOrder.STATION to "station",
 )
 
 @Serializable(with = ScheduleSlotModeSerializer::class)

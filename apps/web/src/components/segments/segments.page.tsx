@@ -48,9 +48,10 @@ const DEFAULT_KIND = 'talkbreak';
  *
  * Two things it deliberately does not do. It cannot add a segment to the running order, which is
  * `POST /director/air/segments` and belongs to the page that owns the order rather than to the one
- * that owns the library. And it cannot re-render a `failed` segment, because there is no route that
- * does: a failed row is not re-claimable, and inventing a client-side retry would mean deleting and
- * re-creating the row, which is a different thing wearing the same button.
+ * that owns the library. And it does not write a `failed` break again: that is a running-order edit
+ * (`POST /director/air/items/{itemId}/rewrite`) offered on the Desk's row for the break, because a
+ * break is written for the two records either side of its slot and only the order knows which those
+ * are. A failed row here that is no longer in the order had nowhere true to air.
  */
 export function SegmentsPage() {
     const { t } = useTranslation('segments');
@@ -220,9 +221,9 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                                 </Table.Td>
                                 <Table.Td>
                                     <StatusLamp tone={STATE_TONE[segment.state] ?? 'standby'} label={segment.state} />
-                                    {/* The reason it failed, which is the only thing that makes a failed
-                                    row actionable: there is no retry button, so what is left is
-                                    knowing what to fix. */}
+                                    {/* The reason it failed, which is what makes a failed row
+                                    actionable here: the retry is on the Desk, on the break's own row,
+                                    so what this page adds is knowing what to fix first. */}
                                     {segment.error === undefined ? undefined : (
                                         <Text size="xs" c="red.4" lineClamp={2}>
                                             {segment.error}

@@ -1012,6 +1012,7 @@ export interface DeadairScheduleSlots {
   startsOn: DateTime | null;
   stationKey: Generated<string>;
   updatedAt: Generated<DateTime>;
+  writerOrder: "model" | "station" | null;
   yearly: Generated<boolean>;
 }
 

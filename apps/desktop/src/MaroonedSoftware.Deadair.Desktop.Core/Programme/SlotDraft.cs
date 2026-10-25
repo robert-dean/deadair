@@ -58,8 +58,11 @@ public sealed record SlotDraft
 
     /// <summary>
     /// What this editor does not draw and must still send back, because <c>PUT</c> replaces the row:
-    /// a slot's mood, a special's dates, its guest hosts and co-hosts, and whether it resumes its playlist. Without them, saving a special here would turn Halloween
-    /// into a show every night. Carried exactly as read, and changed only on the web console.
+    /// a slot's mood, a special's dates, its guest hosts and co-hosts, whether it resumes its playlist,
+    /// whether its host talks and reads out chart positions, its request show and how many records
+    /// follow a request, its own repeat window, artist cooldown and per-artist cap, and which writer
+    /// it asks first. Without them, saving a special here would turn Halloween into a show every
+    /// night, and saving a countdown would silence its host. Carried exactly as read, and changed only on the web console.
     /// </summary>
     public SlotPassthrough Kept { get; init; } = new();
 
@@ -103,6 +106,14 @@ public sealed record SlotDraft
                 GuestHosts = slot.GuestHosts,
                 CoHosts = slot.CoHosts,
                 ResumePlaylist = slot.ResumePlaylist,
+                Breaks = slot.Breaks,
+                ChartPositions = slot.ChartPositions,
+                RequestShow = slot.RequestShow,
+                RequestFollowOn = slot.RequestFollowOn,
+                RepeatWindowDays = slot.RepeatWindowDays,
+                ArtistCooldownMinutes = slot.ArtistCooldownMinutes,
+                MaxPerArtist = slot.MaxPerArtist,
+                WriterOrder = slot.WriterOrder,
             },
         };
     }
@@ -209,6 +220,14 @@ public sealed record SlotDraft
             GuestHosts = Kept.GuestHosts,
             CoHosts = Kept.CoHosts,
             ResumePlaylist = Kept.ResumePlaylist,
+            Breaks = Kept.Breaks,
+            ChartPositions = Kept.ChartPositions,
+            RequestShow = Kept.RequestShow,
+            RequestFollowOn = Kept.RequestFollowOn,
+            RepeatWindowDays = Kept.RepeatWindowDays,
+            ArtistCooldownMinutes = Kept.ArtistCooldownMinutes,
+            MaxPerArtist = Kept.MaxPerArtist,
+            WriterOrder = Kept.WriterOrder,
             Mode = Mode,
             OnEnd = OnEnd,
         };
@@ -304,4 +323,28 @@ public sealed record SlotPassthrough
 
     /// <summary>Whether a playlist slot picks its playlist up where it left off; set on the web console.</summary>
     public bool? ResumePlaylist { get; init; }
+
+    /// <summary>Whether the host talks between the records; null is the mode's own answer.</summary>
+    public bool? Breaks { get; init; }
+
+    /// <summary>Whether the host says where the chart placed each record; null is yes.</summary>
+    public bool? ChartPositions { get; init; }
+
+    /// <summary>Whether each request placed in the slot is followed by records that sound like it; null is no.</summary>
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show; null is the station's 4.</summary>
+    public long? RequestFollowOn { get; init; }
+
+    /// <summary>Days a record rests before the slot plays it again; null keeps the mode's own answer, 0 lifts it.</summary>
+    public long? RepeatWindowDays { get; init; }
+
+    /// <summary>Minutes an artist rests after airing; null keeps the mode's own answer, 0 lifts it.</summary>
+    public long? ArtistCooldownMinutes { get; init; }
+
+    /// <summary>Most records by one artist in each programmed batch; null keeps the mode's own answer, 0 lifts it.</summary>
+    public long? MaxPerArtist { get; init; }
+
+    /// <summary>Which writer the slot asks first for its breaks; null follows the station. Set on the web console.</summary>
+    public ScheduleSlotWriterOrder? WriterOrder { get; init; }
 }

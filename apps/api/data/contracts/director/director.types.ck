@@ -67,6 +67,7 @@ contract StationOrderItem: { # One item of the live running order, and where it 
     segmentError?: string(max=2000) # Why this segment will not air, in a sentence. Present only on a failed one
     segmentWriter?: string(max=200) # What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made
     overAtMs?: int(min=0) # Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
+    overEndOf?: boolean # Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over
 }
 
 contract StationOrder: { # The station's live running order: what is airing, item by item
@@ -113,6 +114,7 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     repeatWindowDays?: int(min=0, max=365) # Days a record rests after airing before this broadcast may play it again, in place of the station's `rotation.repeatWindowDays`. 0 lifts the window. Absent keeps the mode's own answer: the station's for a `rotation`, none for a `setlist` or a `feature`. A lift never reaches a dislike or a never-play rule
     artistCooldownMinutes?: int(min=0, max=1440) # Minutes an artist rests after airing during this broadcast, in place of the station's `rotation.artistCooldownMinutes`. 0 lifts the cooldown, which is what an hour of one artist needs first. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
     maxPerArtist?: int(min=0, max=100) # Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms
+    writerOrder?: enum(model, station) # Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
     mode?: StationMode
     onEnd?: StationOnEnd
 }

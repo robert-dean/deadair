@@ -2123,6 +2123,26 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationOrder'
+    '/director/air/items/{itemId}/rewrite':
+        post:
+            operationId: rewriteOrderItem
+            summary: 'Write a running order break again'
+            description: 'Writes a break still to come again from nothing: its words, and any audio already made of them, are thrown away and the station writes it afresh as its slot nears, under whoever is presenting by then. Reaches a break that failed to be written, which nothing else retries, so a break that had nothing to say can be asked again after the phrasings change or the model is switched on. Only a break the station wrote itself and has not handed to the player, and never one turn of a programme on its own'
+            parameters:
+                - name: itemId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationOrder'
     '/director/air/items/{itemId}/skip-to':
         post:
             operationId: skipToOrderItem
@@ -10241,6 +10261,9 @@ components:
                     type: integer
                     minimum: 0
                     description: 'Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right'
+                overEndOf:
+                    type: boolean
+                    description: 'Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over'
             required: [id, kind, state, title, artists]
             description: 'One item of the live running order, and where it has got to'
         StationOrder:
@@ -10427,6 +10450,10 @@ components:
                     minimum: 0
                     maximum: 100
                     description: "Most records by one artist in each batch the station programmes for this broadcast, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms"
+                writerOrder:
+                    type: string
+                    enum: [model, station]
+                    description: "Which writer is asked first for this broadcast's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off"
                 mode:
                     '$ref': '#/components/schemas/StationMode'
                 onEnd:
@@ -16265,6 +16292,10 @@ components:
                     minimum: 0
                     maximum: 100
                     description: "Most records by one artist in each batch the station programmes for this stretch of the day, in place of the station's `rotation.maxPerArtist`. 0 lifts the cap. Absent keeps the mode's own answer, on `repeatWindowDays`' terms"
+                writerOrder:
+                    type: string
+                    enum: [model, station]
+                    description: "Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off"
                 startsOn:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'

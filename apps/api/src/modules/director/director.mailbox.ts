@@ -83,7 +83,11 @@ export type OrderEdit =
     //
     // `forbidden` is what was rated, carried only so the activity feed can say what the station was
     // told. Nothing reads it to decide anything.
-    | { kind: 'vetoDisliked'; itemIds: readonly string[]; forbidden: string };
+    | { kind: 'vetoDisliked'; itemIds: readonly string[]; forbidden: string }
+    // A break still to come, written again from nothing: its words, its claims and its audio go, and
+    // the planner asks for it once its slot is near, under whoever is presenting by then. The order
+    // itself does not move. See `DirectorService.rewrite`.
+    | { kind: 'rewrite'; itemId: string };
 
 /**
  * Something the director has been asked to do.

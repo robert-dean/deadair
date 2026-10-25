@@ -46,7 +46,8 @@ page, `docs/features/console.md` and both READMEs link: moving it means changing
 
 **The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
 (`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn
-by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg` and `voteSvg`, so the listing
+by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg`, `voteSvg`, `requestSvg` and
+`grantSvg`, so the listing
 shows what a key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit
 what it writes, as the desktop commits its generated icons. The covers in them are abstract shapes
 and the records made up, because a listing is no place for somebody else's album art. Two things it

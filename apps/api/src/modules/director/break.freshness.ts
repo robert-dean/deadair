@@ -63,6 +63,10 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // it says. Stale costs nothing either, because whether the link goes over the intro is decided
     // again at hand-over, against the record that is actually next and the clip's real length.
     talkUp: 'not-spoken',
+    // How long the record just finished runs on after its singing. Never spoken, for `talkUp`'s
+    // reason: it shapes how long the link is, and whether it goes over that ending is decided again
+    // at hand-over.
+    talkOut: 'not-spoken',
     // The lyric lines of the records either side. Never spoken: read only by the guard, to refuse a
     // script that quotes one.
     lyricLines: 'not-spoken',

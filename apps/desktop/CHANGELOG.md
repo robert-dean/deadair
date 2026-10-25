@@ -8,6 +8,14 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.2] — 2026-10-24
+
+- Saving a slot from the desk's Timetable no longer resets the settings the editor does not draw. Whether the host talks, whether chart positions are read out, a request show and how many records follow each request, and the slot's own repeat window, artist cooldown and per-artist cap are now sent back exactly as the station holds them.
+
+## [0.17.1] — 2026-10-24
+
+- Saving a slot from the Timetable keeps which writer it asks first for its breaks, which is set on the web console.
+
 ## [0.17.0] — 2026-10-23
 
 - A record, a release or an artist can be suspended from its page in the console: **Suspend** for a day, a week or a month keeps it off the station without touching your rating, the page says how long is left, and **Lift** ends it early. The tracks list counts and filters what is suspended and marks a suspended row, and the desktop app's record list has the same filter. On the API, `TrackState` gains `suspended` and the state counts carry `suspended`.
@@ -175,7 +183,9 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...HEAD
+[0.17.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.1...desktop-v0.17.2
+[0.17.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.0...desktop-v0.17.1
 [0.17.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.1...desktop-v0.17.0
 [0.16.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.0...desktop-v0.16.1
 [0.16.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.15.0...desktop-v0.16.0

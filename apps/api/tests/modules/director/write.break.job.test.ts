@@ -19,6 +19,8 @@ import type { SpokenWeather } from '../../../src/modules/weather/weather.words.j
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
+import { TALK_OUT_KEYS } from '../../../src/modules/director/talk.out.js';
+import { WRITER_ORDER_KEY } from '../../../src/modules/director/writer.order.js';
 import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import { drawOf } from '../../../src/modules/shared/rotation.js';
@@ -348,8 +350,17 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.writersFor).toHaveBeenCalledWith('talkbreak');
+        expect(writers.writersFor).toHaveBeenCalledWith('talkbreak', 'model');
         expect(floorWatch.observe).toHaveBeenCalledWith(expect.objectContaining({ writer: 'deterministic' }), ['model', 'deterministic']);
+    });
+
+    it('asks the writers in the order the operator chose, and reads the floor watch’s list in that order', async () => {
+        const { job, writers } = harness({ lineup: await lineupWithBreak(), settings: { [WRITER_ORDER_KEY]: 'station' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }), 'station');
+        expect(writers.writersFor).toHaveBeenCalledWith('talkbreak', 'station');
     });
 
     it('hands the writers whoever is on air, and nothing when nobody is', async () => {
@@ -360,12 +371,12 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona }), 'model');
 
         const bare = harness({ lineup: await lineupWithBreak() });
         await bare.job.run({ segmentId: 'seg-1' });
 
-        expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }));
+        expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }), 'model');
     });
 
     it('hands the writers what a requested break is about, and asks nothing for a planted one', async () => {
@@ -381,14 +392,14 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(requests.findById).toHaveBeenCalledWith('req-1');
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context }), 'model');
 
         // The station's own planted break, which is most of them: no request, so no read at all.
         const planted = harness({ lineup: await lineupWithBreak() });
         await planted.job.run({ segmentId: 'seg-1' });
 
         expect(planted.requests.findById).not.toHaveBeenCalled();
-        expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
+        expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }), 'model');
     });
 
     describe('what the records are about', () => {
@@ -415,6 +426,7 @@ describe('WriteBreakJob', () => {
                     next: expect.objectContaining({ about: 'Watching the night sky arrive for everyone.' }),
                     lyricLines: ['Pink, pink, pink, pink moon', 'Saw it written and I saw it say'],
                 }),
+                'model',
             );
         });
 
@@ -443,8 +455,61 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ lyricLines: expect.anything() }));
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: expect.not.objectContaining({ about: expect.anything() }) }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ lyricLines: expect.anything() }), 'model');
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ next: expect.not.objectContaining({ about: expect.anything() }) }),
+                'model',
+            );
+        });
+    });
+
+    describe('the end of the record just finished', () => {
+        // The singing on 'Solid Air' stops at 190s and the record is measured to end at 200s, so with
+        // the default room, the duck's ramp and the cue's lag, 20 words fit over its ending.
+        const sung: VocalMarkers = { kind: 'ranges', onsetMs: 15_000, endMs: 190_000, ranges: [] };
+        const measuredLineup = () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([
+                { ...track('Solid Air', 'John Martyn', 't-solid'), cueInMs: 0, cueOutMs: 200_000 },
+                track('Pink Moon', 'Nick Drake', 't-pink'),
+            ]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+
+        it('tells a talk link how many words fit over it, when talking over an end is on', async () => {
+            const { job, writers } = harness({
+                lineup: measuredLineup(),
+                vocalMarkers: { 't-solid': sung },
+                settings: { [TALK_OUT_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ talkOut: { tailMs: 10_000, words: 20 } }), 'model');
+        });
+
+        it('says nothing with it off, stored as the string false', async () => {
+            const { job, writers } = harness({
+                lineup: measuredLineup(),
+                vocalMarkers: { 't-solid': sung },
+                settings: { [TALK_OUT_KEYS.enabled]: 'false' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkOut: expect.anything() }), 'model');
+        });
+
+        it('says nothing after a record nobody measured', async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 't-solid'), track('Pink Moon', 'Nick Drake', 't-pink')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            const { job, writers } = harness({ lineup, vocalMarkers: { 't-solid': sung }, settings: { [TALK_OUT_KEYS.enabled]: 'true' } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkOut: expect.anything() }), 'model');
         });
     });
 
@@ -468,7 +533,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ talkUp: { runwayMs: 15_000, words: 33 } }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ talkUp: { runwayMs: 15_000, words: 33 } }), 'model');
         });
 
         it('says nothing with talking up off, stored as the string false', async () => {
@@ -480,7 +545,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
         });
 
         it('says nothing to a break that is not a link', async () => {
@@ -493,7 +558,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
         });
 
         it('says nothing before a record whose singing it cannot place', async () => {
@@ -501,7 +566,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
         });
     });
 
@@ -517,7 +582,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'technology' } }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'technology' } }), 'model');
     });
 
     it('lets what asked for a break outrank what the clock planted it for', async () => {
@@ -539,7 +604,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'world', headline: 'the bridge is shut' } }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'world', headline: 'the bridge is shut' } }), 'model');
     });
 
     it('hands a bulletin the stories, against the moment it will actually air', async () => {
@@ -555,7 +620,7 @@ describe('WriteBreakJob', () => {
         // The slot's own time rather than now: a bulletin written a quarter of an hour early is
         // judged fresh against when it is heard, not against when it was written.
         expect(bulletin.storiesFor).toHaveBeenCalledWith('news', undefined, 1_700_000_000_000);
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ stories }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ stories }), 'model');
     });
 
     it('says the half of the day but not the hour, which is what the setting defaults to', async () => {
@@ -568,8 +633,8 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }));
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ dayPart: expect.anything() }));
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }), 'model');
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ dayPart: expect.anything() }), 'model');
     });
 
     it('hands the writer the mood stage the break airs in, and nothing for a broadcast with none', async () => {
@@ -579,11 +644,11 @@ describe('WriteBreakJob', () => {
         const leaning = harness({ lineup: moody, segment: planned({ airsAt: 1_700_000_000_000 }) });
 
         await leaning.job.run({ segmentId: 'seg-1' });
-        expect(leaning.writers.write).toHaveBeenCalledWith(expect.objectContaining({ mood: 'comfort' }));
+        expect(leaning.writers.write).toHaveBeenCalledWith(expect.objectContaining({ mood: 'comfort' }), 'model');
 
         const plain = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: 1_700_000_000_000 }) });
         await plain.job.run({ segmentId: 'seg-1' });
-        expect(plain.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ mood: expect.anything() }));
+        expect(plain.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ mood: expect.anything() }), 'model');
     });
 
     it('names the hour once an operator switches it back on', async () => {
@@ -595,7 +660,10 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ clock: expect.objectContaining({ words: expect.any(String) }) }));
+        expect(writers.write).toHaveBeenCalledWith(
+            expect.objectContaining({ clock: expect.objectContaining({ words: expect.any(String) }) }),
+            'model',
+        );
     });
 
     it('reads the switch as the STRING a config layer actually holds', async () => {
@@ -609,7 +677,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }));
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }), 'model');
     });
 
     it('hands over what the bulletin turned out to be about, resolved rather than as a key', async () => {
@@ -625,7 +693,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ subject: { key: 'technology', label: 'Technology' } }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ subject: { key: 'technology', label: 'Technology' } }), 'model');
     });
 
     it('hands a changeover the two programmes, compared against the host it will be written under', async () => {
@@ -641,7 +709,7 @@ describe('WriteBreakJob', () => {
         // The context off the row, and the presenter the job already resolved: whether the outgoing
         // host is somebody else is a comparison against the character this break is written under.
         expect(changeovers.changeoverFor).toHaveBeenCalledWith('changeover', { outgoingShow: 'Breakfast', incomingShow: 'Afternoons' }, undefined);
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ changeover }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ changeover }), 'model');
     });
 
     it('hands no stories at all to a kind that does not report', async () => {
@@ -650,7 +718,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ stories: expect.anything() }));
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ stories: expect.anything() }), 'model');
     });
 
     it('asks who is presenting THIS broadcast, not who the station is', async () => {
@@ -703,7 +771,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: lemmy, coPresenters: ["Ozzy's Ghost"] }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: lemmy, coPresenters: ["Ozzy's Ghost"] }), 'model');
         });
 
         it('keeps a talk break with the lead when nobody has been heard yet', async () => {
@@ -711,7 +779,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }), 'model');
         });
 
         it('leaves every other kind of break with the lead, who still knows who is beside them', async () => {
@@ -728,7 +796,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }), 'model');
         });
 
         // The newsreader may present as well. Whether a break is shared round is a question about the
@@ -749,7 +817,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: lemmy, coPresenters: ["Ozzy's Ghost"] }));
+                expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: lemmy, coPresenters: ["Ozzy's Ghost"] }), 'model');
             });
 
             it('reads their bulletin alone, with nobody beside them', async () => {
@@ -788,7 +856,10 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ sittingInFor: { name: "Ozzy's Ghost", show: 'The Boneyard' } }));
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ sittingInFor: { name: "Ozzy's Ghost", show: 'The Boneyard' } }),
+                'model',
+            );
         });
 
         it('says nothing of it for a bulletin the newsreader reads', async () => {
@@ -797,7 +868,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ sittingInFor: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ sittingInFor: expect.anything() }), 'model');
         });
     });
 
@@ -813,7 +884,7 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(notes.forPrompt).toHaveBeenCalledWith('pirate');
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ notebook }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ notebook }), 'model');
         expect(notes.markUsed).toHaveBeenCalledWith(['n1']);
     });
 
@@ -825,7 +896,7 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(notes.forPrompt).not.toHaveBeenCalled();
-        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ notebook: expect.anything() }));
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ notebook: expect.anything() }), 'model');
     });
 
     it('writes the break anyway when the notebook cannot be read', async () => {
@@ -882,7 +953,7 @@ describe('WriteBreakJob', () => {
             // The gap rides along because which story is ELIGIBLE now depends on when this one was
             // last carried, which the store cannot know on its own. See `nextThread`.
             expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy', { now: expect.any(Number), gapMs: expect.any(Number) });
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }), 'model');
             // The ledger IS the spend now: `markTold` and the two columns behind it are gone, so
             // there is one writer of this fact rather than two that could disagree.
             expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', expect.objectContaining({ storyId: 's1' }));
@@ -988,7 +1059,7 @@ describe('WriteBreakJob', () => {
             // Cleared rather than untouched: this break won its segment carrying no story, and a
             // rewrite has to take the previous attempt's row with it.
             expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }), 'model');
         });
 
         // The default rung, and the moment it fires in is the one the prompt would otherwise answer
@@ -1001,8 +1072,8 @@ describe('WriteBreakJob', () => {
             await silent.job.run({ segmentId: 'seg-1' });
             await known.job.run({ segmentId: 'seg-1' });
 
-            expect(silent.writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
-            expect(known.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+            expect(silent.writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }), 'model');
+            expect(known.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }), 'model');
             // And nothing was spent on the break that never carried one, which is the whole reason
             // this rung is read here rather than where the prompt is built.
             expect(known.tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
@@ -1020,7 +1091,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }), 'model');
         });
 
         it('offers one at "often" even where both records carry notes', async () => {
@@ -1028,7 +1099,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }), 'model');
         });
 
         it('reads none for a station presenting as nobody', async () => {
@@ -1045,7 +1116,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }), 'model');
         });
 
         it('writes the break anyway when the stories cannot be read', async () => {
@@ -1169,17 +1240,17 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ reactions: ['laugh', 'sigh'] }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ reactions: ['laugh', 'sigh'] }), 'model');
     });
 
     it('offers the writers the readings the engine performs, and nothing for one that performs none', async () => {
         const reading = harness({ lineup: await lineupWithBreak(), deliveries: ['hushed', 'frantic'] });
         await reading.job.run({ segmentId: 'seg-1' });
-        expect(reading.writers.write).toHaveBeenCalledWith(expect.objectContaining({ deliveries: ['hushed', 'frantic'] }));
+        expect(reading.writers.write).toHaveBeenCalledWith(expect.objectContaining({ deliveries: ['hushed', 'frantic'] }), 'model');
 
         const plain = harness({ lineup: await lineupWithBreak() });
         await plain.job.run({ segmentId: 'seg-1' });
-        expect(plain.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ deliveries: expect.anything() }));
+        expect(plain.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ deliveries: expect.anything() }), 'model');
     });
 
     it('writes the reading the model chose onto the row and into the record', async () => {
@@ -1226,7 +1297,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ reactions: expect.anything() }));
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ reactions: expect.anything() }), 'model');
     });
 
     it('writes the break anyway when the engine cannot be asked', async () => {
@@ -1477,6 +1548,7 @@ describe('WriteBreakJob', () => {
                 previous: { title: 'Solid Air', artist: 'John Martyn' },
                 next: { title: 'Pink Moon', artist: 'Nick Drake' },
             }),
+            'model',
         );
     });
 
@@ -1496,7 +1568,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: { title: 'Yeah!', artist: 'USHER' } }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: { title: 'Yeah!', artist: 'USHER' } }), 'model');
     });
 
     it('tells the writer where a chart placed the record coming up', async () => {
@@ -1509,6 +1581,7 @@ describe('WriteBreakJob', () => {
 
         expect(writers.write).toHaveBeenCalledWith(
             expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', chart: { rank: 7, name: 'Top 100' } } }),
+            'model',
         );
     });
 
@@ -1520,7 +1593,10 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', deepCut: true } }));
+        expect(writers.write).toHaveBeenCalledWith(
+            expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', deepCut: true } }),
+            'model',
+        );
     });
 
     it('tells the writer how a route connects the record coming up to the one before it', async () => {
@@ -1537,6 +1613,7 @@ describe('WriteBreakJob', () => {
 
         expect(writers.write).toHaveBeenCalledWith(
             expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', link: link.reason } }),
+            'model',
         );
     });
 
@@ -1549,7 +1626,24 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }), 'model');
+    });
+
+    it('asks the writers in the show’s order over the station’s', async () => {
+        const lineup = new StationLineup({
+            name: 'Phrasings',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            rules: { writerOrder: 'station' },
+        });
+        lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup, settings: { [WRITER_ORDER_KEY]: 'model' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }), 'station');
     });
 
     it('keeps the position from the writer on a show that does not say them', async () => {
@@ -1560,7 +1654,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }), 'model');
     });
 
     describe('a break the running order does not hold', () => {
@@ -1597,7 +1691,10 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             // No neighbours at all, which is a shape the writers already answer for.
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ previous: expect.anything(), next: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.not.objectContaining({ previous: expect.anything(), next: expect.anything() }),
+                'model',
+            );
             expect(segments.writeScript).toHaveBeenCalledWith('seg-1', {
                 script: "You're listening to deadair.",
                 label: 'Welcome',
@@ -1679,6 +1776,7 @@ describe('WriteBreakJob', () => {
                     },
                     next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b', facts: ['Nick Drake: English singer-songwriter.'] },
                 }),
+                'model',
             );
         });
 
@@ -1689,6 +1787,7 @@ describe('WriteBreakJob', () => {
 
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b' } }),
+                'model',
             );
         });
 
@@ -1711,6 +1810,7 @@ describe('WriteBreakJob', () => {
 
             expect(writers.write).toHaveBeenCalledWith(
                 expect.not.objectContaining({ previous: expect.objectContaining({ facts: expect.anything() }) }),
+                'model',
             );
             expect(segments.writeScript).toHaveBeenCalled();
             expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
@@ -1805,6 +1905,7 @@ describe('WriteBreakJob', () => {
                         previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' },
                         next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b' },
                     }),
+                    'model',
                 );
                 expect(history.recordAll.mock.calls[0]?.[0]?.[0]?.previous).not.toHaveProperty('facts');
             });
@@ -1850,6 +1951,7 @@ describe('WriteBreakJob', () => {
                             facts: ['Pink Moon was recorded in two late-night sessions.'],
                         },
                     }),
+                    'model',
                 );
             });
 
@@ -1878,6 +1980,7 @@ describe('WriteBreakJob', () => {
 
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
+                    'model',
                 );
             });
 
@@ -1928,6 +2031,7 @@ describe('WriteBreakJob', () => {
                 expect(enrichment.factForBreak).toHaveBeenCalled();
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ previous: expect.objectContaining({ facts: ['John Martyn was born in New Malden in 1948.'] }) }),
+                    'model',
                 );
             });
 
@@ -1945,6 +2049,7 @@ describe('WriteBreakJob', () => {
                 expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
+                    'model',
                 );
             });
         });
@@ -2020,8 +2125,11 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ next: expect.anything() }));
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ next: expect.anything() }), 'model');
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }),
+                'model',
+            );
         });
 
         it('back-announces past a record that never played, to the one that did', async () => {
@@ -2033,7 +2141,10 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }),
+                'model',
+            );
         });
 
         it('does not offer the next record across another segment', async () => {
@@ -2048,8 +2159,11 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ next: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }),
+                'model',
+            );
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ next: expect.anything() }), 'model');
         });
 
         it('still back-announces across another segment, because what played is a fact', async () => {
@@ -2061,7 +2175,10 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }),
+                'model',
+            );
         });
     });
 
@@ -2173,6 +2290,7 @@ describe('WriteBreakJob', () => {
 
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({ played: [{ title: 'Yeah!', artist: 'USHER' }], recent: ['that was the one before'] }),
+                'model',
             );
         });
 
@@ -2193,6 +2311,7 @@ describe('WriteBreakJob', () => {
             // This broadcast's own words first, then the carried ones, newest first throughout.
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({ recent: ['the first thing this show said', 'the last show signing off', 'the last show before that'] }),
+                'model',
             );
         });
 
@@ -2205,7 +2324,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: ['good evening', 'that was the one before'] }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: ['good evening', 'that was the one before'] }), 'model');
         });
 
         // The window is the bound: an empty answer from it, which is what a station back after a quiet
@@ -2216,7 +2335,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(history.spokenSince).toHaveBeenCalled();
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: [] }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: [] }), 'model');
         });
 
         it('does not look past a broadcast that has already said enough', async () => {
@@ -2226,7 +2345,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(history.spokenSince).not.toHaveBeenCalled();
-            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: said }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: said }), 'model');
         });
 
         // What was SAID is an avoid-list and carries across; what was PLAYED is material a writer
@@ -2238,7 +2357,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(plays.duringBroadcast).toHaveBeenCalledWith('broadcast-1', expect.any(Number));
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }), 'model');
         });
 
         it('leaves the played list off entirely when the broadcast has aired nothing yet', async () => {
@@ -2249,7 +2368,7 @@ describe('WriteBreakJob', () => {
             // Absent rather than empty, which is the rule everywhere in this tree: a prompt renders
             // the block on what the moment HOLDS, and an empty heading is a heading with nothing
             // under it.
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }), 'model');
         });
 
         // The fallback is not a nicety: handing an empty `recent` would quietly disarm the
@@ -2268,7 +2387,7 @@ describe('WriteBreakJob', () => {
             expect(history.spokenDuring).not.toHaveBeenCalled();
             expect(history.spokenSince).not.toHaveBeenCalled();
 
-            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }), 'model');
         });
 
         // Memory makes a break better and never makes it possible, which is the same trade the facts
@@ -2386,7 +2505,10 @@ describe('WriteBreakJob putting a pad in by itself', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ pads: ['guitarriff', 'drumroll', 'rimshot'], stings: ['rimshot'] }));
+        expect(writers.write).toHaveBeenCalledWith(
+            expect.objectContaining({ pads: ['guitarriff', 'drumroll', 'rimshot'], stings: ['rimshot'] }),
+            'model',
+        );
     });
 
     it('drops a hit the model put where the pad may not land, from the row and from the words, and does not rest it', async () => {
@@ -2438,6 +2560,7 @@ describe('WriteBreakJob putting a pad in by itself', () => {
                     drumroll: { placements: ['start', 'middle', 'end'], cue: 'right after a punchline' },
                 },
             }),
+            'model',
         );
     });
 

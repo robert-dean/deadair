@@ -55,7 +55,7 @@ export class BreakKindRepository extends DataRepository {
     }
 
     /**
-     * Rewrites everything but the key, which is fixed once written (`0116_break_kinds.sql`).
+     * Rewrites everything but the key, which is fixed once written (`0117_break_kinds.sql`).
      * Answers `undefined` for a kind this station does not have.
      */
     async update(id: string, draft: AuthoredKindDraft): Promise<AuthoredKind | undefined> {

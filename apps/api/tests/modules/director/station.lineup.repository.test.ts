@@ -112,6 +112,7 @@ const items = (): StationLineupItem[] => [
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
     { id: 'item-episode', kind: 'segment', state: 'planned', segmentId: 'seg-episode', segmentKind: 'syndicated', durationMs: 3_723_000 },
     { id: 'item-cue', kind: 'segment', state: 'planned', segmentId: 'seg-cue', segmentKind: 'talk', over: { atMs: 4_500 } },
+    { id: 'item-end-cue', kind: 'segment', state: 'handed', segmentId: 'seg-end-cue', segmentKind: 'talk', over: { atMs: 190_000, endOf: true } },
     { id: 'item-asked-for', kind: 'segment', state: 'planned', segmentId: 'seg-asked-for', segmentKind: 'welcome', pinned: true },
     {
         id: 'item-dedication',

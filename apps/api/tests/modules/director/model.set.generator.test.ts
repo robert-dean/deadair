@@ -21,7 +21,8 @@ import {
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
 import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
-import type { BriefArtist, BriefArtists } from '../../../src/modules/director/brief.artists.js';
+import type { BriefArtist } from '../../../src/modules/director/brief.artists.js';
+import type { BriefActs } from '../../../src/modules/director/brief.acts.js';
 import { AiredRecords } from '../../../src/modules/shared/aired.records.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
@@ -152,7 +153,9 @@ function build(options: Options = {}) {
     const aired = new AiredRecords();
 
     // The brief names nobody unless a case says otherwise.
-    const briefArtists = { named: vi.fn(async () => options.namedArtists ?? []) };
+    const briefActs = {
+        reach: vi.fn(async () => ({ acts: (options.namedArtists ?? []).map(artist => ({ ...artist, inLibrary: true })), neighbours: [] })),
+    };
 
     // No steer unless a case sets one, which is every station until an operator leans it.
     const rules = { steer: vi.fn(async () => undefined as { genres: string[]; endsAt: string } | undefined) };
@@ -171,7 +174,7 @@ function build(options: Options = {}) {
             history,
             new StationIdentity(),
             aired,
-            briefArtists as unknown as BriefArtists,
+            briefActs as unknown as BriefActs,
         ),
         rules,
         converse,
@@ -182,7 +185,7 @@ function build(options: Options = {}) {
         searched,
         lastAiredSince,
         aired,
-        briefArtists,
+        briefActs,
     };
 }
 
@@ -305,7 +308,7 @@ describe('ModelSetGenerator', () => {
     });
 
     it("hands the model the brief's own acts, longest off air first, with how long ago each aired", async () => {
-        const { generator, converse, briefArtists } = build({
+        const { generator, converse, briefActs } = build({
             enabled: true,
             namedArtists: [
                 { name: 'Kreator', artistKey: 'kreator' },
@@ -315,7 +318,7 @@ describe('ModelSetGenerator', () => {
 
         await generator.generate(inputs(5, { brief: 'Thrash: Metallica, Kreator' }));
 
-        expect(briefArtists.named).toHaveBeenCalledWith('Thrash: Metallica, Kreator');
+        expect(briefActs.reach).toHaveBeenCalledWith('Thrash: Metallica, Kreator', undefined);
         const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
         const user = request.messages.find(message => message.role === 'user')?.content ?? '';
         expect(user).toContain('Kreator (not played lately); Metallica (played 2 days ago)');

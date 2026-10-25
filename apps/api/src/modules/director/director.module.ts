@@ -52,6 +52,7 @@ import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
 import { BriefArtists } from './brief.artists.js';
+import { BriefActs } from './brief.acts.js';
 import { BriefArtistSetGenerator } from './brief.artist.set.generator.js';
 import { SimilarPicker } from './similar.picker.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
@@ -109,6 +110,8 @@ export const DirectorModule: ServerKitModule = {
         // that named six of fifteen has done most of the job — which is why a set is not a break.
         // The acts a brief names, longest off air first. Scoped with the two repositories it reads.
         registry.register(BriefArtists).useClass(BriefArtists).asScoped();
+        // Those acts plus the ones only a similarity source knows, with the store filled for them. See `brief.acts.ts`.
+        registry.register(BriefActs).useClass(BriefActs).asScoped();
         registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
         registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
         registry.register(SimilarPicker).useClass(SimilarPicker).asScoped();

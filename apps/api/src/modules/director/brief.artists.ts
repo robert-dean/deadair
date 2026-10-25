@@ -106,7 +106,7 @@ export class BriefArtists {
  *
  * Exported for the tests, since it is the whole of the decision and needs no database to check.
  */
-export function orderByNeglect(artists: readonly BriefArtist[], brief: string): BriefArtist[] {
+export function orderByNeglect<T extends BriefArtist>(artists: readonly T[], brief: string): T[] {
     const position = (artist: BriefArtist): number => {
         const at = brief.indexOf(artist.name);
         return at < 0 ? Number.MAX_SAFE_INTEGER : at;
@@ -114,6 +114,22 @@ export function orderByNeglect(artists: readonly BriefArtist[], brief: string): 
     const aired = (artist: BriefArtist): number => artist.lastAiredAt?.toMillis() ?? Number.NEGATIVE_INFINITY;
 
     return [...artists].sort((left, right) => aired(left) - aired(right) || position(left) - position(right));
+}
+
+/**
+ * Which of `names` the brief actually names, as whole words, less any it only rules out.
+ *
+ * For names that did not come from the library: an act the library has never held cannot be found
+ * by {@link ArtistsRepository.namedIn}, but a similarity source may name it as a neighbour of one it
+ * does hold, and this is the same test that read applies (whole words, case as written) with
+ * {@link excludedByBrief}'s negation on top. So "No Burzum" keeps Burzum out however often a source
+ * offers him. In the order given.
+ */
+export function namedInBrief(brief: string, names: readonly string[]): string[] {
+    const mentioned = names.filter(name => mentionsOf(brief, name).length > 0);
+    if (mentioned.length === 0) return [];
+    const excluded = excludedByBrief(brief, mentioned);
+    return mentioned.filter(name => !excluded.has(name));
 }
 
 /**

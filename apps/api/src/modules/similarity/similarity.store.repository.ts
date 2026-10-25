@@ -130,10 +130,11 @@ export class SimilarityStoreRepository extends DataRepository {
     }
 
     /**
-     * Which of these artists have had the question asked within `maxAgeMs`, for a fill deciding who is
-     * still owed one.
+     * Which of these artists have had the question asked within `maxAgeMs`, for at least `atLeast`
+     * answers, for a fill deciding who is still owed one. An answer stored for fewer (a refill asking
+     * for three records) still owes a fill that wants twenty-five.
      */
-    async askedWithin(kind: SimilarityAskKind, artistKeys: readonly string[], maxAgeMs: number): Promise<Set<string>> {
+    async askedWithin(kind: SimilarityAskKind, artistKeys: readonly string[], maxAgeMs: number, atLeast = 1): Promise<Set<string>> {
         if (artistKeys.length === 0) return new Set();
 
         const rows = await this.db
@@ -143,6 +144,7 @@ export class SimilarityStoreRepository extends DataRepository {
             .where('kind', '=', kind)
             .where('artistKey', 'in', [...artistKeys])
             .where('askedAt', '>', sql<never>`now() - ${maxAgeMs} * interval '1 millisecond'`)
+            .where('askedLimit', '>=', atLeast)
             .execute();
 
         return new Set(rows.map(row => row.artistKey));

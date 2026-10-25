@@ -21,7 +21,7 @@ import { ACT_SEPARATOR, artistKey, creditKey, sameAct } from './rotation.keys.js
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
-import { BriefArtists } from './brief.artists.js';
+import { BriefActs } from './brief.acts.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { modelList } from '#modules/llm/model.list.js';
@@ -261,8 +261,9 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly identity: StationIdentity,
         private readonly aired: AiredRecords,
         // The acts the brief names, longest off air first, so a model that runs out of time does so
-        // having searched the neglected ones rather than the top of the list. See `BriefArtists`.
-        private readonly briefArtists: BriefArtists,
+        // having searched the neglected ones rather than the top of the list, including the ones only
+        // a similarity source knows. See `BriefActs`.
+        private readonly briefActs: BriefActs,
     ) {
         super();
     }
@@ -288,6 +289,9 @@ export class ModelSetGenerator extends SetGenerator {
         await this.rememberAired();
 
         const steer = await this.rules.steer();
+        // Before the conversation, because it may ask the providers (a few, capped) and the model's
+        // budget is for the model.
+        const reach = await this.briefActs.reach(inputs.brief, inputs.signal);
         // In the operator's order; the first is what the request names, and the rest are who to ask
         // when it fails before answering. See `modelList`.
         const models = modelList(this.config, MODEL_GENERATOR_KEYS.model);
@@ -309,7 +313,7 @@ export class ModelSetGenerator extends SetGenerator {
                 // The genre steer, read per refill like everything above. Advice to the model and a
                 // weight in the catalog draw, never a filter: see `genre.steer.ts`.
                 ...(steer === undefined ? {} : { lean: steer.genres }),
-                namedArtists: (await this.briefArtists.named(inputs.brief)).map(artist => ({
+                namedArtists: reach.acts.map(artist => ({
                     name: artist.name,
                     ...(artist.lastAiredAt === undefined ? {} : { daysAgo: Math.max(0, Math.floor(-artist.lastAiredAt.diffNow('days').days)) }),
                 })),

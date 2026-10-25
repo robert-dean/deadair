@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { AuthenticationSessionFactor } from '@maroonedsoftware/authentication';
-import type { PlatformRoleName } from '#modules/permissions/platform.roles.js';
+import { PLATFORM_NAMESPACE, rolesGrant, type PlatformRoleName } from '#modules/permissions/platform.roles.js';
 import type { ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
 
 // Discriminated union — every actor kind has its own shape and lifecycle.
@@ -77,6 +77,8 @@ export interface GuestActor {
 export interface RequesterIdentity {
     key: string;
     actorId: string;
+    /** Whether they hold `platform:manage`, which lifts the request arbiter's rules about the person asking. */
+    operator?: true;
 }
 
 export interface SystemActor {
@@ -127,8 +129,15 @@ export class AuthorizationContext {
     // keyed `guest:<actor id>`. The key is what the request arbiter counts by, so a guest's one open
     // request and cooldown are theirs alone and never a person's who signed in. Anything else is
     // refused, as `requireUser` refuses it.
+    //
+    // `operator` is decided exactly as `PlatformManagePolicy` decides it, a key or a connected app
+    // without `manage` included, so whoever the operator-only routes admit is who skips one at a time.
     requireRequester(): RequesterIdentity {
-        if (this.actor.kind === 'user') return { key: `user:${this.actor.actorId}`, actorId: this.actor.actorId };
+        if (this.actor.kind === 'user') {
+            const ceiling = delegatedGrants(this.actor);
+            const operator = rolesGrant(this.actor.platformRoles, PLATFORM_NAMESPACE, 'manage') && (ceiling === undefined || ceiling.has('manage'));
+            return { key: `user:${this.actor.actorId}`, actorId: this.actor.actorId, ...(operator ? { operator: true as const } : {}) };
+        }
         if (this.actor.kind === 'guest') return { key: `guest:${this.actor.actorId}`, actorId: this.actor.actorId };
         throw httpError(403).withDetails({ message: `a person or a party guest is required (got ${this.actor.kind})` });
     }

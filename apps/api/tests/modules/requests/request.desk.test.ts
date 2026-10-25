@@ -39,6 +39,7 @@ const RESOLVED = {
 };
 
 const app = (id = 'a-1'): Requester => ({ key: `user:${id}`, name: 'Robin', actorId: id });
+const operator = (id = 'o-1'): Requester => ({ key: `user:${id}`, name: 'Alex', actorId: id, operator: true });
 const chat = (id = '7'): Requester => ({
     key: `chat:deadair.telegram:${id}`,
     name: 'Sam',
@@ -56,7 +57,8 @@ function memoryTable() {
         create: vi.fn(async (request: NewRequest) => {
             if (OPEN.includes(request.status)) {
                 const open = rows.filter(row => OPEN.includes(row.status));
-                if (open.some(row => row.requesterKey === request.requesterKey)) throw new OpenRequestTaken('requester');
+                const mine = open.filter(row => row.operator !== true && request.operator !== true);
+                if (mine.some(row => row.requesterKey === request.requesterKey)) throw new OpenRequestTaken('requester');
                 if (open.some(row => row.trackId === request.trackId)) throw new OpenRequestTaken('track');
             }
             const row: RequestRow = {
@@ -72,6 +74,7 @@ function memoryTable() {
                 status: request.status,
                 ...(request.reason === undefined ? {} : { reason: request.reason }),
                 ...(request.insisted === true ? { insisted: true as const } : {}),
+                ...(request.operator === true ? { operator: true as const } : {}),
                 createdAt: DateTime.now(),
             };
             rows.push(row);
@@ -300,6 +303,32 @@ describe('submitting', () => {
         expect(second).toMatchObject({ status: 'declined', reason: expect.stringContaining('One at a time') });
     });
 
+    it('lets an operator ask for as many as they like, and keeps the mark on each row', async () => {
+        const { desk } = build({ audio: 'remote' });
+        await desk.submit(operator(), TEARDROP);
+
+        const second = await desk.submit(operator(), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' });
+
+        expect(second).toMatchObject({ status: 'pending', operator: true });
+    });
+
+    it('leaves an operator’s requests out of the listeners’ line', async () => {
+        const { desk } = build({ audio: 'remote', rules: { requestMaxOpen: 1 } });
+        await desk.submit(operator(), TEARDROP);
+        await desk.submit(operator(), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' });
+
+        const listener = await desk.submit(app('a-1'), { trackId: 't-3', title: 'Unfinished Sympathy', artist: 'Massive Attack' });
+
+        expect(listener.status).toBe('pending');
+    });
+
+    it('still gives an operator the record somebody already asked for only once', async () => {
+        const { desk } = build({ audio: 'remote' });
+        await desk.submit(app('a-1'), TEARDROP);
+
+        expect(await desk.submit(operator(), TEARDROP)).toMatchObject({ status: 'declined', reason: expect.stringContaining('already asked for') });
+    });
+
     it('refuses the second of two requests from one person that arrive together, naming the first', async () => {
         const { desk, table } = build({ audio: 'remote' });
         // Both read the table before either writes, as two overlapping submits do.
@@ -342,6 +371,12 @@ describe('submitting', () => {
         expect(await desk.refusal(app('a-1'))).toBe('You already have a request in: Teardrop by Massive Attack. One at a time.');
         // The record is not part of it: somebody else may still be refused only once the record is known.
         expect(await desk.refusal(chat('7'))).toBeUndefined();
+    });
+
+    it('does not hold an operator’s own request for an operator to grant', async () => {
+        const { desk } = build({ approval: 'operator' });
+
+        expect((await desk.submit(operator(), TEARDROP)).status).not.toBe('waiting');
     });
 
     it('waits for an operator when the station asks for one', async () => {

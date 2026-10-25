@@ -41,6 +41,8 @@ export interface Requester {
     actorId?: string;
     /** Where to tell them what became of it, when they asked from a chat. */
     chat?: ChatReplyTarget;
+    /** Holds `platform:manage`, so the arbitration's rules about the person asking do not apply. Decided by the caller, which knows who is signed in. */
+    operator?: true;
 }
 
 /** The job the messaging module sends a chat message with. Named rather than imported, since messaging registers after this module. */
@@ -165,10 +167,12 @@ export class RequestDesk {
             trackId: record.trackId,
             title: record.title,
             artist: record.artist,
-            status: decision.ok ? (settings.approval === 'operator' ? 'waiting' : 'pending') : 'declined',
+            // An operator's own request does not wait for an operator to grant it.
+            status: decision.ok ? (settings.approval === 'operator' && requester.operator !== true ? 'waiting' : 'pending') : 'declined',
             ...(decision.ok ? {} : { reason: decision.reason }),
             ...(dedication === undefined ? {} : { dedication }),
             ...(options.insisted === true ? { insisted: true as const } : {}),
+            ...(requester.operator === true ? { operator: true as const } : {}),
         };
         const created = await this.write(request);
         if (created.status !== 'pending') return this.received(created);
@@ -240,15 +244,18 @@ export class RequestDesk {
         // The broadcast's own request rules where it has any: a party night's, say.
         const settings = requestSettingsFor(this.config, (await this.lineups.load())?.rules);
         const open = await this.repository.open(stationKey);
-        const mine = open.find(request => request.requesterKey === requester.key);
+        // An operator's own requests are not in the listeners' line, so a stack of them never fills it.
+        const listeners = open.filter(request => request.operator !== true);
+        const mine = listeners.find(request => request.requesterKey === requester.key);
         const lastGranted = await this.repository.lastGrantedAt(stationKey, requester.key);
         const facts: RequesterFacts = {
             enabled: settings.enabled,
             onAir: this.nowPlaying.getNowPlaying().onAir,
+            ...(requester.operator === true ? { operator: true } : {}),
             ...(mine === undefined ? {} : { openForRequester: `${mine.title} by ${mine.artist}` }),
             ...(lastGranted === undefined ? {} : { lastGrantedAt: lastGranted.toMillis() }),
             cooldownMs: settings.cooldownMs,
-            openCount: open.length,
+            openCount: listeners.length,
             maxOpen: settings.maxOpen,
             now: Date.now(),
         };

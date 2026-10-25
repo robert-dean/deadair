@@ -8,7 +8,7 @@ import { notSuspendedNow } from '#modules/catalog/suspension.js';
 /** A request's lifecycle. See the migration for what each state means. */
 export type RequestStatus = 'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired';
 
-/** The states in which a request still has something coming: it counts against the one-at-a-time rule and the cap. */
+/** The states in which a request still has something coming: it counts against the one-at-a-time rule and the cap (an operator's against neither). */
 export const OPEN_STATUSES: readonly RequestStatus[] = ['waiting', 'pending', 'queued'];
 
 /** Where to tell somebody on a chat platform what became of their request. */
@@ -39,6 +39,8 @@ export interface RequestRow {
     overrulable?: true;
     /** Written when its listener insisted on a record the station had turned down, and placed as overruled. */
     insisted?: true;
+    /** Asked by an operator, so held to none of the rules about the person asking. See migration 0118. */
+    operator?: true;
 }
 
 /** Who a request is dedicated to and what the listener wanted said. The listener's words, never the station's. */
@@ -61,6 +63,7 @@ export interface NewRequest {
     reason?: string;
     dedication?: Dedication;
     insisted?: true;
+    operator?: true;
 }
 
 /** The two partial unique indexes that hold the one-at-a-time rules (migration 0088), by what each one holds. */
@@ -122,6 +125,7 @@ const COLUMNS = [
     'message',
     'overrulable',
     'insisted',
+    'operator',
 ] as const;
 
 /** A row as the module reads it, dropping absent optionals rather than passing nulls on. See `apps/api/CLAUDE.md`. */
@@ -145,6 +149,7 @@ function toRow(row: {
     message: string | null;
     overrulable: boolean;
     insisted: boolean;
+    operator: boolean;
 }): RequestRow {
     const chat =
         row.pluginId != null && row.chatId != null && row.chatKind != null && row.messageId != null
@@ -170,6 +175,7 @@ function toRow(row: {
               }),
         ...(row.overrulable ? { overrulable: true as const } : {}),
         ...(row.insisted ? { insisted: true as const } : {}),
+        ...(row.operator ? { operator: true as const } : {}),
     };
 }
 
@@ -216,6 +222,7 @@ export class RequestsRepository extends DataRepository {
                 dedicateTo: request.dedication?.to ?? null,
                 message: request.dedication?.message ?? null,
                 insisted: request.insisted === true,
+                operator: request.operator === true,
                 ...(request.status === 'declined' ? { decidedAt: sql<DateTime>`now()` } : {}),
             })
             .returning(COLUMNS)

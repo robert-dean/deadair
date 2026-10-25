@@ -60,6 +60,21 @@ describe('arbitrate', () => {
         expect(arbitrate(facts({ openCount: 2 }))).toEqual({ ok: true });
     });
 
+    it('holds an operator to none of the rules about the person asking', () => {
+        const now = 10_000_000;
+        const crowded = { operator: true, openForRequester: 'Teardrop by Massive Attack', now, lastGrantedAt: now - 60_000, openCount: 3 };
+        expect(arbitrate(facts(crowded))).toEqual({ ok: true });
+    });
+
+    it('still turns an operator down when requests are off, the station is off the air, or the record is already asked for', () => {
+        expect(arbitrate(facts({ operator: true, enabled: false }))).toMatchObject({ ok: false });
+        expect(arbitrate(facts({ operator: true, onAir: false }))).toMatchObject({ ok: false });
+        expect(arbitrate(facts({ operator: true, trackAlreadyOpen: true }))).toMatchObject({
+            ok: false,
+            reason: expect.stringContaining('already asked for that one'),
+        });
+    });
+
     it('still refuses a second request when the first can no longer be named', () => {
         expect(oneAtATime()).toBe('You already have a request in. One at a time.');
     });

@@ -183,6 +183,18 @@ never the same record twice. Every refusal is a sentence the station says to the
 refusal is still a row (`declined`, with its `reason`), so an app is answered in the same breath. It is
 split in two (`arbitrateRequester`, then the record) so the first half can run before a take-in.
 
+**An operator is held to none of the rules about the person asking.** One at a time, the cooldown and the
+cap are about listeners, and the night is the operator's to shape, so the rules that keep listeners from
+shaping too much of it have nothing to say to them. `requireRequester` marks a
+requester `operator` exactly as `PlatformManagePolicy` admits one (a key or a connected app without `manage`
+is not), and the arbitration lets them through once requests are on and the station is on the air. The
+record rule still holds, an operator's request never waits for approval, and an operator's open requests
+are left out of the count the cap reads, so a stack of them never fills the listeners' line. The mark is
+stored (`operator`, migration 0118) because two things that are not the request itself read it: the
+one-open-per-requester index, which leaves those rows out, and the next request's count of the line. A chat request is never
+marked, even from a chat account linked to an operator: it asks as that account, and is held to one at a
+time among the account's unmarked requests.
+
 **The database holds one open request per person and one per record.** The desk decides from the open
 rows it has just read and then inserts, with nothing locked in between, so two submits that overlap (a
 double tap, or the app and a linked chat at once) both pass the arbitration. Two partial unique indexes

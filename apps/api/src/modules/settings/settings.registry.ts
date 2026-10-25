@@ -75,7 +75,7 @@ import {
     OVERRUN_MINUTES_KEY,
     OVERRUN_MINUTES_RANGE,
 } from '#modules/schedule/changeover.overrun.js';
-import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
+import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS, MODEL_SHORTLIST_DEFAULT } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { BRIEF_ARTIST_KEYS, DEFAULT_BRIEF_ARTIST_MIX } from '#modules/director/brief.artist.set.generator.js';
@@ -1717,6 +1717,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
         help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.shortlist,
+        label: 'Choose from a list when the brief names its artists',
+        type: 'boolean',
+        default: MODEL_SHORTLIST_DEFAULT,
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        help: "On, a brief that names its artists is programmed from a numbered list the station builds itself: records by those artists and a few who sound like them, from your library and from what your providers have said, with anything that played too recently, any artist who just played and anything you dislike already taken out. The model answers with numbers, which is far quicker than searching and writing out titles, and every record it picks can play. It can still search for something the list lacks, such as a song the brief names by title. Off, or for a brief that names no artists, the model searches as it always has.",
     },
     {
         group: 'llm',

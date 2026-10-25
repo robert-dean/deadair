@@ -13,8 +13,10 @@ import type { TracksRepository } from '../../../src/modules/catalog/tracks.repos
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
 import {
     DEFAULT_MAX_OUTPUT_TOKENS,
+    MAX_TOOL_STEPS,
     MODEL_GENERATOR_KEYS,
     ModelSetGenerator,
+    SHORTLIST_TOOL_STEPS,
     STYLES_SHOWN,
     maxOutputTokens,
 } from '../../../src/modules/director/model.set.generator.js';
@@ -23,6 +25,7 @@ import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
 import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
 import type { BriefArtist } from '../../../src/modules/director/brief.artists.js';
 import type { BriefActs } from '../../../src/modules/director/brief.acts.js';
+import type { Shortlist, ShortlistEntry } from '../../../src/modules/director/shortlist.js';
 import { AiredRecords } from '../../../src/modules/shared/aired.records.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
@@ -70,6 +73,8 @@ interface Options {
     aired?: string[];
     /** The acts the brief names, longest off air first. */
     namedArtists?: BriefArtist[];
+    /** The screened list the model is handed. Absent is a brief the list cannot serve. */
+    shortlist?: ShortlistEntry[];
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -153,6 +158,9 @@ function build(options: Options = {}) {
     const aired = new AiredRecords();
 
     // The brief names nobody unless a case says otherwise.
+    // No list unless a case hands one over, which is a brief naming no acts.
+    const shortlist = { build: vi.fn(async () => options.shortlist) };
+
     const briefActs = {
         reach: vi.fn(async () => ({ acts: (options.namedArtists ?? []).map(artist => ({ ...artist, inLibrary: true })), neighbours: [] })),
     };
@@ -175,6 +183,7 @@ function build(options: Options = {}) {
             new StationIdentity(),
             aired,
             briefActs as unknown as BriefActs,
+            shortlist as unknown as Shortlist,
         ),
         rules,
         converse,
@@ -186,6 +195,7 @@ function build(options: Options = {}) {
         lastAiredSince,
         aired,
         briefActs,
+        shortlist,
     };
 }
 
@@ -935,5 +945,72 @@ describe('smart shuffle, as the model sees it', () => {
         await generator.generate(inputs(5));
 
         expect(lastAiredSince).not.toHaveBeenCalled();
+    });
+});
+
+describe('ModelSetGenerator with a shortlist', () => {
+    const list: ShortlistEntry[] = [
+        { title: 'South of Heaven', artist: 'Slayer', trackId: 'track-1' },
+        { title: 'Freezing Moon', artist: 'Mayhem', year: 1994 },
+        { title: 'A Fine Day to Die', artist: 'Bathory', trackId: 'track-3', airedDaysAgo: 9 },
+    ];
+    const userTurn = (converse: ReturnType<typeof build>['converse']): string => {
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        return request.messages.find(message => message.role === 'user')?.content ?? '';
+    };
+
+    it('hands the model the numbered list and reads its answer as numbers', async () => {
+        const { generator, converse } = build({ enabled: true, shortlist: list, text: '[3, 2]', toolCallsMade: 0 });
+
+        const picks = await generator.generate(inputs(2, { brief: 'Black metal: Mayhem, Bathory' }));
+
+        expect(picks).toEqual([
+            { title: 'A Fine Day to Die', artist: 'Bathory', trackId: 'track-3' },
+            { title: 'Freezing Moon', artist: 'Mayhem' },
+        ]);
+        expect(userTurn(converse)).toContain('1. Slayer - "South of Heaven" (not played lately)');
+        expect(userTurn(converse)).toContain('3. Bathory - "A Fine Day to Die" (played 9d ago)');
+    });
+
+    it('offers only the search, for a couple of rounds, beside a list', async () => {
+        const { generator, converse } = build({ enabled: true, shortlist: list, text: '[1]' });
+
+        await generator.generate(inputs(1));
+
+        const [, options] = converse.mock.calls[0] as unknown as [unknown, { maxToolSteps: number; onlyTools?: string[] }];
+        expect(options.maxToolSteps).toBe(SHORTLIST_TOOL_STEPS);
+        expect(options.onlyTools).toEqual(['search_music']);
+    });
+
+    it('keeps a record the model searched for beside the numbers', async () => {
+        const { generator } = build({ enabled: true, shortlist: list, text: '[1, {"title": "Thriller", "artist": "Michael Jackson"}]' });
+
+        expect(await generator.generate(inputs(2))).toEqual([
+            { title: 'South of Heaven', artist: 'Slayer', trackId: 'track-1' },
+            { title: 'Thriller', artist: 'Michael Jackson' },
+        ]);
+    });
+
+    it('searches as before when the setting is off', async () => {
+        const { generator, converse, shortlist } = build({
+            enabled: true,
+            shortlist: list,
+            settings: { [MODEL_GENERATOR_KEYS.shortlist]: 'false' },
+            text: picks(['A', 'One']),
+        });
+
+        expect(await generator.generate(inputs(1))).toEqual([{ title: 'A', artist: 'One' }]);
+        expect(shortlist.build).not.toHaveBeenCalled();
+        expect(userTurn(converse)).not.toContain('The records you can choose from');
+    });
+
+    it('searches as before when there is no list to offer', async () => {
+        const { generator, converse } = build({ enabled: true, text: picks(['A', 'One']) });
+
+        await generator.generate(inputs(1));
+
+        const [, options] = converse.mock.calls[0] as unknown as [unknown, { maxToolSteps: number; onlyTools?: string[] }];
+        expect(options.maxToolSteps).toBe(MAX_TOOL_STEPS);
+        expect(options.onlyTools).toBeUndefined();
     });
 });

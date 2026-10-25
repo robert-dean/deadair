@@ -41,6 +41,8 @@ export interface CandidateTrack {
     albumId?: string;
     /** Where it sits on that album, counted from 1. Absent when no tag said. */
     trackNumber?: number;
+    /** The year the catalog has for it. Absent when it has none. */
+    year?: number;
     /**
      * The operator liked THIS record, as against its release or its artist. Only ever `true` or
      * absent: {@link rating} carries a like from any level, and a record liked for itself is a
@@ -257,61 +259,7 @@ export class CandidatesRepository extends DataRepository {
         const refused = [...new Set((exclude?.refusedTags ?? []).map(tag => tag.trim().toLowerCase()).filter(tag => tag !== ''))];
         const drawn = exclude?.trackIds ?? [];
 
-        const rows = await this.db
-            .selectFrom('deadair.tracks')
-            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
-            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .select([
-                'deadair.tracks.id as trackId',
-                'deadair.tracks.title',
-                'deadair.artists.name as artist',
-                'deadair.tracks.artists as credit',
-                'deadair.albums.name as album',
-                'deadair.artists.rating as artistRating',
-                'deadair.tracks.rating as trackRating',
-                'deadair.tracks.albumId',
-                'deadair.tracks.trackNumber',
-            ])
-            // One number for "how does the station feel about this", across all three levels.
-            .select(effectiveRating().as('rating'))
-            .where('deadair.tracks.mergedIntoId', 'is', null)
-            .where(eb =>
-                eb.exists(
-                    eb
-                        .selectFrom('deadair.trackSources')
-                        .select('deadair.trackSources.id')
-                        .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
-                        .where('deadair.trackSources.missingAt', 'is', null)
-                        // A POSITIVE 'clean'. Null is "the provider did not say", never consent.
-                        .$if(demandsClean(policy), qb => qb.where('deadair.trackSources.advisory', '=', 'clean'))
-                        // Unmeasured passes: `duration_ms is null` beside the bound rather than instead
-                        // of it, so a copy nothing has measured is never excluded for a fact nobody
-                        // reported. See `track.length.ts`.
-                        .$if(bounds?.minMs !== undefined, qb =>
-                            qb.where(inner =>
-                                inner.or([
-                                    inner('deadair.trackSources.durationMs', 'is', null),
-                                    inner('deadair.trackSources.durationMs', '>=', bounds!.minMs!),
-                                ]),
-                            ),
-                        )
-                        .$if(bounds?.maxMs !== undefined, qb =>
-                            qb.where(inner =>
-                                inner.or([
-                                    inner('deadair.trackSources.durationMs', 'is', null),
-                                    inner('deadair.trackSources.durationMs', '<=', bounds!.maxMs!),
-                                ]),
-                            ),
-                        ),
-                ),
-            )
-            .where('deadair.tracks.rating', '<>', -1)
-            .where('deadair.artists.rating', '<>', -1)
-            .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
-            .where(eb => noCreditedDislike(eb))
-            // A suspension keeps it out of the draw exactly as a dislike does, until it lapses.
-            .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
-            .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
+        const rows = await this.playable(policy, era, bounds)
             .$if(taggedLike !== undefined && taggedLike.length > 0, qb => qb.where(taggedLikeAny(taggedLike!)))
             .$if(refused.length > 0, qb => qb.where(sql<boolean>`not ${taggedExactly(refused)}`))
             .$if(drawn.length > 0, qb => qb.where('deadair.tracks.id', 'not in', [...drawn]))
@@ -321,18 +269,101 @@ export class CandidatesRepository extends DataRepository {
 
         // `== null` deliberately: the runtime driver hands back `undefined` for SQL NULL while the
         // generated types say `null`. See the note in CLAUDE.md.
-        return rows.map(row => ({
-            trackId: row.trackId,
-            title: row.title,
-            artist: row.artist,
-            credit: row.credit,
-            rating: Number(row.rating),
-            ...(row.album == null ? {} : { album: row.album }),
-            ...(Number(row.artistRating) === 1 ? { artistLiked: true as const } : {}),
-            ...(Number(row.trackRating) === 1 ? { trackLiked: true as const } : {}),
-            ...(row.albumId == null ? {} : { albumId: row.albumId }),
-            ...(row.trackNumber == null ? {} : { trackNumber: Number(row.trackNumber) }),
-        }));
+        return rows.map(toCandidate);
+    }
+
+    /**
+     * The tracks the station could play right now, before anything narrows them further: a live
+     * binding (positively clean under `clean-only`, inside the length bounds), nothing merged away,
+     * nothing disliked or suspended at any level, and inside the period. The shape {@link sample} and
+     * {@link byArtists} both draw from, so the two cannot disagree about what is playable.
+     */
+    private playable(policy: AdvisoryPolicy, era: EraWindow | undefined, bounds: TrackLengthBounds | undefined) {
+        return (
+            this.db
+                .selectFrom('deadair.tracks')
+                .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+                .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+                .select([
+                    'deadair.tracks.id as trackId',
+                    'deadair.tracks.title',
+                    'deadair.artists.name as artist',
+                    'deadair.tracks.artists as credit',
+                    'deadair.albums.name as album',
+                    'deadair.artists.rating as artistRating',
+                    'deadair.tracks.rating as trackRating',
+                    'deadair.tracks.albumId',
+                    'deadair.tracks.trackNumber',
+                    'deadair.tracks.year',
+                ])
+                // One number for "how does the station feel about this", across all three levels.
+                .select(effectiveRating().as('rating'))
+                .where('deadair.tracks.mergedIntoId', 'is', null)
+                .where(eb =>
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.trackSources')
+                            .select('deadair.trackSources.id')
+                            .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
+                            .where('deadair.trackSources.missingAt', 'is', null)
+                            // A POSITIVE 'clean'. Null is "the provider did not say", never consent.
+                            .$if(demandsClean(policy), qb => qb.where('deadair.trackSources.advisory', '=', 'clean'))
+                            // Unmeasured passes: `duration_ms is null` beside the bound rather than instead
+                            // of it, so a copy nothing has measured is never excluded for a fact nobody
+                            // reported. See `track.length.ts`.
+                            .$if(bounds?.minMs !== undefined, qb =>
+                                qb.where(inner =>
+                                    inner.or([
+                                        inner('deadair.trackSources.durationMs', 'is', null),
+                                        inner('deadair.trackSources.durationMs', '>=', bounds!.minMs!),
+                                    ]),
+                                ),
+                            )
+                            .$if(bounds?.maxMs !== undefined, qb =>
+                                qb.where(inner =>
+                                    inner.or([
+                                        inner('deadair.trackSources.durationMs', 'is', null),
+                                        inner('deadair.trackSources.durationMs', '<=', bounds!.maxMs!),
+                                    ]),
+                                ),
+                            ),
+                    ),
+                )
+                .where('deadair.tracks.rating', '<>', -1)
+                .where('deadair.artists.rating', '<>', -1)
+                .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+                .where(eb => noCreditedDislike(eb))
+                // A suspension keeps it out of the draw exactly as a dislike does, until it lapses.
+                .where(notSuspendedNow(sql.ref('deadair.tracks.id')))
+                .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
+        );
+    }
+
+    /**
+     * Every record the station could play right now by these artists, for a shortlist built over a
+     * brief's acts and their neighbours (`Shortlist`).
+     *
+     * The same narrowing {@link sample} draws from, and no draw: a shortlist wants all of an act's
+     * playable records so it can screen them and choose the freshest, and a brief's acts hold a few
+     * hundred between them. Ordered by artist and then at random, so an act's first rows are not the
+     * same ones every time. Bounded by `limit` all the same.
+     */
+    async byArtists(
+        artistKeys: readonly string[],
+        limit: number,
+        policy: AdvisoryPolicy = ADVISORY_DEFAULT,
+        era?: EraWindow,
+        bounds?: TrackLengthBounds,
+    ): Promise<CandidateTrack[]> {
+        if (artistKeys.length === 0) return [];
+
+        const rows = await this.playable(policy, era, bounds)
+            .where('deadair.artists.artistKey', 'in', [...artistKeys])
+            .orderBy('deadair.artists.artistKey')
+            .orderBy(sql`random()`)
+            .limit(limit)
+            .execute();
+        return rows.map(toCandidate);
     }
 
     /**
@@ -724,4 +755,34 @@ function taggedExactly(values: readonly string[]) {
         union all
         ${tagged('artist_enrichment', 'artist_id', 'artist_id')}
     )`;
+}
+
+/** One row of {@link CandidatesRepository.playable} as a {@link CandidateTrack}, dropping what is absent. */
+function toCandidate(row: {
+    trackId: string;
+    title: string;
+    artist: string;
+    credit: string;
+    rating: unknown;
+    album: string | null;
+    artistRating: unknown;
+    trackRating: unknown;
+    albumId: string | null;
+    trackNumber: number | null;
+    year: number | null;
+}): CandidateTrack {
+    return {
+        trackId: row.trackId,
+        title: row.title,
+        artist: row.artist,
+        credit: row.credit,
+        rating: Number(row.rating),
+        // `== null` because the driver hands back `undefined` for a null column: see `apps/api/CLAUDE.md`.
+        ...(row.album == null ? {} : { album: row.album }),
+        ...(Number(row.artistRating) === 1 ? { artistLiked: true as const } : {}),
+        ...(Number(row.trackRating) === 1 ? { trackLiked: true as const } : {}),
+        ...(row.albumId == null ? {} : { albumId: row.albumId }),
+        ...(row.trackNumber == null ? {} : { trackNumber: Number(row.trackNumber) }),
+        ...(row.year == null ? {} : { year: Number(row.year) }),
+    };
 }

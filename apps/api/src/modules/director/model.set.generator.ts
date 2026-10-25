@@ -22,6 +22,9 @@ import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 import { BriefActs } from './brief.acts.js';
+import { Shortlist, type ShortlistEntry } from './shortlist.js';
+import { readChoices, shortlistPrompt } from './shortlist.prompt.js';
+import { SEARCH_MUSIC_TOOL } from '#modules/llm/music.search.tool.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { modelList } from '#modules/llm/model.list.js';
@@ -139,6 +142,16 @@ export const BUDGET_MS = 180_000;
 export const MAX_TOOL_STEPS = 5;
 
 /**
+ * How many rounds of searching a model handed a shortlist gets before it must answer.
+ *
+ * Two, because the list is the work and a search is only for what the list cannot hold: a record the
+ * brief names by title, or a style it asks for in passing. Measured on the live station, the five
+ * searches {@link MAX_TOOL_STEPS} allows took about twenty seconds and were not the cost; but each one
+ * leaves its rows in the conversation, and the answer is reasoned over all of them.
+ */
+export const SHORTLIST_TOOL_STEPS = 2;
+
+/**
  * A ceiling on the answer, in tokens. Two dozen records of JSON is small; the headroom is reasoning.
  *
  * **Raised from 2,000 once the searches started returning enough to programme from**, which is the
@@ -227,7 +240,11 @@ export const MODEL_GENERATOR_KEYS = {
     enabled: 'llm.setGenerator',
     model: 'llm.setModel',
     maxTokens: 'llm.setMaxTokens',
+    shortlist: 'llm.setShortlist',
 } as const;
+
+/** ON: a brief that names its acts is programmed from a screened list rather than from searches. See `Shortlist`. */
+export const MODEL_SHORTLIST_DEFAULT = true;
 
 /** OFF, so the station programmes itself from the catalog draw until an operator asks for more. */
 export const MODEL_GENERATOR_DEFAULT = false;
@@ -264,6 +281,8 @@ export class ModelSetGenerator extends SetGenerator {
         // having searched the neglected ones rather than the top of the list, including the ones only
         // a similarity source knows. See `BriefActs`.
         private readonly briefActs: BriefActs,
+        // The screened, numbered list the model chooses from when the brief names its acts. See `Shortlist`.
+        private readonly shortlist: Shortlist,
     ) {
         super();
     }
@@ -299,38 +318,59 @@ export class ModelSetGenerator extends SetGenerator {
         // Read per refill like the two above it, so an operator raising the ceiling after a run of
         // `length` finishes gets the new one on the next refill rather than at the next restart.
         const answerCeiling = maxOutputTokens(this.config);
-        const messages = setPrompt(
-            {
-                count: inputs.count,
-                avoid: describeAvoided(inputs),
-                heldArtists: await this.heldArtists(inputs),
-                ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
-                // Sent whether or not there is also a prose brief, unlike the persona's `music` line
-                // that used to be here: a range and a style are not competing claims, so there is
-                // nothing for a model to split the difference between. It is advice either way —
-                // `PickResolver` drops an out-of-period pick whatever comes back.
-                ...(inputs.era === undefined ? {} : { era: inputs.era }),
-                // The genre steer, read per refill like everything above. Advice to the model and a
-                // weight in the catalog draw, never a filter: see `genre.steer.ts`.
-                ...(steer === undefined ? {} : { lean: steer.genres }),
-                namedArtists: reach.acts.map(artist => ({
-                    name: artist.name,
-                    ...(artist.lastAiredAt === undefined ? {} : { daysAgo: Math.max(0, Math.floor(-artist.lastAiredAt.diffNow('days').days)) }),
-                })),
-            },
-            {
-                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                taste: await this.describeTaste(),
-                styles: await this.describeStyles(inputs.brief),
-                // The two rules the model is told about, and both for one reason: `PickResolver`
-                // enforces them whatever it does, so a refill that does not know them spends picks
-                // on records that will be dropped and lets ordinary rotation fill in for them. The
-                // rest of `rules` stays out — a repeat window is not something a model can reason
-                // about without the history to check it against, and it is judged at the resolver.
-                cleanOnly: demandsClean(advisoryPolicy(this.config)),
-                maxPerArtist: inputs.rules.maxPerArtist,
-            },
-        );
+        // Before the prompt, and after `rememberAired`, whose marks it orders each artist's records by.
+        // Off, or a brief it cannot serve yet, and the model searches exactly as it did before.
+        const list = settingIsOn(this.config, MODEL_GENERATOR_KEYS.shortlist, MODEL_SHORTLIST_DEFAULT)
+            ? await this.shortlist.build(inputs, reach)
+            : undefined;
+        const messages =
+            list === undefined
+                ? setPrompt(
+                      {
+                          count: inputs.count,
+                          avoid: describeAvoided(inputs),
+                          heldArtists: await this.heldArtists(inputs),
+                          ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                          // Sent whether or not there is also a prose brief, unlike the persona's `music` line
+                          // that used to be here: a range and a style are not competing claims, so there is
+                          // nothing for a model to split the difference between. It is advice either way —
+                          // `PickResolver` drops an out-of-period pick whatever comes back.
+                          ...(inputs.era === undefined ? {} : { era: inputs.era }),
+                          // The genre steer, read per refill like everything above. Advice to the model and a
+                          // weight in the catalog draw, never a filter: see `genre.steer.ts`.
+                          ...(steer === undefined ? {} : { lean: steer.genres }),
+                          namedArtists: reach.acts.map(artist => ({
+                              name: artist.name,
+                              ...(artist.lastAiredAt === undefined
+                                  ? {}
+                                  : { daysAgo: Math.max(0, Math.floor(-artist.lastAiredAt.diffNow('days').days)) }),
+                          })),
+                      },
+                      {
+                          station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+                          taste: await this.describeTaste(),
+                          styles: await this.describeStyles(inputs.brief),
+                          // The two rules the model is told about, and both for one reason: `PickResolver`
+                          // enforces them whatever it does, so a refill that does not know them spends picks
+                          // on records that will be dropped and lets ordinary rotation fill in for them. The
+                          // rest of `rules` stays out — a repeat window is not something a model can reason
+                          // about without the history to check it against, and it is judged at the resolver.
+                          cleanOnly: demandsClean(advisoryPolicy(this.config)),
+                          maxPerArtist: inputs.rules.maxPerArtist,
+                      },
+                  )
+                : shortlistPrompt(
+                      {
+                          count: inputs.count,
+                          list,
+                          ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                          ...(inputs.era === undefined ? {} : { era: inputs.era }),
+                          ...(steer === undefined ? {} : { lean: steer.genres }),
+                      },
+                      { station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title), maxPerArtist: inputs.rules.maxPerArtist },
+                  );
+        // What the answer IS, which depends on what the model was asked: numbers off the list, or records.
+        const read = (text: string): TrackPick[] => (list === undefined ? readPicks(text, inputs.count) : readChoices(text, list, inputs.count));
 
         const started = Date.now();
         let result;
@@ -361,7 +401,10 @@ export class ModelSetGenerator extends SetGenerator {
                     models,
                     budgetMs: BUDGET_MS,
                     maxWaitMs: MAX_WAIT_MS,
-                    maxToolSteps: MAX_TOOL_STEPS,
+                    // With a list, a couple of searches for what it cannot hold, and nothing but the search.
+                    ...(list === undefined
+                        ? { maxToolSteps: MAX_TOOL_STEPS }
+                        : { maxToolSteps: SHORTLIST_TOOL_STEPS, onlyTools: [SEARCH_MUSIC_TOOL] }),
                     priority: 'background',
                     // The job's own stop, beside the break that may preempt it: a refill pg-boss has
                     // given up on otherwise kept the model for the rest of its budget while the next
@@ -376,7 +419,7 @@ export class ModelSetGenerator extends SetGenerator {
                     // Deliberately the same reader the answer is parsed with rather than a looser test,
                     // or the loop would accept something this then drops, which is the failure one rung
                     // down wearing a different hat.
-                    answersWith: (text: string) => readPicks(text, inputs.count).length > 0,
+                    answersWith: (text: string) => read(text).length > 0,
                 },
             );
         } catch (error) {
@@ -393,7 +436,7 @@ export class ModelSetGenerator extends SetGenerator {
             throw error;
         }
 
-        const named = readPicks(result.text, inputs.count);
+        const named = read(result.text);
         const picks = spaceOwnArtists(named);
 
         // Logged whichever way it went, and with the numbers rather than a verdict. "The model got
@@ -406,6 +449,8 @@ export class ModelSetGenerator extends SetGenerator {
             ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
             asked: inputs.count,
             named: picks.length,
+            // How many lines it chose from, when it was handed a list; absent when it searched.
+            ...(list === undefined ? {} : { listed: list.length }),
             searches: result.toolCallsMade,
             durationMs: Date.now() - started,
             finish: result.finishReason,
@@ -474,6 +519,7 @@ export class ModelSetGenerator extends SetGenerator {
                         asked: inputs.count,
                         named: picks.length,
                         searches: result.toolCallsMade,
+                        ...(list === undefined ? {} : { listed: list.length }),
                         // The capture is where a zero-pick run is actually read, so the figure that
                         // explains one belongs in the file rather than only in a log line that has
                         // to be correlated back to it by timestamp.
@@ -523,8 +569,8 @@ export class ModelSetGenerator extends SetGenerator {
                     budgetMs: BUDGET_MS,
                     searches: result.toolCallsMade,
                 });
-            } else if (result.toolCallsMade === 0) {
-                // The one failure worth naming as the model's own. A run that searched and found
+            } else if (list === undefined && result.toolCallsMade === 0) {
+                // The one failure worth naming as the model's own. Not with a list, which needs no search. A run that searched and found
                 // nothing is a thin library and is not this; a run that never searched and answered
                 // anyway is a model not driving what it was given, and it will do it again.
                 this.logger.warn('director: the model chose nothing and never searched the library; it is not using its tools');

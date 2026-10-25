@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.83.1] — 2026-10-25
+
+- Trends draws what it says. The **Audience** line shows the most people listening at once in each stretch, rather than the average that flattened four listeners to under one beneath a figure saying four. Every chart's stretches now start on round times on your own clock, so a week reads 06:00, 08:00 rather than 06:03, 08:03. **Library and disk** draw as lines on the 6-hour and 24-hour ranges instead of scattered dots, because a reading taken every five or fifteen minutes now stands until the next one is due.
+
 ## [0.83.0] — 2026-10-25
 
 - Voice has a new tab, **Kinds of break**, for the breaks you write yourself. **New kind of break** asks for a name, what it is called on the format clock, what it is for in your own words, any rules of its own, and what the presenter may see while writing one. Each row says whether it can air: **Off** until you switch it on, **Not airing** while the station has no model or no voice to write and speak it with, and **On** otherwise, with how many bands on the format clock name it.
@@ -1658,7 +1662,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.83.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.83.1...HEAD
+[0.83.1]: https://github.com/robert-dean/deadair/compare/v0.83.0...v0.83.1
 [0.83.0]: https://github.com/robert-dean/deadair/compare/v0.82.0...v0.83.0
 [0.82.0]: https://github.com/robert-dean/deadair/compare/v0.81.0...v0.82.0
 [0.81.0]: https://github.com/robert-dean/deadair/compare/v0.80.0...v0.81.0

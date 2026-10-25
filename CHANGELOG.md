@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.84.0] — 2026-10-25
+
+- A block you edit while it is on air can now change the show you are listening to. Open it on the timetable and press **Save and apply now**: the show carries on rather than starting again, its name, brief, period, moods, rules and host change in place, and when the change affects which records are chosen, the records still to come are chosen again while the ones already planned keep playing, so the station never goes quiet for it. A new source, mode, ending or set of co-hosts still waits for the next time the block comes round, and the console says so. Plain **Save** works as before and changes nothing on air. The same thing is `POST /schedule/{id}/apply` in the API and `apply_schedule_slot_to_air` for a connected model.
+- An artist's page says how the station pronounces their name and lets an operator set it there: add one, change one, accept a proposal the station found in an article, or bring back one that was turned down, with a sample to hear it before saving.
+- A record titled outside the Latin alphabet, in Greek, Cyrillic, Japanese and the like, now shows its real title in a listener's player instead of codes like `&#935;`. Icecast restarts once when this update is applied, so anyone listening at that moment reconnects.
+
 ## [0.83.1] — 2026-10-25
 
 - Trends draws what it says. The **Audience** line shows the most people listening at once in each stretch, rather than the average that flattened four listeners to under one beneath a figure saying four. Every chart's stretches now start on round times on your own clock, so a week reads 06:00, 08:00 rather than 06:03, 08:03. **Library and disk** draw as lines on the 6-hour and 24-hour ranges instead of scattered dots, because a reading taken every five or fifteen minutes now stands until the next one is due.
@@ -1662,7 +1668,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.83.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.84.0...HEAD
+[0.84.0]: https://github.com/robert-dean/deadair/compare/v0.83.1...v0.84.0
 [0.83.1]: https://github.com/robert-dean/deadair/compare/v0.83.0...v0.83.1
 [0.83.0]: https://github.com/robert-dean/deadair/compare/v0.82.0...v0.83.0
 [0.82.0]: https://github.com/robert-dean/deadair/compare/v0.81.0...v0.82.0

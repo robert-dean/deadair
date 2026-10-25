@@ -344,6 +344,25 @@ from a value the caller passes. `CatalogSetGenerator` ignores it deliberately â€
 would make the thing that cannot fail depend on how well a guess landed â€” so a briefed station whose model
 produced nothing gets an ordinary hour rather than a bad impression of the one it asked for.
 
+**An edited slot can be applied to the show on air, and that is an operator's act, never the schedule's.**
+Saving a slot still changes nothing on air (`ScheduleService.update` writes the row and the show follows it at
+its next occurrence), which keeps the schedule a document rather than an actor. `POST /schedule/{id}/apply`
+is the separate act an operator takes, and the console's **Save and apply now** saves and then calls it.
+`SlotAirService` (in the director module, beside `SlotPlaylistService` and for its reason: the director console
+already depends on the schedule) reads the slot exactly as a changeover does, `slotInput` with tonight's host,
+compares it with the broadcast on air, and posts only what differs: the programme (name, brief, period,
+moods, rules) as one `reprogramme`, written through, and a different host as a `recast`. When the change
+reaches which records are chosen (the brief, period, moods, or the repeat window, cooldown or per-artist cap)
+it queues `ReplanLineupJob` AFTER the `reprogramme`, because the job reads the binding off the row, and the old
+tail keeps playing until the new one is chosen; a setlist or feature is never replanned. What only a
+changeover can bring about is answered as `waiting` rather than forced: a different source, mode or end is a
+different programme, and the night settled its co-hosts. **The obvious fix was `putOnAir`, and it was the
+measured failure**: put on air by hand to pick up a new brief, a brief-only show opens with no prepared set,
+so on 2026-10-25 the live station retracted its queue and was silent for about three minutes, to one listener,
+while the model chose a first batch. `reprogramme` keeps the broadcast and its records, so nothing goes quiet.
+`StationLineup.reprogramme` replaced the brief-only `rebrief` for this; `rules` is replaced whole rather than
+merged, since a patch has no way to say a rule is gone.
+
 **A PERIOD is the brief's exact half, and it is the one part the deterministic floor honours.**
 `station_lineup.era_from`/`era_to` ride the row beside the brief (and `schedule_slots.era_from`/`_to` beside a
 slot's, plus `schedule.sustainingEraFrom`/`...To` for the hours nothing is scheduled), inclusive four-digit

@@ -194,9 +194,9 @@ export type DirectorCommand =
      *
      * A command of its own rather than a field on {@link replaceTail}, because the two happen
      * minutes apart and in that order: the brief has to be on the row BEFORE `ReplanLineupJob`
-     * reads it, since that is what the fresh set is programmed against. It outlives the replan too
-     * — every later refill reads the same row — which is the whole reason the programme lives on the
-     * running order rather than in a job's payload.
+     * reads it, since that is what the fresh set is programmed against. It outlives the replan too,
+     * because every later refill reads the same row, and that is the whole reason the programme lives
+     * on the running order rather than in a job's payload.
      */
     | { kind: 'reprogramme'; change: ProgrammeChange }
     /**

@@ -790,6 +790,22 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
     });
 
+    it('says which rule dropped a track, beside the counts', async () => {
+        // "Offered twenty, kept one" was the whole line, which could not tell a spent repeat window
+        // from a crowded cooldown. See `dropReasons`.
+        const { resolver } = build({ ...twoTracks, recentSongs: ['one:a'] });
+
+        await resolver.resolve(
+            [
+                { title: 'A', artist: 'One', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules({ repeatWindowDays: 3 }),
+        );
+
+        expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining('rotation rules dropped'), { offered: 2, kept: 1, repeatWindow: 1 });
+    });
+
     it('lets the longest off air back in when the window would leave the batch empty, and says so', async () => {
         // The floor gives way the same way, so a repeat it let back in has to survive here too.
         const { resolver, repeatWatch } = build({ ...twoTracks, recentSongs: ['one:a', 'two:b'], recentAges: { 'one:a': 2, 'two:b': 48 } });

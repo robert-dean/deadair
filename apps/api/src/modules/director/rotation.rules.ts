@@ -800,6 +800,54 @@ export const letRepeatsBackIn = <T extends RotationCandidate>(
     );
 };
 
+/** Which rule refused a candidate, named for the log. */
+export type DropReason = 'dislike' | 'repeatWindow' | 'airedCooldown' | 'queuedHold' | 'artistCap' | 'albumCap';
+
+/**
+ * How many candidates each rule refused, for a log line that has to say WHY a batch came back thin.
+ *
+ * "Offered twenty, kept one" was all the resolver said, and on 2026-10-25 a narrow brief's refills
+ * kept one or two of twenty for half an hour with nothing to tell a spent repeat window from a
+ * crowded cooldown or a cap. This answers that without touching the decision: `kept` is what the
+ * rules already chose, and everything else is put down to the FIRST rule in {@link applyRules}'
+ * order that refuses it, so the counts add up to what was dropped. A queued artist let back in by
+ * {@link applyRulesHoldingQueue}, or a repeat by {@link letRepeatsBackIn}, is in `kept` and so
+ * counts against nothing.
+ *
+ * `airedCooldown` is whatever `recent.artistKeys` holds, which a caller may widen beyond what aired
+ * (the resolver unions in the tail of the running order); `queuedHold` is `queued` alone. A rule
+ * that refused nothing is left out rather than reported as zero.
+ */
+export const dropReasons = <T extends RotationCandidate>(
+    candidates: readonly T[],
+    kept: readonly T[],
+    rules: ResolvedRules,
+    recent: RecentlyAired,
+    queued?: ReadonlySet<string>,
+): Partial<Record<DropReason, number>> => {
+    const keptSet = new Set(kept);
+    const counts: Partial<Record<DropReason, number>> = {};
+    const count = (reason: DropReason) => (counts[reason] = (counts[reason] ?? 0) + 1);
+
+    // What reached the caps, in the order offered: every record kept (it counted against them,
+    // whatever let it in) and every one no per-record rule refused.
+    const capped: T[] = [];
+    for (const candidate of candidates) {
+        if (keptSet.has(candidate)) capped.push(candidate);
+        else if (candidate.rating === -1 || candidate.suspended === true) count('dislike');
+        else if (recent.songKeys.has(candidate.songKey)) count('repeatWindow');
+        else if (isArtistHeld(recent.artistKeys, candidate.artistKey, candidate.creditKey)) count('airedCooldown');
+        else if (queued !== undefined && isArtistHeld(queued, candidate.artistKey, candidate.creditKey)) count('queuedHold');
+        else capped.push(candidate);
+    }
+
+    const underArtistCap = new Set(capPerArtist(capped, rules.maxPerArtist));
+    for (const candidate of capped) {
+        if (!keptSet.has(candidate)) count(underArtistCap.has(candidate) ? 'albumCap' : 'artistCap');
+    }
+    return counts;
+};
+
 /**
  * Reorder so the same artist is never back to back.
  *

@@ -17,6 +17,7 @@ import { actsInJoinedCredits, artistKey, creditKey, knownActsOf, songKey, withKn
 import { recordSpacingLength } from './air.estimate.js';
 import {
     applyRulesHoldingQueue,
+    dropReasons,
     letRepeatsBackIn,
     holdArtistCooldown,
     rejectBarred,
@@ -624,9 +625,12 @@ export class PickResolver {
             else if (eligible.length > 0) this.repeatWatch.gaveWay(eligible.length, rules.repeatWindowDays);
         }
         if (eligible.length < inPeriod.length) {
+            // Which rule refused how many, so a thin refill says whether the window, the cooldown or a
+            // cap spent it. See `dropReasons`.
             this.logger.debug('director: the rotation rules dropped some chosen tracks', {
                 offered: inPeriod.length,
                 kept: eligible.length,
+                ...dropReasons(acted, eligible, rules, recent, queued),
             });
         }
         return eligible;

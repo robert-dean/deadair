@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.83.0] — 2026-10-25
+
+- Voice has a new tab, **Kinds of break**, for the breaks you write yourself. **New kind of break** asks for a name, what it is called on the format clock, what it is for in your own words, any rules of its own, and what the presenter may see while writing one. Each row says whether it can air: **Off** until you switch it on, **Not airing** while the station has no model or no voice to write and speak it with, and **On** otherwise, with how many bands on the format clock name it.
+- Kinds of break move between stations as files. On Voice, Kinds of break, **Export all** saves every kind you have written as one file and each row exports its own; **Import** reads a file, shows what it would do first (new, kept, replaced, or not allowed for a key the station uses for its own breaks), and lets you choose to replace a kind you already have. Everything an import writes arrives switched off, so you read it back before it airs. On the API: `GET /breaks/kinds/export`, `GET /breaks/kinds/{id}/export`, `POST /breaks/kinds/import/preview` and `POST /breaks/kinds/import`.
+- The station can hold kinds of break you write yourself: a name, a brief in your own words saying what the break is for, any rules of its own on top of the ones every break follows, and what the presenter is shown while writing one. On the API: `GET` and `POST /breaks/kinds`, and `PUT` and `DELETE /breaks/kinds/{id}`. A new kind is switched off until you switch it on, its key cannot change once written, a key the station already uses for its own breaks is refused, and a kind a band on the format clock still names cannot be deleted. Once a kind is switched on and a band on the format clock names it, the station's model writes it in the voice of whoever is presenting, under the same rules as every other break: a kind's own rules are added to those, never in place of them. A kind needs the model to write it, so while the model writer is off the station does not offer it on the clock or plant it.
+
 ## [0.82.0] — 2026-10-24
 
 - A break still to come on the Desk has a **Write it again** button (the pencil on its row), which throws its words away and has it written afresh as its slot nears. It is offered on a break that failed because nothing could be written, so one can be tried again after the phrasings change or the model is switched on, and on any break the station wrote that the player does not have yet.
@@ -1652,7 +1658,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.82.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.83.0...HEAD
+[0.83.0]: https://github.com/robert-dean/deadair/compare/v0.82.0...v0.83.0
 [0.82.0]: https://github.com/robert-dean/deadair/compare/v0.81.0...v0.82.0
 [0.81.0]: https://github.com/robert-dean/deadair/compare/v0.80.0...v0.81.0
 [0.80.0]: https://github.com/robert-dean/deadair/compare/v0.79.0...v0.80.0

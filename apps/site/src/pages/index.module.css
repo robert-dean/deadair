@@ -42,43 +42,6 @@
     gap: 0.75rem;
 }
 
-.primary,
-.secondary {
-    display: inline-block;
-    padding: 0.7rem 1.4rem;
-    border-radius: 4px;
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    transition:
-        background-color 120ms ease,
-        border-color 120ms ease;
-}
-
-.primary {
-    background: var(--da-phosphor);
-    color: #050706;
-    border: 1px solid var(--da-phosphor);
-}
-
-.primary:hover {
-    background: var(--ifm-color-primary-light);
-    color: #050706;
-    text-decoration: none;
-}
-
-.secondary {
-    color: var(--da-text);
-    border: 1px solid var(--da-border-strong);
-}
-
-.secondary:hover {
-    border-color: var(--da-phosphor);
-    color: var(--da-text);
-    text-decoration: none;
-}
-
 /* Four facts in a mono strip, dot-separated, like the rule under a masthead. */
 .facts {
     display: flex;

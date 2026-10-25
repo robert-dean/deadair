@@ -116,7 +116,7 @@ const config: Config = {
                 { type: 'docSidebar', sidebarId: 'build', label: 'Develop', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'api', label: 'API', position: 'left' },
                 { to: '/community', label: 'Community', position: 'left' },
-                { href: repository, label: 'GitHub', position: 'right' },
+                { href: repository, label: 'GitHub', position: 'right', className: 'da-navbar-pill' },
             ],
         },
         footer: {

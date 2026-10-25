@@ -76,13 +76,13 @@ export default function Home() {
                         result. One mount, one running order, and everybody hears the same thing at the same moment.
                     </p>
                     <div className={styles.actions}>
-                        <Link className={styles.primary} to="/docs/quick-start">
+                        <Link className="da-button" to="/docs/quick-start">
                             Quick start
                         </Link>
-                        <Link className={styles.secondary} to="/community/stations">
+                        <Link className="da-button-ghost" to="/community/stations">
                             Hear a station
                         </Link>
-                        <Link className={styles.secondary} href={repository}>
+                        <Link className="da-button-ghost" href={repository}>
                             Read the source
                         </Link>
                     </div>
@@ -318,13 +318,13 @@ export default function Home() {
                     <h2>Put a station on the air.</h2>
                     <p>One container, your music, and a presenter who never goes quiet.</p>
                     <div className={styles.actions}>
-                        <Link className={styles.primary} to="/docs/quick-start">
+                        <Link className="da-button" to="/docs/quick-start">
                             Quick start
                         </Link>
-                        <Link className={styles.secondary} to="/docs/features">
+                        <Link className="da-button-ghost" to="/docs/features">
                             What it does
                         </Link>
-                        <Link className={styles.secondary} href={repository}>
+                        <Link className="da-button-ghost" href={repository}>
                             Read the source
                         </Link>
                     </div>

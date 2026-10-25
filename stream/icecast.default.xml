@@ -57,6 +57,8 @@
     <stream-description></stream-description>
     <genre>Music</genre>
     <stream-url></stream-url>
+    <!-- See icecast.xml.tmpl: without it a non-Latin title reaches players as `&#935;`. -->
+    <charset>UTF-8</charset>
     <!-- Don't auto-advertise to public YP directories yet. -->
     <public>0</public>
   </mount>

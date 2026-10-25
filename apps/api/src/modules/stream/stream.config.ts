@@ -141,6 +141,9 @@ function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalB
                 `    <mount-name>${xml(mount.path)}</mount-name>`,
                 `    <username>source</username>`,
                 `    <password>${xml(sourcePassword)}</password>`,
+                // The MP3 mount's block in icecast.xml.tmpl says why: AAC's ICY title is
+                // converted into this, and unset it turns a Greek title into `&#935;`.
+                `    <charset>UTF-8</charset>`,
                 `    <public>0</public>${burst}`,
                 ...(maxListeners > 0 ? [`    <max-listeners>${maxListeners}</max-listeners>`] : []),
                 `  </mount>`,

@@ -82,6 +82,12 @@
     <stream-description>{{STREAM_DESCRIPTION}}</stream-description>
     <genre>{{STREAM_GENRE}}</genre>
     <stream-url>{{STREAM_URL}}</stream-url>
+    <!-- The charset the ICY title is SENT to listeners in. Liquidsoap hands the update over as
+         UTF-8 and says so, and Icecast converts it into this before it goes in the stream; left
+         unset it is ISO8859-1, and libxml2 writes whatever that cannot hold as a character
+         reference. Measured on air: a record titled in Greek reached every player as
+         `&#935; &#926; &#931; - 666`, which they show literally. -->
+    <charset>UTF-8</charset>
     <!-- Don't auto-advertise to public YP directories yet. -->
     <public>0</public>
 {{MAX_LISTENERS}}    <!-- No <authentication type="url"> here, deliberately. The app used to have Icecast call it on

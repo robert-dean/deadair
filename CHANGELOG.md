@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.85.0] — 2026-10-25
+
+- A briefed show whose brief names its artists is now programmed from a list. The station gathers records by those artists and a few who sound like them, from your library and from what your music services have said, takes out anything that played too recently, any artist who just played and anything you dislike, and hands the model a numbered list. The model answers with numbers instead of searching and writing out titles, so a refill takes seconds rather than minutes and every record it picks can play. If the model says nothing, the hour is drawn from the same list. It can still search for something the list lacks, such as a song the brief names by title, and a brief that names no artists is programmed exactly as before. "Choose from a list when the brief names its artists" in the model settings turns it off.
+
+  The station also finds artists your brief names that your library has never held (black metal acts on a brief that lists them, say) by looking among the artists similar to the ones it does hold, and it now remembers what your similarity sources said about each artist for a week, so it asks them far less often, including after a restart.
+- An operator's requests are no longer held to one at a time, the cooldown or the cap, never wait for approval, and do not take up room in the listeners' line.
+
 ## [0.84.1] — 2026-10-25
 
 - When the rotation rules throw away most of what a refill chose, the station's log now says which rule did it: how many records the repeat window refused, how many the artist cooldown held, how many were held because their artist was already queued, how many the per-artist and per-album caps cut, and how many were disliked. A show whose running order keeps running dry can now be traced to the rule that is spending it.
@@ -1672,7 +1679,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.84.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.0...HEAD
+[0.85.0]: https://github.com/robert-dean/deadair/compare/v0.84.1...v0.85.0
 [0.84.1]: https://github.com/robert-dean/deadair/compare/v0.84.0...v0.84.1
 [0.84.0]: https://github.com/robert-dean/deadair/compare/v0.83.1...v0.84.0
 [0.83.1]: https://github.com/robert-dean/deadair/compare/v0.83.0...v0.83.1

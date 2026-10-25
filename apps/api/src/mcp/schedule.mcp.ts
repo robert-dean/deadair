@@ -7,9 +7,11 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
+import { SlotAirService } from '#src/modules/director/slot.air.service.js';
 import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
 import {
     ScheduleNow,
+    ScheduleSlotApplied,
     ScheduleSlotInput,
     ScheduleSlotList,
     ScheduleTimetable,
@@ -31,6 +33,7 @@ const ReadCurrentSlotArgs = z.object({});
 const ReadTimetableArgs = z.object({ query: ScheduleTimetableQuery.optional() });
 const UpdateScheduleSlotArgs = z.object({ id: z.string().min(1).max(100), body: ScheduleSlotInput });
 const DeleteScheduleSlotArgs = z.object({ id: z.string().min(1).max(100) });
+const ApplyScheduleSlotToAirArgs = z.object({ id: z.string().min(1).max(100) });
 const ReadSlotPlaylistPositionArgs = z.object({ id: z.string().min(1).max(100) });
 const RestartSlotPlaylistArgs = z.object({ id: z.string().min(1).max(100) });
 
@@ -132,7 +135,8 @@ export class ReadTimetableMcpTool implements McpToolHandler {
 export class UpdateScheduleSlotMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'update_schedule_slot',
-        description: 'Rewrites a slot. Takes effect at its next boundary rather than immediately',
+        description:
+            "Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`",
         inputSchema: z.toJSONSchema(UpdateScheduleSlotArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ScheduleSlotList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -167,6 +171,30 @@ export class DeleteScheduleSlotMcpTool implements McpToolHandler {
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
         const { id } = await parseAndValidate(args, DeleteScheduleSlotArgs);
         const result = await container.get(ScheduleService).remove(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/{id}/apply`
+ */
+@Injectable()
+export class ApplyScheduleSlotToAirMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'apply_schedule_slot_to_air',
+        description:
+            "Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence",
+        inputSchema: z.toJSONSchema(ApplyScheduleSlotToAirArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ScheduleSlotApplied, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id } = await parseAndValidate(args, ApplyScheduleSlotToAirArgs);
+        const result = await container.get(SlotAirService).apply(id);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -230,6 +258,7 @@ export function registerScheduleMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('read_timetable', container.get(ReadTimetableMcpTool));
     map.set('update_schedule_slot', container.get(UpdateScheduleSlotMcpTool));
     map.set('delete_schedule_slot', container.get(DeleteScheduleSlotMcpTool));
+    map.set('apply_schedule_slot_to_air', container.get(ApplyScheduleSlotToAirMcpTool));
     map.set('read_slot_playlist_position', container.get(ReadSlotPlaylistPositionMcpTool));
     map.set('restart_slot_playlist', container.get(RestartSlotPlaylistMcpTool));
 }
@@ -242,6 +271,7 @@ export function registerScheduleMcpToolClasses(registry: Registry): void {
     registry.register(ReadTimetableMcpTool).useClass(ReadTimetableMcpTool).asSingleton();
     registry.register(UpdateScheduleSlotMcpTool).useClass(UpdateScheduleSlotMcpTool).asSingleton();
     registry.register(DeleteScheduleSlotMcpTool).useClass(DeleteScheduleSlotMcpTool).asSingleton();
+    registry.register(ApplyScheduleSlotToAirMcpTool).useClass(ApplyScheduleSlotToAirMcpTool).asSingleton();
     registry.register(ReadSlotPlaylistPositionMcpTool).useClass(ReadSlotPlaylistPositionMcpTool).asSingleton();
     registry.register(RestartSlotPlaylistMcpTool).useClass(RestartSlotPlaylistMcpTool).asSingleton();
 }

@@ -156,6 +156,80 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
 }
 
 /// Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
+/// A part of a slot that applying it to the show on air can change, or has to leave for its next occurrence
+public enum ScheduleSlotPart: Codable, CaseIterable, Hashable, Sendable {
+    case name
+    case brief
+    case era
+    case moods
+    case avoidMoods
+    case rules
+    case host
+    case coHosts
+    case source
+    case mode
+    case onEnd
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotPart] = [.name, .brief, .era, .moods, .avoidMoods, .rules, .host, .coHosts, .source, .mode, .onEnd]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .name: return "name"
+        case .brief: return "brief"
+        case .era: return "era"
+        case .moods: return "moods"
+        case .avoidMoods: return "avoidMoods"
+        case .rules: return "rules"
+        case .host: return "host"
+        case .coHosts: return "coHosts"
+        case .source: return "source"
+        case .mode: return "mode"
+        case .onEnd: return "onEnd"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "name": self = .name
+        case "brief": self = .brief
+        case "era": self = .era
+        case "moods": self = .moods
+        case "avoidMoods": self = .avoidMoods
+        case "rules": self = .rules
+        case "host": self = .host
+        case "coHosts": self = .coHosts
+        case "source": self = .source
+        case "mode": self = .mode
+        case "onEnd": self = .onEnd
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotPart.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 public struct SlotPlaylistPosition: Codable, Equatable, Sendable {
     /// The record the slot opens on next time, as the playlist names it. The station's rules still apply when it opens, so one it will not play by then is passed over
     public var title: String?
@@ -713,6 +787,42 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.regularPersonaId, forKey: .regularPersonaId)
         try container.encodeIfPresent(self.airingSlotId, forKey: .airingSlotId)
         try container.encode(self.upcoming, forKey: .upcoming)
+    }
+}
+
+/// What applying a slot to the show on air changed now, and what waits for the slot's next occurrence
+public struct ScheduleSlotApplied: Codable, Equatable, Sendable {
+    /// The parts the show on air follows from now on. Empty when it already matched the slot
+    public var applied: [ScheduleSlotPart]
+    /// The parts that differ from the show on air and cannot change mid-show: its source, mode and end make a different programme, and its co-hosts are settled for the night. They apply the next time the slot comes round
+    public var waiting: [ScheduleSlotPart]
+    /// Whether the records still planned are being chosen again against the new programme. The ones already planned keep playing until the new set is ready, so nothing goes quiet while it is chosen
+    public var replanning: Bool
+
+    public init(applied: [ScheduleSlotPart], waiting: [ScheduleSlotPart], replanning: Bool) {
+        self.applied = applied
+        self.waiting = waiting
+        self.replanning = replanning
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case applied = "applied"
+        case waiting = "waiting"
+        case replanning = "replanning"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.applied = try container.decode([ScheduleSlotPart].self, forKey: .applied)
+        self.waiting = try container.decode([ScheduleSlotPart].self, forKey: .waiting)
+        self.replanning = try container.decode(Bool.self, forKey: .replanning)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.applied, forKey: .applied)
+        try container.encode(self.waiting, forKey: .waiting)
+        try container.encode(self.replanning, forKey: .replanning)
     }
 }
 

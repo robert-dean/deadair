@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
+import { SlotAirService } from '#src/modules/director/slot.air.service.js';
 import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
 import {
     ScheduleNow,
+    ScheduleSlotApplied,
     ScheduleSlotInput,
     ScheduleSlotList,
     ScheduleTimetable,
@@ -74,7 +76,7 @@ ScheduleRouter.get('/schedule/timetable', requirePolicy({ policy: 'platform.view
 });
 
 /**
- * Rewrites a slot. Takes effect at its next boundary rather than immediately
+ * Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
  * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `PUT /schedule/{id}`
  */
 ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
@@ -109,6 +111,26 @@ ScheduleRouter.delete('/schedule/:id', requirePolicy({ policy: 'platform.manage'
 
     const service = ctx.container.get(ScheduleService);
     const result: ScheduleSlotList = await service.remove(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/{id}/apply`
+ */
+ScheduleRouter.post('/schedule/:id/apply', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(SlotAirService);
+    const result: ScheduleSlotApplied = await service.apply(id);
 
     ctx.status = 200;
     ctx.type = 'application/json';

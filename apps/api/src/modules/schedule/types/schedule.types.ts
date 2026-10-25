@@ -86,6 +86,13 @@ export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
  * Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
+ * A part of a slot that applying it to the show on air can change, or has to leave for its next occurrence
+ * generated from [ScheduleSlotPart](../../../../data/contracts/schedule/schedule.types.ck)
+ */
+export const ScheduleSlotPart = z.enum(['name', 'brief', 'era', 'moods', 'avoidMoods', 'rules', 'host', 'coHosts', 'source', 'mode', 'onEnd']);
+export type ScheduleSlotPart = z.infer<typeof ScheduleSlotPart>;
+
+/**
  * generated from [SlotPlaylistPosition](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const SlotPlaylistPosition = z.strictObject({
@@ -518,6 +525,25 @@ export const ScheduleNow = z.strictObject({
         ),
 });
 export type ScheduleNow = z.infer<typeof ScheduleNow>;
+
+/**
+ * What applying a slot to the show on air changed now, and what waits for the slot's next occurrence
+ * generated from [ScheduleSlotApplied](../../../../data/contracts/schedule/schedule.types.ck)
+ */
+export const ScheduleSlotApplied = z.strictObject({
+    applied: z.array(ScheduleSlotPart).describe('The parts the show on air follows from now on. Empty when it already matched the slot'),
+    waiting: z
+        .array(ScheduleSlotPart)
+        .describe(
+            'The parts that differ from the show on air and cannot change mid-show: its source, mode and end make a different programme, and its co-hosts are settled for the night. They apply the next time the slot comes round',
+        ),
+    replanning: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the records still planned are being chosen again against the new programme. The ones already planned keep playing until the new set is ready, so nothing goes quiet while it is chosen',
+        ),
+});
+export type ScheduleSlotApplied = z.infer<typeof ScheduleSlotApplied>;
 
 /**
  * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck)

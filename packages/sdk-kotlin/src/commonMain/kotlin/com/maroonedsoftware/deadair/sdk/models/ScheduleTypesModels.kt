@@ -54,7 +54,48 @@ data class ScheduleOccurrence(
     val end: String,
 )
 
-/** Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it */
+/**
+ * Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
+ * A part of a slot that applying it to the show on air can change, or has to leave for its next occurrence
+ */
+@Serializable(with = ScheduleSlotPartSerializer::class)
+enum class ScheduleSlotPart {
+    NAME,
+    BRIEF,
+    ERA,
+    MOODS,
+    AVOID_MOODS,
+    RULES,
+    HOST,
+    CO_HOSTS,
+    SOURCE,
+    MODE,
+    ON_END,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [ScheduleSlotPart] by its wire spelling. A spelling it does not know reads as [ScheduleSlotPart.UNKNOWN]. */
+object ScheduleSlotPartSerializer : SdkEnumSerializer<ScheduleSlotPart>(
+    "ScheduleSlotPart",
+    ScheduleSlotPart.UNKNOWN,
+    ScheduleSlotPart.NAME to "name",
+    ScheduleSlotPart.BRIEF to "brief",
+    ScheduleSlotPart.ERA to "era",
+    ScheduleSlotPart.MOODS to "moods",
+    ScheduleSlotPart.AVOID_MOODS to "avoidMoods",
+    ScheduleSlotPart.RULES to "rules",
+    ScheduleSlotPart.HOST to "host",
+    ScheduleSlotPart.CO_HOSTS to "coHosts",
+    ScheduleSlotPart.SOURCE to "source",
+    ScheduleSlotPart.MODE to "mode",
+    ScheduleSlotPart.ON_END to "onEnd",
+)
+
 @Serializable
 data class SlotPlaylistPosition(
     /** The record the slot opens on next time, as the playlist names it. The station's rules still apply when it opens, so one it will not play by then is passed over */
@@ -228,6 +269,17 @@ data class ScheduleNow(
     val airingSlotId: String? = null,
     /** The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block */
     val upcoming: List<ScheduleOccurrence>,
+)
+
+/** What applying a slot to the show on air changed now, and what waits for the slot's next occurrence */
+@Serializable
+data class ScheduleSlotApplied(
+    /** The parts the show on air follows from now on. Empty when it already matched the slot */
+    val applied: List<ScheduleSlotPart>,
+    /** The parts that differ from the show on air and cannot change mid-show: its source, mode and end make a different programme, and its co-hosts are settled for the night. They apply the next time the slot comes round */
+    val waiting: List<ScheduleSlotPart>,
+    /** Whether the records still planned are being chosen again against the new programme. The ones already planned keep playing until the new set is ready, so nothing goes quiet while it is chosen */
+    val replanning: Boolean,
 )
 
 @Serializable

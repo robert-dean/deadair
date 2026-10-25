@@ -2,6 +2,7 @@ import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     ScheduleNow,
+    ScheduleSlotApplied,
     ScheduleSlotInput,
     ScheduleSlotList,
     ScheduleTimetable,
@@ -57,7 +58,7 @@ export class ScheduleClient {
 
     /**
      * @name Update schedule slot
-     * @description Rewrites a slot. Takes effect at its next boundary rather than immediately
+     * @description Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
      */
     async updateScheduleSlot(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const result = await this.fetch(`/schedule/${encodeURIComponent(id)}`, {
@@ -75,6 +76,15 @@ export class ScheduleClient {
     async deleteScheduleSlot(id: string): Promise<ScheduleSlotList> {
         const result = await this.fetch(`/schedule/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return await parseJson<ScheduleSlotList>(result);
+    }
+
+    /**
+     * @name Apply schedule slot to air
+     * @description Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence
+     */
+    async applyScheduleSlotToAir(id: string): Promise<ScheduleSlotApplied> {
+        const result = await this.fetch(`/schedule/${encodeURIComponent(id)}/apply`, { method: 'POST' });
+        return await parseJson<ScheduleSlotApplied>(result);
     }
 
     /**

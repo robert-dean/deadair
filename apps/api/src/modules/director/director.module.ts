@@ -56,6 +56,7 @@ import { BriefArtistSetGenerator } from './brief.artist.set.generator.js';
 import { SimilarPicker } from './similar.picker.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
+import { SlotAirService } from './slot.air.service.js';
 import { SlotPlaylistService } from './slot.playlist.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
@@ -334,6 +335,7 @@ export const DirectorModule: ServerKitModule = {
         // Where a slot that resumes its playlist got to, for the schedule page. Scoped beside the console
         // it reads the playlist through.
         registry.register(SlotPlaylistService).useClass(SlotPlaylistService).asScoped();
+        registry.register(SlotAirService).useClass(SlotAirService).asScoped();
         // The operator's half of the format clock. Scoped like every other request-facing service,
         // and it tells the director nothing: a band is read off the table on the next commit pass.
         registry.register(ClockService).useClass(ClockService).asScoped();

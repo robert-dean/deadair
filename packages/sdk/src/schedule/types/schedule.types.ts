@@ -54,6 +54,12 @@ export interface ScheduleOccurrence {
 
 /**
  * Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
+ * A part of a slot that applying it to the show on air can change, or has to leave for its next occurrence
+ * generated from [ScheduleSlotPart](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export type ScheduleSlotPart = 'name' | 'brief' | 'era' | 'moods' | 'avoidMoods' | 'rules' | 'host' | 'coHosts' | 'source' | 'mode' | 'onEnd';
+
+/**
  * generated from [SlotPlaylistPosition](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
  */
 export interface SlotPlaylistPosition {
@@ -232,6 +238,19 @@ export interface ScheduleNow {
     airingSlotId?: string;
     /** The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block */
     upcoming: ScheduleOccurrence[];
+}
+
+/**
+ * What applying a slot to the show on air changed now, and what waits for the slot's next occurrence
+ * generated from [ScheduleSlotApplied](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface ScheduleSlotApplied {
+    /** The parts the show on air follows from now on. Empty when it already matched the slot */
+    applied: ScheduleSlotPart[];
+    /** The parts that differ from the show on air and cannot change mid-show: its source, mode and end make a different programme, and its co-hosts are settled for the night. They apply the next time the slot comes round */
+    waiting: ScheduleSlotPart[];
+    /** Whether the records still planned are being chosen again against the new programme. The ones already planned keep playing until the new set is ready, so nothing goes quiet while it is chosen */
+    replanning: boolean;
 }
 
 /**

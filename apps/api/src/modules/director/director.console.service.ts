@@ -2048,7 +2048,7 @@ function sourceOf(input: PutOnAirInput): string {
  * The per-broadcast rules an operator asked for, as the binding's `rules`, or nothing when they asked
  * for none. Only what was actually sent: an absent switch leaves the station's setting in force.
  */
-function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
+export function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
     const rules: StationLineupRules = {
         ...(input.breaks === undefined ? {} : { breaks: input.breaks }),
         ...(input.callins === undefined ? {} : { callins: input.callins }),

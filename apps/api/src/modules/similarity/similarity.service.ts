@@ -9,6 +9,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { BoundedTtlMap } from '#modules/shared/bounded.ttl.map.js';
+import { SimilarityStoreRepository, type StoredAnswer } from './similarity.store.repository.js';
 
 /**
  * An artist that resembles the one asked about, and which plugin said so.
@@ -35,16 +36,24 @@ export type Neighbour = SimilarArtist & {
  * plugin's 0.8 as beating another's 0.6 would be arithmetic on numbers that do
  * not share a scale.
  *
- * ## The cache is in memory, and that is a decision
+ * ## What the sources said is kept, and read back first
  *
- * A rotation revisits a few hundred artists, the answer changes on a scale of
- * months, and the only caller is a background refill with minutes to spend. So a
- * `Map` with a day's TTL is the whole cache and there is deliberately no table:
- * a cold start costs one upstream call per artist the station actually plays, and
- * a schema is a thing to migrate, sweep and back up forever. If something later
- * needs similarity to survive a restart or to be QUERYABLE — "which artists lead
- * to this one" is a real question — that is the day to write one, and this note
- * is why there is not one now.
+ * This used to be a `Map` with a day's TTL and deliberately no table, on the
+ * argument that a cold start costs one upstream call per artist the station plays
+ * and a schema is a thing to migrate forever, until something needed similarity to
+ * survive a restart or to be QUERYABLE. A briefed show is that something: a model
+ * handed a shortlist needs every record known for a brief's acts and their
+ * neighbours in one query, deeper than any one refill asks for, and the station
+ * deploys itself on every push, so the map was empty several times a day.
+ *
+ * So every answer to {@link similarTo} and {@link topTracks} is written through to
+ * `SimilarityStoreRepository` (`0119_similarity_store.sql`), and a question is
+ * answered from there while the stored answer is younger than
+ * {@link STORED_ANSWER_TTL_MS} and asked for at least as many. Filled ON DEMAND:
+ * nothing here walks the library, so the store holds the artists the station
+ * actually airs and walks toward. The map stays in front of it for the neighbours,
+ * since the similar walk asks about the same artists constantly within a day. A
+ * store that cannot be read or written costs the store and never the answer.
  *
  * ## It suggests and never schedules
  *
@@ -74,6 +83,17 @@ export const SIMILARITY_TTL_MS = 24 * 60 * 60 * 1000;
  */
 export const SIMILARITY_CACHE_MAX = 2_000;
 
+/**
+ * How long a stored answer is trusted.
+ *
+ * A week where the map above trusts a day, because the two are for different
+ * things. The map keeps a long-running process from answering from last Tuesday's
+ * state of somebody's service; the store keeps a deploy, or a shortlist asking about
+ * twenty artists at once, from asking the providers again for an answer that moves
+ * on a scale of months. A week also bounds how stale a top-tracks ranking gets.
+ */
+export const STORED_ANSWER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** How long one call into a plugin may take. Bounded well inside a refill's own budget. */
 const INVOKE_TIMEOUT_MS = 12_000;
 
@@ -97,6 +117,7 @@ export class SimilarityService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly store: SimilarityStoreRepository,
     ) {}
 
     /** Whether anything can answer at all, for a caller deciding whether to offer the feature. */
@@ -124,8 +145,17 @@ export class SimilarityService {
         const cached = SimilarityService.cache.get(key);
         if (cached !== undefined) return cached.slice(0, limit);
 
+        const stored = serves(await this.read(() => this.store.neighbours(key)), limit);
+        if (stored !== undefined) {
+            this.remember(key, stored);
+            return stored.slice(0, limit);
+        }
+
         const found: Neighbour[] = [];
         const seen = new Set<string>([key]);
+        // Whether any source answered at all, as against every one of them failing. Only an answer is
+        // kept: an outage stored as "nobody resembles them" would hold for a week.
+        let anyAnswered = false;
 
         for (const plugin of this.plugins()) {
             let answered: SimilarArtist[] | undefined;
@@ -140,6 +170,7 @@ export class SimilarityService {
                 this.logger.info(`similarity: a plugin could not answer about "${ref.name}" (${plugin.record.id}: ${errorText(error)})`);
                 continue;
             }
+            anyAnswered = true;
 
             // Ordered by `match` within this source before the merge, so a source
             // that answered in its own order still contributes its best first.
@@ -159,6 +190,22 @@ export class SimilarityService {
         }
 
         this.remember(key, found);
+        if (anyAnswered) {
+            await this.write(() =>
+                this.store.saveNeighbours(
+                    key,
+                    ref.name,
+                    limit,
+                    found.map(neighbour => ({
+                        name: neighbour.name,
+                        neighbourKey: normalizeKey(neighbour.name),
+                        source: neighbour.source,
+                        ...(neighbour.mbid === undefined ? {} : { mbid: neighbour.mbid }),
+                        ...(neighbour.match === undefined ? {} : { match: neighbour.match }),
+                    })),
+                ),
+            );
+        }
         return found.slice(0, limit);
     }
 
@@ -168,11 +215,19 @@ export class SimilarityService {
      * Asked of the plugins that can answer, in order, and the FIRST usable answer
      * wins rather than merging: unlike similarity, this is a ranked list from one
      * source and interleaving two of them produces an order neither stands behind.
-     * Not cached — the caller asks about a handful of artists per refill and wants
-     * the freshest ranking, where the similarity list above is asked about the same
-     * artists constantly.
+     * Kept in the store and answered from there for {@link STORED_ANSWER_TTL_MS}. It
+     * used to be asked fresh every time, for the freshest ranking, which was right
+     * while a refill asked about a handful of artists for three records each; a
+     * ranking a few days old is as good a list of an artist's records, and a shortlist
+     * wants twenty-five of them for twenty artists at once.
      */
     async topTracks(ref: ArtistRef, limit: number): Promise<ArtistTrack[]> {
+        const key = normalizeKey(ref.name);
+        const stored = key.length === 0 ? undefined : serves(await this.read(() => this.store.records(key)), limit);
+        if (stored !== undefined) return stored.slice(0, limit).map(({ source: _source, ...track }) => track);
+
+        // As in `similarTo`: kept only when a source answered, even if it answered empty.
+        let anyAnswered = false;
         for (const plugin of this.plugins()) {
             if (!plugin.namesTracks) continue;
 
@@ -186,13 +241,26 @@ export class SimilarityService {
                     { timeoutMs: INVOKE_TIMEOUT_MS },
                 );
 
-                const usable = (tracks ?? []).filter(track => track?.title?.trim() && track.artist?.trim());
-                if (usable.length > 0) return usable.slice(0, limit);
+                anyAnswered = true;
+                const usable = (tracks ?? []).filter(track => track?.title?.trim() && track.artist?.trim()).slice(0, limit);
+                if (usable.length > 0) {
+                    if (key.length > 0)
+                        await this.write(() =>
+                            this.store.saveRecords(
+                                key,
+                                ref.name,
+                                limit,
+                                usable.map(track => ({ ...track, source: plugin.record.id })),
+                            ),
+                        );
+                    return usable;
+                }
             } catch (error) {
                 this.logger.info(`similarity: a plugin could not name records by "${ref.name}" (${plugin.record.id}: ${errorText(error)})`);
             }
         }
 
+        if (anyAnswered && key.length > 0) await this.write(() => this.store.saveRecords(key, ref.name, limit, []));
         return [];
     }
 
@@ -235,6 +303,28 @@ export class SimilarityService {
     }
 
     /**
+     * Read a stored answer, or nothing when the store cannot be read. A failed read costs the store
+     * and never the answer: the sources are asked as they were before it existed.
+     */
+    private async read<T>(reading: () => Promise<StoredAnswer<T> | undefined>): Promise<StoredAnswer<T> | undefined> {
+        try {
+            return await reading();
+        } catch (error) {
+            this.logger.debug(`similarity: could not read what the sources said before; asking them (${errorText(error)})`);
+            return undefined;
+        }
+    }
+
+    /** Keep an answer, or log that it could not be kept. Never throws: the caller has its answer. */
+    private async write(writing: () => Promise<void>): Promise<void> {
+        try {
+            await writing();
+        } catch (error) {
+            this.logger.debug(`similarity: could not keep what a source said (${errorText(error)})`);
+        }
+    }
+
+    /**
      * Hold an answer, evicting the oldest when the map is full. The cap is several times a station's
      * whole rotation, so anything evicted has not been asked about in a very long time.
      */
@@ -271,6 +361,17 @@ export class SimilarityService {
     static forget(): void {
         SimilarityService.cache.clear();
     }
+}
+
+/**
+ * The stored entries when they still serve a question for `limit`: younger than
+ * {@link STORED_ANSWER_TTL_MS}, and asked for at least as many, or holding fewer than were asked for,
+ * which is everything the source had. Otherwise `undefined`, and the sources are asked.
+ */
+function serves<T>(stored: StoredAnswer<T> | undefined, limit: number): T[] | undefined {
+    if (stored === undefined || stored.ageMs >= STORED_ANSWER_TTL_MS) return undefined;
+    if (stored.askedLimit < limit && stored.entries.length >= stored.askedLimit) return undefined;
+    return stored.entries;
 }
 
 /** Highest `match` first. An entry that did not score sorts last rather than as zero. */

@@ -116,13 +116,13 @@ export class RequestsService {
     }
 
     async create(body: ListenerRequestCreate): Promise<ListenerRequest> {
-        const { key, actorId } = this.authz.requireRequester();
+        const { key, actorId, operator } = this.authz.requireRequester();
         if ((body.trackId === undefined) === (body.source === undefined)) {
             throw httpError(400).withDetails({ message: 'name the record by trackId or by source, not both and not neither' });
         }
         const name = tidyListenerText(body.name, MAX_REQUESTER_NAME) ?? UNNAMED_REQUESTER;
         const dedication = dedicationOf(body.dedicateTo, body.message);
-        const requester = { key, name, actorId };
+        const requester = { key, name, actorId, ...(operator === true ? { operator } : {}) };
 
         // Somebody the desk would refuse whatever they asked for is refused before a provider's record
         // is taken in, so a refusal never grows the library. A record the station already holds needs
@@ -158,9 +158,9 @@ export class RequestsService {
      * not exist, and 409 for one that cannot be insisted on (any more).
      */
     async insist(id: string): Promise<ListenerRequest> {
-        const { key, actorId } = this.authz.requireRequester();
+        const { key, actorId, operator } = this.authz.requireRequester();
         // Named in the desk from the request being insisted on, which is the name they asked by.
-        const insisted = await this.desk.insist({ key, name: UNNAMED_REQUESTER, actorId }, id);
+        const insisted = await this.desk.insist({ key, name: UNNAMED_REQUESTER, actorId, ...(operator === true ? { operator } : {}) }, id);
         if (insisted === undefined) throw httpError(404).withDetails({ message: 'no such request' });
         if (insisted === 'spent') {
             throw httpError(409).withDetails({

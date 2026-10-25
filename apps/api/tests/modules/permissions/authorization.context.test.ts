@@ -73,12 +73,31 @@ describe('AuthorizationContext.hasPlatformRole for a connected app', () => {
     });
 });
 
+describe('AuthorizationContext.requireRequester', () => {
+    const listener: UserActor = { ...admin(), platformRoles: new Set(['listener']) };
+
+    it('marks somebody who may manage the station as an operator, and a listener not', () => {
+        expect(new AuthorizationContext(admin()).requireRequester()).toEqual({ key: 'user:u-1', actorId: 'u-1', operator: true });
+        expect(new AuthorizationContext(listener).requireRequester()).toEqual({ key: 'user:u-1', actorId: 'u-1' });
+    });
+
+    it('takes a key or a connected app at its grant, as the operator-only routes do', () => {
+        expect(new AuthorizationContext(admin(['view', 'manage'])).requireRequester().operator).toBe(true);
+        expect(new AuthorizationContext(admin(['view'])).requireRequester().operator).toBeUndefined();
+        expect(new AuthorizationContext(connected(['view'])).requireRequester().operator).toBeUndefined();
+    });
+});
+
 describe('a party guest', () => {
     const guest = new AuthorizationContext({ kind: 'guest', sessionToken: 's-2', actorId: 'g-1', partyPassId: 'p-1' });
 
     it('is a requester keyed apart from any account, so its one-at-a-time is its own', () => {
         expect(guest.requireRequester()).toEqual({ key: 'guest:g-1', actorId: 'g-1' });
-        expect(new AuthorizationContext(admin()).requireRequester()).toEqual({ key: 'user:u-1', actorId: 'u-1' });
+        expect(new AuthorizationContext(admin()).requireRequester()).toMatchObject({ key: 'user:u-1', actorId: 'u-1' });
+    });
+
+    it('is never an operator', () => {
+        expect(guest.requireRequester().operator).toBeUndefined();
     });
 
     it('is not a user, holds no credentials to manage, and passes no role check', () => {

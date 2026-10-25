@@ -437,6 +437,7 @@ export interface DeadairListenerRequests {
   insisted: Generated<boolean>;
   message: string | null;
   messageId: string | null;
+  operator: Generated<boolean>;
   overrulable: Generated<boolean>;
   pluginId: string | null;
   reason: string | null;

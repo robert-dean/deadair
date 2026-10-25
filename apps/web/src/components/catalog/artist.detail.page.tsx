@@ -20,6 +20,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { CATALOG_SEARCH_DEFAULTS, type CatalogListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
+import { PronunciationControl } from './pronunciation.control';
 import { RatingControl } from './rating.control';
 import { SuspendControl } from './suspend.control';
 
@@ -84,6 +85,7 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                                     onSuspend={days => suspend.mutate({ kind: 'artist', id: artistId, days })}
                                     onLift={() => suspend.mutate({ kind: 'artist', id: artistId, days: undefined })}
                                 />
+                                <PronunciationControl name={artist.data.name} />
                             </Group>
                         ) : undefined}
                     </PageHeader>

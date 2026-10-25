@@ -92,6 +92,26 @@ same six and their neighbours were each other. `SimilarSetGenerator.seeds` now a
 walks from Kreator's and Behemoth's neighbours instead. A brief naming nobody the library holds ("Loud and
 fast") keeps the broadcast-scoped seeds, and a briefed hour with no broadcast still seeds nothing.
 
+**What the similarity sources say is kept, and filled only on demand.** `SimilarityService` held who
+resembles whom in a day-long map and asked for an artist's top tracks every time, and the station
+deploys itself on every push, so the map was empty several times a day. It now writes every answer to
+`similarity_asks`, `similar_artists` and `artist_records` (0119) and answers from there while the answer
+is under a week old (`STORED_ANSWER_TTL_MS`) and asked for at least as many; the map stays in front of the
+neighbours. **Nothing walks the library to fill it**: every answer is one some caller asked for anyway, so
+the store holds the artists the station actually airs and walks toward. An empty answer is kept, so an
+act nobody knows is not asked about on every refill; an outage is not. A store that cannot be read or
+written costs the store and never the answer.
+
+**A brief's acts include the ones the library has never held, found among the neighbours of the ones it
+has.** Measured on the live station, 2026-10-25: The Church's brief names Mayhem, Darkthrone and Emperor
+and the library holds nothing by them, so `BriefArtists` never reached them. `BriefActs` asks who
+resembles each library act, keeps a neighbour the brief names as whole words (`namedInBrief`, with
+`excludedByBrief`'s negation, so "No Burzum" holds however often a source offers him), and keeps the three
+closest other neighbours of each act as leads. It is the one fill nobody asked for first, so it fills the
+store for the acts (25 records each) and the neighbours (10) at most `MAX_ASKS_PER_RUN` (16) provider
+questions per refill, acts first; an answer already stored costs nothing. An act no neighbour list reaches
+is still missed.
+
 **A show prepared ahead seeds from nothing that aired.** `PrepareSlotJob` chooses a show's opening records
 before it starts, while the broadcast on air is still the show before it, so "this broadcast's records" there
 meant the previous show's. Measured on the live station, 2026-10-15: Banjo Breakdown was prepared at 06:57
@@ -473,7 +493,8 @@ on rather than a looser one that reads as free and costs a download.
 **Bans narrow BOTH halves now** — `dislikedArtistKeys` is a second read precisely because a provider row by a
 banned artist joins to no catalog row and the first cannot see it — while **rotation rules still narrow
 neither**, since variety is enforced at the point of choice and pre-filtering returns a worse pool on a small
-library.
+library. The shortlist below DOES screen by the rotation rules, and only because it screens with the
+resolver's own give-way rules, so it is never narrower than what `PickResolver` would keep.
 
 **The providers are reached only when the library comes up short** (`THIN`), or always if the operator sets
 `llm.alwaysSearchProviders`; the default is not merely thrift, because break writers share this tool and
@@ -484,6 +505,25 @@ answer with owned records and the failure moves from the model's choice into the
 `StationTasteTool` (`station_taste`), answers what the operator has liked and disliked; it reports and never
 enforces, and `ModelSetGenerator` also puts a short version straight in its prompt so a model that cannot
 drive tools still gets the steer.
+
+**A brief that names its acts is programmed from a numbered list, and the model answers with numbers.**
+Measured on the live station, 2026-10-25, The Church, refill trace `51fea6af`: five `search_music` calls of
+about four seconds each, then the final answer generated for two minutes with no tools and ran out of the
+180-second budget having named nothing: 29,564 tokens, about 5,600 characters of reasoning, on `gemma4:26b`.
+The rescue filled the batch from the searches and `PickResolver` kept one of twenty, because they were
+repeats and acts inside the cooldown. Searching was not the cost; WRITING the answer was, and most of what
+would have been written could never air. So `Shortlist` gathers the library's records by the acts
+`BriefActs` reaches and what the store holds for them and their neighbours, screens them through
+`PickResolver.screen` (the resolver's own reads and windows, with the per-batch caps left to the batch and
+`RepeatWatch` untold, since nothing has aired), and lists up to 60, one per artist per turn, each artist's
+never-aired records first. `shortlistPrompt` is a few rules and the list, a quarter of `setPrompt`'s system
+turn, and `readChoices` reads numbers off it, with a `{"title","artist"}` object beside them for a record the
+model searched for: the search stays, two rounds and nothing else (`SHORTLIST_TOOL_STEPS`), for what a list
+built from acts cannot hold, such as a song the brief names by title. A model that names nothing has the
+batch drawn from the list (`drawFromShortlist`: freshest and the brief's own acts first, at most the
+per-artist cap) before the search rescue. **A list shorter than the batch is never offered**, nor one for a
+brief naming no acts, and `llm.setShortlist` (on) turns it off: each of those is the search-driven refill
+exactly as it was.
 
 **A listener's request search reaches the providers on the same terms, through `RequestProviderSearch`
 rather than this tool.** It reuses `ProviderSearch` and the same two narrowing reads (`ownership` and

@@ -542,13 +542,17 @@ jobs:
               with:
                   persist-credentials: false
 
-            # The version is pinned by `apps/desktop/global.json`, which also selects the test runner:
+            # `apps/desktop/global.json` floats the SDK within 10.0.4xx and selects the test runner:
             # xunit v3 is built on the Microsoft Testing Platform and the .NET 10 SDK dropped the
             # VSTest path, so `dotnet test` fails outright without that file's `test` section.
+            # The install names an EXACT version rather than reading that file because a floating
+            # version is fetched through an aka.ms redirect, and on 2026-10-25 every one of those
+            # pointed at a storage account answering 409 to anonymous reads. An exact version is
+            # fetched from builds.dotnet.microsoft.com directly. Keep it inside global.json's band.
             - name: Setup .NET
               uses: actions/setup-dotnet@v6
               with:
-                  global-json-file: apps/desktop/global.json
+                  dotnet-version: 10.0.403
                   cache: true
                   cache-dependency-path: '**/packages.lock.json'
 

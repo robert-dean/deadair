@@ -1,157 +1,168 @@
 .page {
-    background: radial-gradient(ellipse 120% 40% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    background: radial-gradient(ellipse 90% 30% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 70%);
     padding-bottom: 6rem;
     overflow-x: clip;
 }
 
-.page h2 {
-    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem);
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-}
-
-/* The hero: words centred over one big screenshot. */
+/* The hero: a left-aligned headline, then the lede and the ways in, with the facts opposite. */
 
 .hero {
-    max-width: 56rem;
+    max-width: 82rem;
     margin: 0 auto;
-    padding: 6rem 1.5rem 3rem;
-    text-align: center;
+    padding: 8rem 1.5rem 4rem;
 }
 
 .headline {
-    font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.4rem);
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-    margin-bottom: 1.25rem;
+    font-size: clamp(2.6rem, 1.4rem + 4.6vw, 5rem);
+    font-weight: 500;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    max-width: 13ch;
+    margin-bottom: 2.5rem;
+}
+
+.heroFoot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem 4rem;
+    align-items: end;
 }
 
 .lede {
-    font-size: 1.2rem;
-    line-height: 1.6;
+    font-size: 1.15rem;
+    line-height: 1.55;
     color: var(--da-text-secondary);
-    max-width: 42rem;
-    margin: 0 auto 2rem;
+    max-width: 34rem;
+    margin-bottom: 1.75rem;
 }
 
 .actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     gap: 0.75rem;
 }
 
-.primary,
-.secondary {
-    display: inline-block;
-    padding: 0.7rem 1.4rem;
-    border-radius: 4px;
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    transition:
-        background-color 120ms ease,
-        border-color 120ms ease;
+.heroAside {
+    display: grid;
+    justify-items: end;
+    gap: 1.25rem;
+    text-align: right;
 }
 
-.primary {
-    background: var(--da-phosphor);
-    color: #050706;
-    border: 1px solid var(--da-phosphor);
-}
-
-.primary:hover {
-    background: var(--ifm-color-primary-light);
-    color: #050706;
-    text-decoration: none;
-}
-
-.secondary {
-    color: var(--da-text);
-    border: 1px solid var(--da-border-strong);
-}
-
-.secondary:hover {
-    border-color: var(--da-phosphor);
-    color: var(--da-text);
-    text-decoration: none;
-}
-
-/* Four facts in a mono strip, dot-separated, like the rule under a masthead. */
 .facts {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.4rem 0;
     list-style: none;
-    margin: 2.25rem 0 0;
+    margin: 0;
     padding: 0;
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.78rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    line-height: 1.9;
     color: var(--da-text-dimmed);
 }
 
-.facts li + li::before {
-    content: '·';
-    margin: 0 0.9rem;
-    color: var(--da-border-strong);
-}
+/* The desk on a lit stage, fading into the page at its foot. */
 
 .showcase {
-    max-width: 82rem;
+    max-width: 86rem;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 1rem;
 }
 
-/* The one-line statement under the showcase. */
+.stage {
+    position: relative;
+    padding: 1.5rem 1.5rem 0;
+    border: 1px solid var(--da-border);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(180deg, var(--da-raised) 0%, var(--da-bg) 85%);
+}
+
+.stage::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 40%;
+    background: linear-gradient(180deg, transparent, var(--da-bg));
+    pointer-events: none;
+}
+
+/* The figure's caption would sit inside the fade; the hero has already said what this is. */
+.stage figcaption {
+    display: none;
+}
+
+/* The statement: one long line, its first sentence bright and the rest a step back. */
 
 .statement {
-    max-width: 48rem;
-    margin: 0 auto;
-    padding: 5rem 1.5rem 0;
-    text-align: center;
-}
-
-.statement p {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    color: var(--da-text-secondary);
-}
-
-/* The long sections after the six parts. */
-
-.section {
-    max-width: 72rem;
+    max-width: 82rem;
     margin: 0 auto;
     padding: 6rem 1.5rem 0;
 }
 
+.statement p {
+    max-width: 62rem;
+    margin: 0;
+    font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.6rem);
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.03em;
+    color: var(--da-text-dimmed);
+}
+
+.statement strong {
+    color: var(--da-text);
+    font-weight: 500;
+}
+
+/* The long sections after the feature rows, ruled as the rows are. */
+
+.section {
+    border-top: 1px solid var(--da-border);
+    margin-top: 7rem;
+}
+
+.inner {
+    max-width: 82rem;
+    margin: 0 auto;
+    padding: 6rem 1.5rem 0;
+}
+
+.sectionHead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem 4rem;
+    align-items: start;
+    margin-bottom: 3.5rem;
+}
+
+.sectionHead h2 {
+    font-size: clamp(2rem, 1.4rem + 2vw, 3.2rem);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    max-width: 14ch;
+    margin: 0;
+}
+
 .sectionLede {
     color: var(--da-text-secondary);
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     line-height: 1.6;
-    max-width: 44rem;
-    margin-bottom: 2rem;
+    margin: 0;
 }
 
 .stack {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2.5rem 0;
+    margin-bottom: 3rem;
 }
 
 /* The licensing warning, which is the one thing on the page that is a warning. */
 .callout {
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     border: 1px solid var(--da-border);
-    border-left: 3px solid var(--da-tally);
-    border-radius: 4px;
-    background: var(--da-panel);
+    border-left: 2px solid var(--da-tally);
+    border-radius: 8px;
 }
 
 .callout p {
@@ -163,34 +174,34 @@
 
 .callout strong {
     color: var(--da-text);
+    font-weight: 500;
 }
 
 .install {
     max-width: 44rem;
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
 }
 
+/* Image tags and the ways to build on it: columns divided by hairlines, not boxes. */
 .tags,
 .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 2.5rem 0;
+    margin-bottom: 2.5rem;
 }
 
 .tag {
-    background: var(--da-panel);
-    border: 1px solid var(--da-border);
-    border-radius: 4px;
-    padding: 1.25rem 1.5rem;
+    border-left: 1px solid var(--da-border);
+    padding: 0.25rem 1.5rem;
 }
 
 .tag code {
     background: none;
     border: none;
     padding: 0;
-    color: var(--da-phosphor);
-    font-size: 0.95rem;
+    color: var(--da-text);
+    font-size: 0.9rem;
 }
 
 .tag > code {
@@ -211,14 +222,13 @@
 .tag dt {
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.75rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--da-text-dimmed);
 }
 
 .tag dd {
     margin: 0.2rem 0 0.9rem;
-    color: var(--da-text);
+    color: var(--da-text-secondary);
 }
 
 .tag dd:last-child {
@@ -230,33 +240,65 @@
     max-width: 44rem;
 }
 
-/* The last word, and the same three ways in as the top of the page. */
+/* The last word: the two-tone line again, with the ways in beside it. */
 .end {
-    max-width: 48rem;
-    margin: 7rem auto 0;
-    padding: 4rem 1.5rem 0;
-    border-top: 1px solid var(--da-border);
-    text-align: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem 4rem;
+    align-items: end;
 }
 
-.end p {
-    color: var(--da-text-secondary);
-    font-size: 1.1rem;
-    margin-bottom: 2rem;
+.end h2 {
+    max-width: 22ch;
+    margin: 0;
+    font-size: clamp(1.8rem, 1.2rem + 2vw, 3rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+}
+
+.end h2 span {
+    color: var(--da-text-dimmed);
+}
+
+@media (max-width: 1100px) {
+    .stack {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 900px) {
-    .stack {
+    .hero {
+        padding-top: 4rem;
+    }
+
+    .heroFoot,
+    .sectionHead,
+    .end {
         grid-template-columns: 1fr;
     }
-}
 
-@media (max-width: 800px) {
-    .hero {
-        padding-top: 3.5rem;
+    .heroAside {
+        justify-items: start;
+        text-align: left;
     }
 
     .section {
-        padding-top: 4.5rem;
+        margin-top: 4.5rem;
+    }
+
+    .inner {
+        padding-top: 4rem;
+    }
+
+    .stage {
+        padding: 0.75rem 0.75rem 0;
+        border-radius: 12px 12px 0 0;
+    }
+}
+
+@media (max-width: 600px) {
+    .stack {
+        grid-template-columns: 1fr;
     }
 }

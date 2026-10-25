@@ -81,10 +81,15 @@ refuses to write an image if anything identifying is still on the page. The adva
 photographed: its toggle does not open from a script, so those fields are described in prose. Keep
 the descriptions in that script and in `unraid/deadair.xml` saying the same thing.
 
-**The colours are the console's carbon theme, copied.** `src/css/custom.css` restates the surfaces,
-the phosphor accent and the faces from `apps/web/src/tokens.css` and `theme.ts`, because the console
-publishes them through Mantine and this site does not load Mantine. The brand images are served
-straight from `apps/web/public` through `staticDirectories`, so there is one copy of the logo.
+**The colours are the console's carbon and Studio White themes, copied.** `src/css/custom.css`
+restates the surfaces, the phosphor accent and the faces from `apps/web/src/tokens.css` and
+`theme.ts`, because the console publishes them through Mantine and this site does not load Mantine.
+Carbon is the dark mode and Studio White the light one; the site follows the reader's system and has
+a switch. Every colour a rule uses is a token restated in both, so a hex in a component's CSS is a
+colour that is right in one mode only. The headings are the one deliberate departure: IBM Plex Sans
+at a medium weight, tracked in, where the console uses Chakra Petch, which the site keeps for the
+wordmark only. The brand images are served straight from `apps/web/public` through
+`staticDirectories`, so there is one copy of the logo.
 
 **The community pages read their catalogue in the browser, never at build.** `/community/*` fetch
 `catalog.json` and `status.json` from the `robert-dean/deadair-community` repository's Pages site

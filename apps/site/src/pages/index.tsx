@@ -1,6 +1,7 @@
 import Link from '@docusaurus/Link';
 import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
+import type { ReactNode } from 'react';
 
 import { ChipList } from '../components/chip.list';
 import { ConsoleTour, type TourStop } from '../components/console.tour';
@@ -64,44 +65,78 @@ const tags = [
     { tag: 'slim', brings: 'The station alone', bring: 'PostgreSQL, Redis and a speech server, ideally on a GPU.' },
 ];
 
+interface SectionProps {
+    /** A few words in the dimmed mono label over the title. */
+    label: string;
+    title: string;
+    /** The paragraph that sits opposite the title. */
+    lede?: ReactNode;
+    children: ReactNode;
+}
+
+/** One of the long sections after the feature rows: a ruled band, its title on the left and its lede on the right. */
+function Section({ label, title, lede, children }: SectionProps) {
+    return (
+        <section className={styles.section}>
+            <div className={styles.inner}>
+                <div className={styles.sectionHead}>
+                    <div>
+                        <p className="da-label">{label}</p>
+                        <h2>{title}</h2>
+                    </div>
+                    {lede ? <p className={styles.sectionLede}>{lede}</p> : undefined}
+                </div>
+                {children}
+            </div>
+        </section>
+    );
+}
+
 export default function Home() {
     return (
         <Layout description="deadair picks the records, writes what the presenter says between them, speaks it, and streams the result. Self-hosted and MIT licensed.">
             <main className={styles.page}>
                 <header className={styles.hero}>
-                    <p className="da-eyebrow">Self-hosted AI radio</p>
                     <h1 className={styles.headline}>An AI radio station you run yourself.</h1>
-                    <p className={styles.lede}>
-                        It picks the records, writes what the presenter says between them, speaks it in that presenter’s voice, and streams the
-                        result. One mount, one running order, and everybody hears the same thing at the same moment.
-                    </p>
-                    <div className={styles.actions}>
-                        <Link className={styles.primary} to="/docs/quick-start">
-                            Quick start
-                        </Link>
-                        <Link className={styles.secondary} to="/community/stations">
-                            Hear a station
-                        </Link>
-                        <Link className={styles.secondary} href={repository}>
-                            Read the source
-                        </Link>
+                    <div className={styles.heroFoot}>
+                        <div>
+                            <p className={styles.lede}>
+                                It picks the records, writes what the presenter says between them, speaks it in that presenter’s voice, and streams
+                                the result.
+                            </p>
+                            <div className={styles.actions}>
+                                <Link className="da-button" to="/docs/quick-start">
+                                    Quick start
+                                </Link>
+                                <Link className="da-button-ghost" href={repository}>
+                                    Read the source
+                                </Link>
+                            </div>
+                        </div>
+                        <div className={styles.heroAside}>
+                            <ul className={styles.facts}>
+                                {facts.map(fact => (
+                                    <li key={fact}>{fact}</li>
+                                ))}
+                            </ul>
+                            <Link className="da-more" to="/community/stations">
+                                Hear a station
+                            </Link>
+                        </div>
                     </div>
-                    <ul className={styles.facts}>
-                        {facts.map(fact => (
-                            <li key={fact}>{fact}</li>
-                        ))}
-                    </ul>
                 </header>
 
+                {/* The desk on a lit stage that fades into the page, the way the hero hands over to the first section. */}
                 <div className={styles.showcase}>
-                    <Figure shot="desk" number={1} caption="The Desk, on air" eager />
+                    <div className={styles.stage}>
+                        <Figure shot="desk" number={1} caption="The Desk, on air" aspect={16 / 9} eager />
+                    </div>
                 </div>
 
                 <section className={styles.statement}>
-                    <h2>A radio station, not a playlist.</h2>
                     <p>
-                        There is no per-listener shuffle and no skip button. What is on is what is on, and the station decides. You run it from a
-                        desk, and everybody else hears it.
+                        <strong>A radio station, not a playlist.</strong> There is no per-listener shuffle and no skip button. What is on is what is
+                        on, and the station decides. You run it from a desk, and everybody else hears it.
                     </p>
                 </section>
 
@@ -127,8 +162,7 @@ export default function Home() {
                     part="Part two"
                     kicker="The presenter"
                     title="A model cannot make it go quiet."
-                    side="right"
-                    figure={<Figure shot="voiceSaid" number={3} caption="Every break written, and every one declined" />}
+                    figure={<Figure shot="voiceSaid" number={3} caption="Every break written, and every one declined" aspect={16 / 8} />}
                 >
                     <p>
                         The presenter talks between records using a local or hosted model when one is configured. When there is none, when it is slow,
@@ -146,7 +180,7 @@ export default function Home() {
                     part="Part three"
                     kicker="The facts"
                     title="True, or nothing."
-                    figure={<Figure shot="catalogTrack" number={4} caption="One record, and what the station knows about it" />}
+                    figure={<Figure shot="catalogTrack" number={4} caption="One record, and what the station knows about it" aspect={16 / 8} />}
                 >
                     <p>
                         Every fact the presenter mentions about a record is a stored claim with the sentence of source prose behind it. A claim with
@@ -164,8 +198,7 @@ export default function Home() {
                     part="Part four"
                     kicker="The characters"
                     title="Presenters that accumulate."
-                    side="right"
-                    figure={<Figure shot="voiceCharacters" number={5} caption="The roster" />}
+                    figure={<Figure shot="voiceCharacters" number={5} caption="The roster" aspect={16 / 8} />}
                 >
                     <p>
                         Who is presenting is a character with a voice, a diction, how much rope it is given and how brief it is. It keeps a notebook
@@ -182,24 +215,25 @@ export default function Home() {
                     </p>
                 </FeatureRow>
 
-                <section className={styles.section}>
-                    <p className="da-eyebrow">The console</p>
-                    <h2>The rest of the desk.</h2>
-                    <p className={styles.sectionLede}>
-                        A broadcast desk rather than a player. It deliberately does not play the station: the listeners have the mount. It is what you
-                        open to see what is going out, what is coming up, and what needs you. What is on air, Skip, Stop and your opinion of the
-                        record playing also come as keys, on <Link to="/docs/features/console#on-a-stream-deck">an Elgato Stream Deck</Link>.
-                    </p>
+                <Section
+                    label="The console"
+                    title="The rest of the desk."
+                    lede={
+                        <>
+                            A broadcast desk rather than a player. It deliberately does not play the station: the listeners have the mount. It is what
+                            you open to see what is going out, what is coming up, and what needs you. What is on air, Skip, Stop and your opinion of
+                            the record playing also come as keys, on <Link to="/docs/features/console#on-a-stream-deck">an Elgato Stream Deck</Link>.
+                        </>
+                    }
+                >
                     <ConsoleTour stops={tour} />
-                </section>
+                </Section>
 
-                <section className={styles.section}>
-                    <p className="da-eyebrow">The stack</p>
-                    <h2>Bring your own model. Bring your own voice.</h2>
-                    <p className={styles.sectionLede}>
-                        The words and the voice are separate choices, and both are yours. Change either in Settings and the next break uses it, with
-                        no restart. A station with no model at all still talks.
-                    </p>
+                <Section
+                    label="The stack"
+                    title="Bring your own model. Bring your own voice."
+                    lede="The words and the voice are separate choices, and both are yours. Change either in Settings and the next break uses it, with no restart. A station with no model at all still talks."
+                >
                     <div className={styles.stack}>
                         <ChipList
                             label="The words"
@@ -233,14 +267,13 @@ export default function Home() {
                             <Link to="/docs/licensing">Music licensing</Link> says what is clear and what is not.
                         </p>
                     </aside>
-                </section>
+                </Section>
 
-                <section className={styles.section}>
-                    <h2>Run it</h2>
-                    <p className={styles.sectionLede}>
-                        One container holds the station, its console, the audio chain, the stream server and the measurement sidecar. One port carries
-                        all of it, so whatever you already put in front of a port carries the station too.
-                    </p>
+                <Section
+                    label="Run it"
+                    title="One container, one port."
+                    lede="One container holds the station, its console, the audio chain, the stream server and the measurement sidecar. One port carries all of it, so whatever you already put in front of a port carries the station too."
+                >
                     <div className={styles.install}>
                         <CodeBlock language="bash">curl -fsSL https://deadair.radio/install.sh | sh</CodeBlock>
                         <p className={styles.note}>
@@ -274,14 +307,12 @@ export default function Home() {
                         <Link href={`${repository}/tree/main/apps/desktop`}>macOS</Link> built from source.{' '}
                         <Link to="/docs/features/listening">Listening.</Link>
                     </p>
-                </section>
+                </Section>
 
-                <section className={styles.section}>
-                    <p className="da-eyebrow">Develop</p>
-                    <h2>Build on it.</h2>
+                <Section label="Develop" title="Build on it.">
                     <div className={styles.cards}>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">A plugin</p>
+                            <p className="da-label">A plugin</p>
                             <p>
                                 Music sources, facts, charts, voices, models and news are all plugins, and yours loads beside the bundled sixteen
                                 without rebuilding anything. Plain npm, against the published SDK.{' '}
@@ -289,7 +320,7 @@ export default function Home() {
                             </p>
                         </div>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">The API</p>
+                            <p className="da-label">The API</p>
                             <p>
                                 Every station serves the same HTTP API, and the console and all three listener apps are built on it. A key from
                                 Settings, Sign-in and security drives the desk from your own code, a keypad or a home-automation hub.{' '}
@@ -297,14 +328,14 @@ export default function Home() {
                             </p>
                         </div>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">The station itself</p>
+                            <p className="da-label">The station itself</p>
                             <p>
                                 A pnpm monorepo, a Koa API and a React console, with the audio chain in containers beside it. From clone to a station
                                 running on your machine is one page. <Link to="/docs/develop/setup">Setting up a checkout.</Link>
                             </p>
                         </div>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">Hardware</p>
+                            <p className="da-label">Hardware</p>
                             <p>
                                 The desk on keys: what is on air with its cover, Skip, a Stop that asks twice, and a heart on the record playing.{' '}
                                 <Link href={streamDeckMarketplace}>Get it on the Elgato Marketplace</Link>, or{' '}
@@ -312,21 +343,24 @@ export default function Home() {
                             </p>
                         </div>
                     </div>
-                </section>
+                </Section>
 
-                <section className={styles.end}>
-                    <h2>Put a station on the air.</h2>
-                    <p>One container, your music, and a presenter who never goes quiet.</p>
-                    <div className={styles.actions}>
-                        <Link className={styles.primary} to="/docs/quick-start">
-                            Quick start
-                        </Link>
-                        <Link className={styles.secondary} to="/docs/features">
-                            What it does
-                        </Link>
-                        <Link className={styles.secondary} href={repository}>
-                            Read the source
-                        </Link>
+                <section className={styles.section}>
+                    <div className={`${styles.inner} ${styles.end}`}>
+                        <h2>
+                            Put a station on the air. <span>One container, your music, and a presenter who never goes quiet.</span>
+                        </h2>
+                        <div className={styles.actions}>
+                            <Link className="da-button" to="/docs/quick-start">
+                                Quick start
+                            </Link>
+                            <Link className="da-button-ghost" to="/docs/features">
+                                What it does
+                            </Link>
+                            <Link className="da-button-ghost" href={repository}>
+                                Read the source
+                            </Link>
+                        </div>
                     </div>
                 </section>
             </main>

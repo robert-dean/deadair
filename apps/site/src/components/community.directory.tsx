@@ -38,13 +38,13 @@ export function CommunityDirectory<T>({
         <Layout title={title} description={description}>
             <main className={styles.page}>
                 <header className={styles.hero}>
-                    <p className="da-eyebrow">
-                        <Link to="/community">Community</Link> · {eyebrow}
+                    <p className={`da-label ${styles.crumb}`}>
+                        <Link to="/community">Community</Link> / {eyebrow}
                     </p>
                     <h1 className={styles.headline}>{title}</h1>
                     <div className={styles.lede}>{lede}</div>
                     <div className={styles.actions}>
-                        <Link className={styles.primary} href={submit.href}>
+                        <Link className="da-button" href={submit.href}>
                             {submit.label}
                         </Link>
                         {entries !== undefined && entries.length > 0 && <span className={styles.count}>{entries.length} listed</span>}

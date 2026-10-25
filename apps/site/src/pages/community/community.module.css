@@ -1,94 +1,108 @@
 .page {
-    background: radial-gradient(ellipse 120% 40% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    background: radial-gradient(ellipse 90% 30% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 70%);
     padding-bottom: 6rem;
     overflow-x: clip;
 }
 
-.page h2 {
-    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem);
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-}
-
+/* The front page's hero without the showcase: a left-aligned headline over a muted lede. */
 .hero {
-    max-width: 56rem;
+    max-width: 82rem;
     margin: 0 auto;
-    padding: 6rem 1.5rem 1rem;
-    text-align: center;
+    padding: 7rem 1.5rem 1rem;
 }
 
 .headline {
-    font-size: clamp(2.2rem, 1.5rem + 3vw, 3.8rem);
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-    margin-bottom: 1.25rem;
+    font-size: clamp(2.4rem, 1.4rem + 4vw, 4.4rem);
+    font-weight: 500;
+    line-height: 1.03;
+    letter-spacing: -0.04em;
+    max-width: 14ch;
+    margin-bottom: 1.75rem;
 }
 
 .lede {
-    font-size: 1.2rem;
-    line-height: 1.6;
+    font-size: 1.15rem;
+    line-height: 1.55;
     color: var(--da-text-secondary);
-    max-width: 42rem;
-    margin: 0 auto;
+    max-width: 38rem;
+    margin: 0;
 }
 
+/* A full-width rule over each section, as the front page's chapters have. */
 .section {
-    max-width: 72rem;
+    border-top: 1px solid var(--da-border);
+    margin-top: 5.5rem;
+}
+
+.inner {
+    max-width: 82rem;
     margin: 0 auto;
-    padding: 4.5rem 1.5rem 0;
+    padding: 5rem 1.5rem 0;
+}
+
+.head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem 4rem;
+    align-items: start;
+    margin-bottom: 3rem;
+}
+
+.head h2 {
+    font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin: 0;
 }
 
 .sectionLede {
     color: var(--da-text-secondary);
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     line-height: 1.6;
-    max-width: 44rem;
-    margin-bottom: 2rem;
+    margin: 0;
 }
 
+/* Columns divided by hairlines rather than boxed cards; each one's link sits at its foot. */
 .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 2.5rem 0;
 }
 
-/* A card's link sits at its foot however long the body above it runs. */
 .card {
     display: flex;
     flex-direction: column;
-    background: var(--da-panel);
-    border: 1px solid var(--da-border);
-    border-radius: 4px;
-    padding: 1.25rem 1.5rem;
+    border-left: 1px solid var(--da-border);
+    padding: 0.25rem 1.5rem;
 }
 
-.card p:not(:global(.da-eyebrow)) {
+.card p:not(:global(.da-label)) {
     flex: 1;
     color: var(--da-text-secondary);
     line-height: 1.6;
 }
 
-.card a {
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-}
-
 .note {
     color: var(--da-text-secondary);
     max-width: 44rem;
-    margin: 0;
+    margin: 3.5rem 0 0;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
     .hero {
-        padding-top: 3.5rem;
+        padding-top: 4rem;
     }
 
     .section {
+        margin-top: 4rem;
+    }
+
+    .inner {
         padding-top: 3.5rem;
+    }
+
+    .head {
+        grid-template-columns: 1fr;
     }
 }

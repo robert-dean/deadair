@@ -4,9 +4,14 @@
     gap: 0.9rem;
     background: var(--da-panel);
     border: 1px solid var(--da-border);
-    border-radius: 4px;
-    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
+    padding: 1.4rem 1.5rem;
     min-width: 0;
+    transition: border-color 120ms ease;
+}
+
+.card:hover {
+    border-color: var(--da-border-strong);
 }
 
 .head {
@@ -21,8 +26,8 @@
 }
 
 .title {
-    font-size: 1.2rem;
-    font-weight: 600;
+    font-size: 1.15rem;
+    font-weight: 500;
     margin: 0;
     overflow-wrap: anywhere;
 }
@@ -58,9 +63,8 @@
 .byline {
     margin: 0;
     font-family: var(--ifm-font-family-monospace);
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
     color: var(--da-text-dimmed);
 }
 
@@ -68,9 +72,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-size: 0.85rem;
+    font-weight: 500;
+    font-size: 0.9rem;
 }

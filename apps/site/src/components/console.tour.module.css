@@ -25,14 +25,14 @@
 
 .number {
     font-family: var(--ifm-font-family-monospace);
-    font-size: 0.85rem;
-    color: var(--da-phosphor);
+    font-size: 0.78rem;
+    color: var(--da-text-dimmed);
     padding-top: 0.2rem;
 }
 
 .words h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 500;
     margin-bottom: 0.35rem;
 }
 

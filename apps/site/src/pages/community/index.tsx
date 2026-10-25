@@ -1,5 +1,6 @@
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import type { ReactNode } from 'react';
 
 import { codeOfConduct, contributing, venues } from '../../community/venues';
 import styles from './community.module.css';
@@ -38,12 +39,27 @@ const directories = [
     },
 ];
 
+/** A ruled band: its title on the left, its lede on the right, and whatever it holds underneath. */
+function Section({ title, lede, children }: { title: string; lede?: string; children: ReactNode }) {
+    return (
+        <section className={styles.section}>
+            <div className={styles.inner}>
+                <div className={styles.head}>
+                    <h2>{title}</h2>
+                    {lede ? <p className={styles.sectionLede}>{lede}</p> : undefined}
+                </div>
+                {children}
+            </div>
+        </section>
+    );
+}
+
 export default function Community() {
     return (
         <Layout title="Community" description="Where the people running deadair stations talk, and how to share what you built.">
             <main className={styles.page}>
                 <header className={styles.hero}>
-                    <p className="da-eyebrow">Community</p>
+                    <p className="da-label">Community</p>
                     <h1 className={styles.headline}>Everybody here runs a station.</h1>
                     <p className={styles.lede}>
                         Each one is somebody’s own: their music, their presenter, their clock. This is where they compare notes, help each other get
@@ -51,70 +67,73 @@ export default function Community() {
                     </p>
                 </header>
 
-                <section className={styles.section}>
-                    <h2>Share.</h2>
-                    <p className={styles.sectionLede}>
-                        What other people run and made, listed by them. Add yours through a form; a maintainer reads each one before it goes up.
-                    </p>
+                <Section
+                    title="Share."
+                    lede="What other people run and made, listed by them. Add yours through a form; a maintainer reads each one before it goes up."
+                >
                     <div className={styles.cards}>
                         {directories.map(directory => (
                             <div key={directory.to} className={styles.card}>
-                                <p className="da-eyebrow">{directory.label}</p>
+                                <p className="da-label">{directory.label}</p>
                                 <p>{directory.body}</p>
-                                <Link to={directory.to}>{directory.cta}</Link>
+                                <Link className="da-more" to={directory.to}>
+                                    {directory.cta}
+                                </Link>
                             </div>
                         ))}
                     </div>
-                </section>
+                </Section>
 
-                <section className={styles.section}>
-                    <h2>Talk.</h2>
-                    <p className={styles.sectionLede}>All of it happens on the project’s GitHub Discussions, so there is one place to search.</p>
+                <Section title="Talk." lede="All of it happens on the project’s GitHub Discussions, so there is one place to search.">
                     <div className={styles.cards}>
                         {venues.map(venue => (
                             <div key={venue.label} className={styles.card}>
-                                <p className="da-eyebrow">{venue.label}</p>
+                                <p className="da-label">{venue.label}</p>
                                 <p>{venue.body}</p>
-                                <Link href={venue.href}>{venue.cta}</Link>
+                                <Link className="da-more" href={venue.href}>
+                                    {venue.cta}
+                                </Link>
                             </div>
                         ))}
                     </div>
-                </section>
+                </Section>
 
-                <section className={styles.section}>
-                    <h2>Build.</h2>
+                <Section title="Build.">
                     <div className={styles.cards}>
                         <div className={styles.card}>
-                            <p className="da-eyebrow">A plugin</p>
+                            <p className="da-label">A plugin</p>
                             <p>
                                 A music source, a place facts come from, a voice or a model. The SDK is on npm and the guide walks through a real
                                 plugin built outside this repository.
                             </p>
-                            <Link to="/docs/plugin-development">Writing plugins</Link>
+                            <Link className="da-more" to="/docs/plugin-development">
+                                Writing plugins
+                            </Link>
                         </div>
                         <div className={styles.card}>
-                            <p className="da-eyebrow">A client</p>
+                            <p className="da-label">A client</p>
                             <p>
                                 A player, a bot, a panel on a wall. Everything the console does goes through the same HTTP API, and an API key lets
                                 your code do it too.
                             </p>
-                            <Link to="/docs/api-reference">The API reference</Link>
+                            <Link className="da-more" to="/docs/api-reference">
+                                The API reference
+                            </Link>
                         </div>
                         <div className={styles.card}>
-                            <p className="da-eyebrow">The station itself</p>
+                            <p className="da-label">The station itself</p>
                             <p>
                                 Pull requests are welcome, and an issue first is welcome for anything large. The rules that bounce a change are short.
                             </p>
-                            <Link href={contributing}>Contributing</Link>
+                            <Link className="da-more" href={contributing}>
+                                Contributing
+                            </Link>
                         </div>
                     </div>
-                </section>
-
-                <section className={styles.section}>
                     <p className={styles.note}>
                         Be decent to each other. <Link href={codeOfConduct}>The code of conduct</Link> is short and applies everywhere the project is.
                     </p>
-                </section>
+                </Section>
             </main>
         </Layout>
     );

@@ -5,17 +5,27 @@
 }
 
 .hero {
-    max-width: 72rem;
+    max-width: 82rem;
     margin: 0 auto;
-    padding: 4.5rem 1.5rem 0;
+    padding: 5.5rem 1.5rem 0;
+}
+
+/* "Community / Stations": the label, with its first half a way back. */
+.crumb a {
+    color: var(--da-text-secondary);
+}
+
+.crumb a:hover {
+    color: var(--da-text);
+    text-decoration: none;
 }
 
 .headline {
-    font-size: clamp(2rem, 1.4rem + 2.6vw, 3.4rem);
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-    margin-bottom: 1rem;
+    font-size: clamp(2.2rem, 1.4rem + 3.2vw, 3.8rem);
+    font-weight: 500;
+    line-height: 1.03;
+    letter-spacing: -0.04em;
+    margin-bottom: 1.25rem;
 }
 
 .lede {
@@ -37,37 +47,17 @@
     margin-top: 1.75rem;
 }
 
-.primary {
-    display: inline-block;
-    padding: 0.6rem 1.2rem;
-    border-radius: 4px;
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    background: var(--da-phosphor);
-    color: #050706;
-    border: 1px solid var(--da-phosphor);
-}
-
-.primary:hover {
-    background: var(--ifm-color-primary-light);
-    color: #050706;
-    text-decoration: none;
-}
-
 .count {
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.78rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--da-text-dimmed);
 }
 
 .section {
-    max-width: 72rem;
+    max-width: 82rem;
     margin: 0 auto;
-    padding: 3rem 1.5rem 0;
+    padding: 3.5rem 1.5rem 0;
 }
 
 .grid {
@@ -81,9 +71,8 @@
     padding: 1.25rem 1.5rem;
     margin-bottom: 1.5rem;
     border: 1px solid var(--da-border);
-    border-left: 3px solid var(--da-tally);
-    border-radius: 4px;
-    background: var(--da-panel);
+    border-left: 2px solid var(--da-tally);
+    border-radius: 8px;
     color: var(--da-text-secondary);
     line-height: 1.6;
 }
@@ -94,12 +83,13 @@
 
 .notice strong {
     color: var(--da-text);
+    font-weight: 500;
 }
 
 .state {
     padding: 2.5rem 1.5rem;
     border: 1px dashed var(--da-border-strong);
-    border-radius: 4px;
+    border-radius: 12px;
     color: var(--da-text-secondary);
     text-align: center;
 }
@@ -126,15 +116,13 @@
     padding: 0;
 }
 
+/* Outlined pills, as the front page's chips are. */
 .tags li {
-    padding: 0.15rem 0.55rem;
-    font-family: var(--ifm-font-family-monospace);
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    color: var(--da-text);
-    background: var(--da-raised);
+    padding: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--da-text-secondary);
     border: 1px solid var(--da-border-strong);
-    border-radius: 3px;
+    border-radius: 999px;
 }
 
 .facts {
@@ -151,9 +139,8 @@
 
 .facts dt {
     font-family: var(--ifm-font-family-monospace);
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
     color: var(--da-text-dimmed);
     padding-top: 0.15rem;
 }

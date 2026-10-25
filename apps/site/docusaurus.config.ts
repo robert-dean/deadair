@@ -100,8 +100,9 @@ const config: Config = {
     ],
 
     themeConfig: {
-        // The console is dark-first and so is this. One scheme means one set of colours to get right.
-        colorMode: { defaultMode: 'dark', disableSwitch: true, respectPrefersColorScheme: false },
+        // The console's carbon in the dark and its Studio White in the light, following the reader's
+        // system setting, with a switch in the navbar. Dark is the default where the system says nothing.
+        colorMode: { defaultMode: 'dark', disableSwitch: false, respectPrefersColorScheme: true },
         image: 'logo.png',
         navbar: {
             title: 'deadair',
@@ -116,7 +117,7 @@ const config: Config = {
                 { type: 'docSidebar', sidebarId: 'build', label: 'Develop', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'api', label: 'API', position: 'left' },
                 { to: '/community', label: 'Community', position: 'left' },
-                { href: repository, label: 'GitHub', position: 'right' },
+                { href: repository, label: 'GitHub', position: 'right', className: 'da-navbar-pill' },
             ],
         },
         footer: {
@@ -155,7 +156,7 @@ const config: Config = {
             copyright: 'deadair is MIT licensed. The music is yours, and so are the rights to it.',
         },
         prism: {
-            theme: prismThemes.oneDark,
+            theme: prismThemes.oneLight,
             darkTheme: prismThemes.oneDark,
             additionalLanguages: ['bash', 'sql'],
         },

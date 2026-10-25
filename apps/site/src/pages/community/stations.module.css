@@ -1,7 +1,7 @@
 .badge {
     flex-shrink: 0;
     padding: 0.2rem 0.55rem;
-    border-radius: 3px;
+    border-radius: 999px;
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.7rem;
     letter-spacing: 0.12em;
@@ -40,10 +40,9 @@
     display: inline-block;
     min-width: 3.2rem;
     font-family: var(--ifm-font-family-monospace);
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--da-phosphor);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--da-text-dimmed);
 }
 
 .now .checked {

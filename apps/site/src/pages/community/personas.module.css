@@ -6,9 +6,7 @@
 .more summary {
     cursor: pointer;
     color: var(--da-phosphor);
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.03em;
+    font-weight: 500;
 }
 
 .more > p {
@@ -23,8 +21,7 @@
 .heading {
     margin: 0.9rem 0 0;
     font-family: var(--ifm-font-family-monospace);
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
     color: var(--da-text-dimmed);
 }

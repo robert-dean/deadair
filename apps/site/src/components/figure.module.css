@@ -9,19 +9,17 @@
     width: 100%;
     padding: 0;
     border: 1px solid var(--da-border-strong);
-    border-radius: 6px;
+    border-radius: 10px;
     overflow: hidden;
     background: var(--da-panel);
-    box-shadow:
-        0 0 0 1px rgb(0 0 0 / 40%),
-        0 24px 60px -20px rgb(0 0 0 / 70%);
+    box-shadow: var(--da-shadow);
     cursor: zoom-in;
     transition: border-color 120ms ease;
 }
 
 .frame:hover,
 .frame:focus-visible {
-    border-color: var(--da-phosphor);
+    border-color: var(--da-text-dimmed);
 }
 
 .frame:focus-visible {
@@ -58,11 +56,17 @@
 }
 
 .dialog::backdrop {
-    background: rgb(5 7 6 / 85%);
+    background: var(--da-scrim);
 }
 
 .dialog img {
     display: block;
     width: 100%;
     height: auto;
+}
+
+/* A shot with a Studio White copy carries both; the mode the site is in decides which one shows. */
+:global(html[data-theme='light']) .forDark,
+:global(html:not([data-theme='light'])) .forLight {
+    display: none;
 }

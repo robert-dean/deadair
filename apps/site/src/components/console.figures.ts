@@ -13,10 +13,18 @@ import settingsLlm from '@site/static/img/console/settings.llm.webp';
 import voiceCharacters from '@site/static/img/console/voice.characters.webp';
 import voiceProductions from '@site/static/img/console/voice.productions.webp';
 import voiceSaid from '@site/static/img/console/voice.said.webp';
+import scheduleTodayWhite from '@site/static/img/console/schedule.today.white.webp';
+import catalogTrackWhite from '@site/static/img/console/catalog.track.white.webp';
+import voiceCharactersWhite from '@site/static/img/console/voice.characters.white.webp';
+import catalogTracksWhite from '@site/static/img/console/catalog.tracks.white.webp';
+import pluginsWhite from '@site/static/img/console/plugins.white.webp';
+import checkupWhite from '@site/static/img/console/checkup.white.webp';
 
 /** One screenshot of the console, and what somebody who cannot see it should be told it shows. */
 export interface ConsoleShot {
     src: string;
+    /** The same page in Studio White, shown instead of `src` while the site is in light mode. */
+    light?: string;
     alt: string;
 }
 
@@ -31,29 +39,51 @@ export const SHOT_WIDTH = 1920;
 export const SHOT_HEIGHT = 1200;
 
 export const shots = {
-    desk: { src: desk, alt: 'The Desk: the record on air with its playhead, one thing that needs the operator, and the running order below.' },
+    desk: {
+        src: desk,
+        light: deskWhite,
+        alt: 'The Desk: the record on air with its playhead, one thing that needs the operator, and the running order below.',
+    },
     deskWhite: { src: deskWhite, alt: 'The same Desk in the Studio White theme: paper, ink and a serif masthead.' },
     deskNeon: { src: deskNeon, alt: 'The same Desk in the Neon Transmitter theme: neon yellow and cyan on teal-black.' },
-    scheduleToday: { src: scheduleToday, alt: 'Programme, Today: the format clock, a dial with a weather band at five past and news at half past.' },
+    scheduleToday: {
+        src: scheduleToday,
+        light: scheduleTodayWhite,
+        alt: 'Programme, Today: the format clock, a dial with a weather band at five past and news at half past.',
+    },
     voiceSaid: {
         src: voiceSaid,
         alt: 'What it said: every break written and every one declined, each with its writer and, for a declined one, the reason.',
     },
     catalogTrack: {
         src: catalogTrack,
+        light: catalogTrackWhite,
         alt: 'One record in the library: where its copies come from, its cue points and loudness, when it has played, and what is known about it.',
     },
-    voiceCharacters: { src: voiceCharacters, alt: 'Voice, Characters: who is presenting now, and the roster of hosts with their styles and voices.' },
+    voiceCharacters: {
+        src: voiceCharacters,
+        light: voiceCharactersWhite,
+        alt: 'Voice, Characters: who is presenting now, and the roster of hosts with their styles and voices.',
+    },
     voiceProductions: {
         src: voiceProductions,
         alt: 'Voice, Productions: phone-ins the station wrote for itself, each with its state, its length and its cast.',
     },
-    checkup: { src: checkup, alt: 'Check-up: whether the station is on air and why, what needs somebody, and the loops that keep it running.' },
+    checkup: {
+        src: checkup,
+        light: checkupWhite,
+        alt: 'Check-up: whether the station is on air and why, what needs somebody, and the loops that keep it running.',
+    },
     catalogTracks: {
         src: catalogTracks,
+        light: catalogTracksWhite,
         alt: 'The library: how many records are ready to air, and every track with its state and the station’s rating.',
     },
-    plugins: { src: plugins, alt: 'The plugins: a card per plugin with what it brings, whether it is running, and its settings.' },
+    plugins: {
+        src: plugins,
+        light: pluginsWhite,
+        alt: 'The plugins: a card per plugin with what it brings, whether it is running, and its settings.',
+    },
     activity: { src: activity, alt: 'The activity feed: what aired, what was written and spoken, and every break that fell through, newest first.' },
     settingsLlm: { src: settingsLlm, alt: 'Settings, Words: which model writes the breaks, which one chooses the records, and which one reads.' },
     settingsAppearance: { src: settingsAppearance, alt: 'Settings, Appearance: the three themes the console can wear.' },

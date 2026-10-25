@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import type { ScheduleSlotInput, ScheduleSlotList } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { followStationExtend } from './director.queries';
 import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
 
@@ -114,6 +115,27 @@ export function useSlotPlaylistPosition(id: string | undefined, enabled: boolean
         queryFn: () => sdk.schedule.readSlotPlaylistPosition(id ?? ''),
         enabled: enabled && id !== undefined,
         staleTime: 0,
+    });
+}
+
+/**
+ * Apply a slot, as it is saved now, to the show on air.
+ *
+ * The answer says what changed now, what waits for the slot's next occurrence, and whether the
+ * records still to come are being chosen again. A replan is queued rather than done by the time this
+ * answers, so the running order is followed up the way an extend or a replan is: what actually shows
+ * the new hour is the order's own poll, which the replan may outlast.
+ */
+export function useApplySlot() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => sdk.schedule.applyScheduleSlotToAir(id),
+        onSuccess: () => {
+            // The name, host and rules are on the order at once; the records follow the replan.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.air() });
+            followStationExtend(queryClient);
+        },
     });
 }
 

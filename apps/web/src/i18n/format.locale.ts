@@ -60,6 +60,13 @@ export function formatCount(value: number): string {
     return COUNT().format(value);
 }
 
+const LIST = perLocale(locale => new Intl.ListFormat(locale, { type: 'conjunction' }));
+
+/** Several things named in one phrase the way the operator joins them: `a, b and c`, `a, b y c`. */
+export function formatList(items: readonly string[]): string {
+    return LIST().format(items);
+}
+
 const WEEKDAY = perLocale(locale => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }));
 
 /**

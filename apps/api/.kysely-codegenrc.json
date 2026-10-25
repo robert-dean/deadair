@@ -82,7 +82,8 @@
             "deadair.event_destinations.disabled_reason": "'failing' | null",
             "deadair.metric_samples.resolution": "'minute' | 'hour'",
             "deadair.as_run.kind": "'record' | 'break' | 'programme'",
-            "deadair.schedule_slots.writer_order": "'model' | 'station' | null"
+            "deadair.schedule_slots.writer_order": "'model' | 'station' | null",
+            "deadair.similarity_asks.kind": "'artists' | 'records'"
         }
     },
     "partitions": false,

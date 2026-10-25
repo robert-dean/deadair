@@ -1,6 +1,6 @@
-import { useRef } from 'react';
+import { type CSSProperties, useRef } from 'react';
 
-import { SHOT_HEIGHT, SHOT_WIDTH, shots, type ShotId } from './console.figures';
+import { type ConsoleShot, SHOT_HEIGHT, SHOT_WIDTH, shots, type ShotId } from './console.figures';
 import styles from './figure.module.css';
 
 export interface FigureProps {
@@ -28,26 +28,47 @@ export interface FigureProps {
  */
 export function Figure({ shot, number, caption, aspect, focus, eager }: FigureProps) {
     const dialog = useRef<HTMLDialogElement>(null);
-    const { src, alt } = shots[shot];
+    const { src, light, alt } = shots[shot] as ConsoleShot;
     const label = number === undefined ? caption : `Fig. ${String(number).padStart(2, '0')}  ${caption}`;
+    const crop = aspect ? { aspectRatio: String(aspect), objectPosition: focus ?? 'left top' } : undefined;
 
     return (
         <figure className={styles.figure}>
             <button type="button" className={styles.frame} onClick={() => dialog.current?.showModal()} aria-label={`${caption}. Open at full size.`}>
-                <img
-                    src={src}
-                    alt={alt}
-                    width={SHOT_WIDTH}
-                    height={SHOT_HEIGHT}
-                    loading={eager ? 'eager' : 'lazy'}
-                    decoding="async"
-                    style={aspect ? { aspectRatio: String(aspect), objectPosition: focus ?? 'left top' } : undefined}
-                />
+                <Shot src={src} light={light} alt={alt} loading={eager ? 'eager' : 'lazy'} style={crop} />
             </button>
             <figcaption className={styles.caption}>{label}</figcaption>
             <dialog ref={dialog} className={styles.dialog} onClick={() => dialog.current?.close()} aria-label={caption}>
-                <img src={src} alt={alt} width={SHOT_WIDTH} height={SHOT_HEIGHT} loading="lazy" decoding="async" />
+                <Shot src={src} light={light} alt={alt} loading="lazy" />
             </dialog>
         </figure>
+    );
+}
+
+/**
+ * The screenshot itself, as both of its themes when it has a Studio White copy. Both are in the
+ * markup and the stylesheet hides the one the mode does not want, so the static build is right
+ * before any script runs and a lazy image that is hidden is never fetched.
+ */
+function Shot({ src, light, alt, loading, style }: { src: string; light?: string; alt: string; loading: 'eager' | 'lazy'; style?: CSSProperties }) {
+    const image = (source: string, className?: string, hidden?: boolean) => (
+        <img
+            src={source}
+            alt={hidden ? '' : alt}
+            aria-hidden={hidden || undefined}
+            className={className}
+            width={SHOT_WIDTH}
+            height={SHOT_HEIGHT}
+            loading={loading}
+            decoding="async"
+            style={style}
+        />
+    );
+    if (light === undefined) return image(src);
+    return (
+        <>
+            {image(src, styles.forDark)}
+            {image(light, styles.forLight, true)}
+        </>
     );
 }

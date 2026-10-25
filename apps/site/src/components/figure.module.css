@@ -64,3 +64,9 @@
     width: 100%;
     height: auto;
 }
+
+/* A shot with a Studio White copy carries both; the mode the site is in decides which one shows. */
+:global(html[data-theme='light']) .forDark,
+:global(html:not([data-theme='light'])) .forLight {
+    display: none;
+}

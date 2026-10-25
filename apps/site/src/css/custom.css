@@ -143,6 +143,18 @@ h3 {
 }
 
 /*
+ * The eyebrow's quiet sibling: the same mono face, sentence case and dimmed, for a label that names
+ * a column rather than announcing a section.
+ */
+.da-label {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    color: var(--da-text-dimmed);
+    margin-bottom: 0.75rem;
+}
+
+/*
  * The site's buttons: sentence-case pills, a solid one for the way in and a ghost one beside it,
  * and a quiet "Learn more →" link. Global for the same reason as the labels above: more than one
  * page wears them, and one copy is one set of numbers to keep right.

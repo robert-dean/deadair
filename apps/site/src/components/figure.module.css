@@ -9,7 +9,7 @@
     width: 100%;
     padding: 0;
     border: 1px solid var(--da-border-strong);
-    border-radius: 6px;
+    border-radius: 10px;
     overflow: hidden;
     background: var(--da-panel);
     box-shadow:
@@ -21,7 +21,7 @@
 
 .frame:hover,
 .frame:focus-visible {
-    border-color: var(--da-phosphor);
+    border-color: var(--da-text-dimmed);
 }
 
 .frame:focus-visible {

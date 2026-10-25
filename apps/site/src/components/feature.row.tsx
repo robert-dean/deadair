@@ -10,22 +10,27 @@ export interface FeatureRowProps {
     children: ReactNode;
     /** Usually a `Figure`; two stack. */
     figure: ReactNode;
-    /** Which side the words are on. The page alternates them so a long scroll does not read as a list. */
-    side?: 'left' | 'right';
 }
 
-/** One thing the station does: a few paragraphs on one side, the console showing it on the other. */
-export function FeatureRow({ part, kicker, title, children, figure, side = 'left' }: FeatureRowProps) {
+/**
+ * One thing the station does, as its own ruled band: the title on the left, a few paragraphs on the
+ * right, and the console showing it across the full width underneath.
+ */
+export function FeatureRow({ part, kicker, title, children, figure }: FeatureRowProps) {
     return (
-        <section className={`${styles.row} ${side === 'right' ? styles.flipped : ''}`}>
-            <div className={styles.words}>
-                <p className="da-eyebrow">
-                    {part} · {kicker}
-                </p>
-                <h2 className={styles.title}>{title}</h2>
-                <div className={styles.body}>{children}</div>
+        <section className={styles.row}>
+            <div className={styles.inner}>
+                <div className={styles.head}>
+                    <div>
+                        <p className={styles.label}>
+                            <span>{part}</span> {kicker}
+                        </p>
+                        <h2 className={styles.title}>{title}</h2>
+                    </div>
+                    <div className={styles.body}>{children}</div>
+                </div>
+                <div className={styles.figures}>{figure}</div>
             </div>
-            <div className={styles.figures}>{figure}</div>
         </section>
     );
 }

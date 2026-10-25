@@ -1,32 +1,56 @@
-/* Wider than the page's text sections, because a screenshot is the one thing here that needs room. */
+/* A full-width band with a rule across its top, so the page reads as a run of chapters. */
 .row {
-    display: grid;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
-    gap: 3.5rem;
-    align-items: center;
+    border-top: 1px solid var(--da-border);
+    margin-top: 7rem;
+}
+
+.inner {
     max-width: 82rem;
     margin: 0 auto;
-    padding: 5.5rem 1.5rem 0;
+    padding: 6rem 1.5rem 0;
 }
 
-.flipped {
-    grid-template-columns: minmax(0, 8fr) minmax(0, 5fr);
+/* Title on the left, words on the right: Linear's chapter head. */
+.head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem 4rem;
+    align-items: start;
+    margin-bottom: 3.5rem;
 }
 
-.flipped .words {
-    order: 2;
+.label {
+    margin-bottom: 1rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    color: var(--da-text-dimmed);
+}
+
+.label span {
+    color: var(--da-phosphor);
+    margin-right: 0.5rem;
 }
 
 .title {
-    font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.3rem);
-    font-weight: 600;
-    line-height: 1.15;
-    margin-bottom: 1rem;
+    font-size: clamp(2rem, 1.4rem + 2vw, 3.2rem);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    max-width: 14ch;
+    margin: 0;
 }
 
 .body p {
     color: var(--da-text-secondary);
+    font-size: 1.05rem;
     line-height: 1.65;
+}
+
+.body p:first-child {
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: var(--da-text);
 }
 
 .body p:last-child,
@@ -46,7 +70,7 @@
 
 .body strong {
     color: var(--da-text);
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .figures {
@@ -55,15 +79,16 @@
 }
 
 @media (max-width: 900px) {
-    .row,
-    .flipped {
-        grid-template-columns: 1fr;
-        gap: 2rem;
+    .row {
+        margin-top: 4.5rem;
+    }
+
+    .inner {
         padding-top: 4rem;
     }
 
-    /* Words first on a phone, whichever side they sit on at a desk. */
-    .flipped .words {
-        order: 0;
+    .head {
+        grid-template-columns: 1fr;
+        margin-bottom: 2.5rem;
     }
 }

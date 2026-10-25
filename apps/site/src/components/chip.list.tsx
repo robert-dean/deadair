@@ -1,7 +1,7 @@
 import styles from './chip.list.module.css';
 
 export interface ChipListProps {
-    /** A short label over the group, in the page's eyebrow style. */
+    /** A short label over the group, in the page's dimmed mono label style. */
     label: string;
     title: string;
     note?: string;
@@ -12,7 +12,7 @@ export interface ChipListProps {
 export function ChipList({ label, title, note, items }: ChipListProps) {
     return (
         <div className={styles.group}>
-            <p className="da-eyebrow">{label}</p>
+            <p className="da-label">{label}</p>
             <h3 className={styles.title}>{title}</h3>
             {note ? <p className={styles.note}>{note}</p> : undefined}
             <ul className={styles.chips}>

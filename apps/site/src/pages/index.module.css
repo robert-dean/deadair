@@ -90,51 +90,79 @@
     display: none;
 }
 
-/* The one-line statement under the showcase. */
+/* The statement: one long line, its first sentence bright and the rest a step back. */
 
 .statement {
-    max-width: 48rem;
-    margin: 0 auto;
-    padding: 5rem 1.5rem 0;
-    text-align: center;
-}
-
-.statement p {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    color: var(--da-text-secondary);
-}
-
-/* The long sections after the six parts. */
-
-.section {
-    max-width: 72rem;
+    max-width: 82rem;
     margin: 0 auto;
     padding: 6rem 1.5rem 0;
 }
 
+.statement p {
+    max-width: 62rem;
+    margin: 0;
+    font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.6rem);
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.03em;
+    color: var(--da-text-dimmed);
+}
+
+.statement strong {
+    color: var(--da-text);
+    font-weight: 500;
+}
+
+/* The long sections after the feature rows, ruled as the rows are. */
+
+.section {
+    border-top: 1px solid var(--da-border);
+    margin-top: 7rem;
+}
+
+.inner {
+    max-width: 82rem;
+    margin: 0 auto;
+    padding: 6rem 1.5rem 0;
+}
+
+.sectionHead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem 4rem;
+    align-items: start;
+    margin-bottom: 3.5rem;
+}
+
+.sectionHead h2 {
+    font-size: clamp(2rem, 1.4rem + 2vw, 3.2rem);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    max-width: 14ch;
+    margin: 0;
+}
+
 .sectionLede {
     color: var(--da-text-secondary);
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     line-height: 1.6;
-    max-width: 44rem;
-    margin-bottom: 2rem;
+    margin: 0;
 }
 
 .stack {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2.5rem 0;
+    margin-bottom: 3rem;
 }
 
 /* The licensing warning, which is the one thing on the page that is a warning. */
 .callout {
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     border: 1px solid var(--da-border);
-    border-left: 3px solid var(--da-tally);
-    border-radius: 4px;
-    background: var(--da-panel);
+    border-left: 2px solid var(--da-tally);
+    border-radius: 8px;
 }
 
 .callout p {
@@ -146,34 +174,34 @@
 
 .callout strong {
     color: var(--da-text);
+    font-weight: 500;
 }
 
 .install {
     max-width: 44rem;
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
 }
 
+/* Image tags and the ways to build on it: columns divided by hairlines, not boxes. */
 .tags,
 .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 2.5rem 0;
+    margin-bottom: 2.5rem;
 }
 
 .tag {
-    background: var(--da-panel);
-    border: 1px solid var(--da-border);
-    border-radius: 4px;
-    padding: 1.25rem 1.5rem;
+    border-left: 1px solid var(--da-border);
+    padding: 0.25rem 1.5rem;
 }
 
 .tag code {
     background: none;
     border: none;
     padding: 0;
-    color: var(--da-phosphor);
-    font-size: 0.95rem;
+    color: var(--da-text);
+    font-size: 0.9rem;
 }
 
 .tag > code {
@@ -194,14 +222,13 @@
 .tag dt {
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.75rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--da-text-dimmed);
 }
 
 .tag dd {
     margin: 0.2rem 0 0.9rem;
-    color: var(--da-text);
+    color: var(--da-text-secondary);
 }
 
 .tag dd:last-child {
@@ -213,39 +240,41 @@
     max-width: 44rem;
 }
 
-/* The last word, and the same three ways in as the top of the page. */
+/* The last word: the two-tone line again, with the ways in beside it. */
 .end {
-    max-width: 48rem;
-    margin: 7rem auto 0;
-    padding: 4rem 1.5rem 0;
-    border-top: 1px solid var(--da-border);
-    text-align: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem 4rem;
+    align-items: end;
 }
 
-.end p {
-    color: var(--da-text-secondary);
-    font-size: 1.1rem;
-    margin-bottom: 2rem;
+.end h2 {
+    max-width: 22ch;
+    margin: 0;
+    font-size: clamp(1.8rem, 1.2rem + 2vw, 3rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
 }
 
-@media (max-width: 900px) {
+.end h2 span {
+    color: var(--da-text-dimmed);
+}
+
+@media (max-width: 1100px) {
     .stack {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 800px) {
-    .hero {
-        padding-top: 3.5rem;
-    }
-
-    .section {
-        padding-top: 4.5rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 900px) {
-    .heroFoot {
+    .hero {
+        padding-top: 4rem;
+    }
+
+    .heroFoot,
+    .sectionHead,
+    .end {
         grid-template-columns: 1fr;
     }
 
@@ -254,8 +283,22 @@
         text-align: left;
     }
 
+    .section {
+        margin-top: 4.5rem;
+    }
+
+    .inner {
+        padding-top: 4rem;
+    }
+
     .stage {
         padding: 0.75rem 0.75rem 0;
         border-radius: 12px 12px 0 0;
+    }
+}
+
+@media (max-width: 600px) {
+    .stack {
+        grid-template-columns: 1fr;
     }
 }

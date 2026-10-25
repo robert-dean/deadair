@@ -16,6 +16,7 @@ import {
     capPerArtist,
     DEFAULT_AUTO_EXTEND,
     DEFAULT_RULES,
+    dropReasons,
     filterByHistory,
     FRESH_FLOOR,
     holdArtistCooldown,
@@ -773,6 +774,57 @@ describe('applyRulesHoldingQueue', () => {
     it('is exactly applyRules with nothing queued', () => {
         expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, none, undefined, 3)).toEqual(applyRules(offered, DEFAULT_RULES, none));
         expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, none, new Set(), 3)).toEqual(applyRules(offered, DEFAULT_RULES, none));
+    });
+});
+
+describe('dropReasons', () => {
+    const rules = { ...DEFAULT_RULES, maxPerArtist: 1, maxPerAlbum: 1 };
+
+    it('charges each dropped record to the first rule that refuses it, and nothing kept to any', () => {
+        const disliked = candidate('Hated', ['Gone'], -1);
+        const repeat = candidate('Again', ['Fresh']);
+        const aired = candidate('Soon', ['Aired']);
+        const queuedAct = candidate('Later', ['Queued']);
+        const first = candidate('One', ['Twice'], undefined, 'LP');
+        const second = candidate('Two', ['Twice'], undefined, 'LP');
+        const sameAlbum = candidate('Three', ['Split'], undefined, 'Shared');
+        // A compilation: another act on the same release key.
+        const otherAct = { ...candidate('Four', ['Other']), albumKey: sameAlbum.albumKey! };
+        // On the window AND by an aired act: charged once, to the window, which is asked first.
+        const both = candidate('Old', ['Aired']);
+        const offered = [disliked, repeat, aired, queuedAct, first, second, sameAlbum, otherAct, both];
+        const recent = { songKeys: new Set([repeat.songKey, both.songKey]), artistKeys: new Set([aired.artistKey]) };
+        const queued = new Set([queuedAct.artistKey]);
+
+        const kept = applyRulesHoldingQueue(offered, rules, recent, queued);
+
+        expect(dropReasons(offered, kept, rules, recent, queued)).toEqual({
+            dislike: 1,
+            repeatWindow: 2,
+            airedCooldown: 1,
+            queuedHold: 1,
+            artistCap: 1,
+            albumCap: 1,
+        });
+    });
+
+    it('charges nothing for a queued act the hold let back in', () => {
+        // `applyRulesHoldingQueue` gives way when holding would starve the batch, and a record it let
+        // back in was not refused by anything.
+        const queuedAct = candidate('Later', ['Queued']);
+        const queued = new Set([queuedAct.artistKey]);
+
+        const kept = applyRulesHoldingQueue([queuedAct], DEFAULT_RULES, none, queued, 1);
+
+        expect(kept).toEqual([queuedAct]);
+        expect(dropReasons([queuedAct], kept, DEFAULT_RULES, none, queued)).toEqual({});
+    });
+
+    it('charges nothing for a repeat the window let back in', () => {
+        const repeat = candidate('Again', ['Fresh']);
+        const recent = { songKeys: new Set([repeat.songKey]), artistKeys: new Set<string>() };
+
+        expect(dropReasons([repeat], [repeat], DEFAULT_RULES, recent)).toEqual({});
     });
 });
 

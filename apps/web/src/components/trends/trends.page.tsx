@@ -12,7 +12,19 @@ import { Eyebrow } from '../shared/eyebrow';
 import { formatBytes } from '../shared/format.bytes';
 import { formatSpent } from '../shared/format.spent';
 import { PageHeader } from '../shared/page.header';
-import { binSeries, meanOf, named, rank, total, TREND_METRICS, TREND_RANGES, type Bin, type TrendRange } from './trends.data';
+import {
+    binSeries,
+    GAUGE_EVERY_MS,
+    holdGauge,
+    meanOf,
+    named,
+    rank,
+    total,
+    TREND_METRICS,
+    TREND_RANGES,
+    type Bin,
+    type TrendRange,
+} from './trends.data';
 
 /** The two series colours, each theme's own validated pair (see `--da-series-a` in `tokens.css`). */
 const SERIES_A = 'var(--da-series-a)';
@@ -202,7 +214,9 @@ function Audience({ page, range }: { page: MetricSeriesPage; range: TrendRange }
     const binned = bins(page, listeners);
     const whole = total(listeners);
     const latest = [...binned].reverse().find(bin => bin.point !== undefined)?.point;
-    const { rows, tickFormatter } = chartRows([binned], ['listening'], bin => meanOf(bin.point), range);
+    // Each bin's most at once, not its mean: listening is a few people for a few minutes, and a mean over
+    // a week's two-hour bins flattens four listeners to one, under the figure above it that says four.
+    const { rows, tickFormatter } = chartRows([binned], ['listening'], bin => bin.point?.max, range);
     const dash = '—';
 
     return (
@@ -360,18 +374,21 @@ function Library({ page, range }: { page: MetricSeriesPage; range: TrendRange })
     const library = useMemo(
         () =>
             chartRows(
-                [
-                    bins(page, named(page.series, TREND_METRICS.libraryTotal)),
-                    bins(page, named(page.series, TREND_METRICS.libraryCached)),
-                    bins(page, named(page.series, TREND_METRICS.libraryMeasured)),
-                ],
+                [TREND_METRICS.libraryTotal, TREND_METRICS.libraryCached, TREND_METRICS.libraryMeasured].map(name =>
+                    holdGauge(bins(page, named(page.series, name)), GAUGE_EVERY_MS.library),
+                ),
                 ['total', 'cached', 'measured'],
                 bin => bin.point?.last,
                 range,
             ),
         [page, range],
     );
-    const disk = chartRows([bins(page, named(page.series, TREND_METRICS.diskBytes))], ['bytes'], bin => bin.point?.last, range);
+    const disk = chartRows(
+        [holdGauge(bins(page, named(page.series, TREND_METRICS.diskBytes)), GAUGE_EVERY_MS.disk)],
+        ['bytes'],
+        bin => bin.point?.last,
+        range,
+    );
 
     return (
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">

@@ -74,10 +74,21 @@ const fold = (a: Omit<MetricPoint, 'at'> | undefined, b: Omit<MetricPoint, 'at'>
  * Every bin of the window is present, empty ones included, so a chart draws a stretch nothing was
  * measured as a gap rather than joining the points either side of it into a line that was never there.
  * Points are folded oldest first, so a bin's `last` is its latest reading.
+ *
+ * Bins start on a whole multiple of their width in `zone`, not at `from`: a window opened at 10:03
+ * otherwise labels every bin of a week "10:03", "06:03", "02:03". The first bin may begin a little
+ * before `from`, which costs nothing because the station returns no point from before it.
  */
-export function binSeries(series: readonly MetricSeries[], from: DateTime, to: DateTime, resolution: MetricResolution): Bin[] {
+export function binSeries(
+    series: readonly MetricSeries[],
+    from: DateTime,
+    to: DateTime,
+    resolution: MetricResolution,
+    zone: string = 'local',
+): Bin[] {
     const width = binWidthMs(from, to, resolution);
-    const start = from.toMillis();
+    const offset = from.setZone(zone).offset * 60_000;
+    const start = Math.floor((from.toMillis() + offset) / width) * width - offset;
     const count = Math.ceil((to.toMillis() - start) / width);
     const bins: Bin[] = Array.from({ length: count }, (_, i) => ({ at: DateTime.fromMillis(start + i * width) }));
 
@@ -89,6 +100,38 @@ export function binSeries(series: readonly MetricSeries[], from: DateTime, to: D
         bin.point = fold(bin.point, point);
     }
     return bins;
+}
+
+/**
+ * How often the station reads each gauge it reads less than once a minute, from `station.gauges.ts`
+ * in the API. Copied for the same reason {@link TREND_METRICS} is, and a change there that is not made
+ * here draws the gauge broken up again rather than failing anything.
+ */
+export const GAUGE_EVERY_MS = {
+    library: 5 * 60_000,
+    disk: 15 * 60_000,
+} as const;
+
+/**
+ * A gauge read every `everyMs`, held across the bins between its readings.
+ *
+ * A bin narrower than the gauge's interval is mostly empty, and an empty bin is drawn as a gap, so a
+ * disk read every fifteen minutes on a range binned by three came out as a row of lone dots. A gauge's
+ * reading stands until the next one, so an empty bin takes the last reading while the next is not yet
+ * overdue. Half an interval of slack covers the sampler's drift (the library is read every five
+ * minutes and lands five or six apart); a reading missed outright still leaves the gap, which is what
+ * a station that was down should look like.
+ */
+export function holdGauge(bins: readonly Bin[], everyMs: number): Bin[] {
+    let held: Bin | undefined;
+    return bins.map(bin => {
+        if (bin.point !== undefined) {
+            held = bin;
+            return bin;
+        }
+        if (held?.point === undefined || bin.at.toMillis() - held.at.toMillis() >= everyMs * 1.5) return bin;
+        return { at: bin.at, point: held.point };
+    });
 }
 
 /** Every point of the given series folded into one: a whole range summed up. */

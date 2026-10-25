@@ -107,6 +107,8 @@ interface Options {
     byId?: Record<string, { title: string; artist: string }>;
     /** The release year the catalog knows per track id. A track absent from this has none. */
     years?: Record<string, number>;
+    /** Artist keys `dislikedArtistKeys` answers with, for a record the library does not hold. */
+    dislikedArtists?: string[];
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -167,6 +169,10 @@ function build(options: Options = {}) {
     } as unknown as PlayHistoryRepository;
 
     const tracks = {
+        dislikedArtistKeys: vi.fn(async (names: readonly string[]) => {
+            const keys = names.map(name => name.toLowerCase());
+            return new Set((options.dislikedArtists ?? []).filter(key => keys.includes(key)));
+        }),
         findByIds: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, NonNullable<Options['metadata']>[string]>();
             for (const id of trackIds) {
@@ -1670,5 +1676,112 @@ describe('PickResolver holding the artist cooldown inside a batch', () => {
 
         const short = await resolver.resolve(picks, cooled(0), { queuedArtistKeys, want: 6 });
         expect(short.map(track => track.artist)).toContain('A');
+    });
+});
+
+describe('PickResolver.screen', () => {
+    const windows = (overrides: Partial<ResolvedRules> = {}): ResolvedRules => ({
+        ...OPEN_RULES,
+        repeatWindowDays: 2,
+        artistCooldownMinutes: 40,
+        ...overrides,
+    });
+
+    it('keeps what may air, owned or only named, in the order offered', async () => {
+        const { resolver } = build({
+            recentSongs: ['slayer:raining blood', 'mayhem:freezing moon'],
+            recentArtists: ['kiss'],
+            ratings: { 'track-3': -1 },
+            dislikedArtists: ['burzum'],
+        });
+
+        const kept = await resolver.screen(
+            [
+                { title: 'Raining Blood', artist: 'Slayer', trackId: 'track-1' },
+                { title: 'South of Heaven', artist: 'Slayer', trackId: 'track-2' },
+                { title: 'Disliked', artist: 'Dio', trackId: 'track-3' },
+                { title: 'Freezing Moon', artist: 'Mayhem' },
+                { title: 'Deathcrush', artist: 'Mayhem' },
+                { title: 'Detroit Rock City', artist: 'KISS', trackId: 'track-4' },
+                { title: 'Dunkelheit', artist: 'Burzum' },
+                { title: 'Already Queued', artist: 'Ghost', trackId: 'track-5' },
+            ],
+            windows(),
+            { avoidSongKeys: new Set(['ghost:already queued']), want: 1 },
+        );
+
+        expect(kept.map(record => record.title)).toEqual(['South of Heaven', 'Deathcrush']);
+    });
+
+    it("caps nothing, since which of an act's records make the batch is the model's choice", async () => {
+        const { resolver } = build();
+
+        const kept = await resolver.screen(
+            [
+                { title: 'One', artist: 'Slayer', trackId: 'track-1' },
+                { title: 'Two', artist: 'Slayer', trackId: 'track-2' },
+                { title: 'Three', artist: 'Slayer' },
+            ],
+            windows({ maxPerArtist: 1, maxPerAlbum: 1 }),
+            { want: 3 },
+        );
+
+        expect(kept).toHaveLength(3);
+    });
+
+    it('judges a named record by the year its source gave, and keeps one with no year', async () => {
+        const { resolver } = build({ years: { 'track-1': 1975 } });
+
+        const kept = await resolver.screen(
+            [
+                { title: 'Old', artist: 'Sabbath', trackId: 'track-1' },
+                { title: 'Eighties', artist: 'Mayhem', year: 1987 },
+                { title: 'Nineties', artist: 'Emperor', year: 1994 },
+                { title: 'Unknown', artist: 'Darkthrone' },
+            ],
+            windows(),
+            { era: { from: 1980, to: 1989 }, want: 3 },
+        );
+
+        expect(kept.map(record => record.title)).toEqual(['Eighties', 'Unknown']);
+    });
+
+    it('lets the queued artists back in rather than come back short', async () => {
+        const { resolver } = build();
+
+        const kept = await resolver.screen(
+            [
+                { title: 'Queued', artist: 'Slayer' },
+                { title: 'Free', artist: 'Mayhem' },
+            ],
+            windows(),
+            { queuedArtistKeys: new Set(['slayer']), want: 2 },
+        );
+
+        expect(kept.map(record => record.title)).toEqual(['Queued', 'Free']);
+    });
+
+    it('lets the repeat window give way when nothing else survives, without telling the watch', async () => {
+        const { resolver, repeatWatch } = build({ recentSongs: ['slayer:a', 'mayhem:b'], recentAges: { 'slayer:a': 2, 'mayhem:b': 30 } });
+
+        const kept = await resolver.screen(
+            [
+                { title: 'A', artist: 'Slayer' },
+                { title: 'B', artist: 'Mayhem' },
+            ],
+            windows(),
+            { want: 1 },
+        );
+
+        expect(kept.map(record => record.title)).toEqual(['B']);
+        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
+        expect(repeatWatch.clear).not.toHaveBeenCalled();
+    });
+
+    it('asks nothing of the catalog for an empty list', async () => {
+        const { resolver, history } = build();
+
+        expect(await resolver.screen([], windows(), { want: 5 })).toEqual([]);
+        expect(history.songKeysSince).not.toHaveBeenCalled();
     });
 });

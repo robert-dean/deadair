@@ -22,6 +22,7 @@ import {
     holdArtistCooldown,
     rejectBarred,
     spaceArtists,
+    type RecentlyAired,
     type ResolvedRules,
     type RotationCandidate,
 } from './rotation.rules.js';
@@ -103,6 +104,20 @@ interface Identified extends RotationCandidate {
      */
     title: string;
     artist: string;
+}
+
+/**
+ * A record a shortlist may offer: one the library holds (with its catalog id), or one only a similarity
+ * source has named so far. See {@link PickResolver.screen}.
+ */
+export interface ScreenCandidate {
+    title: string;
+    /** The lead artist, never a credit line. */
+    artist: string;
+    /** The catalog's id, for a record the library holds. */
+    trackId?: string;
+    /** The year a source gave, for a record the library does not hold. Absent is eligible for any period. */
+    year?: number;
 }
 
 /** A resolved track with its keys still attached, so the last rule can be applied to it. */
@@ -494,6 +509,69 @@ export class PickResolver {
     }
 
     /**
+     * Which of these records the rules would let air now, BEFORE anything chooses between them.
+     *
+     * For a shortlist handed to a model (`ModelSetGenerator`), so every line it reads is a record that
+     * can air, and the model's few dozen output tokens are not spent on one the rules then drop. The
+     * same reads and the same rules {@link resolve} judges a pick by, with three differences, each
+     * because nothing has been CHOSEN yet:
+     *
+     * - **No caps.** The per-artist and per-album caps are about one batch's variety, and which two of
+     *   an artist's records make the batch is the model's choice to make; `resolve` caps what it chose.
+     * - **A record only a similarity source has named is judged by its keys**, since it has no catalog
+     *   row yet: the windows, an artist the operator disliked or suspended, and the period by the year
+     *   the source gave (an unknown year is eligible, as it is in the draw). A never-play rule cannot be
+     *   judged without its tags, so `resolve` judges it once the pick is taken in.
+     * - **`RepeatWatch` is not told** when the window gives way. Nothing has aired, so nothing gave way.
+     *
+     * The give-way rules run as they do at the resolver: a queued artist is let back in when holding
+     * them would leave fewer than `want`, and the repeat window only when nothing else survived. That is
+     * what keeps a pre-filtered list from being the WORSE pool #37 §1 warned about: it is never
+     * narrower than what `resolve` would keep. Records the running order already holds are dropped
+     * outright (`avoidSongKeys`), since choosing one again is the one pick `planRecords` throws away.
+     *
+     * In the order offered.
+     */
+    async screen<T extends ScreenCandidate>(
+        candidates: readonly T[],
+        rules: ResolvedRules,
+        options: {
+            era?: EraWindow;
+            avoidSongKeys?: ReadonlySet<string>;
+            avoidArtistKeys?: ReadonlySet<string>;
+            queuedArtistKeys?: ReadonlySet<string>;
+            broadcast?: PickBroadcast;
+            /** How many the caller needs, which the queued artists and the window give way to. */
+            want: number;
+        },
+    ): Promise<T[]> {
+        const { era, avoidSongKeys, avoidArtistKeys, queuedArtistKeys, broadcast, want } = options;
+        const keyed = candidates
+            .map((candidate, index) => ({
+                candidate,
+                index,
+                songKey: songKey(candidate.title, [candidate.artist]),
+                artistKey: artistKey([candidate.artist]),
+                creditKey: creditKey(candidate.artist),
+            }))
+            .filter(entry => avoidSongKeys?.has(entry.songKey) !== true);
+        if (keyed.length === 0) return [];
+
+        const owned = keyed.flatMap(entry => (entry.candidate.trackId === undefined ? [] : [{ ...entry, trackId: entry.candidate.trackId }]));
+        const named = keyed.filter(entry => entry.candidate.trackId === undefined);
+        const [ownedLeft, disliked, recent] = await Promise.all([
+            this.standingsAndPeriod(owned, era, broadcast),
+            named.length === 0 ? Promise.resolve(new Set<string>()) : this.tracks.dislikedArtistKeys(named.map(entry => entry.candidate.artist)),
+            this.recentlyAired(rules, avoidArtistKeys),
+        ]);
+        const namedLeft = named.filter(entry => !disliked.has(entry.artistKey) && (!bindsAnything(era) || withinPeriod(entry.candidate.year, era)));
+
+        const offered = [...ownedLeft, ...namedLeft].sort((left, right) => left.index - right.index);
+        const uncapped = { ...rules, maxPerArtist: 0, maxPerAlbum: 0 };
+        return (await this.holdWindows(offered, uncapped, recent, queuedArtistKeys, want, false)).map(entry => entry.candidate);
+    }
+
+    /**
      * Drop everything the rules say may not air, whatever named it.
      *
      * Two reads, both of which {@link CatalogSetGenerator} also makes and neither of which can be
@@ -535,20 +613,33 @@ export class PickResolver {
             const blocked = await this.neverPlay.blocked(trackIds, broadcast);
             return blocked.size === 0 ? [...identified] : identified.filter(entry => !blocked.has(entry.trackId));
         }
-        const [blocked, standings, songKeys, recentArtistKeys, years] = await Promise.all([
+        const [inPeriod, recent] = await Promise.all([
+            this.standingsAndPeriod(identified, era, broadcast),
+            this.recentlyAired(rules, avoidArtistKeys),
+        ]);
+        return await this.holdWindows(inPeriod, rules, recent, queuedArtistKeys, want, true);
+    }
+
+    /**
+     * Drop what no window can let back in: a never-play rule, and outside the period; and stamp what
+     * is left with its rating, so {@link rejectBarred} can drop a dislike with the windows. Three reads
+     * against the catalog, made together.
+     */
+    private async standingsAndPeriod<T extends RotationCandidate & { trackId: string }>(
+        identified: readonly T[],
+        era: EraWindow | undefined,
+        broadcast: PickBroadcast | undefined,
+    ): Promise<T[]> {
+        const trackIds = identified.map(entry => entry.trackId);
+        if (trackIds.length === 0) return [];
+        const [blocked, standings, years] = await Promise.all([
             this.neverPlay.blocked(trackIds, broadcast),
             this.candidates.standingsFor(trackIds),
-            this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
-            this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
             // Only when there is a period to judge against. An unbriefed broadcast pays no round
-            // trip for a question nobody asked, which is the same shape the two window reads above
-            // take when their rules are switched off.
+            // trip for a question nobody asked, which is the same shape the two window reads in
+            // `recentlyAired` take when their rules are switched off.
             bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
         ]);
-        // Unioned rather than queried for: the tail's artists are not aired yet, so no window read
-        // above could ever have found them. `Set` rather than array union because `applyRules` calls
-        // `.has()` on this per candidate.
-        const artistKeys = avoidArtistKeys === undefined ? recentArtistKeys : new Set([...recentArtistKeys, ...avoidArtistKeys]);
 
         // FIRST, beside the dislike and for its reason: absolute, cheapest, and not something a
         // lineup can switch off, so it must not live on `ResolvedRules` where `NO_RULES` would zero
@@ -580,7 +671,36 @@ export class PickResolver {
                 era,
             });
         }
+        return inPeriod;
+    }
 
+    /** What the two windows hold now: the songs inside the repeat window, and the artists inside the cooldown. */
+    private async recentlyAired(rules: ResolvedRules, avoidArtistKeys: ReadonlySet<string> | undefined): Promise<RecentlyAired> {
+        const [songKeys, recentArtistKeys] = await Promise.all([
+            this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
+            this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
+        ]);
+        // Unioned rather than queried for: the tail's artists are not aired yet, so no window read
+        // above could ever have found them. `Set` rather than array union because `applyRules` calls
+        // `.has()` on this per candidate.
+        return { songKeys, artistKeys: avoidArtistKeys === undefined ? recentArtistKeys : new Set([...recentArtistKeys, ...avoidArtistKeys]) };
+    }
+
+    /**
+     * The rotation rules over what is left, with the queued artists and the repeat window giving way
+     * the way they do in the floor.
+     *
+     * @param report - Whether this pass decides what airs, so `RepeatWatch` is told when the window gave
+     *   way. {@link screen} says no: a shortlist offered to a model has decided nothing yet.
+     */
+    private async holdWindows<T extends RotationCandidate>(
+        inPeriod: readonly T[],
+        rules: ResolvedRules,
+        { songKeys, artistKeys }: RecentlyAired,
+        queuedArtistKeys: ReadonlySet<string> | undefined,
+        want: number,
+        report: boolean,
+    ): Promise<T[]> {
         // The queued artists ride the same check as the aired ones and give way only when holding
         // them would leave the batch short. See `applyRulesHoldingQueue`.
         //
@@ -620,7 +740,7 @@ export class PickResolver {
                   );
         // Only for a caller that asked for a number: a request or a mixed-in record wants nothing, so
         // the window never gives way for it and its batch says nothing about whether it would have.
-        if (want > 0) {
+        if (want > 0 && report) {
             if (held.length > 0) this.repeatWatch.clear();
             else if (eligible.length > 0) this.repeatWatch.gaveWay(eligible.length, rules.repeatWindowDays);
         }

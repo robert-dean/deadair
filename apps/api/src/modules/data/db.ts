@@ -195,6 +195,17 @@ export interface DeadairArtistEnrichment {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairArtistRecords {
+  album: string | null;
+  artist: string;
+  artistKey: string;
+  rank: number;
+  source: string;
+  stationKey: Generated<string>;
+  title: string;
+  year: number | null;
+}
+
 export interface DeadairArtists {
   artistKey: string;
   createdAt: Generated<DateTime>;
@@ -1118,6 +1129,26 @@ export interface DeadairSettings {
   value: string | null;
 }
 
+export interface DeadairSimilarArtists {
+  artistKey: string;
+  match: number | null;
+  mbid: string | null;
+  name: string;
+  neighbourKey: string;
+  rank: number;
+  source: string;
+  stationKey: Generated<string>;
+}
+
+export interface DeadairSimilarityAsks {
+  artistKey: string;
+  artistName: string;
+  askedAt: Generated<DateTime>;
+  askedLimit: number;
+  kind: "artists" | "records";
+  stationKey: Generated<string>;
+}
+
 export interface DeadairStationAir {
   active: Generated<boolean>;
   breaksQuietRecords: Generated<number>;
@@ -1354,6 +1385,7 @@ export interface DB {
   "deadair.albumSources": DeadairAlbumSources;
   "deadair.artAssets": DeadairArtAssets;
   "deadair.artistEnrichment": DeadairArtistEnrichment;
+  "deadair.artistRecords": DeadairArtistRecords;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
   "deadair.asRun": DeadairAsRun;
@@ -1419,6 +1451,8 @@ export interface DB {
   "deadair.segmentEvents": DeadairSegmentEvents;
   "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;
+  "deadair.similarArtists": DeadairSimilarArtists;
+  "deadair.similarityAsks": DeadairSimilarityAsks;
   "deadair.stationAir": DeadairStationAir;
   "deadair.stationEvents": DeadairStationEvents;
   "deadair.stationLineup": DeadairStationLineup;

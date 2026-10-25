@@ -337,6 +337,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             {} as never,
             {} as never,
             {} as never,
+            {} as never,
         );
 
     it('fills the whole request from the floor when the model is switched off', async () => {

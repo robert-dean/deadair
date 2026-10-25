@@ -14,6 +14,13 @@ import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.rec
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { SIMILARITY_ORDER_KEY } from '../../../src/modules/similarity/similarity.settings.js';
+import {
+    SimilarityStoreRepository,
+    type StoredAnswer,
+    type StoredNeighbour,
+    type StoredRecord,
+} from '../../../src/modules/similarity/similarity.store.repository.js';
+import { STORED_ANSWER_TTL_MS } from '../../../src/modules/similarity/similarity.service.js';
 
 const LASTFM = 'deadair.lastfm';
 const OTHER = 'deadair.other';
@@ -52,12 +59,47 @@ function record(id: string, options: InstanceOptions = {}, overrides: Partial<Pl
     return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
 }
 
-const build = (records: PluginRecord[], order: string[] = []): SimilarityService => {
+/** The store in memory: what was saved, how many were asked for, and how old the answer reads as. */
+class MemoryStore {
+    readonly neighbourAnswers = new Map<string, StoredAnswer<StoredNeighbour>>();
+    readonly recordAnswers = new Map<string, StoredAnswer<StoredRecord>>();
+    failing = false;
+
+    async neighbours(key: string): Promise<StoredAnswer<StoredNeighbour> | undefined> {
+        if (this.failing) throw new Error('the database is down');
+        return this.neighbourAnswers.get(key);
+    }
+
+    async records(key: string): Promise<StoredAnswer<StoredRecord> | undefined> {
+        if (this.failing) throw new Error('the database is down');
+        return this.recordAnswers.get(key);
+    }
+
+    async saveNeighbours(key: string, _name: string, askedLimit: number, entries: (StoredNeighbour & { neighbourKey: string })[]): Promise<void> {
+        if (this.failing) throw new Error('the database is down');
+        this.neighbourAnswers.set(key, { askedLimit, ageMs: 0, entries: entries.map(({ neighbourKey: _key, ...entry }) => entry) });
+    }
+
+    async saveRecords(key: string, _name: string, askedLimit: number, entries: StoredRecord[]): Promise<void> {
+        if (this.failing) throw new Error('the database is down');
+        this.recordAnswers.set(key, { askedLimit, ageMs: 0, entries });
+    }
+}
+
+const asStore = (store: MemoryStore): SimilarityStoreRepository => store as unknown as SimilarityStoreRepository;
+
+const build = (records: PluginRecord[], order: string[] = [], store: MemoryStore = new MemoryStore()): SimilarityService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
     // A `list` setting is stored as a JSON array of rows, which is what the console writes.
     const settings: Record<string, string> = order.length === 0 ? {} : { [SIMILARITY_ORDER_KEY]: JSON.stringify(order.map(source => ({ source }))) };
-    return new SimilarityService(registry, new PluginInvoker(registry, stubPluginLog().log), settingsConfig(settings).config, stubLogger());
+    return new SimilarityService(
+        registry,
+        new PluginInvoker(registry, stubPluginLog().log),
+        settingsConfig(settings).config,
+        stubLogger(),
+        asStore(store),
+    );
 };
 
 const named = (...names: string[]): SimilarArtist[] => names.map((name, index) => ({ name, match: 1 - index / 10 }));
@@ -181,8 +223,8 @@ describe('remembering', () => {
 
         const config = settingsConfig().config;
 
-        await new SimilarityService(registry, invoker, config, stubLogger()).similarTo({ name: 'Portishead' }, 10);
-        await new SimilarityService(registry, invoker, config, stubLogger()).similarTo({ name: 'Portishead' }, 10);
+        await new SimilarityService(registry, invoker, config, stubLogger(), asStore(new MemoryStore())).similarTo({ name: 'Portishead' }, 10);
+        await new SimilarityService(registry, invoker, config, stubLogger(), asStore(new MemoryStore())).similarTo({ name: 'Portishead' }, 10);
 
         expect(similarArtists).toHaveBeenCalledOnce();
     });
@@ -337,5 +379,97 @@ describe('the order sources are asked in', () => {
         );
 
         expect((await service.similarTo({ name: 'Portishead' }, 10)).map(artist => artist.name)).toEqual(['Morcheeba', 'Tricky']);
+    });
+});
+
+describe('keeping what the sources said', () => {
+    const tracks = (...titles: string[]): ArtistTrack[] => titles.map(title => ({ title, artist: 'Slayer' }));
+
+    it('writes an answer through, and answers the next question from it without asking again', async () => {
+        const store = new MemoryStore();
+        const artistTopTracks = vi.fn(async () => tracks('Raining Blood', 'Angel of Death'));
+
+        await build([record(LASTFM, { artistTopTracks })], [], store).topTracks({ name: 'Slayer' }, 25);
+        const again = await build([record(LASTFM, { artistTopTracks })], [], store).topTracks({ name: 'Slayer' }, 3);
+
+        expect(artistTopTracks).toHaveBeenCalledOnce();
+        expect(again).toEqual(tracks('Raining Blood', 'Angel of Death'));
+        expect(store.recordAnswers.get('slayer')).toEqual({
+            askedLimit: 25,
+            ageMs: 0,
+            entries: tracks('Raining Blood', 'Angel of Death').map(track => ({ ...track, source: LASTFM })),
+        });
+    });
+
+    it('asks again for more than was stored, unless what was stored is everything the source had', async () => {
+        const store = new MemoryStore();
+        store.recordAnswers.set('slayer', { askedLimit: 3, ageMs: 0, entries: tracks('A', 'B', 'C').map(track => ({ ...track, source: LASTFM })) });
+        store.recordAnswers.set('bathory', {
+            askedLimit: 25,
+            ageMs: 0,
+            entries: [{ title: 'One Rode to Asa Bay', artist: 'Bathory', source: LASTFM }],
+        });
+        const artistTopTracks = vi.fn(async () => tracks('A', 'B', 'C', 'D'));
+        const service = build([record(LASTFM, { artistTopTracks })], [], store);
+
+        expect(await service.topTracks({ name: 'Slayer' }, 25)).toHaveLength(4);
+        expect(await service.topTracks({ name: 'Bathory' }, 25)).toEqual([{ title: 'One Rode to Asa Bay', artist: 'Bathory' }]);
+        expect(artistTopTracks).toHaveBeenCalledOnce();
+    });
+
+    it('asks again once a stored answer is older than a week', async () => {
+        const store = new MemoryStore();
+        store.recordAnswers.set('slayer', { askedLimit: 25, ageMs: STORED_ANSWER_TTL_MS, entries: [] });
+        const artistTopTracks = vi.fn(async () => tracks('Raining Blood'));
+
+        expect(await build([record(LASTFM, { artistTopTracks })], [], store).topTracks({ name: 'Slayer' }, 25)).toEqual(tracks('Raining Blood'));
+        expect(artistTopTracks).toHaveBeenCalledOnce();
+    });
+
+    it('keeps an empty answer, so an artist nobody knows is not asked about on every refill', async () => {
+        const store = new MemoryStore();
+        const artistTopTracks = vi.fn(async () => []);
+
+        await build([record(LASTFM, { artistTopTracks })], [], store).topTracks({ name: 'Nobody' }, 25);
+        await build([record(LASTFM, { artistTopTracks })], [], store).topTracks({ name: 'Nobody' }, 25);
+
+        expect(artistTopTracks).toHaveBeenCalledOnce();
+    });
+
+    it('keeps nothing when every source failed, so an outage is not remembered for a week', async () => {
+        const store = new MemoryStore();
+        const failing = vi.fn(async () => {
+            throw new Error('down');
+        });
+
+        await build([record(LASTFM, { similarArtists: failing, artistTopTracks: failing })], [], store).topTracks({ name: 'Slayer' }, 25);
+        await build([record(LASTFM, { similarArtists: failing, artistTopTracks: failing })], [], store).similarTo({ name: 'Slayer' }, 10);
+
+        expect(store.recordAnswers.size).toBe(0);
+        expect(store.neighbourAnswers.size).toBe(0);
+    });
+
+    it('answers who resembles an artist from the store after a restart has emptied the map', async () => {
+        const store = new MemoryStore();
+        const similarArtists = vi.fn(async () => named('Mayhem', 'Emperor'));
+
+        await build([record(LASTFM, { similarArtists })], [], store).similarTo({ name: 'Behemoth' }, 10);
+        SimilarityService.forget();
+        const again = await build([record(LASTFM, { similarArtists })], [], store).similarTo({ name: 'Behemoth' }, 10);
+
+        expect(similarArtists).toHaveBeenCalledOnce();
+        expect(again.map(neighbour => [neighbour.name, neighbour.source])).toEqual([
+            ['Mayhem', LASTFM],
+            ['Emperor', LASTFM],
+        ]);
+    });
+
+    it('asks the sources as before when the store cannot be read or written', async () => {
+        const store = new MemoryStore();
+        store.failing = true;
+        const artistTopTracks = vi.fn(async () => tracks('Raining Blood'));
+
+        expect(await build([record(LASTFM, { artistTopTracks })], [], store).topTracks({ name: 'Slayer' }, 25)).toEqual(tracks('Raining Blood'));
+        expect(artistTopTracks).toHaveBeenCalledOnce();
     });
 });

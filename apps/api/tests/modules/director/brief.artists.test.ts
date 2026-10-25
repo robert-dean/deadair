@@ -6,7 +6,7 @@ import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { BriefArtists, excludedByBrief, orderByNeglect, type BriefArtist } from '../../../src/modules/director/brief.artists.js';
+import { BriefArtists, excludedByBrief, namedInBrief, orderByNeglect, type BriefArtist } from '../../../src/modules/director/brief.artists.js';
 import type { ArtistsRepository } from '../../../src/modules/catalog/artists.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -176,5 +176,19 @@ describe('orderByNeglect', () => {
         ];
 
         expect(orderByNeglect(artists, 'Kreator, Sodom').map(artist => artist.name)).toEqual(['Kreator', 'Sodom']);
+    });
+});
+
+describe('namedInBrief', () => {
+    it('keeps the names a brief mentions as whole words, in the order given', () => {
+        expect(namedInBrief('Black metal: Mayhem, Darkthrone, Emperor.', ['Emperor', 'Watain', 'Mayhem'])).toEqual(['Emperor', 'Mayhem']);
+    });
+
+    it('does not find a name inside a longer word', () => {
+        expect(namedInBrief('Black Sabbath and Queensrÿche', ['Sabbat', 'Queen'])).toEqual([]);
+    });
+
+    it('leaves out a name the brief only rules out', () => {
+        expect(namedInBrief('Black metal: Mayhem, Emperor. No Burzum.', ['Burzum', 'Mayhem'])).toEqual(['Mayhem']);
     });
 });

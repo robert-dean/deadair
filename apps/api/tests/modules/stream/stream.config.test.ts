@@ -346,6 +346,24 @@ describe('writeStreamConfig', () => {
         }
     });
 
+    it('sends every mount its titles in UTF-8, so a title outside Latin-1 is not turned into character references', () => {
+        // Unset, Icecast converts each ICY title into ISO8859-1 and writes what does not fit as
+        // `&#935;`, which a player shows literally. Against the SHIPPED template.
+        const { configDir } = dirs();
+        writeStreamConfig({
+            settings: settings({ opusEnabled: true, aacEnabled: true, flacEnabled: true }),
+            playout: playout(),
+            assetsDir: shippedAssetsDir(),
+            configDir,
+        });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        const blocks = xml.match(/<mount type="normal">[\s\S]*?<\/mount>/g) ?? [];
+
+        expect(blocks).toHaveLength(4);
+        for (const block of blocks) expect(block).toContain('<charset>UTF-8</charset>');
+    });
+
     it('caps every mount, and raises the station-wide client limit to fit, when a cap is set', () => {
         // Against the SHIPPED template, for the reason the cases above are. The cap goes on each
         // <mount> because `<clients>` also counts the event feed and the stats reads: a cap there

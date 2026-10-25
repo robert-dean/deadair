@@ -68,12 +68,16 @@ import { weekdayShort } from '../../i18n/format.locale';
  * precedence, and the day toggles are why: "the usual show, except Wednesdays" is the usual one
  * on six days plus a second block on Wednesday, which is visible here and on the grid.
  *
- * ## Everything here takes effect at the slot's next boundary
+ * ## Saving takes effect at the slot's next boundary; applying is a second, explicit act
  *
- * Nothing on this form changes what is on air now. That is the invariant the schedule lives inside
- * rather than a limitation of the page, and the page says so where an operator will read it.
+ * Save never changes what is on air now. That is the invariant the schedule lives inside rather than
+ * a limitation of the page, and the page says so where an operator will read it. On the slot the
+ * station is airing there is a second button, Save and apply now, which saves and then asks the
+ * station to change the show in place (`POST /schedule/{id}/apply`): the broadcast carries on, and
+ * only what can change mid-show does. It is a button rather than a consequence of saving because a
+ * label fixed or a change meant for next week must not throw away the rest of today's hour.
  */
-export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleting, error, airing }: Props) {
+export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, saving, applying, deleting, error, applyError, airing }: Props) {
     const { t } = useTranslation(['schedule', 'common']);
     const opened = target !== undefined;
     const slot = target?.kind === 'edit' ? target.slot : undefined;
@@ -103,14 +107,15 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
         },
     });
 
-    const submit = form.onSubmit(values => {
+    /** What the form says, as the slot to save, or nothing while a time cannot be read. */
+    const draftOf = (values: FormValues): ScheduleSlotInput | undefined => {
         const startsAtMinutes = clockToMinutes(values.startsAt);
         const endsAtMinutes = clockToMinutes(values.endsAt);
-        if (startsAtMinutes === undefined || endsAtMinutes === undefined) return;
+        if (startsAtMinutes === undefined || endsAtMinutes === undefined) return undefined;
 
         const source = splitSource(values.source);
 
-        onSubmit({
+        return {
             label: values.label.trim(),
             startsAtMinutes,
             endsAtMinutes,
@@ -167,14 +172,34 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             ...writerOrderInput(values.writerOrder),
             mode: values.mode,
             onEnd: values.onEnd,
-        });
+        };
+    };
+
+    const submit = form.onSubmit(values => {
+        const draft = draftOf(values);
+        if (draft !== undefined) onSubmit(draft);
     });
+
+    // The same validation and the same draft as Save, handed to a different callback: the page saves
+    // first and applies only once the save has landed, since what is applied is the slot as stored.
+    const submitAndApply = form.onSubmit(values => {
+        const draft = draftOf(values);
+        if (draft !== undefined) onApply?.(draft);
+    });
+
+    // Offered only on the slot the station is airing, and only when the page can carry it out.
+    const offersApply = slot !== undefined && airing === true && onApply !== undefined;
 
     return (
         <Modal opened={opened} onClose={onClose} title={titleOf(t, slot !== undefined, special)} size="lg">
             <form onSubmit={submit}>
                 <Stack gap="md">
                     {error ? <ErrorAlert title={t('slot.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}
+                    {/* Its own alert rather than the save's, because the save DID land: what failed
+                        is only the second half, and saying "could not be saved" would be untrue. */}
+                    {applyError ? (
+                        <ErrorAlert title={t('slot.apply.failedTitle')} error={applyError} fallback={t('slot.apply.failedFallback')} />
+                    ) : undefined}
 
                     {/* The slot the running order belongs to right now: saving it is real, but the
                         station does not hear it until this block comes round again. Told here,
@@ -381,9 +406,16 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                             <Button variant="default" onClick={onClose}>
                                 {t('common:action.cancel')}
                             </Button>
-                            <Button type="submit" loading={saving}>
+                            {/* The plain save stays the form's submit, so Enter keeps doing what it
+                                always did: nothing on air changes unless somebody asks for it. */}
+                            <Button type="submit" variant={offersApply ? 'default' : 'filled'} loading={saving} disabled={applying}>
                                 {t('action.save')}
                             </Button>
+                            {offersApply ? (
+                                <Button type="button" loading={applying} disabled={saving} onClick={() => submitAndApply()}>
+                                    {t('action.saveAndApply')}
+                                </Button>
+                            ) : undefined}
                         </Group>
                     </Group>
                 </Stack>
@@ -433,10 +465,19 @@ interface Props {
     target?: EditorTarget;
     onClose: () => void;
     onSubmit: (draft: ScheduleSlotInput) => void;
+    /**
+     * Save the slot and apply it to the show on air. Absent means the page cannot, and no button is
+     * drawn for it; present, it is still offered only while {@link airing}.
+     */
+    onApply?: (draft: ScheduleSlotInput) => void;
     onDelete: (id: string) => void;
     saving: boolean;
+    /** Whether a save-and-apply is in flight, for its own button's spinner. */
+    applying?: boolean;
     deleting: boolean;
     error?: unknown;
+    /** The apply half failing after the save landed. Drawn apart from {@link error}, which means nothing was written. */
+    applyError?: unknown;
     /** Whether `target` is the slot the running order currently belongs to. Undefined for a new slot. */
     airing?: boolean;
 }

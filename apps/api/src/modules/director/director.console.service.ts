@@ -1303,7 +1303,7 @@ export class DirectorConsoleService {
      * whether or not the replan behind it finds anything.
      */
     async replanOrder(input: ReplanStationInput): Promise<void> {
-        if (input.brief !== undefined) await this.director.post({ kind: 'rebrief', brief: input.brief });
+        if (input.brief !== undefined) await this.director.post({ kind: 'reprogramme', change: { brief: input.brief } });
         // Stamped with the broadcast this ask is about, on `extendOrder`'s rule: see
         // `ReplanLineupJob.execute`.
         const broadcastId = this.director.order()?.broadcastId;
@@ -2048,7 +2048,7 @@ function sourceOf(input: PutOnAirInput): string {
  * The per-broadcast rules an operator asked for, as the binding's `rules`, or nothing when they asked
  * for none. Only what was actually sent: an absent switch leaves the station's setting in force.
  */
-function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
+export function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
     const rules: StationLineupRules = {
         ...(input.breaks === undefined ? {} : { breaks: input.breaks }),
         ...(input.callins === undefined ? {} : { callins: input.callins }),

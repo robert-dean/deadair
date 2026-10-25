@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
 import { usePersonas } from '../../api/personas.queries';
-import { useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
+import { useApplySlot, useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
+import { notifyDone, notifyQueued } from '../shared/notify';
+import { dayjsClock } from '../../i18n/format.locale';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -16,6 +18,7 @@ import { OnNowStrip } from './on.now.strip';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, stationClockAt, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, resizedEnd, type DraggedBlock, type SlotEdit } from './schedule.edits';
+import { describeApplied } from './slot.applied';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
@@ -23,7 +26,6 @@ import { SustainingPanel } from './sustaining.panel';
 import { SpecialsPanel } from './specials.panel';
 import { isSpecial } from './schedule.specials';
 import { i18n } from '../../i18n/i18n.setup';
-import { dayjsClock } from '../../i18n/format.locale';
 
 /**
  * The station's day, drawn as the timetable it is.
@@ -137,6 +139,10 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     const create = useCreateSlot();
     const update = useUpdateSlot();
     const remove = useDeleteSlot();
+    const applyTo = useApplySlot();
+    // Which of the editor's two buttons the save in flight came from, so only that one spins. The
+    // save itself is the same mutation either way.
+    const [applying, setApplying] = useState(false);
 
     const [view, setView] = useState<'week' | 'day'>('week');
     // `undefined` is the station's today, which only the API can work out. Every step after that is
@@ -159,12 +165,43 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
         setEditing(undefined);
         create.reset();
         update.reset();
+        applyTo.reset();
+        setApplying(false);
     };
 
     const submit = (draft: ScheduleSlotInput) => {
         const done = { onSuccess: close };
         if (editing?.kind === 'edit') update.mutate({ id: editing.slot.id, body: draft }, done);
         else create.mutate(draft, done);
+    };
+
+    /**
+     * Save, then apply what was saved to the show on air.
+     *
+     * In that order and only on success, because the station applies the slot as it is STORED: an
+     * apply racing its own save would change the show to the version being replaced. A save that
+     * lands and an apply that fails leave the editor open on the apply's own error, since the change
+     * is kept either way and the operator may want to try again.
+     */
+    const saveAndApply = (draft: ScheduleSlotInput) => {
+        if (editing?.kind !== 'edit') return;
+        const id = editing.slot.id;
+        setApplying(true);
+        update.mutate(
+            { id, body: draft },
+            {
+                onError: () => setApplying(false),
+                onSuccess: () =>
+                    applyTo.mutate(id, {
+                        onSuccess: answer => {
+                            const { message, queued } = describeApplied(answer);
+                            (queued ? notifyQueued : notifyDone)(message);
+                            close();
+                        },
+                        onError: () => setApplying(false),
+                    }),
+            },
+        );
     };
 
     /**
@@ -363,10 +400,13 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 airing={editing?.kind === 'edit' && editing.slot.id === airingId}
                 onClose={close}
                 onSubmit={submit}
+                onApply={saveAndApply}
                 onDelete={id => remove.mutate(id, { onSuccess: close })}
-                saving={create.isPending || update.isPending}
+                saving={create.isPending || (update.isPending && !applying)}
+                applying={applying && (update.isPending || applyTo.isPending)}
                 deleting={remove.isPending}
                 error={create.error ?? update.error}
+                applyError={applyTo.error}
             />
         </Stack>
     );

@@ -6259,7 +6259,7 @@ paths:
         put:
             operationId: updateScheduleSlot
             summary: 'Update schedule slot'
-            description: 'Rewrites a slot. Takes effect at its next boundary rather than immediately'
+            description: "Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`"
             parameters:
                 - name: id
                   in: path
@@ -6300,6 +6300,30 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ScheduleSlotList'
+    '/schedule/{id}/apply':
+        post:
+            operationId: apply
+            summary: 'Apply schedule slot to air'
+            description: "Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ScheduleSlotApplied'
+                '404':
+                    description: 'Not found'
+                '409':
+                    description: Conflict
     '/schedule/{id}/playlist-position':
         get:
             operationId: position
@@ -16446,6 +16470,39 @@ components:
                     description: 'The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two'
             required: [slotId, label, start, end]
             description: 'One block: this slot, on this day, between these two times'
+        ScheduleSlotPart:
+            type: string
+            enum:
+                - name
+                - brief
+                - era
+                - moods
+                - avoidMoods
+                - rules
+                - host
+                - coHosts
+                - source
+                - mode
+                - onEnd
+            description: "Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it\nA part of a slot that applying it to the show on air can change, or has to leave for its next occurrence"
+        ScheduleSlotApplied:
+            type: object
+            properties:
+                applied:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ScheduleSlotPart'
+                    description: 'The parts the show on air follows from now on. Empty when it already matched the slot'
+                waiting:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ScheduleSlotPart'
+                    description: 'The parts that differ from the show on air and cannot change mid-show: its source, mode and end make a different programme, and its co-hosts are settled for the night. They apply the next time the slot comes round'
+                replanning:
+                    type: boolean
+                    description: 'Whether the records still planned are being chosen again against the new programme. The ones already planned keep playing until the new set is ready, so nothing goes quiet while it is chosen'
+            required: [applied, waiting, replanning]
+            description: "What applying a slot to the show on air changed now, and what waits for the slot's next occurrence"
         SlotPlaylistPosition:
             type: object
             properties:
@@ -16457,7 +16514,6 @@ components:
                     type: string
                     maxLength: 500
                     description: 'Its lead artist'
-            description: 'Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it'
         ScheduleNow:
             type: object
             properties:

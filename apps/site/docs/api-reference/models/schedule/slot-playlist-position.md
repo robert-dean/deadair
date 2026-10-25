@@ -1,11 +1,9 @@
 ---
 title: 'SlotPlaylistPosition'
-sidebar_position: 8
+sidebar_position: 10
 mdx:
     format: 'md'
 ---
-
-> Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
 
 <details>
 <summary>Attributes (2)</summary>

@@ -2,6 +2,7 @@
 package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
+import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotApplied
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotInput
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotList
 import com.maroonedsoftware.deadair.sdk.models.ScheduleTimetable
@@ -60,7 +61,7 @@ class ScheduleClient(private val http: SdkHttp) {
 
     /**
      * Update schedule slot
-     * Rewrites a slot. Takes effect at its next boundary rather than immediately
+     * Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
      */
     suspend fun updateScheduleSlot(id: String, body: ScheduleSlotInput): ScheduleSlotList {
         val response = http.execute(HttpMethod.Put) {
@@ -77,6 +78,18 @@ class ScheduleClient(private val http: SdkHttp) {
     suspend fun deleteScheduleSlot(id: String): ScheduleSlotList {
         val response = http.execute(HttpMethod.Delete) {
             path("schedule", segment(id))
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Apply schedule slot to air
+     * Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence
+     * @throws SdkError on 404, 409
+     */
+    suspend fun applyScheduleSlotToAir(id: String): ScheduleSlotApplied {
+        val response = http.execute(HttpMethod.Post) {
+            path("schedule", segment(id), "apply")
         }
         return http.decodeJson(response)
     }

@@ -89,7 +89,111 @@ public sealed record ScheduleOccurrence
     public required string End { get; init; }
 }
 
-/// <summary>Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it</summary>
+/// <summary>
+/// Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
+/// A part of a slot that applying it to the show on air can change, or has to leave for its next occurrence
+/// </summary>
+[JsonConverter(typeof(ScheduleSlotPartConverter))]
+public enum ScheduleSlotPart
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("name")]
+    Name,
+
+    [JsonStringEnumMemberName("brief")]
+    Brief,
+
+    [JsonStringEnumMemberName("era")]
+    Era,
+
+    [JsonStringEnumMemberName("moods")]
+    Moods,
+
+    [JsonStringEnumMemberName("avoidMoods")]
+    AvoidMoods,
+
+    [JsonStringEnumMemberName("rules")]
+    Rules,
+
+    [JsonStringEnumMemberName("host")]
+    Host,
+
+    [JsonStringEnumMemberName("coHosts")]
+    CoHosts,
+
+    [JsonStringEnumMemberName("source")]
+    Source,
+
+    [JsonStringEnumMemberName("mode")]
+    Mode,
+
+    [JsonStringEnumMemberName("onEnd")]
+    OnEnd,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotPart"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotPart.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotPartConverter : JsonConverter<ScheduleSlotPart>
+{
+    public override ScheduleSlotPart Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotPart, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotPart value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotPart ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotPart value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotPart FromWire(string? text) => text switch
+    {
+        "name" => ScheduleSlotPart.Name,
+        "brief" => ScheduleSlotPart.Brief,
+        "era" => ScheduleSlotPart.Era,
+        "moods" => ScheduleSlotPart.Moods,
+        "avoidMoods" => ScheduleSlotPart.AvoidMoods,
+        "rules" => ScheduleSlotPart.Rules,
+        "host" => ScheduleSlotPart.Host,
+        "coHosts" => ScheduleSlotPart.CoHosts,
+        "source" => ScheduleSlotPart.Source,
+        "mode" => ScheduleSlotPart.Mode,
+        "onEnd" => ScheduleSlotPart.OnEnd,
+        _ => ScheduleSlotPart.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotPart value) => value switch
+    {
+        ScheduleSlotPart.Name => "name",
+        ScheduleSlotPart.Brief => "brief",
+        ScheduleSlotPart.Era => "era",
+        ScheduleSlotPart.Moods => "moods",
+        ScheduleSlotPart.AvoidMoods => "avoidMoods",
+        ScheduleSlotPart.Rules => "rules",
+        ScheduleSlotPart.Host => "host",
+        ScheduleSlotPart.CoHosts => "coHosts",
+        ScheduleSlotPart.Source => "source",
+        ScheduleSlotPart.Mode => "mode",
+        ScheduleSlotPart.OnEnd => "onEnd",
+        _ => throw new JsonException($"ScheduleSlotPart.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 public sealed record SlotPlaylistPosition
 {
     /// <summary>The record the slot opens on next time, as the playlist names it. The station's rules still apply when it opens, so one it will not play by then is passed over</summary>
@@ -482,6 +586,22 @@ public sealed record ScheduleNow
     /// <summary>The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block</summary>
     [JsonPropertyName("upcoming")]
     public required List<ScheduleOccurrence> Upcoming { get; init; }
+}
+
+/// <summary>What applying a slot to the show on air changed now, and what waits for the slot's next occurrence</summary>
+public sealed record ScheduleSlotApplied
+{
+    /// <summary>The parts the show on air follows from now on. Empty when it already matched the slot</summary>
+    [JsonPropertyName("applied")]
+    public required List<ScheduleSlotPart> Applied { get; init; }
+
+    /// <summary>The parts that differ from the show on air and cannot change mid-show: its source, mode and end make a different programme, and its co-hosts are settled for the night. They apply the next time the slot comes round</summary>
+    [JsonPropertyName("waiting")]
+    public required List<ScheduleSlotPart> Waiting { get; init; }
+
+    /// <summary>Whether the records still planned are being chosen again against the new programme. The ones already planned keep playing until the new set is ready, so nothing goes quiet while it is chosen</summary>
+    [JsonPropertyName("replanning")]
+    public required bool Replanning { get; init; }
 }
 
 public sealed record ScheduleSlotList

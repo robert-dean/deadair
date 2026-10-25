@@ -5,6 +5,7 @@ options {
     services: {
         ScheduleService: "#src/modules/schedule/schedule.service.js"
         SlotPlaylistService: "#src/modules/director/slot.playlist.service.js"
+        SlotAirService: "#src/modules/director/slot.air.service.js"
     }
     security: {
         # The floor is the WRITE end, as in personas beside it: this file is one read and three
@@ -105,7 +106,7 @@ operation /schedule/{id}: {
     params: {
         id: string(min=1, max=100)
     }
-    put: { # Rewrites a slot. Takes effect at its next boundary rather than immediately
+    put: { # Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
         name: Update schedule slot
         service: ScheduleService.update
         request: {
@@ -124,6 +125,30 @@ operation /schedule/{id}: {
             200: {
                 application/json: ScheduleSlotList
             }
+        }
+    }
+}
+
+# Saving a slot never touches the show on air, which is the invariant the schedule lives inside, so
+# applying an edit to the show is a separate act an operator takes: a route of its own rather than a
+# flag on the save. It lives on a director-side service for SlotPlaylistService's reason below:
+# answering it means posting to the director, and the director console already depends on the schedule.
+
+operation /schedule/{id}/apply: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    post: { # Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence
+        name: Apply schedule slot to air
+        service: SlotAirService.apply
+        response: {
+            200: {
+                application/json: ScheduleSlotApplied
+            }
+            404:
+            # The slot is not the one on air, so there is no show to apply it to. Its change applies
+            # the next time it comes round, as every save's does.
+            409:
         }
     }
 }

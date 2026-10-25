@@ -608,6 +608,50 @@ export interface SmartShuffleOrder {
     readonly recentSongKeys: ReadonlySet<string>;
 }
 
+/**
+ * What a broadcast may change its mind about mid-show, as a patch: each field present replaces what
+ * the broadcast holds, and each one absent keeps it.
+ *
+ * These are the fields that say how a programme is PROGRAMMED rather than which programme it is. A
+ * show asked for different records, a different decade, a different mood or different rules is still
+ * the same broadcast, filed under the same `broadcastId`; a show reading a different source, in a
+ * different mode or ending a different way is a different programme, and that is a new running order
+ * built by `putOnAir`. Who presents is not here either, because a change of host also un-says the
+ * breaks the outgoing one wrote, and that is `recast`.
+ *
+ * **Present and empty CLEARS, and clearing means something**: an empty brief hands the hour back to
+ * ordinary rotation, an era with neither end plays any period, and an empty mood list leans nowhere.
+ * Absent is the only way to say "leave it".
+ */
+export interface ProgrammeChange {
+    /** What the operator is told is on. */
+    name?: string;
+    /** What the station should play from here on. An empty string clears it. */
+    brief?: string;
+    /** The period, replaced as a pair. An end absent inside it is no bound on that side, so `{}` clears it. */
+    era?: { from?: number; to?: number };
+    /** The mood stages to lean into. Empty clears them. */
+    moods?: readonly LyricMood[];
+    /** The moods to steer away from. Empty clears them. */
+    avoidMoods?: readonly LyricMood[];
+    /**
+     * The per-broadcast rules, replaced WHOLE rather than merged. A merge could add a rule and never
+     * take one away, since a JSON patch has no way to send "absent"; the caller that knows what this
+     * broadcast's rules should be says all of them, and `{}` falls back to the station's on every one.
+     */
+    rules?: StationLineupRules;
+}
+
+/** `binding` with `key` set to `value`, or without `key` at all when `value` is absent. */
+const withField = <K extends keyof StationLineupBinding>(
+    binding: StationLineupBinding,
+    key: K,
+    value: StationLineupBinding[K] | undefined,
+): StationLineupBinding => {
+    const { [key]: _current, ...rest } = binding;
+    return (value === undefined ? rest : { ...rest, [key]: value }) as StationLineupBinding;
+};
+
 const OK: EditResult = { ok: true };
 
 const refuse = (reason: EditRefusal, message: string): EditResult => ({ ok: false, reason, message });
@@ -1204,29 +1248,45 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
-     * Change what the operator has asked this broadcast to play.
+     * Change how this broadcast is programmed, without changing which broadcast it is.
      *
-     * Narrow on purpose, where {@link rebind} takes the whole binding: the brief is the one part of
-     * it that a broadcast can legitimately change its mind about mid-show. Everything else there
-     * says which programme this IS, and a different answer to that is a different programme.
+     * Narrow on purpose, where {@link rebind} takes the whole binding: {@link ProgrammeChange} holds
+     * the parts a broadcast can legitimately change its mind about mid-show. Everything else in the
+     * binding says which programme this IS, and a different answer to that is a different programme.
+     * {@link broadcastId} is untouched, so the hour is still one thing to ask about afterwards.
      *
      * **An empty brief clears it, and clearing means something.** It is the switch between "play
      * heavy metal hits" and "play whatever ordinary rotation gives you", and both are things to ask
      * for. It used to be a switch between the brief and the presenting persona's own description of
      * the station's music, which is why clearing it once meant handing the hour back to the host;
      * a persona is a voice now and the brief is the only thing that steers.
+     *
+     * Nothing here touches the items. Records already chosen against the old programme stay where
+     * they are; replacing them is `ReplanLineupJob`'s, which keeps them airing until it has a set to
+     * put in their place.
      */
-    rebrief(brief?: string): void {
-        const { brief: _current, ...rest } = this.binding;
+    reprogramme(change: ProgrammeChange): void {
+        let next = this.binding;
+        if (change.name !== undefined) next = { ...next, name: change.name };
+        if (change.brief !== undefined) next = withField(next, 'brief', change.brief || undefined);
+        if (change.era !== undefined) {
+            next = withField(next, 'eraFrom', change.era.from);
+            next = withField(next, 'eraTo', change.era.to);
+        }
+        if (change.moods !== undefined) next = withField(next, 'moods', change.moods.length === 0 ? undefined : [...change.moods]);
+        if (change.avoidMoods !== undefined) {
+            next = withField(next, 'avoidMoods', change.avoidMoods.length === 0 ? undefined : [...change.avoidMoods]);
+        }
+        if (change.rules !== undefined) next = withField(next, 'rules', Object.keys(change.rules).length === 0 ? undefined : { ...change.rules });
 
-        this.binding = brief ? { ...rest, brief } : rest;
+        this.binding = next;
     }
 
     /**
      * Change who is presenting this broadcast.
      *
      * The second thing a broadcast may legitimately change its mind about, and narrow for
-     * {@link rebrief}'s reason rather than by analogy with it: a show that swaps its host is the same
+     * {@link reprogramme}'s reason rather than by analogy with it: a show that swaps its host is the same
      * show, where a show playing different material under a different name is not. {@link broadcastId}
      * is untouched, so last night's programme is still one thing to ask about afterwards.
      *

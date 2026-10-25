@@ -44,7 +44,7 @@ public final class ScheduleClient: Sendable {
     }
 
     /// Update schedule slot
-    /// Rewrites a slot. Takes effect at its next boundary rather than immediately
+    /// Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
     public func updateScheduleSlot(id: String, body: ScheduleSlotInput) async throws -> ScheduleSlotList {
         var request = try SdkRequest(method: "PUT", path: ["schedule", http.segment(id)])
         try http.setJSONBody(&request, body, contentType: "application/json")
@@ -58,6 +58,15 @@ public final class ScheduleClient: Sendable {
         let request = try SdkRequest(method: "DELETE", path: ["schedule", http.segment(id)])
         let response = try await http.execute(request)
         return try http.decodeJSON(ScheduleSlotList.self, from: response)
+    }
+
+    /// Apply schedule slot to air
+    /// Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence
+    /// - Throws: `SdkError` on 404, 409
+    public func applyScheduleSlotToAir(id: String) async throws -> ScheduleSlotApplied {
+        let request = try SdkRequest(method: "POST", path: ["schedule", http.segment(id), "apply"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ScheduleSlotApplied.self, from: response)
     }
 
     /// Read slot playlist position

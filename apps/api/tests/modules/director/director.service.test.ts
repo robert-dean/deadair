@@ -1975,6 +1975,16 @@ describe('DirectorService telling the transport what is on', () => {
         expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray' });
     });
 
+    it('renames the programme when the broadcast is reprogrammed, keeping the host it already names', async () => {
+        const { director, rundown, seed } = build({ items: ['a'], personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } } });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'reprogramme', change: { name: 'Church' } });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Church', host: 'Ray' });
+    });
+
     it('tells the transport the host’s portrait beside their name', async () => {
         const options = {
             items: ['a'],
@@ -4056,10 +4066,23 @@ describe('DirectorService replacing the rest of the running order', () => {
         await director.start();
         vi.mocked(lineups.save).mockClear();
 
-        await director.post({ kind: 'rebrief', brief: 'heavy metal hits' });
+        await director.post({ kind: 'reprogramme', change: { brief: 'heavy metal hits' } });
 
         expect(lineups.save).toHaveBeenCalled();
         expect(snapshots.at(-1)?.brief).toBe('heavy metal hits');
+    });
+
+    it('writes the rest of a new programme straight through too, since the replan reads all of it', async () => {
+        // The period and the moods are what the fresh set is drawn against as much as the brief is.
+        const { director, lineups, seed, snapshots } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+
+        await director.post({ kind: 'reprogramme', change: { era: { from: 1980, to: 1989 }, moods: ['happiness'], rules: { requestShow: true } } });
+
+        expect(lineups.save).toHaveBeenCalled();
+        expect(snapshots.at(-1)).toMatchObject({ eraFrom: 1980, eraTo: 1989, moods: ['happiness'], rules: { requestShow: true } });
     });
 
     it('leaves the running order itself alone when only the brief changed', async () => {
@@ -4069,7 +4092,7 @@ describe('DirectorService replacing the rest of the running order', () => {
         await seed();
         await director.start();
 
-        await director.post({ kind: 'rebrief', brief: 'heavy metal hits' });
+        await director.post({ kind: 'reprogramme', change: { brief: 'heavy metal hits' } });
 
         expect(
             lineup

@@ -113,7 +113,113 @@ describe('SlotEditor', () => {
             />,
         );
 
-        expect(await screen.findByText('This slot is on air. Changes apply the next time it comes round.')).toBeInTheDocument();
+        expect(await screen.findByText(/^This slot is on air\. Save keeps your changes for the next time it comes round/)).toBeInTheDocument();
+    });
+
+    it('offers Save and apply now on the slot on air, handing it the same draft Save would send', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const onApply = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ brief: 'Heavy metal' }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onApply={onApply}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+                airing
+            />,
+        );
+
+        await user.click(await screen.findByRole('button', { name: 'Save and apply now' }));
+
+        await waitFor(() => expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ label: 'Late Night', brief: 'Heavy metal' })));
+        expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('keeps plain Save to saving, so nothing on air changes unless somebody asks', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const onApply = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot() }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onApply={onApply}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+                airing
+            />,
+        );
+
+        await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+        expect(onApply).not.toHaveBeenCalled();
+    });
+
+    it('offers no apply on a slot that is not on air, or when the page cannot carry it out', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+
+        const { rerender } = render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot() }}
+                onClose={noop}
+                onSubmit={noop}
+                onApply={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        await screen.findByRole('combobox', { name: 'Mode' });
+        expect(screen.queryByRole('button', { name: 'Save and apply now' })).toBeNull();
+
+        rerender(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot() }}
+                onClose={noop}
+                onSubmit={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+                airing
+            />,
+        );
+        expect(screen.queryByRole('button', { name: 'Save and apply now' })).toBeNull();
+    });
+
+    it('says the save landed when only the apply failed, rather than that nothing was saved', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot() }}
+                onClose={noop}
+                onSubmit={noop}
+                onApply={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+                applyError={new Error('boom')}
+                airing
+            />,
+        );
+
+        expect(await screen.findByText('Saved, but the show on air was not changed')).toBeInTheDocument();
+        expect(screen.queryByText('That slot could not be saved')).toBeNull();
     });
 
     it('does not say a new slot is on air', async () => {

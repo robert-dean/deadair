@@ -5,6 +5,7 @@
 export const schedule = {
     action: {
         save: 'Save',
+        saveAndApply: 'Save and apply now',
         delete: 'Delete',
         change: 'Change',
         done: 'Done',
@@ -100,7 +101,22 @@ export const schedule = {
         editTitle: 'Edit slot',
         newTitle: 'New slot',
         saveFailedTitle: 'That slot could not be saved',
-        onAir: 'This slot is on air. Changes apply the next time it comes round.',
+        onAir: 'This slot is on air. Save keeps your changes for the next time it comes round; Save and apply now changes the show on air as well, without stopping it.',
+        apply: {
+            failedTitle: 'Saved, but the show on air was not changed',
+            failedFallback: 'Your changes are saved and apply the next time this slot comes round.',
+            done: 'Applied to the show on air.',
+            replanning:
+                'Applied to the show on air. The records still to come are being chosen again, and what is planned keeps playing until they are ready.',
+            unchanged: 'Saved. The show on air already matched this slot.',
+            waiting: 'The next time it comes round, it takes on its new {{parts}} as well.',
+            parts: {
+                source: 'source',
+                mode: 'mode',
+                onEnd: 'ending',
+                coHosts: 'co-hosts',
+            },
+        },
         sentence: {
             put: 'Put',
             from: 'from',

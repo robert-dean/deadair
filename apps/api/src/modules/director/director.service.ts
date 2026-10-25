@@ -66,6 +66,7 @@ import {
     isTrackItem,
     type EditResult,
     type Interleaved,
+    type ProgrammeChange,
     type ShuffleResult,
     type StationLineupBinding,
     type StationLineupItem,
@@ -898,8 +899,8 @@ export class DirectorService {
                 await this.followRequest(command.requestId, command.tracks, command.broadcastId);
                 return undefined;
 
-            case 'rebrief':
-                await this.rebrief(command.brief);
+            case 'reprogramme':
+                await this.reprogramme(command.change);
                 return undefined;
 
             case 'recast':
@@ -1734,31 +1735,37 @@ export class DirectorService {
     }
 
     /**
-     * Change what the operator has asked this broadcast to play.
+     * Change how this broadcast is programmed: its brief, period, moods, rules or name.
      *
      * **Written THROUGH rather than soon**, and that is the whole of why this is not a one-liner:
-     * the next thing to read the brief is `ReplanLineupJob`, from the ROW, and the throttle would
+     * the next thing to read the binding is `ReplanLineupJob`, from the ROW, and the throttle would
      * have it programme the fresh hour against the brief the operator has just replaced.
      * {@link persist} rather than {@link flushPersist}, which only settles a write the throttle
      * already owes and would do nothing at all after a change nobody else had asked to store.
      *
-     * Nothing is committed and nothing is retracted, because a brief says nothing about the records
-     * already in the order. What acts on it is whatever generates next: the replan this usually
-     * arrives in front of, and every refill for the rest of the broadcast.
+     * Nothing is committed and nothing is retracted, because a programme says nothing about the
+     * records already in the order. What acts on it is whatever generates next: the replan this
+     * usually arrives in front of, and every refill for the rest of the broadcast. The rules need
+     * nothing more, since every pass resolves them off the binding as it goes.
+     *
+     * The name is the one field the transport keeps a copy of, for what the station says is on, so a
+     * rename is told to it with the host it already holds.
      */
-    private async rebrief(brief?: string): Promise<void> {
+    private async reprogramme(change: ProgrammeChange): Promise<void> {
         if (!this.lineup) return;
+        const lineup = this.lineup;
 
-        this.lineup.rebrief(brief);
+        lineup.reprogramme(change);
         await this.persist();
-        this.logger.info('director: the broadcast was re-briefed', { brief: brief ?? '' });
+        if (change.name !== undefined && this.lineup === lineup) this.tellTransport(lineup, this.heldHost());
+        this.logger.info('director: the broadcast was reprogrammed', { changed: Object.keys(change) });
     }
 
     /**
      * Change who is presenting, and un-say what the outgoing host had lined up.
      *
      * Two halves, and the FIRST is the durable one. `bind` present means this broadcast was recast
-     * and the binding is written THROUGH for {@link rebrief}'s exact reason: `WriteBreakJob` reads
+     * and the binding is written THROUGH for {@link reprogramme}'s exact reason: `WriteBreakJob` reads
      * the host off the row, so a change riding the throttle would have the next break written by
      * whoever the operator has just replaced. `bind` absent means the STATION's active persona
      * changed, and this broadcast's binding is deliberately not touched — a show that named its own

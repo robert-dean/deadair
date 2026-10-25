@@ -35,7 +35,7 @@
 
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { BreakRequest, BreakRequestResult } from './break.request.js';
-import type { EditResult, Interleaved, StationLineupBinding } from './station.lineup.js';
+import type { EditResult, Interleaved, ProgrammeChange, StationLineupBinding } from './station.lineup.js';
 
 /**
  * A change to the running order the operator asked for.
@@ -188,15 +188,17 @@ export type DirectorCommand =
      */
     | { kind: 'followRequest'; requestId: string; tracks: readonly RundownTrack[]; broadcastId: string }
     /**
-     * Change what the operator has asked this broadcast for. Absent or empty clears it.
+     * Change how this broadcast is programmed: what it was asked for, its period, its moods, its
+     * rules, its name. A patch, so a field absent from `change` is left as it is; see
+     * {@link ProgrammeChange} for what present-and-empty clears.
      *
      * A command of its own rather than a field on {@link replaceTail}, because the two happen
      * minutes apart and in that order: the brief has to be on the row BEFORE `ReplanLineupJob`
-     * reads it, since that is what the fresh set is programmed against. It outlives the replan too
-     * — every later refill reads the same row — which is the whole reason the brief lives on the
-     * running order rather than in a job's payload.
+     * reads it, since that is what the fresh set is programmed against. It outlives the replan too,
+     * because every later refill reads the same row, and that is the whole reason the programme lives
+     * on the running order rather than in a job's payload.
      */
-    | { kind: 'rebrief'; brief?: string }
+    | { kind: 'reprogramme'; change: ProgrammeChange }
     /**
      * Who is presenting has changed. Re-check who that is, and re-open the breaks the outgoing
      * host wrote and the station has not aired yet.

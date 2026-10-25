@@ -76,7 +76,7 @@ public sealed class ScheduleClient(SdkHttp http)
 
     /// <summary>
     /// Update schedule slot
-    /// Rewrites a slot. Takes effect at its next boundary rather than immediately
+    /// Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
     /// </summary>
     public async Task<ScheduleSlotList> UpdateScheduleSlotAsync(string id, ScheduleSlotInput body, CancellationToken cancellationToken = default)
     {
@@ -99,6 +99,20 @@ public sealed class ScheduleClient(SdkHttp http)
             http.Path("schedule", http.Segment(id)),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<ScheduleSlotList>(response);
+    }
+
+    /// <summary>
+    /// Apply schedule slot to air
+    /// Applies a slot, as it is saved now, to the show on air, which must be that slot's. Its name, brief, period, moods, rules and host change in place and the broadcast carries on; the records still planned are chosen again against the new programme, and the ones already planned keep playing until the new set is ready. A change to its source, mode, end or co-hosts cannot be made mid-show and waits for the slot's next occurrence
+    /// </summary>
+    /// <exception cref="SdkException">On 404, 409.</exception>
+    public async Task<ScheduleSlotApplied> ApplyScheduleSlotToAirAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("schedule", http.Segment(id), "apply"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ScheduleSlotApplied>(response);
     }
 
     /// <summary>

@@ -6,7 +6,7 @@ mdx:
     format: 'md'
 ---
 
-Rewrites a slot. Takes effect at its next boundary rather than immediately
+Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
 
 **`PUT`** `/schedule/{id}`
 

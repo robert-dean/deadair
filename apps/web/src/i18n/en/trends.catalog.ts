@@ -24,7 +24,7 @@ export const trends = {
         empty: 'Nothing was measured in this range yet. The station starts keeping these the moment it is running, so a new install fills this in a minute at a time.',
     },
     audience: {
-        series: 'Listening',
+        series: 'Most listening at once',
         now: 'Now',
         peak: 'Most at once',
         average: 'On average',

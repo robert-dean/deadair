@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
 import type { MetricSeries } from '@deadair/sdk';
 
-import { binSeries, binWidthMs, MAX_BINS, meanOf, rangeWindow, rank, total } from '../../../src/components/trends/trends.data';
+import { binSeries, binWidthMs, holdGauge, MAX_BINS, meanOf, rangeWindow, rank, total } from '../../../src/components/trends/trends.data';
 
 const at = (iso: string) => DateTime.fromISO(iso, { zone: 'utc' });
 const point = (iso: string, value: number) => ({ at: at(iso), count: 1, sum: value, min: value, max: value, last: value });
@@ -62,10 +62,44 @@ describe('binSeries', () => {
         expect(bins[0]?.point).toEqual({ count: 3, sum: 14, min: 1, max: 9, last: 9 });
     });
 
+    it('starts bins on a round time in the given zone, not at the minute the window opened', () => {
+        const week = at('2026-10-18T10:03:00Z');
+        const bins = binSeries([series({}, [point('2026-10-18T11:00:00Z', 4)])], week, week.plus({ days: 7 }), 'hour', 'America/New_York');
+
+        // Two-hour bins, on even hours of New York's clock (UTC-4 in October).
+        expect(bins[0]?.at.toUTC().toISO()).toBe('2026-10-18T10:00:00.000Z');
+        expect(bins[1]?.at.toUTC().toISO()).toBe('2026-10-18T12:00:00.000Z');
+        expect(bins[0]?.point?.max).toBe(4);
+        expect(bins.at(-1)!.at.plus({ hours: 2 }) >= week.plus({ days: 7 })).toBe(true);
+    });
+
     it('drops a point outside the window rather than piling it onto an edge', () => {
         const bins = binSeries([series({}, [point('2026-10-16T23:00:00Z', 5)])], from, to, 'minute');
 
         expect(bins.every(bin => bin.point === undefined)).toBe(true);
+    });
+});
+
+describe('holdGauge', () => {
+    const from = at('2026-10-17T00:00:00Z');
+    const to = from.plus({ hours: 6 });
+    const fifteen = 15 * 60_000;
+
+    it('holds a gauge read every fifteen minutes across three-minute bins, so it draws as a line', () => {
+        const read = binSeries([series({}, [point('2026-10-17T00:06:00Z', 7), point('2026-10-17T00:21:00Z', 8)])], from, to, 'minute', 'utc');
+        const held = holdGauge(read, fifteen);
+
+        expect(held.slice(2, 12).map(bin => bin.point?.last)).toEqual([7, 7, 7, 7, 7, 8, 8, 8, 8, 8]);
+    });
+
+    it('leaves the gap where a reading was missed outright, as when the station was down', () => {
+        const read = binSeries([series({}, [point('2026-10-17T00:00:00Z', 7), point('2026-10-17T01:00:00Z', 9)])], from, to, 'minute', 'utc');
+        const held = holdGauge(read, fifteen);
+
+        expect(held[7]?.point?.last).toBe(7);
+        expect(held[8]?.point).toBeUndefined();
+        expect(held[19]?.point).toBeUndefined();
+        expect(held[20]?.point?.last).toBe(9);
     });
 });
 

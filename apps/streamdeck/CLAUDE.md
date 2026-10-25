@@ -45,7 +45,8 @@ Console, whose documentation describes no API. Elgato approved the listing on 20
 page, `docs/features/console.md` and both READMEs link: moving it means changing all four.
 
 **The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
-(`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn
+(`listing.md`) and the thumbnail and gallery images it takes, 1920 × 960, with the gallery's order and
+how to change it (it does not drag). The pictures are drawn
 by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg`, `voteSvg`, `requestSvg` and
 `grantSvg`, so the listing
 shows what a key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.84.1] — 2026-10-25
+
+- When the rotation rules throw away most of what a refill chose, the station's log now says which rule did it: how many records the repeat window refused, how many the artist cooldown held, how many were held because their artist was already queued, how many the per-artist and per-album caps cut, and how many were disliked. A show whose running order keeps running dry can now be traced to the rule that is spending it.
+
 ## [0.84.0] — 2026-10-25
 
 - A block you edit while it is on air can now change the show you are listening to. Open it on the timetable and press **Save and apply now**: the show carries on rather than starting again, its name, brief, period, moods, rules and host change in place, and when the change affects which records are chosen, the records still to come are chosen again while the ones already planned keep playing, so the station never goes quiet for it. A new source, mode, ending or set of co-hosts still waits for the next time the block comes round, and the console says so. Plain **Save** works as before and changes nothing on air. The same thing is `POST /schedule/{id}/apply` in the API and `apply_schedule_slot_to_air` for a connected model.
@@ -1668,7 +1672,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.84.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.84.1...HEAD
+[0.84.1]: https://github.com/robert-dean/deadair/compare/v0.84.0...v0.84.1
 [0.84.0]: https://github.com/robert-dean/deadair/compare/v0.83.1...v0.84.0
 [0.83.1]: https://github.com/robert-dean/deadair/compare/v0.83.0...v0.83.1
 [0.83.0]: https://github.com/robert-dean/deadair/compare/v0.82.0...v0.83.0

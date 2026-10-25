@@ -9,6 +9,8 @@ import type { BriefReach } from './brief.acts.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { PickResolver, type ScreenCandidate } from './pick.resolver.js';
 import { artistKey, songKey } from './rotation.keys.js';
+import { FRESH_FLOOR } from './rotation.rules.js';
+import type { TrackPick } from './set.generator.js';
 import type { SetInputs } from './set.generator.js';
 import { trackLengthBounds } from './track.length.js';
 
@@ -191,4 +193,59 @@ function spread(lists: readonly { turns: number; like: string | undefined; recor
         }
     }
     return chosen;
+}
+
+/**
+ * How long off air a record has to be before it draws at full weight, in days: the smart shuffle's
+ * own default horizon, so the two leans read alike.
+ */
+const FULL_WEIGHT_DAYS = 14;
+
+/** What a neighbour draws at against an act the brief names. */
+const NEIGHBOUR_WEIGHT = 0.5;
+
+/**
+ * Up to `count` records drawn from the list, for a refill whose model named nothing.
+ *
+ * The list is already a set of records that may air, so the rescue needs no searches and decides
+ * nothing the resolver will not judge again. A weighted draw rather than the list's own top, so a run
+ * of failed refills does not air the same opening every time: a record never aired, or off air a
+ * fortnight, draws at full weight, one aired lately at no less than `FRESH_FLOOR` of it (the smart
+ * shuffle's floor, never zero), and a neighbour at half an act's. No more than `maxPerArtist` by one
+ * artist, the cap the resolver applies, so the slots go to records it will keep; `0` is no cap.
+ *
+ * @param random - For tests. Anything answering in `[0, 1)`.
+ */
+export function drawFromShortlist(
+    list: readonly ShortlistEntry[],
+    count: number,
+    maxPerArtist: number,
+    random: () => number = Math.random,
+): TrackPick[] {
+    const pool = list.map(entry => ({ entry, weight: weightOf(entry) }));
+    const perArtist = new Map<string, number>();
+    const drawn: TrackPick[] = [];
+
+    while (drawn.length < count) {
+        const open = pool.filter(item => maxPerArtist <= 0 || (perArtist.get(artistKey([item.entry.artist])) ?? 0) < maxPerArtist);
+        if (open.length === 0) break;
+
+        let target = random() * open.reduce((sum, item) => sum + item.weight, 0);
+        const chosen = open.find(item => (target -= item.weight) < 0) ?? open[open.length - 1]!;
+        pool.splice(pool.indexOf(chosen), 1);
+
+        const key = artistKey([chosen.entry.artist]);
+        perArtist.set(key, (perArtist.get(key) ?? 0) + 1);
+        drawn.push({
+            title: chosen.entry.title,
+            artist: chosen.entry.artist,
+            ...(chosen.entry.trackId === undefined ? {} : { trackId: chosen.entry.trackId }),
+        });
+    }
+    return drawn;
+}
+
+function weightOf(entry: ShortlistEntry): number {
+    const fresh = entry.airedDaysAgo === undefined ? 1 : Math.min(1, Math.max(FRESH_FLOOR, entry.airedDaysAgo / FULL_WEIGHT_DAYS));
+    return fresh * (entry.like === undefined ? 1 : NEIGHBOUR_WEIGHT);
 }

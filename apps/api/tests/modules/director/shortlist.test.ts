@@ -8,7 +8,7 @@ import { DateTime } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { PER_ACT, PER_NEIGHBOUR, Shortlist, SHORTLIST_MAX, type ShortlistEntry } from '../../../src/modules/director/shortlist.js';
+import { drawFromShortlist, PER_ACT, PER_NEIGHBOUR, Shortlist, SHORTLIST_MAX, type ShortlistEntry } from '../../../src/modules/director/shortlist.js';
 import type { BriefReach } from '../../../src/modules/director/brief.acts.js';
 import type { CandidateTrack, CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
@@ -154,5 +154,36 @@ describe('Shortlist', () => {
         const { shortlist } = build({ failing: true });
 
         expect(await shortlist.build(inputs(1), REACH)).toBeUndefined();
+    });
+});
+
+describe('drawFromShortlist', () => {
+    const LIST: ShortlistEntry[] = [
+        { title: 'One', artist: 'Slayer', trackId: 't1', airedDaysAgo: 1 },
+        { title: 'Two', artist: 'Slayer', trackId: 't2' },
+        { title: 'Three', artist: 'Slayer' },
+        { title: 'Four', artist: 'Mayhem' },
+        { title: 'Five', artist: 'Watain', like: 'Mayhem' },
+    ];
+
+    it('draws each record once, carrying the catalog id, and no more by one artist than the cap', () => {
+        const drawn = drawFromShortlist(LIST, 5, 2, () => 0);
+
+        expect(drawn).toHaveLength(4);
+        expect(drawn.filter(pick => pick.artist === 'Slayer')).toHaveLength(2);
+        expect(drawn[0]).toEqual({ title: 'One', artist: 'Slayer', trackId: 't1' });
+        expect(new Set(drawn.map(pick => pick.title)).size).toBe(4);
+    });
+
+    it('draws everything with no cap', () => {
+        expect(drawFromShortlist(LIST, 10, 0, () => 0.5)).toHaveLength(5);
+    });
+
+    it('weighs a record aired lately and a neighbour below a fresh act', () => {
+        // Weights: One 0.25 (aired a day ago, floored), Two 1, Three 1, Four 1, Five 0.5. Total 3.75.
+        // A draw just under 0.25 of the total lands on One; just past it, on Two.
+        expect(drawFromShortlist(LIST, 1, 0, () => 0.24 / 3.75)[0]?.title).toBe('One');
+        expect(drawFromShortlist(LIST, 1, 0, () => 0.26 / 3.75)[0]?.title).toBe('Two');
+        expect(drawFromShortlist(LIST, 1, 0, () => 3.3 / 3.75)[0]?.title).toBe('Five');
     });
 });

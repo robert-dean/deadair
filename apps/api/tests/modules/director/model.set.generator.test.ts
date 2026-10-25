@@ -991,6 +991,21 @@ describe('ModelSetGenerator with a shortlist', () => {
         ]);
     });
 
+    it('draws from the list when the model names nothing', async () => {
+        const { generator } = build({ enabled: true, shortlist: list, text: 'Let me think about this.', finishReason: 'budget' });
+
+        const picks = await generator.generate(inputs(2));
+
+        expect(picks).toHaveLength(2);
+        for (const pick of picks) expect(list.map(entry => entry.title)).toContain(pick.title);
+    });
+
+    it('draws from the list when the model fails, rather than throwing', async () => {
+        const { generator } = build({ enabled: true, shortlist: list, fails: true });
+
+        expect(await generator.generate(inputs(3))).toHaveLength(3);
+    });
+
     it('searches as before when the setting is off', async () => {
         const { generator, converse, shortlist } = build({
             enabled: true,

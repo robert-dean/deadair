@@ -22,7 +22,7 @@ import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 import { BriefActs } from './brief.acts.js';
-import { Shortlist, type ShortlistEntry } from './shortlist.js';
+import { Shortlist, drawFromShortlist, type ShortlistEntry } from './shortlist.js';
 import { readChoices, shortlistPrompt } from './shortlist.prompt.js';
 import { SEARCH_MUSIC_TOOL } from '#modules/llm/music.search.tool.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -431,7 +431,7 @@ export class ModelSetGenerator extends SetGenerator {
             //
             // Rethrown when there is nothing to rescue, so a refill that failed before its first
             // search still reaches `SetGeneratorChain`'s own reporting unchanged.
-            const rescued = this.rescue(inputs, `the model failed: ${errorText(error)}`);
+            const rescued = this.rescue(inputs, `the model failed: ${errorText(error)}`, list);
             if (rescued.length > 0) return rescued;
             throw error;
         }
@@ -598,7 +598,7 @@ export class ModelSetGenerator extends SetGenerator {
             // Foo Fighters, the White Stripes and Arctic Monkeys among them, and the hour came from the
             // morning's classic rock with not one modern record in it. `SearchedRecords` is per scope
             // and never cleared, so the last attempt's rescue draws on both attempts' searches.
-            const rescued = this.rescue(inputs, `the model named nothing (${result.finishReason})`);
+            const rescued = this.rescue(inputs, `the model named nothing (${result.finishReason})`, list);
             if (rescued.length > 0) return rescued;
         }
 
@@ -671,8 +671,26 @@ export class ModelSetGenerator extends SetGenerator {
      * for heavy metal, the search for `Dio` answered by containment with "Radio Edit", "Audio Remix",
      * "Diopter" and "Dior", and the rescued hour aired Culture Beat, Pop Smoke and a run of house
      * remixes. Nothing matching is an empty answer, and the chain carries on as it would have.
+     *
+     * **A refill that handed the model a list draws from the list first** (`drawFromShortlist`). Every
+     * line of it may air and none of it needed a search, so it is a better hour than the rows of the
+     * two searches a listed refill is allowed; those are the fallback only when the draw is empty.
      */
-    private rescue(inputs: SetInputs, why: string): TrackPick[] {
+    private rescue(inputs: SetInputs, why: string, list: readonly ShortlistEntry[] | undefined): TrackPick[] {
+        if (list !== undefined) {
+            const drawn = drawFromShortlist(list, inputs.count, inputs.rules.maxPerArtist);
+            if (drawn.length > 0) {
+                // Info for the reason the search rescue below says so: the failure was reported upstream.
+                this.logger.info('director: the model went quiet, so the hour is drawn from the list it was handed', {
+                    ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                    why,
+                    listed: list.length,
+                    using: drawn.length,
+                });
+                return drawn;
+            }
+        }
+
         const matching = this.searched.matching();
         if (matching.length === 0) return [];
 

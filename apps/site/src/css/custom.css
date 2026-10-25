@@ -31,9 +31,8 @@ html[data-theme='dark'] {
     --da-tally: #ff4b4b;
     --da-bg-glow: #10130f;
 
-    /* The site's own rather than the console's: ink on a phosphor fill, the pill buttons and their
-       hover, the see-through navbar, and the shadow and backdrop a screenshot sits on. */
-    --da-on-accent: #050706;
+    /* The site's own rather than the console's: the pill buttons and their hover, the see-through
+       navbar, and the shadow and backdrop a screenshot sits on. */
     --da-pill: var(--da-text);
     --da-pill-hover: #ffffff;
     --da-chrome: rgb(12 14 13 / 80%);
@@ -97,7 +96,6 @@ html[data-theme='light'] {
     --da-tally: #db2222;
     --da-bg-glow: #fbf9f4;
 
-    --da-on-accent: #ffffff;
     --da-pill-hover: #000000;
     --da-chrome: rgb(244 241 234 / 80%);
     --da-shadow: 0 0 0 1px rgb(24 22 15 / 6%), 0 24px 60px -24px rgb(24 22 15 / 25%);

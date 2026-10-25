@@ -26,7 +26,7 @@ export function CatalogCard({
         <article className={styles.card}>
             <header className={styles.head}>
                 <div>
-                    {eyebrow !== undefined && <p className="da-eyebrow">{eyebrow}</p>}
+                    {eyebrow !== undefined && <p className="da-label">{eyebrow}</p>}
                     <h3 className={styles.title}>{title}</h3>
                     {subtitle !== undefined && <p className={styles.subtitle}>{subtitle}</p>}
                 </div>

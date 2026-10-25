@@ -768,7 +768,7 @@ describe('StationLineup editing', () => {
         const lineup = new StationLineup({ ...binding(), brief: 'ambient only' });
         const before = lineup.toSnapshot().broadcastId;
 
-        lineup.rebrief('heavy metal hits');
+        lineup.reprogramme({ brief: 'heavy metal hits' });
 
         expect(lineup.brief).toBe('heavy metal hits');
         expect(lineup.toSnapshot().broadcastId).toBe(before);
@@ -777,10 +777,99 @@ describe('StationLineup editing', () => {
     it('clears the brief when it is emptied, because an unbriefed station plays ordinary rotation', () => {
         const lineup = new StationLineup({ ...binding(), brief: 'ambient only' });
 
-        lineup.rebrief('');
+        lineup.reprogramme({ brief: '' });
 
         expect(lineup.brief).toBe('');
         expect(lineup.toSnapshot()).not.toHaveProperty('brief');
+    });
+
+    it('reprogrammes the period, moods, rules and name without changing which broadcast this is', () => {
+        // Everything a show may change its mind about mid-show, at once. The records already chosen,
+        // the host, the slot and the mode say which programme this IS, and all of them survive it.
+        const lineup = new StationLineup({ ...binding(), personaId: 'classic', slotId: 'church' });
+        lineup.replaceFrom([track('a'), track('b')]);
+        const before = lineup.toSnapshot();
+
+        lineup.reprogramme({
+            name: 'Church',
+            era: { from: 1970, to: 1989 },
+            moods: ['fear', 'anger'],
+            avoidMoods: ['love'],
+            rules: { requestShow: true, requestFollowOn: 4 },
+        });
+
+        expect(lineup.name).toBe('Church');
+        expect(lineup.era).toEqual({ from: 1970, to: 1989 });
+        expect(lineup.moods).toEqual(['fear', 'anger']);
+        expect(lineup.avoidMoods).toEqual(['love']);
+        expect(lineup.rules).toEqual({ requestShow: true, requestFollowOn: 4 });
+        expect(lineup.toSnapshot()).toMatchObject({
+            broadcastId: before.broadcastId,
+            personaId: 'classic',
+            slotId: 'church',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+        });
+        expect(lineup.toSnapshot().items).toEqual(before.items);
+    });
+
+    it('leaves every field the change does not mention as it was', () => {
+        const lineup = new StationLineup({
+            ...binding(),
+            brief: 'ambient only',
+            eraFrom: 1990,
+            moods: ['comfort'],
+            avoidMoods: ['anger'],
+            rules: { maxPerArtist: 2 },
+        });
+
+        lineup.reprogramme({ name: 'Late' });
+
+        expect(lineup.brief).toBe('ambient only');
+        expect(lineup.era).toEqual({ from: 1990 });
+        expect(lineup.moods).toEqual(['comfort']);
+        expect(lineup.avoidMoods).toEqual(['anger']);
+        expect(lineup.rules).toEqual({ maxPerArtist: 2 });
+    });
+
+    it('clears the period, the moods and the rules when each is sent empty', () => {
+        // Present and empty is an instruction, the same as an empty brief: any period, no lean, the
+        // station's own rules. Absent from the stored row rather than stored empty.
+        const lineup = new StationLineup({
+            ...binding(),
+            eraFrom: 1970,
+            eraTo: 1979,
+            moods: ['fear'],
+            avoidMoods: ['love'],
+            rules: { repeatWindowDays: 0 },
+        });
+
+        lineup.reprogramme({ era: {}, moods: [], avoidMoods: [], rules: {} });
+
+        expect(lineup.era).toBeUndefined();
+        expect(lineup.moods).toBeUndefined();
+        expect(lineup.avoidMoods).toBeUndefined();
+        expect(lineup.rules).toEqual({});
+        const snapshot = lineup.toSnapshot();
+        for (const key of ['eraFrom', 'eraTo', 'moods', 'avoidMoods', 'rules']) expect(snapshot).not.toHaveProperty(key);
+    });
+
+    it('replaces one end of the period without keeping the other, because the period is a pair', () => {
+        const lineup = new StationLineup({ ...binding(), eraFrom: 1970, eraTo: 1979 });
+
+        lineup.reprogramme({ era: { from: 1980 } });
+
+        expect(lineup.era).toEqual({ from: 1980 });
+    });
+
+    it('replaces the rules whole rather than merging them, so a rule can be taken away', () => {
+        // A merge could only ever add: a patch has no way to say "this one is gone now".
+        const lineup = new StationLineup({ ...binding(), rules: { requestShow: true, maxPerArtist: 2 } });
+
+        lineup.reprogramme({ rules: { maxPerArtist: 3 } });
+
+        expect(lineup.rules).toEqual({ maxPerArtist: 3 });
     });
 
     it('changes who is presenting without changing which broadcast this is', () => {

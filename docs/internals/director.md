@@ -329,7 +329,7 @@ ask is two stations.
 
 **A show can be RECAST without starting a new broadcast**, which is the one thing that precedence used to make
 impossible: `PUT /director/air/persona` posts a `recast` command that rewrites `personaId` on the row and
-nothing else on it (`StationLineup.recast`, the sibling of `rebrief` and narrow for the same reason), and
+nothing else on it (`StationLineup.recast`, the sibling of `reprogramme` and narrow for the same reason), and
 naming nobody hands the show back to the station's. The personas page reaches a show only when it named no
 host of its own, and `PersonasService.setDefaultHost` says so by posting the SAME command with no binding — what
 happened rather than what to do — through `AfterCommit`, since the director reads the personas table on its

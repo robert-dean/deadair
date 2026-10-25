@@ -1303,7 +1303,7 @@ export class DirectorConsoleService {
      * whether or not the replan behind it finds anything.
      */
     async replanOrder(input: ReplanStationInput): Promise<void> {
-        if (input.brief !== undefined) await this.director.post({ kind: 'rebrief', brief: input.brief });
+        if (input.brief !== undefined) await this.director.post({ kind: 'reprogramme', change: { brief: input.brief } });
         // Stamped with the broadcast this ask is about, on `extendOrder`'s rule: see
         // `ReplanLineupJob.execute`.
         const broadcastId = this.director.order()?.broadcastId;

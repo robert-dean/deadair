@@ -46,7 +46,7 @@ import { RouteFields } from './route.fields';
  *
  * ## The scope changes which fields EXIST, not which are greyed out
  *
- * A replan can only carry a brief: `replanOrder` posts a `rebrief` and sends a job, and the host,
+ * A replan can only carry a brief: `replanOrder` posts a `reprogramme` of the brief and sends a job, and the host,
  * the period and the source are read off the running order it is already on. So under "keep this
  * show" the rest of the form is absent, with one sentence saying where those live, rather than
  * present and disabled. A wall of greyed inputs is a worse answer than an absence plus a reason —

@@ -1734,7 +1734,7 @@ describe('DirectorConsoleService editing the running order', () => {
 
         await service.replanOrder({ brief: 'heavy metal hits' });
 
-        expect(director.post).toHaveBeenCalledWith({ kind: 'rebrief', brief: 'heavy metal hits' });
+        expect(director.post).toHaveBeenCalledWith({ kind: 'reprogramme', change: { brief: 'heavy metal hits' } });
         expect(vi.mocked(director.post)).toHaveBeenCalledBefore(vi.mocked(jobs.send));
     });
 
@@ -1745,7 +1745,7 @@ describe('DirectorConsoleService editing the running order', () => {
 
         await service.replanOrder({ count: 4 });
 
-        expect(director.post).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'rebrief' }));
+        expect(director.post).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'reprogramme' }));
     });
 
     it('clears the brief when the operator empties the box, handing programming back to ordinary rotation', async () => {
@@ -1753,7 +1753,7 @@ describe('DirectorConsoleService editing the running order', () => {
 
         await service.replanOrder({ brief: '' });
 
-        expect(director.post).toHaveBeenCalledWith({ kind: 'rebrief', brief: '' });
+        expect(director.post).toHaveBeenCalledWith({ kind: 'reprogramme', change: { brief: '' } });
     });
 
     // The one way a show's host changes without a new broadcast. What it costs — the breaks already

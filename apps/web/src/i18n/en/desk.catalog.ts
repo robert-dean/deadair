@@ -145,9 +145,12 @@ export const desk = {
         preroll: {
             lamp: 'Counting in',
             counting: 'Going live in a moment.',
+            in_one: 'Going live in {{count}} second. Start talking on the cut.',
+            in_other: 'Going live in {{count}} seconds. Start talking on the cut.',
         },
         onair: {
             lamp: 'You’re live',
+            for: 'On the air for {{time}}',
             handBack: 'Hand back',
             confirmHandBack: 'Confirm hand back',
             handBackHint: 'Takes the air back from the presenter at once, for everybody listening. Press again to confirm.',

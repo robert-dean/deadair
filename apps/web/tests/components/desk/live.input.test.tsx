@@ -135,4 +135,53 @@ describe('LiveInput', () => {
 
         expect(await screen.findByText('The live input could not be armed.')).toBeInTheDocument();
     });
+
+    it('counts in from the reading, in whole seconds rounded up, and moves between readings', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        try {
+            render(<LiveInput live={live('preroll', { inMs: 2_600 })} />);
+
+            expect(screen.getByText('3')).toBeInTheDocument();
+            expect(screen.getByText('Going live in 3 seconds. Start talking on the cut.')).toBeInTheDocument();
+
+            await vi.advanceTimersByTimeAsync(700);
+            expect(await screen.findByText('2')).toBeInTheDocument();
+
+            await vi.advanceTimersByTimeAsync(1_000);
+            expect(await screen.findByText('Going live in 1 second. Start talking on the cut.')).toBeInTheDocument();
+
+            // Never 0 before the cut, however late the next reading is.
+            await vi.advanceTimersByTimeAsync(5_000);
+            expect(screen.getByText('1')).toBeInTheDocument();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('re-anchors on a fresh reading rather than running on from the old one', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        try {
+            const { rerender } = render(<LiveInput live={live('preroll', { inMs: 1_200 })} />);
+            await vi.advanceTimersByTimeAsync(300);
+
+            rerender(<LiveInput live={live('preroll', { inMs: 2_900 })} />);
+
+            expect(await screen.findByText('3')).toBeInTheDocument();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('counts the time on air on from the reading', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        try {
+            render(<LiveInput live={live('onair', { forMs: 61_000 })} />);
+
+            expect(screen.getByText('On the air for 1:01')).toBeInTheDocument();
+            await vi.advanceTimersByTimeAsync(2_000);
+            expect(await screen.findByText('On the air for 1:03')).toBeInTheDocument();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });

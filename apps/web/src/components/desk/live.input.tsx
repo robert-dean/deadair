@@ -8,9 +8,11 @@ import { useArmLive, useDisarmLive } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { formatDuration } from '../shared/format.duration';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 import { useArmedPress } from './armed.press';
+import { useLiveClock } from './live.clock';
 
 /** The setting that says what the station's own programme does while somebody is live. */
 const LIVE_AUTOMATION_KEY = 'playout.liveAutomation';
@@ -38,6 +40,7 @@ export function LiveInput({ live }: LiveInputProps) {
     const arm = useArmLive();
     const disarm = useDisarmLive();
     const handBack = useArmedPress(() => disarm.mutate());
+    const clock = useLiveClock(live);
 
     const failures = [
         arm.isError ? apiErrorMessage(arm.error, t('live.goLiveFailed')) : undefined,
@@ -67,7 +70,12 @@ export function LiveInput({ live }: LiveInputProps) {
                         </Group>
                         {live.state === 'off' ? <AutomationLine /> : undefined}
                         {live.state === 'armed' ? <Text size="sm">{t('live.armed.waiting')}</Text> : undefined}
-                        {live.state === 'preroll' ? <Text size="sm">{t('live.preroll.counting')}</Text> : undefined}
+                        {live.state === 'preroll' ? <Countdown inMs={clock.inMs} /> : undefined}
+                        {onAir && clock.forMs !== undefined ? (
+                            <Text size="sm" c="dimmed" className="da-num">
+                                {t('live.onair.for', { time: formatDuration(clock.forMs) })}
+                            </Text>
+                        ) : undefined}
                     </Stack>
 
                     {live.state === 'off' ? (
@@ -117,6 +125,28 @@ export function LiveInput({ live }: LiveInputProps) {
                 <ErrorAlert key={message}>{message}</ErrorAlert>
             ))}
         </Stack>
+    );
+}
+
+/**
+ * The count in: three, two, one, in digits big enough to read from the far side of a studio.
+ *
+ * The presenter is waiting on this and nothing else, so it is the largest thing on the desk while it
+ * runs. The whole seconds still to go, rounded up, so it reads 3 the moment it starts and never shows
+ * 0 before the cut. Announced politely to a screen reader once a second rather than ten times.
+ */
+function Countdown({ inMs }: { inMs: number | undefined }) {
+    const { t } = useTranslation('desk');
+    if (inMs === undefined) return <Text size="sm">{t('live.preroll.counting')}</Text>;
+
+    const seconds = Math.max(1, Math.ceil(inMs / 1000));
+    return (
+        <Group gap="md" align="baseline" wrap="nowrap" aria-live="polite">
+            <Text fz={64} lh={1} fw={700} ff="heading" c="orange.4" className="da-num">
+                {seconds}
+            </Text>
+            <Text size="sm">{t('live.preroll.in', { count: seconds })}</Text>
+        </Group>
     );
 }
 

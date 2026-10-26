@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Anchor, Button, Card, Group, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { Anchor, Button, Card, Collapse, Group, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { PlayoutLive } from '@deadair/sdk';
@@ -13,6 +14,7 @@ import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 import { useArmedPress } from './armed.press';
 import { useLiveClock } from './live.clock';
+import { LiveConnection } from './live.connection';
 
 /** The setting that says what the station's own programme does while somebody is live. */
 const LIVE_AUTOMATION_KEY = 'playout.liveAutomation';
@@ -37,6 +39,7 @@ export function LiveInput({ live }: LiveInputProps) {
     const { t } = useTranslation('desk');
     const phone = usePhone();
     const [name, setName] = useState('');
+    const [details, setDetails] = useState(false);
     const arm = useArmLive();
     const disarm = useDisarmLive();
     const handBack = useArmedPress(() => disarm.mutate());
@@ -119,6 +122,27 @@ export function LiveInput({ live }: LiveInputProps) {
                         </Tooltip>
                     ) : undefined}
                 </Group>
+
+                {/* Not while somebody is on: by then the encoder is connected, and the card is the
+                    presenter's cue rather than a place to set anything up. */}
+                {onAir ? undefined : (
+                    <>
+                        <Button
+                            variant="subtle"
+                            color="gray"
+                            size="compact-sm"
+                            mt="xs"
+                            rightSection={details ? <IconChevronUp size={14} stroke={1.8} /> : <IconChevronDown size={14} stroke={1.8} />}
+                            onClick={() => setDetails(open => !open)}
+                            aria-expanded={details}
+                        >
+                            {t('live.connection.toggle')}
+                        </Button>
+                        {/* Mounted only while open, so the password is asked for when somebody wants
+                            it and not on every visit to the desk. */}
+                        <Collapse expanded={details}>{details ? <LiveConnection /> : undefined}</Collapse>
+                    </>
+                )}
             </Card>
 
             {failures.map(message => (

@@ -4,7 +4,7 @@
 
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlayoutLive } from '@deadair/sdk';
+import { SdkError, type PlayoutLive } from '@deadair/sdk';
 
 import { LiveInput } from '../../../src/components/desk/live.input';
 import { playoutStatus } from '../../utils/playout.fixture';
@@ -12,6 +12,7 @@ import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const armTheLiveInput = vi.fn((_body: unknown) => Promise.resolve(playoutStatus()));
 const disarmTheLiveInput = vi.fn(() => Promise.resolve(playoutStatus()));
+const getTheLiveInputConnection = vi.fn(() => Promise.resolve({ port: 8006, mount: '/live', user: 'source', password: 's3cret-pw' }));
 let automation: string | undefined = 'standDown';
 
 vi.mock('../../../src/api/client', () => ({
@@ -19,6 +20,7 @@ vi.mock('../../../src/api/client', () => ({
         playout: {
             armTheLiveInput: (body: unknown) => armTheLiveInput(body),
             disarmTheLiveInput: () => disarmTheLiveInput(),
+            getTheLiveInputConnection: () => getTheLiveInputConnection(),
             getPlayoutStatus: () => Promise.resolve(playoutStatus()),
         },
         settings: {
@@ -183,5 +185,38 @@ describe('LiveInput', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('asks for the connection details only when they are opened, and keeps the password hidden until asked', async () => {
+        const user = setupUser();
+        render(<LiveInput live={live('off')} />);
+
+        expect(getTheLiveInputConnection).not.toHaveBeenCalled();
+        await user.click(screen.getByRole('button', { name: 'Connection details for your encoder' }));
+
+        expect(await screen.findByText('8006')).toBeInTheDocument();
+        expect(screen.getByText('/live')).toBeInTheDocument();
+        expect(screen.getByText('source')).toBeInTheDocument();
+        expect(screen.queryByText('s3cret-pw')).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Show' }));
+        expect(screen.getByText('s3cret-pw')).toBeInTheDocument();
+        expect(getTheLiveInputConnection).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not offer the connection details while somebody is on the air', () => {
+        render(<LiveInput live={live('onair')} />);
+
+        expect(screen.queryByRole('button', { name: 'Connection details for your encoder' })).not.toBeInTheDocument();
+    });
+
+    it('says only an administrator can see the password when the station refuses', async () => {
+        getTheLiveInputConnection.mockRejectedValueOnce(new SdkError(403, 'Forbidden', {}, new Headers()));
+        const user = setupUser();
+        render(<LiveInput live={live('off')} />);
+
+        await user.click(screen.getByRole('button', { name: 'Connection details for your encoder' }));
+
+        expect(await screen.findByText('Only an administrator can see the live input’s password.')).toBeInTheDocument();
     });
 });

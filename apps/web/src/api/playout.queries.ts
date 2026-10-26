@@ -237,6 +237,23 @@ export function useArmLive() {
     });
 }
 
+/**
+ * What a presenter's encoder needs to reach the live input: port, mount, user and password.
+ *
+ * Fetched only when an operator opens the details, and never refetched on its own: it changes only
+ * when the station is redeployed, and it carries a password, which is not something to ask for on a
+ * timer or leave in the cache longer than the page that asked for it.
+ */
+export function useLiveConnection(enabled: boolean) {
+    return useQuery({
+        queryKey: queryKeys.playout.liveConnection(),
+        queryFn: () => sdk.playout.getTheLiveInputConnection(),
+        enabled,
+        staleTime: Infinity,
+        gcTime: 0,
+    });
+}
+
 /** Disarms the live input, which from on air hands the station straight back. */
 export function useDisarmLive() {
     const queryClient = useQueryClient();

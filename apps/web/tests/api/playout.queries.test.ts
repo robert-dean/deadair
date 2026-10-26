@@ -7,7 +7,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { followTransport, playoutStatusOptions } from '../../src/api/playout.queries';
+import { followTransport, playoutPollMs, playoutStatusOptions } from '../../src/api/playout.queries';
 import { queryKeys } from '../../src/api/query.keys';
 import { playoutStatus } from '../utils/playout.fixture';
 
@@ -39,8 +39,19 @@ describe('playoutStatusOptions', () => {
         // A broadcast console that froze when the operator alt-tabbed would resume
         // from a stale reading rather than the truth.
         expect(playoutStatusOptions.queryKey).toEqual(queryKeys.playout.status());
-        expect(playoutStatusOptions.refetchInterval).toBe(2_000);
+        expect(playoutPollMs(playoutStatus())).toBe(2_000);
         expect(playoutStatusOptions.refetchIntervalInBackground).toBe(true);
+    });
+});
+
+describe('playoutPollMs', () => {
+    it('looks every half second while the live input is armed or counting in, and every two otherwise', () => {
+        // The countdown is three seconds long, and the console is the cue a presenter is waiting on.
+        expect(playoutPollMs(playoutStatus({ live: { state: 'armed' } }))).toBe(500);
+        expect(playoutPollMs(playoutStatus({ live: { state: 'preroll', inMs: 2_000 } }))).toBe(500);
+        expect(playoutPollMs(playoutStatus({ live: { state: 'onair', forMs: 1_000 } }))).toBe(2_000);
+        expect(playoutPollMs(playoutStatus({ live: { state: 'off' } }))).toBe(2_000);
+        expect(playoutPollMs(undefined)).toBe(2_000);
     });
 });
 

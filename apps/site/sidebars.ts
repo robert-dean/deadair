@@ -40,6 +40,7 @@ const sidebars: SidebarsConfig = {
                 'features/plugins',
                 'features/models-and-voices',
                 'features/console',
+                'features/live',
                 'features/people',
                 'features/languages',
                 'features/listening',

@@ -241,6 +241,25 @@ describe('DeskPage', () => {
         expect(box('Skip')).toEqual(skipBefore);
     });
 
+    it('says a presenter is on the air through the live input, rather than that the station is starting', async () => {
+        arrange();
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ nowPlaying: undefined, live: { state: 'onair', forMs: 4_000 } }));
+        render(<DeskPage />);
+
+        expect(await screen.findByText('A presenter is on the air through the live input.')).toBeInTheDocument();
+        expect(screen.queryByText('Starting…')).not.toBeInTheDocument();
+        // And the Live card is drawn, because the station reports an input.
+        expect(screen.getByRole('button', { name: 'Hand back' })).toBeInTheDocument();
+    });
+
+    it('draws no Live card for a station whose audio chain reports no input', async () => {
+        arrange();
+        render(<DeskPage />);
+
+        expect(await screen.findByRole('button', { name: 'Skip' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
+    });
+
     it('forgets an armed Stop on its own', async () => {
         // A Stop left armed on a console nobody is looking at is a Stop that fires on the next
         // stray press, which is the thing arming it exists to prevent, arriving a minute later.

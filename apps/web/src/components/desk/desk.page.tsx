@@ -34,6 +34,7 @@ import { notifyDone, notifyQueued, notifyUndoable } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { OnAirNow } from './on.air.now';
+import { LiveInput } from './live.input';
 
 /**
  * The desk: what is going out, what needs a person, and what is coming.
@@ -195,6 +196,11 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
             ) : (
                 <PageSkeleton variant="card" />
             )}
+
+            {/* Only when the station reports a live input at all: an audio chain too old to have one
+                says nothing, and offering to arm an input that is not there would be a button that
+                always fails. */}
+            {playout.data?.live ? <LiveInput live={playout.data.live} /> : undefined}
 
             {/* Gone entirely when the list has loaded empty: an all-clear card on every visit is
                 noise the operator learns to skip, and the section returning is the signal. Still

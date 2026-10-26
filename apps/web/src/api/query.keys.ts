@@ -264,6 +264,8 @@ export const queryKeys = {
     playout: {
         /** The transport. One key: there is only ever one station, and it is polled rather than paged. */
         status: () => ['playout', 'status'] as const,
+        /** What an encoder needs to reach the live input. Carries its password, so it is never polled. */
+        liveConnection: () => ['playout', 'liveConnection'] as const,
     },
     /** Speakers the station can be cast to, and the casts it is keeping up. */
     outputs: {

@@ -1496,12 +1496,13 @@ def control_voice_clear(req) =
 end
 
 # Arm the live input: from here, real signal on the `live` mount starts the pre-roll. The title the
-# mount carries while the presenter is on air comes in a header, as the voice cue's item does,
-# and an empty one leaves the station name up. Arming an input that is already armed, counting
+# mount carries while the presenter is on air is the body's first line, as `/control/metadata`'s
+# label is, and an empty one leaves the station name up. The body rather than a header because a
+# header must be Latin-1 on the way out of the app, and a show's name need not be. Arming an input that is already armed, counting
 # down or on air only replaces the title, so a console pressing twice changes nothing it should not.
 def control_live_arm(req) =
   if control_authorized(req) then
-    live_title := string.trim(list.assoc(default="", "x-live-title", req.headers))
+    live_title := string.trim(list.nth(default="", string.split(separator="\n", req.body()), 0))
     if live_state() == "off" then
       live_state := "armed"
       live_held := 0.

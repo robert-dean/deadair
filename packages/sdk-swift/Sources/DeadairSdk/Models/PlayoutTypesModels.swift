@@ -420,6 +420,125 @@ public struct PlayoutMount: Codable, Equatable, Sendable {
     }
 }
 
+/// What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme
+public enum LiveState: Codable, CaseIterable, Hashable, Sendable {
+    case off
+    case armed
+    case preroll
+    case onair
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [LiveState] = [.off, .armed, .preroll, .onair]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .off: return "off"
+        case .armed: return "armed"
+        case .preroll: return "preroll"
+        case .onair: return "onair"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "off": self = .off
+        case "armed": self = .armed
+        case "preroll": self = .preroll
+        case "onair": self = .onair
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "LiveState.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// Arming the live input
+public struct PlayoutLiveArmInput: Codable, Equatable, Sendable {
+    /// What the stream says is on while the presenter is on the air. Left out, it says the station's name
+    public var title: String?
+
+    public init(title: String? = nil) {
+        self.title = title
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title = "title"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.title, forKey: .title)
+    }
+}
+
+/// What a presenter's encoder needs to connect to the live input. Carries the input's password
+public struct LiveConnection: Codable, Equatable, Sendable {
+    /// The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one
+    public var port: Int
+    /// The mount to push to
+    public var mount: String
+    /// The user name to send. The input accepts any; this is the one encoders default to
+    public var user: String
+    /// The input's password, which the station generated when it was first set up
+    public var password: String
+
+    public init(port: Int, mount: String, user: String, password: String) {
+        self.port = port
+        self.mount = mount
+        self.user = user
+        self.password = password
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case port = "port"
+        case mount = "mount"
+        case user = "user"
+        case password = "password"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.port = try container.decode(Int.self, forKey: .port)
+        self.mount = try container.decode(String.self, forKey: .mount)
+        self.user = try container.decode(String.self, forKey: .user)
+        self.password = try container.decode(String.self, forKey: .password)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.port, forKey: .port)
+        try container.encode(self.mount, forKey: .mount)
+        try container.encode(self.user, forKey: .user)
+        try container.encode(self.password, forKey: .password)
+    }
+}
+
 /// Which rundown item Liquidsoap has just started playing
 public struct PlayoutAiredQuery: Codable, Equatable, Sendable {
     /// The id the app put on the pushed uri's `annotate:` metadata
@@ -574,6 +693,41 @@ public struct SilenceCheck: Codable, Equatable, Sendable {
     }
 }
 
+/// The live input, as the audio chain last reported it
+public struct PlayoutLive: Codable, Equatable, Sendable {
+    public var state: LiveState
+    /// While `preroll`, how long until the presenter is on the air. What a countdown is drawn from
+    public var inMs: Int?
+    /// While `onair`, how long the presenter has been on
+    public var forMs: Int?
+
+    public init(state: LiveState, inMs: Int? = nil, forMs: Int? = nil) {
+        self.state = state
+        self.inMs = inMs
+        self.forMs = forMs
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case state = "state"
+        case inMs = "inMs"
+        case forMs = "forMs"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.state = try container.decode(LiveState.self, forKey: .state)
+        self.inMs = try container.decodeIfPresent(Int.self, forKey: .inMs)
+        self.forMs = try container.decodeIfPresent(Int.self, forKey: .forMs)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.state, forKey: .state)
+        try container.encodeIfPresent(self.inMs, forKey: .inMs)
+        try container.encodeIfPresent(self.forMs, forKey: .forMs)
+    }
+}
+
 /// Why the station cannot be heard, as one answer
 public struct StationSilence: Codable, Equatable, Sendable {
     /// Whether the station believes its programme is reaching the mount. NOT whether anybody is hearing it: a station can be audible with no listeners in `always` mode, and can have listeners while airing the local bed
@@ -642,8 +796,10 @@ public struct PlayoutStatus: Codable, Equatable, Sendable {
     public var staleStreamConfig: [StreamConfigWarning]
     /// Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest
     public var silence: StationSilence
+    /// The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input
+    public var live: PlayoutLive?
 
-    public init(streamUp: Bool, onAir: Bool, mountPath: String, mounts: [PlayoutMount], nowPlaying: PlayoutNowPlaying? = nil, upNext: [PlayoutItem], queuedCount: Int, listeners: Int, audience: Bool, staleStreamConfig: [StreamConfigWarning], silence: StationSilence) {
+    public init(streamUp: Bool, onAir: Bool, mountPath: String, mounts: [PlayoutMount], nowPlaying: PlayoutNowPlaying? = nil, upNext: [PlayoutItem], queuedCount: Int, listeners: Int, audience: Bool, staleStreamConfig: [StreamConfigWarning], silence: StationSilence, live: PlayoutLive? = nil) {
         self.streamUp = streamUp
         self.onAir = onAir
         self.mountPath = mountPath
@@ -655,6 +811,7 @@ public struct PlayoutStatus: Codable, Equatable, Sendable {
         self.audience = audience
         self.staleStreamConfig = staleStreamConfig
         self.silence = silence
+        self.live = live
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -669,6 +826,7 @@ public struct PlayoutStatus: Codable, Equatable, Sendable {
         case audience = "audience"
         case staleStreamConfig = "staleStreamConfig"
         case silence = "silence"
+        case live = "live"
     }
 
     public init(from decoder: Decoder) throws {
@@ -684,6 +842,7 @@ public struct PlayoutStatus: Codable, Equatable, Sendable {
         self.audience = try container.decode(Bool.self, forKey: .audience)
         self.staleStreamConfig = try container.decode([StreamConfigWarning].self, forKey: .staleStreamConfig)
         self.silence = try container.decode(StationSilence.self, forKey: .silence)
+        self.live = try container.decodeIfPresent(PlayoutLive.self, forKey: .live)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -699,6 +858,7 @@ public struct PlayoutStatus: Codable, Equatable, Sendable {
         try container.encode(self.audience, forKey: .audience)
         try container.encode(self.staleStreamConfig, forKey: .staleStreamConfig)
         try container.encode(self.silence, forKey: .silence)
+        try container.encodeIfPresent(self.live, forKey: .live)
     }
 }
 

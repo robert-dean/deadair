@@ -18,6 +18,14 @@ fall back to the bed. Anything that grows a second way to drive playout has to r
 or it will be silently muted. Do not write docs or comments claiming the mount is never silent: it
 is silent exactly when deadair is not driving it, which is the point. See `stream/README.md`.
 
+**The one thing above the lease is a person.** The live input (`stream/radio.liq`, "Live input"), once
+armed through `POST /playout/live/arm` and carrying real signal, airs above the lease and whatever it
+says, because a presenter on the air is not deadair driving. It does not renew the lease and must not
+have to, which makes it the stated exception to the sentence above. The diagnosis reads a presenter on
+air as audible whatever the gates say, and the watchdog does not restart a chain over a programme queue
+nobody can hear while one is counting down or on. Today the programme carries on unheard underneath;
+the director does not stand down for it yet.
+
 **The audience is the second half of that lease.** `playout.airMode` in `deadair.settings` is `audience` (the
 default) or `always`; in `audience` mode the station airs only while somebody is connected, so a loaded
 station with a full running order and no listeners is silent **on purpose**, and the console says `ready` for

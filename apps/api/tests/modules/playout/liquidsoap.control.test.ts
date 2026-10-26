@@ -33,6 +33,17 @@ describe('parseReading', () => {
         expect(parseReading(undefined)).toBeUndefined();
     });
 
+    it('reads the live input, keeping each clock only beside the state it belongs to', () => {
+        expect(parseReading({ queued: 0, live: 'preroll', liveInMs: 1800, liveForMs: -1 })).toEqual({ queued: 0, live: 'preroll', liveInMs: 1800 });
+        expect(parseReading({ queued: 0, live: 'onair', liveInMs: -1, liveForMs: 42_000 })).toEqual({ queued: 0, live: 'onair', liveForMs: 42_000 });
+        // -1 is radio.liq's "not now", not a measurement.
+        expect(parseReading({ queued: 0, live: 'armed', liveInMs: -1, liveForMs: -1 })).toEqual({ queued: 0, live: 'armed' });
+    });
+
+    it('drops a live state it does not know, rather than passing it on', () => {
+        expect(parseReading({ queued: 0, live: 'sideways', liveInMs: 5 })).toEqual({ queued: 0 });
+    });
+
     it('keeps only the fields an older script omits, rather than inventing them', () => {
         // Absent must mean "not reported", never "zero": the rundown keys its whole
         // believe-nothing path off `ready` being missing.
@@ -1012,5 +1023,75 @@ describe('PlayoutControlClient.starvedSince', () => {
 
             expect(control.starvedSince()).toBeUndefined();
         });
+    });
+});
+
+describe('PlayoutControlClient live input', () => {
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+    const endpoint = {
+        resolve: async () => 'http://stream.test:8005',
+        secret: () => 'a-secret',
+        invalidate: vi.fn(),
+    } as unknown as LiquidsoapEndpoint;
+    const staleness = { noteLiquidsoap: vi.fn() } as unknown as StreamConfigWatch;
+
+    /** A stream answering each call with the next reading in `live`, recording what it was sent. */
+    const streamSaying = (...live: string[]) => {
+        const calls: { path: string; body?: string }[] = [];
+        let n = 0;
+        vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+            calls.push({ path: new URL(url).pathname, ...(typeof init.body === 'string' ? { body: init.body } : {}) });
+            return new Response(JSON.stringify({ queued: 0, live: live[Math.min(n++, live.length - 1)] }), { status: 200 });
+        });
+        return { client: new PlayoutControlClient(endpoint, staleness, logger), calls };
+    };
+
+    it('arms with the title as the body, flattened to one line, and answers with the reading', async () => {
+        const { client, calls } = streamSaying('armed');
+
+        const reading = await client.armLive('Late\nShow with Café');
+
+        expect(calls).toEqual([{ path: '/control/live/arm', body: 'Late Show with Café' }]);
+        expect(reading?.live).toBe('armed');
+    });
+
+    it('arms with an empty body when there is no title, which keeps the station name up', async () => {
+        const { client, calls } = streamSaying('armed');
+
+        await client.armLive();
+
+        expect(calls[0]).toEqual({ path: '/control/live/arm', body: '' });
+    });
+
+    it('disarms', async () => {
+        const { client, calls } = streamSaying('off');
+
+        expect((await client.disarmLive())?.live).toBe('off');
+        expect(calls.map(call => call.path)).toEqual(['/control/live/disarm']);
+    });
+
+    it('tells a listener each change of state, with what it changed from, and not the first reading', async () => {
+        const { client } = streamSaying('off', 'off', 'armed', 'preroll', 'onair', 'off');
+        const seen: string[] = [];
+        client.onLiveChange((next, previous) => seen.push(`${previous}->${next}`));
+
+        for (let i = 0; i < 6; i++) await client.status();
+
+        expect(seen).toEqual(['off->armed', 'armed->preroll', 'preroll->onair', 'onair->off']);
+    });
+
+    it('keeps telling the others when one listener throws', async () => {
+        const { client } = streamSaying('off', 'armed');
+        const seen: string[] = [];
+        client.onLiveChange(() => {
+            throw new Error('boom');
+        });
+        client.onLiveChange(next => seen.push(next));
+
+        await client.status();
+        await client.status();
+
+        expect(seen).toEqual(['armed']);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('a live-state listener threw (boom)'));
     });
 });

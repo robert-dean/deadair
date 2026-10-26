@@ -29,6 +29,12 @@ strings in both worlds — the alternative was a second set saying loopback that
 first. `PLAYOUT_BASE_URL` is the one exception and must be set, since its default names both the wrong host
 and the wrong port.
 
+**Two ports, and the second is not HTTP.** 80 carries the console, the API and every mount through nginx.
+8006 is the live input (`stream/radio.liq`, "Live input"), where a presenter's encoder connects over the
+Icecast source protocol, which the edge cannot proxy, so it is published on its own. `STREAM_LIVE_PORT`
+renders it into `radio.env` as `LIVE_PORT`, and the two must agree. It is safe to publish because nothing
+on it airs until the station arms it, and its password is `HARBOR_PASSWORD`, which the API seeds.
+
 **The API runs its compiled `dist`**, which is what the conditional imports map bought.
 
 **The config watch restarts the two services whose config changed** rather than stopping the container, which

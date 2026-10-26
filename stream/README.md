@@ -524,7 +524,7 @@ an `X-Playout-Secret` header:
 | `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
 | `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
 | `POST /control/metadata` | line one is the finished label, line two (optional) the artwork URL; puts both into the stream at the current position |
-| `POST /control/live/arm` | arms the live input; `X-Live-Title` is what the mount says while the presenter is on air (see "Live input") |
+| `POST /control/live/arm` | arms the live input; the body's first line is what the mount says while the presenter is on air (see "Live input") |
 | `POST /control/live/disarm` | disarms it, and hands back at once if it is on air                                |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
@@ -788,7 +788,7 @@ any     ──disarm────────────────────
 - **The level is the presenter's.** Their encoder's mixer sets it, `LIVE_GAIN_DB` is the operator's
   trim on top, and the bus limiter catches the peaks. There is no normaliser on it, because an RMS
   follower riding a voice pumps on every pause.
-- **The mount is labelled on both edges**, with the `X-Live-Title` the input was armed with (or the
+- **The mount is labelled on both edges**, with the title the input was armed with (or the
   station name) going on air, and with the programme's last label (or the station name, off the
   lease) on the hand-back. Metadata the presenter's encoder sends never reaches the mount, and the
   app's own labels are kept while the presenter is on, not inserted.
@@ -806,14 +806,17 @@ which the talk-over duck's own `add` already did. And the meter is not trusted u
 has fed it for longer than its 0.4s window, because between connections it holds the last reading:
 a silent encoder connecting after a loud one was heard at once.
 
-**What the app does not know yet.** Nothing in the app arms the input, reads these fields or changes
-the running order for it. While somebody is live the programme goes on unheard underneath, and the
-app keeps renewing the lease. The production image does not publish 8006 either, and the app does not
-materialize the `LIVE_*` keys, so the defaults in `radio.liq` apply. In development, compose
-publishes 8006 on localhost:
+**What the app does with it.** `POST /playout/live/arm` and `/playout/live/disarm` drive it,
+`GET /playout/status` reports it as `live`, `GET /playout/live/connection` gives an operator what
+their encoder needs, and the activity feed records each time it is armed, goes on air and comes off.
+The app materializes `LIVE_PORT` (from `STREAM_LIVE_PORT`) and the image publishes 8006. The timings
+stay on `radio.liq`'s defaults. **What it does not do yet** is change the running order: while
+somebody is live the programme goes on unheard underneath and the app keeps renewing the lease, so
+history and scrobbles record those records. In development, compose publishes 8006 on localhost, and
+the input can be driven without the app:
 
 ```
-curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" -H "X-Live-Title: Live" http://127.0.0.1:8005/control/live/arm
+curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" --data "Live" http://127.0.0.1:8005/control/live/arm
 ffmpeg -re -f lavfi -i "sine=frequency=1000" -c:a libmp3lame -f mp3 icecast://source:$HARBOR_PASSWORD@127.0.0.1:8006/live
 ```
 

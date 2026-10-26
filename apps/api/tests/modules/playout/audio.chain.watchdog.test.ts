@@ -146,3 +146,23 @@ describe('judgeAudioChain', () => {
         expect(judgeAudioChain(working({ downForMs: 3_000 }), spent).memory).toEqual(spent);
     });
 });
+
+describe('judgeAudioChain while a presenter is live', () => {
+    it('does not restart a chain holding records nobody can hear while a presenter is on or counting down', () => {
+        // The restart would cut the presenter off to rescue a programme the live input is above.
+        expect(judgeAudioChain(holding(STUCK_AFTER_MS, { live: 'onair' }), FRESH_WATCHDOG).verdict).toEqual({ action: 'none' });
+        expect(judgeAudioChain(holding(STUCK_AFTER_MS, { live: 'preroll' }), FRESH_WATCHDOG).verdict).toEqual({ action: 'none' });
+    });
+
+    it('still restarts one held while the input is only armed', () => {
+        expect(judgeAudioChain(holding(STUCK_AFTER_MS, { live: 'armed' }), FRESH_WATCHDOG).verdict).toMatchObject({ action: 'restart' });
+    });
+
+    it('still restarts a chain that has stopped answering, live or not', () => {
+        // A control API dead for a minute is a hung Liquidsoap, and the presenter is not getting through it either.
+        expect(judgeAudioChain(working({ downForMs: UNREACHABLE_AFTER_MS, live: 'onair' }), FRESH_WATCHDOG).verdict).toMatchObject({
+            action: 'restart',
+            reason: 'notAnswering',
+        });
+    });
+});

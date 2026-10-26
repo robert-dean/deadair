@@ -653,6 +653,10 @@ ENV BUILD_VERSION=${VERSION}
 # The one address the station is reached at: the console, the API under /api, and the stream
 # itself. Everything else here talks to everything else over loopback.
 EXPOSE 80
+# The one exception: the live input (stream/radio.liq, "Live input"), where a presenter's encoder
+# connects from another machine. It speaks the Icecast source protocol rather than HTTP the edge
+# proxies, so it cannot ride port 80. Nothing on it airs until the station arms it.
+EXPOSE 8006
 
 VOLUME ["/data"]
 

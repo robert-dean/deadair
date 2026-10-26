@@ -160,7 +160,27 @@ export interface QueueStatus {
      * `StreamConfigWatch`, which is the only thing that reads this.
      */
     configStamp?: string;
+    /**
+     * What the live input is doing: a presenter's encoder on `LIVE_PORT` (`radio.liq`, "Live input").
+     *
+     *   `off`      not armed, whatever is connected
+     *   `armed`    waiting for real signal
+     *   `preroll`  signal heard, counting down to the cut ({@link liveInMs})
+     *   `onair`    the presenter is on the mount, above the lease
+     *
+     * Absent from a script too old to have the input, which is the same as `off`.
+     */
+    live?: LiveState;
+    /** While {@link live} is `preroll`, how long until the cut. Absent otherwise. */
+    liveInMs?: number;
+    /** While {@link live} is `onair`, how long the presenter has been on. Absent otherwise. */
+    liveForMs?: number;
 }
+
+/** See {@link QueueStatus.live}. */
+export type LiveState = 'off' | 'armed' | 'preroll' | 'onair';
+
+const LIVE_STATES: readonly string[] = ['off', 'armed', 'preroll', 'onair'];
 
 /** See {@link QueueStatus.voice}. */
 export type VoiceCueState = 'idle' | 'armed' | 'fired' | 'missed';
@@ -183,6 +203,9 @@ export class PlayoutControlClient {
     private timeouts = 0;
     /** What the last call that produced a reading said. See {@link lastReading}. */
     private reading?: QueueStatus;
+    /** The live input's state as last read, and who wants to hear it change. See {@link onLiveChange}. */
+    private live?: LiveState;
+    private readonly liveListeners: ((next: LiveState, previous: LiveState) => void)[] = [];
 
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
@@ -449,6 +472,23 @@ export class PlayoutControlClient {
     }
 
     /**
+     * Arm the live input, so real signal from a presenter's encoder starts the countdown to the cut.
+     *
+     * `title` is what the mount says while they are on, carried as the body for the reason
+     * `/control/metadata`'s label is (a header must be Latin-1, a show's name need not be), and
+     * flattened to its one line. Without one the mount keeps the station name. Arming an input that is
+     * already armed or on air only replaces the title. Answers with the reading the arm produced.
+     */
+    async armLive(title?: string): Promise<QueueStatus | undefined> {
+        return this.read(await this.call('POST', '/control/live/arm', title === undefined ? '' : oneLine(title)));
+    }
+
+    /** Disarm the live input, which from on air is an immediate hand-back. Answers with the reading. */
+    async disarmLive(): Promise<QueueStatus | undefined> {
+        return this.read(await this.call('POST', '/control/live/disarm'));
+    }
+
+    /**
      * Drop everything queued but not yet airing. What is on air finishes: the
      * station stops committing to a running order it has abandoned, it does not
      * cut the listener off mid-track.
@@ -492,6 +532,19 @@ export class PlayoutControlClient {
     }
 
     /**
+     * Be told when the live input's state changes, with what it changed from.
+     *
+     * A seam on the transport rather than an event on `StationBus`, for the reason `Rundown.onChange`
+     * is one: the readings arrive here in order, and the edge is only an edge in that order. Called
+     * from whichever call produced the reading, so a listener must not throw (it is caught and logged
+     * if it does) and must not wait on anything. The first reading after boot is a starting point, not
+     * an edge: a station restarted under a live show did not just go live.
+     */
+    onLiveChange(listener: (next: LiveState, previous: LiveState) => void): void {
+        this.liveListeners.push(listener);
+    }
+
+    /**
      * Parse one reading and remember what it said about the station.
      *
      * Every reading-returning call funnels through here, so {@link isOnAir} is as
@@ -504,6 +557,7 @@ export class PlayoutControlClient {
         this.onAir = reading?.driving ?? false;
         this.warming = reading?.warming ?? false;
         if (reading !== undefined) this.reading = reading;
+        if (reading?.live !== undefined) this.noteLive(reading.live);
         // The queue producing is the end of any gap, whoever was supposed to say so.
         if (reading?.ready === true) this.starvedAt = undefined;
         // A call that produced no reading hands over `undefined` rather than a default:
@@ -515,6 +569,20 @@ export class PlayoutControlClient {
                 : { ...(reading.configStamp === undefined ? {} : { stamp: reading.configStamp }), driving: reading.driving ?? false },
         );
         return reading;
+    }
+
+    /** See {@link onLiveChange}. */
+    private noteLive(next: LiveState): void {
+        const previous = this.live;
+        this.live = next;
+        if (previous === undefined || previous === next) return;
+        for (const listener of this.liveListeners) {
+            try {
+                listener(next, previous);
+            } catch (error) {
+                this.logger.warn(`liquidsoap: a live-state listener threw (${errorText(error)})`);
+            }
+        }
     }
 
     /** One control call. Resolves to the parsed JSON body, or `undefined` on any failure. */
@@ -664,6 +732,15 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     // "" is radio.liq's "the app that rendered my config did not stamp it", which is
     // the same answer as an older script: no evidence, rather than a generation of "".
     if (typeof raw.configStamp === 'string' && raw.configStamp !== '') status.configStamp = raw.configStamp;
+    // The two clocks are -1 where they do not apply, which is radio.liq's "not now" rather than a
+    // measurement, so only a real count is kept, and only beside the state it belongs to.
+    if (typeof raw.live === 'string' && LIVE_STATES.includes(raw.live)) {
+        status.live = raw.live as LiveState;
+        const inMs = Number(raw.liveInMs);
+        if (status.live === 'preroll' && Number.isFinite(inMs) && inMs >= 0) status.liveInMs = inMs;
+        const forMs = Number(raw.liveForMs);
+        if (status.live === 'onair' && Number.isFinite(forMs) && forMs >= 0) status.liveForMs = forMs;
+    }
     return status;
 }
 

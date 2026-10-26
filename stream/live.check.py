@@ -245,7 +245,7 @@ def main() -> int:
             run.hold(BUFFER_S + 2)
 
             # silent: armed, but nothing to hear.
-            armed = control(port, "/control/live/arm", headers={"X-Live-Title": "Live check"})
+            armed = control(port, "/control/live/arm", "Live check")
             checks.append(("arm answers the reading with live armed", armed.get("live") == "armed"))
             run.presenter_on(0)
             readings, _ = run.hold(6)

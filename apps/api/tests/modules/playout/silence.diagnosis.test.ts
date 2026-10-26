@@ -466,3 +466,18 @@ describe('the residue check', () => {
         expect(answer.cause).toBe('notDriving');
     });
 });
+
+describe('a presenter on the live input', () => {
+    it('is audible above a gate that would otherwise be blocking, and still reports the gates', () => {
+        const answer = diagnose(airing({ liveOnAir: true, active: false, driving: false, hasProgramme: false }));
+
+        expect(answer.audible).toBe(true);
+        expect(answer.cause).toBe('airing');
+        expect(answer.detail).toBe('A presenter is on the air through the live input.');
+        expect(answer.checks.find(check => check.code === 'stoodDown')?.state).not.toBe('ok');
+    });
+
+    it('is not believed from a stream that has stopped answering', () => {
+        expect(diagnose(airing({ liveOnAir: true, streamUp: false })).audible).toBe(false);
+    });
+});

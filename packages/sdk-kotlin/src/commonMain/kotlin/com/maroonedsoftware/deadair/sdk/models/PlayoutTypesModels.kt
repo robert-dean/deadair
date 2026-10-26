@@ -167,6 +167,51 @@ data class PlayoutMount(
     val bitrateKbps: Long? = null,
 )
 
+/** What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme */
+@Serializable(with = LiveStateSerializer::class)
+enum class LiveState {
+    OFF,
+    ARMED,
+    PREROLL,
+    ONAIR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [LiveState] by its wire spelling. A spelling it does not know reads as [LiveState.UNKNOWN]. */
+object LiveStateSerializer : SdkEnumSerializer<LiveState>(
+    "LiveState",
+    LiveState.UNKNOWN,
+    LiveState.OFF to "off",
+    LiveState.ARMED to "armed",
+    LiveState.PREROLL to "preroll",
+    LiveState.ONAIR to "onair",
+)
+
+/** Arming the live input */
+@Serializable
+data class PlayoutLiveArmInput(
+    /** What the stream says is on while the presenter is on the air. Left out, it says the station's name */
+    val title: String? = null,
+)
+
+/** What a presenter's encoder needs to connect to the live input. Carries the input's password */
+@Serializable
+data class LiveConnection(
+    /** The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one */
+    val port: Long,
+    /** The mount to push to */
+    val mount: String,
+    /** The user name to send. The input accepts any; this is the one encoders default to */
+    val user: String,
+    /** The input's password, which the station generated when it was first set up */
+    val password: String,
+)
+
 /** Which rundown item Liquidsoap has just started playing */
 @Serializable
 data class PlayoutAiredQuery(
@@ -212,6 +257,16 @@ data class SilenceCheck(
     val remedy: String? = null,
 )
 
+/** The live input, as the audio chain last reported it */
+@Serializable
+data class PlayoutLive(
+    val state: LiveState,
+    /** While `preroll`, how long until the presenter is on the air. What a countdown is drawn from */
+    val inMs: Long? = null,
+    /** While `onair`, how long the presenter has been on */
+    val forMs: Long? = null,
+)
+
 /** Why the station cannot be heard, as one answer */
 @Serializable
 data class StationSilence(
@@ -248,6 +303,8 @@ data class PlayoutStatus(
     val staleStreamConfig: List<StreamConfigWarning>,
     /** Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest */
     val silence: StationSilence,
+    /** The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input */
+    val live: PlayoutLive? = null,
 )
 
 /** Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one */

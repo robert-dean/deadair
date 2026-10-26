@@ -83,6 +83,9 @@ const DEFAULT_MUSIC_DIR = '/music';
 /** Harbor port, which has to match the one published in docker-compose.yml. */
 const DEFAULT_HARBOR_PORT = '8005';
 
+/** The live input's port, which has to match the one the container publishes. */
+const DEFAULT_LIVE_PORT = '8006';
+
 /**
  * Owns the rendered Icecast/Liquidsoap config.
  *
@@ -118,6 +121,15 @@ export class StreamService {
     /** The resolved settings, secrets decrypted. */
     settings(): StreamSettings {
         return resolveStreamSettings(this.config, this.encryption);
+    }
+
+    /**
+     * The live input's port as the container publishes it, which is what `radio.env` is rendered
+     * with and what a presenter's encoder is told to connect to. One read for both, so the two
+     * cannot disagree.
+     */
+    livePort(): string {
+        return this.config.get('STREAM_LIVE_PORT', DEFAULT_LIVE_PORT);
     }
 
     /**
@@ -303,6 +315,7 @@ export class StreamService {
                 hlsDir: this.config.get('STREAM_HLS_LIQUIDSOAP_DIR', '/streamhls'),
                 musicDir: this.config.get('STREAM_MUSIC_DIR', DEFAULT_MUSIC_DIR),
                 harborPort: this.config.get('STREAM_HARBOR_PORT', DEFAULT_HARBOR_PORT),
+                livePort: this.livePort(),
                 configMode: this.configMode(),
                 log: message => this.logger.info(`stream: ${message}`),
             });

@@ -78,4 +78,31 @@ public final class PlayoutClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(PlayoutStatus.self, from: response)
     }
+
+    /// Arm the live input
+    /// Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title
+    /// - Throws: `SdkError` on 409
+    public func armTheLiveInput(body: PlayoutLiveArmInput) async throws -> PlayoutStatus {
+        var request = SdkRequest(method: "POST", path: ["playout", "live", "arm"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PlayoutStatus.self, from: response)
+    }
+
+    /// Disarm the live input
+    /// Disarms the live input. A presenter on the air is handed back to the station at once
+    /// - Throws: `SdkError` on 409
+    public func disarmTheLiveInput() async throws -> PlayoutStatus {
+        let request = SdkRequest(method: "POST", path: ["playout", "live", "disarm"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PlayoutStatus.self, from: response)
+    }
+
+    /// Get the live input connection
+    /// What an encoder needs to connect to the live input: the port, the mount, the user and the password
+    public func getTheLiveInputConnection() async throws -> LiveConnection {
+        let request = SdkRequest(method: "GET", path: ["playout", "live", "connection"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(LiveConnection.self, from: response)
+    }
 }

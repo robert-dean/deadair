@@ -4418,6 +4418,52 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PlayoutStatus'
+    '/playout/live/arm':
+        post:
+            operationId: armLive
+            summary: 'Arm the live input'
+            description: "Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlayoutLiveArmInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlayoutStatus'
+                '409':
+                    description: Conflict
+    '/playout/live/disarm':
+        post:
+            operationId: disarmLive
+            summary: 'Disarm the live input'
+            description: 'Disarms the live input. A presenter on the air is handed back to the station at once'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlayoutStatus'
+                '409':
+                    description: Conflict
+    '/playout/live/connection':
+        get:
+            operationId: liveConnection
+            summary: 'Get the live input connection'
+            description: 'What an encoder needs to connect to the live input: the port, the mount, the user and the password'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/LiveConnection'
     '/plugins':
         get:
             operationId: listPlugins
@@ -14145,6 +14191,9 @@ components:
                 silence:
                     '$ref': '#/components/schemas/StationSilence'
                     description: 'Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest'
+                live:
+                    '$ref': '#/components/schemas/PlayoutLive'
+                    description: "The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input"
             required:
                 - streamUp
                 - onAir
@@ -14157,6 +14206,58 @@ components:
                 - staleStreamConfig
                 - silence
             description: "The station's transport, as one reading"
+        LiveState:
+            type: string
+            enum: ['off', armed, preroll, onair]
+            description: "What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme"
+        PlayoutLive:
+            type: object
+            properties:
+                state:
+                    '$ref': '#/components/schemas/LiveState'
+                inMs:
+                    type: integer
+                    minimum: 0
+                    description: 'While `preroll`, how long until the presenter is on the air. What a countdown is drawn from'
+                forMs:
+                    type: integer
+                    minimum: 0
+                    description: 'While `onair`, how long the presenter has been on'
+            required: [state]
+            description: 'The live input, as the audio chain last reported it'
+        PlayoutLiveArmInput:
+            type: object
+            properties:
+                title:
+                    type: string
+                    maxLength: 200
+                    description: "What the stream says is on while the presenter is on the air. Left out, it says the station's name"
+            description: 'Arming the live input'
+        LiveConnection:
+            type: object
+            properties:
+                port:
+                    type: integer
+                    minimum: 1
+                    maximum: 65535
+                    description: "The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one"
+                mount:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'The mount to push to'
+                user:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'The user name to send. The input accepts any; this is the one encoders default to'
+                password:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The input's password, which the station generated when it was first set up"
+            required: [port, mount, user, password]
+            description: "What a presenter's encoder needs to connect to the live input. Carries the input's password"
         PlayoutSkipQuery:
             type: object
             properties:

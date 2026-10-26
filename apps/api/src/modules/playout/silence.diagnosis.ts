@@ -147,6 +147,14 @@ export interface StationFacts {
     /** Whether the last reading said deadair is holding the mount. */
     driving: boolean;
     /**
+     * Whether the last reading said a presenter is on air through the live input.
+     *
+     * The live input outranks the lease (`radio.liq`, "Live input"), so while this is true the mount
+     * is carrying somebody whatever the gates below say about deadair's own programme. Absent is
+     * the ordinary state, and an older script.
+     */
+    liveOnAir?: boolean;
+    /**
      * Whether the last reading said the lease is held on silence while the first record downloads.
      *
      * {@link driving} is true through it, so without this the chain answers `airing` about a mount
@@ -293,6 +301,19 @@ export function diagnose(facts: StationFacts): StationSilence {
     // audience and a reachable stream" underneath the gate saying there was no audience.
     const explained = independent.some(check => check.state !== 'ok' && check.code !== 'configNotAdopted');
     const checks = [...independent, notDriving(facts, explained ? blockedBy(independent) : undefined), starved(facts)];
+
+    // A presenter on the live input is on the mount above every gate here, so the station is audible
+    // whatever they say. The checks are still reported, because they describe the programme that
+    // comes back on the hand-back. Only while the stream answers: a reading from a chain that has
+    // stopped answering says nothing about what it is carrying now.
+    if (facts.liveOnAir === true && facts.streamUp) {
+        return {
+            audible: true,
+            cause: 'airing',
+            detail: 'A presenter is on the air through the live input.',
+            checks,
+        };
+    }
 
     const blocking = checks.find(check => check.state !== 'ok' && check.code !== 'configNotAdopted');
     if (!blocking) {

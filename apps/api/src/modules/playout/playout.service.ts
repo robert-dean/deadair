@@ -20,7 +20,10 @@ import { PlayoutPusher, RECONCILE_TICK_MS } from './playout.pusher.js';
 import { Rundown, type NowPlaying, type RundownItem } from './rundown.js';
 import { diagnose } from './silence.diagnosis.js';
 import type {
+    LiveConnection,
     PlayoutAiredQuery,
+    PlayoutLive,
+    PlayoutLiveArmInput,
     PlayoutItem,
     PlayoutChartInput,
     PlayoutStationPlaylistInput,
@@ -86,6 +89,12 @@ export interface TrackAudioResponse {
  * Liquidsoap confirming what went on air, which never reaches a browser and is
  * not in the SDK.
  */
+/** The live input's mount, as `radio.liq` opens it. */
+const LIVE_MOUNT = '/live';
+
+/** The user an encoder sends. The input accepts any; this is the one encoders default to. */
+const LIVE_USER = 'source';
+
 @Injectable()
 export class PlayoutService {
     constructor(
@@ -140,6 +149,7 @@ export class PlayoutService {
         const settings = await this.stream.settings();
         const mounts = streamMounts(settings);
         const silence = await this.diagnoseSilence();
+        const live = this.liveReading();
 
         return {
             // The MP3 mount, which is always published and is the one to name when only one
@@ -185,7 +195,64 @@ export class PlayoutService {
             // is a station waiting for a listener, unless Icecast stopped answering, in
             // which case it is a station that will wait forever.
             silence,
+            // The live input, from the same last reading `onAir` comes from, and only while the stream
+            // answers: a reading from a chain that has stopped answering says nothing about now.
+            ...(live === undefined ? {} : { live }),
         };
+    }
+
+    /** See {@link getStatus}. */
+    private liveReading(): PlayoutLive | undefined {
+        const reading = this.control.lastReading();
+        if (!this.control.isUp() || reading?.live === undefined) return undefined;
+        return {
+            state: reading.live,
+            ...(reading.liveInMs === undefined ? {} : { inMs: reading.liveInMs }),
+            ...(reading.liveForMs === undefined ? {} : { forMs: reading.liveForMs }),
+        };
+    }
+
+    /**
+     * Arm the live input, so real signal from a presenter's encoder takes the air after a countdown.
+     *
+     * A 409 when the reading that comes back says nothing about the input: the stream did not take
+     * the arm, or it is on a script too old to have one, and in neither case is anything waiting for an
+     * encoder. An operator told it worked would wait for a countdown that never comes.
+     */
+    async armLive(input: PlayoutLiveArmInput): Promise<PlayoutStatus> {
+        const reading = await this.control.armLive(input.title);
+        if (reading?.live === undefined) {
+            throw httpError(409).withDetails({ message: 'the audio chain did not take the arm; it may be down, or too old to have a live input' });
+        }
+        this.logger.info(`playout: the live input is ${reading.live === 'armed' ? 'armed' : `still ${reading.live}`}`);
+        return this.getStatus();
+    }
+
+    /** Disarm the live input, handing the air straight back if a presenter is on it. 409 as {@link armLive}. */
+    async disarmLive(): Promise<PlayoutStatus> {
+        const reading = await this.control.disarmLive();
+        if (reading?.live === undefined) {
+            throw httpError(409).withDetails({ message: 'the audio chain did not take the disarm; the live input may still be armed or on the air' });
+        }
+        this.logger.info('playout: the live input is disarmed');
+        return this.getStatus();
+    }
+
+    /**
+     * What a presenter's encoder needs: the port, the mount, a user and the input's password.
+     *
+     * The password is `stream.harborPassword`, the one stream secret ever answered in the clear,
+     * and only here, to an operator who could arm the input anyway: it is what they type into the
+     * encoder. The port is the one the CONTAINER publishes; an operator who mapped it to another
+     * on the host knows that, and the console says so beside it.
+     */
+    async liveConnection(): Promise<LiveConnection> {
+        const password = this.stream.settings().harborPassword;
+        if (!password) {
+            // Seeded at boot, so only a row deleted by hand since gets here.
+            throw httpError(503).withDetails({ message: 'the live input has no password yet; restart the station to seed one' });
+        }
+        return { port: Number(this.stream.livePort()), mount: LIVE_MOUNT, user: LIVE_USER, password };
     }
 
     /**
@@ -225,6 +292,8 @@ export class PlayoutService {
             driving: this.control.isOnAir(),
             // Held on silence while the first record downloads: driving, and nothing going out yet.
             ...(this.control.isWarming() ? { playerWarming: true } : {}),
+            // A presenter on the live input, who is on the mount whatever the lease says.
+            ...(this.control.lastReading()?.live === 'onair' ? { liveOnAir: true } : {}),
             staleConfig: this.staleness.warnings(),
             active: air.active,
             hasProgramme: this.rundown.hasProgramme(),

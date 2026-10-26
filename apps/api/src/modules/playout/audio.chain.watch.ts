@@ -83,6 +83,7 @@ export class AudioChainWatch {
             ...(starvedSince === undefined ? {} : { starvedForMs: now - starvedSince }),
             ...(reading?.ready === undefined ? {} : { ready: reading.ready }),
             ...(reading === undefined ? {} : { queued: reading.queued }),
+            ...(reading?.live === undefined ? {} : { live: reading.live }),
         };
     }
 

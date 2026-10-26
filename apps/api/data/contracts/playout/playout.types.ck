@@ -113,6 +113,26 @@ contract PlayoutStatus: { # The station's transport, as one reading
     audience: boolean # Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast
     staleStreamConfig: array(StreamConfigWarning) # Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess
     silence: StationSilence # Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest
+    live?: PlayoutLive # The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input
+}
+
+contract LiveState: enum(off, armed, preroll, onair) # What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme
+
+contract PlayoutLive: { # The live input, as the audio chain last reported it
+    state: LiveState
+    inMs?: int(min=0) # While `preroll`, how long until the presenter is on the air. What a countdown is drawn from
+    forMs?: int(min=0) # While `onair`, how long the presenter has been on
+}
+
+contract PlayoutLiveArmInput: { # Arming the live input
+    title?: string(max=200) # What the stream says is on while the presenter is on the air. Left out, it says the station's name
+}
+
+contract LiveConnection: { # What a presenter's encoder needs to connect to the live input. Carries the input's password
+    port: int(min=1, max=65535) # The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one
+    mount: string(min=1, max=100) # The mount to push to
+    user: string(min=1, max=100) # The user name to send. The input accepts any; this is the one encoders default to
+    password: string(min=1, max=200) # The input's password, which the station generated when it was first set up
 }
 
 contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started playing

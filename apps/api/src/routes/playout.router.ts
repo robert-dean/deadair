@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
 import {
+    LiveConnection,
     PlayoutAiredQuery,
     PlayoutAlbumInput,
     PlayoutChartInput,
+    PlayoutLiveArmInput,
     PlayoutPlaylistInput,
     PlayoutSkipQuery,
     PlayoutStarveQuery,
@@ -126,6 +128,47 @@ PlayoutRouter.post('/playout/start', requirePolicy({ policy: 'platform.manage' }
 PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
     const result: PlayoutStatus = await service.stop();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/live/arm`
+ */
+PlayoutRouter.post('/playout/live/arm', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PlayoutLiveArmInput);
+
+    const service = ctx.container.get(PlayoutService);
+    const result: PlayoutStatus = await service.armLive(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Disarms the live input. A presenter on the air is handed back to the station at once
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/live/disarm`
+ */
+PlayoutRouter.post('/playout/live/disarm', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(PlayoutService);
+    const result: PlayoutStatus = await service.disarmLive();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * What an encoder needs to connect to the live input: the port, the mount, the user and the password
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `GET /playout/live/connection`
+ */
+PlayoutRouter.get('/playout/live/connection', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(PlayoutService);
+    const result: LiveConnection = await service.liveConnection();
 
     ctx.status = 200;
     ctx.type = 'application/json';

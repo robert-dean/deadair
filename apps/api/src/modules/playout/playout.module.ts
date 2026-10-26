@@ -20,6 +20,7 @@ import { TrackAudioResolver } from './providers/track.audio.resolver.js';
 import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { AudioChainWatch } from './audio.chain.watch.js';
+import { LiveActivity } from './live.activity.js';
 import { PlayoutService } from './playout.service.js';
 import { Rundown } from './rundown.js';
 
@@ -133,6 +134,7 @@ export const PlayoutModule: ServerKitModule = {
         // last asked for a restart, and how many have not helped) is the bound that stops a restart
         // becoming a loop. A scoped copy would forget it and ask every two seconds.
         registry.register(AudioChainWatch).useClass(AudioChainWatch).asSingleton();
+        registry.register(LiveActivity).useClass(LiveActivity).asSingleton();
 
         // Singleton because it IS the station's reading of its audience: a per-request
         // copy would poll Icecast once per call and answer from a window of its own.
@@ -164,6 +166,8 @@ export const PlayoutModule: ServerKitModule = {
         // Beside the loop it watches, and started whether or not the stream is up for the same reason:
         // a chain that never answers is one of the two things it is there to notice.
         container.get(AudioChainWatch).start();
+        // The live input's edges onto the activity feed, from the readings the loop above takes.
+        container.get(LiveActivity).start();
 
         // Started here rather than in StreamModule, next to the loop that will be held
         // on its reading: the mount it watches was pushed into the stats client by

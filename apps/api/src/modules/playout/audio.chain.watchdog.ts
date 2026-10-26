@@ -37,6 +37,8 @@
  * saying so and then nothing until it recovers by some other means.
  */
 
+import type { LiveState } from './liquidsoap.control.js';
+
 /**
  * The operator's switch, read through `settingIsOn` because a setting is a string.
  *
@@ -103,6 +105,12 @@ export interface ChainFacts {
     ready?: boolean;
     /** Requests Liquidsoap says it is holding, from the last reading. `undefined` with no reading. */
     queued?: number;
+    /**
+     * The live input's state, from the last reading. While a presenter is counting down or on air,
+     * a programme queue that is not producing is not a reason to restart the chain: the restart
+     * would cut the presenter off to rescue records nobody can hear.
+     */
+    live?: LiveState;
 }
 
 /** What the watchdog remembers between readings. Start from {@link FRESH_WATCHDOG}. */
@@ -162,7 +170,15 @@ function stuckFor(facts: ChainFacts): { reason: StuckReason; stuckForMs: number 
         return facts.downForMs >= UNREACHABLE_AFTER_MS ? { reason: 'notAnswering', stuckForMs: facts.downForMs } : undefined;
     }
     const holding = (facts.queued ?? 0) >= 1;
-    if (facts.wantsAir && holding && facts.ready === false && facts.starvedForMs !== undefined && facts.starvedForMs >= STUCK_AFTER_MS) {
+    const presenting = facts.live === 'preroll' || facts.live === 'onair';
+    if (
+        !presenting &&
+        facts.wantsAir &&
+        holding &&
+        facts.ready === false &&
+        facts.starvedForMs !== undefined &&
+        facts.starvedForMs >= STUCK_AFTER_MS
+    ) {
         return { reason: 'holdingNotPlaying', stuckForMs: facts.starvedForMs };
     }
     return undefined;

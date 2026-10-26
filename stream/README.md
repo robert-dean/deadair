@@ -524,7 +524,7 @@ an `X-Playout-Secret` header:
 | `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
 | `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
 | `POST /control/metadata` | line one is the finished label, line two (optional) the artwork URL; puts both into the stream at the current position |
-| `POST /control/live/arm` | arms the live input; `X-Live-Title` is what the mount says while the presenter is on air (see "Live input") |
+| `POST /control/live/arm` | arms the live input; the body's first line is what the mount says while the presenter is on air (see "Live input") |
 | `POST /control/live/disarm` | disarms it, and hands back at once if it is on air                                |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
@@ -788,7 +788,7 @@ any     ──disarm────────────────────
 - **The level is the presenter's.** Their encoder's mixer sets it, `LIVE_GAIN_DB` is the operator's
   trim on top, and the bus limiter catches the peaks. There is no normaliser on it, because an RMS
   follower riding a voice pumps on every pause.
-- **The mount is labelled on both edges**, with the `X-Live-Title` the input was armed with (or the
+- **The mount is labelled on both edges**, with the title the input was armed with (or the
   station name) going on air, and with the programme's last label (or the station name, off the
   lease) on the hand-back. Metadata the presenter's encoder sends never reaches the mount, and the
   app's own labels are kept while the presenter is on, not inserted.
@@ -813,7 +813,7 @@ materialize the `LIVE_*` keys, so the defaults in `radio.liq` apply. In developm
 publishes 8006 on localhost:
 
 ```
-curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" -H "X-Live-Title: Live" http://127.0.0.1:8005/control/live/arm
+curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" --data "Live" http://127.0.0.1:8005/control/live/arm
 ffmpeg -re -f lavfi -i "sine=frequency=1000" -c:a libmp3lame -f mp3 icecast://source:$HARBOR_PASSWORD@127.0.0.1:8006/live
 ```
 

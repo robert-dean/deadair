@@ -225,6 +225,8 @@ export class PlayoutService {
             driving: this.control.isOnAir(),
             // Held on silence while the first record downloads: driving, and nothing going out yet.
             ...(this.control.isWarming() ? { playerWarming: true } : {}),
+            // A presenter on the live input, who is on the mount whatever the lease says.
+            ...(this.control.lastReading()?.live === 'onair' ? { liveOnAir: true } : {}),
             staleConfig: this.staleness.warnings(),
             active: air.active,
             hasProgramme: this.rundown.hasProgramme(),

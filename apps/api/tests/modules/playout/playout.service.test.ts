@@ -125,6 +125,7 @@ function build(options: Options = {}) {
         starvedSince: vi.fn(() => undefined),
         downSince: vi.fn(() => options.downSince),
         deniedSince: vi.fn(() => options.deniedSince),
+        lastReading: vi.fn(() => undefined),
     } as unknown as PlayoutControlClient;
 
     const director = {

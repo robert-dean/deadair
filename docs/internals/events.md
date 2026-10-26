@@ -66,7 +66,11 @@ the durable write, and `EventAnnouncer` subscribes: the one case the bus exists 
 its subscriber on opposite sides of `modules.ts`. It becomes `station.onAir` or `station.offAir` with a
 `reason` (`programme`, `resumed`, `stopped`, `ranOut`), true for ten minutes rather than an item's
 length, and a state event like the four above, so a late retry of it cannot undo what came after. The
-moment carried is when the director decided, not when the subscriber got round to it.
+moment carried is when the director decided, not when the subscriber got round to it. **A stand-down
+for a live show, and the resume when it ends, publish nothing**: a presenter is on the air through the
+live input, so to a listener the station never went quiet, and a server told `station.offAir` would act
+on something untrue. The activity feed still records both. Events of their own for a live show are a
+follow-up rather than a new `reason`, because `offAir` with any reason still says the station is quiet.
 
 **A request arriving comes over the bus too**, from `RequestDesk.submit`, for the same reason: the
 desk is registered before `events`. It is published once the row is written and, when it could be,

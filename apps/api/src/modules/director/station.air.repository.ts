@@ -28,6 +28,11 @@ export interface StationAir {
      * started. `0` is not quiet. See migration 0114 and `quiet.spell.ts`.
      */
     quietRecords: number;
+    /**
+     * Whether a stand-down was a presenter taking the air through the live input, so the hand-back
+     * puts the station on again. Only ever true while `active` is false. See migration 0120.
+     */
+    forLive: boolean;
 }
 
 /** The longest quiet spell, in records. The table holds it to the same figure. */
@@ -52,12 +57,12 @@ export class StationAirRepository extends DataRepository {
     async get(slot = MAIN_SLOT): Promise<StationAir | undefined> {
         const row = await this.db
             .selectFrom('deadair.stationAir')
-            .select(['slot', 'active', 'ranOut', 'breaksQuietRecords'])
+            .select(['slot', 'active', 'ranOut', 'breaksQuietRecords', 'stoodDownForLive'])
             .where('slot', '=', slot)
             .executeTakeFirst();
         if (!row) return undefined;
 
-        return { slot: row.slot, active: row.active, ranOut: row.ranOut, quietRecords: row.breaksQuietRecords };
+        return { slot: row.slot, active: row.active, ranOut: row.ranOut, quietRecords: row.breaksQuietRecords, forLive: row.stoodDownForLive };
     }
 
     /**
@@ -109,8 +114,8 @@ export class StationAirRepository extends DataRepository {
     async goOnAir(slot = MAIN_SLOT): Promise<void> {
         await this.db
             .insertInto('deadair.stationAir')
-            .values({ slot, active: true, ranOut: false })
-            .onConflict(oc => oc.column('slot').doUpdateSet({ active: true, ranOut: false }))
+            .values({ slot, active: true, ranOut: false, stoodDownForLive: false })
+            .onConflict(oc => oc.column('slot').doUpdateSet({ active: true, ranOut: false, stoodDownForLive: false }))
             .execute();
     }
 
@@ -124,8 +129,11 @@ export class StationAirRepository extends DataRepository {
      *
      * @param ranOut - The running order ran out and said to stop, rather than anybody stopping the
      *   station. Written either way, so an operator's Stop clears what a run-out left behind.
+     * @param forLive - A presenter took the air through the live input, so the hand-back puts the
+     *   station on again. Written either way too, so an operator's Stop during a show is not
+     *   overruled when the show ends.
      */
-    async standDown(slot = MAIN_SLOT, ranOut = false): Promise<void> {
-        await this.db.updateTable('deadair.stationAir').set({ active: false, ranOut }).where('slot', '=', slot).execute();
+    async standDown(slot = MAIN_SLOT, ranOut = false, forLive = false): Promise<void> {
+        await this.db.updateTable('deadair.stationAir').set({ active: false, ranOut, stoodDownForLive: forLive }).where('slot', '=', slot).execute();
     }
 }

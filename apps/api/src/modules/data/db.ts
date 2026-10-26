@@ -1155,6 +1155,7 @@ export interface DeadairStationAir {
   createdAt: Generated<DateTime>;
   ranOut: Generated<boolean>;
   slot: Generated<string>;
+  stoodDownForLive: Generated<boolean>;
   updatedAt: Generated<DateTime>;
 }
 

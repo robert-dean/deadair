@@ -4,6 +4,7 @@ import { CoverResolver } from '#modules/art/cover.resolver.js';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import { listenerCover } from '#modules/playout/annotate.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
+import { PlayoutControlClient } from '#modules/playout/liquidsoap.control.js';
 import { Rundown } from '#modules/playout/rundown.js';
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { HLS_PLAYLIST_PATH, STREAM_DEFAULTS, STREAM_KEYS, resolveMountSettings, streamMounts } from '#modules/stream/stream.settings.js';
@@ -43,6 +44,7 @@ export class NowPlayingService {
         private readonly rundown: Rundown,
         private readonly audience: AudienceWatch,
         private readonly config: AppConfig,
+        private readonly control: PlayoutControlClient,
         private readonly covers?: CoverResolver,
     ) {}
 
@@ -122,6 +124,14 @@ export class NowPlayingService {
         // of a station that is currently quiet — which, under `audience` air mode, is every
         // station nobody has tuned into yet.
         const mounts = this.mounts();
+        // A presenter on the live input is what a listener hears, above whatever the running order
+        // says: under `standDown` there is nothing airing, and under `continue` the record the
+        // rundown names is going on unheard. So the show is theirs, named as the input was armed or
+        // as the station, and there is no track, because nothing tells the station what they play.
+        const presenter = this.control.presenter();
+        if (presenter) {
+            return { station: this.stationName(), onAir: true, listeners, mounts, show: { name: presenter.title ?? this.stationName() } };
+        }
         if (!nowPlaying) return { station: this.stationName(), onAir: false, listeners, mounts };
 
         const { item, startedAt, remainingMs } = nowPlaying;

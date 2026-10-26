@@ -26,6 +26,7 @@ import { ModelDedicationWriter } from './model.dedication.writer.js';
 import { DedicationWriter } from './dedication.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
+import { LiveHandOver } from './live.handover.js';
 import { DislikeVeto } from './dislike.veto.js';
 import { WelcomeWriter } from './welcome.writer.js';
 import { ChangeoverWriter } from './changeover.writer.js';
@@ -363,6 +364,7 @@ export const DirectorModule: ServerKitModule = {
         // director because what the station does about a listener arriving is a programming decision
         // and should be one readable file.
         registry.register(WelcomeAnnouncer).useClass(WelcomeAnnouncer).asSingleton();
+        registry.register(LiveHandOver).useClass(LiveHandOver).asSingleton();
 
         // The second subscriber, for the same reasons: an operator disliked something in the
         // catalog, which is registered before this module and so cannot reach it by import, and
@@ -392,6 +394,8 @@ export const DirectorModule: ServerKitModule = {
         // After the director, and it has to be: a greeting asked for before the running order has
         // been read back is one declined for a station that is not airing anything.
         container.get(WelcomeAnnouncer).start();
+        // A presenter on the live input taking the air, and handing it back.
+        container.get(LiveHandOver).start();
         // After the director too, and for a narrower version of the same reason: a veto against an
         // order that has not been read back yet would find nothing on air and do nothing, silently.
         container.get(DislikeVeto).start();
@@ -400,6 +404,7 @@ export const DirectorModule: ServerKitModule = {
     shutdown: async (container: Container) => {
         // First, so nothing asks for a greeting while the director is flushing what it holds.
         container.get(WelcomeAnnouncer).stop();
+        container.get(LiveHandOver).stop();
         // Beside it, and for its reason: nothing should be editing the running order while the
         // director is flushing what it holds.
         container.get(DislikeVeto).stop();

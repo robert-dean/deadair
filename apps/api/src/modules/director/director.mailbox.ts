@@ -124,7 +124,19 @@ export type DirectorCommand =
      * The station is going off air, from the transport or from an order that ended. `ranOut` says
      * which, because the schedule treats them differently: see `DirectorService.ranOut`.
      */
-    | { kind: 'standDown'; ranOut?: boolean }
+    | { kind: 'standDown'; ranOut?: boolean; forLive?: boolean }
+    /**
+     * A presenter took the air through the live input: stand the station down, so nothing of its own
+     * goes on underneath them. Does nothing to a station that is already off. Goes through the
+     * rundown's reset, as an order that ended does, so the mount is handed back the way Stop hands it
+     * back and `standDown` arrives behind it marked `forLive`.
+     */
+    | { kind: 'standDownForLive' }
+    /**
+     * The presenter handed back: put the station on again, at the next record, but only when it was a
+     * live show that stood it down. A station somebody stopped during the show stays stopped.
+     */
+    | { kind: 'resumeAfterLive' }
     /**
      * Put the station on air with a new running order, built from these records.
      *

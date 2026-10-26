@@ -1080,6 +1080,25 @@ describe('PlayoutControlClient live input', () => {
         expect(seen).toEqual(['off->armed', 'armed->preroll', 'preroll->onair', 'onair->off']);
     });
 
+    it('names the presenter only while on air, by the title it was armed with, until the show ends', async () => {
+        const { client } = streamSaying('armed', 'onair', 'onair', 'off', 'onair');
+
+        await client.armLive('The Late Show');
+        expect(client.presenter()).toBeUndefined();
+
+        await client.status();
+        expect(client.presenter()).toEqual({ title: 'The Late Show' });
+
+        await client.armLive('Renamed');
+        expect(client.presenter()).toEqual({ title: 'Renamed' });
+
+        await client.status();
+        expect(client.presenter()).toBeUndefined();
+        // The next show, armed without a title, does not inherit the last one's.
+        await client.status();
+        expect(client.presenter()).toEqual({});
+    });
+
     it('keeps telling the others when one listener throws', async () => {
         const { client } = streamSaying('off', 'armed');
         const seen: string[] = [];

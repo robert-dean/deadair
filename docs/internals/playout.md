@@ -23,8 +23,10 @@ armed through `POST /playout/live/arm` and carrying real signal, airs above the 
 says, because a presenter on the air is not deadair driving. It does not renew the lease and must not
 have to, which makes it the stated exception to the sentence above. The diagnosis reads a presenter on
 air as audible whatever the gates say, and the watchdog does not restart a chain over a programme queue
-nobody can hear while one is counting down or on. Today the programme carries on unheard underneath;
-the director does not stand down for it yet.
+nobody can hear while one is counting down or on. What the station's own programme does meanwhile is
+`playout.liveAutomation`: by default the director stands it down and picks it up again on the
+hand-back, and the lease goes with the stand-down as it does for Stop (`docs/internals/director.md`, "A
+live show"). On `continue` the programme goes on unheard underneath and the lease is renewed as usual.
 
 **The audience is the second half of that lease.** `playout.airMode` in `deadair.settings` is `audience` (the
 default) or `always`; in `audience` mode the station airs only while somebody is connected, so a loaded

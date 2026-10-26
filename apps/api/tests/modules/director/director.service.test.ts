@@ -7,6 +7,8 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { LiveHandOver } from '../../../src/modules/director/live.handover.js';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
@@ -1960,6 +1962,26 @@ describe('DirectorService handing the air to a live presenter', () => {
         await director.start();
 
         expect(await director.liveHandedBack()).toEqual({ resumed: true });
+        expect(director.status().active).toBe(true);
+    });
+
+    it('is driven from the live input edges on the bus, end to end through the hand-over', async () => {
+        // The one path the station takes: playout publishes, LiveHandOver posts, the director acts.
+        const { director, bus, airRepository, seed } = build();
+        await seed();
+        await director.start();
+        const config = { get: (_key: string, fallback: string) => fallback } as unknown as AppConfig;
+        new LiveHandOver(bus, director, config, logger).start();
+
+        bus.publish('live.changed', { state: 'onair', previous: 'preroll', at: 1 });
+        await settle();
+        await settle();
+        expect(director.status().active).toBe(false);
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false, true);
+
+        bus.publish('live.changed', { state: 'off', previous: 'onair', at: 2 });
+        await settle();
+        await settle();
         expect(director.status().active).toBe(true);
     });
 

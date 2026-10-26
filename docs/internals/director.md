@@ -312,6 +312,40 @@ with a 409 ("That had already finished, so nothing was skipped.") when that item
 before `skipCurrent` is asked anything. Without the parameter the press is aimed at whatever is airing
 when it arrives, as it always was, which is what keeps an older app working against a newer station.
 
+### A live show
+
+**A presenter on the live input stands the station down, and the hand-back is the one thing that
+undoes a stand-down on its own.** The input outranks the lease in `radio.liq`, so the presenter is on
+the air whatever the director does; the question is what the station's own programme does underneath
+them, and `playout.liveAutomation` answers it. On `standDown`, the default, nothing of the station's
+goes on: no records, no breaks, no news, no welcome, and nothing written to history or scrobbled that
+nobody heard. On `continue` the director is never told and the programme runs on, unheard.
+
+**It is the director's own reset, the way an order that ran out is.** `LiveActivity` in `playout`
+publishes `live.changed` on `StationBus` (playout is registered first, so it cannot reach this module),
+and `LiveHandOver` turns the on-air edge into the `standDownForLive` command. Its handler does what
+`finish()` does: it sets a flag and calls `rundown.reset()`, so the mount is handed back exactly as Stop
+hands it back and the stand-down arrives at the one listener every stand-down arrives at, which reads
+the flag and marks it `forLive`. Standing down from the command rather than from the event would be a
+second path into the running order, which is the bug "Who owns the running order" enumerates.
+
+**Only a stand-down a live show made is undone by its end.** The mark is
+`station_air.stood_down_for_live` (migration 0120), restored with `active` and `ran_out`, so a show
+that outlasts a restart still hands back. Every other stand-down writes it false: an operator who stops
+the station during a show is not overruled when the show ends, and a station that was already off when
+the presenter went on is never switched on by the hand-back. `resumeAfterLive` refuses both.
+
+**The hand-back resumes, it does not restart.** It is `resume()`, so it is the same broadcast, and
+`Rundown.reset()` marked the record that was playing when the presenter took over as played, so the
+station comes back on the NEXT record rather than in the middle of that one. A block boundary that
+passed during the show is the schedule's to act on once the station is back on, as it would be after
+any resume. Between the hand-back and the first record there is the warm-up a first listener hears:
+the lease is retaken from nothing and waits on silence for a record whose bytes are already local, a
+second or two.
+
+**Neither edge publishes `air.changed`**, so event destinations hear nothing: to a listener the
+station never went quiet. `docs/internals/events.md` says the same from the other side.
+
 ## What the order is asked for
 
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job

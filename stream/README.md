@@ -810,10 +810,10 @@ a silent encoder connecting after a loud one was heard at once.
 `GET /playout/status` reports it as `live`, `GET /playout/live/connection` gives an operator what
 their encoder needs, and the activity feed records each time it is armed, goes on air and comes off.
 The app materializes `LIVE_PORT` (from `STREAM_LIVE_PORT`) and the image publishes 8006. The timings
-stay on `radio.liq`'s defaults. **What it does not do yet** is change the running order: while
-somebody is live the programme goes on unheard underneath and the app keeps renewing the lease, so
-history and scrobbles record those records. In development, compose publishes 8006 on localhost, and
-the input can be driven without the app:
+stay on `radio.liq`'s defaults. While somebody is live, the director stands the station's own
+programme down and picks it up at the next record on the hand-back, unless `playout.liveAutomation`
+says `continue` (`docs/internals/director.md`, "A live show"). In development, compose publishes 8006
+on localhost, and the input can be driven without the app:
 
 ```
 curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" --data "Live" http://127.0.0.1:8005/control/live/arm

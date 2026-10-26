@@ -122,8 +122,11 @@ against gpt-oss, which thought briefly and answered in about 200 tokens. gemma4 
 writer, and their defaults are the old constants so nothing changed for a station that sets neither. `none`
 joined `LlmReasoningEffort` for this: unset leaves the provider's own default in charge, and some models
 think by default. The plugin's own effort setting still wins unless it is Auto, which is why the setting's help
-says so. The record-choosing model keeps its own room (`llm.setMaxTokens`) and its own `low`: an hour of
-programming is a research task, and a link is not.
+says so. The record-choosing model keeps its own room (`llm.setMaxTokens`) and its own effort
+(`llm.setReasoning`, read through `setReasoning`), because the two calls are sized differently and may run on
+different models. Its effort was a literal `low` until 2026-10-26, and unlike the break's it did not keep the
+old constant as its default: handed a screened shortlist, gemma4 at `low` spent 8,000 to 20,000 characters
+reasoning per refill and finished one run in seven inside the three-minute budget, so the default is `none`.
 
 **A production's beats got the same setting two weeks later, for the same reason.** Every beat and every
 re-draft in `produce.production.job.ts` still sent `low` as a literal, and on the same model a thirty-word turn

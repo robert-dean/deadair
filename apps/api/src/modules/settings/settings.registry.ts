@@ -75,7 +75,13 @@ import {
     OVERRUN_MINUTES_KEY,
     OVERRUN_MINUTES_RANGE,
 } from '#modules/schedule/changeover.overrun.js';
-import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS, MODEL_SHORTLIST_DEFAULT } from '#modules/director/model.set.generator.js';
+import {
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    DEFAULT_SET_REASONING,
+    MODEL_GENERATOR_DEFAULT,
+    MODEL_GENERATOR_KEYS,
+    MODEL_SHORTLIST_DEFAULT,
+} from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { BRIEF_ARTIST_KEYS, DEFAULT_BRIEF_ARTIST_MIX } from '#modules/director/brief.artist.set.generator.js';
@@ -1725,7 +1731,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: MODEL_SHORTLIST_DEFAULT,
         dependsOn: MODEL_GENERATOR_KEYS.enabled,
-        help: "On, a brief that names its artists is programmed from a numbered list the station builds itself: records by those artists and a few who sound like them, from your library and from what your providers have said, with anything that played too recently, any artist who just played and anything you dislike already taken out. The model answers with numbers, which is far quicker than searching and writing out titles, and every record it picks can play. It can still search for something the list lacks, such as a song the brief names by title. Off, or for a brief that names no artists, the model searches as it always has.",
+        help: 'On, a brief that names its artists is programmed from a numbered list the station builds itself: records by those artists and a few who sound like them, from your library and from what your providers have said, with anything that played too recently, any artist who just played and anything you dislike already taken out. The model answers with numbers, which is far quicker than searching and writing out titles, and every record it picks can play. It can still search for something the list lacks, such as a song the brief names by title. Off, or for a brief that names no artists, the model searches as it always has.',
     },
     {
         group: 'llm',
@@ -1735,6 +1741,21 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: DEFAULT_MAX_OUTPUT_TOKENS,
         dependsOn: MODEL_GENERATOR_KEYS.enabled,
         help: 'How many tokens the model gets for one hour of programming. Two dozen records of JSON is small, so nearly all of this is room to think in — and a model that runs out mid-thought answers with nothing at all rather than with a short list. Raise it if the log says the model ran out of room; a reasoning model on a long brief can want several times this. The cost of setting it too high is a slower refill, which nobody is waiting on.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.reasoning,
+        label: 'How hard the programming model thinks',
+        type: 'select',
+        default: DEFAULT_SET_REASONING,
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        options: [
+            { value: 'none', label: 'Not at all' },
+            { value: 'low', label: 'A little' },
+            { value: 'medium', label: 'Some' },
+            { value: 'high', label: 'A lot' },
+        ],
+        help: 'Choosing the next hour from a list the station has already screened rarely needs a model to reason first, and a model that thinks at length can spend its whole time doing it and choose nothing, which the log reports as "ran out of time before the model named any records". Not at all is the fix for those. Raise it for a model that answers well and quickly when it thinks. Only reaches the model if the language model plugin\'s own effort setting is Auto.',
     },
     // What the station plays was a setting here and is now the persona's own `music` line, beside
     // the character that plays it: choosing a persona is one decision about who the station is, and

@@ -205,6 +205,8 @@ export class PlayoutControlClient {
     private reading?: QueueStatus;
     /** The live input's state as last read, and who wants to hear it change. See {@link onLiveChange}. */
     private live?: LiveState;
+    /** What the input was last armed to say while a presenter is on. See {@link presenter}. */
+    private liveTitle?: string;
     private readonly liveListeners: ((next: LiveState, previous: LiveState) => void)[] = [];
 
     constructor(
@@ -480,12 +482,29 @@ export class PlayoutControlClient {
      * already armed or on air only replaces the title. Answers with the reading the arm produced.
      */
     async armLive(title?: string): Promise<QueueStatus | undefined> {
-        return this.read(await this.call('POST', '/control/live/arm', title === undefined ? '' : oneLine(title)));
+        const line = title === undefined ? '' : oneLine(title);
+        const reading = this.read(await this.call('POST', '/control/live/arm', line));
+        // Kept only once the arm landed, so a refused one does not rename a show already on.
+        if (reading?.live !== undefined) this.liveTitle = line === '' ? undefined : line;
+        return reading;
     }
 
     /** Disarm the live input, which from on air is an immediate hand-back. Answers with the reading. */
     async disarmLive(): Promise<QueueStatus | undefined> {
         return this.read(await this.call('POST', '/control/live/disarm'));
+    }
+
+    /**
+     * The presenter on the air through the live input, as of the last reading, or `undefined` when
+     * there is none. `title` is what the input was armed to say, absent when it was armed without one.
+     *
+     * The app keeps the title because only the audio chain had it, and `/nowplaying` answers from
+     * memory. Only while the stream answers, for {@link isOnAir}'s reason: a reading from a chain
+     * that has stopped answering says nothing about what it carries now.
+     */
+    presenter(): { title?: string } | undefined {
+        if (!this.up || this.reading?.live !== 'onair') return undefined;
+        return this.liveTitle === undefined ? {} : { title: this.liveTitle };
     }
 
     /**
@@ -575,6 +594,8 @@ export class PlayoutControlClient {
     private noteLive(next: LiveState): void {
         const previous = this.live;
         this.live = next;
+        // A hand-back or a disarm ends the show the title named, however it ended.
+        if (next === 'off') this.liveTitle = undefined;
         if (previous === undefined || previous === next) return;
         for (const listener of this.liveListeners) {
             try {

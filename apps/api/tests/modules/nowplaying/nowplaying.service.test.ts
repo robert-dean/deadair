@@ -12,6 +12,7 @@ import { clearArtSourceKey, configureArtSourceKey } from '../../../src/modules/a
 import { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { Rundown, RundownBroadcast, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
+import type { PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import { TEMPLATE_KEYS } from '../../../src/modules/director/break.templates.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -58,6 +59,7 @@ const build = (
     settings: Record<string, string> = {},
     broadcast?: RundownBroadcast,
     covers?: CoverResolver,
+    presenter?: { title?: string },
 ) => {
     const rundown = { nowPlaying: vi.fn(() => nowPlaying), broadcast: vi.fn(() => broadcast) } as unknown as Rundown;
     // A real `AppConfig` over a plain object, because this service reads SETTINGS and every
@@ -65,7 +67,9 @@ const build = (
     // would pass whichever way the code read it, which is the failure this repository has already
     // had once.
     const config = settingsConfig({ [STREAM_KEYS.title]: stationName, ...settings });
-    const service = new NowPlayingService(rundown, audienceOf(listeners), config.config, covers);
+    // Nobody on the live input unless a test puts somebody there.
+    const control = { presenter: () => presenter } as unknown as PlayoutControlClient;
+    const service = new NowPlayingService(rundown, audienceOf(listeners), config.config, control, covers);
     return { service, rundown, config };
 };
 
@@ -407,5 +411,29 @@ describe('NowPlayingService', () => {
             expect(answer).not.toContain('https://');
             expect(answer).not.toContain('coverSourceUrl');
         });
+    });
+});
+
+describe('NowPlayingService while a presenter is live', () => {
+    it('names the show the input was armed with, on air, with no track, over a programme going on unheard', () => {
+        const { service } = build({ item, startedAt: 1_700_000_000_000 }, 'Static Between Stations', 3, {}, undefined, undefined, {
+            title: 'The Late Show',
+        });
+
+        expect(service.getNowPlaying()).toEqual({
+            station: 'Static Between Stations',
+            onAir: true,
+            listeners: 3,
+            mounts: [MP3_MOUNT],
+            show: { name: 'The Late Show' },
+        });
+    });
+
+    it('names the station when the input was armed without a title, and is on air with nothing in the running order', () => {
+        const answer = build(undefined, 'Static Between Stations', 0, {}, undefined, undefined, {}).service.getNowPlaying();
+
+        expect(answer.onAir).toBe(true);
+        expect(answer.show).toEqual({ name: 'Static Between Stations' });
+        expect(answer.track).toBeUndefined();
     });
 });

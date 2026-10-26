@@ -8,7 +8,8 @@
 # All of which happens ONLY while deadair holds the control lease. The mount is
 # not "never silent": it is silent exactly when the app is not driving it, which
 # is the point of the dead-man switch further down. Everything the fallbacks do
-# is about not dropping out mid-programme, never about carrying on without one.
+# is about not dropping out mid-programme, never about carrying on without one. The one thing that
+# outranks the lease is a person: the live input, once armed and carrying signal (see "Live input").
 #
 # All config comes from the process env, which the container entrypoint sources
 # from the app-rendered /streamconfig/radio.env (falling back to the committed
@@ -116,11 +117,9 @@ music_dir   = environment.get("MUSIC_DIR", default="/music")
 # segments over HTTP and lets Liquidsoap fetch its own voice the same way it fetches
 # its own music, so no audio passes through the app at all. See step 3.
 #
-# The materializer still writes HARBOR_PASSWORD into radio.env and nothing reads it,
-# which is deliberate rather than an oversight: a live input is the obvious thing to
-# want back here one day — a real microphone is the honest case — and it would need
-# exactly that credential. An unread env key costs nothing; a binding nothing uses
-# reads as something somebody forgot to delete.
+# The materializer writes HARBOR_PASSWORD into radio.env, and for a long time nothing read it,
+# kept because a live input was the obvious thing to want back here one day. It is now that
+# input's credential (see "Live input"), on a port of its own rather than this one.
 harbor_port = int_of_string(environment.get("HARBOR_PORT", default="8005"))
 
 # Talk-over mode (materialized from the director's talkOverTracks setting; default true).
@@ -1107,6 +1106,130 @@ def playout_resolving() =
   list.length(list.filter(in_flight, playout_pushed()))
 end
 
+# ── Live input ───────────────────────────────────────────────────────────────────────────────
+# A person taking the air: an encoder on another machine (BUTT, Mixxx, OBS through a custom
+# output) pushes to the `live` mount on LIVE_PORT over the Icecast source protocol, and once the
+# input has been ARMED and is carrying real signal, it outranks everything below it, the lease
+# included (step 5).
+#
+# Its own port, not the harbor port: that one carries /control/*, which is gated on a shared
+# secret and nothing more, and a live encoder is exactly the thing that has to be reachable from
+# another machine. Authenticated against HARBOR_PASSWORD, the credential this file kept unread for
+# this input, through `auth` so an empty password refuses every login rather than accepting an
+# empty one. Any user name is accepted: encoders disagree about what to send, and the password is
+# the credential.
+#
+# A CONNECTION is not a decision to go live. An encoder left running, or one being set up, must
+# never cut the station, so nothing airs until the app arms the input (/control/live/arm), and an
+# armed input still waits for actual signal: is_ready() flips when audio flows, and an encoder
+# sending digital silence flows audio too, so the momentary loudness has to clear the same -50
+# LUFS floor the duck uses (step 4) for LIVE_SIGNAL_S. Then a PRE-ROLL of LIVE_PREROLL_S, with the
+# station still on the mount, so the presenter gets a countdown and a clean cue rather than being
+# cut to cold; what they send during it is not aired. The pre-roll asks only that the encoder stay
+# connected, because a presenter waiting for their cue is, correctly, saying nothing.
+#
+# On air, LIVE_DROP_S of silence or of no connection hands back. A dropped connection that comes
+# back inside that window carries on, and while it is away the fallback below puts whatever is
+# underneath on the mount rather than nothing. A hand-back DISARMS: going live again is a fresh
+# arm, so an encoder left connected after a show cannot take the air back on its own.
+#
+# The level is the presenter's: their encoder's mixer is where it is set, LIVE_GAIN_DB is the
+# operator's trim on top, and the bus limiter (step 6) catches the peaks. No `normalize` here,
+# because an RMS follower riding a voice pumps on every pause.
+#
+# What the app does NOT know yet: none of this changes the running order. The programme carries on
+# unheard underneath (Liquidsoap keeps consuming a source the fallback has not selected, see the
+# README), and the app goes on renewing the lease.
+live_port = int_of_float(env_float("LIVE_PORT", 8006.))
+live_password = environment.get("HARBOR_PASSWORD", default="")
+live_signal_s = max(0.1, env_float("LIVE_SIGNAL_S", 0.5))
+live_preroll_s = max(0., env_float("LIVE_PREROLL_S", 3.))
+live_drop_s = max(1., env_float("LIVE_DROP_S", 8.))
+live_gain_db = env_float("LIVE_GAIN_DB", 0.)
+live_tick = 0.1
+
+def live_auth(login) =
+  live_password != "" and login.password == live_password
+end
+
+# A two-second buffer rather than the default twelve, which exists for crossfading INTO a harbor
+# input and here would only put twelve seconds between the presenter and their audience.
+live_src = input.harbor(id="live", port=live_port, auth=live_auth, buffer=2., max=10., "live")
+
+# Metered on the leaf, before the trim, on a 0.4s window: the momentary reading R128 defines.
+live_meter = lufs(window=0.4, live_src)
+
+# off → armed → preroll → onair → off. Moved on a 0.1s tick by counted-up durations, for the reason
+# every duration in this file is counted: a stepped container clock cannot fool it.
+live_state = ref("off")
+live_title = ref("")
+live_held = ref(0.)
+live_for = ref(0.)
+live_quiet = ref(0.)
+live_ready_for = ref(0.)
+
+# Counting tenths up to a threshold in floating point lands a hair under it, so every comparison
+# below allows for that rather than waiting a tick longer than it says.
+live_epsilon = 0.001
+
+# Real signal: connected, and loud enough to be somebody. The NaN-safe form of the floor, as in
+# step 4, because the meter answers NaN (or -inf) over a stretch with nothing in it.
+#
+# Not until the connection has been feeding the meter for longer than its window. Between
+# connections nothing pulls the input, so the meter holds the LAST reading it took: measured, a
+# silent encoder connecting after a loud one was heard at once and started the countdown on the
+# previous show's level.
+def live_heard() =
+  live_src.is_ready() and live_ready_for() >= 0.5 and live_meter.lufs_momentary() >= -50.
+end
+
+def live_on_air() =
+  live_state() == "onair"
+end
+
+def live_hand_back() =
+  live_state := "off"
+  live_held := 0.
+  live_for := 0.
+  live_quiet := 0.
+end
+
+def live_step() =
+  live_ready_for := if live_src.is_ready() then live_ready_for() + live_tick else 0. end
+  st = live_state()
+  if st == "armed" then
+    if live_heard() then
+      live_held := live_held() + live_tick
+      if live_held() >= live_signal_s - live_epsilon then
+        live_state := "preroll"
+        live_held := 0.
+      end
+    else
+      live_held := 0.
+    end
+  elsif st == "preroll" then
+    if not live_src.is_ready() then
+      live_state := "armed"
+      live_held := 0.
+    else
+      live_held := live_held() + live_tick
+      if live_held() >= live_preroll_s - live_epsilon then
+        live_state := "onair"
+        live_held := 0.
+        live_for := 0.
+        live_quiet := 0.
+      end
+    end
+  elsif st == "onair" then
+    live_for := live_for() + live_tick
+    live_quiet := if live_heard() then 0. else live_quiet() + live_tick end
+    if live_quiet() >= live_drop_s - live_epsilon then
+      live_hand_back()
+    end
+  end
+end
+thread.run(every=live_tick, live_step)
+
 def playout_reading() =
   ready = playout_queue.is_ready()
   ready_json = if ready then "true" else "false" end
@@ -1139,7 +1262,12 @@ def playout_reading() =
   # `dB` on the way here is applied as a linear factor and looks like nothing at all from the app
   # side, which is a difference of ten decibels reported as a difference of none.
   speech_json = if on_air_speech() then "true" else "false" end
-  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "warming": #{warming_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
+  # The live input: its state, the pre-roll left while counting down (what a console's countdown is
+  # drawn from) and how long it has been on air. -1 where the number does not apply, as for
+  # `remainingMs`.
+  live_in_ms = if live_state() == "preroll" then int_of_float(max(0., live_preroll_s - live_held()) * 1000.) else -1 end
+  live_for_ms = if live_on_air() then int_of_float(live_for() * 1000.) else -1 end
+  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "warming": #{warming_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}", "live": "#{live_state()}", "liveInMs": #{live_in_ms}, "liveForMs": #{live_for_ms}'
 end
 
 def control_status(req) =
@@ -1359,7 +1487,37 @@ def control_voice_clear(req) =
   end
 end
 
+# Arm the live input: from here, real signal on the `live` mount starts the pre-roll. The title the
+# mount carries while the presenter is on air comes in a header, as the voice cue's item does,
+# and an empty one leaves the station name up. Arming an input that is already armed, counting
+# down or on air only replaces the title, so a console pressing twice changes nothing it should not.
+def control_live_arm(req) =
+  if control_authorized(req) then
+    live_title := string.trim(list.assoc(default="", "x-live-title", req.headers))
+    if live_state() == "off" then
+      live_state := "armed"
+      live_held := 0.
+    end
+    control_json('{' ^ playout_reading() ^ '}')
+  else
+    control_denied()
+  end
+end
+
+# Disarm: from any state, and from on air it is an immediate hand-back. This, not /control/offair,
+# is what ends a live show: standing the station down says nothing about a person on the air.
+def control_live_disarm(req) =
+  if control_authorized(req) then
+    live_hand_back()
+    control_json('{' ^ playout_reading() ^ '}')
+  else
+    control_denied()
+  end
+end
+
 harbor.http.register.simple(port=harbor_port, method="GET", "/control/status", control_status)
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/live/arm", control_live_arm)
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/live/disarm", control_live_disarm)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/voice/arm", control_voice_arm)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/voice/clear", control_voice_clear)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/push", control_push)
@@ -1386,9 +1544,9 @@ bed = fallback(track_sensitive=false, [playout_bed, music, station_id])
 #    This replaced input.harbor("dj", ...). v1 streamed rendered audio in over the Icecast source
 #    protocol because its app GENERATED the audio in-process and had bytes in hand. deadair serves
 #    segments over HTTP instead, so Liquidsoap can fetch its own voice exactly the way it fetches
-#    its own music, and no audio passes through the app at all. Bring the harbor input back as a
-#    second arm here if something ever genuinely needs to stream live audio in — a real microphone
-#    is the honest case — but nothing does today, and an unused mount is a thing that rots.
+#    its own music, and no audio passes through the app at all. Live audio from a person did come
+#    back, but not as an arm here: it replaces the whole programme rather than talking over it, so
+#    it sits above the lease in step 5 (see "Live input").
 #
 #    THE TIMING, which is the whole point of the arm/fire split below. The app does not decide
 #    WHEN the DJ speaks; it says what to say and against which item, and this script picks the
@@ -1664,7 +1822,45 @@ programme =
 # look at the queue again. Silence or the bed while deadair is driving is deadair's business (an
 # item still resolving, a gap it meant to leave). Silence because nothing is driving is a
 # different fact, and only this gate can tell them apart.
-radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_programme()}, programme)]), blank()])
+#
+# ABOVE the lease, the live input, and deliberately so: a person on the air is not deadair driving,
+# so whether deadair holds the lease is not the question.
+#
+# MIXED in rather than switched to, and that is not a preference. A source a fallback has not
+# selected is not pulled, so a live input sitting in a fallback branch is never decoded until it is
+# on air, its meter never moves, and it can never be judged to be carrying signal: measured, an
+# armed input with a tone on it sat at `armed` for the whole run. `add` pulls every input that is
+# ready, so the input is decoded and metered from the moment it connects, at a weight of zero until
+# it goes on air. A dummy output to pull it instead is worse than wrong: it starts a clock of its own,
+# and the clash with this one aborted the Icecast output thread.
+#
+# The weights ramp over LIVE_FADE_MS, so going on air and handing back are a short crossfade rather
+# than a cut. The gate is the FIRST input, which is the one `add` relays metadata from, so whatever
+# the presenter's encoder sends never reaches the mount (the live edges label it, below). A
+# connection that drops mid-show gives the gate its full weight back at once, so whatever is
+# underneath plays until the encoder returns or the drop window hands back. The 40ms fade is for the
+# first frame of a connection, which otherwise starts on whatever sample the encoder was at.
+gated = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_programme()}, programme)]), blank()])
+live_bus = fade.in(duration=0.04, live_meter)
+
+live_fade_s = max(0.01, env_float("LIVE_FADE_MS", 300.) / 1000.)
+live_mix = ref(0.)
+live_mix_tick = 0.025
+def live_mix_step() =
+  step = live_mix_tick / live_fade_s
+  live_mix := if live_on_air() then min(1., live_mix() + step) else max(0., live_mix() - step) end
+end
+thread.run(every=live_mix_tick, live_mix_step)
+
+def gated_weight() =
+  if live_src.is_ready() then 1. - live_mix() else 1. end
+end
+
+def live_weight() =
+  live_mix() * lin_of_dB(live_gain_db)
+end
+
+radio = add(normalize=false, weights=[{gated_weight()}, {live_weight()}], [gated, live_bus])
 
 # The label, when the station is not saying anything.
 #
@@ -1682,9 +1878,16 @@ radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_pro
 # a freshly started mount with the station name instead of leaving it blank until something airs.
 was_driving = ref(true)
 
+# The last label the app announced (`control_metadata` below), so a live show handing back to a
+# programme still under the lease can put the record that is playing back on the mount rather than
+# the station name until the next record starts. Seeded with the station's own label.
+programme_label = ref(list.append([("title", stream_name), ("artist", "")], station_art))
+
+# Not over a live show: the lease lapsing underneath a person on the air says nothing about what the
+# mount is carrying. The live edges below label the hand-back themselves.
 def label_when_off_air() =
   now = driving()
-  if was_driving() and not now then
+  if was_driving() and not now and not live_on_air() then
     radio.insert_metadata(list.append([("title", stream_name), ("artist", "")], station_art))
   end
   was_driving := now
@@ -1693,6 +1896,29 @@ end
 # On the same tick as the lease countdown: the lapse this reacts to is measured there, and a
 # second clock would only disagree with it.
 thread.run(every=lease_tick, label_when_off_air)
+
+# The live input's two edges, labelled here for the same reason as the lapse above: the switch to it
+# is track-insensitive, so nothing else would tell the mount. On air, the title the input was armed
+# with, or the station name. On the hand-back, the programme's own last label if the lease is held,
+# and the station name if it is not. Metadata the presenter's encoder sends rides on top of the
+# first, which is the presenter's call.
+was_live = ref(false)
+
+def label_live_edges() =
+  now = live_on_air()
+  if now and not was_live() then
+    title = if live_title() == "" then stream_name else live_title() end
+    radio.insert_metadata(list.append([("title", title), ("artist", "")], station_art))
+  elsif was_live() and not now then
+    if driving() then
+      radio.insert_metadata(programme_label())
+    else
+      radio.insert_metadata(list.append([("title", stream_name), ("artist", "")], station_art))
+    end
+  end
+  was_live := now
+end
+thread.run(every=live_tick, label_live_edges)
 
 # The label, when the station IS saying something.
 #
@@ -1730,7 +1956,13 @@ def control_metadata(req) =
       # The artist is cleared for the reason the off-air label clears it: leaving the
       # previous one standing under a new title is its own kind of wrong.
       art = if artwork == "" then [] else [("url", artwork)] end
-      radio.insert_metadata(list.append([("title", caption), ("artist", "")], art))
+      # Kept whatever is on air, and inserted only when it is the programme: while a person is on
+      # the air the app goes on announcing the records playing unheard underneath, and the mount
+      # must not say any of them. The hand-back puts the latest one up.
+      programme_label := list.append([("title", caption), ("artist", "")], art)
+      if not live_on_air() then
+        radio.insert_metadata(programme_label())
+      end
       control_json('{' ^ playout_reading() ^ '}')
     end
   end

@@ -151,8 +151,8 @@ while it plays. This replaced v1's `input.harbor("dj")`, which the app streamed 
 over the Icecast source protocol, and before that a file-drop playlist that relied on inotify, which
 doesn't fire across Docker Desktop for Mac's bind mount, so no segment ever aired. The harbor port
 (`HARBOR_PORT`, default 8005, published on localhost) now carries only the `/control/*` endpoints.
-`HARBOR_PASSWORD` is a DB-seeded secret the app materializes and nothing reads yet, kept for a live
-input; like the Icecast passwords, a container that first started on the committed
+`HARBOR_PASSWORD` is a DB-seeded secret the app materializes, and the live input's password (see
+"Live input"); like the Icecast passwords, a container that first started on the committed
 `radio.default.env` dev default adopts the app's on the restart `config-watch.sh` triggers when the
 app renders one (see below).
 
@@ -513,6 +513,8 @@ an `X-Playout-Secret` header:
 | `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
 | `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
 | `POST /control/metadata` | line one is the finished label, line two (optional) the artwork URL; puts both into the stream at the current position |
+| `POST /control/live/arm` | arms the live input; `X-Live-Title` is what the mount says while the presenter is on air (see "Live input") |
+| `POST /control/live/disarm` | disarms it, and hands back at once if it is on air                                |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
 already the state it produced:
@@ -529,6 +531,9 @@ already the state it produced:
 | `onAir`       | rundown item id of the request playing, `""` when not producing                                                                                                                                                                                                  |
 | `driving`     | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station**                                                                                              |
 | `remainingMs` | how much of it is left; `-1` when nothing is on air or the decoder can't say (never `0` — `remaining()` uses `0` for "no item", which the app would otherwise read as a real measurement)                                                                        |
+| `live`        | the live input: `off`, `armed`, `preroll` or `onair`. Absent from an older script                                                                                                                                                                                |
+| `liveInMs`    | while `preroll`, how long until it goes on air (what a countdown is drawn from); `-1` otherwise                                                                                                                                                                 |
+| `liveForMs`   | while `onair`, how long it has been; `-1` otherwise                                                                                                                                                                                                              |
 
 Only `queued` used to be reported, and the app paid for that: it had to deduce whether an item had
 started from the depth dropping, guess when one ended (nothing announces that), and extrapolate the
@@ -735,6 +740,78 @@ Consequences worth knowing before they surprise you:
   deliberately not persisted; see `apps/api/src/modules/playout/rundown.ts`.
 - **Replacing the running order does not cut the listener off.** `load()` flushes what has not
   aired and keeps the lease; only a stand-down releases it.
+
+## Live input: a person takes the air
+
+An encoder on another machine (BUTT, Mixxx, OBS through a custom ffmpeg output) pushes to the `live`
+mount on `LIVE_PORT` (8006) over the Icecast source protocol, with `HARBOR_PASSWORD` as its password
+and any user name. Once the input is armed and carrying real signal, it outranks everything in
+`radio.liq`, the lease included: a person on the air is not deadair driving. It is its own port so
+the harbor port, whose endpoints are gated on a shared secret and nothing more, never has to be
+reachable from another machine.
+
+```
+off     ──arm──────────────────────────────────────▶ armed
+armed   ──real signal held for LIVE_SIGNAL_S───────▶ preroll
+preroll ──LIVE_PREROLL_S───────────────────────────▶ onair
+preroll ──encoder gone─────────────────────────────▶ armed
+onair   ──silence or no encoder for LIVE_DROP_S────▶ off
+any     ──disarm───────────────────────────────────▶ off
+```
+
+- **A connection is not a decision.** An encoder that connects to an unarmed input changes nothing.
+  `POST /control/live/arm` is the decision, and an armed input still waits for real signal: the
+  momentary loudness has to clear -50 LUFS for `LIVE_SIGNAL_S`, because an encoder sending digital
+  silence is still sending audio.
+- **The pre-roll is the countdown.** `LIVE_PREROLL_S` (3s) with the station still on the mount and
+  `liveInMs` falling in the reading, then the cut. What the presenter sends during it is not aired,
+  and it asks only that the encoder stay connected, because a presenter waiting for their cue is
+  silent on purpose.
+- **Going on air and handing back are a crossfade** of `LIVE_FADE_MS` (300ms), not a cut.
+- **A hand-back disarms.** `LIVE_DROP_S` (8s) of silence or of no connection hands back, as does
+  `POST /control/live/disarm`. Going live again is a fresh arm, so an encoder left running after a
+  show cannot take the air back on its own. A connection that drops and returns inside the window
+  carries on, and while it is away whatever is underneath plays.
+- **The input buffers two seconds**, so the presenter is heard about two seconds after they speak,
+  and the drop window starts when that buffer runs dry rather than at the disconnect.
+- **The level is the presenter's.** Their encoder's mixer sets it, `LIVE_GAIN_DB` is the operator's
+  trim on top, and the bus limiter catches the peaks. There is no normaliser on it, because an RMS
+  follower riding a voice pumps on every pause.
+- **The mount is labelled on both edges**, with the `X-Live-Title` the input was armed with (or the
+  station name) going on air, and with the programme's last label (or the station name, off the
+  lease) on the hand-back. Metadata the presenter's encoder sends never reaches the mount, and the
+  app's own labels are kept while the presenter is on, not inserted.
+- **`/control/offair` does not end a live show.** Standing the station down says nothing about a
+  person on the air; disarm does that.
+
+**Why it is mixed in rather than switched to.** A source a fallback has not selected is not pulled,
+so an input in a fallback branch is never decoded until it is on air, its meter never moves, and it
+can never be judged to be carrying signal. Measured: an armed input with a tone on it sat at `armed`
+for the whole run. `radio` is therefore an `add` over the lease gate and the input, with weights
+ramped by the live state, which pulls the input from the moment it connects. Pulling it from a dummy
+output instead is worse: that starts a clock of its own, and the clash aborted the Icecast output
+thread. `add` relays metadata from its first input only, which is the gate, and drops track marks,
+which the talk-over duck's own `add` already did. And the meter is not trusted until a connection
+has fed it for longer than its 0.4s window, because between connections it holds the last reading:
+a silent encoder connecting after a loud one was heard at once.
+
+**What the app does not know yet.** Nothing in the app arms the input, reads these fields or changes
+the running order for it. While somebody is live the programme goes on unheard underneath, and the
+app keeps renewing the lease. The production image does not publish 8006 either, and the app does not
+materialize the `LIVE_*` keys, so the defaults in `radio.liq` apply. In development, compose
+publishes 8006 on localhost:
+
+```
+curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" -H "X-Live-Title: Live" http://127.0.0.1:8005/control/live/arm
+ffmpeg -re -f lavfi -i "sine=frequency=1000" -c:a libmp3lame -f mp3 icecast://source:$HARBOR_PASSWORD@127.0.0.1:8006/live
+```
+
+`live.check.py` runs the whole script in the pinned image with a second container as the presenter,
+and checks every edge above against both the reading and the audio on the bus:
+
+```
+python3 stream/live.check.py
+```
 
 ## Spotify playout (the track shim)
 

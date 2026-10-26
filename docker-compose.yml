@@ -294,9 +294,14 @@ services:
         # a signed URL on it, and Liquidsoap downloads the track from it ahead of air. Published on
         # localhost so a host-run app (pnpm dev) can reach it — to push the Spotify login, and for
         # diagnostics. An app in the compose network uses SPOTIFY_SHIM_CONTROL_URL instead.
+        # 8006 is the live input (radio.liq, "Live input"): an encoder (BUTT, Mixxx, ffmpeg) pushes
+        # to its `live` mount with HARBOR_PASSWORD. Must match LIVE_PORT in radio.env. Localhost
+        # here, so only an encoder on this machine reaches it; publishing it wider is a deliberate
+        # step, since anyone with the password can then take the air once it is armed.
         ports:
             - '127.0.0.1:3679:3679'
             - '127.0.0.1:8005:8005'
+            - '127.0.0.1:8006:8006'
         # Use the app-rendered env from the volume if it exists; otherwise fall back
         # to the committed static default (read-only from /defaults). Source it, then
         # run. Lets the stream start on its own.

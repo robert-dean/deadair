@@ -399,6 +399,17 @@ export class DirectorService {
      */
     private finishingOrder = false;
     /**
+     * Whether the station is off because a presenter took the air through the live input, so the
+     * hand-back puts it on again. Mirrors `station_air.stood_down_for_live` the way {@link airRanOut}
+     * mirrors `ran_out`, restored with it so a show that outlasts a restart still hands back.
+     */
+    private airForLive = false;
+    /**
+     * Set for exactly the length of {@link standDownForLive}'s own `rundown.reset()`, on
+     * {@link finishingOrder}'s pattern and for its reason.
+     */
+    private standingDownForLive = false;
+    /**
      * Bumped wherever the plan this pass was computed against stops being the plan:
      * a stand-down, a new running order, an edit.
      *
@@ -495,8 +506,9 @@ export class DirectorService {
                 // a command cannot cancel a pass that is already gathering, because it runs after
                 // it.
                 const ranOut = this.finishingOrder;
-                this.beginStandDown(ranOut);
-                this.send({ kind: 'standDown', ranOut });
+                const forLive = this.standingDownForLive;
+                this.beginStandDown(ranOut, forLive);
+                this.send({ kind: 'standDown', ranOut, forLive });
             }),
         );
 
@@ -737,6 +749,18 @@ export class DirectorService {
         return isResumeResult(result) ? result : { resumed: false };
     }
 
+    /** A presenter took the air through the live input. See the `standDownForLive` command. */
+    liveTookTheAir(): void {
+        this.send({ kind: 'standDownForLive' });
+    }
+
+    /** The presenter handed back. See the `resumeAfterLive` command. */
+    async liveHandedBack(): Promise<ResumeResult> {
+        const result = await this.post({ kind: 'resumeAfterLive' });
+
+        return isResumeResult(result) ? result : { resumed: false };
+    }
+
     /**
      * Read `station_air`, load the running order, and commit if the station is meant
      * to be on.
@@ -751,6 +775,7 @@ export class DirectorService {
         const air = await this.readAir(true);
         this.active = air?.active ?? false;
         this.airRanOut = air?.ranOut ?? false;
+        this.airForLive = air?.forLive ?? false;
         this.quietRecords = air?.quietRecords ?? 0;
 
         this.lineup = await inScope(this.container, async scope => scope.get(StationLineupRepository).load());
@@ -876,8 +901,18 @@ export class DirectorService {
                 return await this.resume();
 
             case 'standDown':
-                await this.standDown(command.ranOut);
+                await this.standDown(command.ranOut, command.forLive);
                 return undefined;
+
+            case 'standDownForLive':
+                this.standDownForLive();
+                return undefined;
+
+            case 'resumeAfterLive':
+                // Only a stand-down a live show made is undone by its end. A station somebody stopped
+                // during the show, or one that was off before it, stays as it is.
+                if (this.active || !this.airForLive) return { resumed: false };
+                return await this.resume(true);
 
             case 'putOnAir':
                 await this.putOnAir(command.binding, command.tracks);
@@ -2340,6 +2375,7 @@ export class DirectorService {
         const air = await this.readAir();
         this.active = air?.active ?? false;
         this.airRanOut = air?.ranOut ?? false;
+        this.airForLive = air?.forLive ?? false;
         this.quietRecords = air?.quietRecords ?? 0;
         if (!this.active) return;
 
@@ -3965,6 +4001,28 @@ export class DirectorService {
     }
 
     /**
+     * Stand the station down because a presenter took the air through the live input.
+     *
+     * Through the rundown's own reset, as {@link finish} does for an order that ended and for its
+     * reason: the mount is handed back exactly as Stop hands it back, and this class hears its own
+     * stand-down on the one listener every stand-down arrives at. Flagged around the call so the
+     * listener records it as a live show, which is what lets the hand-back undo it.
+     *
+     * A station that is already off is left alone: there is nothing to stand down, and marking it
+     * would have the hand-back switch on a station somebody had stopped.
+     */
+    private standDownForLive(): void {
+        if (!this.active) return;
+
+        this.standingDownForLive = true;
+        try {
+            this.rundown.reset();
+        } finally {
+            this.standingDownForLive = false;
+        }
+    }
+
+    /**
      * Stop driving, NOW, in the caller's own stack frame.
      *
      * Split from {@link standDown} because stopping and recording that you stopped want different
@@ -3976,7 +4034,7 @@ export class DirectorService {
      *
      * So the cancellation is synchronous and the durable write is queued behind it.
      */
-    private beginStandDown(ranOut = false): void {
+    private beginStandDown(ranOut = false, forLive = false): void {
         // The transition, caught at the only moment it is visible. `active` is false a line below
         // and the durable half runs behind the mailbox, by which time nothing on this object still
         // says the station was on air — so a feed reading it there would report a stop every time
@@ -3987,6 +4045,7 @@ export class DirectorService {
         this.pendingVoice = undefined;
         this.active = false;
         this.airRanOut = ranOut;
+        this.airForLive = forLive;
         this.extendDueAt = undefined;
         this.airReadAt = 0;
         this.standingDown = true;
@@ -4011,7 +4070,7 @@ export class DirectorService {
      * leaving it holding nothing: an empty station that says it is on air is the state the whole
      * `hasProgramme` lease exists to avoid describing.
      */
-    private async resume(): Promise<ResumeResult> {
+    private async resume(afterLive = false): Promise<ResumeResult> {
         // Cleared FIRST. `standDown` sets it to keep this process off air until the row is written,
         // and a resume arriving while it is still set would be dropped by the commit pass it ends in.
         this.standingDown = false;
@@ -4025,14 +4084,21 @@ export class DirectorService {
             return { resumed: false };
         }
 
-        this.logger.info('director: resumed the running order the station was stopped on', { remaining: this.lineup.remaining() });
+        this.logger.info(
+            afterLive ? 'director: back on the running order after a live show' : 'director: resumed the running order the station was stopped on',
+            { remaining: this.lineup.remaining() },
+        );
         void this.activity.record({
             module: 'director',
             kind: 'air.on',
-            detail: 'The station was started again on the running order it had been stopped on.',
-            data: { remaining: this.lineup.remaining() },
+            detail: afterLive
+                ? 'The presenter handed back, so the station went on with its running order from the next record.'
+                : 'The station was started again on the running order it had been stopped on.',
+            data: { remaining: this.lineup.remaining(), ...(afterLive ? { afterLive: true } : {}) },
         });
-        this.bus.publish('air.changed', { on: true, reason: 'resumed', at: Date.now() });
+        // Not after a live show: to a listener the station never went quiet, so the operator's own
+        // servers were never told it came off and are not told it came back. See `standDown`.
+        if (!afterLive) this.bus.publish('air.changed', { on: true, reason: 'resumed', at: Date.now() });
 
         return { resumed: true };
     }
@@ -4043,13 +4109,13 @@ export class DirectorService {
      * @param ranOut - The running order ran out and said to stop, rather than anybody stopping the
      *   station. Stored beside `active` so a restart answers the schedule the same way.
      */
-    private async standDown(ranOut = false): Promise<void> {
+    private async standDown(ranOut = false, forLive = false): Promise<void> {
         // Idempotent, and called directly by the `standDown` command as well as after
         // {@link beginStandDown}. A stand-down reached any other way still has to cancel.
-        this.beginStandDown(ranOut);
+        this.beginStandDown(ranOut, forLive);
 
         try {
-            await inScope(this.container, async scope => scope.get(StationAirRepository).standDown(MAIN_SLOT, ranOut));
+            await inScope(this.container, async scope => scope.get(StationAirRepository).standDown(MAIN_SLOT, ranOut, forLive));
             // What the player was holding was retracted with it, and the states saying so are
             // worth keeping: they are what a console draws as the running order this station
             // stopped part-way through.
@@ -4073,18 +4139,23 @@ export class DirectorService {
             // Both media, like every other station-level edge: the log line is what is still
             // greppable when the database is the thing that is broken, and it is the only record
             // at all once the feed has been swept. `putOnAir` says the same thing the same way.
-            this.logger.info('director: stood the station down');
+            this.logger.info(forLive ? 'director: stood the station down for a live show' : 'director: stood the station down');
             void this.activity.record({
                 module: 'director',
                 kind: 'air.off',
-                detail: 'The station was stood down, so it is holding nothing and airing nothing.',
+                detail: forLive
+                    ? 'A presenter took the air through the live input, so the station stood its own programme down until they hand back.'
+                    : 'The station was stood down, so it is holding nothing and airing nothing.',
+                ...(forLive ? { data: { forLive: true } } : {}),
             });
             // The last item stopped being on air here, and nothing else will ever say so.
             const at = Date.now();
             void inScope(this.container, async scope => scope.get(AsRunRepository).close(this.identity.stationKey, at)).catch(error =>
                 this.logger.warn(`director: could not close the as-run log (${errorText(error)})`),
             );
-            this.bus.publish('air.changed', { on: false, reason: ranOut ? 'ranOut' : 'stopped', at: Date.now() });
+            // Not for a live show. A presenter is on the air, so to a listener the station never went
+            // quiet, and an operator's server told it had would act on something that is not true.
+            if (!forLive) this.bus.publish('air.changed', { on: false, reason: ranOut ? 'ranOut' : 'stopped', at: Date.now() });
         }
     }
 

@@ -210,6 +210,7 @@ function build(options: Options = {}) {
         active: true,
         ranOut: false,
         quietRecords: 0,
+        forLive: false,
         ...options.air,
     };
 
@@ -230,14 +231,14 @@ function build(options: Options = {}) {
 
     const airRepository = {
         get: vi.fn(async () => air),
-        standDown: vi.fn(async (_slot?: string, ranOut = false) => {
-            air = air ? { ...air, active: false, ranOut } : air;
+        standDown: vi.fn(async (_slot?: string, ranOut = false, forLive = false) => {
+            air = air ? { ...air, active: false, ranOut, forLive } : air;
         }),
         goOnAir: vi.fn(async () => {
-            air = { slot: 'main', active: true, ranOut: false, quietRecords: air?.quietRecords ?? 0 };
+            air = { slot: 'main', active: true, ranOut: false, quietRecords: air?.quietRecords ?? 0, forLive: false };
         }),
         setQuiet: vi.fn(async (records: number) => {
-            air = { ...(air ?? { slot: 'main', active: false, ranOut: false }), quietRecords: records };
+            air = { ...(air ?? { slot: 'main', active: false, ranOut: false, forLive: false }), quietRecords: records };
             return records;
         }),
         countDownQuiet: vi.fn(async () => {
@@ -1230,7 +1231,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(0);
 
-        setAir({ slot: 'main', active: true, ranOut: false, quietRecords: 0 });
+        setAir({ slot: 'main', active: true, ranOut: false, quietRecords: 0, forLive: false });
         await wake(rundown);
 
         expect(rundown.upcoming().length).toBeGreaterThan(0);
@@ -1243,7 +1244,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
 
-        setAir({ slot: 'main', active: false, ranOut: false, quietRecords: 0 });
+        setAir({ slot: 'main', active: false, ranOut: false, quietRecords: 0, forLive: false });
         // Past the throttle, because this station IS on air and a busy director reads the row
         // once every few seconds rather than on every wake.
         vi.setSystemTime(Date.now() + 10_000);
@@ -1445,7 +1446,7 @@ describe('DirectorService standing down', () => {
 
         expect(airRepository.standDown).toHaveBeenCalled();
         // Somebody stopped it, so the schedule must leave it alone.
-        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false);
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false, false);
         expect(director.ranOut()).toBe(false);
     });
 
@@ -1864,20 +1865,112 @@ describe('DirectorService at the end of a lineup', () => {
 
         await playOut(rundown);
 
-        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', true);
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', true, false);
         expect(director.ranOut()).toBe(true);
 
         // An operator's Stop afterwards is theirs, and clears it.
         rundown.reset();
         await settle();
 
-        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false);
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false, false);
         expect(director.ranOut()).toBe(false);
     });
 
     // `on_end: 'resume'` and `on_end: 'rotation'` are gone with the library. Both named another
     // STORED lineup for the station to fall back to, and there is no longer one to name: what is
     // on air is built when it goes on air. `stop` above is what a finite programme does now.
+});
+
+describe('DirectorService handing the air to a live presenter', () => {
+    // The live input outranks the lease, so a presenter is on the air either way. What this decides is
+    // whether the station's own programme stands down under them, and whether the hand-back puts it on
+    // again. Only a stand-down a live show made is undone by its end.
+    it('stands down for a live show, marked as one, and tells the event destinations nothing', async () => {
+        const { director, rundown, airRepository, bus, activity, seed } = build();
+        await seed();
+        await director.start();
+        const heard = vi.fn();
+        bus.subscribe('air.changed', heard);
+
+        director.liveTookTheAir();
+        await settle();
+        await settle();
+
+        expect(director.status().active).toBe(false);
+        expect(rundown.upcoming()).toHaveLength(0);
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false, true);
+        expect(heard).not.toHaveBeenCalled();
+        const record = activity.record as unknown as ReturnType<typeof vi.fn>;
+        expect(record.mock.calls.find(call => call[0]?.kind === 'air.off')?.[0]).toMatchObject({ data: { forLive: true } });
+    });
+
+    it('goes on again at the next record when the presenter hands back, and tells nobody it ever went off', async () => {
+        const { director, rundown, airRepository, bus, seed } = build();
+        await seed();
+        await director.start();
+        const heard = vi.fn();
+        bus.subscribe('air.changed', heard);
+
+        director.liveTookTheAir();
+        await settle();
+        await settle();
+        const result = await director.liveHandedBack();
+
+        expect(result).toEqual({ resumed: true });
+        expect(director.status().active).toBe(true);
+        expect(airRepository.goOnAir).toHaveBeenCalled();
+        expect(rundown.upcoming().length).toBeGreaterThan(0);
+        expect(heard).not.toHaveBeenCalled();
+    });
+
+    it('leaves a station somebody stopped during the show stopped when the show ends', async () => {
+        const { director, rundown, airRepository, seed } = build();
+        await seed();
+        await director.start();
+
+        director.liveTookTheAir();
+        await settle();
+        await settle();
+        // The operator's own Stop, mid-show: an ordinary stand-down, which clears the mark.
+        rundown.reset();
+        await settle();
+
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false, false);
+        expect(await director.liveHandedBack()).toEqual({ resumed: false });
+        expect(director.status().active).toBe(false);
+    });
+
+    it('does nothing to a station that was already off, and so does not switch it on afterwards', async () => {
+        const { director, airRepository, seed } = build({ air: { active: false } });
+        await seed();
+        await director.start();
+
+        director.liveTookTheAir();
+        await settle();
+
+        expect(airRepository.standDown).not.toHaveBeenCalled();
+        expect(await director.liveHandedBack()).toEqual({ resumed: false });
+        expect(airRepository.goOnAir).not.toHaveBeenCalled();
+    });
+
+    it('hands back after a restart in the middle of the show, from the row', async () => {
+        // The show outlasted the process: the mark is all the new one has to go on.
+        const { director, seed } = build({ air: { active: false, forLive: true } });
+        await seed();
+        await director.start();
+
+        expect(await director.liveHandedBack()).toEqual({ resumed: true });
+        expect(director.status().active).toBe(true);
+    });
+
+    it('does not resume a station that is already on', async () => {
+        const { director, airRepository, seed } = build();
+        await seed();
+        await director.start();
+
+        expect(await director.liveHandedBack()).toEqual({ resumed: false });
+        expect(airRepository.goOnAir).not.toHaveBeenCalled();
+    });
 });
 
 describe('DirectorService resuming what it was stopped on', () => {

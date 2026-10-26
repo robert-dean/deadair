@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import { PlayoutControlClient, type LiveState } from './liquidsoap.control.js';
 
 /** One row on the activity feed for a change of the live input's state, or `undefined` for none. */
@@ -27,7 +28,8 @@ export function liveEdge(next: LiveState, previous: LiveState): LiveEdge | undef
 }
 
 /**
- * Writes the live input's edges to the activity feed, as the control client reads them.
+ * Writes the live input's edges to the activity feed, as the control client reads them, and tells
+ * the director through `StationBus` (`live.changed`), which is registered after this module.
  *
  * On the client's own seam rather than on a timer of its own, because every reading already
  * passes through it in order and a second poll would see fewer of the edges than it does: an arm
@@ -40,6 +42,7 @@ export class LiveActivity {
     constructor(
         private readonly control: PlayoutControlClient,
         private readonly activity: ActivityRecorder,
+        private readonly bus: StationBus,
     ) {}
 
     /** Begin recording. Idempotent. */
@@ -47,6 +50,8 @@ export class LiveActivity {
         if (this.started) return;
         this.started = true;
         this.control.onLiveChange((next, previous) => {
+            // Every change, the countdown included: what to do about each is the subscriber's call.
+            this.bus.publish('live.changed', { state: next, previous, at: Date.now() });
             const edge = liveEdge(next, previous);
             if (edge === undefined) return;
             // Voided: the recorder never throws, and the call that produced this reading must not

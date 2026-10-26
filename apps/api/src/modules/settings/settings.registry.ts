@@ -1,5 +1,6 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
+import { DEFAULT_LIVE_AUTOMATION, LIVE_AUTOMATION_KEY } from '#modules/playout/live.automation.js';
 import {
     DEFAULT_LEVELING_ENABLED,
     DEFAULT_SPEECH_TRIM_DB,
@@ -1403,6 +1404,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             { value: 'always', label: 'Whenever there is a running order' },
         ],
         help: 'Producing audio costs a fetch and a download per track, and an empty mount is the one case where nobody benefits from that. On "audience" a loaded station with no listeners is silent on purpose.',
+    },
+    {
+        group: 'playout',
+        key: LIVE_AUTOMATION_KEY,
+        label: "While somebody is live, the station's own programme",
+        type: 'select',
+        default: DEFAULT_LIVE_AUTOMATION,
+        options: [
+            { value: 'standDown', label: 'Stops, and picks up at the next record afterwards' },
+            { value: 'continue', label: 'Carries on underneath, unheard' },
+        ],
+        help: 'A presenter on the live input is on the air either way. Stopping means no records, breaks or news go on underneath them and nothing is logged as played that nobody heard; when they hand back, the station goes on from the next record in its running order. Carrying on keeps the running order moving through the show, so it is further along afterwards and its history includes what played unheard.',
     },
     {
         group: 'playout',

@@ -118,6 +118,19 @@ export interface StationEvents {
     'air.wanted': { on: boolean; at: number };
 
     /**
+     * The live input changed state: a presenter's encoder on `LIVE_PORT` (`stream/radio.liq`, "Live
+     * input"). `state` is where it went and `previous` where it came from, as the audio chain
+     * reports them (`off`, `armed`, `preroll`, `onair`).
+     *
+     * Published by `LiveActivity` in `playout`, on the control client's own edge, so once per change
+     * and in order. The subscriber is `LiveHandOver` in `director`, which stands the station down
+     * when the presenter takes the air and puts it back when they hand back, and which `playout`
+     * cannot reach because it is registered after it. `at` is epoch milliseconds, taken when the
+     * reading arrived.
+     */
+    'live.changed': { state: 'off' | 'armed' | 'preroll' | 'onair'; previous: 'off' | 'armed' | 'preroll' | 'onair'; at: number };
+
+    /**
      * A listener asked for a record: from an app, the console, a party pass or a chat.
      *
      * Published by `RequestDesk.submit` once the row is written and, when it could be, placed, so

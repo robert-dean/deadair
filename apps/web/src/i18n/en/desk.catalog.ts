@@ -125,4 +125,36 @@ export const desk = {
             },
         },
     },
+    live: {
+        title: 'Live',
+        off: {
+            nameLabel: 'Show name',
+            nameHint: 'What listeners see while you are on. Left empty, they see the station’s name.',
+            goLive: 'Go live',
+            goLiveHint:
+                'Arms the live input. Nothing changes until your encoder sends sound; then a three-second countdown runs and you are on the air.',
+            standDown: 'While you are live, the station’s own programme stops and picks up at the next record afterwards.',
+            continue: 'While you are live, the station’s own programme carries on underneath, unheard.',
+            change: 'Change',
+        },
+        armed: {
+            lamp: 'Armed',
+            waiting: 'Waiting for your encoder. Start sending, and the countdown begins.',
+            cancel: 'Cancel',
+        },
+        preroll: {
+            lamp: 'Counting in',
+            counting: 'Going live in a moment.',
+        },
+        onair: {
+            lamp: 'You’re live',
+            handBack: 'Hand back',
+            confirmHandBack: 'Confirm hand back',
+            handBackHint: 'Takes the air back from the presenter at once, for everybody listening. Press again to confirm.',
+            handBackArmedHint: 'Press again to hand the air back to the station.',
+        },
+        goLiveFailed: 'The live input could not be armed.',
+        cancelFailed: 'The live input could not be disarmed.',
+        handBackFailed: 'The air could not be handed back.',
+    },
 } as const;

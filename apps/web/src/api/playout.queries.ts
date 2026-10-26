@@ -15,10 +15,26 @@ import { queryKeys } from './query.keys';
  */
 const PLAYOUT_POLL_MS = 2_000;
 
+/**
+ * How often to look while the live input is armed or counting a presenter in.
+ *
+ * The one stretch where two seconds is too slow: the countdown is three seconds long, so on the
+ * ordinary poll a presenter could see it begin a whole second late or not at all, and the console is
+ * the cue they are waiting on. The station retakes its reading on every call, so these are fresh
+ * reads rather than repeats, and they last only as long as the arming does.
+ */
+const LIVE_POLL_MS = 500;
+
+/** The poll interval for the reading the console last saw. Exported for the test. */
+export function playoutPollMs(status: PlayoutStatus | undefined): number {
+    const live = status?.live?.state;
+    return live === 'armed' || live === 'preroll' ? LIVE_POLL_MS : PLAYOUT_POLL_MS;
+}
+
 export const playoutStatusOptions = queryOptions({
     queryKey: queryKeys.playout.status(),
     queryFn: () => sdk.playout.getPlayoutStatus(),
-    refetchInterval: PLAYOUT_POLL_MS,
+    refetchInterval: query => playoutPollMs(query.state.data),
     // Keep polling with the tab in the background: this is a broadcast console, and
     // an operator who alt-tabs away still wants the truth when they come back rather
     // than a frozen reading that resumes from wherever it stopped.
@@ -196,6 +212,36 @@ export function useStopPlayout() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: () => sdk.playout.stopPlayout(),
+        onSuccess: status => {
+            followTransport(queryClient, status);
+        },
+    });
+}
+
+/**
+ * Arms the live input: from here, real signal from a presenter's encoder starts the countdown.
+ *
+ * A blank title is sent as none rather than as an empty string, so the stream keeps the station's
+ * name rather than saying nothing.
+ */
+export function useArmLive() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (title?: string) => {
+            const trimmed = title?.trim();
+            return sdk.playout.armTheLiveInput(trimmed ? { title: trimmed } : {});
+        },
+        onSuccess: status => {
+            followTransport(queryClient, status);
+        },
+    });
+}
+
+/** Disarms the live input, which from on air hands the station straight back. */
+export function useDisarmLive() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sdk.playout.disarmTheLiveInput(),
         onSuccess: status => {
             followTransport(queryClient, status);
         },

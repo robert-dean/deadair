@@ -144,14 +144,16 @@ AOT the linked libfdk-aac does not support is a CONFIGURATION error rather than 
 Liquidsoap refuses to start, which takes every mount down and not just AAC. So the probe has to ask
 about the encoder the station uses, not a bare one that happens to parse.
 
-The voice is a **live harbor input**, not files: the app streams each rendered segment — talk
-breaks, station sign-ons, podcast episodes — to Liquidsoap's `input.harbor` mount (`HARBOR_PORT`,
-default 8005, published on localhost) over the Icecast source protocol, and the bed ducks under it
-while a push is connected. This replaced an earlier file-drop playlist that relied on inotify,
-which doesn't fire across Docker Desktop for Mac's bind mount, so no segment ever aired.
-`HARBOR_PASSWORD` is a DB-seeded secret shared between the app (push) and Liquidsoap
-(auth); like the Icecast passwords, a container that first started on the committed
-`radio.default.env` dev default adopts it on the restart `config-watch.sh` triggers when the
+The voice is a **second request queue**, not a live input: the app arms a rendered segment against
+the item it belongs to (`POST /control/voice/arm`), and Liquidsoap fetches it over HTTP the way it
+fetches a record and fires it at the moment the cue names (`radio.liq` step 3). The bed ducks under it
+while it plays. This replaced v1's `input.harbor("dj")`, which the app streamed rendered audio into
+over the Icecast source protocol, and before that a file-drop playlist that relied on inotify, which
+doesn't fire across Docker Desktop for Mac's bind mount, so no segment ever aired. The harbor port
+(`HARBOR_PORT`, default 8005, published on localhost) now carries only the `/control/*` endpoints.
+`HARBOR_PASSWORD` is a DB-seeded secret the app materializes and nothing reads yet, kept for a live
+input; like the Icecast passwords, a container that first started on the committed
+`radio.default.env` dev default adopts the app's on the restart `config-watch.sh` triggers when the
 app renders one (see below).
 
 Each record is **trimmed** before it is levelled, on the `liq_cue_in` / `liq_cue_out` the app stamps
@@ -498,8 +500,8 @@ told".
 ## Playout: the app pushes, Liquidsoap plays
 
 The station owns the running order whichever source the tracks came from, and the app hands it
-over one item at a time. `radio.liq` registers four endpoints **on the harbor port** (8005 — harbor
-dispatches by path, so they sit beside the `dj` mount), all gated on `PLAYOUT_BRIDGE_SECRET` in
+over one item at a time. `radio.liq` registers its endpoints **on the harbor port** (8005, which
+carries nothing else since the `dj` mount was removed), all gated on `PLAYOUT_BRIDGE_SECRET` in
 an `X-Playout-Secret` header:
 
 | Endpoint                 | What it does                                                                     |

@@ -285,11 +285,11 @@ services:
         # refused by login5, because the token belongs to the operator's own Spotify app rather
         # than to the client the shim presents. Either way the shim needs no host export, no
         # compose env, and no route back to the app.
-        # 8005 is the harbor voice input: the host-run app (pnpm dev) pushes rendered DJ
-        # audio to http://127.0.0.1:8005/dj; the in-container app reaches it as liquidsoap:8005.
-        # Must match HARBOR_PORT in radio.env. The playout control endpoints (/control/status,
-        # /control/push, /control/flush — how the app hands the rundown over) share this port,
-        # since harbor dispatches by path. localhost-only — never expose the harbor publicly.
+        # 8005 is the harbor port, which carries the playout control endpoints (/control/status,
+        # /control/push, /control/voice/arm and the rest: how the app hands the rundown over). The
+        # host-run app (pnpm dev) reaches it on 127.0.0.1:8005; the in-container app as
+        # liquidsoap:8005. Must match HARBOR_PORT in radio.env. localhost-only: the endpoints are
+        # gated on a shared secret and nothing more, so never expose this port publicly.
         # 3679 is the Spotify track shim (stream/spotify-shim): the app resolves a rundown item to
         # a signed URL on it, and Liquidsoap downloads the track from it ahead of air. Published on
         # localhost so a host-run app (pnpm dev) can reach it — to push the Spotify login, and for

@@ -127,17 +127,20 @@ export function LiveInput({ live }: LiveInputProps) {
                     presenter's cue rather than a place to set anything up. */}
                 {onAir ? undefined : (
                     <>
-                        <Button
-                            variant="subtle"
-                            color="gray"
-                            size="compact-sm"
-                            mt="xs"
-                            rightSection={details ? <IconChevronUp size={14} stroke={1.8} /> : <IconChevronDown size={14} stroke={1.8} />}
-                            onClick={() => setDetails(open => !open)}
-                            aria-expanded={details}
-                        >
-                            {t('live.connection.toggle')}
-                        </Button>
+                        {/* In a Group because a Card is a flex column and stretches what it holds, which
+                            drew this as a bar the width of the card. */}
+                        <Group mt="xs">
+                            <Button
+                                variant="subtle"
+                                color="gray"
+                                size="compact-sm"
+                                rightSection={details ? <IconChevronUp size={14} stroke={1.8} /> : <IconChevronDown size={14} stroke={1.8} />}
+                                onClick={() => setDetails(open => !open)}
+                                aria-expanded={details}
+                            >
+                                {t('live.connection.toggle')}
+                            </Button>
+                        </Group>
                         {/* Mounted only while open, so the password is asked for when somebody wants
                             it and not on every visit to the desk. */}
                         <Collapse expanded={details}>{details ? <LiveConnection /> : undefined}</Collapse>

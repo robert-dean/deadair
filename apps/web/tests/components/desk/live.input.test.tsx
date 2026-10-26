@@ -192,7 +192,7 @@ describe('LiveInput', () => {
         render(<LiveInput live={live('off')} />);
 
         expect(getTheLiveInputConnection).not.toHaveBeenCalled();
-        await user.click(screen.getByRole('button', { name: 'Connection details for your encoder' }));
+        await user.click(screen.getByRole('button', { name: 'Encoder settings' }));
 
         expect(await screen.findByText('8006')).toBeInTheDocument();
         expect(screen.getByText('/live')).toBeInTheDocument();
@@ -207,7 +207,7 @@ describe('LiveInput', () => {
     it('does not offer the connection details while somebody is on the air', () => {
         render(<LiveInput live={live('onair')} />);
 
-        expect(screen.queryByRole('button', { name: 'Connection details for your encoder' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Encoder settings' })).not.toBeInTheDocument();
     });
 
     it('says only an administrator can see the password when the station refuses', async () => {
@@ -215,7 +215,7 @@ describe('LiveInput', () => {
         const user = setupUser();
         render(<LiveInput live={live('off')} />);
 
-        await user.click(screen.getByRole('button', { name: 'Connection details for your encoder' }));
+        await user.click(screen.getByRole('button', { name: 'Encoder settings' }));
 
         expect(await screen.findByText('Only an administrator can see the live input’s password.')).toBeInTheDocument();
     });

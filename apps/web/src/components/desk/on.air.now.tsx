@@ -326,7 +326,12 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 </Text>
                             </Group>
                         ) : (
-                            <Text c="dimmed">{silence.audible ? t('onAir.starting') : silence.detail}</Text>
+                            // A presenter on the live input is on the air with no record to name, which
+                            // would otherwise read as the station starting up. The Live card below has
+                            // the rest.
+                            <Text c="dimmed">
+                                {status.live?.state === 'onair' ? t('onAir.presenterLive') : silence.audible ? t('onAir.starting') : silence.detail}
+                            </Text>
                         )}
 
                         {playhead ? (

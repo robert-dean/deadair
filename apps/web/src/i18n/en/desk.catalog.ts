@@ -31,6 +31,7 @@ export const desk = {
         waiting_other: '{{count}} things, worst first. Nothing here is urgent enough to take the station off air.',
     },
     onAir: {
+        presenterLive: 'A presenter is on the air through the live input.',
         skipFailed: 'That track could not be skipped.',
         stopFailed: 'The station could not be stopped.',
         startFailed: 'The station could not be put back on air.',
@@ -157,7 +158,7 @@ export const desk = {
             handBackArmedHint: 'Press again to hand the air back to the station.',
         },
         connection: {
-            toggle: 'Connection details for your encoder',
+            toggle: 'Encoder settings',
             loading: 'Asking the station…',
             server: 'Server',
             port: 'Port',

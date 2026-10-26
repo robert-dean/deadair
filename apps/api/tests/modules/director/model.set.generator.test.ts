@@ -13,12 +13,14 @@ import type { TracksRepository } from '../../../src/modules/catalog/tracks.repos
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
 import {
     DEFAULT_MAX_OUTPUT_TOKENS,
+    DEFAULT_SET_REASONING,
     MAX_TOOL_STEPS,
     MODEL_GENERATOR_KEYS,
     ModelSetGenerator,
     SHORTLIST_TOOL_STEPS,
     STYLES_SHOWN,
     maxOutputTokens,
+    setReasoning,
 } from '../../../src/modules/director/model.set.generator.js';
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
@@ -897,6 +899,38 @@ describe('maxOutputTokens', () => {
 
     it('uses its own default when the operator has said nothing', () => {
         expect(maxOutputTokens(config({}))).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+    });
+});
+
+describe('setReasoning', () => {
+    const config = (rows: Record<string, unknown>): AppConfig =>
+        ({ get: (key: string, fallback: unknown) => rows[key] ?? fallback }) as unknown as AppConfig;
+
+    it('defaults to none, because thinking spent the whole budget on a list already screened', () => {
+        expect(DEFAULT_SET_REASONING).toBe('none');
+        expect(setReasoning(config({}))).toBe('none');
+    });
+
+    it('reads the operator’s effort, padded as a stored row may be', () => {
+        expect(setReasoning(config({ [MODEL_GENERATOR_KEYS.reasoning]: 'medium' }))).toBe('medium');
+        expect(setReasoning(config({ [MODEL_GENERATOR_KEYS.reasoning]: ' high ' }))).toBe('high');
+    });
+
+    it('takes the default rather than sending an effort no provider knows', () => {
+        expect(setReasoning(config({ [MODEL_GENERATOR_KEYS.reasoning]: 'loads' }))).toBe(DEFAULT_SET_REASONING);
+        expect(setReasoning(config({ [MODEL_GENERATOR_KEYS.reasoning]: '' }))).toBe(DEFAULT_SET_REASONING);
+    });
+
+    it('is what the refill asks the model for', async () => {
+        const asked = async (settings: Record<string, string>): Promise<unknown> => {
+            const { generator, converse } = build({ enabled: true, text: picks(['Windowlicker', 'Aphex Twin']), settings });
+            await generator.generate(inputs(10));
+            const [request] = converse.mock.calls[0] as unknown as [unknown];
+            return request;
+        };
+
+        expect(await asked({})).toMatchObject({ reasoningEffort: 'none' });
+        expect(await asked({ [MODEL_GENERATOR_KEYS.reasoning]: 'low' })).toMatchObject({ reasoningEffort: 'low' });
     });
 });
 

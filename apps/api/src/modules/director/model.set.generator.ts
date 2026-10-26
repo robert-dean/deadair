@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import type { LlmUsage } from '@deadair/plugin-sdk';
+import type { LlmReasoningEffort, LlmUsage } from '@deadair/plugin-sdk';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
@@ -29,6 +29,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { modelList } from '#modules/llm/model.list.js';
 import { numberFrom } from '#modules/shared/setting.numbers.js';
+import { BREAK_REASONING_EFFORTS } from './model.talk.break.writer.js';
 
 /**
  * A model choosing what the station plays, with the catalog draw underneath it.
@@ -193,6 +194,29 @@ export function maxOutputTokens(config: AppConfig): number {
 }
 
 /**
+ * `none`. Measured on the live station on 2026-10-25 and 26 against gemma4: at the `low` this call
+ * used to hard-code, a refill handed a sixty-line shortlist spent 8,000 to 20,000 characters
+ * reasoning, finished one run in seven inside {@link BUDGET_MS}, and took 158 seconds over the one it
+ * did finish. The answer is a list of numbers; the choosing the reasoning was for is the screening the
+ * shortlist has already done.
+ */
+export const DEFAULT_SET_REASONING: LlmReasoningEffort = 'none';
+
+/**
+ * How hard the refill model thinks, from the operator's setting.
+ *
+ * The break model's vocabulary and the break model's rule (`breakGeneration`): a value nobody can
+ * parse takes the default rather than being sent, because a provider refusing an effort it does not
+ * know is a refill lost to a typo. Its own setting rather than the break model's, because the two
+ * calls are sized differently and may run on different models (`llm.setModel`, `llm.breakModel`).
+ */
+export function setReasoning(config: AppConfig): LlmReasoningEffort {
+    const effort = String(config.get(MODEL_GENERATOR_KEYS.reasoning, DEFAULT_SET_REASONING) ?? '').trim();
+
+    return (BREAK_REASONING_EFFORTS as readonly string[]).includes(effort) ? (effort as LlmReasoningEffort) : DEFAULT_SET_REASONING;
+}
+
+/**
  * How many of the operator's likes and dislikes, per kind, are read for the prompt.
  *
  * Small on purpose. Every line of these lists is context the model then has less room to think in,
@@ -240,6 +264,7 @@ export const MODEL_GENERATOR_KEYS = {
     enabled: 'llm.setGenerator',
     model: 'llm.setModel',
     maxTokens: 'llm.setMaxTokens',
+    reasoning: 'llm.setReasoning',
     shortlist: 'llm.setShortlist',
 } as const;
 
@@ -380,17 +405,18 @@ export class ModelSetGenerator extends SetGenerator {
                     messages,
                     ...(model.length === 0 ? {} : { model }),
                     maxOutputTokens: answerCeiling,
-                    // The same call `ModelTalkBreakWriter` makes, for the same MEASURED reason, and it
-                    // was not obvious that programming an hour would want it too: choosing records
-                    // looks far more like a reasoning problem than writing a link does.
+                    // A setting, as the break model's is, and `none` by default for a MEASURED reason:
+                    // choosing records looks far more like a reasoning problem than writing a link does.
                     //
                     // It is not, and the first live run proved it. At `high` this searched eight times,
                     // spent 14,377 tokens over 85 seconds, finished on `length` and emitted an empty
                     // answer -- the model used its entire visible allowance thinking and never said a
                     // word. That is the identical failure recorded on `MAX_OUTPUT_TOKENS` in the break
-                    // writer. The work here is recall and filtering, which the tool does; what is left
-                    // for the model is choosing between rows it has been handed.
-                    reasoningEffort: 'low',
+                    // writer. `low` was the answer to that, and on a shortlist it still spent the whole
+                    // budget thinking: see `DEFAULT_SET_REASONING`. The work here is recall and
+                    // filtering, which the tool and the shortlist do; what is left for the model is
+                    // choosing between rows it has been handed.
+                    reasoningEffort: setReasoning(this.config),
                 },
                 // `background` is what makes this yield rather than compete: nobody is waiting on a
                 // refill, so it queues behind every break AND is told to stop when one arrives while it

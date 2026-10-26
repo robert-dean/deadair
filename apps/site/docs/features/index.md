@@ -41,6 +41,7 @@ Eleven gates, checked in the order the signal flows, answer "why is nothing play
 - [Plugins](./plugins.md): the music providers, fact sources, news feeds, weather, podcasts, speech engines, model, chat platforms, speakers and measurement adapter the station is built from.
 - [Models and voices](./models-and-voices.md): which model writes which words, and which voice speaks them.
 - [The console](./console.md): the broadcast desk you run it from, which deliberately does not play the station, and the same desk on a Stream Deck.
+- [Going live](./live.md): taking the air from the station yourself, from an encoder on another machine, and handing it back.
 - [Languages](./languages.md): the console in a language other than English, each person choosing their own, and translating it.
 - [Listening](./listening.md): the stream, its formats, the Android, iPhone and macOS apps, and the speakers and televisions the station can play itself on.
 - [Event destinations](./events.md): the station telling your own servers what happens on air, so a light or an automation can follow it.

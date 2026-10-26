@@ -9,6 +9,17 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.85.2] — 2026-10-26
+
+- Going live counts you in on the Desk: big 3, 2, 1 digits run once your encoder is heard, so you know exactly when you're on. While you're live, the card shows how long you've been on the air.
+- The Desk has a Live card under On air now. **Go live** arms the live input, with an optional show name for listeners to see. The card then waits for your encoder, counts you in once it hears you, and shows when you're on the air. **Hand back** gives the air back to the station; like Stop, it asks for a second press. The card also says what the station's own programme does while you're live, with a link to change it.
+- The Live card on the Desk has the connection details your encoder needs: the server, port, mount, user and password. Each has its own copy button, and the password stays hidden until you show it.
+- The live input can be armed and disarmed through the API (`POST /playout/live/arm`, `POST /playout/live/disarm`), and `GET /playout/status` reports what it is doing, including the countdown before a presenter takes the air. `GET /playout/live/connection` gives an operator the port, mount, user and password to put into their encoder. The activity feed records each time the input is armed, goes on the air and comes off it. While a presenter is live, the station counts as on the air and the audio chain is not restarted over records nobody can hear. The station's own programme still carries on underneath for now, so its history records those records.
+- The station's audio engine can now take a live presenter. An encoder such as BUTT or Mixxx pushes to a new live input, and once that input is armed and hears real signal, a three-second countdown runs and then the presenter takes the air. A spell of silence, a dropped connection or a disarm hands back. Nothing arms it yet, so the station sounds exactly as before. The console controls come later.
+- The image now publishes a second port, 8006, for the live input, where a presenter's encoder connects to take the air. On Unraid it appears as **Live input** in the template, and the Docker Compose install maps it with `LIVE_PORT`. Nothing on the port airs until the station arms it, and nothing arms it yet.
+- When a presenter takes the air through the live input, the station now stands its own programme down: no records, breaks or news go on underneath them, and nothing is logged as played that nobody heard. When they hand back, the station carries on from the next record in its running order. A new setting, "While somebody is live, the station's own programme", can keep the programme running underneath instead. If somebody stops the station during a show, it stays stopped when the show ends. Event destinations are not told the station went off or came back on for a live show, because to a listener it never went quiet.
+- While a presenter is on the air through the live input, now playing says so: the station is on the air, the show is named with the title the input was armed with (or the station's name), and no record is listed. The listener apps, the Stream Deck and the cast receivers show it without an update.
+
 ## [0.85.1] — 2026-10-26
 
 - A new setting, "How hard the programming model thinks", sets how much the model reasons before choosing the next hour's records. It defaults to "Not at all": with the list of records the station now screens for it, a model left to think used up its whole time on most refills and chose nothing, so the hour was filled without it. Raise it if your model answers well and quickly when it thinks. Like the break model's setting, it only reaches the model when the language model plugin's own effort setting is Auto.
@@ -1683,7 +1694,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.2...HEAD
+[0.85.2]: https://github.com/robert-dean/deadair/compare/v0.85.1...v0.85.2
 [0.85.1]: https://github.com/robert-dean/deadair/compare/v0.85.0...v0.85.1
 [0.85.0]: https://github.com/robert-dean/deadair/compare/v0.84.1...v0.85.0
 [0.84.1]: https://github.com/robert-dean/deadair/compare/v0.84.0...v0.84.1

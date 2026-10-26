@@ -349,6 +349,12 @@ export interface WriteStreamConfigArgs {
     /** Harbor port, which must match the port published in docker-compose.yml. */
     harborPort?: string;
     /**
+     * The live input's port: where a presenter's encoder connects (radio.liq, "Live input").
+     * Must match the port the container publishes, which is a different one from the harbor's:
+     * this one is reached from another machine, and the harbor's never is.
+     */
+    livePort?: string;
+    /**
      * Where Liquidsoap writes HLS segments, as the STREAM CONTAINER sees it.
      *
      * Deliberately not `defaultStreamHlsDir()`, which is where this app reads them
@@ -388,6 +394,7 @@ export function writeStreamConfig({
     configDir = defaultStreamConfigDir(),
     musicDir = '/music',
     harborPort = '8005',
+    livePort = '8006',
     hlsDir = '/streamhls',
     adminEmail = 'admin@localhost',
     configMode = 0o644,
@@ -494,9 +501,9 @@ export function writeStreamConfig({
             // icecast.xml. Empty means the header is not sent at all.
             `STREAM_LANGUAGE=${shell(settings.language)}`,
             `MUSIC_DIR=${shell(musicDir)}`,
-            // The harbor is the DJ voice input. Nothing pushes to it yet, but radio.liq
-            // opens the mount regardless, so it gets the seeded password rather than the
-            // committed dev default.
+            // The harbor port carries the /control/* endpoints the app drives playout through.
+            // HARBOR_PASSWORD is the live input's credential (LIVE_PORT, below), so it gets the
+            // seeded password rather than the committed dev default.
             `HARBOR_PORT=${shell(harborPort)}`,
             `HARBOR_PASSWORD=${shell(settings.harborPassword ?? '')}`,
             // Materialized here rather than set on the container so the track shim inherits
@@ -547,6 +554,10 @@ export function writeStreamConfig({
             // became the deepest. Read at startup with the rest of the duck.
             `DUCK_MIN_DB=${shell(String(playout.duckMinDb))}`,
             `DUCK_BED_LUFS=${shell(String(playout.duckBedLufs))}`,
+            // The live input's port, appended for the reason LOG_LEVEL is. The input's timings
+            // (LIVE_SIGNAL_S and the rest) are not written: radio.liq's defaults stand until an
+            // operator needs to move one, and an unwritten key is the default there.
+            `LIVE_PORT=${shell(livePort)}`,
         ].join('\n') + '\n';
 
     // The generation of the file, carried IN the file, so the process that sourced it

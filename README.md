@@ -137,7 +137,7 @@ the **Apps** tab exists.
    of **Repository** from `:latest` to `:full`. Left on `latest` with the database fields empty, the
    first boot stops at `deadair: no database.` On an Apple Music tag, add `--shm-size=1g` under
    **Extra Parameters**.
-3. **Fill in the Basic view.** Leave **WebUI** at `8080` and **Data** at
+3. **Fill in the Basic view.** Leave **WebUI** at `8080`, **Live input** at `8006` and **Data** at
    `/mnt/user/appdata/deadair` (on `full`, `/mnt/cache/appdata/deadair` is better: the database lives
    there, and PostgreSQL is slow over Unraid's `/mnt/user` layer). Set **Public address** and
    **Console address** to the same thing, the address you type into a browser with nothing after the

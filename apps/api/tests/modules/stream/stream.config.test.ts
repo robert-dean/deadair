@@ -220,6 +220,26 @@ describe('writeStreamConfig', () => {
         expect(keys.indexOf('DUCK_BED_LUFS')).toBeGreaterThan(keys.indexOf('LOG_LEVEL'));
     });
 
+    it('appends the live input port last, after every key that came before it', () => {
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        const keys = readFileSync(join(configDir, 'radio.env'), 'utf8')
+            .split('\n')
+            .filter(line => line !== '')
+            .map(line => line.split('=')[0]);
+        expect(keys.slice(-2)).toEqual(['LIVE_PORT', 'CONFIG_STAMP']);
+    });
+
+    it('writes the live input port, defaulting to 8006 and following the one it is given', () => {
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('LIVE_PORT')).toBe('8006');
+
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir, livePort: '9006' });
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('LIVE_PORT')).toBe('9006');
+    });
+
     it('writes the audio chain log level, which radio.liq reads as an integer', () => {
         const { assetsDir, configDir } = dirs();
         writeStreamConfig({ settings: settings({ logLevel: 4 }), playout: playout(), assetsDir, configDir });

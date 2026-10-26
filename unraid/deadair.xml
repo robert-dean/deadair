@@ -79,6 +79,10 @@
         Description="The console, the API and the stream, all on this one port."
         Type="Port" Display="always" Required="true" Mask="false">8080</Config>
 
+    <Config Name="Live input" Target="8006" Default="8006" Mode="tcp"
+        Description="Where a presenter's encoder (BUTT, Mixxx, OBS) connects to take the air from the station: mount /live, user source, and the password the console shows. Nothing on it airs until you arm it from the console."
+        Type="Port" Display="always" Required="false" Mask="false">8006</Config>
+
     <Config Name="Data" Target="/data" Default="/mnt/user/appdata/deadair" Mode="rw"
         Description="What the station IS: its settings, presenters, schedule, pronunciations and ratings, installed plugins, the stream's own credentials, the audio you recorded yourself, logs, and, on the full tag, the database holding most of it. Small, authored, and the thing to back up. Belongs on the cache pool."
         Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/deadair</Config>

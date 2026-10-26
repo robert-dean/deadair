@@ -34,6 +34,10 @@ services:
             # stream itself at /live.mp3, so a tunnel or reverse proxy in front needs this port
             # and no other.
             - '${HTTP_PORT:-8080}:80'
+            # The live input, where a presenter's encoder connects to take the air. It speaks the
+            # Icecast source protocol, not HTTP, so it is a port of its own. Nothing on it airs
+            # until the station arms it.
+            - '${LIVE_PORT:-8006}:8006'
         # To let the Speakers plugin find speakers on your network by itself, use the host's network
         # instead of `ports:` above, which a bridge network cannot give it multicast for. The station
         # then listens on the host's port 80, which must be free. See README.md, "Finding speakers".

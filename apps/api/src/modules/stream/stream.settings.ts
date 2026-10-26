@@ -125,10 +125,10 @@ export const STREAM_KEYS = {
     sourcePassword: 'stream.sourcePassword',
     adminPassword: 'stream.adminPassword',
     /**
-     * Shared secret the app presents when pushing DJ voice to Liquidsoap's harbor
-     * input, and that Liquidsoap authenticates the push against (`HARBOR_PASSWORD`
-     * in radio.env). Seeded now even though nothing pushes voice yet: radio.liq
-     * opens the harbor either way, and an unset password there is an open mount.
+     * The live input's password (`HARBOR_PASSWORD` in radio.env): what a presenter's
+     * encoder authenticates with on LIVE_PORT. Seeded whether or not anyone ever goes
+     * live, because radio.liq opens the input either way and refuses every login while
+     * this is empty.
      */
     harborPassword: 'stream.harborPassword',
     /**

@@ -129,4 +129,46 @@ public sealed class PlayoutClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PlayoutStatus>(response);
     }
+
+    /// <summary>
+    /// Arm the live input
+    /// Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title
+    /// </summary>
+    /// <exception cref="SdkException">On 409.</exception>
+    public async Task<PlayoutStatus> ArmTheLiveInputAsync(PlayoutLiveArmInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("playout", "live", "arm"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PlayoutStatus>(response);
+    }
+
+    /// <summary>
+    /// Disarm the live input
+    /// Disarms the live input. A presenter on the air is handed back to the station at once
+    /// </summary>
+    /// <exception cref="SdkException">On 409.</exception>
+    public async Task<PlayoutStatus> DisarmTheLiveInputAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("playout", "live", "disarm"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PlayoutStatus>(response);
+    }
+
+    /// <summary>
+    /// Get the live input connection
+    /// What an encoder needs to connect to the live input: the port, the mount, the user and the password
+    /// </summary>
+    public async Task<LiveConnection> GetTheLiveInputConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("playout", "live", "connection"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<LiveConnection>(response);
+    }
 }

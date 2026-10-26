@@ -155,6 +155,67 @@ operation /playout/stop: {
     }
 }
 
+# ── The live input ─────────────────────────────────────────────────────────────────────
+#
+# A presenter's encoder takes the air from the station on the live input. Arming it and reading
+# its password are operator actions: an armed input is one anybody holding the password can put
+# on the air.
+
+operation /playout/live/arm: {
+    post: { # Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title
+        name: Arm the live input
+        service: PlayoutService.armLive
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: PlayoutLiveArmInput
+        }
+        response: {
+            200: {
+                application/json: PlayoutStatus
+            }
+            # The audio chain did not take the arm, so nothing is waiting for an encoder.
+            409:
+        }
+    }
+}
+
+operation /playout/live/disarm: {
+    post: { # Disarms the live input. A presenter on the air is handed back to the station at once
+        name: Disarm the live input
+        service: PlayoutService.disarmLive
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: PlayoutStatus
+            }
+            # The audio chain did not take the disarm, so the input may still be armed or on the air.
+            409:
+        }
+    }
+}
+
+operation /playout/live/connection: {
+    get: { # What an encoder needs to connect to the live input: the port, the mount, the user and the password
+        name: Get the live input connection
+        # The answer carries the input's password, which a model's transcript is no place for.
+        mcp: exclude
+        service: PlayoutService.liveConnection
+        # The input's password is in the answer, so reading it is as privileged as arming it.
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: LiveConnection
+            }
+        }
+    }
+}
+
 # ── The station's own copy of a record ─────────────────────────────────────────────────
 
 # Where the player fetches a record the station has cached. NOT under `/playout/bridge/`, because

@@ -1,8 +1,10 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
+    LiveConnection,
     PlayoutAlbumInput,
     PlayoutChartInput,
+    PlayoutLiveArmInput,
     PlayoutPlaylistInput,
     PlayoutSkipQuery,
     PlayoutStationPlaylistInput,
@@ -101,5 +103,36 @@ export class PlayoutClient {
     async stopPlayout(): Promise<PlayoutStatus> {
         const result = await this.fetch(`/playout/stop`, { method: 'POST' });
         return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
+     * @name Arm the live input
+     * @description Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title
+     */
+    async armTheLiveInput(body: PlayoutLiveArmInput): Promise<PlayoutStatus> {
+        const result = await this.fetch(`/playout/live/arm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
+     * @name Disarm the live input
+     * @description Disarms the live input. A presenter on the air is handed back to the station at once
+     */
+    async disarmTheLiveInput(): Promise<PlayoutStatus> {
+        const result = await this.fetch(`/playout/live/disarm`, { method: 'POST' });
+        return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
+     * @name Get the live input connection
+     * @description What an encoder needs to connect to the live input: the port, the mount, the user and the password
+     */
+    async getTheLiveInputConnection(): Promise<LiveConnection> {
+        const result = await this.fetch(`/playout/live/connection`, { method: 'GET' });
+        return await parseJson<LiveConnection>(result);
     }
 }

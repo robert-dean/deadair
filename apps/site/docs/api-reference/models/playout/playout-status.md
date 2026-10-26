@@ -8,7 +8,7 @@ mdx:
 > The station's transport, as one reading
 
 <details>
-<summary>Attributes (11)</summary>
+<summary>Attributes (12)</summary>
 
 | Attribute           | Type                    | Required | Description                                                                                                                                                                                                                                                                                                              |
 | ------------------- | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -23,5 +23,6 @@ mdx:
 | `audience`          | `boolean`               | Yes      | Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast                                                                                                                                                                  |
 | `staleStreamConfig` | `StreamConfigWarning[]` | Yes      | Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess                                                                                                                                     |
 | `silence`           | `StationSilence`        | Yes      | Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest                                                                |
+| `live`              | `PlayoutLive`           | No       | The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input                                                                                                                           |
 
 </details>

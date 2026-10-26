@@ -121,7 +121,9 @@ export const STREAM_KEYS = {
      * out of `/data/streamlogs` with the segments rather than sitting in one file for ever.
      */
     logLevel: 'stream.logLevel',
-    // Secrets below. Stored encrypted, never returned in the clear to a response.
+    // Secrets below. Stored encrypted, never returned in the clear to a response, with one exception:
+    // `harborPassword` is answered by `GET /playout/live/connection` to an operator, because it is
+    // what they type into a presenter's encoder.
     sourcePassword: 'stream.sourcePassword',
     adminPassword: 'stream.adminPassword',
     /**

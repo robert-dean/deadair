@@ -126,6 +126,36 @@ export interface PlayoutMount {
 }
 
 /**
+ * What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme
+ * generated from [LiveState](../../../../../apps/api/data/contracts/playout/playout.types.ck)
+ */
+export type LiveState = 'off' | 'armed' | 'preroll' | 'onair';
+
+/**
+ * Arming the live input
+ * generated from [PlayoutLiveArmInput](../../../../../apps/api/data/contracts/playout/playout.types.ck)
+ */
+export interface PlayoutLiveArmInput {
+    /** What the stream says is on while the presenter is on the air. Left out, it says the station's name */
+    title?: string;
+}
+
+/**
+ * What a presenter's encoder needs to connect to the live input. Carries the input's password
+ * generated from [LiveConnection](../../../../../apps/api/data/contracts/playout/playout.types.ck)
+ */
+export interface LiveConnection {
+    /** The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one */
+    port: number;
+    /** The mount to push to */
+    mount: string;
+    /** The user name to send. The input accepts any; this is the one encoders default to */
+    user: string;
+    /** The input's password, which the station generated when it was first set up */
+    password: string;
+}
+
+/**
  * Which rundown item Liquidsoap has just started playing
  * generated from [PlayoutAiredQuery](../../../../../apps/api/data/contracts/playout/playout.types.ck)
  */
@@ -181,6 +211,18 @@ export interface SilenceCheck {
 }
 
 /**
+ * The live input, as the audio chain last reported it
+ * generated from [PlayoutLive](../../../../../apps/api/data/contracts/playout/playout.types.ck)
+ */
+export interface PlayoutLive {
+    state: LiveState;
+    /** While `preroll`, how long until the presenter is on the air. What a countdown is drawn from */
+    inMs?: number;
+    /** While `onair`, how long the presenter has been on */
+    forMs?: number;
+}
+
+/**
  * Why the station cannot be heard, as one answer
  * generated from [StationSilence](../../../../../apps/api/data/contracts/playout/playout.types.ck)
  */
@@ -220,4 +262,6 @@ export interface PlayoutStatus {
     staleStreamConfig: StreamConfigWarning[];
     /** Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest */
     silence: StationSilence;
+    /** The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input */
+    live?: PlayoutLive;
 }

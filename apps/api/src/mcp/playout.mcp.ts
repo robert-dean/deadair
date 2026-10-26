@@ -10,6 +10,7 @@ import { PlayoutService } from '#src/modules/playout/playout.service.js';
 import {
     PlayoutAlbumInput,
     PlayoutChartInput,
+    PlayoutLiveArmInput,
     PlayoutPlaylistInput,
     PlayoutSkipQuery,
     PlayoutStationPlaylistInput,
@@ -32,6 +33,8 @@ const PlayAChartArgs = z.object({ body: PlayoutChartInput });
 const SkipTheCurrentItemArgs = z.object({ query: PlayoutSkipQuery.optional() });
 const StartPlayoutArgs = z.object({});
 const StopPlayoutArgs = z.object({});
+const ArmTheLiveInputArgs = z.object({ body: PlayoutLiveArmInput });
+const DisarmTheLiveInputArgs = z.object({});
 
 /**
  * from [playout.ck](../../data/contracts/playout/playout.ck) `GET /playout/status`
@@ -225,6 +228,52 @@ export class StopPlayoutMcpTool implements McpToolHandler {
     }
 }
 
+/**
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/live/arm`
+ */
+@Injectable()
+export class ArmTheLiveInputMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'arm_the_live_input',
+        description:
+            "Arms the live input. From here, real signal from an encoder connected to it starts a short countdown, and then the presenter is on the air above the station's own programme. Arming an input that is already armed or on the air only replaces the title",
+        inputSchema: z.toJSONSchema(ArmTheLiveInputArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, ArmTheLiveInputArgs);
+        const result = await container.get(PlayoutService).armLive(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/live/disarm`
+ */
+@Injectable()
+export class DisarmTheLiveInputMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'disarm_the_live_input',
+        description: 'Disarms the live input. A presenter on the air is handed back to the station at once',
+        inputSchema: z.toJSONSchema(DisarmTheLiveInputArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const result = await container.get(PlayoutService).disarmLive();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
 /** Add this file's tools to the tool map. */
 export function registerPlayoutMcpTools(map: McpToolHandlerMap, container: Container): void {
     map.set('get_playout_status', container.get(GetPlayoutStatusMcpTool));
@@ -241,6 +290,8 @@ export function registerPlayoutMcpCatalog(map: McpToolHandlerMap, container: Con
     map.set('skip_the_current_item', container.get(SkipTheCurrentItemMcpTool));
     map.set('start_playout', container.get(StartPlayoutMcpTool));
     map.set('stop_playout', container.get(StopPlayoutMcpTool));
+    map.set('arm_the_live_input', container.get(ArmTheLiveInputMcpTool));
+    map.set('disarm_the_live_input', container.get(DisarmTheLiveInputMcpTool));
 }
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
@@ -253,4 +304,6 @@ export function registerPlayoutMcpToolClasses(registry: Registry): void {
     registry.register(SkipTheCurrentItemMcpTool).useClass(SkipTheCurrentItemMcpTool).asSingleton();
     registry.register(StartPlayoutMcpTool).useClass(StartPlayoutMcpTool).asSingleton();
     registry.register(StopPlayoutMcpTool).useClass(StopPlayoutMcpTool).asSingleton();
+    registry.register(ArmTheLiveInputMcpTool).useClass(ArmTheLiveInputMcpTool).asSingleton();
+    registry.register(DisarmTheLiveInputMcpTool).useClass(DisarmTheLiveInputMcpTool).asSingleton();
 }

@@ -165,6 +165,42 @@ export const PlayoutMount = z.strictObject({
 export type PlayoutMount = z.infer<typeof PlayoutMount>;
 
 /**
+ * What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme
+ * generated from [LiveState](../../../../data/contracts/playout/playout.types.ck)
+ */
+export const LiveState = z.enum(['off', 'armed', 'preroll', 'onair']);
+export type LiveState = z.infer<typeof LiveState>;
+
+/**
+ * Arming the live input
+ * generated from [PlayoutLiveArmInput](../../../../data/contracts/playout/playout.types.ck)
+ */
+export const PlayoutLiveArmInput = z.strictObject({
+    title: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("What the stream says is on while the presenter is on the air. Left out, it says the station's name"),
+});
+export type PlayoutLiveArmInput = z.infer<typeof PlayoutLiveArmInput>;
+
+/**
+ * What a presenter's encoder needs to connect to the live input. Carries the input's password
+ * generated from [LiveConnection](../../../../data/contracts/playout/playout.types.ck)
+ */
+export const LiveConnection = z.strictObject({
+    port: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(65535))
+        .describe(
+            "The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one",
+        ),
+    mount: z.string().min(1).max(100).describe('The mount to push to'),
+    user: z.string().min(1).max(100).describe('The user name to send. The input accepts any; this is the one encoders default to'),
+    password: z.string().min(1).max(200).describe("The input's password, which the station generated when it was first set up"),
+});
+export type LiveConnection = z.infer<typeof LiveConnection>;
+
+/**
  * Which rundown item Liquidsoap has just started playing
  * generated from [PlayoutAiredQuery](../../../../data/contracts/playout/playout.types.ck)
  */
@@ -236,6 +272,23 @@ export const SilenceCheck = z.strictObject({
 export type SilenceCheck = z.infer<typeof SilenceCheck>;
 
 /**
+ * The live input, as the audio chain last reported it
+ * generated from [PlayoutLive](../../../../data/contracts/playout/playout.types.ck)
+ */
+export const PlayoutLive = z.strictObject({
+    state: LiveState,
+    inMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('While `preroll`, how long until the presenter is on the air. What a countdown is drawn from'),
+    forMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('While `onair`, how long the presenter has been on'),
+});
+export type PlayoutLive = z.infer<typeof PlayoutLive>;
+
+/**
  * Why the station cannot be heard, as one answer
  * generated from [StationSilence](../../../../data/contracts/playout/playout.types.ck)
  */
@@ -303,6 +356,9 @@ export const PlayoutStatus = z.strictObject({
         ),
     silence: StationSilence.describe(
         'Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest',
+    ),
+    live: PlayoutLive.optional().describe(
+        "The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input",
     ),
 });
 export type PlayoutStatus = z.infer<typeof PlayoutStatus>;

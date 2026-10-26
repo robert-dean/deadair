@@ -806,11 +806,14 @@ which the talk-over duck's own `add` already did. And the meter is not trusted u
 has fed it for longer than its 0.4s window, because between connections it holds the last reading:
 a silent encoder connecting after a loud one was heard at once.
 
-**What the app does not know yet.** Nothing in the app arms the input, reads these fields or changes
-the running order for it. While somebody is live the programme goes on unheard underneath, and the
-app keeps renewing the lease. The production image does not publish 8006 either, and the app does not
-materialize the `LIVE_*` keys, so the defaults in `radio.liq` apply. In development, compose
-publishes 8006 on localhost:
+**What the app does with it.** `POST /playout/live/arm` and `/playout/live/disarm` drive it,
+`GET /playout/status` reports it as `live`, `GET /playout/live/connection` gives an operator what
+their encoder needs, and the activity feed records each time it is armed, goes on air and comes off.
+The app materializes `LIVE_PORT` (from `STREAM_LIVE_PORT`) and the image publishes 8006. The timings
+stay on `radio.liq`'s defaults. **What it does not do yet** is change the running order: while
+somebody is live the programme goes on unheard underneath and the app keeps renewing the lease, so
+history and scrobbles record those records. In development, compose publishes 8006 on localhost, and
+the input can be driven without the app:
 
 ```
 curl -X POST -H "X-Playout-Secret: $PLAYOUT_BRIDGE_SECRET" --data "Live" http://127.0.0.1:8005/control/live/arm

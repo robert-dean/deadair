@@ -337,6 +337,102 @@ public sealed record PlayoutMount
     public long? BitrateKbps { get; init; }
 }
 
+/// <summary>What the live input is doing. `off`: not armed, whatever is connected to it. `armed`: waiting for real signal from an encoder. `preroll`: signal heard, counting down to the cut. `onair`: the presenter is on the air, above the station's own programme</summary>
+[JsonConverter(typeof(LiveStateConverter))]
+public enum LiveState
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("off")]
+    Off,
+
+    [JsonStringEnumMemberName("armed")]
+    Armed,
+
+    [JsonStringEnumMemberName("preroll")]
+    Preroll,
+
+    [JsonStringEnumMemberName("onair")]
+    Onair,
+}
+
+/// <summary>
+/// Reads and writes <see cref="LiveState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="LiveState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class LiveStateConverter : JsonConverter<LiveState>
+{
+    public override LiveState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for LiveState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, LiveState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override LiveState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, LiveState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static LiveState FromWire(string? text) => text switch
+    {
+        "off" => LiveState.Off,
+        "armed" => LiveState.Armed,
+        "preroll" => LiveState.Preroll,
+        "onair" => LiveState.Onair,
+        _ => LiveState.Unknown,
+    };
+
+    private static string ToWire(LiveState value) => value switch
+    {
+        LiveState.Off => "off",
+        LiveState.Armed => "armed",
+        LiveState.Preroll => "preroll",
+        LiveState.Onair => "onair",
+        _ => throw new JsonException($"LiveState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>Arming the live input</summary>
+public sealed record PlayoutLiveArmInput
+{
+    /// <summary>What the stream says is on while the presenter is on the air. Left out, it says the station's name</summary>
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; init; }
+}
+
+/// <summary>What a presenter's encoder needs to connect to the live input. Carries the input's password</summary>
+public sealed record LiveConnection
+{
+    /// <summary>The port the station's container publishes for it, as the station sees it. Mapped to another on the host, the encoder uses that one</summary>
+    [JsonPropertyName("port")]
+    public required long Port { get; init; }
+
+    /// <summary>The mount to push to</summary>
+    [JsonPropertyName("mount")]
+    public required string Mount { get; init; }
+
+    /// <summary>The user name to send. The input accepts any; this is the one encoders default to</summary>
+    [JsonPropertyName("user")]
+    public required string User { get; init; }
+
+    /// <summary>The input's password, which the station generated when it was first set up</summary>
+    [JsonPropertyName("password")]
+    public required string Password { get; init; }
+}
+
 /// <summary>Which rundown item Liquidsoap has just started playing</summary>
 public sealed record PlayoutAiredQuery
 {
@@ -400,6 +496,23 @@ public sealed record SilenceCheck
     [JsonPropertyName("remedy")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Remedy { get; init; }
+}
+
+/// <summary>The live input, as the audio chain last reported it</summary>
+public sealed record PlayoutLive
+{
+    [JsonPropertyName("state")]
+    public required LiveState State { get; init; }
+
+    /// <summary>While `preroll`, how long until the presenter is on the air. What a countdown is drawn from</summary>
+    [JsonPropertyName("inMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? InMs { get; init; }
+
+    /// <summary>While `onair`, how long the presenter has been on</summary>
+    [JsonPropertyName("forMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ForMs { get; init; }
 }
 
 /// <summary>Why the station cannot be heard, as one answer</summary>
@@ -470,6 +583,11 @@ public sealed record PlayoutStatus
     /// <summary>Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest</summary>
     [JsonPropertyName("silence")]
     public required StationSilence Silence { get; init; }
+
+    /// <summary>The live input, where a presenter's encoder takes the air from the station. Absent when the audio chain has not said, which is a stream that is not answering or one too old to have the input</summary>
+    [JsonPropertyName("live")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlayoutLive? Live { get; init; }
 }
 
 /// <summary>Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one</summary>

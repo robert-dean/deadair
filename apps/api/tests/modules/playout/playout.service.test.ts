@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import type { QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
 import { PlayoutService } from '../../../src/modules/playout/playout.service.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
@@ -87,6 +88,11 @@ interface Options {
      * fault branch without one, which is what every case here that sets `streamUp: false` expects.
      */
     downSince?: number;
+    /** What the last reading said about the live input, and what an arm or disarm answers with. */
+    live?: QueueStatus['live'];
+    liveInMs?: number;
+    /** The live input's password, as the stream settings hold it. */
+    harborPassword?: string;
 }
 
 const item = {
@@ -125,7 +131,13 @@ function build(options: Options = {}) {
         starvedSince: vi.fn(() => undefined),
         downSince: vi.fn(() => options.downSince),
         deniedSince: vi.fn(() => options.deniedSince),
-        lastReading: vi.fn(() => undefined),
+        lastReading: vi.fn(() =>
+            options.live === undefined
+                ? undefined
+                : { queued: 0, live: options.live, ...(options.liveInMs === undefined ? {} : { liveInMs: options.liveInMs }) },
+        ),
+        armLive: vi.fn(async () => (options.live === undefined ? undefined : { queued: 0, live: options.live })),
+        disarmLive: vi.fn(async () => (options.live === undefined ? undefined : { queued: 0, live: options.live })),
     } as unknown as PlayoutControlClient;
 
     const director = {
@@ -155,7 +167,10 @@ function build(options: Options = {}) {
         resolve: async () => 'http://127.0.0.1:8005',
     } as unknown as LiquidsoapEndpoint;
 
-    const stream = { settings: async () => ({}) } as unknown as StreamService;
+    const stream = {
+        settings: () => (options.harborPassword === undefined ? {} : { harborPassword: options.harborPassword }),
+        livePort: () => '8006',
+    } as unknown as StreamService;
 
     // No drift by default: the containers running the config that was rendered for them
     // is the ordinary state, and the warning is tested where it is decided.
@@ -814,5 +829,44 @@ describe('PlayoutService.getTrackAudio', () => {
         const { service } = build({});
 
         expect(await statusOf(service.getTrackAudio(SOURCE_ID))).toBe(404);
+    });
+});
+
+describe('PlayoutService: the live input', () => {
+    it('arms, passing the title on, and answers with a status reporting the input', async () => {
+        const { service, control } = build({ live: 'armed' });
+
+        const status = await service.armLive({ title: 'The Late Show' });
+
+        expect(control.armLive).toHaveBeenCalledWith('The Late Show');
+        expect(status.live).toEqual({ state: 'armed' });
+    });
+
+    it('refuses an arm the audio chain did not take, rather than reporting one that never happened', async () => {
+        const { service } = build();
+
+        expect(await statusOf(service.armLive({}))).toBe(409);
+    });
+
+    it('disarms', async () => {
+        const { service, control } = build({ live: 'off' });
+
+        expect((await service.disarmLive()).live).toEqual({ state: 'off' });
+        expect(control.disarmLive).toHaveBeenCalled();
+    });
+
+    it('reports the countdown in the status, and nothing about the input from a stream that is not answering', async () => {
+        expect((await build({ live: 'preroll', liveInMs: 1800 }).service.getStatus()).live).toEqual({ state: 'preroll', inMs: 1800 });
+        expect((await build({ live: 'onair', streamUp: false }).service.getStatus()).live).toBeUndefined();
+    });
+
+    it('answers the connection with the published port, the mount, the user and the password', async () => {
+        const { service } = build({ harborPassword: 'pw' });
+
+        expect(await service.liveConnection()).toEqual({ port: 8006, mount: '/live', user: 'source', password: 'pw' });
+    });
+
+    it('answers 503 for a connection with no password seeded', async () => {
+        expect(await statusOf(build().service.liveConnection())).toBe(503);
     });
 });

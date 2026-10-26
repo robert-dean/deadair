@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.85.1] — 2026-10-26
+
+- A new setting, "How hard the programming model thinks", sets how much the model reasons before choosing the next hour's records. It defaults to "Not at all": with the list of records the station now screens for it, a model left to think used up its whole time on most refills and chose nothing, so the hour was filled without it. Raise it if your model answers well and quickly when it thinks. Like the break model's setting, it only reaches the model when the language model plugin's own effort setting is Auto.
+
 ## [0.85.0] — 2026-10-25
 
 - A briefed show whose brief names its artists is now programmed from a list. The station gathers records by those artists and a few who sound like them, from your library and from what your music services have said, takes out anything that played too recently, any artist who just played and anything you dislike, and hands the model a numbered list. The model answers with numbers instead of searching and writing out titles, so a refill takes seconds rather than minutes and every record it picks can play. If the model says nothing, the hour is drawn from the same list. It can still search for something the list lacks, such as a song the brief names by title, and a brief that names no artists is programmed exactly as before. "Choose from a list when the brief names its artists" in the model settings turns it off.
@@ -1679,7 +1683,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.1...HEAD
+[0.85.1]: https://github.com/robert-dean/deadair/compare/v0.85.0...v0.85.1
 [0.85.0]: https://github.com/robert-dean/deadair/compare/v0.84.1...v0.85.0
 [0.84.1]: https://github.com/robert-dean/deadair/compare/v0.84.0...v0.84.1
 [0.84.0]: https://github.com/robert-dean/deadair/compare/v0.83.1...v0.84.0

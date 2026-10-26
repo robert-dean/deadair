@@ -60,8 +60,12 @@ def warm_up_step() =
   end
 end
 
-radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_programme()}, programme)]), blank()])
+gated = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_programme()}, programme)]), blank()])
 # ── END copied from radio.liq ────────────────────────────────────────────────────
+
+# In radio.liq the live input is mixed in over `gated` to make `radio`. Without one, `radio` is the
+# gate, which is all this measures.
+radio = gated
 
 # The starve watch's own condition, printed rather than posted.
 def watch_starve() =

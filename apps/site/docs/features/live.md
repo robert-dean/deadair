@@ -26,6 +26,8 @@ You can also book a live show ahead of time, so the station arms the input for y
 3. Switch on **A live show**. The programme fields go away, because nothing of the special's own plays.
 4. Save. It appears on the timetable marked **(live)**, and on the Specials list with a **Live** badge.
 
+The Live card on the Desk names the next booked show for today or tomorrow, so whoever is at the desk knows the station will arm the input by itself.
+
 At the start time the station does what **Go live** does, with the special's name as the show name. Your weekly show keeps playing until your encoder is heard, then the Desk counts you in as usual. You can start sending a little early: the countdown waits for the input to be armed.
 
 - **Nobody comes:** if the input is still waiting when the show's end time arrives, it is disarmed, so the station is not left waiting for an encoder all night.

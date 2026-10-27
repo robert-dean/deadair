@@ -14,6 +14,7 @@ const armTheLiveInput = vi.fn((_body: unknown) => Promise.resolve(playoutStatus(
 const disarmTheLiveInput = vi.fn(() => Promise.resolve(playoutStatus()));
 const getTheLiveInputConnection = vi.fn(() => Promise.resolve({ port: 8006, mount: '/live', user: 'source', password: 's3cret-pw' }));
 let automation: string | undefined = 'standDown';
+let occurrences: { slotId: string; label: string; start: string; end: string; live?: boolean }[] = [];
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -22,6 +23,10 @@ vi.mock('../../../src/api/client', () => ({
             disarmTheLiveInput: () => disarmTheLiveInput(),
             getTheLiveInputConnection: () => getTheLiveInputConnection(),
             getPlayoutStatus: () => Promise.resolve(playoutStatus()),
+        },
+        schedule: {
+            readCurrentSlot: () => Promise.resolve({ now: '2026-11-06 18:30:00', upcoming: [] }),
+            readTimetable: () => Promise.resolve({ from: '2026-11-06', days: 2, occurrences }),
         },
         settings: {
             getSettings: () =>
@@ -46,6 +51,7 @@ vi.mock('@tanstack/react-router', () => ({
 afterEach(() => {
     vi.clearAllMocks();
     automation = 'standDown';
+    occurrences = [];
 });
 
 const live = (state: PlayoutLive['state'], more: Partial<PlayoutLive> = {}): PlayoutLive => ({ state, ...more });
@@ -58,6 +64,25 @@ describe('LiveInput', () => {
         expect(screen.getByLabelText('Show name')).toBeInTheDocument();
         expect(await screen.findByText(/the station’s own programme stops and picks up at the next record afterwards/)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Change' })).toHaveAttribute('href', '/settings/playout');
+    });
+
+    it('names a live show booked for later today, with the way to the bookings', async () => {
+        occurrences = [
+            { slotId: 'weekly', label: 'Boneyard', start: '2026-11-06 18:00:00', end: '2026-11-06 20:00:00' },
+            { slotId: 'pirate', label: 'Pirate Hour', start: '2026-11-06 20:00:00', end: '2026-11-06 22:00:00', live: true },
+        ];
+        render(<LiveInput live={live('off')} />);
+
+        expect(await screen.findByText(/Pirate Hour is booked live today at 20:00/)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Bookings' })).toHaveAttribute('href', '/schedule');
+    });
+
+    it('says nothing about bookings when none is coming', async () => {
+        occurrences = [{ slotId: 'weekly', label: 'Boneyard', start: '2026-11-06 18:00:00', end: '2026-11-06 20:00:00' }];
+        render(<LiveInput live={live('off')} />);
+
+        await screen.findByText(/the station’s own programme stops/);
+        expect(screen.queryByText(/booked live/)).toBeNull();
     });
 
     it('says the programme carries on when the operator chose that', async () => {

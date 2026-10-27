@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import type { PlayoutLive } from '@deadair/sdk';
 
 import { useArmLive, useDisarmLive } from '../../api/playout.queries';
+import { useCurrentSlot, useTimetable } from '../../api/schedule.queries';
+import { formatWallTime } from '../../i18n/format.locale';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -13,6 +15,7 @@ import { formatDuration } from '../shared/format.duration';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 import { useArmedPress } from './armed.press';
+import { nextBooking } from './live.booking';
 import { useLiveClock } from './live.clock';
 import { LiveConnection } from './live.connection';
 
@@ -72,6 +75,7 @@ export function LiveInput({ live }: LiveInputProps) {
                             {onAir ? <StatusLamp tone="live" emphasis="chip" pulse label={t('live.onair.lamp')} /> : undefined}
                         </Group>
                         {live.state === 'off' ? <AutomationLine /> : undefined}
+                        {live.state === 'off' || live.state === 'armed' ? <BookedLine /> : undefined}
                         {live.state === 'armed' ? <Text size="sm">{t('live.armed.waiting')}</Text> : undefined}
                         {live.state === 'preroll' ? <Countdown inMs={clock.inMs} /> : undefined}
                         {onAir && clock.forMs !== undefined ? (
@@ -174,6 +178,35 @@ function Countdown({ inMs }: { inMs: number | undefined }) {
             </Text>
             <Text size="sm">{t('live.preroll.in', { count: seconds })}</Text>
         </Group>
+    );
+}
+
+/**
+ * The next live show booked on the schedule, today or tomorrow, so whoever is at the desk knows the
+ * station will arm the input by itself, and when. Nothing when none is booked, or while either
+ * reading is still on its way.
+ */
+function BookedLine() {
+    const { t } = useTranslation('desk');
+    const current = useCurrentSlot();
+    const timetable = useTimetable(undefined, 2);
+    const now = current.data?.now;
+    const booking = now === undefined ? undefined : nextBooking(timetable.data?.occurrences ?? [], now);
+    if (booking === undefined) return undefined;
+
+    const values = { name: booking.name || t('live.booked.untitled'), time: formatWallTime(booking.hour, booking.minute) };
+
+    return (
+        <Text size="sm" c="dimmed">
+            {booking.when === 'now'
+                ? t('live.booked.now', values)
+                : booking.when === 'today'
+                  ? t('live.booked.today', values)
+                  : t('live.booked.tomorrow', values)}{' '}
+            <Anchor size="sm" renderRoot={(props: object) => <Link to="/schedule" search={{ tab: 'specials' }} {...props} />}>
+                {t('live.booked.change')}
+            </Anchor>
+        </Text>
     );
 }
 

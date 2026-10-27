@@ -138,6 +138,13 @@ export const desk = {
             continue: 'While you are live, the station’s own programme carries on underneath, unheard.',
             change: 'Change',
         },
+        booked: {
+            now: '{{name}} is booked live until {{time}}.',
+            today: '{{name}} is booked live today at {{time}}; the station arms the input then.',
+            tomorrow: '{{name}} is booked live tomorrow at {{time}}; the station arms the input then.',
+            untitled: 'A live show',
+            change: 'Bookings',
+        },
         armed: {
             lamp: 'Armed',
             waiting: 'Waiting for your encoder. Start sending, and the countdown begins.',

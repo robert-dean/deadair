@@ -6,10 +6,11 @@ import { namesOwnShow, OWN_SHOW_BAND_KIND, OWN_SHOW_TOPIC_KIND } from '../../../
 const topic = { id: 't1', key: 'evening-news', label: 'Evening News' };
 
 describe('the own-show topic kind', () => {
-    it('is a subject for a podcast band, and calls one a show', () => {
+    // Not plain "show", which the syndicated kind already is: the Subjects page heads each kind with its noun.
+    it('is a subject for a podcast band, and calls one an own show', () => {
         expect(OWN_SHOW_TOPIC_KIND.kind).toBe(OWN_SHOW_BAND_KIND);
         expect(OWN_SHOW_BAND_KIND).toBe('podcast');
-        expect(OWN_SHOW_TOPIC_KIND.noun).toEqual({ one: 'show', many: 'shows' });
+        expect(OWN_SHOW_TOPIC_KIND.noun).toEqual({ one: 'own show', many: 'own shows' });
     });
 
     // A show's id is a row id nobody could type, so the form offers the station's own shows.

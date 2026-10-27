@@ -31,7 +31,9 @@ export const namesOwnShow = (band: ClockBand): boolean => band.kind.trim().toLow
  */
 export const OWN_SHOW_TOPIC_KIND: TopicKind = {
     kind: OWN_SHOW_BAND_KIND,
-    noun: { one: 'show', many: 'shows' },
+    // Not plain "show": the syndicated kind already is, and the Subjects page heads each kind with its
+    // noun, so two sections called SHOWS with a "New show" button each could not be told apart.
+    noun: { one: 'own show', many: 'own shows' },
     description:
         "The station's own shows, made rather than carried. Make a show on the Podcasts page, add it here, then put a podcast band on the " +
         'format clock about it: the station makes the next episode ahead of that time and airs it then. A show that reads the news makes ' +

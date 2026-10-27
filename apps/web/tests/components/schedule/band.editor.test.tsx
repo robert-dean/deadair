@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ClockBand } from '@deadair/sdk';
 
 import { BandEditor } from '../../../src/components/schedule/band.editor';
-import { whenOf } from '../../../src/components/schedule/clock.panel';
+import { daysOf, whenOf } from '../../../src/components/schedule/clock.panel';
 import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({
@@ -69,9 +69,17 @@ describe('BandEditor on chosen days', () => {
     });
 });
 
-describe('whenOf', () => {
-    it('names the days a band is on after its time, and nothing for every day', () => {
-        expect(whenOf(band({ hour: undefined, minute: 30, days: [] }))).toBe(':30');
-        expect(whenOf(band({ hour: undefined, minute: 30, days: [5, 1] }))).toMatch(/^:30 Mon Fri$/);
+describe('daysOf', () => {
+    it('says nothing for every day, and leaves the time to whenOf', () => {
+        expect(daysOf(band({ days: [] }))).toBeUndefined();
+        expect(daysOf(band())).toBeUndefined();
+        expect(whenOf(band({ hour: undefined, minute: 30, days: [1, 2] }))).toBe(':30');
+    });
+
+    it('reads a run of three or more as a range, from Monday', () => {
+        expect(daysOf(band({ days: [5, 1, 3, 2, 4] }))).toBe('Mon–Fri');
+        expect(daysOf(band({ days: [2, 3, 4, 5] }))).toBe('Tue–Fri');
+        expect(daysOf(band({ days: [6, 0] }))).toBe('Sat, Sun');
+        expect(daysOf(band({ days: [1, 3, 5, 6, 0] }))).toBe('Mon, Wed, Fri–Sun');
     });
 });

@@ -2,6 +2,7 @@ import { open } from 'node:fs/promises';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
+import { stationZone } from '#modules/director/clock.words.js';
 import { LiquidsoapEndpoint } from '#modules/playout/liquidsoap.endpoint.js';
 import { AUDIO_TOKEN_PARAM, signAudioPath } from '#modules/playout/playout.audio.token.js';
 import { ArchiveStore, type Recording as StoredRecording } from './archive.store.js';
@@ -91,7 +92,7 @@ export class ArchiveService {
                     body,
                     headers: {
                         acceptRanges: 'bytes',
-                        ...(query.download === true ? { contentDisposition: attachment(recording) } : {}),
+                        ...(query.download === true ? { contentDisposition: attachment(recording, stationZone(this.config)) } : {}),
                     },
                 };
             }
@@ -164,9 +165,16 @@ export function parseRange(header: string | undefined, size: number): { start: n
     return end < start ? undefined : { start, end };
 }
 
-/** `attachment` with a name a person would give the file: the date, the time, and the show. */
-function attachment(recording: StoredRecording): string {
-    const when = recording.startedAt.toFormat("yyyy-LL-dd HH'.'mm");
+/**
+ * `attachment` with a name a person would give the file: the date, the time, and the show.
+ *
+ * On the STATION's clock, which is the one the show was booked and announced in. The process's own
+ * zone is UTC in the image, which named a 21:03 show `01.03` on the next day. A zone the platform
+ * does not know falls back to the process's rather than naming the file "Invalid DateTime".
+ */
+function attachment(recording: StoredRecording, zone: string): string {
+    const zoned = recording.startedAt.setZone(zone);
+    const when = (zoned.isValid ? zoned : recording.startedAt).toFormat("yyyy-LL-dd HH'.'mm");
     const what = recording.title ?? (recording.kind === 'live' ? 'Live show' : 'Programme');
     // The title is whatever an operator typed, so nothing a filesystem or a header could read as
     // structure survives into the name: no separators, no quotes, no control characters.

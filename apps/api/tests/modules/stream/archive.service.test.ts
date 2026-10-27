@@ -14,6 +14,7 @@ import { ArchiveService, RANGE_CHUNK_BYTES, parseRange } from '../../../src/modu
 import { ArchiveStore } from '../../../src/modules/stream/archive.store.js';
 import { verifyAudioToken } from '../../../src/modules/playout/playout.audio.token.js';
 import { isSignedAudioPath } from '../../../src/server/middleware/signed.audio.middleware.js';
+import { CLOCK_KEYS } from '../../../src/modules/director/clock.words.js';
 
 const SECRET = 'bridge-secret';
 const SHOW = '2026-10-27T21-03-12-live';
@@ -143,6 +144,17 @@ describe('ArchiveService.getRecordingAudio', () => {
         expect(download.status === 200 && download.headers.contentDisposition).toMatch(
             /^attachment; filename="2026-10-27 \d\d\.\d\d Pirate Hour\.mp3"; filename\*=UTF-8''/,
         );
+    });
+
+    it("names the download on the station's clock, not the server's", async () => {
+        // A zone no CI runner or laptop is likely to be set to, so this cannot pass on the host's clock.
+        settings = { [CLOCK_KEYS.timezone]: 'Asia/Kathmandu' };
+        // 01:03 UTC on the 28th is 06:48 on the 28th in Kathmandu (UTC+5:45).
+        await recordShow(10, { title: 'Late Show', startedAtMs: Date.UTC(2026, 9, 28, 1, 3), endedAtMs: Date.UTC(2026, 9, 28, 2) });
+
+        const answer = await service().getRecordingAudio(SHOW, { download: true }, {});
+
+        expect(answer.status === 200 && answer.headers.contentDisposition).toContain('filename="2026-10-28 06.48 Late Show.mp3"');
     });
 
     it('keeps an operator-typed title from becoming structure in the filename', async () => {

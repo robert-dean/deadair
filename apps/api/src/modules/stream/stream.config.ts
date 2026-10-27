@@ -179,8 +179,9 @@ export interface StreamPlayoutConfig {
     playoutBridgeSecret: string;
     /**
      * Talk-over mode. `true` ducks the bed under the DJ voice; `false` lets the
-     * voice preempt the bed so the DJ speaks between tracks in silence. Read by
-     * radio.liq at startup, so a change needs a Liquidsoap restart.
+     * voice preempt the bed. Read by radio.liq at startup. Always `true` from
+     * `stream.service.ts`: the app half of `false` (pausing playout so the DJ
+     * speaks into a gap) was never built, so it is not offered as a setting.
      */
     talkOverTracks: boolean;
     /**

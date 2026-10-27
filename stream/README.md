@@ -1,14 +1,5 @@
 # Stream (Icecast + Liquidsoap)
 
-> **Read the app-side halves as the target, not the tree.** These assets are the finished stream
-> from the pre-re-scaffold repo, restored ahead of the app code that drives them. What is NOT built
-> here yet, and what this file therefore describes as intent: the config materializer that writes
-> `radio.env`, the playout module (`Rundown`, `PlayoutPusher`, `/playout/bridge/aired`), and the
-> Spotify login route. What is genuinely gone rather than pending: the render pipeline, so nothing
-> pushes DJ voice to the harbor and there is no `GET /playout/segment/:id`; and Navidrome, so
-> Subsonic URLs are a shape this supports rather than a source that exists. There is no director,
-> so the duck and talk-over settings below are constants rather than console knobs.
-
 Liquidsoap mixes a **music bed** (ducked under the DJ/news/weather voice) and pushes
 it to the **Icecast** mounts. Config comes from `radio.env` (materialized from the DB
 by the app, falling back to `radio.default.env`) and the committed `radio.liq`.
@@ -422,11 +413,13 @@ back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)).
 
 **It ducks the bed to a level, not by an amount.** The bed is metered (BS.1770, the louder of
 short-term and momentary) upstream of the duck's gain, and dropped as far as it takes to sit at the
-level the cue names while the DJ speaks, never deeper than `DUCK_GAIN_DB` and never shallower than
-`DUCK_MIN_DB`. The app stamps that level on every cue it arms (`deadair_duck_bed_lufs`, ten under
-where the voice is aimed), so the bed follows `playout.targetLufs` and the speech trim with no restart;
-`DUCK_BED_LUFS` is the figure for a cue that does not carry one. The defaults (-25, -18, -3) put a record levelled to -13 exactly where the old fixed
--12 did, ten under the voice, so only quieter and louder passages move. During a break the depth
+level the cue names while the DJ speaks, never deeper than `playout.duckDeepestDb` and never
+shallower than `playout.duckShallowestDb`. The app stamps that level on every cue it arms
+(`deadair_duck_bed_lufs`, `playout.duckUnderVoiceDb` under where the voice is aimed), so the bed
+follows `playout.targetLufs` and the speech trim with no restart. `DUCK_BED_LUFS`, `DUCK_GAIN_DB` and
+`DUCK_MIN_DB` in `radio.env` are what a cue that carries none of this gets. The defaults (ten under
+the voice, -18, -3) put a record levelled to -13 exactly where the old fixed -12 did, so only quieter
+and louder passages move. During a break the depth
 deepens fast, so a record kicking in under a talk-up is pulled down within the second, and releases
 slowly, so the bed cannot pump between phrases. The ramp in and out is `playout.duckFadeMs` (`DUCK_FADE_MS` without one) whatever the
 depth.

@@ -122,13 +122,13 @@ music_dir   = environment.get("MUSIC_DIR", default="/music")
 # input's credential (see "Live input"), on a port of its own rather than this one.
 harbor_port = int_of_string(environment.get("HARBOR_PORT", default="8005"))
 
-# Talk-over mode (materialized from the director's talkOverTracks setting; default true).
+# Talk-over mode (materialized from `TALK_OVER_TRACKS` in stream.service.ts, a constant; default true).
 #   true  → the DJ talks OVER track intros/outros: the bed is ducked under the voice.
-#   false → the DJ talks BETWEEN tracks in silence: the app pauses playout at the boundary and
-#           the voice PREEMPTS the bed entirely (fallback), so nothing plays under the DJ.
-# NOTE: this is read at startup, so toggling it takes effect only on a Liquidsoap restart (the
-# app re-materializes radio.env on the settings change). The app-side pause/resume that opens
-# the gap IS live — only the duck-vs-cut mix choice needs the restart.
+#   false → the voice PREEMPTS the bed entirely (fallback), so nothing plays under the DJ.
+# Only the mix half of `false` exists. It was meant to pair with the app pausing playout at the
+# track boundary so the DJ speaks into a gap, and nothing in the app does that: a cue armed over a
+# record would cut the record out while it keeps advancing underneath. That is why this is not a
+# setting while the duck's own figures are (see the duck below). Read at startup.
 talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 
 # The duck (step 4), materialized into radio.env and read at startup like talk_over. The duck lands

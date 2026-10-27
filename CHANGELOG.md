@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.86.1] — 2026-10-27
+
+- How long the music takes to drop under the DJ and come back afterwards is now a setting under Playout. A link talked up to the vocal or over a record's end is timed with the same figure, and each cue carries it to the audio engine, so the two never disagree even when the setting changes while a cue is waiting for its record. The default is the 300 milliseconds the station already used.
+- The station's audio engine can now take the duck's deepest and shallowest depth from each DJ cue, and the length of its fade from the request that arms it, so changing them will not need a restart of the audio. Nothing sends them yet, so the station sounds exactly as before. The settings come later.
+- How far the music drops while the DJ talks over a record is now three settings under Playout: how far under the voice the record sits, the most it may be pulled down for a very loud record, and the least it dips for a quiet one. Each applies from the next break, with no restart and no gap in the broadcast. The defaults are the figures the station already used, so nothing sounds different until somebody changes them.
+- The audio engine's fixed trim on the DJ's voice is gone. It was set to zero and did nothing, and the two settings under Playout that keep the DJ under the music and keep the record under the DJ already cover what it was for. The station's audio engine restarts once when this update arrives, a few seconds of silence for anybody listening; nothing about how the DJ sounds changes.
+
 ## [0.86.0] — 2026-10-27
 
 - The station's recordings are on the API. `GET /archive/recordings` lists them, newest first, each with an audio URL a player can stream from without a token for twelve hours. `GET /archive/recordings/{id}/audio` answers a byte range at a time so a player can seek through an hour, or the whole file as a named download with `?download=true`. `DELETE /archive/recordings/{id}` removes a finished one and refuses one still being recorded. The storage report counts the archive as a store of its own, `archive`.
@@ -1709,7 +1716,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.1...HEAD
+[0.86.1]: https://github.com/robert-dean/deadair/compare/v0.86.0...v0.86.1
 [0.86.0]: https://github.com/robert-dean/deadair/compare/v0.85.3...v0.86.0
 [0.85.3]: https://github.com/robert-dean/deadair/compare/v0.85.2...v0.85.3
 [0.85.2]: https://github.com/robert-dean/deadair/compare/v0.85.1...v0.85.2

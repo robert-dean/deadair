@@ -767,6 +767,14 @@ stories — the same inaccuracy `chooseFacts` buys, against the same alternative
 disagree. `forget` runs on the way IN rather than when stories are kept, or the one station that needs it most
 (a feed so slow every bulletin declines) would be the one whose log never aged out.
 
+**A news show's edition spends its stories too** (`editionHeadlines`). An episode of one of the station's own
+shows, once the director places it in the running order, keeps the headlines of its linked sources in the
+same log, so a bulletin half an hour after the six o'clock edition does not read its stories again in a
+shorter voice. At placement rather than at commission, because an edition is made up to three hours ahead
+and marking it then would starve every bulletin in between of stories the edition has not yet covered;
+placement is minutes before air, which is the "marked at selection" argument below. Pasted text has no
+headline a bulletin could read, so only a source with an address counts.
+
 **When everything in the window has been read the slot is DECLINED**, on the freshness window's own argument.
 The other half is `BreakPromptShape.showsFacts`, off for `NEWS_SHAPE` alone: the record coming up is shown so
 the bulletin can hand back in a line, and its NOTES are withheld, because both false discography claims this

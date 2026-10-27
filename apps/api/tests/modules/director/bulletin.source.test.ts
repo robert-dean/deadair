@@ -13,6 +13,7 @@ import {
     CategoryWatch,
     DEFAULT_STORY_COUNT_MAX,
     DEFAULT_STORY_COUNT_MIN,
+    editionHeadlines,
     MAX_STORY_COUNT,
     ReadLog,
 } from '../../../src/modules/director/bulletin.source.js';
@@ -1030,5 +1031,30 @@ describe("reading the station's feeds in turn", () => {
 
             expect(bulletin?.stories.map(story => story.headline)).toEqual(['Story 1.', 'Story 2.', 'Story 3.']);
         });
+    });
+});
+
+// A news show's edition goes over its stories at length; a bulletin half an hour later reading the same
+// headlines is the station repeating itself in a shorter voice.
+describe('after a news edition', () => {
+    const edition = {
+        showId: 'show-1',
+        sources: [{ title: 'Bridge reopens after four years', url: 'https://example.com/bridge' }, { title: 'Pasted text' }],
+    };
+
+    it("names the edition's linked stories, and nothing for a production that is not a show's", () => {
+        expect(editionHeadlines(edition)).toEqual(['Bridge reopens after four years']);
+        expect(editionHeadlines({ sources: edition.sources })).toEqual([]);
+        expect(editionHeadlines({ showId: 'show-1' })).toEqual([]);
+    });
+
+    it('a bulletin passes over what the edition covered', async () => {
+        const read = readLog();
+        await read.keep(editionHeadlines(edition), NOW - 10 * 60_000);
+
+        const { source } = build({ items: [item('Bridge reopens after four years'), item('Ferry service resumes')], read });
+        const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Ferry service resumes.']);
     });
 });

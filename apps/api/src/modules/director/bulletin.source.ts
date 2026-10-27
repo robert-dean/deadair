@@ -263,6 +263,23 @@ export class ReadLog {
     }
 }
 
+/**
+ * The headlines an episode of one of the station's own shows read from the news, for {@link ReadLog}.
+ *
+ * A news show's edition goes over its stories at length, so a bulletin half an hour later reading the
+ * same headlines is the station repeating itself in a shorter voice. Marked when the edition is placed
+ * in the running order rather than when it is commissioned: an edition is made up to three hours
+ * ahead, and marking then would starve every bulletin in between of the very stories it has not yet
+ * covered. Placement is minutes before air, which is `ReadLog`'s "marked at selection" argument again.
+ *
+ * Only a source with an address: what a news show reads is a feed's stories, each with its link, and
+ * pasted text has no headline a bulletin could read. Nothing for a production that is not a show's.
+ */
+export function editionHeadlines(production: { showId?: string; sources?: readonly { title: string; url?: string }[] }): string[] {
+    if (production.showId === undefined) return [];
+    return (production.sources ?? []).filter(source => source.url !== undefined).map(source => source.title);
+}
+
 /** A headline as the thing a listener would hear, so two spellings of one story are one story. */
 const key = (headline: string): string =>
     headline

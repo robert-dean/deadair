@@ -47,6 +47,7 @@ import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
 import { PRODUCTION_SHELF_LIFE_MS, productionExpired, productionLanding, standingCall } from './production.shelf.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
+import { editionHeadlines, ReadLog } from './bulletin.source.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { breakPicture } from './break.picture.js';
@@ -1327,6 +1328,11 @@ export class DirectorService {
 
                     await productions.moveTo(production.id, 'aired', 'ready');
                     placed += 1;
+
+                    // A news edition's stories are now the station's to have said, so the bulletins
+                    // after it pass over them. See `editionHeadlines`.
+                    const covered = editionHeadlines(production);
+                    if (covered.length > 0) await scope.get(ReadLog).keep(covered, Date.now());
                     this.logger.info('director: put a production into the running order', {
                         production: production.id,
                         title: production.title,

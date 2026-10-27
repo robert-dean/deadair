@@ -37,6 +37,20 @@ describe('SpecialsPanel', () => {
         expect(screen.queryByText('The Boneyard')).toBeNull();
     });
 
+    it('marks a booked live show as live', () => {
+        render(
+            <SpecialsPanel
+                slots={[slot('Pirate Hour', { startsOn: '2026-11-06', endsOn: '2026-11-06', live: true }), SLOTS[1]!]}
+                today="2026-10-09"
+                onEdit={vi.fn()}
+                onNew={vi.fn()}
+            />,
+        );
+
+        expect(within(screen.getByRole('row', { name: 'Edit Pirate Hour' })).getByText('Live')).toBeInTheDocument();
+        expect(within(screen.getByRole('row', { name: 'Edit Halloween' })).queryByText('Live')).toBeNull();
+    });
+
     it('says so when there are none', () => {
         render(<SpecialsPanel slots={[SLOTS[0]!]} today="2026-10-09" onEdit={vi.fn()} onNew={vi.fn()} />);
 

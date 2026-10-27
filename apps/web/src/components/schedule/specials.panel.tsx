@@ -96,6 +96,13 @@ function SpecialRow({ special, today, airing, onEdit }: { special: Special; toda
             </Table.Td>
             <Table.Td w={200}>
                 <Group gap={4} justify="flex-end" wrap="nowrap">
+                    {/* Red, the on-air tally, because a live show is the one special that is a person
+                        taking the air rather than a programme the station plays. */}
+                    {special.live ? (
+                        <Badge size="xs" variant="light" color="red">
+                            {t('specials.live')}
+                        </Badge>
+                    ) : undefined}
                     {special.yearly ? (
                         <Badge size="xs" variant="light" color="gray">
                             {t('specials.everyYear')}

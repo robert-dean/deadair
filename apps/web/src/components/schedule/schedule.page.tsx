@@ -434,7 +434,12 @@ function toEvents(
 
     return (timetable?.occurrences ?? []).map(block => ({
         id: `${block.slotId}@${block.start}`,
-        title: specials.has(block.slotId) ? t('specials.onTimetable', { name: block.label || t('untitled') }) : block.label || t('untitled'),
+        // A live show is named for what it is, for the same reason: it is a presenter's time, not a show.
+        title: block.live
+            ? t('specials.liveOnTimetable', { name: block.label || t('untitled') })
+            : specials.has(block.slotId)
+              ? t('specials.onTimetable', { name: block.label || t('untitled') })
+              : block.label || t('untitled'),
         start: block.start,
         end: block.end,
         color: colorOf(block.slotId),
@@ -538,6 +543,8 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.startsOn === undefined ? {} : { startsOn: slot.startsOn }),
         ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
         ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),
+        // And a live show's mark, or a drag would turn a booking into a special that plays its own brief.
+        ...(slot.live === true ? { live: true } : {}),
         ...(slot.guestHosts === undefined ? {} : { guestHosts: slot.guestHosts.map(guest => ({ ...guest })) }),
         ...(slot.coHosts === undefined ? {} : { coHosts: slot.coHosts.map(coHost => ({ ...coHost })) }),
         mode: slot.mode,

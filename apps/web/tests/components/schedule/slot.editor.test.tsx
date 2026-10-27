@@ -411,6 +411,103 @@ describe('SlotEditor', () => {
         });
     });
 
+    describe('a live show', () => {
+        const pirate = slot({
+            label: 'Pirate Hour',
+            startsAtMinutes: 20 * 60,
+            endsAtMinutes: 22 * 60,
+            startsOn: '2026-11-06',
+            endsOn: '2026-11-06',
+            live: true,
+        });
+
+        it('is offered only on a special', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+
+            const { rerender } = render(
+                <SlotEditor target={{ kind: 'new', special: true }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />,
+            );
+            expect(await screen.findByRole('switch', { name: /A live show/ })).not.toBeChecked();
+
+            rerender(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
+            expect(screen.queryByRole('switch', { name: /A live show/ })).toBeNull();
+        });
+
+        it('draws none of the programme, and sends only when it is on and that it is live', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+            const onSubmit = vi.fn();
+            const user = setupUser();
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: pirate }}
+                    onClose={noop}
+                    onSubmit={onSubmit}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            expect(await screen.findByRole('switch', { name: /A live show/ })).toBeChecked();
+            expect(screen.queryByRole('combobox', { name: 'Mode' })).toBeNull();
+
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+
+            const sent = onSubmit.mock.calls[0]?.[0];
+            expect(sent).toMatchObject({ label: 'Pirate Hour', startsOn: '2026-11-06', endsOn: '2026-11-06', live: true });
+            expect(sent).not.toHaveProperty('brief');
+            expect(sent).not.toHaveProperty('sourcePlaylistId');
+        });
+
+        it('turns back into an ordinary special, with its programme, when switched off', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+            const onSubmit = vi.fn();
+            const user = setupUser();
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: pirate }}
+                    onClose={noop}
+                    onSubmit={onSubmit}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            await user.click(await screen.findByRole('switch', { name: /A live show/ }));
+            expect(await screen.findByRole('combobox', { name: 'Mode' })).toBeInTheDocument();
+
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+            expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('live');
+        });
+
+        it('offers no Save and apply, since the station never changes over onto it', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: pirate }}
+                    onClose={noop}
+                    onSubmit={noop}
+                    onApply={noop}
+                    airing
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            await screen.findByRole('switch', { name: /A live show/ });
+            expect(screen.queryByRole('button', { name: 'Save and apply now' })).toBeNull();
+        });
+    });
+
     it('sends call-ins only when they are asked for, so an untouched box changes nothing', async () => {
         // Absent is no calls, with nothing station-wide behind it, so an untouched box need say nothing.
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);

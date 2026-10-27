@@ -47,7 +47,7 @@ export const schedule = {
     specials: {
         title: 'Specials',
         description:
-            'A show on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials cannot be on at once.',
+            'A show on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials cannot be on at once. Mark one as a live show to book yourself on the air: the station arms the live input at its start.',
         add: 'New special',
         empty: 'No specials. The station plays its weekly schedule every day.',
         state: {
@@ -59,6 +59,8 @@ export const schedule = {
         hours: '{{from}}–{{until}}',
         edit: 'Edit {{name}}',
         onTimetable: '{{name}} (special)',
+        liveOnTimetable: '{{name}} (live)',
+        live: 'Live',
     },
     edits: {
         gone: 'That slot is no longer in the schedule.',
@@ -186,6 +188,12 @@ export const schedule = {
                 'On the same dates every year, like Halloween. The year you pick is ignored. A yearly range may run past New Year, and has to be shorter than a year.',
             everyDay: 'No day chosen means every day of the range.',
             note: 'On these dates this special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Times are 24-hour, on the station’s own clock; an end before the start runs past midnight.',
+            liveLabel: 'A live show',
+            liveDescription:
+                'Somebody presents it through the live input. At its start the station arms the input, as Go live on the Desk does, with this name as the show’s title.',
+            liveNote:
+                'The weekly show keeps playing until your encoder is heard, then the countdown runs and you are on. If nobody has come by the end, the input is disarmed; once you are on, the end never cuts you off. Times are 24-hour, on the station’s own clock.',
+            liveSavingNote: 'Cancel on the Desk stops the input waiting for that night only; the next date in the range arms again.',
         },
     },
     sustaining: {

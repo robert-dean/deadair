@@ -17,6 +17,24 @@ The **Live** card sits on the Desk, under On air now.
 
 Connecting an encoder does nothing on its own, and an armed input waits for real sound rather than a connection: an encoder left running, or one sending silence, never takes the air.
 
+## Booking a show
+
+You can also book a live show ahead of time, so the station arms the input for you at the start.
+
+1. On **Programme → Specials**, press **New special**.
+2. Name the show, set its start and end times and its date (or a range of dates, with the days it runs on).
+3. Switch on **A live show**. The programme fields go away, because nothing of the special's own plays.
+4. Save. It appears on the timetable marked **(live)**, and on the Specials list with a **Live** badge.
+
+At the start time the station does what **Go live** does, with the special's name as the show name. Your weekly show keeps playing until your encoder is heard, then the Desk counts you in as usual. You can start sending a little early: the countdown waits for the input to be armed.
+
+- **Nobody comes:** if the input is still waiting when the show's end time arrives, it is disarmed, so the station is not left waiting for an encoder all night.
+- **You run long:** the end time never cuts you off. Hand back when you are done, as you would any other time.
+- **You went live early** by pressing Go live before the start: the booking leaves you alone, and so does its end.
+- **Cancel** on the Live card stops that night's wait. The station does not arm it again that night, but the next date in the range arms as usual.
+
+If the audio chain restarts during a booked show before you are on, the input stops waiting and the booking does not arm it again; press **Go live** on the Desk.
+
 ## Handing back
 
 Any of these gives the air back to the station:

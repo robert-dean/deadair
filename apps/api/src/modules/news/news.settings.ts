@@ -31,15 +31,18 @@ const FEED_COLUMN = 'feed';
 /**
  * The roster as ids, in order, or empty for a station that reads everything.
  *
+ * `key` is the setting to read, for the other list of the same shape: the breaking feeds
+ * (`news.breakingFeeds`), where an empty list means no feed is watched rather than every feed.
+ *
  * Tolerant for `parseRows`' reason and with the same stakes one layer up: a setting somebody has
  * broken by hand answers "no roster", which is a station reading every feed rather than a bulletin
  * that cannot be written. Duplicates are dropped keeping the FIRST, since a feed listed twice is a
  * feed the operator wanted early and then wrote again, not a feed that should take two turns.
  */
-export function feedRoster(config: AppConfig): string[] {
+export function feedRoster(config: AppConfig, key: string = NEWS_FEEDS_KEY): string[] {
     const listed: string[] = [];
 
-    for (const row of parseRows(config.get(NEWS_FEEDS_KEY, ''))) {
+    for (const row of parseRows(config.get(key, ''))) {
         const id = (row[FEED_COLUMN] ?? '').trim();
         if (id.length === 0 || listed.includes(id)) continue;
 

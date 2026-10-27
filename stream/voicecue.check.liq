@@ -75,9 +75,9 @@ voice_state = ref("idle")
 voice_seen = ref(false)
 # ── END copied from radio.liq ────────────────────────────────────────────────────
 
-# Zero, to isolate the cross lag from the duck ramp. radio.liq subtracts duck_fade_ms
+# Zero, to isolate the cross lag from the duck ramp. radio.liq subtracts duck_fade_now
 # here as well, and that half is not in question.
-duck_fade_ms = 0.
+duck_fade_now = ref(0.)
 
 def tone_track(name, freq, dur, blend_out, blend_in) =
   s = amplify(0.3, sine(duration=dur, freq))
@@ -127,7 +127,7 @@ voice_src = switch(track_sensitive=false, [({voice_on()}, voice_tone)])
 def voice_cue_check() =
   if voice_state() == "armed" then
     playing = tracks.is_ready() and on_air_item() == voice_item()
-    due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_ms / 1000.)
+    due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_now() / 1000.)
     if playing then
       voice_seen := true
       if due then

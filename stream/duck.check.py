@@ -29,6 +29,8 @@ DUCK_BED_LUFS = -25.0
 DUCK_MIN_DB = -3.0
 # What the harness stamps on the last cue, as the app does.
 STAMPED_BED_LUFS = -23.0
+# What it stamps on the fourth as the deepest the bed may go, shallower than that level needs.
+STAMPED_DEEPEST_DB = -12.0
 
 
 def amplitude(lufs: float) -> float:
@@ -64,7 +66,7 @@ def level(samples: array, hz: float, at: float, span: float = 0.1) -> float:
 def main() -> int:
     with tempfile.TemporaryDirectory() as work:
         tone(os.path.join(work, "quiet.wav"), BED_HZ, 10.0, QUIET_LUFS)
-        tone(os.path.join(work, "loud.wav"), BED_HZ, 12.0, LOUD_LUFS)
+        tone(os.path.join(work, "loud.wav"), BED_HZ, 18.0, LOUD_LUFS)
         tone(os.path.join(work, "voice.wav"), VOICE_HZ, 4.0, VOICE_LUFS)
         with open(os.path.join(HERE, "duck.check.liq")) as source, open(os.path.join(work, "check.liq"), "w") as copy:
             copy.write(source.read())
@@ -80,7 +82,12 @@ def main() -> int:
 
     # name, the bed at full before the break, the bed under the voice, the voice, the bed after.
     breaks = []
-    for name, full_at, under_at, back_at in (("quiet", 1.5, 5.0, 7.7), ("kick", 7.5, 11.0, 13.0), ("loud", 14.0, 17.0, 20.0)):
+    for name, full_at, under_at, back_at in (
+        ("quiet", 1.5, 5.0, 7.7),
+        ("kick", 7.5, 11.0, 13.0),
+        ("loud", 14.0, 17.0, 20.0),
+        ("bound", 21.0, 23.5, 26.5),
+    ):
         full = lufs(level(samples, BED_HZ, full_at))
         ducked = lufs(level(samples, BED_HZ, under_at))
         voice = lufs(level(samples, VOICE_HZ, under_at))
@@ -88,7 +95,7 @@ def main() -> int:
         breaks.append((name, full, ducked, voice, back))
         print(f"{name:5}  bed {full:6.1f}  under voice {ducked:6.1f}  voice {voice:6.1f}  gap {voice - ducked:5.1f} LU  after {back:6.1f}")
 
-    quiet, kick, loud = breaks
+    quiet, kick, loud, bound = breaks
     print(f"the gap under the voice differs by {abs((quiet[3] - quiet[2]) - (loud[3] - loud[2])):.1f} dB between the quiet and loud beds")
 
     checks = [
@@ -100,7 +107,13 @@ def main() -> int:
         ("the loud bed lands at the level stamped on its cue", abs(loud[2] - STAMPED_BED_LUFS) < 1.5),
         # A second after the record kicks in under the voice it is already most of the way down.
         ("a record kicking in under the voice is pulled down within a second", abs(kick[2] - DUCK_BED_LUFS) < 3.0),
-        ("the bed comes back up after each break", abs(quiet[4] - quiet[1]) < 1.0 and abs(kick[4] - LOUD_LUFS) < 1.0 and abs(loud[4] - loud[1]) < 1.0),
+        # The deepest bound read off the cue, not `DUCK_GAIN_DB`: the stamped level alone would take it
+        # to -23, and the fallback bound would let it.
+        ("the deepest bound stamped on a cue holds the bed above its level", abs((bound[2] - bound[1]) - STAMPED_DEEPEST_DB) < 1.0),
+        (
+            "the bed comes back up after each break",
+            abs(quiet[4] - quiet[1]) < 1.0 and abs(kick[4] - LOUD_LUFS) < 1.0 and abs(loud[4] - loud[1]) < 1.0 and abs(bound[4] - bound[1]) < 1.0,
+        ),
     ]
     for name, ok in checks:
         print(f"{'PASS' if ok else 'FAIL'}  {name}")

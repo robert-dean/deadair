@@ -428,8 +428,15 @@ where the voice is aimed), so the bed follows `playout.targetLufs` and the speec
 -12 did, ten under the voice, so only quieter and louder passages move. During a break the depth
 deepens fast, so a record kicking in under a talk-up is pulled down within the second, and releases
 slowly, so the bed cannot pump between phrases. The ramp in and out is `DUCK_FADE_MS` whatever the
-depth. The other four are in `radio.env`, read at startup, so tuning them by ear needs a Liquidsoap
-restart.
+depth.
+
+**A cue can carry both bounds and the fade, so tuning them needs no restart.** The deepest and
+shallowest ride the cue as `deadair_duck_gain_db` and `deadair_duck_min_db`, read in the same
+`on_track` as the level. The fade cannot: the cue fires that long BEFORE the first word, which is
+before any tag on it has been read, so it comes with the arm as the `x-voice-fade-ms` header and holds
+until the next arm, ramp back up included. The four `radio.env` keys are what a cue without its own
+figure gets, which is only ever a cue from an app older than this. `duck.check.liq`'s fourth break
+stamps a deepest bound shallower than its level needs and reads it holding.
 
 The **voice has a mic chain** of its own, between the voice queue and both mixes: a 40 ms `fade.in`,
 a compressor, then a `VOICE_GAIN_DB` trim. It exists because the duck lands the bed at a fixed level,

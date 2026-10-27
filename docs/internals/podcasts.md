@@ -211,6 +211,13 @@ about, and it keeps the research pass knowing nothing about shows. A request wit
 window is refused there, rather than queueing an episode its research pass could only fail. Pasted text takes
 the news's place, since somebody who pasted something meant that.
 
+**An edition does not repeat the last one.** A story an earlier episode of the same show already used, inside
+the show's news window, is left out (`coveredBy`, read off `productions.sources` through `forShow`), matched on
+its address and then on its headline, since one story fetched twice can come back under either. Each feed is
+asked for twice the six stories so something is left after the cut. An episode that failed or was cancelled
+never aired and covers nothing. With everything covered the request is refused and says so: on the clock the
+slot falls back to ordinary programming, which is the bulletin's own answer to a feed that has not moved.
+
 **A show can research its episodes** (`own_shows.research`): an episode handed nothing to read is commissioned
 with `research` set, and finds its own sources on the operator's trusted sites (`productions.md` § "What it may
 state as fact"). Pasted text, a page or the news is what an episode was asked to be about, so any of those wins.

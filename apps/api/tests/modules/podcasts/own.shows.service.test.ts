@@ -22,7 +22,10 @@ const WIND_DOWN: OwnShowRecord = {
 };
 
 /** `none` for a station with no such show, since an absent argument is the default one. */
-function build(given: OwnShowRecord | 'none' = WIND_DOWN) {
+function build(
+    given: OwnShowRecord | 'none' = WIND_DOWN,
+    earlier: { createdAt: number; state: string; sources?: { title: string; url?: string }[] }[] = [],
+) {
     const show = given === 'none' ? undefined : given;
     const shows = {
         find: vi.fn(async () => show),
@@ -36,8 +39,10 @@ function build(given: OwnShowRecord | 'none' = WIND_DOWN) {
     const fetchItems = vi.fn(async (_query: { feedId?: string; since?: string; limit: number }): Promise<NewsItem[]> => []);
     const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
 
-    const service = new OwnShowsService(shows as never, { commission, listForShow } as never, { fetchItems } as never, config);
-    return { service, shows, commission, listForShow, fetchItems };
+    const forShow = vi.fn(async () => earlier);
+
+    const service = new OwnShowsService(shows as never, { commission, listForShow } as never, { fetchItems } as never, config, { forShow } as never);
+    return { service, shows, commission, listForShow, fetchItems, forShow };
 }
 
 describe('OwnShowsService.requestEpisode', () => {
@@ -228,6 +233,72 @@ describe('a show that reads the news', () => {
         expect(commission).toHaveBeenCalledWith(expect.objectContaining({ sources: [{ title: 'Pasted text', text: 'One story in full.' }] }), {
             showId: 'show-4',
         });
+    });
+
+    // The noon edition re-reading the morning's is the bulletin's repeat in a longer form.
+    it('leaves out a story an earlier edition in the window already covered', async () => {
+        const morning = {
+            createdAt: Date.now() - 60 * 60_000,
+            state: 'aired',
+            sources: [{ title: 'A bridge reopens', url: 'https://example.com/bridge' }],
+        };
+        const { service, fetchItems, commission } = build(NEWS, [morning]);
+        fetchItems.mockResolvedValue([
+            story(),
+            story({ id: 'story-2', title: 'A school opens', url: 'https://example.com/school', content: 'A new school opened its doors.' }),
+        ]);
+
+        await service.requestEpisode('show-4', {});
+
+        expect(fetchItems.mock.calls[0]?.[0].limit).toBe(12);
+        expect(commission).toHaveBeenCalledWith(expect.objectContaining({ sources: [expect.objectContaining({ title: 'A school opens' })] }), {
+            showId: 'show-4',
+        });
+    });
+
+    // One story can come back under a different address on another fetch; its headline still matches.
+    it('knows a covered story by its headline when the address moved', async () => {
+        const morning = {
+            createdAt: Date.now() - 60 * 60_000,
+            state: 'ready',
+            sources: [{ title: 'A Bridge Reopens', url: 'https://example.com/old' }],
+        };
+        const { service, fetchItems } = build(NEWS, [morning]);
+        fetchItems.mockResolvedValue([story()]);
+
+        await expect(service.requestEpisode('show-4', {})).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    // An edition that failed never aired, and one from before the window cannot share a story with this one.
+    it('does not count a failed edition, or one from before the window', async () => {
+        const covered = [{ title: 'A bridge reopens', url: 'https://example.com/bridge' }];
+        const { service, fetchItems, commission } = build(NEWS, [
+            { createdAt: Date.now() - 60 * 60_000, state: 'failed', sources: covered },
+            { createdAt: Date.now() - 7 * 60 * 60_000, state: 'aired', sources: covered },
+        ]);
+        fetchItems.mockResolvedValue([story()]);
+
+        await service.requestEpisode('show-4', {});
+
+        expect(commission).toHaveBeenCalledWith(expect.objectContaining({ sources: [expect.objectContaining({ title: 'A bridge reopens' })] }), {
+            showId: 'show-4',
+        });
+    });
+
+    it('refuses an edition when every story on the feeds has been covered, and says so', async () => {
+        const morning = {
+            createdAt: Date.now() - 60 * 60_000,
+            state: 'aired',
+            sources: [{ title: 'A bridge reopens', url: 'https://example.com/bridge' }],
+        };
+        const { service, fetchItems, commission } = build(NEWS, [morning]);
+        fetchItems.mockResolvedValue([story()]);
+
+        await expect(service.requestEpisode('show-4', {})).rejects.toMatchObject({
+            statusCode: 400,
+            details: { message: expect.stringContaining('already covered') },
+        });
+        expect(commission).not.toHaveBeenCalled();
     });
 
     it('refuses an episode when the feeds had nothing in the window, rather than queue one that can only fail', async () => {

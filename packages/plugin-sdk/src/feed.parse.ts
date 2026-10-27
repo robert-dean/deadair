@@ -23,10 +23,16 @@ import type { HostFetchInit, PluginHost } from './plugin.host.js';
  * thin deliberately: `host.fetch` already carries the allowlist, the pacing and
  * the `Retry-After` back-off, so there is nothing left here but a status check.
  *
- * Caching and conditional GET (`ETag`, `Last-Modified`) are NOT here. They
- * belong to whoever is polling — a plugin knows how often its own feeds are
- * worth asking and this file does not — and putting a cache behind a pure
- * parser would hide it from the one caller that must not be surprised by it.
+ * Caching is NOT here: how often a feed is worth asking belongs to whoever is
+ * polling, and a plugin knows that about its own feeds where this file does
+ * not. Conditional GET IS here, because it is not a cache in the sense that
+ * matters. {@link fetchFeed} remembers the `ETag` and `Last-Modified` the
+ * publisher sent with the last document it parsed for a URL, sends them back
+ * as `If-None-Match` and `If-Modified-Since`, and answers a 304 with that
+ * document. Every call still goes on the wire and the publisher still decides
+ * whether anything changed, so no caller can be handed a stale feed by it;
+ * what an unchanged feed costs becomes a status line instead of a document.
+ * See {@link FEED_VALIDATORS_MAX} for the bound.
  *
  * ## A podcast is a feed with an attachment
  *
@@ -261,9 +267,26 @@ export function parseFeed(xml: string): ParsedFeed {
  * neighbours — which {@link PluginErrorCode} a status means — and that is
  * `plugin.http.ts`'s ladder, unmodified. A service with its own reading of a
  * status layers that in front by calling {@link parseFeed} itself.
+ *
+ * The one thing it adds to the request is conditional GET: the validators the
+ * publisher sent last time go back with this request, and a 304 is answered
+ * with the document they came from (a copy, so a caller that edits what it was
+ * handed cannot edit what the next caller gets). A 304 this did not ask for is
+ * the caller's own and fails the status check like any other non-2xx.
  */
 export async function fetchFeed(host: PluginHost, url: string, init?: HostFetchInit): Promise<ParsedFeed> {
-    const response = await host.fetch(url, init);
+    const known = validatorsFor(host);
+    const remembered = known.get(url);
+    const asked = conditional(init, remembered);
+    const response = await host.fetch(url, asked ?? init);
+
+    if (response.status === 304 && remembered !== undefined && asked !== undefined) {
+        await response.body?.cancel();
+        // Most recently used goes last, so the oldest is the first evicted.
+        known.delete(url);
+        known.set(url, remembered);
+        return structuredClone(remembered.feed);
+    }
 
     if (!response.ok) {
         // The body is an error page nobody wants quoted, and reading it costs a
@@ -281,7 +304,78 @@ export async function fetchFeed(host: PluginHost, url: string, init?: HostFetchI
         throw error;
     }
 
-    return parseFeed(await response.text());
+    const feed = parseFeed(await response.text());
+    remember(known, url, response.headers, feed);
+    return feed;
+}
+
+/**
+ * How many feeds one host remembers validators for, oldest dropped first.
+ *
+ * A station reads tens of feeds rather than thousands, so this is a ceiling a
+ * plugin that builds URLs from user input cannot grow past rather than a size
+ * anybody is expected to reach. Losing an entry costs one full document the
+ * next time that feed is asked, and nothing else.
+ */
+export const FEED_VALIDATORS_MAX = 256;
+
+/** What a publisher sent with the last document parsed for one URL. */
+interface FeedValidators {
+    etag?: string;
+    lastModified?: string;
+    feed: ParsedFeed;
+}
+
+/**
+ * Remembered per host, so two plugins never answer each other's 304s and a
+ * plugin that is unloaded takes its documents with it.
+ */
+const validatorsByHost = new WeakMap<PluginHost, Map<string, FeedValidators>>();
+
+function validatorsFor(host: PluginHost): Map<string, FeedValidators> {
+    let known = validatorsByHost.get(host);
+    if (known === undefined) {
+        known = new Map();
+        validatorsByHost.set(host, known);
+    }
+    return known;
+}
+
+/**
+ * The caller's request with the validators added, or `undefined` when there are
+ * none to add or the caller sent its own: a plugin that set `If-None-Match`
+ * itself has opted into reading the 304 itself, and this does not overrule it.
+ */
+function conditional(init: HostFetchInit | undefined, remembered: FeedValidators | undefined): HostFetchInit | undefined {
+    if (remembered === undefined) return undefined;
+
+    const headers = { ...init?.headers };
+    const named = new Set(Object.keys(headers).map(name => name.toLowerCase()));
+    if (named.has('if-none-match') || named.has('if-modified-since')) return undefined;
+
+    if (remembered.etag !== undefined) headers['if-none-match'] = remembered.etag;
+    if (remembered.lastModified !== undefined) headers['if-modified-since'] = remembered.lastModified;
+
+    return { ...init, headers };
+}
+
+/** Keeps the document and its validators, or forgets the URL when the publisher sent none. */
+function remember(known: Map<string, FeedValidators>, url: string, headers: Headers, feed: ParsedFeed): void {
+    known.delete(url);
+
+    const etag = headers.get('etag') ?? undefined;
+    const lastModified = headers.get('last-modified') ?? undefined;
+    if (etag === undefined && lastModified === undefined) return;
+
+    const entry: FeedValidators = { feed: structuredClone(feed) };
+    if (etag !== undefined) entry.etag = etag;
+    if (lastModified !== undefined) entry.lastModified = lastModified;
+    known.set(url, entry);
+
+    if (known.size > FEED_VALIDATORS_MAX) {
+        const oldest = known.keys().next().value;
+        if (oldest !== undefined) known.delete(oldest);
+    }
 }
 
 /**

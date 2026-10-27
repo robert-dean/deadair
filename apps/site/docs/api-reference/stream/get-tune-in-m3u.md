@@ -1,7 +1,7 @@
 ---
 title: 'Get tune-in m3u'
 sidebar_label: 'Get tune-in m3u'
-sidebar_position: 3
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

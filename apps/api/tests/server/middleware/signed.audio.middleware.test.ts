@@ -179,7 +179,7 @@ describe('signedAudioMiddleware', () => {
  */
 describe('the audio routes the contracts leave to this middleware', () => {
     const contracts = join(import.meta.dirname, '../../../data/contracts');
-    const areas = ['render/render.ck', 'playout/playout.ck'];
+    const areas = ['render/render.ck', 'playout/playout.ck', 'stream/stream.archive.ck'];
 
     /** Each operation's path and whether any of its methods is `security: none`. */
     const anonymousOperations = (file: string): string[] => {
@@ -196,6 +196,8 @@ describe('the audio routes the contracts leave to this middleware', () => {
     /** A concrete path for a template, so the patterns can be asked about it. */
     const exampleOf = (template: string): string =>
         template
+            // A recording is named by when it began rather than by a uuid.
+            .replace(/^(\/archive\/recordings\/)\{id\}/, '$12026-10-27T21-03-12-live')
             .replace(/\{(id|sourceId)\}/g, '8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f')
             .replace(/\{checksum\}/g, 'ab'.repeat(32))
             .replace(/\{ext\}/g, 'mp3');

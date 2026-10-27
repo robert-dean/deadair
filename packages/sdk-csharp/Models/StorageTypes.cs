@@ -32,6 +32,9 @@ public enum StorageStoreId
 
     [JsonStringEnumMemberName("voices")]
     Voices,
+
+    [JsonStringEnumMemberName("archive")]
+    Archive,
 }
 
 /// <summary>
@@ -65,6 +68,7 @@ public sealed class StorageStoreIdConverter : JsonConverter<StorageStoreId>
         "art" => StorageStoreId.Art,
         "segments" => StorageStoreId.Segments,
         "voices" => StorageStoreId.Voices,
+        "archive" => StorageStoreId.Archive,
         _ => StorageStoreId.Unknown,
     };
 
@@ -74,6 +78,7 @@ public sealed class StorageStoreIdConverter : JsonConverter<StorageStoreId>
         StorageStoreId.Art => "art",
         StorageStoreId.Segments => "segments",
         StorageStoreId.Voices => "voices",
+        StorageStoreId.Archive => "archive",
         _ => throw new JsonException($"StorageStoreId.{value} has no wire spelling, so it cannot be sent."),
     };
 }

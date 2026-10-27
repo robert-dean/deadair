@@ -1,7 +1,7 @@
 ---
 title: 'Get HLS playlist'
 sidebar_label: 'Get HLS playlist'
-sidebar_position: 1
+sidebar_position: 4
 mdx:
     format: 'md'
 ---

@@ -6671,6 +6671,85 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StorageReport'
+    '/archive/recordings':
+        get:
+            operationId: listRecordings
+            summary: 'List recordings'
+            description: 'Every recording in the archive, newest first'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/RecordingList'
+    '/archive/recordings/{id}':
+        delete:
+            operationId: deleteRecording
+            summary: 'Delete recording'
+            description: 'Deletes a finished recording. One still being recorded is refused'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 64
+    '/archive/recordings/{id}/audio':
+        get:
+            operationId: getRecordingAudio
+            summary: 'Get recording audio'
+            description: 'The audio of one recording. Answers a byte range, so a player can seek through an hour'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 64
+                - name: download
+                  in: query
+                  required: false
+                  schema:
+                      type: boolean
+                - name: range
+                  in: header
+                  required: false
+                  schema:
+                      type: string
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'audio/mpeg':
+                            schema:
+                                type: string
+                                format: binary
+                    headers:
+                        accept-ranges:
+                            schema:
+                                type: string
+                        content-disposition:
+                            schema:
+                                type: string
+                '206':
+                    description: 'Response 206'
+                    content:
+                        'audio/mpeg':
+                            schema:
+                                type: string
+                                format: binary
+                    headers:
+                        accept-ranges:
+                            schema:
+                                type: string
+                        content-range:
+                            schema:
+                                type: string
+                            required: true
     '/hls/{name}':
         get:
             operationId: getHlsPlaylist
@@ -17280,7 +17359,7 @@ components:
             description: 'One decision, its calls, and the decisions on either side of it'
         StorageStoreId:
             type: string
-            enum: [tracks, art, segments, voices]
+            enum: [tracks, art, segments, voices, archive]
             description: 'Which store, as a stable id the console can key off rather than a name it renders.'
         StorageStore:
             type: object
@@ -17362,6 +17441,71 @@ components:
                         '$ref': '#/components/schemas/StorageStore'
             required: [readAt, totalFiles, totalBytes, stores]
             description: "Every store, plus the number an operator actually wants first.\n\n`readAt` is not decoration: the figures come from walking directories, which is real I/O on a\nstation holding tens of thousands of files, so the answer is cached for a short while and this is\nwhat stops a page mistaking it for live."
+        RecordingKind:
+            type: string
+            enum: [live, hour]
+            description: "What a recording holds: a live show, or an hour of the station's own programme."
+        Recording:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 64
+                    readOnly: true
+                    description: 'Names the recording, e.g. `2026-10-27T21-03-12-live`'
+                kind:
+                    '$ref': '#/components/schemas/RecordingKind'
+                    readOnly: true
+                title:
+                    type: string
+                    maxLength: 200
+                    readOnly: true
+                    description: "The show's name, for a live show armed with one"
+                startedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                endedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'Absent while it is still being recorded'
+                bytes:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                recording:
+                    type: boolean
+                    readOnly: true
+                    description: 'Still being written. It cannot be deleted until it ends'
+                audioUrl:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    readOnly: true
+                    description: 'Where a player can stream it from, signed for a while so an audio element needs no token. Relative to the API'
+            required: [id, kind, startedAt, bytes, recording, audioUrl]
+            description: "One file in the station's archive of what it aired."
+        RecordingList:
+            type: object
+            properties:
+                mode:
+                    type: string
+                    enum: ['off', live, all]
+                    readOnly: true
+                    description: 'What the archive is set to keep'
+                retentionDays:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'How long a finished recording is kept. Zero keeps all of them'
+                recordings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/Recording'
+            required: [mode, retentionDays, recordings]
+            description: 'Every recording, newest first, and whether the station is recording at all.'
         FetcherAuthorization:
             type: object
             properties:

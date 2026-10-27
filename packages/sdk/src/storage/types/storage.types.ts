@@ -12,7 +12,7 @@ const __dt = (v: unknown, path: string): DateTime => {
  * Which store, as a stable id the console can key off rather than a name it renders.
  * generated from [StorageStoreId](../../../../../apps/api/data/contracts/storage/storage.types.ck)
  */
-export type StorageStoreId = 'tracks' | 'art' | 'segments' | 'voices';
+export type StorageStoreId = 'tracks' | 'art' | 'segments' | 'voices' | 'archive';
 
 /**
  * One content store: what is on disk, and what the database says should be.

@@ -13,6 +13,7 @@ import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 import { ArchiveStore } from './archive.store.js';
+import { ArchiveService } from './archive.service.js';
 import { defaultArchiveDir } from './archive.settings.js';
 import { LiquidsoapEndpoint } from '#modules/playout/liquidsoap.endpoint.js';
 
@@ -96,6 +97,8 @@ export const StreamModule: ServerKitModule = {
             .register(ArchiveStore)
             .useFactory(() => new ArchiveStore(config.get('ARCHIVE_DIR', defaultArchiveDir())))
             .asSingleton();
+        // Scoped like every route-facing service; it holds nothing between calls.
+        registry.register(ArchiveService).useClass(ArchiveService).asScoped();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

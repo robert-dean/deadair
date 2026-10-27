@@ -36,6 +36,7 @@ import { StationRouter } from './station.router.js';
 import { TracesRouter } from './traces.router.js';
 import { LogsRouter } from './logs.router.js';
 import { StreamRouter } from './stream.router.js';
+import { StreamArchiveRouter } from './stream.archive.router.js';
 import { StorageRouter } from './storage.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 import { OAuthProtocolRouter } from './oauth.protocol.router.js';
@@ -101,6 +102,7 @@ export const routers = [
     TracesRouter,
     LogsRouter,
     StreamRouter,
+    StreamArchiveRouter,
     SettingsRouter,
     LanguagesRouter,
     StorageRouter,

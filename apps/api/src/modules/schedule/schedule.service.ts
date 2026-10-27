@@ -207,7 +207,25 @@ export class ScheduleService {
     async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
         // A booked live show is never changed over onto: the weekly show under it is what airs until
         // the presenter is heard, and what the hand-back resumes. See `ScheduleSlot.live`.
-        return resolveSlot(at, stationZone(this.config), (await this.slots.list()).filter(slot => !isLiveShow(slot)));
+        return resolveSlot(
+            at,
+            stationZone(this.config),
+            (await this.slots.list()).filter(slot => !isLiveShow(slot)),
+        );
+    }
+
+    /**
+     * The booked live show on at an instant, and which night of it, or `undefined` for none.
+     *
+     * The other half of {@link inForce}, which leaves live shows out: what is changed over onto and
+     * what the live input is armed for are different questions, asked of the same clock. Two specials
+     * may not overlap, so at most one live show is ever on. Ask it for NOW, on `inForce`'s argument.
+     */
+    async liveInForce(at: Date = new Date()): Promise<{ slot: ScheduleSlot; night: string } | undefined> {
+        const zone = stationZone(this.config);
+        const slot = resolveSlot(at, zone, (await this.slots.list()).filter(isLiveShow));
+
+        return slot === undefined ? undefined : { slot, night: dateKey(occurrenceOf(slot, at, zone)) };
     }
 
     /**

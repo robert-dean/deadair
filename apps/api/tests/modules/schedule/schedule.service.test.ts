@@ -463,7 +463,15 @@ describe('ScheduleService.update', () => {
 
     describe('a live show', () => {
         const booked = (over: Partial<ScheduleSlotInput> = {}) =>
-            body({ label: 'Pirate Hour', startsAtMinutes: 20 * 60, endsAtMinutes: 22 * 60, startsOn: '2026-11-06', endsOn: '2026-11-06', live: true, ...over });
+            body({
+                label: 'Pirate Hour',
+                startsAtMinutes: 20 * 60,
+                endsAtMinutes: 22 * 60,
+                startsOn: '2026-11-06',
+                endsOn: '2026-11-06',
+                live: true,
+                ...over,
+            });
 
         it('stores that it is live and hands it back, and says so of every other slot too', async () => {
             const service = build({ slots: [slot('p', 1, 2), slot('other', 3 * 60, 4 * 60)] });
@@ -484,7 +492,9 @@ describe('ScheduleService.update', () => {
             const service = build({ slots: [slot('p', 1, 2)] });
 
             await expect(service.update('p', booked({ sourceChartId: 'lastfm:top' }))).rejects.toMatchObject({ statusCode: 400 });
-            await expect(service.update('p', booked({ sourcePluginId: 'navidrome', sourcePlaylistId: 'x' }))).rejects.toMatchObject({ statusCode: 400 });
+            await expect(service.update('p', booked({ sourcePluginId: 'navidrome', sourcePlaylistId: 'x' }))).rejects.toMatchObject({
+                statusCode: 400,
+            });
         });
     });
 

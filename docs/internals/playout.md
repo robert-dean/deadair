@@ -27,6 +27,9 @@ nobody can hear while one is counting down or on. What the station's own program
 `playout.liveAutomation`: by default the director stands it down and picks it up again on the
 hand-back, and the lease goes with the stand-down as it does for Stop (`docs/internals/director.md`, "A
 live show"). On `continue` the programme goes on unheard underneath and the lease is renewed as usual.
+The input is armed by an operator on the Desk or by a booked live show on the schedule, which arms it
+through `PlayoutControlClient` at the show's start and disarms it at the end only if nobody came
+(director.md, "A live show").
 
 **The audience is the second half of that lease.** `playout.airMode` in `deadair.settings` is `audience` (the
 default) or `always`; in `audience` mode the station airs only while somebody is connected, so a loaded

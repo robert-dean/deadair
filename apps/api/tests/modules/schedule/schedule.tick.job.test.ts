@@ -15,6 +15,7 @@ import { ScheduleTickJob } from '../../../src/modules/schedule/schedule.tick.job
 import type { ScheduleService, SustainingSource } from '../../../src/modules/schedule/schedule.service.js';
 import { ScheduleNotices } from '../../../src/modules/schedule/schedule.notices.js';
 import { OPENING_WAIT_MS, OpeningWait } from '../../../src/modules/schedule/opening.wait.js';
+import type { LiveBookings } from '../../../src/modules/schedule/live.bookings.js';
 import type { PreparedSetRepository } from '../../../src/modules/schedule/prepared.set.repository.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
@@ -78,6 +79,8 @@ interface Options {
     /** What asking the queue does. Absent is a send that lands. */
     send?: () => Promise<string>;
     /** A break on air that has announced a record not yet started. Absent is none. */
+    /** What booking live shows does. Absent is a pass that does nothing. */
+    liveBookings?: () => Promise<void>;
     promiseOnAir?: { breakItemId: string; startedAt: number; durationMs?: number; record: { itemId: string; title: string; artist: string } };
 }
 
@@ -136,6 +139,7 @@ function build(options: Options = {}) {
     // The real one, not a double: it is fifteen lines of "have I said this already" and the whole
     // point of the tests below is what reaches the feed.
     const notices = new ScheduleNotices();
+    const liveBookings = { run: vi.fn(options.liveBookings ?? (async () => undefined)) };
     const job = new ScheduleTickJob(
         schedule,
         console,
@@ -145,6 +149,7 @@ function build(options: Options = {}) {
         prepared as unknown as PreparedSetRepository,
         jobs as unknown as PgBossJobBroker,
         new OpeningWait(),
+        liveBookings as unknown as LiveBookings,
         {} as JobContext,
         {} as Container,
         logger,
@@ -157,6 +162,7 @@ function build(options: Options = {}) {
         activity,
         prepared,
         jobs,
+        liveBookings,
     };
 }
 
@@ -165,6 +171,30 @@ beforeEach(() => {
 });
 
 describe('ScheduleTickJob', () => {
+    describe('booked live shows', () => {
+        it('are dealt with on a stood-down station, since a live stand-down lasts the whole show', async () => {
+            const { tick, liveBookings, console } = build({ active: false, inForce: slot('morning') });
+
+            await tick();
+
+            expect(liveBookings.run).toHaveBeenCalledTimes(1);
+            expect(console.putOnAir).not.toHaveBeenCalled();
+        });
+
+        it('never cost the station its changeover when they fail', async () => {
+            const { tick, console } = build({
+                inForce: slot('morning'),
+                liveBookings: async () => {
+                    throw new Error('the audio chain is down');
+                },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+        });
+    });
+
     it('leaves a stood-down station alone', async () => {
         // A schedule changes the station OVER; it does not put it back on. Stopping is an operator
         // saying out of service, and a timer that overruled that would make Stop mean nothing.

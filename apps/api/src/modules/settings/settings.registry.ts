@@ -186,6 +186,7 @@ import {
 // stream config re-rendered and the audio chain restarted, and this one is read per request by a
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
 import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
+import { ARCHIVE_DEFAULTS, ARCHIVE_KEYS } from '#modules/stream/archive.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 import {
     MAX_METRICS_RETENTION_DAYS,
@@ -477,6 +478,16 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: HLS_SEGMENT_COUNT_RANGE.min,
         max: HLS_SEGMENT_COUNT_RANGE.max,
         help: 'How much audio the station keeps listed behind the live edge. This does not change how far behind live a listener is: a player starts three segments back whatever this says. What it changes is how long a player can stall (a weak signal, a busy phone) and still pick up where it was instead of losing its place.',
+    },
+    {
+        group: 'stream',
+        key: ARCHIVE_KEYS.retentionDays,
+        label: 'Keep recordings for (days)',
+        type: 'number',
+        default: ARCHIVE_DEFAULTS.retentionDays,
+        min: 0,
+        max: 3650,
+        help: 'How long a recording in the archive is kept after it ended, then swept nightly. Zero keeps every one, and a recording cannot be made again once it is gone. Recording around the clock takes about 2 GB a day.',
     },
     {
         group: 'stream',

@@ -30,6 +30,7 @@ import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
 import { PruneShareCopiesJob } from '#modules/render/prune.share.copies.job.js';
+import { PruneArchiveJob } from '#modules/stream/prune.archive.job.js';
 import { PersonaAuditionJob } from '#modules/personas/persona.audition.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
@@ -573,6 +574,15 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'render.prune_share_copies': {
         job: PruneShareCopiesJob,
         cron: '29 5 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Recordings that ended more than `stream.archiveDays` ago. Nightly and NO retry on the prune
+    // jobs' argument: a recording left until tomorrow costs disk, and a retry only buys a second try
+    // at deleting something. Its own minute, after the share copies, for no reason but that.
+    'stream.prune_archive': {
+        job: PruneArchiveJob,
+        cron: '41 5 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 

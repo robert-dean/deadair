@@ -275,6 +275,17 @@ export interface ScheduleSlot {
      * or for a slot with no playlist.
      */
     resumePlaylist?: boolean;
+    /**
+     * Whether this special is a booked LIVE SHOW: a presenter taking the air through the live input.
+     *
+     * Only a special can be one, and it names no source (migration 0121 checks both). It is never IN
+     * FORCE for a changeover: what airs until the presenter is heard is the weekly show underneath,
+     * and that is also what the hand-back resumes, so `ScheduleService.inForce` leaves live slots out
+     * and the tick arms the input for them instead (`schedule/live.bookings.ts`). The timetable draws
+     * it as any special, since the presenter is what is meant to be on. Absent is no, and only `true`
+     * is ever stored on a slot read back.
+     */
+    live?: boolean;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }
@@ -289,6 +300,9 @@ const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.lengt
 
 /** Whether a slot is a special, running on dates rather than every week. */
 export const isSpecial = (slot: ScheduleSlot): slot is ScheduleSlot & { dates: SpecialDates } => slot.dates !== undefined;
+
+/** Whether a slot is a booked live show. See {@link ScheduleSlot.live}. */
+export const isLiveShow = (slot: ScheduleSlot): boolean => slot.live === true;
 
 const pad = (value: number, width = 2) => String(value).padStart(width, '0');
 

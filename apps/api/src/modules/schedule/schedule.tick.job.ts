@@ -13,6 +13,7 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { hasOverrun } from './changeover.overrun.js';
+import { LiveBookings } from './live.bookings.js';
 import { OPENING_WAIT_MS, OpeningWait } from './opening.wait.js';
 import { PREPARE_AHEAD_MS, airsNight, type PrepareSlotPayload } from './prepare.slot.job.js';
 import { promiseStillHeld } from './promise.wait.js';
@@ -96,6 +97,8 @@ export class ScheduleTickJob extends PlainJob {
         private readonly jobs: PgBossJobBroker,
         // When a changeover started waiting for its opening: see {@link holdForOpening}.
         private readonly openingWait: OpeningWait,
+        // Booked live shows, armed at their time: see {@link execute}.
+        private readonly liveBookings: LiveBookings,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -104,6 +107,11 @@ export class ScheduleTickJob extends PlainJob {
     }
 
     protected async execute(): Promise<void> {
+        // FIRST, and before the guard below: under a live stand-down the director is inactive for the
+        // whole show, and the end of a booked one must still be dealt with. Caught, so a live input
+        // that cannot be reached never costs the station its changeover. See `live.bookings.ts`.
+        await this.liveBookings.run().catch((error: unknown) => this.logger.warn(`schedule: booking a live show failed (${errorText(error)})`));
+
         // Off air is not a mismatch to fix, unless it was a programme running out rather than
         // somebody stopping the station. See the note above.
         const active = this.director.status().active;

@@ -220,6 +220,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         // Only on a playlist, so a slot whose source moves to a chart does not carry a choice that means
         // nothing there back to the console as though it still applied.
         resumePlaylist: draft.resumePlaylist === true && isPlaylistSource(draft.source),
+        live: draft.live === true,
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -300,6 +301,7 @@ function toSlot(row: {
     endsOn: DateTime | null;
     yearly: boolean;
     resumePlaylist: boolean;
+    live: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -353,6 +355,7 @@ function toSlot(row: {
             ? {}
             : { dates: { from: row.startsOn.toISODate() ?? '', to: row.endsOn.toISODate() ?? '', yearly: row.yearly } }),
         ...(row.resumePlaylist ? { resumePlaylist: true } : {}),
+        ...(row.live ? { live: true } : {}),
         mode: row.mode,
         onEnd: row.onEnd,
     };

@@ -2,6 +2,8 @@ import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PlaylistPositionRepository } from './playlist.position.repository.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
+import { LiveArmRepository } from './live.arm.repository.js';
+import { LiveBookings, LiveNotices } from './live.bookings.js';
 import { ScheduleRepository } from './schedule.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
 import { OpeningWait } from './opening.wait.js';
@@ -36,11 +38,17 @@ export const ScheduleModule: ServerKitModule = {
         registry.register(PreparedSetRepository).useClass(PreparedSetRepository).asScoped();
         registry.register(PlaylistPositionRepository).useClass(PlaylistPositionRepository).asScoped();
         registry.register(ScheduleService).useClass(ScheduleService).asScoped();
+        registry.register(LiveArmRepository).useClass(LiveArmRepository).asScoped();
+        // Scoped, though it reaches the live input through playout, which registers after this module:
+        // it is resolved inside the tick's run, long after boot. See `modules.ts`.
+        registry.register(LiveBookings).useClass(LiveBookings).asScoped();
         // A SINGLETON, unlike everything else here, and that is the point of it: the tick is rebuilt
         // on every run, so the mark saying "I have already reported this" has to outlive it.
         registry.register(ScheduleNotices).useClass(ScheduleNotices).asSingleton();
         // The same, for when the tick started holding a changeover for its opening.
         registry.register(OpeningWait).useClass(OpeningWait).asSingleton();
+        // And for what booking a live show has already said, apart from the changeover's own.
+        registry.register(LiveNotices).useClass(LiveNotices).asSingleton();
         // `ScheduleTickJob` is deliberately NOT registered here. `JobsModule` walks `JobMappings` and
         // registers every job class itself, so a second registration is not redundancy, it throws at
         // boot: "Registration for ScheduleTickJob already exists".

@@ -115,6 +115,24 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
 
         const source = splitSource(values.source);
 
+        // A live show is only its when-half and the mark: nothing of the slot's own airs, so the
+        // programme fields are not drawn and nothing from them is sent. `mode` and `onEnd` are required
+        // by the contract and mean nothing here, so they go as the slot already had them.
+        if (special && values.live && values.dates[0] && values.dates[1]) {
+            return {
+                label: values.label.trim(),
+                startsAtMinutes,
+                endsAtMinutes,
+                days: values.days.map(Number),
+                startsOn: values.dates[0],
+                endsOn: values.dates[1],
+                ...(values.yearly ? { yearly: true } : {}),
+                live: true,
+                mode: values.mode,
+                onEnd: values.onEnd,
+            };
+        }
+
         return {
             label: values.label.trim(),
             startsAtMinutes,
@@ -187,8 +205,10 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
         if (draft !== undefined) onApply?.(draft);
     });
 
-    // Offered only on the slot the station is airing, and only when the page can carry it out.
-    const offersApply = slot !== undefined && airing === true && onApply !== undefined;
+    // Offered only on the slot the station is airing, and only when the page can carry it out. Never on
+    // a live show, which the station never changes over onto: Go live on the Desk is how to go now.
+    const live = special && form.values.live;
+    const offersApply = slot !== undefined && airing === true && onApply !== undefined && !live;
 
     return (
         <Modal opened={opened} onClose={onClose} title={titleOf(t, slot !== undefined, special)} size="lg">
@@ -291,101 +311,116 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                         />
                     ) : undefined}
 
+                    {/* A presenter's booking rather than a programme. Only on a special, because a
+                        booking is for a date, and it takes every programme field below away: nothing
+                        of the slot's own airs, since the weekly show plays until the encoder is heard. */}
+                    {special ? (
+                        <Switch
+                            label={t('slot.special.liveLabel')}
+                            description={t('slot.special.liveDescription')}
+                            {...form.getInputProps('live', { type: 'checkbox' })}
+                        />
+                    ) : undefined}
+
                     <Text size="xs" c="dimmed">
                         {form.values.days.length === 0 ? `${special ? t('slot.special.everyDay') : t('slot.everyDay')} ` : ''}
-                        {special ? t('slot.special.note') : t('slot.times')}
+                        {live ? t('slot.special.liveNote') : special ? t('slot.special.note') : t('slot.times')}
                     </Text>
 
-                    <SourceField description={t('slot.sourceDescription')} stationPlaylists {...form.getInputProps('source')} />
+                    {live ? undefined : (
+                        <>
+                            <SourceField description={t('slot.sourceDescription')} stationPlaylists {...form.getInputProps('source')} />
 
-                    {/* Only under a chart, because it means nothing under anything else. A row that
+                            {/* Only under a chart, because it means nothing under anything else. A row that
                         sat there greyed out for every playlist would be a control explaining its own
                         irrelevance on the page an operator uses most. */}
-                    {splitSource(form.values.source)?.kind === 'chart' ? (
-                        <>
-                            <ChartOrderField {...form.getInputProps('chartOrder')} />
-                            <ChartPositionsField {...form.getInputProps('chartPositions', { type: 'checkbox' })} />
-                        </>
-                    ) : undefined}
+                            {splitSource(form.values.source)?.kind === 'chart' ? (
+                                <>
+                                    <ChartOrderField {...form.getInputProps('chartOrder')} />
+                                    <ChartPositionsField {...form.getInputProps('chartPositions', { type: 'checkbox' })} />
+                                </>
+                            ) : undefined}
 
-                    <HostField {...form.getInputProps('personaId')} />
+                            <HostField {...form.getInputProps('personaId')} />
 
-                    {/* Under the host it sits in for. */}
-                    <GuestHostsField
-                        rows={form.values.guestHosts}
-                        onChange={rows => form.setFieldValue('guestHosts', rows)}
-                        {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
-                        {...(form.errors.guestHosts === undefined ? {} : { errors: form.values.guestHosts.map(guestRowProblem) })}
-                        taken={form.values.coHosts.map(row => row.personaId)}
-                    />
+                            {/* Under the host it sits in for. */}
+                            <GuestHostsField
+                                rows={form.values.guestHosts}
+                                onChange={rows => form.setFieldValue('guestHosts', rows)}
+                                {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
+                                {...(form.errors.guestHosts === undefined ? {} : { errors: form.values.guestHosts.map(guestRowProblem) })}
+                                taken={form.values.coHosts.map(row => row.personaId)}
+                            />
 
-                    {/* Beside the host, rather than instead of them. */}
-                    <GuestHostsField
-                        role="cohost"
-                        rows={form.values.coHosts}
-                        onChange={rows => form.setFieldValue('coHosts', rows)}
-                        {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
-                        {...(form.errors.coHosts === undefined ? {} : { errors: form.values.coHosts.map(guestRowProblem) })}
-                        taken={form.values.guestHosts.map(row => row.personaId)}
-                    />
+                            {/* Beside the host, rather than instead of them. */}
+                            <GuestHostsField
+                                role="cohost"
+                                rows={form.values.coHosts}
+                                onChange={rows => form.setFieldValue('coHosts', rows)}
+                                {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
+                                {...(form.errors.coHosts === undefined ? {} : { errors: form.values.coHosts.map(guestRowProblem) })}
+                                taken={form.values.guestHosts.map(row => row.personaId)}
+                            />
 
-                    <BriefField {...form.getInputProps('brief')} />
+                            <BriefField {...form.getInputProps('brief')} />
 
-                    <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
+                            <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
 
-                    <EraNote />
+                            <EraNote />
 
-                    <MoodStagesField value={form.values.moods} onChange={moods => form.setFieldValue('moods', moods)} />
+                            <MoodStagesField value={form.values.moods} onChange={moods => form.setFieldValue('moods', moods)} />
 
-                    <AvoidMoodsField
-                        value={form.values.avoidMoods}
-                        leaning={form.values.moods}
-                        onChange={moods => form.setFieldValue('avoidMoods', moods)}
-                    />
+                            <AvoidMoodsField
+                                value={form.values.avoidMoods}
+                                leaning={form.values.moods}
+                                onChange={moods => form.setFieldValue('avoidMoods', moods)}
+                            />
 
-                    <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
+                            <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
 
-                    <ShapeNote what="block" />
+                            <ShapeNote what="block" />
 
-                    {/* Beside the shape, because it is the other half of how the block plays its
+                            {/* Beside the shape, because it is the other half of how the block plays its
                         playlist: the shape says what happens at the end of it, this says where it
                         starts. Only under a playlist, for the chart fields' reason above. */}
-                    {mixesInto(splitSource(form.values.source)) ? (
-                        <ResumePlaylistField
-                            input={form.getInputProps('resumePlaylist', { type: 'checkbox' })}
-                            {...(slot === undefined ? {} : { slotId: slot.id })}
-                            saved={slot?.resumePlaylist === true && form.values.source === valuesOf(target).source}
-                        />
-                    ) : undefined}
+                            {mixesInto(splitSource(form.values.source)) ? (
+                                <ResumePlaylistField
+                                    input={form.getInputProps('resumePlaylist', { type: 'checkbox' })}
+                                    {...(slot === undefined ? {} : { slotId: slot.id })}
+                                    saved={slot?.resumePlaylist === true && form.values.source === valuesOf(target).source}
+                                />
+                            ) : undefined}
 
-                    {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
+                            {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
 
-                    <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
+                            <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
 
-                    {mixesInto(splitSource(form.values.source)) ? (
-                        <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
-                    ) : undefined}
+                            {mixesInto(splitSource(form.values.source)) ? (
+                                <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
+                            ) : undefined}
 
-                    {form.values.mode === 'rotation' ? (
-                        <RequestShowFields
-                            on={form.getInputProps('requestShow', { type: 'checkbox' })}
-                            count={form.getInputProps('requestFollowOn')}
-                        />
-                    ) : undefined}
+                            {form.values.mode === 'rotation' ? (
+                                <RequestShowFields
+                                    on={form.getInputProps('requestShow', { type: 'checkbox' })}
+                                    count={form.getInputProps('requestFollowOn')}
+                                />
+                            ) : undefined}
 
-                    {/* A feature airs without a word from the host, so there is nothing to write first. */}
-                    {form.values.mode === 'feature' ? undefined : <WriterOrderField {...form.getInputProps('writerOrder')} />}
+                            {/* A feature airs without a word from the host, so there is nothing to write first. */}
+                            {form.values.mode === 'feature' ? undefined : <WriterOrderField {...form.getInputProps('writerOrder')} />}
 
-                    {form.values.mode === 'rotation' ? (
-                        <RepeatRulesFields
-                            window={form.getInputProps('repeatWindowDays')}
-                            cooldown={form.getInputProps('artistCooldownMinutes')}
-                            perArtist={form.getInputProps('maxPerArtist')}
-                        />
-                    ) : undefined}
+                            {form.values.mode === 'rotation' ? (
+                                <RepeatRulesFields
+                                    window={form.getInputProps('repeatWindowDays')}
+                                    cooldown={form.getInputProps('artistCooldownMinutes')}
+                                    perArtist={form.getInputProps('maxPerArtist')}
+                                />
+                            ) : undefined}
+                        </>
+                    )}
 
                     <Text size="xs" c="dimmed">
-                        {t('slot.savingNote')}
+                        {live ? t('slot.special.liveSavingNote') : t('slot.savingNote')}
                     </Text>
 
                     <Divider />
@@ -512,6 +547,8 @@ interface FormValues {
     dates: [string | null, string | null];
     /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
     yearly: boolean;
+    /** Ticked makes a special a booked live show, which sends only the when-half. Unused on a weekly slot. */
+    live: boolean;
     /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
     breaks: boolean;
     /** Ticked sends `requestShow: true`; unticked sends nothing. Drawn only for a rotation. See `RequestShowFields`. */
@@ -566,6 +603,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         resumePlaylist: slot?.resumePlaylist === true,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
+        live: slot?.live === true,
         breaks: slot?.breaks === true,
         requestShow: slot?.requestShow === true,
         requestFollowOn: slot?.requestFollowOn ?? REQUEST_FOLLOW_ON_DEFAULT,

@@ -50,6 +50,8 @@ export interface ScheduleOccurrence {
     start: string;
     /** The same, exclusive. Midnight at the end of a day is the NEXT day's `00:00:00`. */
     end: string;
+    /** A booked live show. Absent is no. */
+    live?: boolean;
 }
 
 const MINUTES_IN_DAY = 24 * 60;
@@ -123,6 +125,7 @@ function one(slot: ScheduleSlot, date: StationDate, from: number, until: number,
         label: slot.label,
         start: stamp(date, from),
         end: until >= MINUTES_IN_DAY ? stamp(next, 0) : stamp(date, until),
+        ...(slot.live === true ? { live: true } : {}),
     };
 }
 

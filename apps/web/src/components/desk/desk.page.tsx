@@ -268,7 +268,10 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
                             <BringInAGuest {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
                             {/* Not disabled with nothing on: the station decides on a request, off
                                 air included, and the dialog shows its reason. */}
-                            <RequestARecord openOnArrival={requestOnArrival} {...(onRequestArrived === undefined ? {} : { onArrived: onRequestArrived })} />
+                            <RequestARecord
+                                openOnArrival={requestOnArrival}
+                                {...(onRequestArrived === undefined ? {} : { onArrived: onRequestArrived })}
+                            />
                         </Group>
                     ) : undefined}
                 </Group>

@@ -963,6 +963,15 @@ export interface DeadairProviderPlaylistListings {
   stationKey: Generated<string>;
 }
 
+export interface DeadairScheduleLiveArms {
+  armed: boolean;
+  armedAt: Generated<DateTime>;
+  closedAt: DateTime | null;
+  occurrence: DateTime;
+  slotId: string;
+  stationKey: Generated<string>;
+}
+
 export interface DeadairSchedulePlaylistPositions {
   lastSongKey: string;
   slotId: string;
@@ -1005,6 +1014,7 @@ export interface DeadairScheduleSlots {
   eraTo: number | null;
   id: Generated<string>;
   label: Generated<string>;
+  live: Generated<boolean>;
   maxPerArtist: number | null;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
@@ -1442,6 +1452,7 @@ export interface DB {
   "deadair.productions": DeadairProductions;
   "deadair.pronunciations": DeadairPronunciations;
   "deadair.providerPlaylistListings": DeadairProviderPlaylistListings;
+  "deadair.scheduleLiveArms": DeadairScheduleLiveArms;
   "deadair.schedulePlaylistPositions": DeadairSchedulePlaylistPositions;
   "deadair.schedulePreparedSets": DeadairSchedulePreparedSets;
   "deadair.scheduleSlotHosts": DeadairScheduleSlotHosts;

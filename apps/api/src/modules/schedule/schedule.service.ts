@@ -13,6 +13,7 @@ import { coHostsFor, hostFor, type NightHost } from '#modules/director/slot.visi
 import {
     dateKey,
     isChartSource,
+    isLiveShow,
     occurrenceOf,
     isSpecial,
     isStationPlaylistSource,
@@ -204,7 +205,27 @@ export class ScheduleService {
      * opening records can be chosen early, and the changeover itself still resolves for now.
      */
     async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
-        return resolveSlot(at, stationZone(this.config), await this.slots.list());
+        // A booked live show is never changed over onto: the weekly show under it is what airs until
+        // the presenter is heard, and what the hand-back resumes. See `ScheduleSlot.live`.
+        return resolveSlot(
+            at,
+            stationZone(this.config),
+            (await this.slots.list()).filter(slot => !isLiveShow(slot)),
+        );
+    }
+
+    /**
+     * The booked live show on at an instant, and which night of it, or `undefined` for none.
+     *
+     * The other half of {@link inForce}, which leaves live shows out: what is changed over onto and
+     * what the live input is armed for are different questions, asked of the same clock. Two specials
+     * may not overlap, so at most one live show is ever on. Ask it for NOW, on `inForce`'s argument.
+     */
+    async liveInForce(at: Date = new Date()): Promise<{ slot: ScheduleSlot; night: string } | undefined> {
+        const zone = stationZone(this.config);
+        const slot = resolveSlot(at, zone, (await this.slots.list()).filter(isLiveShow));
+
+        return slot === undefined ? undefined : { slot, night: dateKey(occurrenceOf(slot, at, zone)) };
     }
 
     /**
@@ -556,9 +577,29 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...guestHostsOf(body),
         ...coHostsOf(body),
         ...(body.resumePlaylist === true ? { resumePlaylist: true } : {}),
+        ...liveOf(body),
         mode: body.mode,
         onEnd: body.onEnd,
     };
+}
+
+/**
+ * Whether a body books a live show, refusing one the table would.
+ *
+ * Only a special, because a booking is for a date and a weekly one would arm every week whether
+ * anybody meant to turn up or not; and no source, because nothing of the slot's own airs. Refused here
+ * with a sentence rather than left to migration 0121's check, which reaches the operator as a 500.
+ */
+function liveOf(body: ScheduleSlotInput): { live?: true } {
+    if (body.live !== true) return {};
+    if (body.startsOn === undefined || body.endsOn === undefined) {
+        throw httpError(400).withDetails({ message: 'a live show is booked on dates, so it has to be a special' });
+    }
+    if (body.sourceChartId !== undefined || body.sourceStationPlaylistId !== undefined || body.sourcePlaylistId !== undefined) {
+        throw httpError(400).withDetails({ message: 'a live show plays nothing of its own, so it cannot name a playlist or a chart' });
+    }
+
+    return { live: true };
 }
 
 /**
@@ -705,6 +746,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
               }),
         // Always sent, false included, so a client reading a slot never has to know what absent means.
         resumePlaylist: slot.resumePlaylist === true,
+        live: slot.live === true,
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

@@ -14,7 +14,7 @@ import type { DB } from '../../../src/modules/data/db.js';
 const SLOT = '00000000-0000-4000-8000-0000000000aa';
 
 /** The stored row an update hands back, with the source the case gives it. */
-const storedRow = (source: Record<string, string | number | null>) => ({
+const storedRow = (source: Record<string, string | number | boolean | null>) => ({
     id: SLOT,
     label: 'Late night',
     startsAtMinutes: 1320,
@@ -45,6 +45,7 @@ const storedRow = (source: Record<string, string | number | null>) => ({
     endsOn: null,
     yearly: false,
     resumePlaylist: true,
+    live: false,
     mode: 'setlist',
     onEnd: 'extend',
     ...source,
@@ -184,5 +185,22 @@ describe('the repeat rules a slot lifts', () => {
 
         expect(slot).toMatchObject({ repeatWindowDays: 0, artistCooldownMinutes: 0 });
         expect(slot).not.toHaveProperty('maxPerArtist');
+    });
+});
+
+describe('a booked live show', () => {
+    it('writes it to its own column and reads it back, and an ordinary slot never says live at all', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const db = fakeDb(storedRow({}), storedRow({ live: true }), statements, parameters);
+        const slot = await new ScheduleRepository(db, new StationIdentity()).update(SLOT, { ...draft(undefined), live: true });
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        expect(statements[at]).toContain('"live" = $');
+        expect(parameters[at]).toContain(true);
+        expect(slot).toMatchObject({ live: true });
+
+        const ordinary = await new ScheduleRepository(fakeDb(storedRow({}), storedRow({}), []), new StationIdentity()).update(SLOT, draft(undefined));
+        expect(ordinary).not.toHaveProperty('live');
     });
 });

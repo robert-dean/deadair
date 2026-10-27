@@ -346,6 +346,24 @@ second or two.
 **Neither edge publishes `air.changed`**, so event destinations hear nothing: to a listener the
 station never went quiet. `docs/internals/events.md` says the same from the other side.
 
+**A live show can be booked, and the booking only arms the input.** A special marked `live`
+(migration 0121) is a presenter's time on the schedule, and the schedule does at its start exactly
+what Go live on the Desk does: `LiveBookings` (`schedule/live.bookings.ts`), the first step of every
+tick, arms the input titled with the special's name. It is never IN FORCE for a changeover
+(`ScheduleService.inForce` leaves live slots out), because what airs until the presenter is heard is
+the weekly show underneath, and that is also the order a `standDown` hand-back resumes; changing
+over onto a slot with no source would have aired a brief nobody wrote and handed back into it. The
+timetable draws it as any special. Each night is written down in `schedule_live_arms` when it
+begins, so the input is armed once: a Cancel or an early hand-back is not undone a minute later,
+and an input already armed or on air when the show begins (somebody went live early) is left alone
+and recorded as not the schedule's. At the end, an input the schedule armed that is still only
+`armed` is disarmed, since nobody came; one counting in or on air is never cut, because the clock
+cutting a presenter mid-sentence is worse than a show that runs long. It runs before the tick's
+stood-down guard, since a live stand-down makes the director inactive for the whole show, which also
+means a booking arms on a station an operator stopped, and the hand-back leaves it stopped
+(`resumeAfterLive`). The audio chain holds the armed state in memory, so a Liquidsoap restart
+mid-show drops it, and from here that cannot be told from a Cancel: the night is not re-armed.
+
 ## What the order is asked for
 
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job

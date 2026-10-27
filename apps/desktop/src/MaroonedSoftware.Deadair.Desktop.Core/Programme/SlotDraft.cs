@@ -106,6 +106,7 @@ public sealed record SlotDraft
                 GuestHosts = slot.GuestHosts,
                 CoHosts = slot.CoHosts,
                 ResumePlaylist = slot.ResumePlaylist,
+                Live = slot.Live,
                 Breaks = slot.Breaks,
                 ChartPositions = slot.ChartPositions,
                 RequestShow = slot.RequestShow,
@@ -220,6 +221,7 @@ public sealed record SlotDraft
             GuestHosts = Kept.GuestHosts,
             CoHosts = Kept.CoHosts,
             ResumePlaylist = Kept.ResumePlaylist,
+            Live = Kept.Live,
             Breaks = Kept.Breaks,
             ChartPositions = Kept.ChartPositions,
             RequestShow = Kept.RequestShow,
@@ -323,6 +325,9 @@ public sealed record SlotPassthrough
 
     /// <summary>Whether a playlist slot picks its playlist up where it left off; set on the web console.</summary>
     public bool? ResumePlaylist { get; init; }
+
+    /// <summary>Whether the special is a booked live show; set on the web console.</summary>
+    public bool? Live { get; init; }
 
     /// <summary>Whether the host talks between the records; null is the mode's own answer.</summary>
     public bool? Breaks { get; init; }

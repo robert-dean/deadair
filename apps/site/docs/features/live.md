@@ -46,6 +46,8 @@ Any of these gives the air back to the station:
 
 Either way the input disarms, so going live again is a fresh press of Go live. An encoder you leave connected after the show cannot take the air back by itself.
 
+To keep a recording of every show, switch on [Recordings](./archive.md): each show becomes an MP3 named after it, ready to download and cut clips from.
+
 ## What the station does while you are live
 
 That is a setting, **Settings → Playout → While somebody is live, the station's own programme**:

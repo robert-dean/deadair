@@ -12,6 +12,9 @@ import { AudioChainRestart } from './stream.restart.js';
 import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
+import { ArchiveStore } from './archive.store.js';
+import { ArchiveService } from './archive.service.js';
+import { defaultArchiveDir } from './archive.settings.js';
 import { LiquidsoapEndpoint } from '#modules/playout/liquidsoap.endpoint.js';
 
 /**
@@ -50,7 +53,7 @@ export function handOverBridgeSecrets(container: Container, playoutBridgeSecret:
 
 export const StreamModule: ServerKitModule = {
     name: 'Stream',
-    setup: async (registry: Registry, _config: AppConfig) => {
+    setup: async (registry: Registry, config: AppConfig) => {
         // Scoped: it depends on the scoped `SettingsRepository` and `EncryptionProvider`.
         registry.register(StreamService).useClass(StreamService).asScoped();
 
@@ -86,6 +89,16 @@ export const StreamModule: ServerKitModule = {
         // the playout watchdog, runs off a timer with no request scope, and it holds nothing but the
         // live config view it reads the directory from.
         registry.register(AudioChainRestart).useClass(AudioChainRestart).asSingleton();
+
+        // What Liquidsoap recorded, read back. A singleton like every store: a directory root and
+        // nothing else. `ARCHIVE_DIR` is where THIS process sees the volume, which is not where
+        // Liquidsoap does (`ARCHIVE_LIQUIDSOAP_DIR`), on the same arrangement as HLS.
+        registry
+            .register(ArchiveStore)
+            .useFactory(() => new ArchiveStore(config.get('ARCHIVE_DIR', defaultArchiveDir())))
+            .asSingleton();
+        // Scoped like every route-facing service; it holds nothing between calls.
+        registry.register(ArchiveService).useClass(ArchiveService).asScoped();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

@@ -10,7 +10,7 @@ const _ZodDatetime = z.preprocess(
  * Which store, as a stable id the console can key off rather than a name it renders.
  * generated from [StorageStoreId](../../../../data/contracts/storage/storage.types.ck)
  */
-export const StorageStoreId = z.enum(['tracks', 'art', 'segments', 'voices']);
+export const StorageStoreId = z.enum(['tracks', 'art', 'segments', 'voices', 'archive']);
 export type StorageStoreId = z.infer<typeof StorageStoreId>;
 
 /**

@@ -61,6 +61,7 @@ public sealed class DeadairSdk : IDisposable
         Station = new StationClient(Http);
         Traces = new TracesClient(Http);
         Storage = new StorageClient(Http);
+        StreamArchive = new StreamArchiveClient(Http);
         Stream = new StreamClient(Http);
         Topics = new TopicsClient(Http);
         Invitations = new InvitationsClient(Http);
@@ -152,6 +153,8 @@ public sealed class DeadairSdk : IDisposable
     public TracesClient Traces { get; }
 
     public StorageClient Storage { get; }
+
+    public StreamArchiveClient StreamArchive { get; }
 
     public StreamClient Stream { get; }
 

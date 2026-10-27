@@ -65,6 +65,7 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     icecastHost: 'icecast',
     icecastPort: '8000',
     logLevel: 3,
+    archive: 'off',
     sourcePassword: 'source-pw',
     adminPassword: 'admin-pw',
     harborPassword: 'harbor-pw',
@@ -220,7 +221,7 @@ describe('writeStreamConfig', () => {
         expect(keys.indexOf('DUCK_BED_LUFS')).toBeGreaterThan(keys.indexOf('LOG_LEVEL'));
     });
 
-    it('appends the live input port last, after every key that came before it', () => {
+    it('appends the live input port and then the archive last, after every key that came before them', () => {
         const { assetsDir, configDir } = dirs();
         writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
 
@@ -228,7 +229,29 @@ describe('writeStreamConfig', () => {
             .split('\n')
             .filter(line => line !== '')
             .map(line => line.split('=')[0]);
-        expect(keys.slice(-2)).toEqual(['LIVE_PORT', 'CONFIG_STAMP']);
+        expect(keys.slice(-4)).toEqual(['LIVE_PORT', 'ARCHIVE_DIR', 'ARCHIVE_MODE', 'CONFIG_STAMP']);
+    });
+
+    it('spells an archive that is off as no directory and no mode', () => {
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ archive: 'off' }), playout: playout(), assetsDir, configDir });
+
+        const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+        expect(env.get('ARCHIVE_DIR')).toBe('');
+        expect(env.get('ARCHIVE_MODE')).toBe('');
+    });
+
+    it('writes the archive at the path Liquidsoap sees, with what to keep', () => {
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ archive: 'live' }), playout: playout(), assetsDir, configDir });
+        let env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+        expect(env.get('ARCHIVE_DIR')).toBe('/streamarchive');
+        expect(env.get('ARCHIVE_MODE')).toBe('live');
+
+        writeStreamConfig({ settings: settings({ archive: 'all' }), playout: playout(), assetsDir, configDir, archiveDir: '/data/streamarchive' });
+        env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+        expect(env.get('ARCHIVE_DIR')).toBe('/data/streamarchive');
+        expect(env.get('ARCHIVE_MODE')).toBe('all');
     });
 
     it('writes the live input port, defaulting to 8006 and following the one it is given', () => {

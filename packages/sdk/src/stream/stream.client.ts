@@ -6,9 +6,14 @@ import type {
     FetcherAuthorizationInput,
     FetcherAuthorizationStart,
 } from './types/stream.types.js';
+import { StreamArchiveClient } from './stream.archive.client.js';
 
 export class StreamClient {
-    constructor(private fetch: SdkFetch) {}
+    readonly archive: StreamArchiveClient;
+
+    constructor(private fetch: SdkFetch) {
+        this.archive = new StreamArchiveClient(fetch);
+    }
 
     /**
      * @name Get HLS playlist

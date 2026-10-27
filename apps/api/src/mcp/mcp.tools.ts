@@ -33,6 +33,7 @@ import { registerSettingsMcpCatalog, registerSettingsMcpToolClasses } from './se
 import { registerStationMcpCatalog, registerStationMcpToolClasses } from './station.mcp.js';
 import { registerStationPlaylistsMcpCatalog, registerStationPlaylistsMcpToolClasses } from './station.playlists.mcp.js';
 import { registerStorageMcpCatalog, registerStorageMcpToolClasses } from './storage.mcp.js';
+import { registerStreamArchiveMcpCatalog, registerStreamArchiveMcpToolClasses } from './stream.archive.mcp.js';
 import { registerTopicsMcpCatalog, registerTopicsMcpToolClasses } from './topics.mcp.js';
 import { registerTracesMcpCatalog, registerTracesMcpToolClasses } from './traces.mcp.js';
 
@@ -105,6 +106,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerStationMcpCatalog(map, container);
     registerStationPlaylistsMcpCatalog(map, container);
     registerStorageMcpCatalog(map, container);
+    registerStreamArchiveMcpCatalog(map, container);
     registerTopicsMcpCatalog(map, container);
     registerTracesMcpCatalog(map, container);
     return map;
@@ -151,6 +153,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerStationMcpToolClasses(registry);
     registerStationPlaylistsMcpToolClasses(registry);
     registerStorageMcpToolClasses(registry);
+    registerStreamArchiveMcpToolClasses(registry);
     registerTopicsMcpToolClasses(registry);
     registerTracesMcpToolClasses(registry);
 }

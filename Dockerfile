@@ -578,6 +578,11 @@ ENV NODE_ENV=production \
     # anything the image puts under it is hidden the moment they do.
     STREAM_HLS_DIR=/data/streamhls \
     STREAM_HLS_LIQUIDSOAP_DIR=/data/streamhls \
+    # The archive, on the same two-variables-one-directory arrangement as HLS. Made by
+    # `init-station` for the same reason, and a host path an operator mounts over it (the
+    # template's Archive field) is used as it is.
+    ARCHIVE_DIR=/data/streamarchive \
+    ARCHIVE_LIQUIDSOAP_DIR=/data/streamarchive \
     ANALYSIS_PORT=9321 \
     TTS_PORT=8880 \
     USE_GPU=false \

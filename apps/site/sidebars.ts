@@ -41,6 +41,7 @@ const sidebars: SidebarsConfig = {
                 'features/models-and-voices',
                 'features/console',
                 'features/live',
+                'features/archive',
                 'features/people',
                 'features/languages',
                 'features/listening',

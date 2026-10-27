@@ -2300,3 +2300,112 @@ if hls_dir != "" then
   )
   log(label="deadair", "publishing HLS in #{hls_dir}")
 end
+
+# 8) The archive: what aired, kept as files on disk, and only while the station is on the air.
+#
+# Off unless ARCHIVE_DIR is a path and ARCHIVE_MODE says what to keep, by the same rule as HLS
+# above: the app writes both keys always, so "off" is the EMPTY string, never an absent key.
+#
+#   live   one file per live show, from the moment it goes on air to the hand-back
+#   all    that, and the station's own programme in hourly files while it holds the air
+#
+# **It follows the lease, which is the opposite of HLS and for the opposite reason.** HLS has to
+# be there before anybody can tune in; nobody tunes in to an archive. Without the lease, the bus
+# carries `blank()`, and an output on it unconditionally records hours of silence to an empty
+# mount. `on_programme()` rather than `driving()`, so the warm-up silence before the first record
+# is not kept either. A live show is kept whatever the lease says: the presenter is the programme.
+#
+# What it records is `bus`, the same signal every mount encodes, so a file is what a listener heard.
+#
+# Started and stopped by hand from a thread rather than switched as a fallible source, so that
+# when a file opens and closes is decided in one readable place. A file is CUT, closed and a new
+# one opened, at every live edge and, under `all`, whenever the clock moves into a new slot (the
+# hour). Not `reopen_on_metadata`: the app relabels every record through /control/metadata, which
+# would split a file per record.
+#
+# Beside every MP3 is a JSON sidecar the app reads: its kind, the show's title, and when it began,
+# written when the file opens, then written again with when it ended once the file is closed. A
+# sidecar with no end is a file still being written, or one a crash cut short; the app tells the
+# two apart by the file's age. Times are epoch milliseconds rather than formatted dates, because
+# this clock knows the container's time zone and the app's knows the station's.
+#
+# Every settings save restarts this container (config-watch.sh), which closes the open file and
+# opens a new one on the way back up. Seconds in the name are what keep the two from colliding.
+archive_dir = string.trim(environment.get("ARCHIVE_DIR", default=""))
+archive_mode = string.trim(environment.get("ARCHIVE_MODE", default=""))
+if archive_dir != "" and (archive_mode == "live" or archive_mode == "all") then
+  # When a new hourly file begins: whenever this strftime pattern formats differently. Never
+  # written by the app; stream/archive.check.py shortens it to the minute so a cut can be watched.
+  archive_slot_pattern = environment.get("ARCHIVE_SLOT", default="%Y-%m-%d %H")
+
+  archive_path = ref("")
+  archive_kind = ref("")
+  archive_slot = ref("")
+  # The files still open, by path, with what their closing sidecar needs. A list because the
+  # close of one file arrives after the next has already been named.
+  archive_open = ref([])
+
+  def archive_sidecar(name) =
+    r/\.mp3$/.replace(fun (_) -> ".json", name)
+  end
+
+  # 192 kbps: about 86 MB an hour, and clips cut from it are as good as anything posted.
+  archive = output.file(
+    id = "archive",
+    start = false,
+    %mp3(bitrate=192),
+    {archive_path()},
+    on_close = fun (name) -> begin
+      let (kind, title, started) = list.assoc(default=("hour", "", 0), name, archive_open())
+      archive_open := list.filter(fun (e) -> fst(e) != name, archive_open())
+      file.write(
+        atomic = true,
+        data = json.stringify(compact=true, {kind=kind, title=title, startedAtMs=started, endedAtMs=int_of_float(time() * 1000.)}),
+        archive_sidecar(name)
+      )
+    end,
+    bus
+  )
+
+  # Names the next file and writes its opening sidecar. The output opens it on its next frame,
+  # reading the name back through the getter above.
+  def archive_name(kind, slot) =
+    name = "#{archive_dir}/" ^ time.string("%Y-%m-%d/%H-%M-%S") ^ "-#{kind}.mp3"
+    title = if kind == "live" then live_title() else "" end
+    started = int_of_float(time() * 1000.)
+    file.mkdir(parents=true, path.dirname(name))
+    file.write(atomic=true, data=json.stringify(compact=true, {kind=kind, title=title, startedAtMs=started}), archive_sidecar(name))
+    archive_open := list.add((name, (kind, title, started)), archive_open())
+    archive_path := name
+    archive_kind := kind
+    archive_slot := slot
+    log(label="deadair", "archiving to #{name}")
+  end
+
+  def archive_wanted() =
+    if live_on_air() then
+      "live"
+    elsif archive_mode == "all" and on_programme() then
+      "hour"
+    else
+      ""
+    end
+  end
+
+  def archive_step() =
+    want = archive_wanted()
+    slot = time.string(archive_slot_pattern)
+    if want == "" then
+      if archive.is_started() then archive.stop() end
+      archive_kind := ""
+    elsif not archive.is_started() then
+      archive_name(want, slot)
+      archive.start()
+    elsif want != archive_kind() or (want == "hour" and slot != archive_slot()) then
+      archive_name(want, slot)
+      archive.reopen()
+    end
+  end
+  thread.run(every=live_tick, archive_step)
+  log(label="deadair", "archiving (#{archive_mode}) in #{archive_dir}")
+end

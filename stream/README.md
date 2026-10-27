@@ -827,6 +827,39 @@ and checks every edge above against both the reading and the audio on the bus:
 python3 stream/live.check.py
 ```
 
+## The archive: what aired, kept on disk
+
+With `ARCHIVE_DIR` set to a directory and `ARCHIVE_MODE` to `live` or `all`, `radio.liq` records `bus`,
+the same signal every mount encodes, as 192 kbps MP3s:
+
+```
+ARCHIVE_DIR/2026-10-27/21-03-12-live.mp3    a live show, from going on air to the hand-back
+ARCHIVE_DIR/2026-10-27/21-03-12-live.json   its sidecar
+ARCHIVE_DIR/2026-10-27/22-00-00-hour.mp3    under `all`, the programme, a file per hour
+```
+
+- **It follows the lease**, which HLS deliberately does not. Nobody tunes in to an archive, and off
+  the lease the bus carries silence, so an unconditional output would record hours of it. The gate
+  is `on_programme()`, so the warm-up before the first record is not kept either. A live show is
+  recorded whatever the lease says. In `audience` mode the station holds the lease only while
+  somebody is listening, so that is also when the programme is archived.
+- **A file is cut at every live edge**, and under `all` whenever the hour turns. Not on metadata:
+  the app relabels every record, which would make a file per record.
+- **The sidecar is written when the file opens** (`kind`, `title`, `startedAtMs`) **and again when it
+  closes** (adding `endedAtMs`). One with no end is a file still being written or one a crash cut
+  short. Times are epoch milliseconds, not formatted dates.
+- **A settings save restarts the container** (see below), which closes the open file and starts a
+  new one. The seconds in each name keep the two apart.
+- **Nothing here deletes anything.** Retention belongs to the app.
+
+`archive.check.py` runs the whole script in the pinned image, under both modes, with the hourly
+slot shortened to the minute (`ARCHIVE_SLOT`, which only the harness sets), and checks what is
+written against the lease, a live show, the slot turning and a stand-down:
+
+```
+python3 stream/archive.check.py
+```
+
 ## Spotify playout (the track shim)
 
 Real Spotify audio on the stream, personal/local use only — this is against Spotify's ToS for

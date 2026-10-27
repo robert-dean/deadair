@@ -7,13 +7,14 @@ public enum StorageStoreId: Codable, CaseIterable, Hashable, Sendable {
     case art
     case segments
     case voices
+    case archive
 
     /// A value this SDK does not know, such as a member the service added after it was generated.
     /// Never sent: encoding it throws an `EncodingError`.
     case unknown
 
     /// The members the contract declares. `unknown` is not one of them.
-    public static let allCases: [StorageStoreId] = [.tracks, .art, .segments, .voices]
+    public static let allCases: [StorageStoreId] = [.tracks, .art, .segments, .voices, .archive]
 
     /// The wire spelling, or `nil` for `unknown`, which has none.
     public var rawValue: String? {
@@ -22,6 +23,7 @@ public enum StorageStoreId: Codable, CaseIterable, Hashable, Sendable {
         case .art: return "art"
         case .segments: return "segments"
         case .voices: return "voices"
+        case .archive: return "archive"
         case .unknown: return nil
         }
     }
@@ -33,6 +35,7 @@ public enum StorageStoreId: Codable, CaseIterable, Hashable, Sendable {
         case "art": self = .art
         case "segments": self = .segments
         case "voices": self = .voices
+        case "archive": self = .archive
         default: return nil
         }
     }

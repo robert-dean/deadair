@@ -5,7 +5,7 @@ options {
 }
 
 # Which store, as a stable id the console can key off rather than a name it renders.
-contract StorageStoreId: enum(tracks, art, segments, voices)
+contract StorageStoreId: enum(tracks, art, segments, voices, archive)
 
 # One content store: what is on disk, and what the database says should be.
 #

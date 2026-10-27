@@ -1,7 +1,7 @@
 ---
 title: 'Get tune-in pls'
 sidebar_label: 'Get tune-in pls'
-sidebar_position: 2
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

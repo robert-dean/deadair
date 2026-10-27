@@ -48,6 +48,7 @@ public final class Deadair: Sendable {
     public let station: StationClient
     public let traces: TracesClient
     public let storage: StorageClient
+    public let streamArchive: StreamArchiveClient
     public let stream: StreamClient
     public let topics: TopicsClient
     public let invitations: InvitationsClient
@@ -98,6 +99,7 @@ public final class Deadair: Sendable {
         self.station = StationClient(http: http)
         self.traces = TracesClient(http: http)
         self.storage = StorageClient(http: http)
+        self.streamArchive = StreamArchiveClient(http: http)
         self.stream = StreamClient(http: http)
         self.topics = TopicsClient(http: http)
         self.invitations = InvitationsClient(http: http)

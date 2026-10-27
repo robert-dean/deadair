@@ -287,6 +287,10 @@ export const queryKeys = {
     history: {
         asRun: (until?: string) => ['history', 'asRun', until ?? 'now'] as const,
     },
+    /** The archive's recordings. One key: the API answers with all of them at once. */
+    archive: {
+        recordings: () => ['archive', 'recordings'] as const,
+    },
     /**
      * Everything the station has written, one row per ATTEMPT. Keyed on the filters for the reason
      * the activity feed is: a filtered history is not a stale unfiltered one, and sharing the key

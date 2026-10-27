@@ -5,6 +5,7 @@ import { ArtStore } from '#modules/art/art.store.js';
 import { SegmentStore } from '#modules/render/segment.store.js';
 import { VoiceSampleStore } from '#modules/render/voice.sample.store.js';
 import { TrackStore } from '#modules/playout/audio/track.store.js';
+import { ArchiveStore } from '#modules/stream/archive.store.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY, resolveTrackCacheMaxBytes } from '#modules/playout/audio/track.cache.limit.js';
 import type { StoredFile } from '#modules/shared/content.store.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -99,6 +100,7 @@ export class StorageService {
         private readonly segments: SegmentStore,
         private readonly voices: VoiceSampleStore,
         private readonly config: AppConfig,
+        private readonly archive: ArchiveStore,
     ) {}
 
     async readStorage(): Promise<StorageReport> {
@@ -243,13 +245,33 @@ export class StorageService {
             { id: 'voices', label: 'Voice previews', store: this.voices },
         ];
 
-        const stores = await Promise.all(described.map(async entry => this.describe(entry)));
+        const stores = [...(await Promise.all(described.map(async entry => this.describe(entry)))), await this.describeArchive()];
 
         return {
             readAt: DateTime.now(),
             totalFiles: stores.reduce((total, store) => total + store.files, 0),
             totalBytes: stores.reduce((total, store) => total + store.bytes, 0),
             stores,
+        };
+    }
+
+    /**
+     * The archive's figures. Not a content store and never swept here: no row claims a recording, the
+     * files are the record, and `stream.prune_archive` is what bounds them. So it is reported with
+     * nothing orphaned, as the voice previews are, and for the same reason.
+     */
+    private async describeArchive(): Promise<StorageStore> {
+        const recordings = await this.archive.list();
+
+        return {
+            id: 'archive',
+            label: 'Recordings of what aired',
+            path: this.archive.root,
+            files: recordings.length,
+            bytes: recordings.reduce((total, recording) => total + recording.bytes, 0),
+            orphanFiles: 0,
+            orphanBytes: 0,
+            rowsWithNoFile: 0,
         };
     }
 

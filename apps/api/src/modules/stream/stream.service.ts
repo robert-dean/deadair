@@ -313,6 +313,8 @@ export class StreamService {
                 // one volume at two mount points. In the single-container image they are the
                 // same path, and both variables say so.
                 hlsDir: this.config.get('STREAM_HLS_LIQUIDSOAP_DIR', '/streamhls'),
+                // The archive, on the same two-mount-points arrangement.
+                archiveDir: this.config.get('ARCHIVE_LIQUIDSOAP_DIR', '/streamarchive'),
                 musicDir: this.config.get('STREAM_MUSIC_DIR', DEFAULT_MUSIC_DIR),
                 harborPort: this.config.get('STREAM_HARBOR_PORT', DEFAULT_HARBOR_PORT),
                 livePort: this.livePort(),

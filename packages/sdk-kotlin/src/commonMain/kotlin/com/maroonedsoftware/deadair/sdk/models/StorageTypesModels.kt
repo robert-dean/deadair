@@ -12,6 +12,7 @@ enum class StorageStoreId {
     ART,
     SEGMENTS,
     VOICES,
+    ARCHIVE,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -28,6 +29,7 @@ object StorageStoreIdSerializer : SdkEnumSerializer<StorageStoreId>(
     StorageStoreId.ART to "art",
     StorageStoreId.SEGMENTS to "segments",
     StorageStoreId.VOICES to "voices",
+    StorageStoreId.ARCHIVE to "archive",
 )
 
 /**

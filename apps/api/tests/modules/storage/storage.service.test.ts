@@ -75,6 +75,9 @@ const build = (options: {
         voices: store('/media/voice-samples', options.voices ?? []),
     };
 
+    // Two recordings, so the archive's line is visibly its own figures rather than zeros.
+    const archive = { root: '/data/streamarchive', list: async () => [{ bytes: 100 }, { bytes: 250 }] };
+
     // Every setting is a STRING here because every setting is a string in the station, and a sweep
     // switch read as a boolean would be truthy on the literal 'false' that turning it off stores.
     const config = {
@@ -89,6 +92,7 @@ const build = (options: {
             stores.segments as never,
             stores.voices as never,
             config,
+            archive as never,
         ),
         stores,
     };
@@ -187,8 +191,21 @@ describe('StorageService.readStorage', () => {
         });
         const report = await service.readStorage();
 
-        expect(report).toMatchObject({ totalFiles: 3, totalBytes: 1250 });
-        expect(report.stores.map(entry => entry.path)).toEqual(['/media/tracks', '/media/art', '/media/segments', '/media/voice-samples']);
+        // The archive's two recordings (350 bytes) are in the totals, last and apart from the content stores.
+        expect(report).toMatchObject({ totalFiles: 5, totalBytes: 1600 });
+        expect(report.stores.map(entry => entry.path)).toEqual([
+            '/media/tracks',
+            '/media/art',
+            '/media/segments',
+            '/media/voice-samples',
+            '/data/streamarchive',
+        ]);
+    });
+
+    it('reports the archive by its recordings, with nothing ever counted as orphaned', async () => {
+        const { service } = build({});
+
+        expect(await storeIn(service, 'archive')).toMatchObject({ files: 2, bytes: 350, orphanFiles: 0, orphanBytes: 0, rowsWithNoFile: 0 });
     });
 
     it('carries the cap only for the store that has one, and only once it is set', async () => {

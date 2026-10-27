@@ -21,6 +21,7 @@ import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PartyPosterRouteImport } from './routes/party-poster'
 import { Route as PodcastsRouteImport } from './routes/podcasts'
+import { Route as RecordingsRouteImport } from './routes/recordings'
 import { Route as ReleasesRouteImport } from './routes/releases'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as TracesRouteImport } from './routes/traces'
@@ -121,6 +122,11 @@ const PartyPosterRoute = PartyPosterRouteImport.update({
 const PodcastsRoute = PodcastsRouteImport.update({
   id: '/podcasts',
   path: '/podcasts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordingsRoute = RecordingsRouteImport.update({
+  id: '/recordings',
+  path: '/recordings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReleasesRoute = ReleasesRouteImport.update({
@@ -343,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/party-poster': typeof PartyPosterRoute
   '/podcasts': typeof PodcastsRoute
+  '/recordings': typeof RecordingsRoute
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
@@ -398,6 +405,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/party-poster': typeof PartyPosterRoute
   '/podcasts': typeof PodcastsRoute
+  '/recordings': typeof RecordingsRoute
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
@@ -454,6 +462,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/party-poster': typeof PartyPosterRoute
   '/podcasts': typeof PodcastsRoute
+  '/recordings': typeof RecordingsRoute
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
@@ -511,6 +520,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/party-poster'
     | '/podcasts'
+    | '/recordings'
     | '/releases'
     | '/schedule'
     | '/traces'
@@ -566,6 +576,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/party-poster'
     | '/podcasts'
+    | '/recordings'
     | '/releases'
     | '/schedule'
     | '/traces'
@@ -621,6 +632,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/party-poster'
     | '/podcasts'
+    | '/recordings'
     | '/releases'
     | '/schedule'
     | '/traces'
@@ -677,6 +689,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   PartyPosterRoute: typeof PartyPosterRoute
   PodcastsRoute: typeof PodcastsRoute
+  RecordingsRoute: typeof RecordingsRoute
   ReleasesRoute: typeof ReleasesRoute
   ScheduleRoute: typeof ScheduleRoute
   TracesRoute: typeof TracesRoute
@@ -804,6 +817,13 @@ declare module '@tanstack/react-router' {
       path: '/podcasts'
       fullPath: '/podcasts'
       preLoaderRoute: typeof PodcastsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recordings': {
+      id: '/recordings'
+      path: '/recordings'
+      fullPath: '/recordings'
+      preLoaderRoute: typeof RecordingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/releases': {
@@ -1109,6 +1129,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   PartyPosterRoute: PartyPosterRoute,
   PodcastsRoute: PodcastsRoute,
+  RecordingsRoute: RecordingsRoute,
   ReleasesRoute: ReleasesRoute,
   ScheduleRoute: ScheduleRoute,
   TracesRoute: TracesRoute,

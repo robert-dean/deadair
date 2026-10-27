@@ -17,12 +17,17 @@ import { AUDIO_TOKEN_PARAM, verifyAudioToken } from '#modules/playout/playout.au
  * a licensed record, pulled from the provider through the operator's own credentials on a miss, and
  * a uuid the console prints in its own JSON is not a secret.
  *
+ * A fourth is the archive's recording audio, whose only caller is the console itself, and whose
+ * reason is the other half of the same problem: an `<audio src>` cannot present a bearer token either,
+ * and an hour-long recording is too big to fetch into a blob first. The list hands the console URLs
+ * signed by `ArchiveService`, so the player streams and seeks with no session at all.
+ *
  * So the routes stay `security: none` in the contract, for the reason the bridge's do — a policy
  * evaluates against a session these callers do not have — and this is the policy instead. A token
  * in the query that signs the path with the bridge secret gets in (see `playout.audio.token.ts`);
  * anything else is held to exactly what the file's floor would have asked of it: the two steps
  * `requirePolicy` takes in a generated router, taken here because that helper is typed for a route
- * and this is not one. Listed by path rather than by prefix because the three live in two areas,
+ * and this is not one. Listed by path rather than by prefix because the four live in three areas,
  * and the contract test beside this is what keeps the list and the contracts' `security: none`
  * operations the same set.
  *
@@ -44,6 +49,8 @@ export const SIGNED_AUDIO_PATHS: readonly RegExp[] = [
     /^\/segments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/audio\/?$/i,
     /^\/audio\/[0-9a-f]{64}\/[A-Za-z0-9]{1,8}\/?$/i,
     /^\/playout\/audio\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i,
+    // A recording in the archive, played by the console's <audio>, which carries no bearer token.
+    /^\/archive\/recordings\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(?:live|hour)\/audio\/?$/i,
 ];
 
 export const isSignedAudioPath = (path: string): boolean => SIGNED_AUDIO_PATHS.some(pattern => pattern.test(path));

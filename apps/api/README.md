@@ -231,6 +231,7 @@ in `routes.setup.ts`.
 | `traces`                  | `GET /traces`, `GET /traces/:id` |
 | `logs`                    | `GET /logs`, `GET /logs/:id`, `GET /logs/:id/download` — `platform.manage` rather than `platform.view`: at `LOG_LEVEL=4` the harbor logs every header of every control call, so the bridge secret can be in `liquidsoap.log` in plain text |
 | `stream`                  | `GET /hls/:name` — anonymous, and the playlist GET is also the per-client heartbeat that makes an HLS listener countable; only the playlists, never the segments, which nginx serves off the volume. `GET /listen.pls` and `/listen.m3u`, anonymous too, are the station's streams as a playlist file, MP3 first, for a player that wants one. Plus the track fetcher's own authorization: `GET`/`POST /stream/authorization`, `POST /stream/authorization/complete` |
+| `stream.archive`          | `GET /archive/recordings` (`platform.view`), each with an audio URL signed for twelve hours; `GET /archive/recordings/{id}/audio`, gated by `signed.audio.middleware` and answering a byte range a chunk at a time so a player can seek through an hour; `DELETE /archive/recordings/{id}` (`platform.manage`, refused while it is still being recorded) |
 | `settings`                | `GET /settings`, `PUT /settings`, and `GET /settings/signin/check`, which asks each identity provider in the sign-in settings for its discovery document and says which answered |
 | `languages`               | `GET`/`PUT /console/language`, the signed-in account's own choice (or, without one, back to following the browser); `GET /console/languages` and `GET /console/languages/{locale}`, both public; `PUT` and `DELETE /console/languages/{locale}`, `platform.manage` |
 | `storage`                 | `GET /storage` — what is on disk, per store, against what the database says should be there |
@@ -242,8 +243,8 @@ in `routes.setup.ts`.
 | `outputs`                 | `GET /outputs/devices`, `GET /outputs/casts` (`platform.view`); `POST /outputs/casts`, `DELETE /outputs/casts/{pluginId}/{deviceId}` (`platform.manage`, since a speaker playing the station is a listener holding it on air) |
 
 Every router registered in [routes.setup.ts](src/routes/routes.setup.ts) is above, in registration
-order: all 46 of them, checked against that file on 2026-10-14 and extended with `metrics` on
-2026-10-17, when the module tables, checked against [modules.ts](src/modules/modules.ts), gained it
+order: all 47 of them, checked against that file on 2026-10-14 and extended with `metrics` on
+2026-10-17 and `stream.archive` on 2026-10-27, when the module tables, checked against [modules.ts](src/modules/modules.ts), gained it
 as the fiftieth module. Both files stay the source of
 truth; `health` is deliberately first in it, answering out of
 memory under both spellings (both are transaction-exempt for that reason).

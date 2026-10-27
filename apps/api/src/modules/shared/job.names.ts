@@ -28,6 +28,7 @@ export type JobNames =
     | 'render.stitch_production'
     | 'render.prune_script_history'
     | 'render.prune_share_copies'
+    | 'stream.prune_archive'
     | 'storage.sweep_orphans'
     | 'activity.prune_events'
     | 'metrics.rollup'

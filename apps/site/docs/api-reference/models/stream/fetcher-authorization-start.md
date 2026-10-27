@@ -1,6 +1,6 @@
 ---
 title: 'FetcherAuthorizationStart'
-sidebar_position: 2
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

@@ -309,6 +309,7 @@ export interface DeadairCallerHosts {
 export interface DeadairClockBands {
   at: "clock" | "interval";
   createdAt: Generated<DateTime>;
+  days: Generated<Json>;
   enabled: Generated<boolean>;
   everyMinutes: number | null;
   hour: number | null;

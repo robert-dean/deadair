@@ -84,6 +84,18 @@ public class FormatClockTests
         Assert.Equal(draft with { }, BandDraft.From(Band("x", "news", ClockBandAt.Clock, hour: 9, minute: 5)));
     }
 
+    // This editor has no day picker yet, so a weekday band it saves or moves must keep its days: PUT
+    // replaces the row, and losing them would put a weekday news show on at the weekend.
+    [Fact]
+    public void ABandOnChosenDaysKeepsThemThroughAnEditAndAMove()
+    {
+        var weekdays = Band("x", "podcast", ClockBandAt.Clock, hour: 18, minute: 0) with { Days = [1, 2, 3, 4, 5] };
+
+        Assert.Equal([1L, 2, 3, 4, 5], BandDraft.From(weekdays).ToInput()!.Days);
+        Assert.Equal([1L, 2, 3, 4, 5], FormatClock.BodyOf(weekdays, position: 3).Days);
+        Assert.Null(BandDraft.From(Band("y", "news", minute: 30)).ToInput()!.Days);
+    }
+
     [Fact]
     public void ANewBandGoesAtTheEndOfTheList() =>
         Assert.Equal(8, BandDraft.From(null, FormatClock.NextPosition([Band("a", "news", position: 7), Band("b", "ident", position: 2)])).Position);

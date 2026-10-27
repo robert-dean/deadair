@@ -119,3 +119,46 @@ describe('nextOccurrence', () => {
         }
     });
 });
+
+// A news show on weekdays. The days are read on the STATION's clock, so a weekday band in London is
+// judged by London's Monday whatever UTC says, and a weekend with a clock change in it is still crossed.
+describe('nextOccurrence on chosen days', () => {
+    const WEEKDAYS = [1, 2, 3, 4, 5];
+    const onDays = (minute: number, hour: number | undefined, days: number[]): AnchoredBand => ({ ...anchored(minute, 'podcast', hour), days });
+
+    it('passes over the weekend', () => {
+        // Friday 30 October 2026, 19:00 in London (GMT by then): the six o'clock edition has gone.
+        const friday = Date.UTC(2026, 9, 30, 19, 0);
+
+        expect(nextOccurrence(onDays(0, 18, WEEKDAYS), friday, LONDON)).toBe(Date.UTC(2026, 10, 2, 18, 0));
+    });
+
+    it('crosses a weekend with the clocks going back in it', () => {
+        // Friday 23 October is BST and Monday 26 is GMT, so six in the evening moves an hour in UTC.
+        const friday = Date.UTC(2026, 9, 23, 18, 0);
+
+        expect(nextOccurrence(onDays(0, 18, WEEKDAYS), friday, LONDON)).toBe(Date.UTC(2026, 9, 26, 18, 0));
+    });
+
+    it('reads the day on the station clock, not in UTC', () => {
+        // 23:30 UTC on Sunday 1 November is still Sunday in London and already Monday in Auckland.
+        const sunday = Date.UTC(2026, 10, 1, 23, 30);
+
+        expect(nextOccurrence(onDays(0, undefined, [1]), sunday, LONDON)).toBe(Date.UTC(2026, 10, 2, 0, 0));
+        expect(nextOccurrence(onDays(0, undefined, [1]), sunday, 'Pacific/Auckland')).toBe(Date.UTC(2026, 10, 2, 0, 0));
+    });
+
+    it('finds a band a whole week away, hourly or daily', () => {
+        // Asked just after Monday's, the next Monday-only band is seven days out.
+        const monday = Date.UTC(2026, 10, 2, 18, 1);
+
+        expect(nextOccurrence(onDays(0, 18, [1]), monday, LONDON)).toBe(Date.UTC(2026, 10, 9, 18, 0));
+        expect(nextOccurrence(onDays(30, undefined, [1]), Date.UTC(2026, 10, 2, 23, 31), LONDON)).toBe(Date.UTC(2026, 10, 9, 0, 30));
+    });
+
+    it('treats no days as every day', () => {
+        const saturday = Date.UTC(2026, 9, 31, 12, 0);
+
+        expect(nextOccurrence(onDays(0, 18, []), saturday, LONDON)).toBe(Date.UTC(2026, 9, 31, 18, 0));
+    });
+});

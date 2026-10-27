@@ -24,6 +24,10 @@ export const ClockBand = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(59))
         .optional()
         .describe('For a `clock` band: minutes past the hour'),
+    days: z
+        .array(z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6)))
+        .optional()
+        .describe("For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day"),
     everyMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000))
         .optional()
@@ -63,6 +67,10 @@ export const ClockBandInput = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(59))
         .optional()
         .describe('For a `clock` band: minutes past the hour'),
+    days: z
+        .array(z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6)))
+        .optional()
+        .describe("For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day"),
     everyMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000))
         .optional()

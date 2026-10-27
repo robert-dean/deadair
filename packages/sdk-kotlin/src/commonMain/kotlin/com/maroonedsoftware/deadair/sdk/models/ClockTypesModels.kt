@@ -16,6 +16,8 @@ data class ClockBand(
     val hour: Long? = null,
     /** For a `clock` band: minutes past the hour */
     val minute: Long? = null,
+    /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
+    val days: List<Long>? = null,
     /** For an `interval` band: how far apart, in milliseconds */
     val everyMs: Long? = null,
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */
@@ -39,6 +41,8 @@ data class ClockBandInput(
     val hour: Long? = null,
     /** For a `clock` band: minutes past the hour */
     val minute: Long? = null,
+    /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
+    val days: List<Long>? = null,
     /** For an `interval` band: how far apart, in milliseconds */
     val everyMs: Long? = null,
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */

@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { Kysely } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { ClockBand, ClockBandDraft, ClockBandRecord } from './clock.bands.js';
@@ -79,6 +79,7 @@ export class ClockBandRepository extends DataRepository {
                 'deadair.clockBands.at as at',
                 'deadair.clockBands.hour as hour',
                 'deadair.clockBands.minute as minute',
+                'deadair.clockBands.days as days',
                 'deadair.clockBands.everyMinutes as everyMinutes',
                 'deadair.clockBands.position as position',
                 'deadair.clockBands.enabled as enabled',
@@ -138,6 +139,9 @@ function columnsOf(draft: ClockBandDraft) {
         at: draft.at,
         hour: draft.at === 'clock' ? (draft.hour ?? null) : null,
         minute: draft.at === 'clock' ? draft.minute : null,
+        // Every day for an interval band, which has no day to be on. Sent as JSON text, as
+        // `ScheduleRepository` sends a slot's days, since the driver would otherwise write an array.
+        days: sql<string>`${JSON.stringify(draft.at === 'clock' ? weekdaysIn(draft.days) : [])}::jsonb`,
         everyMinutes: draft.at === 'interval' ? Math.max(1, Math.round(draft.everyMs / 60_000)) : null,
         position: draft.position ?? 0,
         enabled: draft.enabled ?? true,
@@ -153,6 +157,7 @@ interface BandRow {
     at: 'clock' | 'interval';
     hour: number | null;
     minute: number | null;
+    days: unknown;
     everyMinutes: number | null;
     position: number;
     enabled: boolean;
@@ -179,7 +184,25 @@ function toBand(row: BandRow): ClockBand {
 
     if (row.at === 'interval') return { at: 'interval', everyMs: Math.max(1, row.everyMinutes ?? 1) * 60_000, kind: row.kind, ...subject };
 
-    return { at: 'clock', minute: row.minute ?? 0, ...(row.hour == null ? {} : { hour: row.hour }), kind: row.kind, ...subject };
+    const days = weekdaysIn(row.days);
+    return {
+        at: 'clock',
+        minute: row.minute ?? 0,
+        ...(row.hour == null ? {} : { hour: row.hour }),
+        ...(days.length === 0 ? {} : { days }),
+        kind: row.kind,
+        ...subject,
+    };
+}
+
+/**
+ * The weekdays a value actually names, once each and in order. Anything else is an empty list, which is
+ * every day: a stray string where a weekday belongs must not decide which days a band is silent on.
+ */
+function weekdaysIn(value: unknown): number[] {
+    if (!Array.isArray(value)) return [];
+    const days = value.filter((entry): entry is number => typeof entry === 'number' && Number.isInteger(entry) && entry >= 0 && entry <= 6);
+    return [...new Set(days)].sort((a, b) => a - b);
 }
 
 /** Read back as `undefined` rather than `null`, per the note in CLAUDE.md, so `== null` is the test. */

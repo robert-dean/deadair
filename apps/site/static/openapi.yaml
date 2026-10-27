@@ -10190,6 +10190,13 @@ components:
                     minimum: 0
                     maximum: 59
                     description: 'For a `clock` band: minutes past the hour'
+                days:
+                    type: array
+                    items:
+                        type: integer
+                        minimum: 0
+                        maximum: 6
+                    description: "For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day"
                 everyMs:
                     type: integer
                     minimum: 60000

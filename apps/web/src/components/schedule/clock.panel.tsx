@@ -11,7 +11,7 @@ import { severityColor } from '../shared/status';
 import { BandEditor, type BandTarget } from './band.editor';
 import { FormatClockDial } from './format.clock.dial';
 import { i18n } from '../../i18n/i18n.setup';
-import { formatWallTime } from '../../i18n/format.locale';
+import { formatWallTime, weekdayShort } from '../../i18n/format.locale';
 
 /**
  * The station's format clock, on the page that already answers "what happens when".
@@ -245,7 +245,9 @@ export function whenOf(band: ClockBand): string {
     if (band.at === 'interval') return i18n.t('schedule:clock.every', { count: Math.round((band.everyMs ?? 0) / 60_000) });
 
     const minute = String(band.minute ?? 0).padStart(2, '0');
-    return band.hour === undefined ? `:${minute}` : formatWallTime(band.hour, band.minute ?? 0);
+    const time = band.hour === undefined ? `:${minute}` : formatWallTime(band.hour, band.minute ?? 0);
+    // Absent or empty is every day, which says nothing, so the ordinary band reads as it always did.
+    return band.days === undefined || band.days.length === 0 ? time : `${time} ${[...band.days].sort((a, b) => a - b).map(weekdayShort).join(' ')}`;
 }
 
 /** A band as the shape a write takes: everything but the id, which the URL carries. */
@@ -254,6 +256,9 @@ const bodyOf = (band: ClockBand): ClockBandInput => ({
     at: band.at,
     ...(band.hour === undefined ? {} : { hour: band.hour }),
     ...(band.minute === undefined ? {} : { minute: band.minute }),
+    // The days go back for the topic's reason below: a reorder that dropped them would put a
+    // weekday news show on at the weekend.
+    ...(band.days === undefined || band.days.length === 0 ? {} : { days: band.days }),
     ...(band.everyMs === undefined ? {} : { everyMs: band.everyMs }),
     // What it is about goes back too: `PUT` replaces the row, so a reorder that sent only the
     // position would quietly turn a technology bulletin into a general one.

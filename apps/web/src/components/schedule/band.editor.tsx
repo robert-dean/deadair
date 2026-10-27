@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Autocomplete, Button, Divider, Group, Modal, NumberInput, Select, Stack, Switch, Text, TextInput } from '@mantine/core';
+import { Autocomplete, Button, Chip, Divider, Group, Modal, NumberInput, Select, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { ClockBand, ClockBandInput } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { useTopics } from '../../api/topics.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { usePhone } from '../shared/use.phone';
-import { clockToMinutes, minutesToClock } from './schedule.day';
+import { weekdayShort } from '../../i18n/format.locale';
+import { clockToMinutes, DAYS, minutesToClock } from './schedule.day';
 
 /**
  * Writing one rule of the station's format clock.
@@ -80,6 +81,8 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
             // Dropped rather than sent as an empty string: absent means the break covers whatever it
             // finds, which is a different thing from a subject nothing can resolve.
             ...(values.topicId.length === 0 ? {} : { topicId: values.topicId }),
+            // Only for a band at a time of day, and only when some are chosen: none is every day.
+            ...(values.when === 'interval' || values.days.length === 0 ? {} : { days: values.days.map(Number) }),
             position: values.position,
             enabled: values.enabled,
         });
@@ -149,6 +152,31 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                             </Group>
                         ) : undefined}
                     </Group>
+
+                    {/* The days finish the same sentence for a band at a time of day ("…once a day at
+                        18:00 on Mon Tue Wed Thu Fri"), as they do in the slot editor and with the same
+                        chips. An interval band is a spacing rule and has no day to be on. */}
+                    {form.values.when === 'interval' ? undefined : (
+                        <Stack gap={4}>
+                            <Group gap="xs" align="center" wrap="wrap">
+                                <Word>{t('band.on')}</Word>
+                                <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
+                                    <Group gap={4} wrap="wrap">
+                                        {DAYS.map(day => (
+                                            <Chip key={day} value={String(day)} size="sm" radius="sm">
+                                                {weekdayShort(day)}
+                                            </Chip>
+                                        ))}
+                                    </Group>
+                                </Chip.Group>
+                            </Group>
+                            {form.values.days.length === 0 ? (
+                                <Text size="xs" c="dimmed">
+                                    {t('band.everyDay')}
+                                </Text>
+                            ) : undefined}
+                        </Stack>
+                    )}
 
                     {subjects.length > 0 ? (
                         <Select
@@ -241,6 +269,8 @@ interface FormValues {
     topicId: string;
     /** Which sentence this is. The API's two shapes, with the common `clock` case split in two. */
     when: 'hourly' | 'daily' | 'interval';
+    /** The weekdays chosen, as the chips' string values. Empty is every day. */
+    days: string[];
     minute: number;
     time: string;
     everyMinutes: number;
@@ -267,6 +297,7 @@ function valuesOf(target?: BandTarget): FormValues {
         kind: band?.kind ?? '',
         topicId: band?.topicId ?? '',
         when,
+        days: (band?.days ?? []).map(String),
         // Half past for a new hourly band, which is where a bulletin usually goes and is well clear
         // of the top of the hour a station tends to name itself at.
         minute: band?.minute ?? 30,

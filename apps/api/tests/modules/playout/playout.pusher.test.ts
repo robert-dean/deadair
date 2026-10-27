@@ -13,6 +13,7 @@ import {
     DEFAULT_SPEECH_TRIM_DB,
     DEFAULT_TARGET_LUFS,
     DUCK_DEEPEST_KEY,
+    DUCK_FADE_KEY,
     DUCK_SHALLOWEST_KEY,
     DUCK_UNDER_VOICE_KEY,
     duckBedLufsFor,
@@ -963,7 +964,7 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
 // exists and the item is committed, and the script waits for that record to actually start before
 // it counts anything.
 describe('PlayoutPusher arming a talk-over', () => {
-    const build = (voice?: { url: string; atMs: number; loudnessLufs?: number }) => {
+    const build = (voice?: { url: string; atMs: number; duckFadeMs?: number; loudnessLufs?: number }) => {
         const rundown = new Rundown(new StubResolver(), logger);
         seed(rundown, [
             {
@@ -973,6 +974,7 @@ describe('PlayoutPusher arming a talk-over', () => {
                           voice: {
                               segmentId: 'seg-1',
                               atMs: voice.atMs,
+                              ...(voice.duckFadeMs === undefined ? {} : { duckFadeMs: voice.duckFadeMs }),
                               ...(voice.loudnessLufs === undefined ? {} : { loudnessLufs: voice.loudnessLufs }),
                           },
                       }
@@ -1010,7 +1012,7 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('https://example.test/seg-1.ogg'), itemId, 8000);
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('https://example.test/seg-1.ogg'), itemId, 8000, undefined);
     });
 
     it('arms the cue with the gain the break is to air at', async () => {
@@ -1027,7 +1029,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         const aim = speechAimLufs(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
         const duck = `deadair_duck_bed_lufs="${bed}",deadair_duck_gain_db="${DEFAULT_DUCK_DEEPEST_DB}",deadair_duck_min_db="${DEFAULT_DUCK_SHALLOWEST_DB}"`;
         const armed = `annotate:liq_amplify="${gain} dB",deadair_voice_lufs="${aim}",${duck}:https://example.test/seg-1.ogg`;
-        expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
+        expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000, undefined);
     });
 
     it('arms the cue with the level the bed ducks to under it', async () => {
@@ -1038,7 +1040,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         await pusher.reconcile();
 
         const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, DEFAULT_DUCK_UNDER_VOICE_DB);
-        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`deadair_duck_bed_lufs="${bed}"`), expect.any(String), 8000);
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`deadair_duck_bed_lufs="${bed}"`), expect.any(String), 8000, undefined);
     });
 
     it('arms the cue with the duck settings as they stand at the hand-over', async () => {
@@ -1056,7 +1058,24 @@ describe('PlayoutPusher arming a talk-over', () => {
                 expect.stringContaining(`deadair_duck_bed_lufs="${bed}",deadair_duck_gain_db="-24",deadair_duck_min_db="-1.5"`),
                 expect.any(String),
                 8000,
+                undefined,
             );
+        } finally {
+            vi.mocked(config.get).mockImplementation(() => '');
+        }
+    });
+
+    it('arms the cue with the ramp the director timed it against', async () => {
+        // radio.liq fires the cue that long early and ramps the bed back over the same span, and the
+        // talk-up allowed for exactly that much: carried on the cue rather than read here, so a
+        // setting moved while the cue waited for its record cannot split the two ends.
+        vi.mocked(config.get).mockImplementation((key: string) => (key === DUCK_FADE_KEY ? '1500' : ''));
+        try {
+            const { pusher, control } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000, duckFadeMs: 800 });
+
+            await pusher.reconcile();
+
+            expect(control.armVoice).toHaveBeenCalledWith(expect.any(String), expect.any(String), 8000, 800);
         } finally {
             vi.mocked(config.get).mockImplementation(() => '');
         }
@@ -1074,7 +1093,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         // which is the actual claim: the measurement is what got used, not `ASSUMED_SPEECH_LUFS`.
         const measured = speechGainFor({ loudnessLufs: -22 }, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
         expect(measured).not.toBe(speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB));
-        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`liq_amplify="${measured} dB"`), expect.any(String), 8000);
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`liq_amplify="${measured} dB"`), expect.any(String), 8000, undefined);
     });
 
     it('arms nothing for a record with no cue', async () => {
@@ -1113,7 +1132,7 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
         expect(control.armVoice).toHaveBeenCalledTimes(1);
-        expect(control.armVoice).toHaveBeenLastCalledWith(expect.any(String), first!.id, 2000);
+        expect(control.armVoice).toHaveBeenLastCalledWith(expect.any(String), first!.id, 2000, undefined);
 
         // 'a' starts, its cue still waiting for its moment, and 'b' is handed over behind it.
         reading = { queued: 0, ready: true, onAir: first!.id, remainingMs: 200_000, driving: true, voice: 'armed' };
@@ -1125,7 +1144,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         reading = { ...reading, queued: 1, voice: 'fired' };
         await pusher.reconcile();
         expect(control.armVoice).toHaveBeenCalledTimes(2);
-        expect(control.armVoice).toHaveBeenLastCalledWith(expect.any(String), second!.id, 2000);
+        expect(control.armVoice).toHaveBeenLastCalledWith(expect.any(String), second!.id, 2000, undefined);
     });
 
     // A replacement does not go through /control/offair, so a cue left armed would fire over the

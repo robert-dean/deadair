@@ -3,6 +3,7 @@ import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.
 import { DEFAULT_LIVE_AUTOMATION, LIVE_AUTOMATION_KEY } from '#modules/playout/live.automation.js';
 import {
     DEFAULT_DUCK_DEEPEST_DB,
+    DEFAULT_DUCK_FADE_MS,
     DEFAULT_DUCK_SHALLOWEST_DB,
     DEFAULT_DUCK_UNDER_VOICE_DB,
     DEFAULT_LEVELING_ENABLED,
@@ -10,6 +11,8 @@ import {
     DEFAULT_TARGET_LUFS,
     DUCK_DEEPEST_KEY,
     DUCK_DEEPEST_RANGE,
+    DUCK_FADE_KEY,
+    DUCK_FADE_RANGE,
     DUCK_SHALLOWEST_KEY,
     DUCK_SHALLOWEST_RANGE,
     DUCK_UNDER_VOICE_KEY,
@@ -1503,6 +1506,16 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: DUCK_SHALLOWEST_RANGE.min,
         max: DUCK_SHALLOWEST_RANGE.max,
         help: 'How far a quiet intro dips when the DJ comes in, even though it is already under the voice, so a break is heard as the DJ arriving rather than as a voice laid over the record. Zero leaves a quiet intro where it is. Set deeper than the limit above, the limit wins and every break drops the record by exactly that much. It applies from the next break, with no restart.',
+    },
+    {
+        group: 'playout',
+        key: DUCK_FADE_KEY,
+        label: 'Take this long to bring the record down and back up (ms)',
+        type: 'number',
+        default: DEFAULT_DUCK_FADE_MS,
+        min: DUCK_FADE_RANGE.min,
+        max: DUCK_FADE_RANGE.max,
+        help: 'How long the music takes to drop when the DJ comes in over a record, and to come back after they stop. Shorter is a sharper cut, longer is a gentler slide that spends more of a short intro getting out of the way. A link talked up to the vocal allows for this at both ends, so a longer one leaves fewer words to fit. It applies from the next break the station times, with no restart.',
     },
     {
         group: 'playout',

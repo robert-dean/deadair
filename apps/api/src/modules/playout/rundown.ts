@@ -160,6 +160,11 @@ export interface RundownItem {
     voice?: {
         segmentId: string;
         atMs: number;
+        /**
+         * The duck's ramp the director timed this cue against, sent with the arm so `radio.liq` fires
+         * it on the same one. Absent only on a fixture, and then the mixer's own `DUCK_FADE_MS` applies.
+         */
+        duckFadeMs?: number;
         loudnessLufs?: number;
         /**
          * The running order's own id for the cue's OWN item — the talk-over segment
@@ -288,7 +293,7 @@ export interface PulledItem {
      * and this is the only route by which what the segment MEASURED reaches the thing that stamps
      * its gain. Absent for an unmeasured segment, which `speechGainFor` reads as an assumed level.
      */
-    voice?: { url: string; atMs: number; loudnessLufs?: number };
+    voice?: { url: string; atMs: number; duckFadeMs?: number; loudnessLufs?: number };
     /**
      * What the running order says comes after it, when anything does.
      *
@@ -868,8 +873,9 @@ export class Rundown {
     private async resolveVoice(voice: {
         segmentId: string;
         atMs: number;
+        duckFadeMs?: number;
         loudnessLufs?: number;
-    }): Promise<{ url: string; atMs: number; loudnessLufs?: number } | undefined> {
+    }): Promise<{ url: string; atMs: number; duckFadeMs?: number; loudnessLufs?: number } | undefined> {
         const url = await this.resolver
             .resolve({ id: `voice:${voice.segmentId}`, pluginId: RENDER_PLUGIN_ID, externalId: voice.segmentId, title: '', artists: [], artist: '' })
             .catch(() => undefined);
@@ -878,7 +884,12 @@ export class Rundown {
             this.logger.warn('rundown: a talk-over segment could not be resolved; the record airs without it', { segment: voice.segmentId });
             return undefined;
         }
-        return { url, atMs: voice.atMs, ...(voice.loudnessLufs === undefined ? {} : { loudnessLufs: voice.loudnessLufs }) };
+        return {
+            url,
+            atMs: voice.atMs,
+            ...(voice.duckFadeMs === undefined ? {} : { duckFadeMs: voice.duckFadeMs }),
+            ...(voice.loudnessLufs === undefined ? {} : { loudnessLufs: voice.loudnessLufs }),
+        };
     }
 
     /**

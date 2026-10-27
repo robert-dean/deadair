@@ -352,6 +352,31 @@ export const DUCK_SHALLOWEST_KEY = 'playout.duckShallowestDb';
 /** Zero is no dip at all for a bed already under the level, which is a choice a station can make. */
 export const DUCK_SHALLOWEST_RANGE = { min: -20, max: 0 } as const;
 
+/**
+ * How long the duck's ramp takes, in and out, in milliseconds.
+ *
+ * Unlike the three figures above it is not only the mixer's: the talk-up and the talk-out allow for
+ * the bed coming back up after the last word, so the director times a link with it and the cue
+ * carries the figure it was timed with to `radio.liq` (`x-voice-fade-ms` on the arm). One owner per
+ * cue, so a change made while a cue waits for its record cannot fire it on a ramp it was not timed
+ * against. `DUCK_FADE_MS` in `radio.env` is this figure, as the fallback for an arm without it.
+ */
+export const DEFAULT_DUCK_FADE_MS = 300;
+
+/** The `deadair.settings` key. */
+export const DUCK_FADE_KEY = 'playout.duckFadeMs';
+
+/**
+ * Short enough at the bottom that the bed cannot click down, long enough at the top that a ramp is
+ * still a ramp and not a link spending its whole intro waiting for the music to get out of the way.
+ */
+export const DUCK_FADE_RANGE = { min: 50, max: 2000 } as const;
+
+/** Read the stored fade, or the default. Clamped rather than rejected, like {@link resolveTargetLufs}. */
+export function resolveDuckFadeMs(value: unknown): number {
+    return numberInRange(value, DEFAULT_DUCK_FADE_MS, DUCK_FADE_RANGE, Math.round);
+}
+
 /** How the bed sits under a talk-over, as {@link resolveDuck} reads the three settings. */
 export interface DuckSettings {
     underVoiceDb: number;

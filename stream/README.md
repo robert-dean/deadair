@@ -427,7 +427,7 @@ where the voice is aimed), so the bed follows `playout.targetLufs` and the speec
 `DUCK_BED_LUFS` is the figure for a cue that does not carry one. The defaults (-25, -18, -3) put a record levelled to -13 exactly where the old fixed
 -12 did, ten under the voice, so only quieter and louder passages move. During a break the depth
 deepens fast, so a record kicking in under a talk-up is pulled down within the second, and releases
-slowly, so the bed cannot pump between phrases. The ramp in and out is `DUCK_FADE_MS` whatever the
+slowly, so the bed cannot pump between phrases. The ramp in and out is `playout.duckFadeMs` (`DUCK_FADE_MS` without one) whatever the
 depth.
 
 **A cue can carry both bounds and the fade, so tuning them needs no restart.** The deepest and

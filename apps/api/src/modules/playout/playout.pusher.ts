@@ -169,7 +169,7 @@ export class PlayoutPusher {
      * one starts, which is before its cue is due: arming at push overwrote it, and the first back-to-back
      * talk-ups the station decided lost the first of the pair without a word.
      */
-    private waitingCues: { carrierId: string; uri: string; atMs: number }[] = [];
+    private waitingCues: { carrierId: string; uri: string; atMs: number; duckFadeMs?: number }[] = [];
 
     /**
      * What {@link wantsAir} answered on the last pass that told anybody, so `air.wanted` is
@@ -556,7 +556,12 @@ export class PlayoutPusher {
                     // Queued rather than armed outright: armed now only if nothing is holding the
                     // slot. See `waitingCues`. A record handed over again replaces its old entry.
                     this.waitingCues = this.waitingCues.filter(cue => cue.carrierId !== pulled.item.id);
-                    this.waitingCues.push({ carrierId: pulled.item.id, uri, atMs: pulled.voice.atMs });
+                    this.waitingCues.push({
+                        carrierId: pulled.item.id,
+                        uri,
+                        atMs: pulled.voice.atMs,
+                        ...(pulled.voice.duckFadeMs === undefined ? {} : { duckFadeMs: pulled.voice.duckFadeMs }),
+                    });
                     this.armWaitingCue();
                 }
 
@@ -600,7 +605,7 @@ export class PlayoutPusher {
         if (next === undefined) return;
 
         this.armedCue = next.carrierId;
-        void this.control.armVoice(next.uri, next.carrierId, next.atMs).catch(() => undefined);
+        void this.control.armVoice(next.uri, next.carrierId, next.atMs, next.duckFadeMs).catch(() => undefined);
     }
 
     /** Whatever was armed or waiting is gone with the running order it belonged to. */

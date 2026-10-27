@@ -6,7 +6,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
-import { DEFAULT_DUCK_DEEPEST_DB, DEFAULT_DUCK_SHALLOWEST_DB } from '#modules/playout/gain.js';
+import { DEFAULT_DUCK_DEEPEST_DB, DEFAULT_DUCK_FADE_MS, DEFAULT_DUCK_SHALLOWEST_DB } from '#modules/playout/gain.js';
 import { playoutAiredUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import {
     defaultStreamAssetsDir,
@@ -48,16 +48,17 @@ import type {
  * not carry its own figures. The app stamps the level and both bounds on every
  * cue it arms, from the `playout.duck*` settings, so tuning them costs no restart
  * (see [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20)).
- * The two bounds are the settings' own defaults for that reason: a fallback that
- * disagreed with the default would be a duck that changed at a restart.
+ * The two bounds and the fade are the settings' own defaults for that reason: a
+ * fallback that disagreed with the default would be a duck that changed at a restart.
+ * The fade reaches `radio.liq` with each arm rather than on the cue, and the
+ * director times a link with the same figure; see `DEFAULT_DUCK_FADE_MS`.
  *
  * They match `stream/radio.default.env` so the rendered file agrees with the
  * committed fallback.
  */
 const TALK_OVER_TRACKS = true;
 const DUCK_GAIN_DB = DEFAULT_DUCK_DEEPEST_DB;
-/** Exported for the talk-up, which has to allow for the bed coming back up after the last word. */
-export const DUCK_FADE_MS = 300;
+const DUCK_FADE_MS = DEFAULT_DUCK_FADE_MS;
 const DUCK_MIN_DB = DEFAULT_DUCK_SHALLOWEST_DB;
 const DUCK_BED_LUFS = -25;
 

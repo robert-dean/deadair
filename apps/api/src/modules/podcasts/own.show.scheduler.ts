@@ -6,9 +6,12 @@ import { isAnchored, nextOccurrence, type AnchoredBand } from '#modules/director
 import { ClockBandRepository } from '#modules/director/clock.band.repository.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { COMMISSION_AHEAD_MS, isProductionKind } from '#modules/productions/production.scheduler.js';
+import { stationTargetMs } from '#modules/productions/production.settings.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
+import type { OwnShowRecord } from './own.show.js';
+import { OwnShowRepository } from './own.show.repository.js';
 import { OwnShowsService } from './own.shows.service.js';
 import { namesOwnShow, OWN_SHOW_BAND_KIND } from './own.show.topic.kind.js';
 
@@ -20,6 +23,34 @@ import { namesOwnShow, OWN_SHOW_BAND_KIND } from './own.show.topic.kind.js';
  * not asked on every one either.
  */
 export const REFUSED_RETRY_MS = 10 * 60_000;
+
+/**
+ * How many minutes of making an edition of a news show is given per minute it runs.
+ *
+ * A news show reads its stories when the episode is asked for, so every minute of read-ahead is a minute
+ * older the news is when it airs: three hours ahead, a six o'clock edition was the three o'clock news. So a
+ * news show is asked for no earlier than it needs to be. Measured on the live station on 2026-10-27, the
+ * nearest thing to an edition it had made (a banter, one voice-pair writing to a length) took 5.9 minutes of
+ * making per minute of programme at the 90th percentile; no `podcast` production had yet been made there.
+ */
+export const NEWS_MAKE_RATIO = 6;
+
+/** The least read-ahead a news edition gets, however short: a model having a slow hour still has room. */
+export const NEWS_MIN_AHEAD_MS = 60 * 60_000;
+
+/**
+ * How far ahead of its slot a show's episode is asked for.
+ *
+ * A show that reads the news gets {@link NEWS_MAKE_RATIO} times its length, between
+ * {@link NEWS_MIN_AHEAD_MS} and {@link COMMISSION_AHEAD_MS}; everything else gets the full read-ahead every
+ * production does, since nothing it is about goes stale. A show with no length of its own is reckoned at the
+ * longest the station's range allows, so a long one is never starved.
+ */
+export function aheadFor(show: Pick<OwnShowRecord, 'newsFeedIds' | 'targetMs'>, config: AppConfig): number {
+    if ((show.newsFeedIds?.length ?? 0) === 0) return COMMISSION_AHEAD_MS;
+    const length = show.targetMs ?? stationTargetMs(config, OWN_SHOW_BAND_KIND, () => 1);
+    return Math.min(COMMISSION_AHEAD_MS, Math.max(NEWS_MIN_AHEAD_MS, length * NEWS_MAKE_RATIO));
+}
 
 /**
  * When each refused slot may be asked again, keyed by show and slot.
@@ -35,7 +66,7 @@ const refusedUntil = new Map<string, number>();
  * Make the episode of the station's own show the format clock will want, ahead of its slot.
  *
  * `ProductionScheduler`'s job for a band that names a show: a `podcast` band whose topic is one of the
- * station's own shows is read {@link COMMISSION_AHEAD_MS} ahead and its episode asked for through
+ * station's own shows is read ahead ({@link aheadFor}) and its episode asked for through
  * `OwnShowsService.requestEpisode`, the path the Podcasts page takes, so the show's presenter, length,
  * writing mode, feeds and research all apply and the episode is filed under the show. `ProductionScheduler`
  * passes over these bands (`namesOwnShow`), or the slot would be made twice: once as the show and once as
@@ -55,6 +86,7 @@ export class OwnShowScheduler {
         private readonly bands: ClockBandRepository,
         private readonly topics: TopicRepository,
         private readonly shows: OwnShowsService,
+        private readonly records: OwnShowRepository,
         private readonly productions: ProductionRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -80,19 +112,24 @@ export class OwnShowScheduler {
         const bands = (await this.bands.active()).filter(isAnchored).filter(namesOwnShow);
         if (bands.length === 0) return 0;
 
-        const zone = stationZone(this.config);
-        const due = bands.map(band => ({ band, at: nextOccurrence(band, now, zone) })).filter(({ at }) => at - now <= COMMISSION_AHEAD_MS);
-        if (due.length === 0) return 0;
-
         const topics = await this.topics.list(OWN_SHOW_BAND_KIND);
-        const scheduled = await this.productions.scheduledAfter(now);
+        const shows = new Map((await this.records.list()).map(show => [show.id, show]));
+        const zone = stationZone(this.config);
+        let scheduled: Awaited<ReturnType<ProductionRepository['scheduledAfter']>> | undefined;
         let started = 0;
 
-        for (const { band, at } of due) {
-            const showId = this.showOf(band, topics);
-            if (showId === undefined) continue;
-            if (scheduled.some(existing => existing.showId === showId && existing.scheduledFor === at)) continue;
+        for (const band of bands) {
+            const show = shows.get(this.showOf(band, topics) ?? '');
+            if (show === undefined) continue;
 
+            const at = nextOccurrence(band, now, zone);
+            if (at - now > aheadFor(show, this.config)) continue;
+
+            // Read once, and only once some band is due: most passes have none.
+            scheduled ??= await this.productions.scheduledAfter(now);
+            if (scheduled.some(existing => existing.showId === show.id && existing.scheduledFor === at)) continue;
+
+            const showId = show.id;
             const key = `${showId}@${at}`;
             if ((refusedUntil.get(key) ?? 0) > now) continue;
 
@@ -108,7 +145,9 @@ export class OwnShowScheduler {
             } catch (error) {
                 // Logged once per slot rather than once per pass: the retry below is quiet.
                 if (!refusedUntil.has(key)) {
-                    this.logger.warn(`podcasts: "${band.topic?.label}" could not have an episode made for ${new Date(at).toISOString()} (${errorText(error)})`);
+                    this.logger.warn(
+                        `podcasts: "${band.topic?.label}" could not have an episode made for ${new Date(at).toISOString()} (${errorText(error)})`,
+                    );
                 }
                 refusedUntil.set(key, now + REFUSED_RETRY_MS);
             }

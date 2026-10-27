@@ -234,6 +234,15 @@ inside is about, and that scheduler passes over a band that names a show (`names
 be made twice. It is here rather than in `ProductionScheduler` because the import would run backwards:
 `OwnShowsService` already reaches `ProductionsService`, which reaches the scheduler.
 
+**A news show is asked for no earlier than it needs to be** (`aheadFor`). The stories are read when the
+episode is asked for, so at the full three hours a six o'clock edition was the three o'clock news. A show
+that reads the news gets `NEWS_MAKE_RATIO` (six) minutes of making per minute it runs, between an hour and
+three: a fifteen-minute edition is asked for ninety minutes out, a half hour at the full three. The six is
+measured rather than chosen: on 2026-10-27 the live station had never made a `podcast` production, and the
+nearest thing it had, a banter, took 5.9 minutes of making per minute at the 90th percentile. A show with no
+length of its own is reckoned at the top of the station's range, so a long one is never starved. A show that
+does not read the news keeps the full read-ahead, since nothing it is about goes stale.
+
 Idempotent by the table: a production filed under the show for that instant means one is being made. A
 show that refuses (a news show with nothing on its feeds yet) is asked again after `REFUSED_RETRY_MS`
 rather than on every commit pass, since every ask reads the feeds, and the refusal is logged once per slot.

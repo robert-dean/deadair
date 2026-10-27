@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { forgetRefusals, OwnShowScheduler, REFUSED_RETRY_MS } from '../../../src/modules/podcasts/own.show.scheduler.js';
+import { aheadFor, forgetRefusals, NEWS_MIN_AHEAD_MS, OwnShowScheduler, REFUSED_RETRY_MS } from '../../../src/modules/podcasts/own.show.scheduler.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
@@ -26,10 +26,12 @@ function build(
         scheduled?: { kind: string; scheduledFor: number; showId?: string }[];
         refuse?: boolean;
         rows?: Record<string, string>;
+        shows?: { id: string; newsFeedIds?: string[]; targetMs?: number }[];
     } = {},
 ) {
     const bands = { active: vi.fn(async () => options.bands ?? [eighteen]) };
     const topics = { list: vi.fn(async () => options.topics ?? [{ id: 'topic-1', config: { show: 'show-1' } }]) };
+    const records = { list: vi.fn(async () => options.shows ?? [{ id: 'show-1' }]) };
     const productions = { scheduledAfter: vi.fn(async () => options.scheduled ?? []) };
     const shows = {
         requestEpisode: vi.fn(async (id: string) => {
@@ -40,7 +42,15 @@ function build(
 
     return {
         shows,
-        scheduler: new OwnShowScheduler(bands as never, topics as never, shows as never, productions as never, config(options.rows), logger as never),
+        scheduler: new OwnShowScheduler(
+            bands as never,
+            topics as never,
+            shows as never,
+            records as never,
+            productions as never,
+            config(options.rows),
+            logger as never,
+        ),
     };
 }
 
@@ -109,5 +119,36 @@ describe('making the station’s own shows the clock wants', () => {
         await scheduler.ripen(now + REFUSED_RETRY_MS + 1);
         expect(shows.requestEpisode).toHaveBeenCalledTimes(2);
         expect(logger.warn).toHaveBeenCalledTimes(1);
+    });
+});
+
+// Every minute of read-ahead is a minute older the news is when it airs, so a news edition is asked for
+// no earlier than its length needs.
+describe('how far ahead a show is asked for', () => {
+    const minutes = (n: number) => n * 60_000;
+
+    it('gives a show that does not read the news the full read-ahead', () => {
+        expect(aheadFor({ targetMs: minutes(10) }, config())).toBe(minutes(180));
+    });
+
+    it('gives a news show six minutes of making per minute it runs, between an hour and three', () => {
+        expect(aheadFor({ newsFeedIds: ['f'], targetMs: minutes(15) }, config())).toBe(minutes(90));
+        expect(aheadFor({ newsFeedIds: ['f'], targetMs: minutes(5) }, config())).toBe(NEWS_MIN_AHEAD_MS);
+        expect(aheadFor({ newsFeedIds: ['f'], targetMs: minutes(30) }, config())).toBe(minutes(180));
+    });
+
+    // Reckoned at the longest the station would make, so a show that comes out long is not starved.
+    it("reckons a news show with no length of its own at the top of the station's range", () => {
+        expect(aheadFor({ newsFeedIds: ['f'] }, config({ 'render.productionMinutesMax': '20' }))).toBe(minutes(120));
+    });
+
+    it('leaves a fifteen-minute news edition two hours out for a later pass', async () => {
+        const { scheduler, shows } = build({ shows: [{ id: 'show-1', newsFeedIds: ['f'], targetMs: minutes(15) }] });
+
+        await scheduler.ripen(now);
+        expect(shows.requestEpisode).not.toHaveBeenCalled();
+
+        await scheduler.ripen(slot - minutes(90));
+        expect(shows.requestEpisode).toHaveBeenCalledTimes(1);
     });
 });

@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.3] — 2026-10-27
+
+- A special on the schedule can now be marked as a live show (`live` on a schedule slot), for a presenter booked to take the air through the live input. It has to be a special, and it names no playlist or chart. The timetable draws it marked live. The station never changes over onto it: the weekly show underneath keeps playing. Nothing arms the input at its time yet. The desktop app keeps the mark when it saves a special.
+
 ## [0.17.2] — 2026-10-24
 
 - Saving a slot from the desk's Timetable no longer resets the settings the editor does not draw. Whether the host talks, whether chart positions are read out, a request show and how many records follow each request, and the slot's own repeat window, artist cooldown and per-artist cap are now sent back exactly as the station holds them.
@@ -183,7 +187,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.3...HEAD
+[0.17.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...desktop-v0.17.3
 [0.17.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.1...desktop-v0.17.2
 [0.17.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.0...desktop-v0.17.1
 [0.17.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.16.1...desktop-v0.17.0

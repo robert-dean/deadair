@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.85.3] — 2026-10-27
+
+- You can book a live show on the Programme page. Make a special and switch on **A live show**: the programme fields go away, and at its start time the station arms the live input with the show's name, as **Go live** on the Desk does. Booked shows are marked **(live)** on the timetable and carry a **Live** badge on the Specials list. Save and apply is not offered for them, and moving one on the timetable keeps it a live show.
+- The Live card on the Desk now names the next live show booked on the schedule for today or tomorrow, such as "Pirate Hour is booked live today at 20:00; the station arms the input then.", with a link to the bookings. While a booked show is on, it says until when.
+- A live show booked on the schedule now arms the live input at its start, titled with the show's name, exactly as Go live on the Desk does. The station keeps playing its own programme until your encoder is heard, then counts you in. Each night arms once, so pressing Cancel or handing back early is not undone a minute later. If the input was already armed or on the air when the show began, it is left alone. At the end of the show, an input still waiting for anybody is disarmed; a presenter on the air is never cut off. The activity feed says when a booking armed the input, when nobody came, and when the audio chain could not be reached.
+- A special on the schedule can now be marked as a live show (`live` on a schedule slot), for a presenter booked to take the air through the live input. It has to be a special, and it names no playlist or chart. The timetable draws it marked live. The station never changes over onto it: the weekly show underneath keeps playing. Nothing arms the input at its time yet. The desktop app keeps the mark when it saves a special.
+
 ## [0.85.2] — 2026-10-26
 
 - Going live counts you in on the Desk: big 3, 2, 1 digits run once your encoder is heard, so you know exactly when you're on. While you're live, the card shows how long you've been on the air.
@@ -1694,7 +1701,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.3...HEAD
+[0.85.3]: https://github.com/robert-dean/deadair/compare/v0.85.2...v0.85.3
 [0.85.2]: https://github.com/robert-dean/deadair/compare/v0.85.1...v0.85.2
 [0.85.1]: https://github.com/robert-dean/deadair/compare/v0.85.0...v0.85.1
 [0.85.0]: https://github.com/robert-dean/deadair/compare/v0.84.1...v0.85.0

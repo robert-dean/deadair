@@ -180,6 +180,14 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void ABookedLiveShowStaysLiveAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { StartsOn = "2026-11-06", EndsOn = "2026-11-06", Live = true }).ToInput()!;
+
+        Assert.True(input.Live);
+    }
+
+    [Fact]
     public void ASlotKeepsWhichWriterItAsksFirstAfterASave_ThoughTheEditorDoesNotDrawIt()
     {
         var input = SlotDraft.From(Slot() with { WriterOrder = ScheduleSlotWriterOrder.Station }).ToInput()!;

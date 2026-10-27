@@ -52,6 +52,8 @@ data class ScheduleOccurrence(
     val start: String,
     /** The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two */
     val end: String,
+    /** Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no */
+    val live: Boolean? = null,
 )
 
 /**
@@ -167,6 +169,8 @@ data class ScheduleSlot(
     val guestHosts: List<SlotGuestHost>? = null,
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     val yearly: Boolean? = null,
+    /** Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no */
+    val live: Boolean? = null,
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     val resumePlaylist: Boolean? = null,
     val mode: ScheduleSlotMode,
@@ -235,6 +239,8 @@ data class ScheduleSlotInput(
     val guestHosts: List<SlotGuestHost>? = null,
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     val yearly: Boolean? = null,
+    /** Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no */
+    val live: Boolean? = null,
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     val resumePlaylist: Boolean? = null,
     val mode: ScheduleSlotMode,

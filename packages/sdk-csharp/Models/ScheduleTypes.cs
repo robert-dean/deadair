@@ -87,6 +87,11 @@ public sealed record ScheduleOccurrence
     /// <summary>The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two</summary>
     [JsonPropertyName("end")]
     public required string End { get; init; }
+
+    /// <summary>Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no</summary>
+    [JsonPropertyName("live")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Live { get; init; }
 }
 
 /// <summary>
@@ -359,6 +364,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Yearly { get; init; }
 
+    /// <summary>Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no</summary>
+    [JsonPropertyName("live")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Live { get; init; }
+
     /// <summary>Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist</summary>
     [JsonPropertyName("resumePlaylist")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -519,6 +529,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("yearly")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Yearly { get; init; }
+
+    /// <summary>Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no</summary>
+    [JsonPropertyName("live")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Live { get; init; }
 
     /// <summary>Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist</summary>
     [JsonPropertyName("resumePlaylist")]

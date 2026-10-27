@@ -37,6 +37,7 @@ contract ScheduleSlot: {
     coHosts?: array(SlotCoHost, max=8) # Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out
     guestHosts?: array(SlotGuestHost, max=8) # Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
     yearly?: boolean # Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
+    live?: boolean # Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no
     resumePlaylist?: boolean # Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
@@ -81,6 +82,7 @@ contract ScheduleOccurrence: {
     label: string(max=200)
     start: string(min=19, max=19) # `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running
     end: string(min=19, max=19) # The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two
+    live?: boolean # Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no
 }
 
 # Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it

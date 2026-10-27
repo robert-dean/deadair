@@ -81,6 +81,10 @@ export const ScheduleOccurrence = z.strictObject({
             "`YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running",
         ),
     end: z.string().min(19).max(19).describe('The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two'),
+    live: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no'),
 });
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
@@ -271,6 +275,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             'Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year',
         ),
+    live: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no",
+        ),
     resumePlaylist: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -440,6 +450,12 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             'Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year',
+        ),
+    live: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no",
         ),
     resumePlaylist: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

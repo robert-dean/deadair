@@ -123,12 +123,15 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
     public var start: String
     /// The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two
     public var end: String
+    /// Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no
+    public var live: Bool?
 
-    public init(slotId: String, label: String, start: String, end: String) {
+    public init(slotId: String, label: String, start: String, end: String, live: Bool? = nil) {
         self.slotId = slotId
         self.label = label
         self.start = start
         self.end = end
+        self.live = live
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -136,6 +139,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         case label = "label"
         case start = "start"
         case end = "end"
+        case live = "live"
     }
 
     public init(from decoder: Decoder) throws {
@@ -144,6 +148,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         self.label = try container.decode(String.self, forKey: .label)
         self.start = try container.decode(String.self, forKey: .start)
         self.end = try container.decode(String.self, forKey: .end)
+        self.live = try container.decodeIfPresent(Bool.self, forKey: .live)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -152,6 +157,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         try container.encode(self.label, forKey: .label)
         try container.encode(self.start, forKey: .start)
         try container.encode(self.end, forKey: .end)
+        try container.encodeIfPresent(self.live, forKey: .live)
     }
 }
 
@@ -321,12 +327,14 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var guestHosts: [SlotGuestHost]?
     /// Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
     public var yearly: Bool?
+    /// Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no
+    public var live: Bool?
     /// Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist
     public var resumePlaylist: Bool?
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -358,6 +366,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.coHosts = coHosts
         self.guestHosts = guestHosts
         self.yearly = yearly
+        self.live = live
         self.resumePlaylist = resumePlaylist
         self.mode = mode
         self.onEnd = onEnd
@@ -395,6 +404,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case coHosts = "coHosts"
         case guestHosts = "guestHosts"
         case yearly = "yearly"
+        case live = "live"
         case resumePlaylist = "resumePlaylist"
         case mode = "mode"
         case onEnd = "onEnd"
@@ -433,6 +443,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
         self.guestHosts = try container.decodeIfPresent([SlotGuestHost].self, forKey: .guestHosts)
         self.yearly = try container.decodeIfPresent(Bool.self, forKey: .yearly)
+        self.live = try container.decodeIfPresent(Bool.self, forKey: .live)
         self.resumePlaylist = try container.decodeIfPresent(Bool.self, forKey: .resumePlaylist)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
         self.onEnd = try container.decode(ScheduleSlotOnEnd.self, forKey: .onEnd)
@@ -471,6 +482,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
         try container.encodeIfPresent(self.guestHosts, forKey: .guestHosts)
         try container.encodeIfPresent(self.yearly, forKey: .yearly)
+        try container.encodeIfPresent(self.live, forKey: .live)
         try container.encodeIfPresent(self.resumePlaylist, forKey: .resumePlaylist)
         try container.encode(self.mode, forKey: .mode)
         try container.encode(self.onEnd, forKey: .onEnd)
@@ -538,12 +550,14 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var guestHosts: [SlotGuestHost]?
     /// Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
     public var yearly: Bool?
+    /// Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no
+    public var live: Bool?
     /// Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist
     public var resumePlaylist: Bool?
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -574,6 +588,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.coHosts = coHosts
         self.guestHosts = guestHosts
         self.yearly = yearly
+        self.live = live
         self.resumePlaylist = resumePlaylist
         self.mode = mode
         self.onEnd = onEnd
@@ -610,6 +625,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case coHosts = "coHosts"
         case guestHosts = "guestHosts"
         case yearly = "yearly"
+        case live = "live"
         case resumePlaylist = "resumePlaylist"
         case mode = "mode"
         case onEnd = "onEnd"
@@ -647,6 +663,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
         self.guestHosts = try container.decodeIfPresent([SlotGuestHost].self, forKey: .guestHosts)
         self.yearly = try container.decodeIfPresent(Bool.self, forKey: .yearly)
+        self.live = try container.decodeIfPresent(Bool.self, forKey: .live)
         self.resumePlaylist = try container.decodeIfPresent(Bool.self, forKey: .resumePlaylist)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
         self.onEnd = try container.decode(ScheduleSlotOnEnd.self, forKey: .onEnd)
@@ -684,6 +701,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
         try container.encodeIfPresent(self.guestHosts, forKey: .guestHosts)
         try container.encodeIfPresent(self.yearly, forKey: .yearly)
+        try container.encodeIfPresent(self.live, forKey: .live)
         try container.encodeIfPresent(self.resumePlaylist, forKey: .resumePlaylist)
         try container.encode(self.mode, forKey: .mode)
         try container.encode(self.onEnd, forKey: .onEnd)

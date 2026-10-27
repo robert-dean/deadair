@@ -207,6 +207,26 @@ describe('ScheduleService.timetable', () => {
     });
 });
 
+describe('a booked live show on the clock', () => {
+    // The weekly show under a live show is what airs until the presenter is heard, and what the
+    // hand-back resumes, so the changeover never moves onto the live slot. The grid still draws it.
+    const live: ScheduleSlot = { ...slot('pirate', 0, 0), dates: { from: '2000-01-01', to: '2099-12-31', yearly: false }, live: true };
+
+    it('is never the slot in force, so the weekly show under it stays on', async () => {
+        const service = build({ slots: [slot('weekly', 0, 0), live] });
+
+        expect((await service.inForce())?.id).toBe('weekly');
+    });
+
+    it('is drawn on the timetable, marked live', async () => {
+        const service = build({ slots: [slot('weekly', 0, 0), live] });
+
+        const drawn = await service.timetable({ days: 1 });
+
+        expect(drawn.occurrences).toEqual([expect.objectContaining({ slotId: 'pirate', live: true })]);
+    });
+});
+
 describe('ScheduleService.update', () => {
     // What an edit to the airing slot does NOT do: it never touches what is on air now. The log line
     // this test pins is the reason a station that looks unchanged after a save is not a bug: the
@@ -438,6 +458,33 @@ describe('ScheduleService.update', () => {
 
             await expect(service.update('h', halloween({ startsOn: '2026-10-31', endsOn: '2027-10-31' }))).rejects.toMatchObject({ statusCode: 400 });
             await expect(service.update('h', halloween({ startsOn: '2026-12-30', endsOn: '2027-01-02' }))).resolves.toBeDefined();
+        });
+    });
+
+    describe('a live show', () => {
+        const booked = (over: Partial<ScheduleSlotInput> = {}) =>
+            body({ label: 'Pirate Hour', startsAtMinutes: 20 * 60, endsAtMinutes: 22 * 60, startsOn: '2026-11-06', endsOn: '2026-11-06', live: true, ...over });
+
+        it('stores that it is live and hands it back, and says so of every other slot too', async () => {
+            const service = build({ slots: [slot('p', 1, 2), slot('other', 3 * 60, 4 * 60)] });
+
+            const { slots } = await service.update('p', booked());
+
+            expect(slots.find(found => found.id === 'p')).toMatchObject({ live: true, startsOn: '2026-11-06' });
+            expect(slots.find(found => found.id === 'other')?.live).toBe(false);
+        });
+
+        it('has to be a special, since a booking is for a date', async () => {
+            const service = build({ slots: [slot('p', 1, 2)] });
+
+            await expect(service.update('p', booked({ startsOn: undefined, endsOn: undefined }))).rejects.toMatchObject({ statusCode: 400 });
+        });
+
+        it('names no playlist or chart, since nothing of its own airs', async () => {
+            const service = build({ slots: [slot('p', 1, 2)] });
+
+            await expect(service.update('p', booked({ sourceChartId: 'lastfm:top' }))).rejects.toMatchObject({ statusCode: 400 });
+            await expect(service.update('p', booked({ sourcePluginId: 'navidrome', sourcePlaylistId: 'x' }))).rejects.toMatchObject({ statusCode: 400 });
         });
     });
 

@@ -204,18 +204,6 @@ export interface StreamPlayoutConfig {
      */
     duckBedLufs: number;
     /**
-     * Trim on the DJ voice, in dB, applied after the mic chain in `radio.liq`.
-     *
-     * Zero leaves the chain's own compressor and the renderer's level as they
-     * are, which is not the neutral it sounds like: that chain has no makeup
-     * gain, so zero airs a break at whatever the engine produced. It exists
-     * because the speech engine is a plugin and a replacement is expected, so an
-     * engine that runs consistently hot or quiet needs a correction that is not
-     * a code change to the mixer. See `VOICE_GAIN_DB` in `stream.service.ts` for
-     * what the bundled one measures and why the default is +10.
-     */
-    voiceGainDb: number;
-    /**
      * How long one "deadair is driving" assertion holds the mount, in seconds.
      *
      * The dead-man switch: `radio.liq` airs nothing unless the app is renewing
@@ -537,16 +525,18 @@ export function writeStreamConfig({
             // app's push lead: handing over more than the queue resolves leaves items
             // unfetched, which is the one state a skip cannot land in.
             `PLAYOUT_PREFETCH=${shell(String(playout.playoutPrefetch))}`,
-            // The duck. Read at Liquidsoap startup, so changing these re-renders the file
-            // and takes effect on the next restart.
+            // The duck. Read at Liquidsoap startup, as the fallback for a cue that does not carry
+            // its own figures: the app stamps the level and both bounds on every cue it arms and
+            // sends the fade with the arm, so these change only with the defaults.
             `TALK_OVER_TRACKS=${shell(playout.talkOverTracks ? 'true' : 'false')}`,
             `DUCK_GAIN_DB=${shell(String(playout.duckGainDb))}`,
             `DUCK_FADE_MS=${shell(String(playout.duckFadeMs))}`,
-            // The voice trim, read at startup with the duck. Written unconditionally, even at
-            // zero, because `radio.liq` tolerates an unset or empty value and a key that appears
-            // only when it is non-default is a key an operator cannot find in the rendered file.
-            `VOICE_GAIN_DB=${shell(String(playout.voiceGainDb))}`,
-            // How much the audio chain logs, read at startup with the two above.
+            // VOICE_GAIN_DB stood here, the operator's trim after the mic chain. Retired rather than
+            // made a setting, because `playout.speechTrimDb` and `playout.duckUnderVoiceDb` cover
+            // what it was reached for. Removing the line changed the stamp once, which is the one
+            // restart the LOG_LEVEL note below describes for adding one.
+            //
+            // How much the audio chain logs, read at startup with the duck.
             //
             // APPENDED rather than filed with the other stream settings, which looks untidy and is
             // not: the key ORDER is what the config stamp hashes, so moving an existing line would

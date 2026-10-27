@@ -41,8 +41,9 @@ import type {
 /**
  * How a break sounds: whether the DJ talks over the music or between tracks, the
  * deepest and shallowest the bed may drop under it, where it sits for a cue that
- * does not say (`duckBedLufsFor` stamps every cue the app arms), how long that
- * ramp takes, and the trim on the voice itself.
+ * does not say (`duckBedLufsFor` stamps every cue the app arms), and how long that
+ * ramp takes. The level of the voice itself is the app's (`liq_amplify`, from
+ * `playout.speechTrimDb`); the mixer's own trim on it was retired.
  *
  * What `radio.env` carries of the duck is only the FALLBACK for a cue that does
  * not carry its own figures. The app stamps the level and both bounds on every
@@ -61,22 +62,6 @@ const DUCK_GAIN_DB = DEFAULT_DUCK_DEEPEST_DB;
 const DUCK_FADE_MS = DEFAULT_DUCK_FADE_MS;
 const DUCK_MIN_DB = DEFAULT_DUCK_SHALLOWEST_DB;
 const DUCK_BED_LUFS = -25;
-
-/**
- * The operator's trim on the DJ voice, on top of the gain the app decides for
- * each segment.
- *
- * Zero, and it is the only one of these four that is zero because it has nothing
- * to correct rather than because nobody has tuned it. The level itself is
- * `liq_amplify`, stamped per segment by `playout/annotate.ts` from that
- * segment's level against `playout.targetLufs` and applied in the mic chain —
- * which is what makes this a trim again. It was briefly +10, carrying the whole
- * correction for a speech engine that measures around -26.5 LUFS against records
- * airing at -16; that number belongs in the app, where it can be a measurement
- * rather than a constant, and where it also reaches a break aired BETWEEN two
- * records, which never touches the mic chain at all.
- */
-const VOICE_GAIN_DB = 0;
 
 /** Where Liquidsoap finds the local music bed inside its own container. */
 const DEFAULT_MUSIC_DIR = '/music';
@@ -348,7 +333,6 @@ export class StreamService {
             duckFadeMs: DUCK_FADE_MS,
             duckMinDb: DUCK_MIN_DB,
             duckBedLufs: DUCK_BED_LUFS,
-            voiceGainDb: VOICE_GAIN_DB,
             controlTtlS: CONTROL_TTL_S,
             playoutPrefetch: PLAYOUT_LEAD,
         };

@@ -163,16 +163,6 @@ duck_gain_db = env_float("DUCK_GAIN_DB", -18.)
 duck_min_db = min(0., env_float("DUCK_MIN_DB", -3.))
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
 
-# The operator's trim on the DJ voice, in dB, applied after the mic chain in step 3, on TOP of
-# whatever the app decided for the segment itself.
-#
-# Zero, and it means zero now that it is no longer the only thing holding the voice up: the app
-# stamps `liq_amplify` on every cue it arms, from the segment's own level against the station's
-# target, and the mic chain applies that per segment. This is the trim left over for an operator
-# who has heard the result and wants the DJ a decibel forward of it — not a per-engine correction,
-# which is a thing the app now works out for itself.
-voice_gain_db = env_float("VOICE_GAIN_DB", 0.)
-
 # The app fills a rundown and PUSHES it here item by item, whichever source the tracks came from:
 # a pre-signed Subsonic URL for Navidrome, a signed track-shim URL for Spotify. Switching source
 # is therefore an app-side decision that takes effect with NO container restart.
@@ -1670,20 +1660,23 @@ thread.run(every=voice_tick, voice_cue_check)
 #      plosives and brings the body of the voice forward, without the pumping a broadcast-depth
 #      ratio would give a source that is nothing but speech.
 #
-#   4. amplify, the operator trim. Last, so the compressor sees a consistent input and the knob
-#      moves the finished voice rather than how hard it is being worked.
-#
-#      `override=null` is load-bearing and is NOT the same as leaving it out. `amplify`'s override
-#      parameter DEFAULTS to "liq_amplify" (settings.amplify.override), and when an override is set
-#      the operator uses it INSTEAD of the factor it was passed — `k = match override with Some o ->
-#      o | None -> coeff ()`. So a bare `amplify(x, s)` anywhere below step 2 applies this segment's
-#      stamp a SECOND time and silently discards `x`. Measured off the mount before it was disabled:
-#      a break stamped +8.7 dB aired at -7.9 LUFS against a design target of -18, hard into the bus
-#      limiter, while VOICE_GAIN_DB did nothing at all because it was the discarded factor.
-#
 #      The threshold is where the app aimed this voice and the makeup gives back what the compressor
 #      takes there, so the voice leaves at its aim. See `voice_comp_makeup_db`. The aim is read off
 #      the cue's own track, synchronously, so it is in place before the first frame reaches here.
+#
+#   There is no operator trim after the compressor any more. `VOICE_GAIN_DB` was one, and it was
+#   retired rather than made a setting: `playout.speechTrimDb` already moves the voice, on both of
+#   the routes a break takes, and `playout.duckUnderVoiceDb` moves the record under it, which
+#   between them are everything that knob was reached for.
+#
+#   If an `amplify` is ever added below step 2 again, `override=null` is load-bearing and is NOT the
+#   same as leaving it out. `amplify`'s override parameter DEFAULTS to "liq_amplify"
+#   (settings.amplify.override), and when an override is set the operator uses it INSTEAD of the
+#   factor it was passed — `k = match override with Some o -> o | None -> coeff ()`. So a bare
+#   `amplify(x, s)` there applies this segment's stamp a SECOND time and silently discards `x`.
+#   Measured off the mount before it was disabled: a break stamped +8.7 dB aired at -7.9 LUFS against
+#   a design target of -18, hard into the bus limiter, while the trim did nothing at all because it
+#   was the discarded factor.
 voice_aim_lufs = ref(voice_aim_fallback_lufs)
 voice.on_track(
   synchronous=true,
@@ -1692,7 +1685,6 @@ voice.on_track(
 voice_bus = fade.in(duration=0.04, voice)
 voice_bus = amplify(1., override="liq_amplify", voice_bus)
 voice_bus = compress(attack=5.0, release=120.0, threshold={voice_aim_lufs()}, ratio=4.0, knee=2.0, gain=voice_comp_makeup_db, voice_bus)
-voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 
 # 4) Mix the voice with the bed, per the talk-over mode.
 #    ON  (talk_over): the bed is amplified by a gain we ramp ourselves, and the voice is simply

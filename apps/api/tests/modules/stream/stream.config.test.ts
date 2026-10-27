@@ -83,7 +83,6 @@ const playout = (overrides: Partial<StreamPlayoutConfig> = {}): StreamPlayoutCon
     duckFadeMs: 300,
     duckMinDb: -3,
     duckBedLufs: -25,
-    voiceGainDb: 0,
     controlTtlS: 6,
     playoutPrefetch: 3,
     ...overrides,
@@ -205,7 +204,9 @@ describe('writeStreamConfig', () => {
         expect(env.get('DUCK_FADE_MS')).toBe('300');
         expect(env.get('DUCK_MIN_DB')).toBe('-3');
         expect(env.get('DUCK_BED_LUFS')).toBe('-25');
-        expect(env.get('VOICE_GAIN_DB')).toBe('0');
+        // Retired: the speech trim and the distance under the voice cover it, and a key left
+        // rendered for nothing is one an operator would go looking for.
+        expect(env.has('VOICE_GAIN_DB')).toBe(false);
     });
 
     it('appends the duck keys added later rather than filing them beside the first two', () => {

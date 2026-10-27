@@ -652,8 +652,8 @@ describe('itemAnnotations: gain', () => {
 });
 
 // A break aired BETWEEN two records is an ordinary running-order item -- it goes down the playout
-// queue, through the same annotations, and never touches the mic chain that the talk-over path's
-// `VOICE_GAIN_DB` sits in. It is the half that had nothing holding its level at all.
+// queue, through the same annotations, and never touches the mic chain the talk-over path goes
+// through. It is the half that had nothing holding its level at all.
 describe('itemAnnotations: a break the station spoke', () => {
     const segment = (extra: Record<string, unknown> = {}) =>
         ({ id: 'item-1', pluginId: RENDER_PLUGIN_ID, externalId: 'seg_1', title: 'Talk break', artists: [], ...extra }) as never;

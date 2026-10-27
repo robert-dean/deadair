@@ -15,7 +15,19 @@ import {
     voiceAnnotations,
 } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
-import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
+import {
+    DEFAULT_LEVELING_ENABLED,
+    DUCK_DEEPEST_KEY,
+    DUCK_SHALLOWEST_KEY,
+    DUCK_UNDER_VOICE_KEY,
+    LEVELING_ENABLED_KEY,
+    SPEECH_TRIM_KEY,
+    TARGET_LUFS_KEY,
+    resolveDuck,
+    resolveSpeechTrimDb,
+    resolveTargetLufs,
+    type DuckSettings,
+} from './gain.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { heldBy, PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
@@ -214,6 +226,15 @@ export class PlayoutPusher {
     /** How far under that a break is aimed, as the setting currently stands. Read per hand-over, like the target. */
     private speechTrimDb(): number {
         return resolveSpeechTrimDb(this.config.get(SPEECH_TRIM_KEY, ''));
+    }
+
+    /** How the bed sits under a talk-over, as the settings currently stand. Read per hand-over, like the target. */
+    private duck(): DuckSettings {
+        return resolveDuck(
+            this.config.get(DUCK_UNDER_VOICE_KEY, ''),
+            this.config.get(DUCK_DEEPEST_KEY, ''),
+            this.config.get(DUCK_SHALLOWEST_KEY, ''),
+        );
     }
 
     /** Whether a record gets the static per-item correction, as the setting currently stands. Read per hand-over, like the target. */
@@ -522,12 +543,13 @@ export class PlayoutPusher {
                     //
                     // Against the segment's own measurement where it has one, and the assumed speech
                     // level where it does not; `voiceAnnotations` is what both routes agree through.
-                    // And with the level the bed ducks to under it, which only a talk-over needs.
+                    // And with the level the bed ducks to under it and the bounds on getting there,
+                    // which only a talk-over needs.
                     const measured = pulled.voice.loudnessLufs;
                     const uri = annotateUri(
                         {
                             ...voiceAnnotations(measured === undefined ? {} : { loudnessLufs: measured }, this.targetLufs(), this.speechTrimDb()),
-                            ...duckAnnotations(this.targetLufs(), this.speechTrimDb()),
+                            ...duckAnnotations(this.targetLufs(), this.speechTrimDb(), this.duck()),
                         },
                         pulled.voice.url,
                     );

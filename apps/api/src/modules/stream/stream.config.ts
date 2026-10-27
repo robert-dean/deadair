@@ -186,11 +186,16 @@ export interface StreamPlayoutConfig {
     /**
      * The DEEPEST the bed drops under the voice, in dB (negative). The duck lands the bed at a
      * level rather than dropping it by this much; this bounds how far it may go to get there.
+     * The fallback for a cue that does not carry `deadair_duck_gain_db`: the app stamps every cue
+     * it arms from `playout.duckDeepestDb`.
      */
     duckGainDb: number;
     /** How long the duck ramp takes, in ms. */
     duckFadeMs: number;
-    /** The SHALLOWEST the bed drops under the voice, in dB (negative), however quiet it already is. */
+    /**
+     * The SHALLOWEST the bed drops under the voice, in dB (negative), however quiet it already is.
+     * The fallback for a cue without `deadair_duck_min_db`, stamped from `playout.duckShallowestDb`.
+     */
     duckMinDb: number;
     /**
      * Where the bed sits under the voice, in LUFS, for a cue that does not carry its own figure.

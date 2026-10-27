@@ -310,12 +310,76 @@ export function speechGainFor(measured: MeasuredLoudness, targetLufs: number, tr
  * default target: -13 ducked to -25, against a voice at -15. So a record at target ducks exactly
  * as it always did, and what changed is only that a quiet intro is no longer pushed twenty-seven
  * under the voice and a loud chorus no longer sits five under it. See the duck in `radio.liq`.
+ *
+ * A default rather than a constant, and the one of the duck's three figures an operator reaches for
+ * first: it is "can I hear the DJ over the record", where the speech trim is "does the DJ jump out
+ * of the hour". The trim moves the voice AND the bed, so it cannot answer the first question.
  */
-export const DUCK_UNDER_VOICE_DB = 10;
+export const DEFAULT_DUCK_UNDER_VOICE_DB = 10;
+
+/** The `deadair.settings` key. Dot-keyed, like every other setting. */
+export const DUCK_UNDER_VOICE_KEY = 'playout.duckUnderVoiceDb';
+
+/**
+ * The range an operator may ask for. Zero is a bed level with the voice, which is a choice; past
+ * the top the deepest bound below decides every break anyway.
+ */
+export const DUCK_UNDER_VOICE_RANGE = { min: 0, max: 30 } as const;
+
+/**
+ * The DEEPEST the bed may go under the voice, in dB, however loud it is: the bound that stops a
+ * brickwalled chorus being pulled to nothing. `DUCK_GAIN_DB` in `radio.env` is this figure, as the
+ * fallback for a cue that does not carry it.
+ */
+export const DEFAULT_DUCK_DEEPEST_DB = -18;
+
+/** The `deadair.settings` key. */
+export const DUCK_DEEPEST_KEY = 'playout.duckDeepestDb';
+
+/** Never above zero, which would be a boost; never so deep a typo silences the record outright. */
+export const DUCK_DEEPEST_RANGE = { min: -40, max: 0 } as const;
+
+/**
+ * The SHALLOWEST the bed dips under the voice, in dB: a quiet intro already under the level still
+ * dips this far, so a break is always heard as the DJ coming in rather than as a voice over the
+ * record. `DUCK_MIN_DB` in `radio.env` is this figure, as the fallback.
+ */
+export const DEFAULT_DUCK_SHALLOWEST_DB = -3;
+
+/** The `deadair.settings` key. */
+export const DUCK_SHALLOWEST_KEY = 'playout.duckShallowestDb';
+
+/** Zero is no dip at all for a bed already under the level, which is a choice a station can make. */
+export const DUCK_SHALLOWEST_RANGE = { min: -20, max: 0 } as const;
+
+/** How the bed sits under a talk-over, as {@link resolveDuck} reads the three settings. */
+export interface DuckSettings {
+    underVoiceDb: number;
+    deepestDb: number;
+    shallowestDb: number;
+}
+
+/**
+ * Read the three duck settings, each clamped to its range rather than rejected, like
+ * {@link resolveTargetLufs}.
+ *
+ * A shallowest set DEEPER than the deepest is answered by the deepest, so the duck becomes a fixed
+ * drop of that much. That is what `radio.liq` would do with the pair anyway (the deep bound is
+ * applied last), and resolving it here means the figures stamped on the cue say what will happen
+ * rather than leaving the player to settle an argument nobody can see.
+ */
+export function resolveDuck(underVoice: unknown, deepest: unknown, shallowest: unknown): DuckSettings {
+    const deepestDb = numberInRange(deepest, DEFAULT_DUCK_DEEPEST_DB, DUCK_DEEPEST_RANGE);
+    return {
+        underVoiceDb: numberInRange(underVoice, DEFAULT_DUCK_UNDER_VOICE_DB, DUCK_UNDER_VOICE_RANGE),
+        deepestDb,
+        shallowestDb: Math.max(deepestDb, numberInRange(shallowest, DEFAULT_DUCK_SHALLOWEST_DB, DUCK_SHALLOWEST_RANGE)),
+    };
+}
 
 /**
  * The level the bed is ducked TO under a talk-over, in LUFS: where the voice lands, less
- * {@link DUCK_UNDER_VOICE_DB}.
+ * `underVoiceDb` ({@link DEFAULT_DUCK_UNDER_VOICE_DB} unless an operator has said otherwise).
  *
  * Where the voice lands is the station's target less the operator's trim, which is what
  * {@link speechGainFor} aims every break at, so the bed follows both settings without a restart.
@@ -327,8 +391,9 @@ export const DUCK_UNDER_VOICE_DB = 10;
  * every segment at that target whatever it measured; the two can differ only by the clamp on
  * {@link MAX_GAIN_DB}, and a break that far out is wrong in a way no bed level would fix.
  */
-export function duckBedLufsFor(targetLufs: number, trimDb: number): number {
-    return round(speechAimLufs(targetLufs, trimDb) - DUCK_UNDER_VOICE_DB);
+export function duckBedLufsFor(targetLufs: number, trimDb: number, underVoiceDb: number): number {
+    const under = isFinite(underVoiceDb) ? underVoiceDb : DEFAULT_DUCK_UNDER_VOICE_DB;
+    return round(speechAimLufs(targetLufs, trimDb) - under);
 }
 
 /**

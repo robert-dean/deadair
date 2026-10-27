@@ -6,6 +6,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
+import { DEFAULT_DUCK_DEEPEST_DB, DEFAULT_DUCK_SHALLOWEST_DB } from '#modules/playout/gain.js';
 import { playoutAiredUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import {
     defaultStreamAssetsDir,
@@ -43,22 +44,21 @@ import type {
  * does not say (`duckBedLufsFor` stamps every cue the app arms), how long that
  * ramp takes, and the trim on the voice itself.
  *
- * Constants rather than settings, still: these are the values an operator tunes
- * by ear, and the seam that would hold them (`STREAM_KEYS` in
- * `stream.settings.ts`) is the one every other stream value already goes
- * through. They stay here because `radio.liq` reads all of them at STARTUP, so
- * making them settings without also solving the restart trigger would give the
- * console a knob that silently does nothing until the container bounces. See
- * [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20).
+ * What `radio.env` carries of the duck is only the FALLBACK for a cue that does
+ * not carry its own figures. The app stamps the level and both bounds on every
+ * cue it arms, from the `playout.duck*` settings, so tuning them costs no restart
+ * (see [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20)).
+ * The two bounds are the settings' own defaults for that reason: a fallback that
+ * disagreed with the default would be a duck that changed at a restart.
  *
  * They match `stream/radio.default.env` so the rendered file agrees with the
  * committed fallback.
  */
 const TALK_OVER_TRACKS = true;
-const DUCK_GAIN_DB = -18;
+const DUCK_GAIN_DB = DEFAULT_DUCK_DEEPEST_DB;
 /** Exported for the talk-up, which has to allow for the bed coming back up after the last word. */
 export const DUCK_FADE_MS = 300;
-const DUCK_MIN_DB = -3;
+const DUCK_MIN_DB = DEFAULT_DUCK_SHALLOWEST_DB;
 const DUCK_BED_LUFS = -25;
 
 /**

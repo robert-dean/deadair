@@ -6,7 +6,19 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechAimLufs, speechGainFor } from '../../../src/modules/playout/gain.js';
+import {
+    DEFAULT_DUCK_DEEPEST_DB,
+    DEFAULT_DUCK_SHALLOWEST_DB,
+    DEFAULT_DUCK_UNDER_VOICE_DB,
+    DEFAULT_SPEECH_TRIM_DB,
+    DEFAULT_TARGET_LUFS,
+    DUCK_DEEPEST_KEY,
+    DUCK_SHALLOWEST_KEY,
+    DUCK_UNDER_VOICE_KEY,
+    duckBedLufsFor,
+    speechAimLufs,
+    speechGainFor,
+} from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
@@ -1011,9 +1023,10 @@ describe('PlayoutPusher arming a talk-over', () => {
         await pusher.reconcile();
 
         const gain = speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
-        const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, DEFAULT_DUCK_UNDER_VOICE_DB);
         const aim = speechAimLufs(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
-        const armed = `annotate:liq_amplify="${gain} dB",deadair_voice_lufs="${aim}",deadair_duck_bed_lufs="${bed}":https://example.test/seg-1.ogg`;
+        const duck = `deadair_duck_bed_lufs="${bed}",deadair_duck_gain_db="${DEFAULT_DUCK_DEEPEST_DB}",deadair_duck_min_db="${DEFAULT_DUCK_SHALLOWEST_DB}"`;
+        const armed = `annotate:liq_amplify="${gain} dB",deadair_voice_lufs="${aim}",${duck}:https://example.test/seg-1.ogg`;
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
     });
 
@@ -1024,8 +1037,29 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, DEFAULT_DUCK_UNDER_VOICE_DB);
         expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`deadair_duck_bed_lufs="${bed}"`), expect.any(String), 8000);
+    });
+
+    it('arms the cue with the duck settings as they stand at the hand-over', async () => {
+        // Read per hand-over rather than held, so an operator tuning the duck by ear hears the
+        // change on the next break with nothing restarted. As strings, because a setting is one.
+        const duckSettings: Record<string, string> = { [DUCK_UNDER_VOICE_KEY]: '14', [DUCK_DEEPEST_KEY]: '-24', [DUCK_SHALLOWEST_KEY]: '-1.5' };
+        vi.mocked(config.get).mockImplementation((key: string) => duckSettings[key] ?? '');
+        try {
+            const { pusher, control } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000 });
+
+            await pusher.reconcile();
+
+            const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, 14);
+            expect(control.armVoice).toHaveBeenCalledWith(
+                expect.stringContaining(`deadair_duck_bed_lufs="${bed}",deadair_duck_gain_db="-24",deadair_duck_min_db="-1.5"`),
+                expect.any(String),
+                8000,
+            );
+        } finally {
+            vi.mocked(config.get).mockImplementation(() => '');
+        }
     });
 
     it("arms the cue against the segment's own measurement where there is one", async () => {

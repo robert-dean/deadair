@@ -19,7 +19,7 @@ import type { CoverLookup } from '#modules/art/cover.resolver.js';
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
 import { blendFor } from './crossfade.js';
-import { duckBedLufsFor, gainFor, programmeGainFor, speechAimLufs, speechGainFor, type MeasuredLoudness } from './gain.js';
+import { duckBedLufsFor, gainFor, type DuckSettings, programmeGainFor, speechAimLufs, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
@@ -58,6 +58,15 @@ export const VOICE_AIM_KEY = 'deadair_voice_lufs';
  * playout queue never carries it. See `duckBedLufsFor` for why it is not a `radio.env` key.
  */
 export const DUCK_BED_KEY = 'deadair_duck_bed_lufs';
+
+/**
+ * The metadata keys on a talk-over cue carrying the duck's two bounds, in dB: the deepest the bed may
+ * go and the shallowest it dips. Must match `radio.liq`, which falls back to `DUCK_GAIN_DB` and
+ * `DUCK_MIN_DB` from `radio.env` for a cue without them. On the cue for the reason the level is: so
+ * an operator tuning them hears the change on the next break rather than after a restart.
+ */
+export const DUCK_GAIN_KEY = 'deadair_duck_gain_db';
+export const DUCK_MIN_KEY = 'deadair_duck_min_db';
 
 /**
  * The metadata key Liquidsoap forwards as the ICY `StreamUrl`: its own name for it,
@@ -476,13 +485,20 @@ export function voiceAnnotations(measured: MeasuredLoudness, targetLufs: number,
 }
 
 /**
- * {@link DUCK_BED_KEY} for a talk-over cue: where the bed sits under this voice.
+ * {@link DUCK_BED_KEY} and the two bounds for a talk-over cue: where the bed sits under this voice,
+ * and how far it may move to get there.
  *
  * Separate from {@link voiceAnnotations} because that one is shared with the break that airs
  * BETWEEN two records, which nothing is ducked under. Exported for the pusher, which arms the cue.
+ * Always all three, on `speechGainFor`'s argument: a cue without a bound would take `radio.env`'s,
+ * which is not the figure the operator set.
  */
-export function duckAnnotations(targetLufs: number, trimDb: number): Record<string, string> {
-    return { [DUCK_BED_KEY]: String(duckBedLufsFor(targetLufs, trimDb)) };
+export function duckAnnotations(targetLufs: number, trimDb: number, duck: DuckSettings): Record<string, string> {
+    return {
+        [DUCK_BED_KEY]: String(duckBedLufsFor(targetLufs, trimDb, duck.underVoiceDb)),
+        [DUCK_GAIN_KEY]: String(duck.deepestDb),
+        [DUCK_MIN_KEY]: String(duck.shallowestDb),
+    };
 }
 
 /**

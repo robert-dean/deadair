@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.86.0] — 2026-10-27
+
+- The station's recordings are on the API. `GET /archive/recordings` lists them, newest first, each with an audio URL a player can stream from without a token for twelve hours. `GET /archive/recordings/{id}/audio` answers a byte range at a time so a player can seek through an hour, or the whole file as a named download with `?download=true`. `DELETE /archive/recordings/{id}` removes a finished one and refuses one still being recorded. The storage report counts the archive as a store of its own, `archive`.
+- The station can record what it airs. **Record what airs** (Settings, Stream) keeps an MP3 of every live show, or of everything on air in hourly files, while the station is on the air. The recordings land in `/data/streamarchive`, which Unraid's template can now point at other storage through its new **Archive** field. Saving the setting restarts the audio engine.
+- **Check-up → Recordings** lists what the station has recorded of what it aired, by day: live shows by name, and hours of the programme. Play one in place and skip anywhere in it, download the MP3 named after the show, or delete it with a second press. The one being recorded now says so. When the archive is off, the page says where to switch it on.
+- The station's audio engine can now keep an archive of what it airs: one MP3 per live show, and optionally hourly files of the station's own programme, written only while the station is actually on the air. Nothing switches it on yet, so the station behaves exactly as before. The setting comes later.
+- Recordings in the station's archive are swept nightly once they ended more than **Keep recordings for (days)** ago (Settings → Stream, two weeks by default, zero keeps every one). Nothing records yet, so there is nothing to sweep until the archive can be switched on.
+
 ## [0.85.3] — 2026-10-27
 
 - You can book a live show on the Programme page. Make a special and switch on **A live show**: the programme fields go away, and at its start time the station arms the live input with the show's name, as **Go live** on the Desk does. Booked shows are marked **(live)** on the timetable and carry a **Live** badge on the Specials list. Save and apply is not offered for them, and moving one on the timetable keeps it a live show.
@@ -1701,7 +1709,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.85.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.0...HEAD
+[0.86.0]: https://github.com/robert-dean/deadair/compare/v0.85.3...v0.86.0
 [0.85.3]: https://github.com/robert-dean/deadair/compare/v0.85.2...v0.85.3
 [0.85.2]: https://github.com/robert-dean/deadair/compare/v0.85.1...v0.85.2
 [0.85.1]: https://github.com/robert-dean/deadair/compare/v0.85.0...v0.85.1

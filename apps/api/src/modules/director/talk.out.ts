@@ -2,7 +2,6 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS } from '#modules/lyrics/vocal.runway.js';
 import type { VocalMarkers } from '#modules/lyrics/vocal.ranges.js';
-import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
 import { WORDS_PER_SECOND } from './break.prompt.js';
 import { CUE_CLOCK_LAG_MS, MIN_TALK_UP_WORDS } from './talk.up.js';
 
@@ -111,12 +110,12 @@ export function talkOutAt({ voiceMs, tail, safetyMs, duckFadeMs }: TalkOutQuesti
  * long simply airs in the gap. Only a tail inside the band where it binds is worth a sentence: below
  * the floor nothing fits, and past the ceiling any link the station writes does.
  */
-export function talkOutBudget(tail: Tail, safetyMs: number): { tailMs: number; words: number } | undefined {
+export function talkOutBudget(tail: Tail, safetyMs: number, duckFadeMs: number): { tailMs: number; words: number } | undefined {
     if (tail.kind !== 'ms') return undefined;
     const tailMs = tail.endMs - tail.fromMs;
     if (tailMs < RUNWAY_FLOOR_MS || tailMs >= RUNWAY_CEILING_MS) return undefined;
 
-    const spokenMs = tailMs - safetyMs - DUCK_FADE_MS - CUE_CLOCK_LAG_MS;
+    const spokenMs = tailMs - safetyMs - duckFadeMs - CUE_CLOCK_LAG_MS;
     const words = Math.floor((spokenMs / 1000) * WORDS_PER_SECOND);
     return words < MIN_TALK_UP_WORDS ? undefined : { tailMs, words };
 }

@@ -67,8 +67,10 @@ answer differently on purpose**: the resolver CLAMPS, because it is reading a ro
 setting that refuses to load stops the walk behind it, while `serializeSetting` REFUSES, because that is
 somebody typing one and a clamp there stores a figure they did not ask for and shows it back as though they
 had. The console clamps too, where the number visibly changes in front of them. Undeclared bounds were how
-`analysis.concurrency` accepted 400 and ran at 32. Still constants, deliberately: the four mixer knobs,
-because the real work there is a Liquidsoap restart ([mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20)).
+`analysis.concurrency` accepted 400 and ran at 32. The duck's figures are settings that cost no restart
+because the app stamps them on each cue rather than writing them to `radio.env`, which `radio.liq` reads only
+at startup; a mixer value that cannot ride a cue is a restart, and its help text has to say so
+([mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20)).
 
 **Some lengths are RANGES, and the resolvers behind them are the only ones here allowed to be random.**
 `render.productionMinutesMin`/`Max`, `render.dialogueMinutesMin`/`Max` and `rotation.newsStoriesMin`/`Max`,

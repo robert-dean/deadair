@@ -2,7 +2,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { numberInRange } from '#modules/shared/setting.numbers.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS, type Runway } from '#modules/lyrics/vocal.runway.js';
-import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
+import { DUCK_FADE_KEY, resolveDuckFadeMs } from '#modules/playout/gain.js';
 import { WORDS_PER_SECOND } from './break.prompt.js';
 
 /**
@@ -52,12 +52,19 @@ export const CUE_CLOCK_LAG_MS = 200;
 export interface TalkUpSettings {
     enabled: boolean;
     safetyMs: number;
+    /**
+     * The duck's ramp, `playout.duckFadeMs`, read with the rest so one pass times every link against
+     * one figure. Every cue the pass attaches carries it on to the arm, so `radio.liq` fires the cue on
+     * the ramp it was timed against even if the setting moves while it waits for its record.
+     */
+    duckFadeMs: number;
 }
 
 export function resolveTalkUp(config: AppConfig): TalkUpSettings {
     return {
         enabled: settingIsOn(config, TALK_UP_KEYS.enabled, TALK_UP_DEFAULT),
         safetyMs: numberInRange(config.get(TALK_UP_KEYS.safetyMs, DEFAULT_TALK_UP_SAFETY_MS), DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_SAFETY_RANGE),
+        duckFadeMs: resolveDuckFadeMs(config.get(DUCK_FADE_KEY, '')),
     };
 }
 
@@ -105,10 +112,10 @@ export const MIN_TALK_UP_WORDS = 4;
  * singing starts almost at once: a link written for it airs in the gap, where it clashes with nothing.
  * Only a runway inside the band where it binds is worth a sentence; past the ceiling any link fits.
  */
-export function talkUpBudget(runway: Runway, safetyMs: number): { runwayMs: number; words: number } | undefined {
+export function talkUpBudget(runway: Runway, safetyMs: number, duckFadeMs: number): { runwayMs: number; words: number } | undefined {
     if (runway.kind !== 'ms' || runway.ms < RUNWAY_FLOOR_MS || runway.ms >= RUNWAY_CEILING_MS) return undefined;
 
-    const spokenMs = runway.ms - safetyMs - DUCK_FADE_MS - CUE_CLOCK_LAG_MS;
+    const spokenMs = runway.ms - safetyMs - duckFadeMs - CUE_CLOCK_LAG_MS;
     const words = Math.floor((spokenMs / 1000) * WORDS_PER_SECOND);
     return words < MIN_TALK_UP_WORDS ? undefined : { runwayMs: runway.ms, words };
 }

@@ -248,7 +248,8 @@ record with 6s of leading silence is 2s of runway on air. `lyrics/vocal.runway.t
 that shift is made, and both readers (this and the writer's budget) go through it: a comparable
 station had three call sites spelling it three ways, and the prompt and the timing then disagreed
 about one clip. `talkUpAt` then ends the link `breaks.talkUpSafetyMs` before the post, counts the
-duck's 300ms ramp after the last word as part of the link, allows `CUE_CLOCK_LAG_MS` (two ticks) for a
+duck's ramp after the last word as part of the link (`playout.duckFadeMs`, 300ms unless set, read once per
+pass and carried on the cue to the arm so the mixer fires it on the same ramp), allows `CUE_CLOCK_LAG_MS` (two ticks) for a
 cue firing late, and on an intro of 18s or more
 starts two seconds in rather than hanging silent until the post. The allowance was a RATIO until the cue
 clock was fixed: `on_air_elapsed` added a fixed tick per run and ran 3.5% slow, and now adds the time

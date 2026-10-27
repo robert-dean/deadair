@@ -460,11 +460,17 @@ export class PlayoutControlClient {
      *
      * The cue is carried in headers because the script parses none: `list.assoc`
      * over the request headers is a primitive it already uses for its own secret.
+     *
+     * `duckFadeMs` is the ramp the director timed the cue against. The script fires
+     * the cue that long early so the bed is down by the first word, and ramps it back
+     * up over the same span, so it has to be the figure the timing allowed for. Left
+     * out, the script uses its own `DUCK_FADE_MS`.
      */
-    async armVoice(uri: string, itemId: string, atMs: number): Promise<boolean> {
+    async armVoice(uri: string, itemId: string, atMs: number, duckFadeMs?: number): Promise<boolean> {
         return !!(await this.call('POST', '/control/voice/arm', uri, {
             'X-Voice-Item': itemId,
             'X-Voice-At-Ms': String(Math.max(0, Math.round(atMs))),
+            ...(duckFadeMs === undefined ? {} : { 'X-Voice-Fade-Ms': String(Math.max(1, Math.round(duckFadeMs))) }),
         }));
     }
 

@@ -122,18 +122,23 @@ music_dir   = environment.get("MUSIC_DIR", default="/music")
 # input's credential (see "Live input"), on a port of its own rather than this one.
 harbor_port = int_of_string(environment.get("HARBOR_PORT", default="8005"))
 
-# Talk-over mode (materialized from the director's talkOverTracks setting; default true).
+# Talk-over mode (materialized from `TALK_OVER_TRACKS` in stream.service.ts, a constant; default true).
 #   true  → the DJ talks OVER track intros/outros: the bed is ducked under the voice.
-#   false → the DJ talks BETWEEN tracks in silence: the app pauses playout at the boundary and
-#           the voice PREEMPTS the bed entirely (fallback), so nothing plays under the DJ.
-# NOTE: this is read at startup, so toggling it takes effect only on a Liquidsoap restart (the
-# app re-materializes radio.env on the settings change). The app-side pause/resume that opens
-# the gap IS live — only the duck-vs-cut mix choice needs the restart.
+#   false → the voice PREEMPTS the bed entirely (fallback), so nothing plays under the DJ.
+# Only the mix half of `false` exists. It was meant to pair with the app pausing playout at the
+# track boundary so the DJ speaks into a gap, and nothing in the app does that: a cue armed over a
+# record would cut the record out while it keeps advancing underneath. That is why this is not a
+# setting while the duck's own figures are (see the duck below). Read at startup.
 talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 
 # The duck (step 4), materialized into radio.env and read at startup like talk_over. The duck lands
 # the bed at a LEVEL under the voice rather than dropping it by an amount, so three of these are
-# that level and the two bounds on how far the bed may move to reach it:
+# that level and the two bounds on how far the bed may move to reach it.
+#
+# All four are FALLBACKS now, for a cue that does not carry its own figure. The app stamps the level
+# and both bounds on every cue it arms and sends the fade with the arm itself (see `duck_bed_now` and
+# `control_voice_arm`), so an operator's change takes from the next break rather than costing a
+# restart of the station. What is here is only what a cue armed by an older app gets.
 #
 #   DUCK_BED_LUFS  where the bed sits while the DJ speaks, for a cue that does not say. The app
 #                  stamps every cue it arms with its own figure (`deadair_duck_bed_lufs`, see
@@ -147,7 +152,9 @@ talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 #                  is the bound that stops a brickwalled chorus being pulled to nothing.
 #   DUCK_MIN_DB    the SHALLOWEST. A quiet intro already under the target still dips this far, so a
 #                  break is always heard as the DJ coming in rather than as a voice over the record.
-#   DUCK_FADE_MS   how long the ramp in and out takes, whatever the depth.
+#   DUCK_FADE_MS   how long the ramp in and out takes, whatever the depth. Sent with the arm rather
+#                  than stamped on the cue, because the cue fires this long BEFORE the first word
+#                  (`voice_cue_check`), which is before Liquidsoap has read a single tag off it.
 #
 # Through `env_float` (defined at the top of this file) because the materializer writes every key
 # whether or not it is set, so an unset one arrives here as the empty string rather than absent.
@@ -155,16 +162,6 @@ duck_bed_lufs = env_float("DUCK_BED_LUFS", -25.)
 duck_gain_db = env_float("DUCK_GAIN_DB", -18.)
 duck_min_db = min(0., env_float("DUCK_MIN_DB", -3.))
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
-
-# The operator's trim on the DJ voice, in dB, applied after the mic chain in step 3, on TOP of
-# whatever the app decided for the segment itself.
-#
-# Zero, and it means zero now that it is no longer the only thing holding the voice up: the app
-# stamps `liq_amplify` on every cue it arms, from the segment's own level against the station's
-# target, and the mic chain applies that per segment. This is the trim left over for an operator
-# who has heard the result and wants the DJ a decibel forward of it — not a per-engine correction,
-# which is a thing the app now works out for itself.
-voice_gain_db = env_float("VOICE_GAIN_DB", 0.)
 
 # The app fills a rundown and PUSHES it here item by item, whichever source the tracks came from:
 # a pre-signed Subsonic URL for Navidrome, a signed track-shim URL for Spotify. Switching source
@@ -488,6 +485,10 @@ end
 voice_uri  = ref("")
 voice_item = ref("")
 voice_at_s = ref(0.)
+# How long the duck's ramp takes, as the app sent it with the arm (`x-voice-fade-ms`), else
+# `DUCK_FADE_MS`. Kept past the cue firing rather than cleared with it, because the ramp back up at
+# the END of the break is the same ramp, and the app allowed for this figure at both ends.
+duck_fade_now = ref(duck_fade_ms)
 # For the reading, so a cue that never fired is visible rather than mysterious:
 # "idle" nothing armed | "armed" waiting for its moment | "fired" pushed | "missed" its record ended first
 voice_state = ref("idle")
@@ -1459,6 +1460,10 @@ end
 #
 #   x-voice-item  the running-order item id this is timed against, as it appears in `onAir`
 #   x-voice-at-ms how far into that record to start speaking
+#   x-voice-fade-ms how long the duck's ramp takes, which the app timed the talk-up against.
+#                 Optional: absent or malformed, the ramp is DUCK_FADE_MS, so an app older than this
+#                 header arms exactly as it did. Never under a millisecond, as DUCK_FADE_MS is not,
+#                 because the duck divides by it.
 def control_voice_arm(req) =
   if not control_authorized(req) then
     control_denied()
@@ -1468,12 +1473,14 @@ def control_voice_arm(req) =
     # `string.to_float`, per `env_float` at the top: a missing or malformed header is an ordinary
     # request to reject below, and the old `default=null` shape raised on it instead.
     at_ms = string.to_float(default=0., string.trim(list.assoc(default="", "x-voice-at-ms", req.headers)))
+    fade_ms = string.to_float(default=duck_fade_ms, string.trim(list.assoc(default="", "x-voice-fade-ms", req.headers)))
     if uri == "" or item == "" then
       http.response(status_code=400, content_type="text/plain", data="need a uri and an item")
     else
       voice_uri   := uri
       voice_item  := item
       voice_at_s  := at_ms / 1000.
+      duck_fade_now := max(1., fade_ms)
       voice_seen  := false
       voice_state := "armed"
       control_json('{' ^ playout_reading() ^ '}')
@@ -1598,7 +1605,7 @@ def voice_cue_check() =
     # ONE correction, the duck's own ramp, so the bed is down before the first word rather than
     # during it. Deliberately nothing for the crossfade: see the note on `on_air_elapsed` for why a
     # cross needs none, and stream/voicecue.check.liq for the measurement that settled it.
-    due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_ms / 1000.)
+    due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_now() / 1000.)
     if playing then
       voice_seen := true
       if due then
@@ -1653,20 +1660,23 @@ thread.run(every=voice_tick, voice_cue_check)
 #      plosives and brings the body of the voice forward, without the pumping a broadcast-depth
 #      ratio would give a source that is nothing but speech.
 #
-#   4. amplify, the operator trim. Last, so the compressor sees a consistent input and the knob
-#      moves the finished voice rather than how hard it is being worked.
-#
-#      `override=null` is load-bearing and is NOT the same as leaving it out. `amplify`'s override
-#      parameter DEFAULTS to "liq_amplify" (settings.amplify.override), and when an override is set
-#      the operator uses it INSTEAD of the factor it was passed — `k = match override with Some o ->
-#      o | None -> coeff ()`. So a bare `amplify(x, s)` anywhere below step 2 applies this segment's
-#      stamp a SECOND time and silently discards `x`. Measured off the mount before it was disabled:
-#      a break stamped +8.7 dB aired at -7.9 LUFS against a design target of -18, hard into the bus
-#      limiter, while VOICE_GAIN_DB did nothing at all because it was the discarded factor.
-#
 #      The threshold is where the app aimed this voice and the makeup gives back what the compressor
 #      takes there, so the voice leaves at its aim. See `voice_comp_makeup_db`. The aim is read off
 #      the cue's own track, synchronously, so it is in place before the first frame reaches here.
+#
+#   There is no operator trim after the compressor any more. `VOICE_GAIN_DB` was one, and it was
+#   retired rather than made a setting: `playout.speechTrimDb` already moves the voice, on both of
+#   the routes a break takes, and `playout.duckUnderVoiceDb` moves the record under it, which
+#   between them are everything that knob was reached for.
+#
+#   If an `amplify` is ever added below step 2 again, `override=null` is load-bearing and is NOT the
+#   same as leaving it out. `amplify`'s override parameter DEFAULTS to "liq_amplify"
+#   (settings.amplify.override), and when an override is set the operator uses it INSTEAD of the
+#   factor it was passed — `k = match override with Some o -> o | None -> coeff ()`. So a bare
+#   `amplify(x, s)` there applies this segment's stamp a SECOND time and silently discards `x`.
+#   Measured off the mount before it was disabled: a break stamped +8.7 dB aired at -7.9 LUFS against
+#   a design target of -18, hard into the bus limiter, while the trim did nothing at all because it
+#   was the discarded factor.
 voice_aim_lufs = ref(voice_aim_fallback_lufs)
 voice.on_track(
   synchronous=true,
@@ -1675,7 +1685,6 @@ voice.on_track(
 voice_bus = fade.in(duration=0.04, voice)
 voice_bus = amplify(1., override="liq_amplify", voice_bus)
 voice_bus = compress(attack=5.0, release=120.0, threshold={voice_aim_lufs()}, ratio=4.0, knee=2.0, gain=voice_comp_makeup_db, voice_bus)
-voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 
 # 4) Mix the voice with the bed, per the talk-over mode.
 #    ON  (talk_over): the bed is amplified by a gain we ramp ourselves, and the voice is simply
@@ -1705,7 +1714,7 @@ voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 #    measured with stream/duck.check.py, the voice sat 27 LU over a quiet intro and 5 over a loud
 #    chorus, which are the two complaints a talk-over station gets ("talking over nothing", "can't
 #    hear the DJ"). Now the bed is metered and dropped as far as it takes to sit at `duck_bed_now`,
-#    bounded by `duck_gain_db` at the deep end and `duck_min_db` at the shallow one.
+#    bounded by `duck_gain_now` at the deep end and `duck_min_now` at the shallow one.
 #
 #    - The meter is BS.1770 loudness, the same units the app levels records in, read UPSTREAM of
 #      the duck's own gain. Downstream it would see its own reduction and duck further for it, which
@@ -1727,7 +1736,7 @@ voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 #      gap between two phrases of a record cannot pump the bed under a sentence, and a record fading
 #      out under the voice (a fade-skip at a show boundary, or its own outro) lets the duck ease off
 #      rather than step.
-#    - The ramp in and out takes `duck_fade_ms` whatever the depth, because the cue fires that long
+#    - The ramp in and out takes `duck_fade_now` whatever the depth, because the cue fires that long
 #      before the first word (`voice_cue_check`) and the bed has to be down by then. The step is
 #      therefore sized from the depth being ramped to, tick by tick; for a -12 duck it is exactly
 #      the step the fixed duck used.
@@ -1745,13 +1754,22 @@ duck_release_db_per_s = 3.
 # without the flag the depth would then slew to the new one at the release rate: measured with
 # duck.check.py, a cue stamped two above the fallback dipped to the fallback and took most of a
 # second to come back.
+#
+# The two bounds ride the cue the same way and for the same reason (`deadair_duck_gain_db`, the
+# deepest, and `deadair_duck_min_db`, the shallowest), so an operator tuning them by ear hears the
+# change on the next break. The shallowest is held at or under zero as `DUCK_MIN_DB` is, because a
+# duck that raised the bed would be a boost the voice has to fight.
 duck_bed_now = ref(duck_bed_lufs)
+duck_gain_now = ref(duck_gain_db)
+duck_min_now = ref(duck_min_db)
 duck_bed_fresh = ref(false)
 voice.on_track(
   synchronous=true,
   fun (m) ->
     begin
       duck_bed_now := string.to_float(default=duck_bed_lufs, string.trim(m["deadair_duck_bed_lufs"]))
+      duck_gain_now := string.to_float(default=duck_gain_db, string.trim(m["deadair_duck_gain_db"]))
+      duck_min_now := min(0., string.to_float(default=duck_min_db, string.trim(m["deadair_duck_min_db"])))
       duck_bed_fresh := true
     end
 )
@@ -1769,8 +1787,8 @@ def ducked(music_bed, dj_voice) =
       begin
         measured = max(metered.lufs(), metered.lufs_momentary())
         wanted =
-          if not (measured >= -50.) then duck_min_db
-          else max(duck_gain_db, min(duck_min_db, duck_bed_now() - measured))
+          if not (measured >= -50.) then duck_min_now()
+          else max(duck_gain_now(), min(duck_min_now(), duck_bed_now() - measured))
           end
         speaking = dj_voice.is_ready()
         depth_db :=
@@ -1782,13 +1800,13 @@ def ducked(music_bed, dj_voice) =
         duck_floor = lin_of_dB(depth_db())
         target = if speaking then duck_floor else 1. end
         # Distance covered per tick so a full sweep between 1.0 and the duck's bottom takes
-        # duck_fade_ms. The bottom is the LOWER of where the gain is and where it is going: going
+        # duck_fade_now. The bottom is the LOWER of where the gain is and where it is going: going
         # in that is the new floor, and coming out it is the floor the break was ducked to, not the
         # one the meter would pick now. Sized from the latter, a break that ended over a quiet
         # outro would ramp a deep duck back up at a shallow one's pace. While the DJ speaks the
         # floor moves far slower than this, so the gain follows it exactly.
         current = gain()
-        step = (1. - min(current, duck_floor)) * (tick_s * 1000. / duck_fade_ms)
+        step = (1. - min(current, duck_floor)) * (tick_s * 1000. / duck_fade_now())
         gain :=
           if current < target then min(target, current + step)
           else max(target, current - step)

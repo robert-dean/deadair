@@ -528,7 +528,7 @@ export class BreakRequestBuilder {
 
         try {
             const markers = (await this.vocalMarkers.forTracks([trackId])).get(trackId);
-            const budget = markers === undefined ? undefined : talkUpBudget(runwayFor(markers, cueInMs), settings.safetyMs);
+            const budget = markers === undefined ? undefined : talkUpBudget(runwayFor(markers, cueInMs), settings.safetyMs, settings.duckFadeMs);
             return budget === undefined ? {} : { talkUp: budget };
         } catch (error) {
             this.logger.warn('write break: could not read where the singing starts on the next record', { error: errorText(error) });
@@ -557,7 +557,8 @@ export class BreakRequestBuilder {
 
         try {
             const markers = (await this.vocalMarkers.forTracks([trackId])).get(trackId);
-            const budget = markers === undefined ? undefined : talkOutBudget(tailFor(markers, item.track), resolveTalkUp(this.config).safetyMs);
+            const talkUp = resolveTalkUp(this.config);
+            const budget = markers === undefined ? undefined : talkOutBudget(tailFor(markers, item.track), talkUp.safetyMs, talkUp.duckFadeMs);
             return budget === undefined ? {} : { talkOut: budget };
         } catch (error) {
             this.logger.warn('write break: could not read where the singing stops on the record before', { error: errorText(error) });

@@ -37,7 +37,6 @@ import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.sourc
 import { inScope } from '#modules/shared/scoped.work.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor, type Runway } from '#modules/lyrics/vocal.runway.js';
-import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import { resolveTalkUp, talkUpAt, type TalkUpSettings } from './talk.up.js';
 import { tailFor, talkOutAt, talkOutIsOn } from './talk.out.js';
@@ -431,7 +430,7 @@ export class DirectorService {
      * running order, and one held across a stand-down or a new order would attach itself to the
      * first record of something else entirely.
      */
-    private pendingVoice?: { itemId: string; segmentId: string; atMs: number; loudnessLufs?: number };
+    private pendingVoice?: { itemId: string; segmentId: string; atMs: number; duckFadeMs: number; loudnessLufs?: number };
     private readonly unsubscribes: (() => void)[] = [];
     /**
      * Since when the commit window has held candidates and committed none of them, because none of
@@ -3139,7 +3138,7 @@ export class DirectorService {
     private async talkOutCues(
         items: readonly StationLineupItem[],
         talkUp: TalkUpSettings,
-    ): Promise<Map<string, { linkId: string; segmentId: string; atMs: number; loudnessLufs?: number }>> {
+    ): Promise<Map<string, { linkId: string; segmentId: string; atMs: number; duckFadeMs: number; loudnessLufs?: number }>> {
         const lineup = this.lineup;
         if (lineup === undefined) return new Map();
 
@@ -3176,12 +3175,17 @@ export class DirectorService {
                         const nextMarkers = next?.track.trackId === undefined ? undefined : markers.get(next.track.trackId);
                         if (talkUp.enabled && nextMarkers !== undefined) {
                             const runway = runwayFor(nextMarkers, next?.track.cueInMs);
-                            if (talkUpAt({ voiceMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS }) !== undefined) return [];
+                            if (talkUpAt({ voiceMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: talkUp.duckFadeMs }) !== undefined) return [];
                         }
 
                         const own = markers.get(record.track.trackId!);
                         if (own === undefined) return [];
-                        const atMs = talkOutAt({ voiceMs, tail: tailFor(own, record.track), safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS });
+                        const atMs = talkOutAt({
+                            voiceMs,
+                            tail: tailFor(own, record.track),
+                            safetyMs: talkUp.safetyMs,
+                            duckFadeMs: talkUp.duckFadeMs,
+                        });
                         if (atMs === undefined) return [];
 
                         return [
@@ -3191,6 +3195,7 @@ export class DirectorService {
                                     linkId: link.id,
                                     segmentId: segment.id,
                                     atMs,
+                                    duckFadeMs: talkUp.duckFadeMs,
                                     ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
                                 },
                             ] as const,
@@ -3356,6 +3361,7 @@ export class DirectorService {
                         ? {
                               segmentId: pending.segmentId,
                               atMs: pending.atMs,
+                              duckFadeMs: pending.duckFadeMs,
                               itemId: pending.itemId,
                               ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
                           }
@@ -3364,6 +3370,7 @@ export class DirectorService {
                           : {
                                 segmentId: endOf.segmentId,
                                 atMs: endOf.atMs,
+                                duckFadeMs: endOf.duckFadeMs,
                                 itemId: endOf.linkId,
                                 endOf: true as const,
                                 ...(endOf.loudnessLufs === undefined ? {} : { loudnessLufs: endOf.loudnessLufs }),
@@ -3565,7 +3572,7 @@ export class DirectorService {
             const upAt =
                 runway === undefined || segment.durationMs === undefined
                     ? undefined
-                    : talkUpAt({ voiceMs: segment.durationMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS });
+                    : talkUpAt({ voiceMs: segment.durationMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: talkUp.duckFadeMs });
             if (upAt !== undefined) {
                 this.logger.info('director: talking a link up to the post', {
                     segment: segment.id,
@@ -3580,6 +3587,7 @@ export class DirectorService {
                     itemId: item.id,
                     segmentId: segment.id,
                     atMs: upAt,
+                    duckFadeMs: talkUp.duckFadeMs,
                     ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
                 };
                 continue;
@@ -3615,6 +3623,9 @@ export class DirectorService {
                     itemId: item.id,
                     segmentId: segment.id,
                     atMs: item.over.atMs,
+                    // Not timed against it, since the writer placed this one, but carried all the
+                    // same: the cue fires a ramp early, and the ramp is the operator's figure.
+                    duckFadeMs: talkUp.duckFadeMs,
                     ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
                 };
                 continue;

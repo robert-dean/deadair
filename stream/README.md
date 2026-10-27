@@ -1,14 +1,5 @@
 # Stream (Icecast + Liquidsoap)
 
-> **Read the app-side halves as the target, not the tree.** These assets are the finished stream
-> from the pre-re-scaffold repo, restored ahead of the app code that drives them. What is NOT built
-> here yet, and what this file therefore describes as intent: the config materializer that writes
-> `radio.env`, the playout module (`Rundown`, `PlayoutPusher`, `/playout/bridge/aired`), and the
-> Spotify login route. What is genuinely gone rather than pending: the render pipeline, so nothing
-> pushes DJ voice to the harbor and there is no `GET /playout/segment/:id`; and Navidrome, so
-> Subsonic URLs are a shape this supports rather than a source that exists. There is no director,
-> so the duck and talk-over settings below are constants rather than console knobs.
-
 Liquidsoap mixes a **music bed** (ducked under the DJ/news/weather voice) and pushes
 it to the **Icecast** mounts. Config comes from `radio.env` (materialized from the DB
 by the app, falling back to `radio.default.env`) and the committed `radio.liq`.
@@ -410,10 +401,11 @@ the voice 2 dB UNDER the music — and `normalize` was not normalizing anything 
 nobody had measured. It read as "the music is quiet", and nothing in any log named it, because every
 stage was doing exactly what it was told.
 
-Two call sites in `radio.liq` had the same latent fault and now pass `override=null` explicitly: the
-duck (where the discarded factor was the duck RAMP, so no stamped record ever ducked under the voice)
-and the `VOICE_GAIN_DB` trim in the mic chain (where it was the operator's own knob). The voice queue
-never meets the strip above, so that one is load-bearing rather than belt-and-braces.
+Two call sites in `radio.liq` had the same latent fault and were made to pass `override=null`
+explicitly: the duck (where the discarded factor was the duck RAMP, so no stamped record ever ducked
+under the voice) and the `VOICE_GAIN_DB` trim in the mic chain (where it was the operator's own knob).
+The trim has since been retired, and the note it carried stays in the mic chain for whoever adds an
+`amplify` there again.
 
 The **duck** is ours, not `smooth_add`'s: `radio.liq` ramps a gain ref on the bed while the
 harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed down but never
@@ -421,18 +413,27 @@ back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)).
 
 **It ducks the bed to a level, not by an amount.** The bed is metered (BS.1770, the louder of
 short-term and momentary) upstream of the duck's gain, and dropped as far as it takes to sit at the
-level the cue names while the DJ speaks, never deeper than `DUCK_GAIN_DB` and never shallower than
-`DUCK_MIN_DB`. The app stamps that level on every cue it arms (`deadair_duck_bed_lufs`, ten under
-where the voice is aimed), so the bed follows `playout.targetLufs` and the speech trim with no restart;
-`DUCK_BED_LUFS` is the figure for a cue that does not carry one. The defaults (-25, -18, -3) put a record levelled to -13 exactly where the old fixed
--12 did, ten under the voice, so only quieter and louder passages move. During a break the depth
+level the cue names while the DJ speaks, never deeper than `playout.duckDeepestDb` and never
+shallower than `playout.duckShallowestDb`. The app stamps that level on every cue it arms
+(`deadair_duck_bed_lufs`, `playout.duckUnderVoiceDb` under where the voice is aimed), so the bed
+follows `playout.targetLufs` and the speech trim with no restart. `DUCK_BED_LUFS`, `DUCK_GAIN_DB` and
+`DUCK_MIN_DB` in `radio.env` are what a cue that carries none of this gets. The defaults (ten under
+the voice, -18, -3) put a record levelled to -13 exactly where the old fixed -12 did, so only quieter
+and louder passages move. During a break the depth
 deepens fast, so a record kicking in under a talk-up is pulled down within the second, and releases
-slowly, so the bed cannot pump between phrases. The ramp in and out is `DUCK_FADE_MS` whatever the
-depth. The other four are in `radio.env`, read at startup, so tuning them by ear needs a Liquidsoap
-restart.
+slowly, so the bed cannot pump between phrases. The ramp in and out is `playout.duckFadeMs` (`DUCK_FADE_MS` without one) whatever the
+depth.
+
+**A cue can carry both bounds and the fade, so tuning them needs no restart.** The deepest and
+shallowest ride the cue as `deadair_duck_gain_db` and `deadair_duck_min_db`, read in the same
+`on_track` as the level. The fade cannot: the cue fires that long BEFORE the first word, which is
+before any tag on it has been read, so it comes with the arm as the `x-voice-fade-ms` header and holds
+until the next arm, ramp back up included. The four `radio.env` keys are what a cue without its own
+figure gets, which is only ever a cue from an app older than this. `duck.check.liq`'s fourth break
+stamps a deepest bound shallower than its level needs and reads it holding.
 
 The **voice has a mic chain** of its own, between the voice queue and both mixes: a 40 ms `fade.in`,
-a compressor, then a `VOICE_GAIN_DB` trim. It exists because the duck lands the bed at a fixed level,
+then a compressor. It exists because the duck lands the bed at a fixed level,
 so it only puts the voice where it belongs if the voice arrives somewhere predictable — and without this
 the level of a segment is entirely whatever the speech plugin produced. The fade has no matching
 `fade.out` and cannot have one: on a `request.queue` source Liquidsoap does not know the remaining
@@ -443,8 +444,10 @@ a tail at render time instead.
 four voices of the bundled one measure between -25.5 and -28.3 LUFS (BS.1770) against records the
 station airs at -16. So the app stamps `liq_amplify` on the `annotate:` uri it arms the cue with,
 exactly as it does on every record it pushes, and the `amplify(1., override="liq_amplify", …)` at the
-head of the chain applies it. `VOICE_GAIN_DB` is the operator's trim on top of that and is 0 because
-it has nothing to correct, not because nobody tuned it.
+head of the chain applies it. There used to be an operator's trim after the compressor, `VOICE_GAIN_DB`.
+It was retired rather than made a setting: the speech trim below moves the voice on both routes a
+break takes, and `playout.duckUnderVoiceDb` moves the record under it, which between them are
+everything that knob was reached for.
 
 The target it aims at is the station's less `playout.speechTrimDb` (a setting, 2 dB by default), not the
 station's own. BS.1770 is a gated average and speech is the denser, more continuous signal, so a

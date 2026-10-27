@@ -179,18 +179,24 @@ export interface StreamPlayoutConfig {
     playoutBridgeSecret: string;
     /**
      * Talk-over mode. `true` ducks the bed under the DJ voice; `false` lets the
-     * voice preempt the bed so the DJ speaks between tracks in silence. Read by
-     * radio.liq at startup, so a change needs a Liquidsoap restart.
+     * voice preempt the bed. Read by radio.liq at startup. Always `true` from
+     * `stream.service.ts`: the app half of `false` (pausing playout so the DJ
+     * speaks into a gap) was never built, so it is not offered as a setting.
      */
     talkOverTracks: boolean;
     /**
      * The DEEPEST the bed drops under the voice, in dB (negative). The duck lands the bed at a
      * level rather than dropping it by this much; this bounds how far it may go to get there.
+     * The fallback for a cue that does not carry `deadair_duck_gain_db`: the app stamps every cue
+     * it arms from `playout.duckDeepestDb`.
      */
     duckGainDb: number;
     /** How long the duck ramp takes, in ms. */
     duckFadeMs: number;
-    /** The SHALLOWEST the bed drops under the voice, in dB (negative), however quiet it already is. */
+    /**
+     * The SHALLOWEST the bed drops under the voice, in dB (negative), however quiet it already is.
+     * The fallback for a cue without `deadair_duck_min_db`, stamped from `playout.duckShallowestDb`.
+     */
     duckMinDb: number;
     /**
      * Where the bed sits under the voice, in LUFS, for a cue that does not carry its own figure.
@@ -198,18 +204,6 @@ export interface StreamPlayoutConfig {
      * fallback rather than the setting.
      */
     duckBedLufs: number;
-    /**
-     * Trim on the DJ voice, in dB, applied after the mic chain in `radio.liq`.
-     *
-     * Zero leaves the chain's own compressor and the renderer's level as they
-     * are, which is not the neutral it sounds like: that chain has no makeup
-     * gain, so zero airs a break at whatever the engine produced. It exists
-     * because the speech engine is a plugin and a replacement is expected, so an
-     * engine that runs consistently hot or quiet needs a correction that is not
-     * a code change to the mixer. See `VOICE_GAIN_DB` in `stream.service.ts` for
-     * what the bundled one measures and why the default is +10.
-     */
-    voiceGainDb: number;
     /**
      * How long one "deadair is driving" assertion holds the mount, in seconds.
      *
@@ -532,16 +526,18 @@ export function writeStreamConfig({
             // app's push lead: handing over more than the queue resolves leaves items
             // unfetched, which is the one state a skip cannot land in.
             `PLAYOUT_PREFETCH=${shell(String(playout.playoutPrefetch))}`,
-            // The duck. Read at Liquidsoap startup, so changing these re-renders the file
-            // and takes effect on the next restart.
+            // The duck. Read at Liquidsoap startup, as the fallback for a cue that does not carry
+            // its own figures: the app stamps the level and both bounds on every cue it arms and
+            // sends the fade with the arm, so these change only with the defaults.
             `TALK_OVER_TRACKS=${shell(playout.talkOverTracks ? 'true' : 'false')}`,
             `DUCK_GAIN_DB=${shell(String(playout.duckGainDb))}`,
             `DUCK_FADE_MS=${shell(String(playout.duckFadeMs))}`,
-            // The voice trim, read at startup with the duck. Written unconditionally, even at
-            // zero, because `radio.liq` tolerates an unset or empty value and a key that appears
-            // only when it is non-default is a key an operator cannot find in the rendered file.
-            `VOICE_GAIN_DB=${shell(String(playout.voiceGainDb))}`,
-            // How much the audio chain logs, read at startup with the two above.
+            // VOICE_GAIN_DB stood here, the operator's trim after the mic chain. Retired rather than
+            // made a setting, because `playout.speechTrimDb` and `playout.duckUnderVoiceDb` cover
+            // what it was reached for. Removing the line changed the stamp once, which is the one
+            // restart the LOG_LEVEL note below describes for adding one.
+            //
+            // How much the audio chain logs, read at startup with the duck.
             //
             // APPENDED rather than filed with the other stream settings, which looks untidy and is
             // not: the key ORDER is what the config stamp hashes, so moving an existing line would

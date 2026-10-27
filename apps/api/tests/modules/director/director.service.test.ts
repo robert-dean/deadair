@@ -8,6 +8,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { DEFAULT_DUCK_FADE_MS, DUCK_FADE_KEY } from '../../../src/modules/playout/gain.js';
 import { LiveHandOver } from '../../../src/modules/director/live.handover.js';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
@@ -3446,13 +3447,14 @@ describe('DirectorService talking a link up to the post', () => {
     // 15000 - 1500 - 6300 - 200 = 7000ms, allowing for the cue firing up to two ticks late.
     const sung = { kind: 'ranges' as const, onsetMs: 15_000, endMs: 200_000, ranges: [] };
 
-    async function run(options: { durationMs?: number; markers?: VocalMarkers; setting?: string }) {
+    async function run(options: { durationMs?: number; markers?: VocalMarkers; setting?: string; duckFadeMs?: string }) {
         const built = build({
             items: ['a', 'b'],
             segments: [link(options.durationMs ?? 6_000)],
             vocalMarkers: options.markers === undefined ? {} : { 'track-a': options.markers },
         });
         if (options.setting !== undefined) built.station.set(TALK_UP_KEYS.enabled, options.setting);
+        if (options.duckFadeMs !== undefined) built.station.set(DUCK_FADE_KEY, options.duckFadeMs);
         await built.seedCatalogued();
         built.lineup.insertSegment('seg-1', 0);
         await built.director.start();
@@ -3470,11 +3472,21 @@ describe('DirectorService talking a link up to the post', () => {
         expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
     });
 
+    it('starts earlier for a slower duck, and hands the cue the ramp it was timed against', async () => {
+        // 15000 - 1500 - (6000 + 1000) - 200 = 6300: the bed takes 700ms longer to come back, so the
+        // link starts that much sooner, and the mixer has to be told the same figure or it fires the
+        // cue on a ramp the timing never allowed for.
+        const { rundown } = await run({ markers: sung, setting: 'true', duckFadeMs: '1000' });
+        const record = rundown.upcoming().find(item => item.externalId === 'a');
+
+        expect(record?.voice).toMatchObject({ atMs: 6_300, duckFadeMs: 1_000 });
+    });
+
     it('rides the record so the last word lands before the first sung one', async () => {
         const { rundown, lineup } = await run({ markers: sung, setting: 'true' });
         const record = rundown.upcoming().find(item => item.externalId === 'a');
 
-        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: lineup.all()[0]!.id });
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, duckFadeMs: DEFAULT_DUCK_FADE_MS, itemId: lineup.all()[0]!.id });
         // Stored as a talk-over, so the sweep that runs when 'a' starts does not count it as missed.
         expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 7_000 } });
     });
@@ -3513,7 +3525,12 @@ describe('DirectorService talking a link up to the post', () => {
         await airNext(built.rundown);
 
         expect(built.lineup.all()[1]?.state).not.toBe('skipped');
-        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 7_000, itemId: cueItemId });
+        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({
+            segmentId: 'seg-1',
+            atMs: 7_000,
+            duckFadeMs: DEFAULT_DUCK_FADE_MS,
+            itemId: cueItemId,
+        });
     });
 });
 
@@ -3561,7 +3578,7 @@ describe('DirectorService talking a link over the end of a record', () => {
         const record = rundown.upcoming().find(item => item.externalId === 'a');
         const linkItem = lineup.all()[1]!;
 
-        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 203_400, itemId: linkItem.id, endOf: true });
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 203_400, duckFadeMs: DEFAULT_DUCK_FADE_MS, itemId: linkItem.id, endOf: true });
         expect(linkItem).toMatchObject({ state: 'handed', over: { atMs: 203_400, endOf: true } });
 
         // And it is not offered again as a talk-over of the record after it once that one is handed over.
@@ -3613,7 +3630,7 @@ describe('DirectorService committing a talk-over', () => {
         // The record only, with no extra item for the segment: it is heard OVER 'a' rather than
         // between anything.
         expect(committed.map(item => item.externalId)).toEqual(['a']);
-        expect(committed[0]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000, itemId: cueItemId });
+        expect(committed[0]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000, duckFadeMs: DEFAULT_DUCK_FADE_MS, itemId: cueItemId });
     });
 
     // A batch is one item now, so a talk-over planted at the END of a batch has nothing in that
@@ -3632,7 +3649,12 @@ describe('DirectorService committing a talk-over', () => {
         // The player takes one, which is what makes room for the next commit.
         await airNext(rundown);
 
-        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 5000, itemId: cueItemId });
+        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({
+            segmentId: 'seg-1',
+            atMs: 5000,
+            duckFadeMs: DEFAULT_DUCK_FADE_MS,
+            itemId: cueItemId,
+        });
     });
 
     // Two voices at once is the one outcome nobody wants; queueing them would produce exactly that.
@@ -3650,7 +3672,12 @@ describe('DirectorService committing a talk-over', () => {
         await director.start();
         await settle();
 
-        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toEqual({ segmentId: 'seg-2', atMs: 2000, itemId: laterCueItemId });
+        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toEqual({
+            segmentId: 'seg-2',
+            atMs: 2000,
+            duckFadeMs: DEFAULT_DUCK_FADE_MS,
+            itemId: laterCueItemId,
+        });
     });
 
     // A cue is about a particular record in a particular running order. One held across a

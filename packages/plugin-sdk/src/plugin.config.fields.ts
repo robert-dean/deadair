@@ -116,6 +116,11 @@ export interface ConfigFieldOption {
  * `narration` band means. Third instance of one argument, which is what makes it a pattern rather
  * than three special cases: an id a plugin minted and only the station can collect.
  *
+ * `station.ownShows` is the odd one of the four: the shows the station MAKES for itself
+ * (`deadair.own_shows`), for the topic that says which one a `podcast` band on the format clock means.
+ * Its ids are the station's own rather than a plugin's, and it is here because the console resolves it
+ * the same way, against a station table.
+ *
  * The `plugins.*` members answer the enabled plugins that declare a given capability — speech, llm,
  * mixer, analysis, similarity — by id and name, for the settings that pick which plugin a
  * capability with several installed candidates uses. Those settings stay free text (`selectPlugin`
@@ -144,6 +149,7 @@ export type ConfigFieldOptionSource =
     | 'station.newsFeeds'
     | 'station.podcastShows'
     | 'station.narrationSeries'
+    | 'station.ownShows'
     | 'intl.timeZones'
     | 'plugins.speech'
     | 'plugins.llm'
@@ -609,6 +615,7 @@ export const configFieldOptionSourceSchema = z.enum([
     'station.newsFeeds',
     'station.podcastShows',
     'station.narrationSeries',
+    'station.ownShows',
     'intl.timeZones',
     'plugins.speech',
     'plugins.llm',

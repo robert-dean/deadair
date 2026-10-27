@@ -398,6 +398,9 @@ public enum ConfigFieldOptionSource
     [JsonStringEnumMemberName("station.narrationSeries")]
     StationNarrationSeries,
 
+    [JsonStringEnumMemberName("station.ownShows")]
+    StationOwnShows,
+
     [JsonStringEnumMemberName("intl.timeZones")]
     IntlTimeZones,
 
@@ -451,6 +454,7 @@ public sealed class ConfigFieldOptionSourceConverter : JsonConverter<ConfigField
         "station.newsFeeds" => ConfigFieldOptionSource.StationNewsFeeds,
         "station.podcastShows" => ConfigFieldOptionSource.StationPodcastShows,
         "station.narrationSeries" => ConfigFieldOptionSource.StationNarrationSeries,
+        "station.ownShows" => ConfigFieldOptionSource.StationOwnShows,
         "intl.timeZones" => ConfigFieldOptionSource.IntlTimeZones,
         "plugins.speech" => ConfigFieldOptionSource.PluginsSpeech,
         "plugins.llm" => ConfigFieldOptionSource.PluginsLlm,
@@ -467,6 +471,7 @@ public sealed class ConfigFieldOptionSourceConverter : JsonConverter<ConfigField
         ConfigFieldOptionSource.StationNewsFeeds => "station.newsFeeds",
         ConfigFieldOptionSource.StationPodcastShows => "station.podcastShows",
         ConfigFieldOptionSource.StationNarrationSeries => "station.narrationSeries",
+        ConfigFieldOptionSource.StationOwnShows => "station.ownShows",
         ConfigFieldOptionSource.IntlTimeZones => "intl.timeZones",
         ConfigFieldOptionSource.PluginsSpeech => "plugins.speech",
         ConfigFieldOptionSource.PluginsLlm => "plugins.llm",

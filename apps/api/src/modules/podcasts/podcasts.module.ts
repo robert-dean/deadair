@@ -7,6 +7,7 @@ import { PodcastsService } from './podcasts.service.js';
 import { OwnShowRepository } from './own.show.repository.js';
 import { OwnShowsService } from './own.shows.service.js';
 import { PodcastScheduler } from './podcast.scheduler.js';
+import { OwnShowScheduler } from './own.show.scheduler.js';
 import { SyndicatedSource } from './syndicated.source.js';
 
 /**
@@ -42,5 +43,6 @@ export const PodcastsModule: ServerKitModule = {
         // episode and that is scoped to the request that asked.
         registry.register(OwnShowRepository).useClass(OwnShowRepository).asScoped();
         registry.register(OwnShowsService).useClass(OwnShowsService).asScoped();
+        registry.register(OwnShowScheduler).useClass(OwnShowScheduler).asScoped();
     },
 };

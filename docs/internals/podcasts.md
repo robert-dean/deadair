@@ -221,8 +221,24 @@ ideas. Deleting a show keeps its episodes, no longer filed under it, because an 
 aired and the production row is the record of it.
 
 **An episode airs as a production, not through a `syndicated` band.** The time somebody gives an episode
-is what places it, so a show needs no band on the clock. Putting one of the station's own shows on the
-format clock, so the station makes its next episode ahead of the band, is not built.
+is what places it, so a show asked for by hand needs no band on the clock.
+
+**A show can be put on the format clock, and the station then makes it without being asked**
+(`OwnShowScheduler`, `own.show.topic.kind.ts`). A `podcast` band whose topic names one of the station's
+own shows is read `COMMISSION_AHEAD_MS` ahead, and its episode asked for through `requestEpisode` with the
+band's time as `airAt`: the same call the Podcasts page makes, so the show's presenter, length, writing
+mode, feeds and research all apply and the episode is filed under the show. That is how a news show becomes
+an edition at seven, noon and six rather than something somebody remembers to ask for. A `podcast` band
+with no topic is what it always was, `ProductionScheduler`'s programme about whatever the broadcast it airs
+inside is about, and that scheduler passes over a band that names a show (`namesOwnShow`), or the slot would
+be made twice. It is here rather than in `ProductionScheduler` because the import would run backwards:
+`OwnShowsService` already reaches `ProductionsService`, which reaches the scheduler.
+
+Idempotent by the table: a production filed under the show for that instant means one is being made. A
+show that refuses (a news show with nothing on its feeds yet) is asked again after `REFUSED_RETRY_MS`
+rather than on every commit pass, since every ask reads the feeds, and the refusal is logged once per slot.
+The memory of a refusal is module state and a restart forgets it, which costs one more ask; the memory of a
+commission is the table, because forgetting that would cost a second episode.
 
 ## What is not built
 

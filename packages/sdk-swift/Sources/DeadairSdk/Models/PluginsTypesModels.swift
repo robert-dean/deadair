@@ -310,6 +310,7 @@ public enum ConfigFieldOptionSource: Codable, CaseIterable, Hashable, Sendable {
     case stationNewsFeeds
     case stationPodcastShows
     case stationNarrationSeries
+    case stationOwnShows
     case intlTimeZones
     case pluginsSpeech
     case pluginsLlm
@@ -323,7 +324,7 @@ public enum ConfigFieldOptionSource: Codable, CaseIterable, Hashable, Sendable {
     case unknown
 
     /// The members the contract declares. `unknown` is not one of them.
-    public static let allCases: [ConfigFieldOptionSource] = [.stationNewsCategories, .stationNewsFeeds, .stationPodcastShows, .stationNarrationSeries, .intlTimeZones, .pluginsSpeech, .pluginsLlm, .pluginsMixer, .pluginsAnalysis, .pluginsSimilarity, .llmModels]
+    public static let allCases: [ConfigFieldOptionSource] = [.stationNewsCategories, .stationNewsFeeds, .stationPodcastShows, .stationNarrationSeries, .stationOwnShows, .intlTimeZones, .pluginsSpeech, .pluginsLlm, .pluginsMixer, .pluginsAnalysis, .pluginsSimilarity, .llmModels]
 
     /// The wire spelling, or `nil` for `unknown`, which has none.
     public var rawValue: String? {
@@ -332,6 +333,7 @@ public enum ConfigFieldOptionSource: Codable, CaseIterable, Hashable, Sendable {
         case .stationNewsFeeds: return "station.newsFeeds"
         case .stationPodcastShows: return "station.podcastShows"
         case .stationNarrationSeries: return "station.narrationSeries"
+        case .stationOwnShows: return "station.ownShows"
         case .intlTimeZones: return "intl.timeZones"
         case .pluginsSpeech: return "plugins.speech"
         case .pluginsLlm: return "plugins.llm"
@@ -350,6 +352,7 @@ public enum ConfigFieldOptionSource: Codable, CaseIterable, Hashable, Sendable {
         case "station.newsFeeds": self = .stationNewsFeeds
         case "station.podcastShows": self = .stationPodcastShows
         case "station.narrationSeries": self = .stationNarrationSeries
+        case "station.ownShows": self = .stationOwnShows
         case "intl.timeZones": self = .intlTimeZones
         case "plugins.speech": self = .pluginsSpeech
         case "plugins.llm": self = .pluginsLlm

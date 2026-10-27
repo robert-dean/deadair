@@ -6,6 +6,7 @@ import { isAnchored, nextOccurrence } from '#modules/director/clock.bands.js';
 import { ClockBandRepository } from '#modules/director/clock.band.repository.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { namesOwnShow } from '#modules/podcasts/own.show.topic.kind.js';
 import { firstPass } from './production.passes.js';
 import { BANTER_KIND, dialogueKinds, stationTargetMs, stationWritingMode } from './production.settings.js';
 import { ProductionRepository } from './production.repository.js';
@@ -146,7 +147,12 @@ export class ProductionScheduler {
      */
     private async fromTheClock(now: number, show: BroadcastContext): Promise<number> {
         const kinds = productionKinds(this.config);
-        const anchored = (await this.bands.active()).filter(isAnchored).filter(band => kinds.has(band.kind.trim().toLowerCase()));
+        // A band naming one of the station's own shows is `OwnShowScheduler`'s, which commissions it as
+        // that show's episode. Made here too, it would be a second programme in the same slot.
+        const anchored = (await this.bands.active())
+            .filter(isAnchored)
+            .filter(band => kinds.has(band.kind.trim().toLowerCase()))
+            .filter(band => !namesOwnShow(band));
         if (anchored.length === 0) return 0;
 
         const zone = stationZone(this.config);

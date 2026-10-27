@@ -3,7 +3,7 @@ import type { ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldOptionSource 
 
 import { newsFeedsOptions } from '../../api/news.queries';
 import { narrationSeriesOptions } from '../../api/narration.queries';
-import { podcastShowsOptions } from '../../api/podcast.queries';
+import { ownShowsOptions, podcastShowsOptions } from '../../api/podcast.queries';
 import { pluginConfigSuggestionsOptions, pluginProvidersOptions, pluginsListOptions } from '../../api/plugins.queries';
 import { topicsOptions } from '../../api/topics.queries';
 
@@ -76,6 +76,7 @@ export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Re
     const feeds = useQuery({ ...newsFeedsOptions, enabled: wanted.has('station.newsFeeds') });
     const shows = useQuery({ ...podcastShowsOptions, enabled: wanted.has('station.podcastShows') });
     const narrationSeries = useQuery({ ...narrationSeriesOptions, enabled: wanted.has('station.narrationSeries') });
+    const ownShows = useQuery({ ...ownShowsOptions, enabled: wanted.has('station.ownShows') });
     const wantsModels = wanted.has('llm.models');
     const plugins = useQuery({ ...pluginsListOptions, enabled: [...wanted].some(isPluginSource) });
     // Which plugin the station actually asks for words is the STATION's answer, not a rule
@@ -124,6 +125,9 @@ export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Re
         // once more: the qualified id as the value, since that is what the topic stores, and the
         // series' own title as the label.
         'station.narrationSeries': (narrationSeries.data?.series ?? []).map(one => ({ value: one.id, label: one.title })),
+        // The shows the station makes itself, for a `podcast` band's topic: the row id as the value,
+        // since that is what the topic stores, and the show's title as the label.
+        'station.ownShows': (ownShows.data?.shows ?? []).map(show => ({ value: show.id, label: show.title })),
         // No query and no round trip: the platform holds this list, and the browser's copy is the
         // one that matters — a zone the operator's own machine cannot name is a zone they cannot
         // check the clock against. `supportedValuesOf` is ES2022 and has been in every engine this

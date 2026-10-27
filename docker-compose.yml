@@ -357,6 +357,10 @@ services:
             # player holds no connection open, so a playlist request is the only evidence
             # there is. See apps/api/src/modules/stream/hls.audience.ts.
             - ./.docvol/streamhls:/streamhls
+            # The archive: what aired, as MP3s with a JSON sidecar each, while `stream.archive` is
+            # on. WRITABLE for the same reason as /streamhls, and the app reads the same files back
+            # at ARCHIVE_DIR (./.docvol/streamarchive from apps/api) to list, serve and sweep them.
+            - ./.docvol/streamarchive:/streamarchive
         depends_on:
             # service_started (not _healthy): icecast has no healthcheck (see above),
             # and liquidsoap's output.icecast retries the source connection on its own.

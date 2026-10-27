@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { numberFrom, numberOr } from '#modules/shared/setting.numbers.js';
+import { parseArchiveMode, type ArchiveMode } from './archive.settings.js';
 
 /**
  * The `deadair.settings` keys backing the stream config.
@@ -121,6 +122,12 @@ export const STREAM_KEYS = {
      * out of `/data/streamlogs` with the segments rather than sitting in one file for ever.
      */
     logLevel: 'stream.logLevel',
+    /**
+     * What the archive keeps: `off`, `live` (a file per live show) or `all` (those, and the programme
+     * hourly). A stream key because it reaches `radio.env`, so saving it restarts Liquidsoap like any
+     * other; how long recordings are kept is the app's alone and lives in `archive.settings.ts`.
+     */
+    archive: 'stream.archive',
     // Secrets below. Stored encrypted, never returned in the clear to a response, with one exception:
     // `harborPassword` is answered by `GET /playout/live/connection` to an operator, because it is
     // what they type into a presenter's encoder.
@@ -194,6 +201,8 @@ export interface StreamSettings {
     icecastPort: string;
     /** Liquidsoap's own log level, 1-5. Always an integer, because `radio.liq` reads it as one. */
     logLevel: number;
+    /** What the archive keeps. See {@link STREAM_KEYS.archive}. */
+    archive: ArchiveMode;
     /** Decrypted Icecast source password, `undefined` when unset. */
     sourcePassword?: string;
     /** Decrypted Icecast admin password, `undefined` when unset. */
@@ -259,6 +268,8 @@ export const STREAM_DEFAULTS = {
     // at. 4 is a diagnostic position rather than a place to leave a station: it logs every header
     // of every control call, and the app polls that endpoint continuously.
     logLevel: 3,
+    // Off: a recording nobody asked for is disk spent without telling anybody.
+    archive: 'off' as ArchiveMode,
 } as const;
 
 /**
@@ -324,6 +335,7 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         // "critical only" — a station that stopped logging because a setting was blanked. Clamp
         // rather than refuse on the resolver rule: this is reading a row that is already stored.
         logLevel: clamp(numberFrom(values.get(STREAM_KEYS.logLevel), STREAM_DEFAULTS.logLevel), 1, 5),
+        archive: parseArchiveMode(values.get(STREAM_KEYS.archive)),
         sourcePassword: decrypt(values.get(STREAM_KEYS.sourcePassword)),
         adminPassword: decrypt(values.get(STREAM_KEYS.adminPassword)),
         harborPassword: decrypt(values.get(STREAM_KEYS.harborPassword)),

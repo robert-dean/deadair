@@ -625,3 +625,19 @@ folding the two together leaves a reader unable to tell a loop that stopped from
 pass. The beat is skipped for a pass that threw and taken for one that returned early — the several
 `return`s in `reconcile` are the loop working. Two of the five timer loops have adopted it; the rest
 are one line each on the day something reads them.
+
+## What was kept
+
+**The archive records what the mount carried, and only while the station holds the air.** `radio.liq` writes
+`bus` to MP3s under `ARCHIVE_DIR` when `stream.archive` is `live` (a file per live show) or `all` (those, and
+the programme in hourly files); the layout, the sidecars and the harness are in `stream/README.md` under "The
+archive". The gate is `on_programme()`, the lease plus a warm first record, so it follows the audience gate
+above with no rule of its own: in `audience` mode the programme is archived exactly while somebody is
+listening, and that is stated in the setting's help rather than changed. Recording a station nobody hears
+would mean holding the lease for nobody, which is the model and speech spend the gate exists to save. A live
+show is recorded whatever the lease says, because the presenter is the programme.
+
+**The files are the record, and there is no table.** `ArchiveStore` reads the directory and the sidecars
+together, `stream.prune_archive` sweeps by when a recording ended (`stream.archiveDays`, `0` keeps all,
+because a recording cannot be made again), and a file still being written is never removed. An id is matched
+against one strict pattern before any path is built from it, which is the whole of the traversal defence.

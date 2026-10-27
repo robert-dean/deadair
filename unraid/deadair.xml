@@ -91,6 +91,10 @@
         Description="Optional, and only about size. What the station HOLDS rather than what it is: records downloaded before they air, cover art, the speech it rendered, voice previews, the speech model's weights. All of it can be produced again by running the station, and it grows to roughly the size of the library you play, so put it on the array and leave it out of your backups. Blank keeps it under Data, which is fine until the library gets big."
         Type="Path" Display="always" Required="false" Mask="false"></Config>
 
+    <Config Name="Archive" Target="/data/streamarchive" Default="" Mode="rw"
+        Description="Optional. Where the station keeps recordings of what it airs, once Record what airs is switched on in Settings, Stream: one MP3 per live show, and hourly files of the programme if you choose everything. About 86 MB an hour. Blank keeps them under Data; point it at the array if you record around the clock."
+        Type="Path" Display="always" Required="false" Mask="false"></Config>
+
     <Config Name="Public address" Target="APP_BASE_URL" Default="" Mode=""
         Description="The address you type into a browser to reach this station, all of it: scheme, host and port, with nothing after the port. On your own network that is http:// with your server's address and the WebUI port above, such as http://192.168.1.10:8080; behind a proxy that terminates TLS it is the https:// name. Sign-in links and a music provider's authorization are sent back here, so a wrong value is a sign-in that lands nowhere. It does not decide whether the console loads."
         Type="Variable" Display="always" Required="true" Mask="false"></Config>

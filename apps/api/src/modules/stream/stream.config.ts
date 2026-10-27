@@ -363,6 +363,11 @@ export interface WriteStreamConfigArgs {
      * impossible.
      */
     hlsDir?: string;
+    /**
+     * Where Liquidsoap writes the archive, as the STREAM CONTAINER sees it. `hlsDir`'s argument:
+     * the same volume this app reads back at `ARCHIVE_DIR`, at a different mount point.
+     */
+    archiveDir?: string;
     adminEmail?: string;
     /**
      * The mode the rendered files are left with. Defaults to `0o644`.
@@ -396,6 +401,7 @@ export function writeStreamConfig({
     harborPort = '8005',
     livePort = '8006',
     hlsDir = '/streamhls',
+    archiveDir = '/streamarchive',
     adminEmail = 'admin@localhost',
     configMode = 0o644,
     log = () => {},
@@ -558,6 +564,11 @@ export function writeStreamConfig({
             // (LIVE_SIGNAL_S and the rest) are not written: radio.liq's defaults stand until an
             // operator needs to move one, and an unwritten key is the default there.
             `LIVE_PORT=${shell(livePort)}`,
+            // The archive, appended for the reason LOG_LEVEL is. Off is spelled as BOTH empty, on
+            // HLS's rule that a writer with nowhere to write is not a writer: radio.liq needs a
+            // directory and a mode before it writes a single file.
+            `ARCHIVE_DIR=${shell(settings.archive === 'off' ? '' : archiveDir)}`,
+            `ARCHIVE_MODE=${shell(settings.archive === 'off' ? '' : settings.archive)}`,
         ].join('\n') + '\n';
 
     // The generation of the file, carried IN the file, so the process that sourced it

@@ -16,6 +16,21 @@ export const ARCHIVE_KEYS = {
     retentionDays: 'stream.archiveDays',
 } as const;
 
+/** What the archive keeps. See `STREAM_KEYS.archive`, which is where the setting itself lives. */
+export const ARCHIVE_MODES = ['off', 'live', 'all'] as const;
+export type ArchiveMode = (typeof ARCHIVE_MODES)[number];
+
+/**
+ * The archive mode a stored value names, with anything unrecognised read as `off`.
+ *
+ * Off rather than the default for a value nobody can parse, which here are the same thing: a
+ * mistyped setting must not start filling a disk.
+ */
+export function parseArchiveMode(value: string | undefined): ArchiveMode {
+    const mode = value?.trim().toLowerCase();
+    return ARCHIVE_MODES.find(candidate => candidate === mode) ?? 'off';
+}
+
 export const ARCHIVE_DEFAULTS = {
     // Two weeks: long enough to get round to cutting clips from a weekend's shows, short enough that
     // a station archiving around the clock (about 2 GB a day) does not quietly fill its disk.

@@ -132,6 +132,15 @@ describe('resolveStreamSettings', () => {
     // `AppConfig` answers with. A test that passed a real number here would prove nothing: it
     // passes either way, which is how the six boolean settings this repository has already been
     // bitten by stayed broken.
+    it('reads what the archive keeps, and leaves it off unless a mode is named', () => {
+        expect(resolveStreamSettings(settingsConfig({ [STREAM_KEYS.archive]: 'live' }).config, encryption).archive).toBe('live');
+        expect(resolveStreamSettings(settingsConfig({ [STREAM_KEYS.archive]: 'all' }).config, encryption).archive).toBe('all');
+        expect(resolveStreamSettings(settingsConfig().config, encryption).archive).toBe('off');
+        // Neither a blank box nor a mistyped one may start filling a disk.
+        expect(resolveStreamSettings(settingsConfig({ [STREAM_KEYS.archive]: '' }).config, encryption).archive).toBe('off');
+        expect(resolveStreamSettings(settingsConfig({ [STREAM_KEYS.archive]: 'true' }).config, encryption).archive).toBe('off');
+    });
+
     it('reads the log level the operator stored', () => {
         const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: '4' });
 

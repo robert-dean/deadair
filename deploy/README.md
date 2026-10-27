@@ -368,6 +368,19 @@ seconds of HLS segments while `stream.hlsEnabled` is on, is rewritten continuous
 by the segment settings. Losing it costs a listener one reconnect. It is in `/data` because
 Liquidsoap writes it and nginx serves it, and both of those live here.
 
+`/data/streamarchive` is the one that can grow without your noticing. It is empty until
+**Record what airs** is switched on (Settings, Stream), and then holds an MP3 per live show, and
+under "everything on air" an hourly file of the programme as well: about 86 MB an hour, or 2 GB a
+day around the clock. **Keep recordings for** sweeps it nightly (two weeks by default). Unlike
+`/media`, nothing in it can be produced again, so back it up if the shows matter to you. To put it
+on other storage, mount a directory there:
+
+```
+-v /mnt/user/media/deadair-archive:/data/streamarchive
+```
+
+On Unraid that is the **Archive** field in the template.
+
 ## Upgrading
 
 Pull the new image and bring the stack back up:

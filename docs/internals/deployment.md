@@ -139,6 +139,17 @@ different caller on every request — rate limiting nobody at all, which is wors
 together. The compose edge takes the same include and expects a mounted file rather than an environment
 variable.
 
+**Icecast is behind the same edge, and believes it from loopback only.** Every Icecast listener arrives
+through nginx, so until Icecast was told otherwise `/admin/listclients` recorded `127.0.0.1` for all of them:
+the count was right and every address was nginx's. Both Icecast configs now declare a virtual listen socket
+at `127.0.0.1` that the real one trusts, and Icecast then takes the right-most `X-Forwarded-For` entry, which
+is the one nginx appends. That makes an Icecast listener's address exactly as good as an HLS listener's:
+real with `REAL_IP_FROM` set, the tunnel's without it. **2.5 moved this setting.** 2.4's
+`<paths><x-forwarded-for>` still parses and does nothing, which is easy to ship by mistake because nothing
+fails: measured on `libretime/icecast:2.5.0`, the 2.4 form left every address at `127.0.0.1` and the 2.5 form
+gave the listener's. The compose dev tree's nginx is a separate container and is not trusted, so a dev
+listener reads as that container's address.
+
 **Three paths reach the API that are not under `/api/`.** Every edge (the image's nginx, both compose
 edges, Vite) forwards `/.well-known/oauth-` and `/.well-known/assetlinks.json` to the API with the path
 KEPT, where everything else it forwards has `/api` stripped. The station is its own OAuth authorization server for MCP clients, and its

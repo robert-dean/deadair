@@ -8,7 +8,7 @@ mdx:
 > One rule on the station's format clock: a sort of break, and when it happens
 
 <details>
-<summary>Attributes (10)</summary>
+<summary>Attributes (11)</summary>
 
 | Attribute    | Type                    | Required | Description                                                                                                                                                   |
 | ------------ | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -17,6 +17,7 @@ mdx:
 | `at`         | `'clock' \| 'interval'` | Yes      | `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover                                                |
 | `hour`       | `number`                | No       | For a `clock` band: the hour it happens at. Absent means every hour, which is the common case                                                                 |
 | `minute`     | `number`                | No       | For a `clock` band: minutes past the hour                                                                                                                     |
+| `days`       | `number[]`              | No       | For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day                                         |
 | `everyMs`    | `number`                | No       | For an `interval` band: how far apart, in milliseconds                                                                                                        |
 | `position`   | `number`                | Yes      | Where this sits in the operator's own order, which is what settles a boundary two rules both want                                                             |
 | `enabled`    | `boolean`               | Yes      | A rule turned off without being lost                                                                                                                          |

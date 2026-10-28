@@ -337,6 +337,8 @@ export const schedule = {
         timeOfDayLabel: 'Time of day',
         minutesApartLabel: 'Minutes apart',
         minutes: 'minutes',
+        on: 'on',
+        everyDay: 'No day chosen means every day.',
         aboutLabel: 'About',
         aboutDescription: 'Only what belongs to this subject. Leave it empty and the break covers whatever it finds.',
         note: "Times are on the station's own clock. A band takes the first boundary at or after its time, so a bulletin at half past is read when the record playing then finishes — never before it. The sort of break is free text: write anything you have recordings of and the station will play them.",

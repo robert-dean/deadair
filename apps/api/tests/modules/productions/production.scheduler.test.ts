@@ -353,3 +353,17 @@ describe('what a programme is called on air', () => {
         expect(spokenTitle('callin', titleFor('podcast', at, 'UTC'))).toBe(titleFor('podcast', at, 'UTC'));
     });
 });
+
+// A podcast band naming one of the station's own shows is `OwnShowScheduler`'s. Made here as well, the slot
+// would have two programmes: the show's episode and one about whatever the broadcast is about.
+describe('a band naming an own show', () => {
+    it('is left to the own-show scheduler', async () => {
+        const { scheduler, opened } = build({
+            bands: [{ kind: 'podcast', at: 'clock', minute: 30, topic: { id: 't1', key: 'news-hour', label: 'News Hour' } } as never],
+        });
+
+        await scheduler.ripen(now, {});
+
+        expect(opened).toEqual([]);
+    });
+});

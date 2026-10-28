@@ -59,6 +59,15 @@ public sealed record BandDraft
     /// <summary>The subject, or null for a band that covers whatever it finds.</summary>
     public string? TopicId { get; init; }
 
+    /// <summary>
+    /// The weekdays a band at a time of day is on, Sunday 0, as the band had them. Null is every day.
+    /// </summary>
+    /// <remarks>
+    /// Carried through rather than edited here: this editor has no day picker yet, and a save that
+    /// dropped them would put a weekday news show on at the weekend.
+    /// </remarks>
+    public IReadOnlyList<long>? Days { get; init; }
+
     public long Position { get; init; }
 
     public bool Enabled { get; init; } = true;
@@ -86,6 +95,7 @@ public sealed record BandDraft
             Time = StationTime.Clock(((band.Hour ?? 9) * 60) + (band.Minute ?? 0)),
             EveryMinutes = Math.Round((band.EveryMs ?? (90 * 60_000)) / 60_000d).ToString(CultureInfo.InvariantCulture),
             TopicId = band.TopicId,
+            Days = band.Days is { Count: > 0 } days ? days : null,
             Position = band.Position,
             Enabled = band.Enabled,
         };
@@ -125,6 +135,7 @@ public sealed record BandDraft
 
         var kind = Kind.Trim();
         var topic = string.IsNullOrEmpty(TopicId) ? null : TopicId;
+        var days = Days is { Count: > 0 } ? Days.ToList() : null;
 
         switch (When)
         {
@@ -146,6 +157,7 @@ public sealed record BandDraft
                     At = ClockBandAt.Clock,
                     Hour = minutes / 60,
                     Minute = minutes % 60,
+                    Days = days,
                     TopicId = topic,
                     Position = Position,
                     Enabled = Enabled,
@@ -156,6 +168,7 @@ public sealed record BandDraft
                     Kind = kind,
                     At = ClockBandAt.Clock,
                     Minute = Whole(Minute)!.Value,
+                    Days = days,
                     TopicId = topic,
                     Position = Position,
                     Enabled = Enabled,
@@ -196,8 +209,8 @@ public static class FormatClock
     /// A band as the shape a write takes: everything but the id.
     /// </summary>
     /// <remarks>
-    /// The subject goes back too. <c>PUT</c> replaces the row, so a reorder that sent only the
-    /// position would quietly turn a technology bulletin into a general one.
+    /// The subject and the days go back too. <c>PUT</c> replaces the row, so a reorder that sent only the
+    /// position would quietly turn a technology bulletin into a general one, or a weekday show into a daily one.
     /// </remarks>
     public static ClockBandInput BodyOf(ClockBand band, long? position = null)
     {
@@ -210,6 +223,7 @@ public static class FormatClock
             Hour = band.Hour,
             Minute = band.Minute,
             EveryMs = band.EveryMs,
+            Days = band.Days,
             TopicId = band.TopicId,
             Position = position ?? band.Position,
             Enabled = band.Enabled,

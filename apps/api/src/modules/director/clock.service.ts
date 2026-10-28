@@ -108,7 +108,13 @@ export class ClockService {
         const shape: StoredBand =
             input.at === 'interval'
                 ? { at: 'interval', everyMs: input.everyMs ?? 60_000, kind: input.kind }
-                : { at: 'clock', minute: input.minute ?? 0, ...(input.hour === undefined ? {} : { hour: input.hour }), kind: input.kind };
+                : {
+                      at: 'clock',
+                      minute: input.minute ?? 0,
+                      ...(input.hour === undefined ? {} : { hour: input.hour }),
+                      ...(input.days === undefined || input.days.length === 0 ? {} : { days: input.days }),
+                      kind: input.kind,
+                  };
 
         return { ...shape, ...(await subjectFor(this.topics, input)), position: input.position, enabled: input.enabled };
     }
@@ -183,6 +189,8 @@ const forTheWire = (band: ClockBandRecord): ClockBand => ({
     at: band.at,
     position: band.position,
     enabled: band.enabled,
-    ...(band.at === 'clock' ? { minute: band.minute, ...(band.hour === undefined ? {} : { hour: band.hour }) } : { everyMs: band.everyMs }),
+    ...(band.at === 'clock'
+        ? { minute: band.minute, ...(band.hour === undefined ? {} : { hour: band.hour }), ...(band.days === undefined ? {} : { days: [...band.days] }) }
+        : { everyMs: band.everyMs }),
     ...(band.topic === undefined ? {} : { topicId: band.topic.id, topicLabel: band.topic.label }),
 });

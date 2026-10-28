@@ -40,6 +40,12 @@ export interface AnchoredBand {
     minute: number;
     /** The hour it happens at, or absent for every hour. */
     hour?: number;
+    /**
+     * The weekdays it happens on, Sunday `0`, read on the station's own clock. Absent or empty is every
+     * day, which is `ScheduleSlot.days`'s convention: an operator who never thought about weekdays
+     * should not have to tick seven boxes to say so.
+     */
+    days?: readonly number[];
     kind: string;
     /** What this one is ABOUT. See {@link ClockBandSubject}. */
     topic?: ClockBandSubject;
@@ -109,12 +115,15 @@ export type ClockBandDraft = ClockBand & { position?: number; enabled?: boolean 
  */
 export function nextOccurrence(band: AnchoredBand, after: number, zone: string): number {
     const step = band.hour === undefined ? 3_600_000 : 86_400_000;
+    const days = band.days !== undefined && band.days.length > 0 ? new Set(band.days) : undefined;
 
     // Enough steps to clear a day either way. An hourly band needs at most 25 to survive a clock
-    // going back, and a daily one at most 2.
-    for (let attempt = 0; attempt <= 26; attempt++) {
+    // going back, and a daily one at most 2. A band on chosen days may have to clear a week first:
+    // a Monday band asked on a Tuesday is six days and a bit out, so eight days of steps either way.
+    const attempts = days === undefined ? 26 : band.hour === undefined ? 8 * 24 + 2 : 9;
+    for (let attempt = 0; attempt <= attempts; attempt++) {
         const at = alignedTo(band, after + attempt * step, zone);
-        if (at !== undefined && at > after) return at;
+        if (at !== undefined && at > after && (days === undefined || days.has(readClock(at, zone).weekday))) return at;
     }
 
     // Unreachable for any real zone. Answering the far future rather than throwing keeps a bad

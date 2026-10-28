@@ -68,6 +68,7 @@ export const ConfigFieldOptionSource = z.enum([
     'station.newsFeeds',
     'station.podcastShows',
     'station.narrationSeries',
+    'station.ownShows',
     'intl.timeZones',
     'plugins.speech',
     'plugins.llm',

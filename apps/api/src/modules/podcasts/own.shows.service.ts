@@ -6,6 +6,8 @@ import { stationZone } from '#modules/director/clock.words.js';
 import { NewsService } from '#modules/news/news.service.js';
 import type { NewsItem } from '@deadair/plugin-sdk';
 import { ProductionsService } from '#modules/productions/productions.service.js';
+import { ProductionRepository } from '#modules/productions/production.repository.js';
+import type { ProductionSource } from '#modules/productions/production.js';
 import type { Production, ProductionList } from '#modules/productions/types/productions.types.js';
 import { DEFAULT_NEWS_HOURS, type OwnShowRecord, type OwnShowWrite } from './own.show.js';
 import { OwnShowRepository } from './own.show.repository.js';
@@ -26,6 +28,15 @@ const PASTED = 'Pasted text';
  */
 export const NEWS_STORIES = 6;
 
+/**
+ * How many earlier editions are read for the stories they already covered.
+ *
+ * More than a show makes in its longest window (a week, at three editions a day, is twenty-one): an
+ * edition outside the window cannot share a story with this one anyway, since the window is what bounds
+ * how old a story may be.
+ */
+const EARLIER_EDITIONS = 30;
+
 /** What an episode of a news show is about when neither it nor its show says. */
 const NEWS_BRIEF = "Today's news in depth: a few of the day's stories explained properly, rather than many read out.";
 
@@ -44,6 +55,7 @@ export class OwnShowsService {
         private readonly productions: ProductionsService,
         private readonly news: NewsService,
         private readonly config: AppConfig,
+        private readonly editions: ProductionRepository,
     ) {}
 
     async list(): Promise<OwnShowList> {
@@ -132,29 +144,59 @@ export class OwnShowsService {
      * `NewsService.fetchItems`, so a story an operator keeps off the air is kept out of the episode
      * too. Refused when there is nothing to read, rather than queueing an episode its research pass
      * would only fail.
+     *
+     * A story an earlier edition of this show already covered, inside the same window, is left out: the
+     * noon edition re-reading the morning's is the bulletin's repeat in a longer form, and a listener
+     * hears it as the station not knowing what it said. Each feed is asked for twice the stories an
+     * edition reads, so there is something left after the cut. An edition that failed or was cancelled
+     * never aired, so it has covered nothing. When everything on the feeds has been covered the request
+     * is refused, on the bulletin's own argument: silence an operator can see beats a repeat.
      */
     private async newsSources(show: OwnShowRecord): Promise<{ title: string; url?: string; text: string }[]> {
         const hours = show.newsHours ?? DEFAULT_NEWS_HOURS;
-        const since = new Date(Date.now() - hours * 60 * 60_000).toISOString();
+        const sinceMs = Date.now() - hours * 60 * 60_000;
+        const since = new Date(sinceMs).toISOString();
 
         const items: NewsItem[] = [];
         for (const feedId of show.newsFeedIds ?? []) {
-            items.push(...(await this.news.fetchItems({ feedId, since, limit: NEWS_STORIES })));
+            items.push(...(await this.news.fetchItems({ feedId, since, limit: NEWS_STORIES * 2 })));
         }
 
-        const sources = newsSourcesOf(items);
+        const earlier = (await this.editions.forShow(show.id, EARLIER_EDITIONS))
+            .filter(edition => edition.createdAt >= sinceMs && edition.state !== 'failed' && edition.state !== 'cancelled')
+            .flatMap(edition => edition.sources ?? []);
+
+        const sources = newsSourcesOf(items, NEWS_STORIES, coveredBy(earlier));
         if (sources.length === 0) {
-            throw httpError(400).withDetails({ message: `"${show.title}" found no stories on its feeds in the last ${hours} hours` });
+            const why = items.length === 0 ? 'found no stories on its feeds' : 'has already covered every story on its feeds';
+            throw httpError(400).withDetails({ message: `"${show.title}" ${why} in the last ${hours} hours` });
         }
         return sources;
     }
 }
 
 /**
- * Stories as sources, newest first: one per story that has words in it beyond its headline, the same
- * story twice taken once, and no more than {@link NEWS_STORIES}.
+ * What earlier editions covered, as the keys {@link newsSourcesOf} leaves out: each source's address and
+ * its headline, lowercased, since one story fetched twice can come back under either.
  */
-export function newsSourcesOf(items: readonly NewsItem[], most = NEWS_STORIES): { title: string; url?: string; text: string }[] {
+export function coveredBy(sources: readonly Pick<ProductionSource, 'title' | 'url'>[]): Set<string> {
+    const keys = new Set<string>();
+    for (const source of sources) {
+        if (source.url !== undefined) keys.add(source.url.toLowerCase());
+        keys.add(source.title.toLowerCase());
+    }
+    return keys;
+}
+
+/**
+ * Stories as sources, newest first: one per story that has words in it beyond its headline, the same
+ * story twice taken once, none an earlier edition {@link coveredBy}, and no more than {@link NEWS_STORIES}.
+ */
+export function newsSourcesOf(
+    items: readonly NewsItem[],
+    most = NEWS_STORIES,
+    covered: ReadonlySet<string> = new Set(),
+): { title: string; url?: string; text: string }[] {
     const seen = new Set<string>();
     const newest = [...items].sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
     const sources: { title: string; url?: string; text: string }[] = [];
@@ -166,6 +208,8 @@ export function newsSourcesOf(items: readonly NewsItem[], most = NEWS_STORIES): 
 
         const key = (item.url ?? item.title).toLowerCase();
         if (seen.has(key)) continue;
+        // The headline as it would have been stored, cut where a source's title is cut.
+        if (covered.has(key) || covered.has(item.title.slice(0, 300).toLowerCase())) continue;
         seen.add(key);
 
         sources.push({

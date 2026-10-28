@@ -11,6 +11,7 @@ import { pluginSummary } from '../../utils/plugin.fixture';
 const listPlugins = vi.fn();
 const listFeeds = vi.fn();
 const listShows = vi.fn();
+const listOwnShows = vi.fn();
 const suggestPluginConfigOptions = vi.fn();
 const listCapabilityProviders = vi.fn();
 
@@ -26,6 +27,7 @@ vi.mock('../../../src/api/client', () => ({
         },
         podcasts: {
             listShows: (...args: unknown[]) => listShows(...args),
+            listOwnShows: (...args: unknown[]) => listOwnShows(...args),
         },
     },
 }));
@@ -34,6 +36,7 @@ afterEach(() => {
     listPlugins.mockReset();
     listFeeds.mockReset();
     listShows.mockReset();
+    listOwnShows.mockReset();
     suggestPluginConfigOptions.mockReset();
     listCapabilityProviders.mockReset();
 });
@@ -114,6 +117,18 @@ describe('useDeclaredOptions', () => {
 
         await waitFor(() => expect(result.current.show).toEqual([{ value: 'deadair.podcast:73b7fb89', label: 'The Long Wave' }]));
         expect(listFeeds).not.toHaveBeenCalled();
+    });
+
+    // A `podcast` band's topic stores the station's own show by its row id, and an operator picks by its title.
+    it("resolves station.ownShows to the shows the station makes", async () => {
+        const queryClient = createTestQueryClient();
+        listOwnShows.mockResolvedValue({ shows: [{ id: 'show-1', title: 'Evening News', createdAt: '2026-10-27T00:00:00Z' }] });
+
+        const fields = [stringField({ key: 'show', type: 'select', optionsFrom: 'station.ownShows' })];
+        const { result } = renderHook(() => useDeclaredOptions(fields), { wrapper: wrapWithQueryClient(queryClient) });
+
+        await waitFor(() => expect(result.current.show).toEqual([{ value: 'show-1', label: 'Evening News' }]));
+        expect(listShows).not.toHaveBeenCalled();
     });
 
     it.each(['plugins.speech', 'plugins.llm', 'plugins.mixer', 'plugins.analysis'] as const)(

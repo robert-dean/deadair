@@ -12,6 +12,8 @@ export interface ClockBand {
     hour?: number;
     /** For a `clock` band: minutes past the hour */
     minute?: number;
+    /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
+    days?: number[];
     /** For an `interval` band: how far apart, in milliseconds */
     everyMs?: number;
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */
@@ -33,6 +35,8 @@ export interface ClockBandInput {
     hour?: number;
     /** For a `clock` band: minutes past the hour */
     minute?: number;
+    /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
+    days?: number[];
     /** For an `interval` band: how far apart, in milliseconds */
     everyMs?: number;
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */

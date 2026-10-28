@@ -8,16 +8,17 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ClockBandList } from '@deadair/sdk';
 
 import { ClockPanel } from '../../../src/components/schedule/clock.panel';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listClockBands = vi.fn();
+const updateClockBand = vi.fn(async () => ({ bands: [], producibleKinds: [] }));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         director: {
             listClockBands: () => listClockBands(),
             createClockBand: vi.fn(),
-            updateClockBand: vi.fn(),
+            updateClockBand: (...args: unknown[]) => updateClockBand(...(args as [])),
             deleteClockBand: vi.fn(),
         },
         topics: { listTopics: () => Promise.resolve({ topics: [] }) },
@@ -78,5 +79,23 @@ describe('ClockPanel', () => {
 
         answer(clock([band({ kind: 'weather' })], []));
         await waitFor(() => expect(screen.getByText('nothing can produce this')).toBeTruthy());
+    });
+});
+
+// A reorder writes the whole band back, since `PUT` replaces the row. A move that dropped the days would
+// put a weekday news show on at the weekend.
+describe('moving a band', () => {
+    it('keeps the days it is on', async () => {
+        const user = setupUser();
+        listClockBands.mockResolvedValue(
+            clock([band({ id: 'weekdays', kind: 'podcast', hour: 18, minute: 0, days: [1, 2, 3, 4, 5] }), band({ id: 'news', position: 1 })], ['news', 'podcast']),
+        );
+
+        render(<ClockPanel />);
+        const [down] = await screen.findAllByRole('button', { name: 'Move down' });
+        await user.click(down!);
+
+        await waitFor(() => expect(updateClockBand).toHaveBeenCalled());
+        expect(updateClockBand.mock.calls[0]).toEqual(['weekdays', expect.objectContaining({ days: [1, 2, 3, 4, 5], position: 1 })]);
     });
 });

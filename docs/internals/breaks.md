@@ -768,6 +768,14 @@ stories — the same inaccuracy `chooseFacts` buys, against the same alternative
 disagree. `forget` runs on the way IN rather than when stories are kept, or the one station that needs it most
 (a feed so slow every bulletin declines) would be the one whose log never aged out.
 
+**A news show's edition spends its stories too** (`editionHeadlines`). An episode of one of the station's own
+shows, once the director places it in the running order, keeps the headlines of its linked sources in the
+same log, so a bulletin half an hour after the six o'clock edition does not read its stories again in a
+shorter voice. At placement rather than at commission, because an edition is made up to three hours ahead
+and marking it then would starve every bulletin in between of stories the edition has not yet covered;
+placement is minutes before air, which is the "marked at selection" argument below. Pasted text has no
+headline a bulletin could read, so only a source with an address counts.
+
 **When everything in the window has been read the slot is DECLINED**, on the freshness window's own argument.
 The other half is `BreakPromptShape.showsFacts`, off for `NEWS_SHAPE` alone: the record coming up is shown so
 the bulletin can hand back in a line, and its NOTES are withheld, because both false discography claims this
@@ -1141,6 +1149,16 @@ boundary and `blockedBy(taken)` keeps a jingle off it and off the boundary eithe
 station's own words when the library has none. It is behind `rotation.breaks`, since a jingle is the
 station interrupting its music, is not scaled by the presenter's chattiness, and has no per-broadcast
 override. The two rules coexist: each counts every `jingle` in the order, so the tighter one decides.
+
+**A band at a time of day can be on chosen days** (`clock_bands.days`, migration 0122), which is what lets a
+news show run on weekdays. It is `schedule_slots.days`'s shape and convention, so the two editors share one
+chip row: a jsonb array of weekdays, Sunday 0, and EMPTY IS EVERY DAY. The day is read on the station's own
+clock inside `nextOccurrence`, the one function every reader of a band goes through (the planner and the
+three schedulers that read ahead), which steps up to eight days forward when a band has days, so a
+Monday-only band asked on a Tuesday is still found and a weekend with a clock change in it is crossed
+correctly. An interval band is a spacing rule with no day to be on, and its days are written empty. Both
+consoles send a band's days back on a reorder, since `PUT` replaces the row; the desktop editor carries them
+through unchanged and has no picker of its own yet.
 
 **Minutes rather than an SQL `interval`**, for `starts_at_minutes`'s reason — every occurrence is computed in
 JS against `Intl`, nothing does interval arithmetic in SQL, and `interval '1 mon'` is not a fixed number of

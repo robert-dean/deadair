@@ -64,6 +64,13 @@ public sealed class DeclaredOptions(OperatorActions actions, HttpClient http)
             resolved[ConfigFieldOptionSource.StationPodcastShows] = shows is null ? [] : [.. shows.Shows.Select(show => Option(show.Id, show.Title))];
         }
 
+        if (wanted.Contains(ConfigFieldOptionSource.StationOwnShows))
+        {
+            var own = await actions.RunAsync(token => sdk.Podcasts.ListOwnShowsAsync(token), cancellationToken: cancellationToken)
+                .ConfigureAwait(true);
+            resolved[ConfigFieldOptionSource.StationOwnShows] = own is null ? [] : [.. own.Shows.Select(show => Option(show.Id, show.Title))];
+        }
+
         if (wanted.Contains(ConfigFieldOptionSource.StationNarrationSeries))
         {
             var series = await actions.RunAsync(token => sdk.Narrations.ListSeriesAsync(token), cancellationToken: cancellationToken)

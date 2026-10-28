@@ -35,6 +35,11 @@ public sealed record ClockBand
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Minute { get; init; }
 
+    /// <summary>For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<long>? Days { get; init; }
+
     /// <summary>For an `interval` band: how far apart, in milliseconds</summary>
     [JsonPropertyName("everyMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -79,6 +84,11 @@ public sealed record ClockBandInput
     [JsonPropertyName("minute")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Minute { get; init; }
+
+    /// <summary>For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<long>? Days { get; init; }
 
     /// <summary>For an `interval` band: how far apart, in milliseconds</summary>
     [JsonPropertyName("everyMs")]

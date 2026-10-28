@@ -74,6 +74,15 @@ try {
     check(isAnchored(daily) && daily.hour === 9 && daily.minute === 0, 'a daily band keeps the hour it was written with');
     check(!isAnchored(spacing) && spacing.everyMs === 90 * 60_000, 'minutes go in and milliseconds come back');
 
+    // Weekdays go in as a set and come back once each, in order; none at all is every day, read back as absent.
+    check(isAnchored(daily) && daily.days === undefined, 'a band written with no days is every day');
+    const weekdays = must(
+        await bands.create({ at: 'clock', hour: 18, minute: 0, days: [5, 1, 3, 1], kind: KIND, position: 5 }),
+        'a band on chosen days',
+    );
+    check(isAnchored(weekdays) && JSON.stringify(weekdays.days) === '[1,3,5]', 'a band keeps the days it was written with, once each');
+    await bands.remove(weekdays.id);
+
     // ── the shape check ───────────────────────────────────────────────────────
     const refused = await db
         .insertInto('deadair.clockBands')

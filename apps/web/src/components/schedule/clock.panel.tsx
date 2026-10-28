@@ -11,7 +11,7 @@ import { severityColor } from '../shared/status';
 import { BandEditor, type BandTarget } from './band.editor';
 import { FormatClockDial } from './format.clock.dial';
 import { i18n } from '../../i18n/i18n.setup';
-import { formatWallTime } from '../../i18n/format.locale';
+import { formatWallTime, weekdayShort } from '../../i18n/format.locale';
 
 /**
  * The station's format clock, on the page that already answers "what happens when".
@@ -152,6 +152,11 @@ export function ClockPanel() {
                                                     <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
                                                         {whenOf(band)}
                                                     </Text>
+                                                    {daysOf(band) === undefined ? undefined : (
+                                                        <Text size="xs" c="dimmed">
+                                                            {daysOf(band)}
+                                                        </Text>
+                                                    )}
                                                 </Table.Td>
                                                 <Table.Td>
                                                     <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
@@ -248,12 +253,39 @@ export function whenOf(band: ClockBand): string {
     return band.hour === undefined ? `:${minute}` : formatWallTime(band.hour, band.minute ?? 0);
 }
 
+/** The week from Monday, which is how a run like "Mon–Fri" is read. Sunday is still 0, as the API has it. */
+const WEEK_FROM_MONDAY: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+
+/**
+ * The days a band runs on, compactly, or `undefined` for every day: a run of three or more as a range
+ * ("Mon–Fri") and anything shorter by name ("Sat, Sun"). Drawn under the time rather than beside it,
+ * since the time's column is a few characters wide and a list of days wrapped it into three lines.
+ */
+export function daysOf(band: ClockBand): string | undefined {
+    if (band.days === undefined || band.days.length === 0) return undefined;
+    const on = new Set(band.days);
+
+    const runs: number[][] = [];
+    for (const day of WEEK_FROM_MONDAY) {
+        if (!on.has(day)) continue;
+        const last = runs.at(-1);
+        const previous = last?.at(-1);
+        if (last !== undefined && previous !== undefined && WEEK_FROM_MONDAY.indexOf(previous) === WEEK_FROM_MONDAY.indexOf(day) - 1) last.push(day);
+        else runs.push([day]);
+    }
+
+    return runs.map(run => (run.length >= 3 ? `${weekdayShort(run[0]!)}–${weekdayShort(run.at(-1)!)}` : run.map(weekdayShort).join(', '))).join(', ');
+}
+
 /** A band as the shape a write takes: everything but the id, which the URL carries. */
 const bodyOf = (band: ClockBand): ClockBandInput => ({
     kind: band.kind,
     at: band.at,
     ...(band.hour === undefined ? {} : { hour: band.hour }),
     ...(band.minute === undefined ? {} : { minute: band.minute }),
+    // The days go back for the topic's reason below: a reorder that dropped them would put a
+    // weekday news show on at the weekend.
+    ...(band.days === undefined || band.days.length === 0 ? {} : { days: band.days }),
     ...(band.everyMs === undefined ? {} : { everyMs: band.everyMs }),
     // What it is about goes back too: `PUT` replaces the row, so a reorder that sent only the
     // position would quietly turn a technology bulletin into a general one.

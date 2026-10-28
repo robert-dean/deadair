@@ -5,6 +5,7 @@ import { NEWS_TOPIC_KIND } from '#modules/news/news.topic.kind.js';
 import { WEATHER_TOPIC_KIND } from '#modules/weather/weather.topic.kind.js';
 import { NARRATION_TOPIC_KIND } from '#modules/narrations/narration.topic.kind.js';
 import { SYNDICATED_TOPIC_KIND } from '#modules/podcasts/syndicated.topic.kind.js';
+import { OWN_SHOW_TOPIC_KIND } from '#modules/podcasts/own.show.topic.kind.js';
 import type { TopicKind } from './topic.js';
 import { TopicKindRegistry } from './topic.kind.registry.js';
 import { TopicRepository } from './topic.repository.js';
@@ -49,7 +50,7 @@ export const TopicsModule: ServerKitModule = {
  * News first because it is the one every station uses, and weather second
  * because most stations name nothing here at all: the station's own place is a
  * setting, and a location row is for somewhere ELSE. Shows and series last,
- * because only a station that subscribes to podcasts or has been given something
- * to read out has any of either.
+ * because only a station that subscribes to podcasts, makes its own, or has been
+ * given something to read out has any of them.
  */
-const KINDS: readonly TopicKind[] = [NEWS_TOPIC_KIND, WEATHER_TOPIC_KIND, SYNDICATED_TOPIC_KIND, NARRATION_TOPIC_KIND];
+const KINDS: readonly TopicKind[] = [NEWS_TOPIC_KIND, WEATHER_TOPIC_KIND, SYNDICATED_TOPIC_KIND, OWN_SHOW_TOPIC_KIND, NARRATION_TOPIC_KIND];

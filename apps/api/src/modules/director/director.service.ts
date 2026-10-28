@@ -28,6 +28,7 @@ import { NarrationScheduler } from '#modules/narrations/narration.scheduler.js';
 import { isNarrationKind } from '#modules/narrations/narration.kind.js';
 import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repository.js';
 import { PodcastScheduler } from '#modules/podcasts/podcast.scheduler.js';
+import { OwnShowScheduler } from '#modules/podcasts/own.show.scheduler.js';
 import { RENDER_SOURCE, SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { WARMUP_KIND } from './warmup.writer.js';
@@ -45,6 +46,7 @@ import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
 import { PRODUCTION_SHELF_LIFE_MS, productionExpired, productionLanding, standingCall } from './production.shelf.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
+import { editionHeadlines, ReadLog } from './bulletin.source.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { breakPicture } from './break.picture.js';
@@ -1325,6 +1327,11 @@ export class DirectorService {
 
                     await productions.moveTo(production.id, 'aired', 'ready');
                     placed += 1;
+
+                    // A news edition's stories are now the station's to have said, so the bulletins
+                    // after it pass over them. See `editionHeadlines`.
+                    const covered = editionHeadlines(production);
+                    if (covered.length > 0) await scope.get(ReadLog).keep(covered, Date.now());
                     this.logger.info('director: put a production into the running order', {
                         production: production.id,
                         title: production.title,
@@ -2429,6 +2436,12 @@ export class DirectorService {
                 banterEveryMinutes: rules.banterEveryMinutes,
             });
         }).catch(error => this.logger.warn(`director: could not commission scheduled productions (${errorText(error)})`));
+
+        // The same reading ahead for a band naming one of the station's own shows, whose episode is made
+        // as that show's rather than inside this broadcast, so nothing about the show on air is passed.
+        await inScope(this.container, async scope => {
+            await scope.get(OwnShowScheduler).ripen(Date.now());
+        }).catch(error => this.logger.warn(`director: could not make the shows the clock will want (${errorText(error)})`));
 
         // The same reading ahead, for a band that carries somebody else's programme: its audio is
         // fetched hours before the slot so the planner below only has to place it. Nothing about the

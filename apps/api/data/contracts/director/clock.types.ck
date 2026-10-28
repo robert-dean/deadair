@@ -11,6 +11,7 @@ contract ClockBand: {
     at: enum(clock, interval) # `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover
     hour?: int(min=0, max=23) # For a `clock` band: the hour it happens at. Absent means every hour, which is the common case
     minute?: int(min=0, max=59) # For a `clock` band: minutes past the hour
+    days?: array(int(min=0, max=6)) # For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day
     everyMs?: int(min=60000) # For an `interval` band: how far apart, in milliseconds
     position: int(min=0) # Where this sits in the operator's own order, which is what settles a boundary two rules both want
     enabled: boolean # A rule turned off without being lost

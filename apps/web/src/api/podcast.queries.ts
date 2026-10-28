@@ -170,9 +170,11 @@ export function useSubscribePodcast() {
  */
 const OWN_EPISODES_POLL_MS = 10_000;
 
+export const ownShowsOptions = queryOptions({ queryKey: queryKeys.podcasts.own(), queryFn: () => sdk.podcasts.listOwnShows() });
+
 /** The shows the station makes for itself. */
 export function useOwnShows() {
-    return useQuery({ queryKey: queryKeys.podcasts.own(), queryFn: () => sdk.podcasts.listOwnShows() });
+    return useQuery(ownShowsOptions);
 }
 
 /** One of the station's own shows' episodes, newest first, re-read while they are being made. */

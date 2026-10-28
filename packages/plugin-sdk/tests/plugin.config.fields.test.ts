@@ -22,6 +22,7 @@ const everyOptionSource: Record<ConfigFieldOptionSource, true> = {
     'station.newsFeeds': true,
     'station.podcastShows': true,
     'station.narrationSeries': true,
+    'station.ownShows': true,
     'intl.timeZones': true,
     'plugins.speech': true,
     'plugins.llm': true,

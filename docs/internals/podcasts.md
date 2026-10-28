@@ -211,6 +211,13 @@ about, and it keeps the research pass knowing nothing about shows. A request wit
 window is refused there, rather than queueing an episode its research pass could only fail. Pasted text takes
 the news's place, since somebody who pasted something meant that.
 
+**An edition does not repeat the last one.** A story an earlier episode of the same show already used, inside
+the show's news window, is left out (`coveredBy`, read off `productions.sources` through `forShow`), matched on
+its address and then on its headline, since one story fetched twice can come back under either. Each feed is
+asked for twice the six stories so something is left after the cut. An episode that failed or was cancelled
+never aired and covers nothing. With everything covered the request is refused and says so: on the clock the
+slot falls back to ordinary programming, which is the bulletin's own answer to a feed that has not moved.
+
 **A show can research its episodes** (`own_shows.research`): an episode handed nothing to read is commissioned
 with `research` set, and finds its own sources on the operator's trusted sites (`productions.md` § "What it may
 state as fact"). Pasted text, a page or the news is what an episode was asked to be about, so any of those wins.
@@ -221,8 +228,33 @@ ideas. Deleting a show keeps its episodes, no longer filed under it, because an 
 aired and the production row is the record of it.
 
 **An episode airs as a production, not through a `syndicated` band.** The time somebody gives an episode
-is what places it, so a show needs no band on the clock. Putting one of the station's own shows on the
-format clock, so the station makes its next episode ahead of the band, is not built.
+is what places it, so a show asked for by hand needs no band on the clock.
+
+**A show can be put on the format clock, and the station then makes it without being asked**
+(`OwnShowScheduler`, `own.show.topic.kind.ts`). A `podcast` band whose topic names one of the station's
+own shows is read `COMMISSION_AHEAD_MS` ahead, and its episode asked for through `requestEpisode` with the
+band's time as `airAt`: the same call the Podcasts page makes, so the show's presenter, length, writing
+mode, feeds and research all apply and the episode is filed under the show. That is how a news show becomes
+an edition at seven, noon and six rather than something somebody remembers to ask for. A `podcast` band
+with no topic is what it always was, `ProductionScheduler`'s programme about whatever the broadcast it airs
+inside is about, and that scheduler passes over a band that names a show (`namesOwnShow`), or the slot would
+be made twice. It is here rather than in `ProductionScheduler` because the import would run backwards:
+`OwnShowsService` already reaches `ProductionsService`, which reaches the scheduler.
+
+**A news show is asked for no earlier than it needs to be** (`aheadFor`). The stories are read when the
+episode is asked for, so at the full three hours a six o'clock edition was the three o'clock news. A show
+that reads the news gets `NEWS_MAKE_RATIO` (six) minutes of making per minute it runs, between an hour and
+three: a fifteen-minute edition is asked for ninety minutes out, a half hour at the full three. The six is
+measured rather than chosen: on 2026-10-27 the live station had never made a `podcast` production, and the
+nearest thing it had, a banter, took 5.9 minutes of making per minute at the 90th percentile. A show with no
+length of its own is reckoned at the top of the station's range, so a long one is never starved. A show that
+does not read the news keeps the full read-ahead, since nothing it is about goes stale.
+
+Idempotent by the table: a production filed under the show for that instant means one is being made. A
+show that refuses (a news show with nothing on its feeds yet) is asked again after `REFUSED_RETRY_MS`
+rather than on every commit pass, since every ask reads the feeds, and the refusal is logged once per slot.
+The memory of a refusal is module state and a restart forgets it, which costs one more ask; the memory of a
+commission is the table, because forgetting that would cost a second episode.
 
 ## What is not built
 

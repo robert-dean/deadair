@@ -137,6 +137,11 @@ TABLE READ in a fixed order: one unsettled call-in for this broadcast means one 
 clock does not start until it AIRS, so checking the spacing first would queue a switchboard. Nine things are
 load-bearing, in two halves: how long a turn is and who takes it, then what a caller may say.
 
+**A band naming one of the station's own shows is not commissioned here.** `ProductionScheduler` passes it
+over and `OwnShowScheduler` asks the show for it through the Podcasts page's own call, so it takes the
+SHOW's presenter and subject rather than the broadcast's: an evening news edition is not about the
+playlist it interrupts. See `podcasts.md` § "Shows the station makes".
+
 **The same rule decides whether a finished call is PLACED, not only whether one is commissioned**
 (`standingCall` in `director/production.shelf.ts`). A call takes minutes to make, so the broadcast that
 asked for it is often not the one on air when it is ready, and a playlist put on with no calls used to air

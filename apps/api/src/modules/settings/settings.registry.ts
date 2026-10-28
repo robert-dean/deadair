@@ -55,6 +55,7 @@ import {
 } from '#modules/director/weather.source.js';
 import {
     BULLETIN_KEYS,
+    DEFAULT_CATEGORY_FALLBACK,
     DEFAULT_MAX_AGE_HOURS,
     DEFAULT_STORY_COUNT_MAX,
     DEFAULT_STORY_COUNT_MIN,
@@ -1309,6 +1310,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_MAX_AGE_HOURS,
         help: 'Anything older than this is not read. A feed that stopped updating yesterday would otherwise have the station reading last night as though it had just happened, and a listener cannot tell that from the station being wrong. A bulletin with nothing fresh enough is skipped rather than filled.',
+    },
+    {
+        group: 'bulletins',
+        key: BULLETIN_KEYS.categoryFallback,
+        label: 'When a category has no news',
+        type: 'select',
+        default: DEFAULT_CATEGORY_FALLBACK,
+        options: [
+            { value: 'skip', label: 'Skip the slot' },
+            { value: 'general', label: 'Read the general news instead' },
+        ],
+        help: 'What a bulletin the format clock asked for about one of your categories does when nothing unread belongs to it. Skipping keeps the slot honest: the station never reads the day’s headlines as though they were the technology news. Reading the general news fills it, introduced as the news rather than as the category. Either way the activity feed says the category ran dry.',
     },
     {
         group: 'bulletins',

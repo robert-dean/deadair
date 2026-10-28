@@ -748,6 +748,89 @@ describe('what the bulletin is about', () => {
         expect(bulletin?.subject).toEqual({ key: 'technology', label: 'Technology' });
     });
 
+    describe('when the operator would rather hear the general news', () => {
+        const general = { [BULLETIN_KEYS.categoryFallback]: 'general' };
+
+        it('reads the general news in place of an empty category, introduced as the news', async () => {
+            const { source } = build({ items: [item('Council votes on the harbour')], topics: [technology] }, general);
+
+            const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toEqual(['Council votes on the harbour.']);
+            // Dropped, which is the whole safeguard: with no subject both writers say plain "News",
+            // so the harbour story is never introduced as the technology news.
+            expect(bulletin?.subject).toBeUndefined();
+        });
+
+        it('still reads the category when the category has something', async () => {
+            const { source } = build({ items: page, topics: [technology, sport] }, general);
+
+            const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toEqual(['Semiconductor plant reopens.']);
+            expect(bulletin?.subject).toEqual({ key: 'technology', label: 'Technology' });
+        });
+
+        it('still passes over the slot when there is no general news either', async () => {
+            const read = readLog();
+            await read.keep(['Council votes on the harbour.'], NOW - 60_000);
+            const { source } = build({ items: [item('Council votes on the harbour')], topics: [technology], read }, general);
+
+            const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+            expect(bulletin?.stories).toEqual([]);
+            expect(bulletin?.subject).toEqual({ key: 'technology', label: 'Technology' });
+        });
+
+        it('still says the category ran dry, worded for what the station did instead', async () => {
+            const { source } = build({ items: [item('Council votes on the harbour')], topics: [technology] }, general);
+
+            await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+            expect(activity.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    kind: 'news.categoryEmpty',
+                    detail: expect.stringContaining('reading the general news in that slot instead'),
+                    data: expect.objectContaining({ fellBack: true }),
+                }),
+            );
+        });
+
+        it('keeps the general news it read out of the next bulletin, like any other', async () => {
+            const read = readLog();
+            const dry = { items: [item('Council votes on the harbour'), item('Ferry timetable changes')], topics: [technology], read };
+
+            await build(dry, { ...general, [BULLETIN_KEYS.storiesMin]: 1, [BULLETIN_KEYS.storiesMax]: 1 }).source.storiesFor(
+                NEWS_KIND,
+                { topic: 'technology' },
+                NOW,
+            );
+            const next = await build(dry, { [BULLETIN_KEYS.storiesMin]: 1, [BULLETIN_KEYS.storiesMax]: 1 }).source.storiesFor(
+                NEWS_KIND,
+                undefined,
+                NOW + 60_000,
+            );
+
+            expect(next?.stories.map(story => story.headline)).toEqual(['Ferry timetable changes.']);
+        });
+
+        it('reads the stored text, and skips for anything it does not recognise', async () => {
+            // A setting is a string. Only the one word turns the fallback on.
+            for (const value of ['skip', '', 'true', 'General news', undefined]) {
+                const { source } = build(
+                    { items: [item('Council votes on the harbour')], topics: [technology] },
+                    { [BULLETIN_KEYS.categoryFallback]: value },
+                );
+                expect((await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW))?.stories, String(value)).toEqual([]);
+            }
+            const { source } = build(
+                { items: [item('Council votes on the harbour')], topics: [technology] },
+                { [BULLETIN_KEYS.categoryFallback]: ' General ' },
+            );
+            expect((await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW))?.stories).toHaveLength(1);
+        });
+    });
+
     it('says an empty category out loud once, and again only after it has filled', async () => {
         // A producer writes on EDGES: a row per bulletin would make the activity feed a log file
         // with a primary key, and the station asks for one of these every half hour.

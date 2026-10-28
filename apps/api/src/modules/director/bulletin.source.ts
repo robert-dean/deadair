@@ -37,11 +37,18 @@ import { numberInRange } from '#modules/shared/setting.numbers.js';
  * one substrate, and the model binding and the floor cannot disagree about what a technology
  * bulletin is.
  *
- * A category that matches nothing DECLINES the slot rather than falling back to general news. That
- * is the `clean-only` advisory posture — demand a positive match, say so where an operator will see
- * it, and never air the wrong thing under the right name — and it is the same trade the freshness
- * window and the read log already make: silence is a state somebody can act on, and a general
- * bulletin read under a category's name is not.
+ * A category that matches nothing DECLINES the slot rather than falling back to general news, unless
+ * the operator has said otherwise. That is the `clean-only` advisory posture — demand a positive
+ * match, say so where an operator will see it, and never air the wrong thing under the right name —
+ * and it is the same trade the freshness window and the read log already make: silence is a state
+ * somebody can act on, and a general bulletin read under a category's name is not.
+ *
+ * `rotation.newsCategoryFallback` is that "otherwise", asked for by a station whose bands name
+ * categories its forty feeds often leave empty, and which would rather hear the news than nothing.
+ * What it falls back to is a GENERAL bulletin, with the subject dropped, which is what keeps the
+ * posture intact: both writers say plain "News" when a bulletin carries no subject, so the harbour
+ * story is never introduced as the technology news. The empty category is still reported, worded
+ * for what the station did instead.
  *
  * ## Nothing here throws
  *
@@ -56,7 +63,28 @@ export const BULLETIN_KEYS = {
     storiesMin: 'rotation.newsStoriesMin',
     storiesMax: 'rotation.newsStoriesMax',
     maxAgeHours: 'rotation.newsMaxAgeHours',
+    /** What a bulletin about a category does when the category has nothing unread. See {@link CATEGORY_FALLBACKS}. */
+    categoryFallback: 'rotation.newsCategoryFallback',
 } as const;
+
+/**
+ * What a category bulletin does when its category has nothing unread: pass over the slot, or read
+ * the general news instead, introduced as the news and not as the category.
+ */
+export const CATEGORY_FALLBACKS = ['skip', 'general'] as const;
+export type CategoryFallback = (typeof CATEGORY_FALLBACKS)[number];
+
+/** Skip, which is what the station did before there was a choice. */
+export const DEFAULT_CATEGORY_FALLBACK: CategoryFallback = 'skip';
+
+/**
+ * The stored fallback, with anything unrecognised read as the default. A setting is a string, and a
+ * value nobody can parse is a setting nobody set.
+ */
+export function categoryFallback(config: AppConfig): CategoryFallback {
+    const value = String(config.get(BULLETIN_KEYS.categoryFallback, DEFAULT_CATEGORY_FALLBACK)).trim().toLowerCase();
+    return CATEGORY_FALLBACKS.find(candidate => candidate === value) ?? DEFAULT_CATEGORY_FALLBACK;
+}
 
 /**
  * How many stories a bulletin reads when the operator has not said, as the ends of a RANGE.
@@ -331,22 +359,33 @@ export class CategoryWatch {
         private readonly logger: Logger,
     ) {}
 
-    /** The rising edge: this category had nothing in the window the bulletin could read. */
-    empty(subject: BreakSubject, offered: number): void {
+    /**
+     * The rising edge: this category had nothing in the window the bulletin could read.
+     *
+     * `fellBack` says whether the station read the general news in its place, which is the same fact
+     * with a different outcome: the operator still needs to see that the category ran dry, or a band
+     * that has quietly been general news all week looks like one that is working.
+     */
+    empty(subject: BreakSubject, offered: number, fellBack = false): void {
         if (this.reported.has(subject.key)) return;
         this.reported.add(subject.key);
 
-        this.logger.info('director: a bulletin asked for a category with nothing in it, so the station passed over the slot', {
-            topic: subject.key,
-            offered,
-        });
+        this.logger.info(
+            fellBack
+                ? 'director: a bulletin asked for a category with nothing in it, so the station read the general news instead'
+                : 'director: a bulletin asked for a category with nothing in it, so the station passed over the slot',
+            { topic: subject.key, offered },
+        );
         void this.activity.record({
             module: 'director',
             kind: 'news.categoryEmpty',
             detail:
                 `The clock asks for a ${subject.label} bulletin, and none of the ${offered} stories the station could read belongs to that ` +
-                'category. It will pass over that slot until something does, or until the category is pointed at a feed that carries it.',
-            data: { topic: subject.key, offered },
+                (fellBack
+                    ? 'category, so it is reading the general news in that slot instead, introduced as the news rather than as the category. ' +
+                      'It will until something in the category does, or until the category is pointed at a feed that carries it.'
+                    : 'category. It will pass over that slot until something does, or until the category is pointed at a feed that carries it.'),
+            data: { topic: subject.key, offered, fellBack },
         });
     }
 
@@ -479,10 +518,12 @@ export class BulletinSource {
             await this.read.forget(now - windowMs);
 
             const offer = (page: readonly NewsItem[]): BreakStory[] => page.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []);
-            const eligibleIn = (page: readonly BreakStory[]): BreakStory[] => {
+            // `about` has no default: an explicit `undefined` is the general pass, and a default would
+            // quietly turn it back into the category.
+            const eligibleIn = (page: readonly BreakStory[], about: BreakSubject | undefined): BreakStory[] => {
                 const unread = page.filter(story => !this.read.has(story.headline));
                 // Cut to what this bulletin is about, when it was asked for one.
-                return asked === undefined ? unread : unread.filter(story => (story.categories ?? []).includes(asked.key));
+                return about === undefined ? unread : unread.filter(story => (story.categories ?? []).includes(about.key));
             };
 
             // A roster is asked feed by feed and kept feed by feed, which is what makes the station's
@@ -501,7 +542,7 @@ export class BulletinSource {
                     : await inRosterOrder(
                           roster,
                           async feedId => await this.news.fetchItems({ feedId, limit, since }),
-                          read => read.filter(page => eligibleIn(offer(page)).length > 0).length >= wanted,
+                          read => read.filter(page => eligibleIn(offer(page), asked).length > 0).length >= wanted,
                       );
 
             // Each feed's page carried the whole way down, so the round below has something to take
@@ -509,30 +550,48 @@ export class BulletinSource {
             const offeredBy = pages.map(offer);
             const offered = offeredBy.flat();
 
-            const eligibleBy = offeredBy.map(eligibleIn);
             const unread = offeredBy.flat().filter(story => !this.read.has(story.headline));
 
+            // The stories one bulletin about `about` (or about anything) would read off these pages.
+            //
             // Two ways of ordering one page, and which applies is decided by whether the operator
             // wrote a running order. With a roster the station's own turn-taking is the answer and
             // `spread` would fight it; without one there is a single merged page and `spread` is
             // what stops one category taking all of it. A briefed bulletin has had its variety
             // decided for it either way.
-            const eligible = roster.length === 0 ? (asked === undefined ? spread(eligibleBy[0] ?? []) : (eligibleBy[0] ?? [])) : inTurn(eligibleBy);
+            //
             // One story carried by two feeds is two items with one headline, and `ReadLog` only
             // stops it airing in a LATER bulletin. Both copies went into one on 10 October, and the
             // floor read the same story twice in a row. Before the cut, so the count is still met.
-            const stories = distinct(eligible).slice(0, wanted);
+            const choose = (about: BreakSubject | undefined): BreakStory[] => {
+                const eligibleBy = offeredBy.map(page => eligibleIn(page, about));
+                const eligible =
+                    roster.length === 0 ? (about === undefined ? spread(eligibleBy[0] ?? []) : (eligibleBy[0] ?? [])) : inTurn(eligibleBy);
+                return distinct(eligible).slice(0, wanted);
+            };
+
+            let stories = choose(asked);
+            let subject = asked;
 
             // The category is empty. DECLINED rather than filled with general news, which is the
             // whole point of asking for one: a listener cannot tell a technology bulletin that is
             // really the day's headlines from a station that has got it wrong. Said on the EDGE and
             // on the activity feed, because a slot passed over every half hour all afternoon is
             // otherwise invisible.
+            //
+            // Unless the operator chose the general news instead, in which case the bulletin is read
+            // with its subject DROPPED, so neither writer calls it the category. The pages are the
+            // ones already fetched: a roster asked for a category that turned out empty never
+            // settled, so it was read all the way down and nothing further is worth asking.
             if (asked !== undefined && stories.length === 0) {
-                this.watch.empty(asked, offered.length);
-                return { stories: [], subject: asked };
+                const general = categoryFallback(this.config) === 'general' ? choose(undefined) : [];
+                this.watch.empty(asked, offered.length, general.length > 0);
+                if (general.length === 0) return { stories: [], subject: asked };
+                stories = general;
+                subject = undefined;
+            } else if (asked !== undefined) {
+                this.watch.filled(asked);
             }
-            if (asked !== undefined) this.watch.filled(asked);
 
             // Nothing the station has not already said. DECLINED rather than repeated, on the same
             // argument the freshness window is on: a feed that has not moved and a station reading
@@ -568,8 +627,9 @@ export class BulletinSource {
                 repeats: offered.length - unread.length,
                 feeds: roster.length === 0 ? 'all' : roster.length,
                 topic: asked?.key ?? 'anything',
+                ...(asked !== undefined && subject === undefined ? { fellBack: 'general' } : {}),
             });
-            return { stories, ...(asked === undefined ? {} : { subject: asked }) };
+            return { stories, ...(subject === undefined ? {} : { subject }) };
         } catch (error) {
             // `NewsService` already absorbs a failing plugin, so reaching here means something
             // further in broke. Still not a fault worth failing the break over: the writer declines,

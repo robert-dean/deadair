@@ -1197,6 +1197,19 @@ Eleven categories are seeded on `persona.defaults.ts`'s rule, none naming a feed
 and `local` naming nothing at all, because only the operator knows their town and a guess would look as though
 it worked.
 
+**An operator may choose the general news over the silence, and the subject is dropped when they do.** A
+station running forty feeds asked for it ([#329](https://github.com/robert-dean/deadair/discussions/329)):
+its bands name categories the feeds often leave empty, and it would rather hear the news than nothing.
+`rotation.newsCategoryFallback` is `skip` (the default, and everything above) or `general`, read through
+`categoryFallback`, so anything it cannot parse is `skip`. Under `general` an empty category is read again
+over the same pages with no category cut, and the bulletin goes out with NO subject. That is what keeps the
+posture: both writers already say plain "News" for a bulletin with no subject, so the harbour story is never
+introduced as the technology news, and nothing in either writer had to change. The pages are the ones
+already fetched, since a roster asked for a category that turned out empty never settled and was read all
+the way down. `CategoryWatch.empty` still fires on the edge, worded for what the station did instead, because
+a band that has quietly been general news all week must not look like one that is working. A category that
+is empty while the general news is too still declines, with its subject.
+
 **A category can also be a rule about what is NEVER read, which is the same matching with the
 threshold moved.** A general feed from a publisher with a deals desk carries the deals desk: this
 station aired a shop's discount code, a laptop sale and an affiliate disclosure ("purchases made via

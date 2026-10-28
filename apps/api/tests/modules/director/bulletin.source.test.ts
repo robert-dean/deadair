@@ -1032,3 +1032,40 @@ describe("reading the station's feeds in turn", () => {
         });
     });
 });
+
+// A breaking bulletin is asked for about one story by `BreakingNewsWatch`, and reads that story
+// rather than taking turns over the roster.
+describe('a breaking bulletin', () => {
+    const breaking = { headline: 'Dam gives way upstream', feedId: 'deadair.rss:alerts', itemId: 'id-dam' };
+    const dam = item('Dam gives way upstream', { id: 'id-dam', feedId: 'deadair.rss:alerts', summary: 'Water reached the town at noon.' });
+
+    it('reads only the story it was asked for, with its words, found again on its feed', async () => {
+        const { source, fetchItems } = build({ items: [item('Something else'), dam] });
+
+        const bulletin = await source.storiesFor(NEWS_KIND, breaking, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Dam gives way upstream.']);
+        expect(bulletin?.stories[0]?.summary).toBe('Water reached the town at noon.');
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ feedId: 'deadair.rss:alerts' }));
+    });
+
+    it('reads the headline alone when the story has gone from its feed', async () => {
+        const { source } = build({ items: [] });
+
+        const bulletin = await source.storiesFor(NEWS_KIND, breaking, NOW);
+
+        expect(bulletin?.stories).toEqual([expect.objectContaining({ headline: 'Dam gives way upstream.' })]);
+        expect(bulletin?.stories[0]?.summary).toBeUndefined();
+    });
+
+    it('declines a story an ordinary bulletin has already read, and keeps the one it reads', async () => {
+        const read = readLog();
+        await read.keep(['Dam gives way upstream.'], NOW - 60_000);
+
+        expect(await build({ items: [dam], read }).source.storiesFor(NEWS_KIND, breaking, NOW)).toEqual({ stories: [] });
+
+        const fresh = readLog();
+        await build({ items: [dam], read: fresh }).source.storiesFor(NEWS_KIND, breaking, NOW);
+        expect(fresh.has('Dam gives way upstream.')).toBe(true);
+    });
+});

@@ -61,6 +61,15 @@ import {
     MAX_STORY_COUNT,
 } from '#modules/director/bulletin.source.js';
 import { NEWS_FEEDS_KEY } from '#modules/news/news.settings.js';
+import {
+    BREAKING_KEYS,
+    DEFAULT_BREAKING_COOLDOWN_MINUTES,
+    DEFAULT_BREAKING_POLL_MINUTES,
+    MAX_BREAKING_COOLDOWN_MINUTES,
+    MAX_BREAKING_POLL_MINUTES,
+    MIN_BREAKING_COOLDOWN_MINUTES,
+    MIN_BREAKING_POLL_MINUTES,
+} from '#modules/director/breaking.news.settings.js';
 import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
 import { CHECK_FOR_UPDATES_DEFAULT, RELEASE_KEYS } from '#modules/station/station.release.watch.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
@@ -1317,6 +1326,41 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'out one who posts three. A feed with nothing new is skipped and the next takes its place. Leave the list empty and the station ' +
             'reads every feed it has, newest first; a feed that is not listed is not read out, though it is still shown on the news page and ' +
             'still offered to the presenter.',
+    },
+    {
+        group: 'bulletins',
+        key: BREAKING_KEYS.feeds,
+        label: 'Breaking news feeds',
+        type: 'list',
+        placeholder: 'No feeds listed, so the station never breaks into its programme for news.',
+        // The same column and the same offer as the bulletin's own list above, and read through the
+        // same `feedRoster`. Empty means OFF here rather than every feed, because a station that has
+        // not chosen must not start interrupting itself on an upgrade.
+        columns: [{ key: 'feed', label: 'Feed', type: 'select', required: true, optionsFrom: 'station.newsFeeds' }],
+        help:
+            'Every new story on these feeds is read out on its own at the next break between records, while the station is on air. ' +
+            "Choose feeds that only carry what is worth stopping for, such as a publisher's breaking-news feed or local alerts: the station " +
+            'does not judge how urgent a story is, so every new one on a listed feed counts. Leave the list empty to never break in.',
+    },
+    {
+        group: 'bulletins',
+        key: BREAKING_KEYS.pollMinutes,
+        label: 'How often the breaking feeds are checked (minutes)',
+        type: 'number',
+        min: MIN_BREAKING_POLL_MINUTES,
+        max: MAX_BREAKING_POLL_MINUTES,
+        default: DEFAULT_BREAKING_POLL_MINUTES,
+        help: 'A story reaches the air within about this long of being published, plus the record that is playing. Each check asks every listed feed once, so a shorter wait costs the publishers more requests.',
+    },
+    {
+        group: 'bulletins',
+        key: BREAKING_KEYS.cooldownMinutes,
+        label: 'Least time between two breaking stories (minutes)',
+        type: 'number',
+        min: MIN_BREAKING_COOLDOWN_MINUTES,
+        max: MAX_BREAKING_COOLDOWN_MINUTES,
+        default: DEFAULT_BREAKING_COOLDOWN_MINUTES,
+        help: 'After one breaking story the station waits at least this long before breaking in again. A story that arrives in the meantime is left for the next ordinary bulletin rather than held back, since by then it is no longer breaking.',
     },
     {
         group: 'phrasings',

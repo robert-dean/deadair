@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FEED_SUMMARY_MAX_CHARS, fetchFeed, parseFeed } from '../src/feed.parse.js';
+import { FEED_SUMMARY_MAX_CHARS, FEED_VALIDATORS_MAX, fetchFeed, parseFeed } from '../src/feed.parse.js';
 import { PluginError } from '../src/plugin.error.js';
 import type { PluginHost } from '../src/plugin.host.js';
 
@@ -396,5 +396,102 @@ describe('fetchFeed', () => {
 
         expect(failed).toBeInstanceOf(PluginError);
         expect(failed.code).toBe('not_found');
+    });
+});
+
+/** A host that answers each request with the next response, recording the headers it was sent. */
+const hostAnsweringInTurn = (...responses: Response[]) => {
+    const sent: Array<Record<string, string>> = [];
+    const fetch = vi.fn(async (_url: string, init?: { headers?: Record<string, string> }) => {
+        sent.push({ ...init?.headers });
+        const next = responses.shift();
+        if (next === undefined) throw new Error('no response left');
+        return next;
+    });
+    return { host: { fetch } as unknown as PluginHost, sent };
+};
+
+const FEED_URL = 'https://example.com/feed.xml';
+
+describe('fetchFeed conditional GET', () => {
+    it('sends the validators back and answers a 304 with the document they came from', async () => {
+        const { host, sent } = hostAnsweringInTurn(
+            new Response(RSS, { status: 200, headers: { etag: '"v1"', 'last-modified': 'Tue, 03 Jun 2008 11:05:30 GMT' } }),
+            new Response(null, { status: 304 }),
+        );
+
+        const first = await fetchFeed(host, FEED_URL, { timeoutMs: 5_000 });
+        const second = await fetchFeed(host, FEED_URL, { timeoutMs: 5_000 });
+
+        expect(sent[0]).toEqual({});
+        expect(sent[1]).toEqual({ 'if-none-match': '"v1"', 'if-modified-since': 'Tue, 03 Jun 2008 11:05:30 GMT' });
+        expect(second).toEqual(first);
+    });
+
+    it('hands out a copy, so a caller that edits its feed cannot edit the next answer', async () => {
+        const { host } = hostAnsweringInTurn(new Response(RSS, { status: 200, headers: { etag: '"v1"' } }), new Response(null, { status: 304 }));
+
+        const first = await fetchFeed(host, FEED_URL);
+        first.items.length = 0;
+
+        expect((await fetchFeed(host, FEED_URL)).items).toHaveLength(2);
+    });
+
+    it('sends nothing for a publisher that sent no validators', async () => {
+        const { host, sent } = hostAnsweringInTurn(new Response(RSS, { status: 200 }), new Response(RSS, { status: 200 }));
+
+        await fetchFeed(host, FEED_URL);
+        await fetchFeed(host, FEED_URL);
+
+        expect(sent[1]).toEqual({});
+    });
+
+    it('replaces the validators when the feed changes', async () => {
+        const { host, sent } = hostAnsweringInTurn(
+            new Response(RSS, { status: 200, headers: { etag: '"v1"' } }),
+            new Response(RSS, { status: 200, headers: { etag: '"v2"' } }),
+            new Response(null, { status: 304 }),
+        );
+
+        await fetchFeed(host, FEED_URL);
+        await fetchFeed(host, FEED_URL);
+        await fetchFeed(host, FEED_URL);
+
+        expect(sent[2]).toEqual({ 'if-none-match': '"v2"' });
+    });
+
+    it("leaves a caller's own validators alone, and its 304 is the caller's to read", async () => {
+        const { host, sent } = hostAnsweringInTurn(
+            new Response(RSS, { status: 200, headers: { etag: '"v1"' } }),
+            new Response(null, { status: 304 }),
+        );
+
+        await fetchFeed(host, FEED_URL);
+        const failed = await fetchFeed(host, FEED_URL, { headers: { 'If-None-Match': '"mine"' } }).catch(error => error);
+
+        expect(sent[1]).toEqual({ 'If-None-Match': '"mine"' });
+        expect(failed).toBeInstanceOf(PluginError);
+    });
+
+    it('keeps two hosts apart', async () => {
+        const one = hostAnsweringInTurn(new Response(RSS, { status: 200, headers: { etag: '"v1"' } }));
+        const two = hostAnsweringInTurn(new Response(RSS, { status: 200 }));
+
+        await fetchFeed(one.host, FEED_URL);
+        await fetchFeed(two.host, FEED_URL);
+
+        expect(two.sent[0]).toEqual({});
+    });
+
+    it('forgets the least recently used feed past the bound', async () => {
+        const responses = Array.from({ length: FEED_VALIDATORS_MAX + 1 }, (_, i) => new Response(RSS, { status: 200, headers: { etag: `"${i}"` } }));
+        const { host, sent } = hostAnsweringInTurn(...responses, new Response(RSS, { status: 200 }), new Response(null, { status: 304 }));
+
+        for (let i = 0; i <= FEED_VALIDATORS_MAX; i++) await fetchFeed(host, `https://example.com/${i}.xml`);
+        await fetchFeed(host, 'https://example.com/0.xml');
+        await fetchFeed(host, `https://example.com/${FEED_VALIDATORS_MAX}.xml`);
+
+        expect(sent.at(-2)).toEqual({});
+        expect(sent.at(-1)).toEqual({ 'if-none-match': `"${FEED_VALIDATORS_MAX}"` });
     });
 });

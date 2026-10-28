@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.86.2] — 2026-10-28
+
+- Breaking news. List the feeds worth stopping for under Bulletins, and every new story on them is read out on its own at the next break between records while the station is on air. The station checks them every five minutes by default and waits at least thirty minutes between two breaking stories; both are settings. Nothing changes until a feed is listed.
+- A band on the format clock at a time of day can now run on chosen days of the week (`days` on a clock band, Sunday 0, empty for every day), read on the station's own clock. A weekday news show, or a bulletin only at weekends, is one band.
+- The band editor on the Programme page has the same day chips as the slot editor, for a band at a time of day: choose the days it runs on, or none for every day. The clock list shows a band's days under its time (Mon–Fri), and moving a band up or down keeps them. A `podcast` band's subject can now be one of the station's own shows.
+- Feeds are fetched with conditional GET. The SDK remembers the `ETag` and `Last-Modified` a publisher sent with a feed and sends them back on the next fetch, so a feed that has not changed answers with a 304 and the station reuses the copy it already read. News feeds and podcast feeds both benefit with no change to either plugin.
+- One of the station's own shows can now go on the format clock. Add the show as a subject on the Subjects page, then put a `podcast` band on the clock about it: the station makes the next episode ahead of that time and airs it then, with the show's presenter, length, feeds and research. A news show becomes a morning, noon or evening edition this way. An edition reads its news close to air (six minutes ahead per minute it runs, between one and three hours) so its stories are fresh. It leaves out stories an earlier edition of the same show already covered. Once it is in the running order, the bulletins after it do not read its stories again. A show that has nothing new to read is asked again every ten minutes rather than making an episode about nothing, and the log says so once.
+
 ## [0.86.1] — 2026-10-27
 
 - How long the music takes to drop under the DJ and come back afterwards is now a setting under Playout. A link talked up to the vocal or over a record's end is timed with the same figure, and each cue carries it to the audio engine, so the two never disagree even when the setting changes while a cue is waiting for its record. The default is the 300 milliseconds the station already used.
@@ -1716,7 +1724,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.2...HEAD
+[0.86.2]: https://github.com/robert-dean/deadair/compare/v0.86.1...v0.86.2
 [0.86.1]: https://github.com/robert-dean/deadair/compare/v0.86.0...v0.86.1
 [0.86.0]: https://github.com/robert-dean/deadair/compare/v0.85.3...v0.86.0
 [0.85.3]: https://github.com/robert-dean/deadair/compare/v0.85.2...v0.85.3

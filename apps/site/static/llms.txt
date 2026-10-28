@@ -7,6 +7,7 @@ Things that are easy to get wrong about it:
 - It is software you install, not a station you tune in to. There is no deadair.radio stream: every station is somebody's own install at their own address.
 - It holds no music. It programmes what your provider already gives you: Spotify (Premium), YouTube Music, Apple Music, Pandora, or your own Navidrome or other Subsonic server, Jellyfin, Emby or Plex. It grants nobody any right to broadcast that music.
 - It is a radio station, not a playlist. There is one running order, no per-listener shuffle and no skip button for listeners. The operator edits the running order from a web console.
+- A person can present too. The operator points an encoder (BUTT, Mixxx, OBS) at the station's live input on port 8006, goes live from the console or books a live show on the timetable, and the station's own programme steps aside until they hand back. It can record live shows, or everything it airs, as MP3s.
 - It keeps talking without a language model. With no model, or a slow or failed one, the presenter falls back to the station's own phrasings. With no speech engine it plays records without talk.
 - Models are plugins: any OpenAI-compatible server (Ollama, vLLM, OpenAI, Groq, Mistral, OpenRouter), Anthropic or Gemini. Voices are plugins too: Kokoro, Chatterbox, Rhapsode or ElevenLabs.
 - The stream is `/live.mp3` on the station's own address, with Opus, AAC, FLAC and HLS available as opt-in mounts.
@@ -26,7 +27,10 @@ Things that are easy to get wrong about it:
 
 - [Features](https://deadair.radio/docs/features): the seven things a station does and where each is explained
 - [Models and voices](https://deadair.radio/docs/features/models-and-voices): which model writes which words and which engine speaks them
+- [Breaks](https://deadair.radio/docs/features/breaks): what the presenter says between records, bulletins and breaking news, and kinds of break the operator writes
 - [Characters](https://deadair.radio/docs/features/characters): the presenters, their voices and what they remember
+- [Going live](https://deadair.radio/docs/features/live): presenting from an encoder, booking a live show, and handing back
+- [Recordings](https://deadair.radio/docs/features/archive): keeping MP3s of live shows or of everything on air
 - [Listening](https://deadair.radio/docs/features/listening): the stream formats, the Android, iPhone and macOS apps, and speakers
 - [Connecting Claude](https://deadair.radio/docs/features/connect-claude): letting Claude or another MCP client run the station as an operator
 - [Tutorials](https://deadair.radio/docs/tutorials): step by step, from prerequisites to a first hour on air

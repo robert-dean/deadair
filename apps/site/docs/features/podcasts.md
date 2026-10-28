@@ -53,7 +53,18 @@ The Podcasts tab lists the episodes the station knows about, newest first, and w
 
 What an episode may state as fact depends on what it was given. A page or pasted text wins over everything else. Otherwise a show that reads the news reads the newest stories on its feeds within its window (at most six), and an episode is refused when those feeds have nothing that recent. Otherwise, with research on, it searches your trusted sites for its subject and fails, saying so, when none of them has anything. A production given something to read and finding nothing in it fails rather than being written from general knowledge, because that would be a different programme from the one you asked for. A story you keep off the air is kept out of an episode too.
 
-An episode airs at the time it was given, not through the format clock: a show of your own needs no `syndicated` rule. **Delete** removes the show and keeps its episodes on the Productions page, and any still being made carry on.
+An episode you ask for airs at the time it was given: a show of your own needs no `syndicated` rule. **Delete** removes the show and keeps its episodes on the Productions page, and any still being made carry on.
+
+### On the format clock
+
+A show of your own can also be made on a schedule, so nobody has to remember to ask. This is how a news show becomes a morning, noon or evening edition.
+
+1. Under **Voice**, **Subjects**, in **Own shows**, add one and pick the **Show**. The label is your own word for it.
+2. Under **Programme**, **Today**, add a band to the format clock whose sort of break is `podcast`, at the time you want it, **About** that subject. Pick days under **on** for a weekday edition; no day chosen means every day.
+
+Ahead of the band the station makes the show's next episode, with its presenter, length, feeds and research, and airs it at the band's time. A show that reads the news is made as late as it safely can (about six times its length before air, between one and three hours), so a six o'clock edition carries the news of five o'clock rather than three.
+
+An edition leaves out the stories earlier episodes of the same show already told within its news window, matched on the story's address and then its headline. With nothing new to say it is refused, that slot falls back to the station's ordinary programme, and it is tried again every ten minutes until the band passes. Once an edition is in the running order, the ordinary bulletins skip the stories it read. A `podcast` band about no show is what it always was: a programme about whatever the show it airs inside is about.
 
 ## What it will not carry
 

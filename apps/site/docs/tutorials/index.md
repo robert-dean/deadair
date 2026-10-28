@@ -29,13 +29,15 @@ station can do the rest by being asked. Each page shows both where both exist.
    before it airs.
 3. [Make a show](./make-a-show.md): a block on the timetable with a host and a brief the model
    programmes against.
-4. [Two recurring shows](./recurring-shows.md): a Friday chart countdown and a nightly metal show, set
+4. [Invent a kind of break](./kind-of-break.md): a brief for something new the presenter says, such as
+   a poem at a quarter to the hour, put on the clock and shared with another station as a file.
+5. [Two recurring shows](./recurring-shows.md): a Friday chart countdown and a nightly metal show, set
    up once and aired every week.
-5. [A holiday special](./holiday-special.md): a Halloween night that takes over from the weekly
+6. [A holiday special](./holiday-special.md): a Halloween night that takes over from the weekly
    schedule for its hours and comes back every year.
-6. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
+7. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
-7. [Teach the presenter to say a name](./say-a-name.md): a name the station says wrongly, fixed and
+8. [Teach the presenter to say a name](./say-a-name.md): a name the station says wrongly, fixed and
    heard before it airs.
 
 ## Grow the station
@@ -47,7 +49,8 @@ Each of these adds one thing to a station that is already on air, and none depen
 - [Keep records off the air](./house-rules.md): a dislike for one record or artist, a never-play rule
   for a whole genre or live recordings, and keeping the station clean.
 - [News and weather in the breaks](./news-and-weather.md): headlines from your own feeds, a forecast
-  for where the station is, and a bulletin at the top of the hour.
+  for where the station is, a bulletin at the top of the hour, breaking news as it happens, and a
+  longer news programme made fresh each evening.
 - [Carry a podcast](./carry-a-podcast.md): subscribe to a show and give its newest episode a time on
   the clock.
 - [Read a book on air](./read-a-book.md): a chapter every night, read in the station's own voice from
@@ -66,6 +69,8 @@ Each of these adds one thing to a station that is already on air, and none depen
 - [Produce a segment](./produce-a-segment.md): a short programme the station writes and voices itself,
   a show of your own it makes episodes of, a listener's call, a guest in the studio, and the news on
   demand.
+- [Do a live show](./live-show.md): an encoder on your own computer, a show booked on the timetable,
+  a countdown onto the air, and the recording to listen back to.
 - [Throw a party](./throw-a-party.md): a code on the TV, and guests asking for records from their
   phones with no account.
 - [Run it from a Stream Deck](./stream-deck.md): what is on air, Skip, Stop and your opinion of the

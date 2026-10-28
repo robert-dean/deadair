@@ -50,7 +50,7 @@ A character can also have a soundboard, short sounds it may hit mid-sentence. No
 
 ## How a word is said
 
-Pronunciations are a table. The station fills it from the pronunciation keys printed in Wikipedia articles it already holds. Where it is sure which word a key belongs to it uses the entry; where it is not it proposes one, which is not said until you accept it, and a rejected one stays rejected. Figures are rewritten before an engine sees them, so "$17.1 billion" is read as "17.1 billion dollars", and a price in front of a noun as "a 100 billion dollar spaceport".
+Pronunciations are a table. The station fills it from the pronunciation keys printed in Wikipedia articles it already holds. Where it is sure which word a key belongs to it uses the entry; where it is not it proposes one, which is not said until you accept it, and a rejected one stays rejected. An artist's name can also be set from the artist's own page in the Library: **Pronunciation** in its header opens the same entry, with a sample to hear, and saving there accepts a proposed or turned-down one in your words. Figures are rewritten before an engine sees them, so "$17.1 billion" is read as "17.1 billion dollars", and a price in front of a noun as "a 100 billion dollar spaceport".
 
 ## Broadcasting in another language
 

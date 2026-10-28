@@ -25,6 +25,7 @@ import { PhoneCard } from '../shared/phone.card';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
+import { isStepUpCancelled, StepUpDialog, useStepUpGate, type StepUpGate } from './step.up.dialog';
 
 /** How a destination is doing, as one lamp. */
 type DestinationState = 'switchedOff' | 'off' | 'failing' | 'delivering' | 'idle';
@@ -63,6 +64,7 @@ export function EventDestinationsCard() {
     const { t } = useTranslation('settings');
     const destinations = useEventDestinations();
     const phone = usePhone();
+    const gate = useStepUpGate();
     const [minted, setMinted] = useState<Minted>();
     const [tested, setTested] = useState<{ name: string; result: EventTestResult }>();
     const [editing, setEditing] = useState<EventDestination>();
@@ -70,6 +72,7 @@ export function EventDestinationsCard() {
 
     const list = destinations.data?.destinations ?? [];
     const actions = {
+        gate,
         onTested: (destination: EventDestination, result: EventTestResult) => setTested({ name: destination.name, result }),
         onRotated: (destination: EventDestination, secret: string) => setMinted({ name: destination.name, secret, verb: 'rotated' }),
         onEdit: setEditing,
@@ -134,11 +137,14 @@ export function EventDestinationsCard() {
                     }
                 </QueryView>
 
-                {destinations.data ? <NewDestinationForm onCreated={(name, secret) => setMinted({ name, secret, verb: 'created' })} /> : undefined}
+                {destinations.data ? (
+                    <NewDestinationForm gate={gate} onCreated={(name, secret) => setMinted({ name, secret, verb: 'created' })} />
+                ) : undefined}
             </Stack>
 
-            {editing ? <EditDestinationModal destination={editing} onClose={() => setEditing(undefined)} /> : undefined}
+            {editing ? <EditDestinationModal gate={gate} destination={editing} onClose={() => setEditing(undefined)} /> : undefined}
             <DeliveriesDrawer destination={logOf} onClose={() => setLogOf(undefined)} />
+            <StepUpDialog gate={gate} />
         </Card>
     );
 }
@@ -187,6 +193,8 @@ function TestPanel({ name, result, onDone }: { name: string; result: EventTestRe
 
 interface DestinationProps {
     destination: EventDestination;
+    /** Adding one, a new secret and a new address each ask for a recent strong factor. */
+    gate: StepUpGate;
     onTested: (destination: EventDestination, result: EventTestResult) => void;
     onRotated: (destination: EventDestination, secret: string) => void;
     onEdit: (destination: EventDestination) => void;
@@ -284,7 +292,7 @@ function DestinationPhoneCard(props: DestinationProps) {
 }
 
 /** Send a test, read the log, edit; and a new secret or removal, each behind a confirmation. */
-function DestinationActions({ destination, onTested, onRotated, onEdit, onLog }: DestinationProps) {
+function DestinationActions({ destination, gate, onTested, onRotated, onEdit, onLog }: DestinationProps) {
     const { t } = useTranslation('settings');
     const test = useTestEventDestination();
     const rotate = useRotateEventDestinationSecret();
@@ -308,10 +316,12 @@ function DestinationActions({ destination, onTested, onRotated, onEdit, onLog }:
     async function confirmRotate(): Promise<void> {
         setFailure(undefined);
         try {
-            const { secret } = await rotate.mutateAsync({ id: destination.id });
+            const { secret } = await gate.run(() => rotate.mutateAsync({ id: destination.id }));
             close();
             onRotated(destination, secret);
         } catch (caught) {
+            // The re-verify dialog was closed without a code; the secret is exactly as it was.
+            if (isStepUpCancelled(caught)) return;
             setFailure(caught);
         }
     }
@@ -399,7 +409,7 @@ function EventsPicker({ value, onChange }: { value: string[]; onChange: (value: 
     );
 }
 
-function NewDestinationForm({ onCreated }: { onCreated: (name: string, secret: string) => void }) {
+function NewDestinationForm({ gate, onCreated }: { gate: StepUpGate; onCreated: (name: string, secret: string) => void }) {
     const { t } = useTranslation('settings');
     const create = useCreateEventDestination();
     const [name, setName] = useState('');
@@ -410,12 +420,13 @@ function NewDestinationForm({ onCreated }: { onCreated: (name: string, secret: s
     async function submit(): Promise<void> {
         setFailure(undefined);
         try {
-            const created = await create.mutateAsync({ name: name.trim(), url: url.trim(), events });
+            const created = await gate.run(() => create.mutateAsync({ name: name.trim(), url: url.trim(), events }));
             setName('');
             setUrl('');
             setEvents([]);
             onCreated(created.name, created.secret);
         } catch (caught) {
+            if (isStepUpCancelled(caught)) return;
             setFailure(caught);
         }
     }
@@ -463,7 +474,7 @@ function NewDestinationForm({ onCreated }: { onCreated: (name: string, secret: s
 }
 
 /** Name, address, whether it is on, and what it is sent. Turning it back on also clears a switch-off. */
-function EditDestinationModal({ destination, onClose }: { destination: EventDestination; onClose: () => void }) {
+function EditDestinationModal({ gate, destination, onClose }: { gate: StepUpGate; destination: EventDestination; onClose: () => void }) {
     const { t } = useTranslation('settings');
     const update = useUpdateEventDestination();
     const [name, setName] = useState(destination.name);
@@ -475,10 +486,11 @@ function EditDestinationModal({ destination, onClose }: { destination: EventDest
     async function save(): Promise<void> {
         setFailure(undefined);
         try {
-            await update.mutateAsync({ id: destination.id, changes: { name: name.trim(), url: url.trim(), enabled, events } });
+            await gate.run(() => update.mutateAsync({ id: destination.id, changes: { name: name.trim(), url: url.trim(), enabled, events } }));
             notifySaved(destination.name);
             onClose();
         } catch (caught) {
+            if (isStepUpCancelled(caught)) return;
             setFailure(caught);
         }
     }

@@ -1,6 +1,7 @@
 import type { MetricsRecorder } from '@maroonedsoftware/telemetry';
 import type { RecordedSpan } from '#modules/shared/trace.spans.js';
 import { METRICS } from './metric.names.js';
+import { callCost, type ModelPrice } from './usage.prices.js';
 
 /** The `kind` label for work outside any decision: a timer's plugin call, a boot step. */
 export const UNTRACED_KIND = 'none';
@@ -47,13 +48,19 @@ const tokens = (detail: Record<string, unknown> | undefined, key: string): numbe
  *   is labelled by `outcome` too, because a mean across both answers neither question: one 120 s
  *   timeout among twenty 3 s answers reads as a 9 s model, and a down model's instant refusals read
  *   as a fast one. The tokens carry no outcome, since a failed call adds none to split.
+ *   With a price for that model, the call's cost is counted too, at that price, so a price changed
+ *   later moves only what comes after it.
  * - Any failed span counts once in `work.failed`, by `op` and decision kind.
  *
  * The decision kind is {@link kindLabel}'s, so a request counts as `request` and never as its URL.
  *
  * Spans of any other `op` are not counted: a new one is added here when somebody wants its trend.
  */
-export function observeSpan(recorder: MetricsRecorder, span: RecordedSpan): void {
+export function observeSpan(
+    recorder: MetricsRecorder,
+    span: RecordedSpan,
+    priceOf: (model: string) => ModelPrice | undefined = () => undefined,
+): void {
     const kind = kindLabel(span);
 
     switch (span.op) {
@@ -74,6 +81,8 @@ export function observeSpan(recorder: MetricsRecorder, span: RecordedSpan): void
             if (input !== undefined) recorder.observe(METRICS.modelInputTokens, input, labels);
             if (output !== undefined) recorder.observe(METRICS.modelOutputTokens, output, labels);
             if (reasoning !== undefined) recorder.observe(METRICS.modelReasoningTokens, reasoning, labels);
+            const cost = callCost(priceOf(labels.model), input, output);
+            if (cost !== undefined) recorder.observe(METRICS.modelCost, cost, labels);
             break;
         }
         default:

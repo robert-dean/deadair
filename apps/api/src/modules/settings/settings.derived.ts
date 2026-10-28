@@ -61,14 +61,16 @@ function redirectAddress(config: AppConfig): string {
  * while it is empty.
  *
  * Read off the registry rather than listed, by the one property they all share and nothing else
- * has: each offers the model plugin's list as its suggestions, now from its one `model` column, since
- * each is an ordered list of models. A tenth added the same way is
- * covered without anybody remembering this file.
+ * has: each offers the model plugin's list as its suggestions, now from its ONE column, since each is
+ * an ordered list of models. A tenth added the same way is covered without anybody remembering this
+ * file. One column and not merely a model column, because the price list has one too and an empty
+ * price list does not reach the plugin's default model: it reaches no price. The console's
+ * `isModelList` draws the same line.
  */
 export const MODEL_SETTING_KEYS: readonly string[] = SETTING_DESCRIPTORS.filter(
     descriptor =>
         ('optionsFrom' in descriptor && descriptor.optionsFrom === 'llm.models') ||
-        ('columns' in descriptor && descriptor.columns?.some(column => column.optionsFrom === 'llm.models') === true),
+        ('columns' in descriptor && descriptor.columns?.length === 1 && descriptor.columns[0]?.optionsFrom === 'llm.models'),
 ).map(descriptor => descriptor.key);
 
 /**

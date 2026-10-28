@@ -28,6 +28,11 @@ export const METRICS = {
     modelOutputTokens: 'model.tokens.output',
     /** Tokens a model spent reasoning, by `kind` and `model`, where it says. */
     modelReasoningTokens: 'model.tokens.reasoning',
+    /**
+     * What a model call cost, by `kind` and `model`, at the price the operator set for that model when
+     * the call was made (`usage.prices.ts`). A counter in `metrics.currency`. Absent for a model with no price.
+     */
+    modelCost: 'model.cost',
 
     /** Records in the library. A gauge. */
     libraryTotal: 'library.tracks',

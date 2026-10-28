@@ -223,6 +223,7 @@ import {
     OTLP_RECEIVE_DEFAULTS,
     OTLP_RECEIVE_KEYS,
 } from '#modules/metrics/metrics.settings.js';
+import { DEFAULT_USAGE_CURRENCY, MODEL_PRICE_COLUMNS, USAGE_PRICE_KEYS } from '#modules/metrics/usage.prices.js';
 import { MAX_OPEN_REQUESTS, MAX_REQUEST_COOLDOWN_MINUTES, REQUESTS_DEFAULTS, REQUESTS_KEYS } from '#modules/requests/requests.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
@@ -2062,6 +2063,35 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: SCRIPT_HISTORY_DEFAULTS.capture,
         help: 'Stores what was sent to the model and what came back before the station tidied it, alongside every break it writes. Turn it on for an evening of tuning a prompt and off again afterwards: it is most of what the history costs, and the words themselves are kept either way.',
+    },
+    {
+        group: 'llm',
+        key: USAGE_PRICE_KEYS.models,
+        label: 'What each model costs',
+        type: 'list',
+        default: '',
+        placeholder: 'No prices, so Trends counts tokens and not money.',
+        // The model cell offers the same qualified names the model lists store, because the price is
+        // looked up by exactly the name a call is labelled with. A model left to the plugin's own default
+        // is labelled with the plugin's id instead, and cannot be priced until a list names it.
+        columns: [
+            { key: MODEL_PRICE_COLUMNS.model, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' },
+            { key: MODEL_PRICE_COLUMNS.input, label: 'Input, per million tokens', type: 'string', placeholder: '3.00' },
+            { key: MODEL_PRICE_COLUMNS.output, label: 'Output, per million tokens', type: 'string', placeholder: '15.00' },
+        ],
+        help:
+            'The price your provider charges for each model, so Trends can say what the station spent as well as how many tokens it used. Copy the figures from your provider’s price list. ' +
+            'Thinking is billed as output, as every provider counts it. A price applies from the next call, and what was already spent keeps the price it was spent at. ' +
+            'A model with no price here, or one the station uses only as a plugin’s default, is counted in tokens only.',
+    },
+    {
+        group: 'llm',
+        key: USAGE_PRICE_KEYS.currency,
+        label: 'Currency of these prices',
+        type: 'string',
+        default: DEFAULT_USAGE_CURRENCY,
+        placeholder: DEFAULT_USAGE_CURRENCY,
+        help: 'The three-letter code the prices above and the speech prices are in, such as USD, EUR or GBP. Only how Trends writes the figures changes: nothing is converted.',
     },
 
     // ── analysis ───────────────────────────────────────────────────────────────

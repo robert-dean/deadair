@@ -10,6 +10,7 @@ import { metricBounds, OtlpExport } from './otlp.export.js';
 import { OtlpIngest } from './otlp.ingest.js';
 import { OtlpReceiveService } from './otlp.receive.service.js';
 import { observeSpan } from './span.metrics.js';
+import { modelPrices } from './usage.prices.js';
 
 /** Stops reading spans at shutdown, before the last flush. */
 let stopSpans: (() => void) | undefined;
@@ -58,8 +59,11 @@ export const MetricsModule: ServerKitModule = {
         // The same listener holds each span for the OTLP export, which sends them with the minute.
         const recorder = container.get(MetricsRecorder);
         const otlp = container.get(OtlpExport);
+        const config = container.get(AppConfig);
         stopSpans = onSpan(span => {
-            observeSpan(recorder, span);
+            // The prices are read per span rather than once, so a price saved in Settings applies from
+            // the next call. Only a model call consults them, and parsing a short list is cheap.
+            observeSpan(recorder, span, model => modelPrices(config).get(model));
             otlp.queueSpan(span);
         });
         container.get(MetricsFlusher).start();

@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.4] — 2026-10-28
+
+- Editing or moving a band on the format clock keeps the days of the week it runs on, which are set from the web console. A `podcast` band's subject can be one of the station's own shows.
+
 ## [0.17.3] — 2026-10-27
 
 - A special on the schedule can now be marked as a live show (`live` on a schedule slot), for a presenter booked to take the air through the live input. It has to be a special, and it names no playlist or chart. The timetable draws it marked live. The station never changes over onto it: the weekly show underneath keeps playing. Nothing arms the input at its time yet. The desktop app keeps the mark when it saves a special.
@@ -187,7 +191,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.4...HEAD
+[0.17.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.3...desktop-v0.17.4
 [0.17.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...desktop-v0.17.3
 [0.17.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.1...desktop-v0.17.2
 [0.17.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.0...desktop-v0.17.1

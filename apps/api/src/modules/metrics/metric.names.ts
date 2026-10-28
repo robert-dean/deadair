@@ -28,6 +28,19 @@ export const METRICS = {
     modelOutputTokens: 'model.tokens.output',
     /** Tokens a model spent reasoning, by `kind` and `model`, where it says. */
     modelReasoningTokens: 'model.tokens.reasoning',
+    /**
+     * What a model call cost, by `kind` and `model`, at the price the operator set for that model when
+     * the call was made (`usage.prices.ts`). A counter in `metrics.currency`. Absent for a model with no price.
+     */
+    modelCost: 'model.cost',
+
+    /**
+     * Characters handed to a speech engine, by `plugin`: the text after the station's own respellings,
+     * which is what the engine bills. Every speak counts, a voice preview as much as a break. A counter.
+     */
+    speechCharacters: 'speech.characters',
+    /** What those characters cost, by `plugin`, at the engine's price when they were spoken. Absent without one. */
+    speechCost: 'speech.cost',
 
     /** Records in the library. A gauge. */
     libraryTotal: 'library.tracks',

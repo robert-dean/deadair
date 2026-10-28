@@ -60,6 +60,35 @@ export function formatCount(value: number): string {
     return COUNT().format(value);
 }
 
+const MONEY = perLocale(() => new Map<string, { whole: Intl.NumberFormat; small: Intl.NumberFormat } | undefined>());
+
+/**
+ * An amount of money in the operator's way of writing one: `$1.23`, `1,23 €`.
+ *
+ * `currency` is the station's `metrics.currency`, typed by an operator, so it may not be a code
+ * `Intl` knows; then the figure is written with the code after it rather than not at all. An amount
+ * under one keeps three significant digits instead of the currency's two decimals, since a single
+ * model call costs a fraction of a cent and `$0.00` would say it was free.
+ */
+export function formatMoney(value: number, currency: string): string {
+    const formatters = MONEY();
+    const code = currency.trim().toUpperCase();
+    if (!formatters.has(code)) {
+        try {
+            const locale = formatLocale();
+            formatters.set(code, {
+                whole: new Intl.NumberFormat(locale, { style: 'currency', currency: code }),
+                small: new Intl.NumberFormat(locale, { style: 'currency', currency: code, maximumSignificantDigits: 3 }),
+            });
+        } catch {
+            formatters.set(code, undefined);
+        }
+    }
+    const formatter = formatters.get(code);
+    if (formatter === undefined) return `${new Intl.NumberFormat(formatLocale(), { maximumSignificantDigits: 4 }).format(value)} ${code}`;
+    return (Math.abs(value) < 1 && value !== 0 ? formatter.small : formatter.whole).format(value);
+}
+
 const LIST = perLocale(locale => new Intl.ListFormat(locale, { type: 'conjunction' }));
 
 /** Several things named in one phrase the way the operator joins them: `a, b and c`, `a, b y c`. */

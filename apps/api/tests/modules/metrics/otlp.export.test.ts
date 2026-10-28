@@ -68,6 +68,7 @@ describe('metricKind', () => {
         expect(metricKind('work.job.ms')).toBe('histogram');
         expect(metricKind('model.tokens.input')).toBe('counter');
         expect(metricKind('work.failed')).toBe('counter');
+        expect(metricKind('model.cost')).toBe('counter');
         expect(metricKind('station.listeners')).toBe('gauge');
         expect(metricKind('library.cached')).toBe('gauge');
     });

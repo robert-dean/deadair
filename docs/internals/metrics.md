@@ -63,8 +63,27 @@ from one shared query, the model's waiting depth every minute, and the station's
 fifteen, because that one walks three directories. Registered by `StationModule`, which already reads
 all of them, so none of the owning modules has to know a trend exists.
 
-**There is no money.** Tokens are counted and cost is not, because nothing in the station knows a
-price. Turning one into the other needs per-model prices, which is its own idea.
+**Money is counted at prices the operator typed, when the call is made** (`usage.prices.ts`). The
+station ships no price table, because one is wrong the day a provider changes a price and nothing here
+would notice, while the operator holds the bill. `metrics.modelPrices` is a list of a model and its
+input and output price per million tokens; `observeSpan` looks the call's model up as it reads the span
+and adds `model.cost`, labelled like the tokens, beside them. **Pricing at record time rather than on
+the chart** is the choice that matters: a month drawn later shows what it cost at the prices in force
+then, and an edit moves only what follows it, where multiplying stored tokens by today's price would
+rewrite the past on every save. Reasoning is not added on top, because every provider counts it inside
+the output figure. A model with no row, a cell that is not a figure, and a call made on a plugin's own
+default model (labelled with the plugin's id, which no row names) all count tokens and no money, so a
+typo reads as a missing cost and never as a free model. `metrics.currency` is only how the console
+writes the figure: nothing is converted.
+
+**Speech is counted in characters, because that is what a hosted engine bills**, and its time is
+already on the plugin spans (`work.plugin.ms`, `speech.speak`). `SpeechService.startSpeaking` is the
+one place every speak passes through, a break, a voice preview and a pronunciation sample alike, so it
+observes `speech.characters` by engine there, once the engine has accepted the request, over the text
+AFTER the station's respellings: that is the text sent, and so the text charged. A call site, not a
+span, because a span carries a duration and no text. `metrics.speechPrices` prices an engine per
+million characters on the model rule above, at record time, into `speech.cost`; an engine the operator
+runs has no row and is counted in characters only.
 
 ## The flusher
 
@@ -122,6 +141,14 @@ every fifteen minutes on a range drawn by the minute, a service that sent once. 
 exactly those and nothing else, through Mantine's `lineProps`/`areaProps`, which it spreads after its
 own `dot`.
 
+**Money is drawn in the station's currency, read from `GET /settings`**, which has the same
+`platform.view` floor as Trends, rather than carried on the series page: the counters are plain
+numbers and the currency is one setting, so a contract field would repeat it on every read. Until the
+settings arrive the figure is written in the default, and a code `Intl` does not know is written after
+the figure rather than refused (`formatMoney`). The model section ranks by model across every kind of
+call, by spend and then by tokens, so an unpriced local model is still ranked by how much it was asked
+to do; the speech section is characters by engine.
+
 **Each section reads its own query**, on Check-up's rule that one dead reader costs one box and not the
 page. The work section is two ranked tables rather than a chart, because "which queue took the time"
 is a ranking and a line per queue would need a colour per queue.
@@ -143,7 +170,7 @@ the table, and the export sends it through `@maroonedsoftware/telemetry/otlp`'s 
 `OTLPMetricExporter` (OTLP over HTTP with JSON, at `<endpoint>/v1/metrics`). No `MeterProvider` sits
 in between: the buckets are already aggregates. Durations go as histograms (count, sum, min, max, and since telemetry 0.3.0 the bucket counts, so a
 collector can answer a p95; Google Cloud refused histograms without bounds),
-tokens and failures as monotonic counters, the rest as gauges. **Counters and histograms are
+tokens, costs and failures as monotonic counters, the rest as gauges. **Counters and histograms are
 cumulative**: the bridge keeps each series' running total from its first minute and sends the whole
 total on every flush, so Prometheus takes them with no `deltatocumulative` processor. They were delta
 until 2026-10-19, and that was wrong for this flusher: it drains the still-open minute (the table

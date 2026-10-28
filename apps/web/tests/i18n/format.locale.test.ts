@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { setClock } from '../../src/clock.store';
-import { dayjsClock, formatClock, formatClockIn, formatCount, formatLocale, formatWallTime, weekdayShort } from '../../src/i18n/format.locale';
+import {
+    dayjsClock,
+    formatClock,
+    formatClockIn,
+    formatCount,
+    formatLocale,
+    formatMoney,
+    formatWallTime,
+    weekdayShort,
+} from '../../src/i18n/format.locale';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -61,5 +70,18 @@ describe('formatters', () => {
         expect(formatWallTime(14, 5)).toBe('14:05');
         expect(formatWallTime(0, 30)).toBe('00:30');
         expect(dayjsClock().picker).toBe('24h');
+    });
+});
+
+describe('formatMoney', () => {
+    it('writes an amount in the station’s currency, keeping a fraction of a cent above zero', () => {
+        expect(formatMoney(3.75, 'usd')).toBe('$3.75');
+        expect(formatMoney(1234.5, 'USD')).toBe('$1,234.50');
+        expect(formatMoney(0.00042, 'USD')).toBe('$0.00042');
+        expect(formatMoney(0, 'USD')).toBe('$0.00');
+    });
+
+    it('writes a code Intl does not know after the figure, rather than failing', () => {
+        expect(formatMoney(1.5, 'pounds')).toBe('1.5 POUNDS');
     });
 });

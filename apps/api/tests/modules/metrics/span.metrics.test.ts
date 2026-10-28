@@ -8,6 +8,7 @@ import { MetricsRecorder } from '@maroonedsoftware/telemetry';
 import { METRICS } from '../../../src/modules/metrics/metric.names.js';
 import { observeSpan, REQUEST_KIND, UNTRACED_KIND } from '../../../src/modules/metrics/span.metrics.js';
 import type { RecordedSpan } from '../../../src/modules/shared/trace.spans.js';
+import type { ModelPrice } from '../../../src/modules/metrics/usage.prices.js';
 
 const span = (overrides: Partial<RecordedSpan>): RecordedSpan => ({
     op: 'job.run',
@@ -18,9 +19,11 @@ const span = (overrides: Partial<RecordedSpan>): RecordedSpan => ({
     ...overrides,
 });
 
-const observed = (...spans: RecordedSpan[]) => {
+const observed = (...spans: RecordedSpan[]) => observedAt(() => undefined, ...spans);
+
+const observedAt = (priceOf: (model: string) => ModelPrice | undefined, ...spans: RecordedSpan[]) => {
     const recorder = new MetricsRecorder();
-    for (const s of spans) observeSpan(recorder, s);
+    for (const s of spans) observeSpan(recorder, s, priceOf);
     return Object.fromEntries(recorder.drain().map(b => [`${b.name} ${b.labelsKey}`, b.aggregate]));
 };
 
@@ -55,6 +58,31 @@ describe('observeSpan', () => {
         expect(metrics[`${METRICS.modelInputTokens} ${labels}`]?.sum).toBe(1200);
         expect(metrics[`${METRICS.modelOutputTokens} ${labels}`]?.sum).toBe(80);
         expect(metrics[`${METRICS.modelReasoningTokens} ${labels}`]?.sum).toBe(0);
+    });
+
+    it('prices a call at its model’s price, counting thinking once, inside the output', () => {
+        const price: ModelPrice = { inputPerMillion: 3, outputPerMillion: 15 };
+        const metrics = observedAt(
+            model => (model === 'anthropic:claude' ? price : undefined),
+            span({
+                op: 'llm.generate',
+                target: 'anthropic:claude',
+                detail: { inputTokens: 1_000_000, outputTokens: 200_000, reasoningTokens: 150_000 },
+            }),
+            span({ op: 'llm.generate', target: 'local:qwen', detail: { inputTokens: 5000, outputTokens: 50 } }),
+        );
+
+        expect(metrics[`${METRICS.modelCost} {"kind":"director.write_break","model":"anthropic:claude"}`]?.sum).toBeCloseTo(6);
+        expect(metrics[`${METRICS.modelCost} {"kind":"director.write_break","model":"local:qwen"}`]).toBeUndefined();
+    });
+
+    it('gives a call that reported no tokens no cost, rather than a cost of nothing', () => {
+        const metrics = observedAt(
+            () => ({ inputPerMillion: 3, outputPerMillion: 15 }),
+            span({ op: 'llm.generate', target: 'm', outcome: 'failed', detail: { aborted: true } }),
+        );
+
+        expect(Object.keys(metrics).some(key => key.startsWith(METRICS.modelCost))).toBe(false);
     });
 
     it('counts a model call that never answered: its time and its failure, and no tokens', () => {

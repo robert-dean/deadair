@@ -6,8 +6,9 @@ import type { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 
 import { useMetricNames, useMetricSeries } from '../../api/metrics.queries';
+import { useSettings } from '../../api/settings.queries';
 import { useSignedIn } from '../../auth/session.store';
-import { formatCount, hourCycle, perLocale } from '../../i18n/format.locale';
+import { formatCount, formatMoney, hourCycle, perLocale } from '../../i18n/format.locale';
 import { Eyebrow } from '../shared/eyebrow';
 import { formatBytes } from '../shared/format.bytes';
 import { formatSpent } from '../shared/format.spent';
@@ -20,6 +21,7 @@ import {
     named,
     rank,
     total,
+    totalsBy,
     TREND_METRICS,
     TREND_RANGES,
     type Bin,
@@ -34,6 +36,23 @@ const REFERENCE = 'var(--da-text-dimmed)';
 
 const CHART_HEIGHT = 220;
 const RANKED_ROWS = 8;
+
+/** The station's `metrics.currency`, and its default when it is unset. Kept in step with `usage.prices.ts`. */
+const CURRENCY_KEY = 'metrics.currency';
+const DEFAULT_CURRENCY = 'USD';
+
+/**
+ * The currency the station's prices are in.
+ *
+ * Read from the settings, which every operator who can see Trends can read too. Until they arrive, or
+ * if they cannot be read, the default: the figure is the same number either way, and only its symbol
+ * could be wrong.
+ */
+function useCurrency(): string {
+    const settings = useSettings();
+    const value = settings.data?.values[CURRENCY_KEY];
+    return typeof value === 'string' && value.trim().length > 0 ? value : DEFAULT_CURRENCY;
+}
 
 const TIME = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', ...hourCycle() }));
 const WEEKDAY_TIME = perLocale(locale => new Intl.DateTimeFormat(locale, { weekday: 'short', hour: '2-digit', minute: '2-digit', ...hourCycle() }));
@@ -110,10 +129,12 @@ export function TrendsPage() {
 
     const audience = useMetricSeries([TREND_METRICS.listeners], range, signedIn);
     const model = useMetricSeries(
-        [TREND_METRICS.modelInputTokens, TREND_METRICS.modelOutputTokens, TREND_METRICS.modelMs, TREND_METRICS.failed],
+        [TREND_METRICS.modelInputTokens, TREND_METRICS.modelOutputTokens, TREND_METRICS.modelMs, TREND_METRICS.failed, TREND_METRICS.modelCost],
         range,
         signedIn,
     );
+    const speech = useMetricSeries([TREND_METRICS.speechCharacters, TREND_METRICS.speechCost], range, signedIn);
+    const currency = useCurrency();
     const work = useMetricSeries([TREND_METRICS.jobMs, TREND_METRICS.pluginMs, TREND_METRICS.failed], range, signedIn);
     const library = useMetricSeries(
         [TREND_METRICS.libraryTotal, TREND_METRICS.libraryCached, TREND_METRICS.libraryMeasured, TREND_METRICS.diskBytes],
@@ -144,7 +165,10 @@ export function TrendsPage() {
                 {page => <Audience page={page} range={range} />}
             </Section>
             <Section title={t('section.model')} query={model}>
-                {page => <Model page={page} range={range} />}
+                {page => <Model page={page} range={range} currency={currency} />}
+            </Section>
+            <Section title={t('section.speech')} query={speech}>
+                {page => <Speech page={page} range={range} currency={currency} />}
             </Section>
             <Section title={t('section.work')} query={work}>
                 {page => <Work page={page} />}
@@ -248,7 +272,7 @@ function Audience({ page, range }: { page: MetricSeriesPage; range: TrendRange }
     );
 }
 
-function Model({ page, range }: { page: MetricSeriesPage; range: TrendRange }) {
+function Model({ page, range, currency }: { page: MetricSeriesPage; range: TrendRange; currency: string }) {
     const { t } = useTranslation('trends');
     const input = bins(page, named(page.series, TREND_METRICS.modelInputTokens));
     const output = bins(page, named(page.series, TREND_METRICS.modelOutputTokens));
@@ -259,6 +283,8 @@ function Model({ page, range }: { page: MetricSeriesPage; range: TrendRange }) {
     // up by minutes and a down model's instant refusals would pull it down. A minute filed before calls
     // carried an outcome has none, and is read as it always was.
     const meanCall = meanOf(total(named(page.series, TREND_METRICS.modelMs).filter(s => s.labels.outcome !== 'failed')));
+    const spent = total(named(page.series, TREND_METRICS.modelCost));
+    const byModel = useMemo(() => modelRows(page), [page]);
 
     return (
         <Stack gap="md">
@@ -266,7 +292,13 @@ function Model({ page, range }: { page: MetricSeriesPage; range: TrendRange }) {
                 <Figure label={t('model.calls')} value={formatCount(calls?.count ?? 0)} />
                 <Figure label={t('model.failed')} value={formatCount(failed?.sum ?? 0)} />
                 <Figure label={t('model.meanCall')} value={meanCall === undefined ? '—' : formatSpent(meanCall)} />
+                <Figure label={t('model.spent')} value={spent === undefined ? '—' : formatMoney(spent.sum, currency)} />
             </Group>
+            {spent === undefined && (calls?.count ?? 0) > 0 && (
+                <Text size="sm" c="dimmed">
+                    {t('model.unpriced')}
+                </Text>
+            )}
             <BarChart
                 h={CHART_HEIGHT}
                 data={rows}
@@ -283,6 +315,125 @@ function Model({ page, range }: { page: MetricSeriesPage; range: TrendRange }) {
                 xAxisProps={{ tickFormatter, minTickGap: 32 }}
                 valueFormatter={value => formatCount(value)}
             />
+            {byModel.length > 0 && (
+                <Stack gap="xs">
+                    <Text size="sm" fw={500}>
+                        {t('model.byModel')}
+                    </Text>
+                    <Table>
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>{t('model.column.model')}</Table.Th>
+                                <Table.Th ta="right">{t('model.column.calls')}</Table.Th>
+                                <Table.Th ta="right">{t('model.column.input')}</Table.Th>
+                                <Table.Th ta="right">{t('model.column.output')}</Table.Th>
+                                <Table.Th ta="right">{t('model.column.spent')}</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {byModel.map(row => (
+                                <Table.Tr key={row.model}>
+                                    <Table.Td>{row.model}</Table.Td>
+                                    <Table.Td ta="right" className="da-num">
+                                        {formatCount(row.calls)}
+                                    </Table.Td>
+                                    <Table.Td ta="right" className="da-num">
+                                        {formatCount(row.input)}
+                                    </Table.Td>
+                                    <Table.Td ta="right" className="da-num">
+                                        {formatCount(row.output)}
+                                    </Table.Td>
+                                    <Table.Td ta="right" className="da-num">
+                                        {row.spent === undefined ? '—' : formatMoney(row.spent, currency)}
+                                    </Table.Td>
+                                </Table.Tr>
+                            ))}
+                        </Table.Tbody>
+                    </Table>
+                </Stack>
+            )}
+        </Stack>
+    );
+}
+
+/**
+ * One row per model over the range: its calls, its tokens and what it spent, whichever kind of call
+ * each was for. Ordered by spend, then by tokens, so the model costing the money is on top and an
+ * unpriced one is still ranked by how much it was asked to do.
+ */
+function modelRows(page: MetricSeriesPage) {
+    const sums = (name: string) => new Map(totalsBy(named(page.series, name), 'model', Infinity).map(row => [row.value, row]));
+    const calls = sums(TREND_METRICS.modelMs);
+    const input = sums(TREND_METRICS.modelInputTokens);
+    const output = sums(TREND_METRICS.modelOutputTokens);
+    const spent = sums(TREND_METRICS.modelCost);
+    const models = new Set([...calls.keys(), ...input.keys(), ...output.keys(), ...spent.keys()]);
+
+    return [...models]
+        .map(model => ({
+            model,
+            calls: calls.get(model)?.count ?? 0,
+            input: input.get(model)?.sum ?? 0,
+            output: output.get(model)?.sum ?? 0,
+            spent: spent.get(model)?.sum,
+        }))
+        .sort((a, b) => (b.spent ?? 0) - (a.spent ?? 0) || b.input + b.output - (a.input + a.output))
+        .slice(0, RANKED_ROWS);
+}
+
+function Speech({ page, range, currency }: { page: MetricSeriesPage; range: TrendRange; currency: string }) {
+    const { t } = useTranslation('trends');
+    const characters = named(page.series, TREND_METRICS.speechCharacters);
+    const spoken = total(characters);
+    const spent = total(named(page.series, TREND_METRICS.speechCost));
+    const { rows, tickFormatter } = chartRows([bins(page, characters)], ['characters'], bin => bin.point?.sum, range);
+    const cost = new Map(totalsBy(named(page.series, TREND_METRICS.speechCost), 'plugin', Infinity).map(row => [row.value, row.sum]));
+    const engines = totalsBy(characters, 'plugin', RANKED_ROWS).map(row => ({ engine: row.value, characters: row.sum, spent: cost.get(row.value) }));
+
+    return (
+        <Stack gap="md">
+            <Group gap="xl">
+                <Figure label={t('speech.characters')} value={formatCount(spoken?.sum ?? 0)} />
+                <Figure label={t('speech.spent')} value={spent === undefined ? '—' : formatMoney(spent.sum, currency)} />
+            </Group>
+            {spent === undefined && (spoken?.sum ?? 0) > 0 && (
+                <Text size="sm" c="dimmed">
+                    {t('speech.unpriced')}
+                </Text>
+            )}
+            <BarChart
+                h={CHART_HEIGHT}
+                data={rows}
+                dataKey="when"
+                aria-label={t('speech.chartLabel')}
+                series={[{ name: 'characters', label: t('speech.characters'), color: SERIES_A }]}
+                gridAxis="x"
+                tickLine="none"
+                xAxisProps={{ tickFormatter, minTickGap: 32 }}
+                valueFormatter={value => formatCount(value)}
+            />
+            <Table>
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th>{t('speech.column.engine')}</Table.Th>
+                        <Table.Th ta="right">{t('speech.column.characters')}</Table.Th>
+                        <Table.Th ta="right">{t('speech.column.spent')}</Table.Th>
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {engines.map(row => (
+                        <Table.Tr key={row.engine}>
+                            <Table.Td>{row.engine}</Table.Td>
+                            <Table.Td ta="right" className="da-num">
+                                {formatCount(row.characters)}
+                            </Table.Td>
+                            <Table.Td ta="right" className="da-num">
+                                {row.spent === undefined ? '—' : formatMoney(row.spent, currency)}
+                            </Table.Td>
+                        </Table.Tr>
+                    ))}
+                </Table.Tbody>
+            </Table>
         </Stack>
     );
 }

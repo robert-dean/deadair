@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SpeechCue, SpeechDelivery, SpeechRequest } from '@deadair/plugin-sdk';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { MetricsRecorder } from '@maroonedsoftware/telemetry';
 
 import { DEFAULT_SPEECH_MAX_CHARACTERS, SpeechService } from '../../../src/modules/render/speech.service.js';
 import type { SpeechPlugin } from '../../../src/modules/plugins/plugin.capabilities.js';
@@ -17,6 +18,8 @@ import type { PronunciationRepository } from '../../../src/modules/render/pronun
 import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import type { SpeechGate } from '../../../src/modules/render/speech.gate.js';
 import type { VoiceSampleStore } from '../../../src/modules/render/voice.sample.store.js';
+import { METRICS } from '../../../src/modules/metrics/metric.names.js';
+import { USAGE_PRICE_KEYS } from '../../../src/modules/metrics/usage.prices.js';
 
 /**
  * An engine that answers with a byte of audio and remembers what it was asked to say.
@@ -69,9 +72,10 @@ function harness(
     const lexicon = { active: vi.fn(async () => entries) } as unknown as PronunciationRepository;
     const logger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
 
-    const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never);
+    const metrics = new MetricsRecorder();
+    const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never, metrics);
 
-    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits, config };
+    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits, config, metrics, speak };
 }
 
 describe('SpeechService.speakWith', () => {
@@ -347,5 +351,36 @@ describe('SpeechService.maxCharactersOf', () => {
         const { service } = harness();
 
         expect(await service.maxCharacters()).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);
+    });
+});
+
+describe('SpeechService, counting what was spoken', () => {
+    const drained = (metrics: MetricsRecorder) => Object.fromEntries(metrics.drain().map(b => [`${b.name} ${b.labelsKey}`, b.aggregate.sum]));
+
+    it('counts the characters the engine was handed, after the respellings, by engine', async () => {
+        const { service, plugin, metrics } = harness();
+
+        await service.speakWith(plugin, { text: 'Simon & Garfunkel.' });
+
+        expect(drained(metrics)).toEqual({ [`${METRICS.speechCharacters} {"plugin":"deadair.kokoro"}`]: 'Simon and Garfunkel.'.length });
+    });
+
+    it('prices them at the engine’s own price per million characters', async () => {
+        const { service, plugin, metrics, config } = harness();
+        vi.mocked(config.get).mockImplementation(((key: string, fallback: string) =>
+            key === USAGE_PRICE_KEYS.speech ? JSON.stringify([{ engine: 'deadair.kokoro', characters: '200' }]) : fallback) as never);
+
+        await service.speakWith(plugin, { text: 'Fifty characters exactly, counted out one by one..' });
+
+        expect(drained(metrics)[`${METRICS.speechCost} {"plugin":"deadair.kokoro"}`]).toBeCloseTo(0.01);
+    });
+
+    it('counts nothing for a request the engine refused', async () => {
+        const { service, plugin, metrics, speak } = harness();
+        speak.mockRejectedValueOnce(new Error('quota exceeded'));
+
+        await expect(service.speakWith(plugin, { text: 'Hello.' })).rejects.toThrow('quota exceeded');
+
+        expect(drained(metrics)).toEqual({});
     });
 });

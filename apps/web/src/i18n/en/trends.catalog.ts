@@ -16,6 +16,7 @@ export const trends = {
     section: {
         audience: 'Audience',
         model: 'The model',
+        speech: 'The voice',
         work: 'Work',
         library: 'Library and disk',
         received: 'From your other services',
@@ -36,7 +37,29 @@ export const trends = {
         calls: 'Calls',
         failed: 'Failed',
         meanCall: 'Average call',
+        spent: 'Spent',
+        unpriced: 'No model has a price yet, so this counts tokens and not money. Set what each model costs under Settings, Words.',
         chartLabel: 'Tokens the model read and wrote over the range',
+        byModel: 'By model, most spent first',
+        column: {
+            model: 'Model',
+            calls: 'Calls',
+            input: 'Tokens read',
+            output: 'Tokens written',
+            spent: 'Spent',
+        },
+    },
+    speech: {
+        characters: 'Characters spoken',
+        spent: 'Spent',
+        unpriced:
+            'No speech engine has a price, so this counts characters and not money. An engine that bills by the character, such as ElevenLabs, can be priced under Settings, Voice and audio.',
+        chartLabel: 'Characters handed to the speech engine over the range',
+        column: {
+            engine: 'Engine',
+            characters: 'Characters',
+            spent: 'Spent',
+        },
     },
     work: {
         jobs: 'Jobs, by the time they took',

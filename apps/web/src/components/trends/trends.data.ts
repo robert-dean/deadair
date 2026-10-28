@@ -14,6 +14,9 @@ export const TREND_METRICS = {
     modelMs: 'model.call.ms',
     modelInputTokens: 'model.tokens.input',
     modelOutputTokens: 'model.tokens.output',
+    modelCost: 'model.cost',
+    speechCharacters: 'speech.characters',
+    speechCost: 'speech.cost',
     libraryTotal: 'library.tracks',
     libraryCached: 'library.cached',
     libraryMeasured: 'library.measured',
@@ -165,3 +168,22 @@ export function rank(series: readonly MetricSeries[], limit: number): Ranked[] {
 
 /** The series of one metric, out of a page holding several. */
 export const named = (series: readonly MetricSeries[] | undefined, name: string): MetricSeries[] => (series ?? []).filter(s => s.name === name);
+
+/**
+ * Each value of one label summed over the whole range, across every other label: what each model
+ * spent whichever kind of call it served. Largest first, at most `limit`.
+ */
+export function totalsBy(series: readonly MetricSeries[], label: string, limit: number): { value: string; sum: number; count: number }[] {
+    const totals = new Map<string, { sum: number; count: number }>();
+    for (const s of series) {
+        const value = s.labels[label];
+        const point = total([s]);
+        if (value === undefined || point === undefined) continue;
+        const seen = totals.get(value) ?? { sum: 0, count: 0 };
+        totals.set(value, { sum: seen.sum + point.sum, count: seen.count + point.count });
+    }
+    return [...totals.entries()]
+        .map(([value, folded]) => ({ value, ...folded }))
+        .sort((a, b) => b.sum - a.sum)
+        .slice(0, limit);
+}

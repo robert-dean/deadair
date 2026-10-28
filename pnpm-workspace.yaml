@@ -49,6 +49,10 @@ overrides:
     # The website's build. Docusaurus 3.10 asks for tinypool ^1 and the fix is only in 2, which keeps
     # the default-export `Tinypool` class, `run()` and `destroy()` its SSG workers call. Never in the image.
     '@docusaurus/core@3>tinypool': ^2.1.2
+    # The Stream Deck plugin. @elgato/utils 0.6.1 (still the one @elgato/streamdeck 3.0.3 pins) asks for
+    # zod ^3.25 and the fix is only in 4.6.6, but every import it makes is `zod/v4-mini`, which zod 4
+    # still exports. Never in the image.
+    '@elgato/utils>zod': ^4.6.6
 
 confirmModulesPurge: false
 

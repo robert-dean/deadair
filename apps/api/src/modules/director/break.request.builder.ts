@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
+import { EnrichmentReadService, type FactBudget, type OfferedFact } from '#modules/enrichment/enrichment.read.service.js';
 import { padUseNotes, type PadUseNote } from '#modules/render/pad.cues.js';
 import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
 import { padOfferEveryBreaks } from '#modules/render/pad.settings.js';
@@ -143,6 +143,21 @@ function withholdFacts(neighbours: Neighbours): void {
     }
 }
 
+/**
+ * A stored claim this break was shown, which is what it keeps as its evidence once it is written.
+ *
+ * Claims only: a provider line has no source, so it has nothing to keep. And only what the writer
+ * was SHOWN, so a presenter at `never`, whose notes were read and withheld, is handed none.
+ */
+export interface HandedClaim {
+    factId: string;
+    text: string;
+}
+
+/** The claims among what one read handed over. */
+const claimsAmong = (facts: readonly OfferedFact[]): HandedClaim[] =>
+    facts.flatMap(fact => (fact.factId === undefined ? [] : [{ factId: fact.factId, text: fact.text }]));
+
 /** Whether every record this break was shown came with nothing to say about it. See {@link BreakRequestBuilder.story}. */
 const nothingKnownAbout = (neighbours: Neighbours): boolean =>
     [neighbours.previous, neighbours.next].every(side => side === undefined || (side.track.facts?.length ?? 0) === 0);
@@ -251,7 +266,9 @@ export class BreakRequestBuilder {
      * The request for this break, and the story it was handed, which the caller spends once its
      * words have won. Nothing in here can fail the break: every read is best-effort.
      */
-    async build(input: BreakRequestInput): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string }> {
+    async build(
+        input: BreakRequestInput,
+    ): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string; handedClaims: HandedClaim[] }> {
         const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority } = input;
 
         const zone = stationZone(this.config);
@@ -287,7 +304,7 @@ export class BreakRequestBuilder {
         // presenter keen on the story behind a record is handed more of it, and one at `never` none.
         // See `factPlan`.
         const facts = factPlan(persona, kind, turn);
-        const handedFact = await this.attachFacts(turn, neighbours, facts);
+        const { handedFact, handedClaims } = await this.attachFacts(turn, neighbours, facts);
         // Read before a `never` presenter's notes are withheld, because whether a story fills the
         // silence is a question about what the station knows, not about what this break is shown.
         const nothingKnown = nothingKnownAbout(neighbours);
@@ -434,7 +451,12 @@ export class BreakRequestBuilder {
 
         // The one fact a presenter at `always` was asked for, so the job can read back whether it was
         // said. Not on the request: no writer needs to be told which of its notes was the asked-for one.
-        return { request, ...(chosen === undefined ? {} : { chosen }), ...(handedFact === undefined ? {} : { handedFact }) };
+        return {
+            request,
+            ...(chosen === undefined ? {} : { chosen }),
+            ...(handedFact === undefined ? {} : { handedFact }),
+            handedClaims: facts.withhold ? [] : handedClaims,
+        };
     }
 
     /**
@@ -606,11 +628,18 @@ export class BreakRequestBuilder {
         }
     }
 
-    /** Puts what the station knows on each record. Answers the one fact handed over under {@link FactPlan.one}. */
-    private async attachFacts(segmentId: string, neighbours: Neighbours, plan: FactPlan): Promise<string | undefined> {
+    /**
+     * Puts what the station knows on each record. Answers the one fact handed over under
+     * {@link FactPlan.one}, and the stored claims among everything put on the records.
+     */
+    private async attachFacts(
+        segmentId: string,
+        neighbours: Neighbours,
+        plan: FactPlan,
+    ): Promise<{ handedFact?: string; handedClaims: HandedClaim[] }> {
         const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side !== undefined);
         const trackIds = sides.map(side => side.track.trackId).filter((trackId): trackId is string => trackId !== undefined);
-        if (trackIds.length === 0) return undefined;
+        if (trackIds.length === 0) return { handedClaims: [] };
 
         try {
             if (plan.one) {
@@ -623,24 +652,31 @@ export class BreakRequestBuilder {
                 );
                 const side =
                     chosen === undefined ? undefined : [neighbours.next, neighbours.previous].find(side => side?.track.trackId === chosen.trackId);
-                if (chosen === undefined || side === undefined) return undefined;
+                if (chosen === undefined || side === undefined) return { handedClaims: [] };
                 side.track = { ...side.track, facts: [chosen.fact] };
-                return chosen.fact;
+                return {
+                    handedFact: chosen.fact,
+                    handedClaims: chosen.factId === undefined ? [] : [{ factId: chosen.factId, text: chosen.fact }],
+                };
             }
 
-            const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId), {
+            const facts = await this.enrichment.offeredFactsForTracks(trackIds, rotationOf(segmentId), {
                 ...(plan.budget === undefined ? {} : { budget: plan.budget }),
                 // Nothing is rested for a presenter who will not be shown it.
                 ...(plan.withhold ? { stamp: false } : {}),
             });
+            const handedClaims: HandedClaim[] = [];
             for (const side of sides) {
                 const found = side.track.trackId === undefined ? undefined : facts.get(side.track.trackId);
-                if (found !== undefined && found.length > 0) side.track = { ...side.track, facts: found };
+                if (found === undefined || found.length === 0) continue;
+                side.track = { ...side.track, facts: found.map(fact => fact.text) };
+                handedClaims.push(...claimsAmong(found));
             }
+            return { handedClaims };
         } catch (error) {
             this.logger.warn(`director: could not read what the station knows about these records (${errorText(error)})`);
         }
-        return undefined;
+        return { handedClaims: [] };
     }
 
     /**

@@ -580,6 +580,33 @@ describe('EnrichmentReadService', () => {
         });
     });
 
+    // What a break keeps as its evidence: the same read as the plain one, with each claim's id.
+    describe('the facts a break is offered, with their claims', () => {
+        it('names the stored claim behind each sentence, and none behind a provider line', async () => {
+            const read = new EnrichmentReadService(
+                fakeRepository({}, factRows({ track: [{ facts: ['Recorded in one take.'] }] })),
+                fakeService([MUSICBRAINZ]),
+                fakeFacts([], new Map([[TRACK_ID, [{ id: 'fact-0', claim: 'It was used in a film.', level: 'track' }]]])),
+            );
+
+            await expect(read.offeredFactsForTracks([TRACK_ID])).resolves.toEqual(
+                new Map([[TRACK_ID, [{ text: 'It was used in a film.', factId: 'fact-0' }, { text: 'Recorded in one take.' }]]]),
+            );
+        });
+
+        it('names them on a spread read too', async () => {
+            const read = new EnrichmentReadService(
+                fakeRepository({}, factRows({ artist: [{ facts: ['Formed in Bristol.'] }] })),
+                fakeService([MUSICBRAINZ]),
+                fakeFacts([], new Map([[TRACK_ID, [{ id: 'fact-0', claim: 'It was used in a film.', level: 'track' }]]])),
+            );
+
+            await expect(read.offeredFactsForTracks([TRACK_ID], 0, { budget: { limit: 2, spread: true } })).resolves.toEqual(
+                new Map([[TRACK_ID, [{ text: 'It was used in a film.', factId: 'fact-0' }, { text: 'Formed in Bristol.' }]]]),
+            );
+        });
+    });
+
     // Code decides that a break carries a fact and which one; the model only says it. One for the
     // whole break, so the order between the two records is part of the answer.
     describe('the one fact a break is handed', () => {
@@ -605,7 +632,11 @@ describe('EnrichmentReadService', () => {
                 ]),
             );
 
-            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({ trackId: NEXT_ID, fact: 'The next one was banned by the BBC.' });
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({
+                trackId: NEXT_ID,
+                fact: 'The next one was banned by the BBC.',
+                factId: 'next-claim',
+            });
         });
 
         it('takes a claim about the previous record ahead of any provider line, the next record’s included', async () => {
@@ -614,7 +645,11 @@ describe('EnrichmentReadService', () => {
                 new Map([[PREVIOUS_ID, [claim('previous-claim', 'The last one was in a film.')]]]),
             );
 
-            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({ trackId: PREVIOUS_ID, fact: 'The last one was in a film.' });
+            await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID)).resolves.toEqual({
+                trackId: PREVIOUS_ID,
+                fact: 'The last one was in a film.',
+                factId: 'previous-claim',
+            });
         });
 
         it('falls back to a provider line, the next record’s before the previous one’s', async () => {
@@ -632,7 +667,11 @@ describe('EnrichmentReadService', () => {
                 ]),
             );
 
-            await expect(read.factForBreak(undefined, NEXT_ID)).resolves.toEqual({ trackId: NEXT_ID, fact: 'They met at a job centre.' });
+            await expect(read.factForBreak(undefined, NEXT_ID)).resolves.toEqual({
+                trackId: NEXT_ID,
+                fact: 'They met at a job centre.',
+                factId: 'artist-claim',
+            });
             expect(store.markUsed).toHaveBeenCalledWith(['artist-claim']);
         });
 
@@ -665,6 +704,7 @@ describe('EnrichmentReadService', () => {
             await expect(read.factForBreak(PREVIOUS_ID, NEXT_ID, 0, { stamp: false })).resolves.toEqual({
                 trackId: NEXT_ID,
                 fact: 'The next one was banned.',
+                factId: 'next-claim',
             });
             expect(store.markUsed).not.toHaveBeenCalled();
         });

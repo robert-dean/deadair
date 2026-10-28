@@ -160,8 +160,12 @@ function harness(
         writersFor: vi.fn(() => ['model', 'deterministic']),
     };
     const enrichment = {
-        factsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
-            options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
+        // The test's facts are plain sentences; a sentence that names its claim (`claim:<id>:<text>`)
+        // comes back as that stored claim, so a test about the break's evidence can say which it was handed.
+        offeredFactsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
+            options.factsThrow
+                ? Promise.reject(new Error('the enrichment tables are gone'))
+                : new Map([...(options.facts ?? new Map<string, string[]>())].map(([id, lines]) => [id, lines.map(offered)])),
         ),
         factForBreak: vi.fn(async (_previous: string | undefined, _next: string | undefined, _rotate?: number) =>
             options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : options.fact,
@@ -326,6 +330,12 @@ function harness(
         speech,
         lyricLabels,
     };
+}
+
+/** A test's fact line as the enrichment read hands it over. See the `offeredFactsForTracks` double. */
+function offered(line: string): { text: string; factId?: string } {
+    const claim = /^claim:([^:]+):(.*)$/.exec(line);
+    return claim === null ? { text: line } : { text: claim[2]!, factId: claim[1]! };
 }
 
 describe('WriteBreakJob', () => {
@@ -1765,7 +1775,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             // No options on an ordinary break: the read is exactly the one the station always made.
-            expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+            expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({
                     previous: {
@@ -1798,7 +1808,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(enrichment.factsForTracks).not.toHaveBeenCalled();
+            expect(enrichment.offeredFactsForTracks).not.toHaveBeenCalled();
         });
 
         it('writes the break anyway when the facts cannot be read', async () => {
@@ -1854,7 +1864,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {
                     budget: { limit: 4, spread: true },
                 });
             });
@@ -1866,7 +1876,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
 
             it('reads the ordinary budget for a presenter with a rung nobody recognises', async () => {
@@ -1874,7 +1884,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
         });
 
@@ -1892,7 +1902,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
             });
 
             it('shows the writer neither record’s notes, and records none against the write', async () => {
@@ -1915,7 +1925,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
         });
 
@@ -1939,7 +1949,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).not.toHaveBeenCalled();
+                expect(enrichment.offeredFactsForTracks).not.toHaveBeenCalled();
                 expect(enrichment.factForBreak).toHaveBeenCalledWith('track-a', 'track-b', expect.any(Number));
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({
@@ -2046,7 +2056,7 @@ describe('WriteBreakJob', () => {
                 await job.run({ segmentId: miss });
 
                 expect(enrichment.factForBreak).not.toHaveBeenCalled();
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
                     'model',
@@ -2062,7 +2072,7 @@ describe('WriteBreakJob', () => {
             const other = harness({ lineup: withIds('seg-2'), segment: planned({ id: 'seg-2' }) });
             await other.job.run({ segmentId: 'seg-2' });
 
-            const rotation = (call: typeof first) => call.enrichment.factsForTracks.mock.calls[0]![1];
+            const rotation = (call: typeof first) => call.enrichment.offeredFactsForTracks.mock.calls[0]![1];
             expect(rotation(second)).toBe(rotation(first));
             expect(rotation(other)).not.toBe(rotation(first));
         });

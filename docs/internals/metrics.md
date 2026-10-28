@@ -76,6 +76,15 @@ default model (labelled with the plugin's id, which no row names) all count toke
 typo reads as a missing cost and never as a free model. `metrics.currency` is only how the console
 writes the figure: nothing is converted.
 
+**Speech is counted in characters, because that is what a hosted engine bills**, and its time is
+already on the plugin spans (`work.plugin.ms`, `speech.speak`). `SpeechService.startSpeaking` is the
+one place every speak passes through, a break, a voice preview and a pronunciation sample alike, so it
+observes `speech.characters` by engine there, once the engine has accepted the request, over the text
+AFTER the station's respellings: that is the text sent, and so the text charged. A call site, not a
+span, because a span carries a duration and no text. `metrics.speechPrices` prices an engine per
+million characters on the model rule above, at record time, into `speech.cost`; an engine the operator
+runs has no row and is counted in characters only.
+
 ## The flusher
 
 **A module-owned loop, not a cron job**, because what it drains is in this process's memory: a

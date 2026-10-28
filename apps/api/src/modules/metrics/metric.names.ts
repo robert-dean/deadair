@@ -34,6 +34,14 @@ export const METRICS = {
      */
     modelCost: 'model.cost',
 
+    /**
+     * Characters handed to a speech engine, by `plugin`: the text after the station's own respellings,
+     * which is what the engine bills. Every speak counts, a voice preview as much as a break. A counter.
+     */
+    speechCharacters: 'speech.characters',
+    /** What those characters cost, by `plugin`, at the engine's price when they were spoken. Absent without one. */
+    speechCost: 'speech.cost',
+
     /** Records in the library. A gauge. */
     libraryTotal: 'library.tracks',
     /** Records whose audio is cached locally. A gauge. */

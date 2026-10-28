@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { callCost, modelPrices, priceCell, readModelPrices, USAGE_PRICE_KEYS } from '../../../src/modules/metrics/usage.prices.js';
+import { callCost, modelPrices, priceCell, readModelPrices, readSpeechPrices, USAGE_PRICE_KEYS } from '../../../src/modules/metrics/usage.prices.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 const rows = (...entries: Record<string, string>[]) => JSON.stringify(entries);
@@ -65,5 +65,20 @@ describe('callCost', () => {
     it('says nothing without a price, or for a call that reported no tokens', () => {
         expect(callCost(undefined, 100, 100)).toBeUndefined();
         expect(callCost(price, undefined, undefined)).toBeUndefined();
+    });
+});
+
+describe('readSpeechPrices', () => {
+    it('keeps a price per engine, and drops a row with no engine or no readable price', () => {
+        const prices = readSpeechPrices(
+            rows(
+                { engine: 'deadair.elevenlabs', characters: '150' },
+                { engine: 'deadair.kokoro' },
+                { characters: '9' },
+                { engine: 'x', characters: 'free' },
+            ),
+        );
+
+        expect([...prices.entries()]).toEqual([['deadair.elevenlabs', 150]]);
     });
 });

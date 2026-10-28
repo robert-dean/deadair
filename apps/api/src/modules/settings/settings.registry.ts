@@ -223,7 +223,7 @@ import {
     OTLP_RECEIVE_DEFAULTS,
     OTLP_RECEIVE_KEYS,
 } from '#modules/metrics/metrics.settings.js';
-import { DEFAULT_USAGE_CURRENCY, MODEL_PRICE_COLUMNS, USAGE_PRICE_KEYS } from '#modules/metrics/usage.prices.js';
+import { DEFAULT_USAGE_CURRENCY, MODEL_PRICE_COLUMNS, SPEECH_PRICE_COLUMNS, USAGE_PRICE_KEYS } from '#modules/metrics/usage.prices.js';
 import { MAX_OPEN_REQUESTS, MAX_REQUEST_COOLDOWN_MINUTES, REQUESTS_DEFAULTS, REQUESTS_KEYS } from '#modules/requests/requests.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
@@ -1614,6 +1614,22 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Which plugin speaks, and which joins audio',
         type: 'note',
         help: 'Both are under Providers now, beside every other job more than one plugin can do — including which one the station is actually using, and what happens when the one you named is not running.',
+    },
+    {
+        group: 'render',
+        key: USAGE_PRICE_KEYS.speech,
+        label: 'What each speech engine costs',
+        type: 'list',
+        default: '',
+        placeholder: 'No prices, so Trends counts the characters spoken and not money.',
+        columns: [
+            { key: SPEECH_PRICE_COLUMNS.engine, label: 'Engine', type: 'select', required: true, optionsFrom: 'plugins.speech' },
+            { key: SPEECH_PRICE_COLUMNS.characters, label: 'Price per million characters', type: 'string', placeholder: '150.00' },
+        ],
+        help:
+            'For an engine that bills by the character, such as ElevenLabs, so Trends can say what the station’s voice cost. Work it out from your plan: its price divided by the characters it includes, times a million. ' +
+            'Every character the engine is handed counts, voice previews and samples as well as breaks, and a price applies from the next one spoken. An engine you run yourself needs no row. ' +
+            'The currency is the one set under Words.',
     },
     {
         group: 'render',

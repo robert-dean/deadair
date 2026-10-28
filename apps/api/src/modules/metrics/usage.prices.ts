@@ -1,5 +1,5 @@
 /**
- * What the station's model calls cost, at prices the operator typed.
+ * What the station's model calls and its speech cost, at prices the operator typed.
  *
  * Nothing in the station knew a price, so Trends could count tokens and say nothing about money,
  * which is the number a hosted model is actually chosen and argued about by
@@ -22,12 +22,17 @@ import { parseRows } from '@deadair/plugin-sdk';
 export const USAGE_PRICE_KEYS = {
     /** A list of `{model, input, output}` rows, prices per million tokens. */
     models: 'metrics.modelPrices',
+    /** A list of `{engine, characters}` rows, prices per million characters spoken. */
+    speech: 'metrics.speechPrices',
     /** The ISO 4217 code every price is in. Only the console reads it: the counters hold plain numbers. */
     currency: 'metrics.currency',
 } as const;
 
 /** The columns of {@link USAGE_PRICE_KEYS.models}. */
 export const MODEL_PRICE_COLUMNS = { model: 'model', input: 'input', output: 'output' } as const;
+
+/** The columns of {@link USAGE_PRICE_KEYS.speech}. */
+export const SPEECH_PRICE_COLUMNS = { engine: 'engine', characters: 'characters' } as const;
 
 /** US dollars, which is what every hosted model this station reaches bills in. */
 export const DEFAULT_USAGE_CURRENCY = 'USD';
@@ -91,4 +96,29 @@ export function callCost(price: ModelPrice | undefined, inputTokens: number | un
     if (price === undefined) return undefined;
     if (inputTokens === undefined && outputTokens === undefined) return undefined;
     return ((inputTokens ?? 0) * price.inputPerMillion + (outputTokens ?? 0) * price.outputPerMillion) / 1_000_000;
+}
+
+/**
+ * The price per million characters by speech engine, over a raw stored value.
+ *
+ * Characters rather than seconds of audio, because that is what a hosted engine bills: ElevenLabs
+ * counts the text it was handed against the plan. A self-hosted engine has no row and is counted in
+ * characters only. An engine listed twice keeps its first row.
+ */
+export function readSpeechPrices(raw: unknown): Map<string, number> {
+    const prices = new Map<string, number>();
+
+    for (const row of parseRows(raw)) {
+        const engine = row[SPEECH_PRICE_COLUMNS.engine];
+        const price = priceCell(row[SPEECH_PRICE_COLUMNS.characters]);
+        if (engine === undefined || price === undefined || prices.has(engine)) continue;
+        prices.set(engine, price);
+    }
+
+    return prices;
+}
+
+/** {@link readSpeechPrices} over the live config. */
+export function speechPrices(config: AppConfig): Map<string, number> {
+    return readSpeechPrices(config.get(USAGE_PRICE_KEYS.speech, ''));
 }

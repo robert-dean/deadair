@@ -37,7 +37,7 @@ export const MAX_SPAN_BUFFER = 5000;
  * over the same interval, which a collector keeps one of. A cumulative total just grows.
  */
 /** The station's counters that are not token counts. A counter added to `metric.names.ts` goes here, or it is sent as a gauge. */
-const COUNTERS: ReadonlySet<string> = new Set([METRICS.failed, METRICS.modelCost]);
+const COUNTERS: ReadonlySet<string> = new Set([METRICS.failed, METRICS.modelCost, METRICS.speechCharacters, METRICS.speechCost]);
 
 export function metricKind(name: string): MetricKind {
     if (name.endsWith('.ms')) return 'histogram';

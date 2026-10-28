@@ -15,6 +15,9 @@ import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plu
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { MetricsRecorder } from '@maroonedsoftware/telemetry';
+import { METRICS } from '#modules/metrics/metric.names.js';
+import { speechPrices } from '#modules/metrics/usage.prices.js';
 import { explainDefaultSpeaker, explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { extensionForMime, SegmentStore, type SegmentExtension } from './segment.store.js';
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
@@ -124,6 +127,7 @@ export class SpeechService {
         private readonly gate: SpeechGate,
         private readonly pronunciations: PronunciationRepository,
         private readonly logger: Logger,
+        private readonly metrics: MetricsRecorder,
     ) {}
 
     /**
@@ -526,9 +530,29 @@ export class SpeechService {
     /** One `speak`, through the invoker on the long budget an engine actually needs. */
 
     private async startSpeaking(plugin: SpeechPlugin, request: SpeechRequest): Promise<SpeechHandle> {
-        return await this.pluginInvoker.invoke(plugin.record.id, 'speech.speak', async () => plugin.instance.speak(request), {
+        const handle = await this.pluginInvoker.invoke(plugin.record.id, 'speech.speak', async () => plugin.instance.speak(request), {
             timeoutMs: SPEAK_TIMEOUT_MS,
         });
+        this.countSpoken(plugin.record.id, request.text);
+        return handle;
+    }
+
+    /**
+     * What an engine was handed, and what that cost at its price.
+     *
+     * Here because every speak passes through {@link startSpeaking}: a segment, a voice preview, a
+     * pronunciation sample. Each one is billed by a hosted engine, so each one counts. Counted once the
+     * engine has ACCEPTED the request, which is when a hosted one charges for it, and not for a request
+     * it refused. The text is the transposed one, since that is the text that was sent.
+     */
+    private countSpoken(pluginId: string, text: string): void {
+        const characters = text.length;
+        if (characters === 0) return;
+
+        const labels = { plugin: pluginId };
+        this.metrics.observe(METRICS.speechCharacters, characters, labels);
+        const price = speechPrices(this.config).get(pluginId);
+        if (price !== undefined) this.metrics.observe(METRICS.speechCost, (characters * price) / 1_000_000, labels);
     }
 
     /**

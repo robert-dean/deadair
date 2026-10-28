@@ -20,6 +20,7 @@ import { EmbeddedPage } from '../shared/page.header';
 export const LIBRARY_TABS = [
     libraryTab('tracks'),
     libraryTab('artists'),
+    libraryTab('similarity'),
     libraryTab('playlists'),
     libraryTab('charts'),
     libraryTab('news'),
@@ -31,7 +32,7 @@ export const LIBRARY_TABS = [
  * One tab, with its words read from the library catalog through getters, so the strip, the rail and
  * the command palette get them in the language on screen when they read them rather than at import.
  */
-function libraryTab<TKey extends 'tracks' | 'artists' | 'playlists' | 'charts' | 'news' | 'podcasts' | 'narrations'>(key: TKey) {
+function libraryTab<TKey extends 'tracks' | 'artists' | 'similarity' | 'playlists' | 'charts' | 'news' | 'podcasts' | 'narrations'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -99,9 +100,13 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
  * Exported because the command palette navigates to these too, and a second copy of this table is a
  * second place for a tab and its route to come apart.
  */
-export const LIBRARY_ROUTES: Record<LibraryTab, '/catalog/tracks' | '/catalog' | '/playlists' | '/charts' | '/news' | '/podcasts' | '/narrations'> = {
+export const LIBRARY_ROUTES: Record<
+    LibraryTab,
+    '/catalog/tracks' | '/catalog' | '/catalog/similarity' | '/playlists' | '/charts' | '/news' | '/podcasts' | '/narrations'
+> = {
     tracks: '/catalog/tracks',
     artists: '/catalog',
+    similarity: '/catalog/similarity',
     playlists: '/playlists',
     charts: '/charts',
     news: '/news',

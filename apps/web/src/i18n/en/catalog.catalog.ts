@@ -349,6 +349,37 @@ export const catalog = {
         loadFailedTitle: 'The catalog could not be loaded',
         noMatch: 'Try a shorter term, or part of the name rather than all of it.',
     },
+    similarity: {
+        title: 'Similar artists',
+        description:
+            'Who the similarity sources say sounds like whom, as the station has stored it. An artist is looked up when the station programmes around them, so the map grows with what it plays.',
+        libraryOnly: 'Only artists in the library',
+        artists_one: '{{count}} artist',
+        artists_other: '{{count}} artists',
+        truncated: 'Showing the strongest {{limit}} connections. There are more.',
+        loadFailedTitle: 'The similar artists could not be loaded',
+        loadFailedFallback: 'The similarity store is unavailable.',
+        empty: {
+            title: 'Nothing is stored yet',
+            body: 'The map fills as the station looks up who sounds like the artists it plays. Nothing has been looked up yet.',
+        },
+        emptyLibrary: {
+            title: 'No connections inside the library',
+            body: 'Every artist the sources have named so far is outside the library. Turn off the switch to see them.',
+        },
+        legend: {
+            inLibrary: 'In the library',
+            notInLibrary: 'Named by a source only',
+            mutual: 'Brighter lines: each names the other',
+        },
+        hint: 'Scroll to zoom, drag to move, and click an artist in the library to open it.',
+        canvasLabel: 'A map of {{artists}} artists and {{links}} connections between them',
+        inLibrary: 'In the library',
+        notInLibrary: 'Not in the library',
+        connections_one: '{{count}} connection',
+        connections_other: '{{count}} connections',
+        mostConnected: 'Most connected',
+    },
     search: {
         clear: 'Clear search',
     },

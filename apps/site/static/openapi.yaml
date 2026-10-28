@@ -11254,6 +11254,10 @@ components:
                     type: string
                     maxLength: 2000
                     description: "For a gap or an air change, the station's own sentence about it"
+                pickedBecause:
+                    type: string
+                    maxLength: 200
+                    description: 'For a record the model picked while asked to say why, its reason in its own words'
             required: [id, kind, at]
             description: 'One line of what actually went out'
         AsRunQuery:

@@ -118,6 +118,7 @@ export const AsRunEntry = z.strictObject({
         .optional()
         .describe('How many items already handed to the player it moved past to reach this one. They never aired. Absent when none'),
     detail: z.string().max(2000).optional().describe("For a gap or an air change, the station's own sentence about it"),
+    pickedBecause: z.string().max(200).optional().describe('For a record the model picked while asked to say why, its reason in its own words'),
 });
 export type AsRunEntry = z.infer<typeof AsRunEntry>;
 

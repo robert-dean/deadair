@@ -123,6 +123,8 @@ export interface AsRunEntry {
     passedOver?: number;
     /** For a gap or an air change, the station's own sentence about it */
     detail?: string;
+    /** For a record the model picked while asked to say why, its reason in its own words */
+    pickedBecause?: string;
 }
 
 /** Rehydrates every wire-encoded scalar in a AsRunEntry into its runtime type. Mutates and returns `raw`. */

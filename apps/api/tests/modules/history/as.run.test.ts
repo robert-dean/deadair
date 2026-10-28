@@ -27,6 +27,7 @@ const row = (index: number, over: Partial<AsRunRow> = {}): AsRunRow => ({
     segmentId: null,
     passedOver: 0,
     detail: null,
+    pickedBecause: null,
     ...over,
 });
 
@@ -110,6 +111,13 @@ describe('toAsRunEntry', () => {
 
     it('reports how many items were passed over to reach one', () => {
         expect(toAsRunEntry(row(0, { passedOver: 3 }))).toMatchObject({ passedOver: 3 });
+    });
+
+    it('carries why the model picked a record, and leaves it off a line that has none', () => {
+        expect(toAsRunEntry(row(0, { pickedBecause: 'A slow one to close the hour.' }))).toMatchObject({
+            pickedBecause: 'A slow one to close the hour.',
+        });
+        expect(toAsRunEntry(row(0))).not.toHaveProperty('pickedBecause');
     });
 
     it('leaves the end off an item nobody saw end', () => {

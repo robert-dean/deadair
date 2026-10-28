@@ -537,7 +537,11 @@ and the other generators never set: the draw's honest answer is the weights that
 of sentence, and an invented one would be the first line nobody could trust. **It is reported and never
 read to decide anything.** Off by default because it is output tokens on the slowest call the station
 makes; the refill's log line counts the reasons beside `tokens` and `durationMs`, so the cost is read off
-the log with it on and off.
+the log with it on and off. From the pick it rides `PickResolver` onto `RundownItem.pickedBecause` (the one field taken from
+the pick, beside `chart` and `deepCut`), survives a restart inside the lineup's `track` jsonb, and is written
+to `as_run.picked_because` when the record airs (migration 0123). Not `play_history`, which the repeat
+window reads on every pick. Every outbound path names its fields, so the model's words never reach an event
+destination, a chat platform, `/nowplaying` or the playout status.
 
 **A listener's request search reaches the providers on the same terms, through `RequestProviderSearch`
 rather than this tool.** It reuses `ProviderSearch` and the same two narrowing reads (`ownership` and

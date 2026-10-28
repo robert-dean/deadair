@@ -223,6 +223,11 @@ public sealed record AsRunEntry
     [JsonPropertyName("detail")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Detail { get; init; }
+
+    /// <summary>For a record the model picked while asked to say why, its reason in its own words</summary>
+    [JsonPropertyName("pickedBecause")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PickedBecause { get; init; }
 }
 
 public sealed record AsRunPage

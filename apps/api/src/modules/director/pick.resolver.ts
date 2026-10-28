@@ -371,6 +371,8 @@ export class PickResolver {
                 ...(pick.chart === undefined ? {} : { chart: pick.chart }),
                 // A deep cut, for the same reason: it is why the pick was drawn, not a fact of the row.
                 ...(pick.deepCut === true ? { deepCut: true as const } : {}),
+                // Why the model picked it, for the as-run log and nothing else. See `pick.reason.ts`.
+                ...(pick.pickedBecause === undefined ? {} : { pickedBecause: pick.pickedBecause }),
             });
         }
 

@@ -242,8 +242,10 @@ public struct AsRunEntry: Codable, Equatable, Sendable {
     public var passedOver: Int?
     /// For a gap or an air change, the station's own sentence about it
     public var detail: String?
+    /// For a record the model picked while asked to say why, its reason in its own words
+    public var pickedBecause: String?
 
-    public init(id: String, kind: AsRunKind, at: Date, endedAt: Date? = nil, title: String? = nil, artists: String? = nil, trackId: String? = nil, segmentId: String? = nil, passedOver: Int? = nil, detail: String? = nil) {
+    public init(id: String, kind: AsRunKind, at: Date, endedAt: Date? = nil, title: String? = nil, artists: String? = nil, trackId: String? = nil, segmentId: String? = nil, passedOver: Int? = nil, detail: String? = nil, pickedBecause: String? = nil) {
         self.id = id
         self.kind = kind
         self.at = at
@@ -254,6 +256,7 @@ public struct AsRunEntry: Codable, Equatable, Sendable {
         self.segmentId = segmentId
         self.passedOver = passedOver
         self.detail = detail
+        self.pickedBecause = pickedBecause
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -267,6 +270,7 @@ public struct AsRunEntry: Codable, Equatable, Sendable {
         case segmentId = "segmentId"
         case passedOver = "passedOver"
         case detail = "detail"
+        case pickedBecause = "pickedBecause"
     }
 
     public init(from decoder: Decoder) throws {
@@ -281,6 +285,7 @@ public struct AsRunEntry: Codable, Equatable, Sendable {
         self.segmentId = try container.decodeIfPresent(String.self, forKey: .segmentId)
         self.passedOver = try container.decodeIfPresent(Int.self, forKey: .passedOver)
         self.detail = try container.decodeIfPresent(String.self, forKey: .detail)
+        self.pickedBecause = try container.decodeIfPresent(String.self, forKey: .pickedBecause)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -295,6 +300,7 @@ public struct AsRunEntry: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
         try container.encodeIfPresent(self.passedOver, forKey: .passedOver)
         try container.encodeIfPresent(self.detail, forKey: .detail)
+        try container.encodeIfPresent(self.pickedBecause, forKey: .pickedBecause)
     }
 }
 

@@ -43,6 +43,7 @@ contract AsRunEntry: { # One line of what actually went out
     segmentId?: string(max=100) # The segment a break or a programme was
     passedOver?: int(min=0) # How many items already handed to the player it moved past to reach this one. They never aired. Absent when none
     detail?: string(max=2000) # For a gap or an air change, the station's own sentence about it
+    pickedBecause?: string(max=200) # For a record the model picked while asked to say why, its reason in its own words
 }
 
 contract AsRunQuery: { # One page of the as-run log, newest first

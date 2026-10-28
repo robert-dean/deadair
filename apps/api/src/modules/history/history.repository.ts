@@ -159,7 +159,8 @@ export class HistoryRepository extends DataRepository {
                     r.track_id::text as "trackId",
                     r.segment_id::text as "segmentId",
                     r.passed_over as "passedOver",
-                    null::text as detail
+                    null::text as detail,
+                    r.picked_because as "pickedBecause"
                 from deadair.as_run r
                 where r.station_key = ${query.stationKey}
                 union all
@@ -172,7 +173,8 @@ export class HistoryRepository extends DataRepository {
                     end,
                     case when e.kind = 'gap' then e.created_at end,
                     null, null, null, null, 0,
-                    e.detail
+                    e.detail,
+                    null
                 from deadair.station_events e
                 where e.station_key = ${query.stationKey} and e.kind in ('gap', 'air.on', 'air.off')
             ) u

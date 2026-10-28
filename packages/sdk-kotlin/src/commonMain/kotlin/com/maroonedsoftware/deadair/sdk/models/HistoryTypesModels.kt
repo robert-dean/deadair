@@ -107,6 +107,8 @@ data class AsRunEntry(
     val passedOver: Long? = null,
     /** For a gap or an air change, the station's own sentence about it */
     val detail: String? = null,
+    /** For a record the model picked while asked to say why, its reason in its own words */
+    val pickedBecause: String? = null,
 )
 
 @Serializable

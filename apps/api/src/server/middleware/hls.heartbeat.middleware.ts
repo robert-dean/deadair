@@ -3,7 +3,7 @@ import type { Context } from 'koa';
 import type { ScopedContainer } from 'injectkit';
 import { ServerKitMiddleware } from '@maroonedsoftware/koa';
 import { httpError } from '@maroonedsoftware/errors';
-import { HlsAudience } from '#modules/stream/hls.audience.js';
+import { HlsAudience, type HlsClient } from '#modules/stream/hls.audience.js';
 import { refusesAgent } from '#modules/stream/hls.refusal.js';
 import { resolveMaxListeners } from '#modules/stream/stream.settings.js';
 import { trustsProxy } from '#modules/shared/request.trust.js';
@@ -90,7 +90,7 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
             const cap = resolveMaxListeners(config);
             if (cap > 0) {
                 const audience = (ctx.container as ScopedContainer).get(HlsAudience);
-                const client = clientKey(ctx, trusted);
+                const client = hlsClient(ctx, trusted);
                 if (!audience.has(client) && audience.count() >= cap) {
                     throw httpError(503).withDetails({ message: 'the station has as many listeners as it takes on this stream' });
                 }
@@ -109,7 +109,7 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
         if (!isPlaylist || ctx.status >= 400) return;
 
         const container = ctx.container as ScopedContainer;
-        container.get(HlsAudience).seen(clientKey(ctx, trusted));
+        container.get(HlsAudience).seen(hlsClient(ctx, trusted));
     };
 };
 
@@ -137,8 +137,8 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
  * from a listener's. `REAL_IP_FROM` tells the edge, which can; see
  * `docs/internals/deployment.md`.
  */
-export function clientKey(ctx: Pick<Context, 'ip' | 'req'>, trusted: boolean): string {
+export function hlsClient(ctx: Pick<Context, 'ip' | 'req'>, trusted: boolean): HlsClient {
     const agent = ctx.req.headers['user-agent'];
 
-    return `${clientAddress(ctx, trusted)} ${typeof agent === 'string' ? agent : ''}`;
+    return { address: clientAddress(ctx, trusted), ...(typeof agent === 'string' && agent ? { agent } : {}) };
 }

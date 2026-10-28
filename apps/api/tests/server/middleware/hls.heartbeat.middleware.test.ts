@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { HlsAudience } from '../../../src/modules/stream/hls.audience.js';
-import { clientKey, hlsHeartbeatMiddleware } from '../../../src/server/middleware/hls.heartbeat.middleware.js';
+import { hlsClient, hlsHeartbeatMiddleware } from '../../../src/server/middleware/hls.heartbeat.middleware.js';
 
 const PEER = '172.18.0.4';
 
@@ -126,15 +126,15 @@ describe('hlsHeartbeatMiddleware', () => {
         await middleware(first.ctx as never, serves(first.ctx));
         await middleware(second.ctx as never, serves(second.ctx));
 
-        expect(clientKey(first.ctx as never, true)).not.toBe(clientKey(second.ctx as never, true));
+        expect(hlsClient(first.ctx as never, true)).not.toEqual(hlsClient(second.ctx as never, true));
 
-        // Each context carries its own register here, so the meaningful assertion is the key.
+        // Each context carries its own register here, so the meaningful assertion is the client.
         // Two ticks into ONE register:
         const shared = new HlsAudience();
-        shared.seen(clientKey(first.ctx as never, true));
-        shared.seen(clientKey(first.ctx as never, true));
+        shared.seen(hlsClient(first.ctx as never, true));
+        shared.seen(hlsClient(first.ctx as never, true));
         expect(shared.count()).toBe(1);
-        shared.seen(clientKey(second.ctx as never, true));
+        shared.seen(hlsClient(second.ctx as never, true));
         expect(shared.count()).toBe(2);
     });
 });
@@ -183,17 +183,27 @@ describe('hlsHeartbeatMiddleware, refusing what the operator named', () => {
     });
 });
 
-describe('clientKey', () => {
+describe('hlsClient', () => {
     it('reads the forwarded address the rate limiter does, once the edge is trusted', () => {
         const { ctx } = contextFor('/hls/mp3.m3u8');
 
-        expect(clientKey(ctx as never, true)).toBe('203.0.113.7 player/1.0');
+        expect(hlsClient(ctx as never, true)).toEqual({ address: '203.0.113.7', agent: 'player/1.0' });
     });
 
     it('falls back to the peer when the edge is not trusted', () => {
         const { ctx } = contextFor('/hls/mp3.m3u8');
 
-        expect(clientKey(ctx as never, false)).toBe(`${PEER} player/1.0`);
+        expect(hlsClient(ctx as never, false)).toEqual({ address: PEER, agent: 'player/1.0' });
+    });
+
+    it('leaves the agent out when the player sent none, or an empty one', () => {
+        // Absent rather than an empty string, so a listener page has one way to say "no agent".
+        const { ctx } = contextFor('/hls/mp3.m3u8');
+        const bare = { ...ctx, req: { headers: { 'x-real-ip': '203.0.113.7' } } };
+        const empty = { ...ctx, req: { headers: { 'x-real-ip': '203.0.113.7', 'user-agent': '' } } };
+
+        expect(hlsClient(bare as never, true)).toEqual({ address: '203.0.113.7' });
+        expect(hlsClient(empty as never, true)).toEqual({ address: '203.0.113.7' });
     });
 });
 

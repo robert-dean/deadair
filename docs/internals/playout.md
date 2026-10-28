@@ -123,12 +123,12 @@ for the files nginx serves itself, and the root `.m3u8` REDIRECT, since a cross-
 to every response in a redirect chain and `/live.m3u8` is the URL the station hands out.
 
 **That register is keyed on address plus user agent, so it is only ever as good as the address the edge
-reports.** nginx sets `X-Real-IP` to `$remote_addr` and `clientKey` reads it through `clientAddress`, which
+reports.** nginx sets `X-Real-IP` to `$remote_addr` and `hlsClient` reads it through `clientAddress`, which
 means that behind a tunnel or a reverse proxy every listener arrives as the SAME address and the key collapses
 to the user agent alone. Measured on a live station reached through a tunnel: one client was counted as two
 listeners, because a Go program fetched the playlist and then handed the URL to an ffmpeg reader that fetched
 it again under a second user agent — and two people using the same player would have been counted as one. The
-undercount `clientKey` documents is the acceptable direction; this is both directions at once. The fix is
+undercount `hlsClientKey` documents is the acceptable direction; this is both directions at once. The fix is
 `REAL_IP_FROM` at the edge rather than anything here (see `docs/internals/deployment.md`), because the app
 cannot tell a proxy's address from a listener's and nginx can be told. The same address keys the rate limiter,
 which is the more serious half: without it the whole internet shares one bucket.

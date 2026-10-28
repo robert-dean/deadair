@@ -251,6 +251,19 @@ public sealed class RenderClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Read segment sources
+    /// The stored facts a written break was handed, the ones it said first
+    /// </summary>
+    public async Task<SegmentSourceList> ReadSegmentSourcesAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("segments", http.Segment(id), "sources"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<SegmentSourceList>(response);
+    }
+
+    /// <summary>
     /// Get segment audio
     /// The audio of one segment
     /// </summary>

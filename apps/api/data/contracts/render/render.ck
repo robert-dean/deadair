@@ -313,6 +313,26 @@ operation /segments/{id}: {
     }
 }
 
+# Where a break's facts came from: the stored claims its writer was handed, each with the page and the
+# span that state it, and whether the station's own read-back found the words saying it. Copied when
+# the break was written, so a claim gone with its record still answers here. An unknown segment, or
+# one that was handed nothing, answers an empty list, as `/scripts?segmentId` does.
+
+operation /segments/{id}/sources: {
+    params: {
+        id: uuid
+    }
+    get: { # The stored facts a written break was handed, the ones it said first
+        name: Read segment sources
+        service: RenderService.readSegmentSources
+        response: {
+            200: {
+                application/json: SegmentSourceList
+            }
+        }
+    }
+}
+
 # `security: none` here is not an absence, and it is not "anyone may have this". Liquidsoap fetches a
 # segment with a headerless GET from another container, so a policy, which evaluates against a
 # session, cannot be the gate; `signed.audio.middleware` is, and it admits a URL carrying a token cut

@@ -17,6 +17,7 @@ import type {
     ScriptAttempt,
     ScriptRatingInput,
     ScriptHistoryPage,
+    SegmentSourceList,
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
@@ -49,6 +50,7 @@ import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { DEFAULT_KIND as DEFAULT_SEGMENT_KIND, labelFor, MAX_SEGMENT_BYTES, SegmentLibrary } from './segment.library.js';
+import { SegmentFactsRepository } from './segment.facts.repository.js';
 import { LIBRARY_SOURCE, SegmentRepository, type Segment } from './segment.repository.js';
 import {
     extensionForMime,
@@ -163,7 +165,20 @@ export class RenderService {
         // What joins a previewed script around its pad. Last, for the same reason.
         private readonly joiner: PadJoiner,
         private readonly config: AppConfig,
+        // Where a break's facts came from. Last, for the rack's reason above.
+        private readonly sources: SegmentFactsRepository,
     ) {}
+
+    /**
+     * The stored facts a written break was handed, the ones it said first. See `SegmentFactsRepository`.
+     *
+     * Empty rather than a 404 for a segment that is gone or was handed nothing: the console asks for
+     * every break it shows, and most were handed no stored fact at all.
+     */
+    async readSegmentSources(id: string): Promise<SegmentSourceList> {
+        const sources = await this.sources.forSegment(id);
+        return { sources: sources.map(({ factId: _, ...source }) => source) };
+    }
 
     /**
      * What the station has written lately, including the attempts that came to nothing.

@@ -1,7 +1,7 @@
 ---
 title: 'Set pad use'
 sidebar_label: 'Set pad use'
-sidebar_position: 27
+sidebar_position: 28
 mdx:
     format: 'md'
 ---

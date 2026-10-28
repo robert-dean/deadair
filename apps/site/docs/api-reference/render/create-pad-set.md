@@ -1,7 +1,7 @@
 ---
 title: 'Create pad set'
 sidebar_label: 'Create pad set'
-sidebar_position: 29
+sidebar_position: 30
 mdx:
     format: 'md'
 ---

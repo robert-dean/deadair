@@ -129,6 +129,21 @@ data class ScriptPromptMessage(
     val content: String,
 )
 
+/** One stored fact a written break was handed, as it stood when the break was written */
+@Serializable
+data class SegmentSource(
+    /** The sentence the writer was handed */
+    val claim: String,
+    /** Where a person checks it */
+    val sourceUrl: String,
+    /** The words there that state it */
+    val sourceQuote: String,
+    /** The plugin that fetched the page */
+    val sourceProvider: String,
+    /** Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said */
+    val told: Boolean,
+)
+
 /**
  * What an operator thought of something the station said.
  *
@@ -442,6 +457,11 @@ data class ScriptHistoryQuery(
     val personaKey: String? = null,
     /** Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history */
     val segmentId: String? = null,
+)
+
+@Serializable
+data class SegmentSourceList(
+    val sources: List<SegmentSource>,
 )
 
 /** One attempt to write something the station would say, including the ones that came to nothing */

@@ -124,6 +124,23 @@ export interface ScriptPromptMessage {
 }
 
 /**
+ * One stored fact a written break was handed, as it stood when the break was written
+ * generated from [SegmentSource](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface SegmentSource {
+    /** The sentence the writer was handed */
+    claim: string;
+    /** Where a person checks it */
+    sourceUrl: string;
+    /** The words there that state it */
+    sourceQuote: string;
+    /** The plugin that fetched the page */
+    sourceProvider: string;
+    /** Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said */
+    told: boolean;
+}
+
+/**
  * What an operator thought of something the station said.
  *
  * The catalog's three spellings exactly, and deliberately not a second vocabulary: an opinion is an
@@ -408,6 +425,13 @@ export interface ScriptHistoryQuery {
     personaKey?: string;
     /** Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history */
     segmentId?: string;
+}
+
+/**
+ * generated from [SegmentSourceList](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface SegmentSourceList {
+    sources: SegmentSource[];
 }
 
 /**

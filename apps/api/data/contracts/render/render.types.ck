@@ -75,6 +75,18 @@ contract ScriptPromptMessage: { # One turn of the conversation a writer sent
     content: string(max=100000)
 }
 
+contract SegmentSource: { # One stored fact a written break was handed, as it stood when the break was written
+    claim: string(min=1, max=500) # The sentence the writer was handed
+    sourceUrl: string(min=1, max=2000) # Where a person checks it
+    sourceQuote: string(min=1, max=2000) # The words there that state it
+    sourceProvider: string(min=1, max=200) # The plugin that fetched the page
+    told: boolean # Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said
+}
+
+contract SegmentSourceList: {
+    sources: array(SegmentSource)
+}
+
 contract ScriptAttempt: { # One attempt to write something the station would say, including the ones that came to nothing
     id: string(min=1, max=100)
     at: datetime

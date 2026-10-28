@@ -25,6 +25,7 @@ import {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SegmentSourceList,
     SpeechPreviewRequest,
     VoiceList,
 } from '../modules/render/types/render.types.js';
@@ -232,6 +233,26 @@ RenderRouter.delete('/segments/:id', requirePolicy({ policy: 'platform.manage' }
 
     const service = ctx.container.get(RenderService);
     const result: SegmentList = await service.deleteSegment(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * The stored facts a written break was handed, the ones it said first
+ * from [render.ck](../../data/contracts/render/render.ck) `GET /segments/{id}/sources`
+ */
+RenderRouter.get('/segments/:id/sources', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(RenderService);
+    const result: SegmentSourceList = await service.readSegmentSources(id);
 
     ctx.status = 200;
     ctx.type = 'application/json';

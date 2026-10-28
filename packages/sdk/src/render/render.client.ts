@@ -24,6 +24,7 @@ import type {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SegmentSourceList,
     SpeechPreviewRequest,
     VoiceList,
 } from './types/render.types.js';
@@ -206,6 +207,15 @@ export class RenderClient {
     async deleteSegment(id: string): Promise<SegmentList> {
         const result = await this.fetch(`/segments/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return await parseJson<SegmentList>(result);
+    }
+
+    /**
+     * @name Read segment sources
+     * @description The stored facts a written break was handed, the ones it said first
+     */
+    async readSegmentSources(id: string): Promise<SegmentSourceList> {
+        const result = await this.fetch(`/segments/${encodeURIComponent(id)}/sources`, { method: 'GET' });
+        return await parseJson<SegmentSourceList>(result);
     }
 
     /**

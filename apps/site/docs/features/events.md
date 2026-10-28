@@ -42,7 +42,7 @@ Every type is listed with an example under **Settings → Event destinations**, 
 
 **Name** it, give its **Address** (`http` or `https`, with no username or password in it; a receiver that wants a token takes it in the path or the query), and choose **Events to send**. Left empty, a destination is sent every event, including any the station adds later. **On** decides whether it is sent anything.
 
-**Add destination** shows the destination's **signing secret** once, and never again. **Send test** sends it a test event whether it is on or not, and says whether it was taken and what it answered. **Log** lists the latest fifty attempts, the tests included, newest first: delivered, failed or dropped, with the attempt, the answer and how long it took. **Edit** changes it, **New secret** replaces the secret (the old one stops working at once), and **Remove** stops it and deletes its log.
+**Add destination** shows the destination's **signing secret** once, and never again. **Send test** sends it a test event whether it is on or not, and says whether it was taken and what it answered. **Log** lists the latest fifty attempts, the tests included, newest first: delivered, failed or dropped, with the attempt, the answer and how long it took. **Edit** changes it, **New secret** replaces the secret (the old one stops working at once), and **Remove** stops it and deletes its log. If you have an authenticator app or a passkey, adding a destination, giving it a new secret and changing its address each ask you to confirm it is you first, as API keys do. Connected apps can do none of the three.
 
 ## Signatures
 

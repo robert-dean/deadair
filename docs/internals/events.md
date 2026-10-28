@@ -136,6 +136,16 @@ station (`deadair_dest_` and 32 random bytes), shown in the clear on creation an
 never again, and stored encrypted with the root key on the party pass's rule. The two routes that
 return one are kept out of MCP.
 
+**Moving an address is guarded like minting a secret.** A destination keeps its secret when its
+address changes, so a `PATCH` that repoints it hands every later event, still validly signed, to
+whoever chose the new address. It was the one write left exposed: any `platform.manage` credential,
+a connected app over MCP included, could redirect a destination without proving anything. So
+creating, rotating and changing the address ask for a recent strong factor
+(`StrongFactorGate.assertRecentIfAnyEnrolled`) in `EventDestinationsService`, and the patch is
+`mcp: exclude` with the other two. The check fires only when the address actually moves, because
+the console saves the whole form, and renaming, switching off or changing what one is sent moves
+nothing anywhere.
+
 ## One attempt, and what the answer means
 
 **`WebhookSender.send` makes one attempt and never throws.** Retrying belongs to whoever calls it,

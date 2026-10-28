@@ -37,9 +37,19 @@ const row = (overrides: Partial<EventDestinationRow> = {}): EventDestinationRow 
     ...overrides,
 });
 
+/** Refuses the way the recent-factor policy does when `stale` is set, and counts what it was asked. */
+function gate(stale = false) {
+    return {
+        assertRecentIfAnyEnrolled: vi.fn(async (_actorId: string) => {
+            if (stale) throw Object.assign(new Error('step up'), { statusCode: 403 });
+        }),
+    };
+}
+
 function build(
     stored: EventDestinationRow | undefined = row(),
     delivery: WebhookDelivery = { outcome: 'delivered', httpStatus: 200, durationMs: 12 },
+    strongFactorGate = gate(),
 ) {
     const repository = {
         list: vi.fn(async () => (stored === undefined ? [] : [stored])),
@@ -58,8 +68,9 @@ function build(
         sender as never,
         new StationIdentity(),
         config as never,
+        strongFactorGate as never,
     );
-    return { service, repository, sender };
+    return { service, repository, sender, strongFactorGate };
 }
 
 describe('creating a destination', () => {
@@ -173,9 +184,50 @@ describe('a test delivery', () => {
     });
 });
 
+// Each of these either hands out the secret or decides where signed events go, so a credential with
+// no recent strong factor (a connected app, an API key, a session hours old) must not do it alone.
+describe('the writes that ask for a recent strong factor', () => {
+    it.each([
+        ['adding one', (service: EventDestinationsService) => service.create({ name: 'x', url: 'http://hub.local/hook' })],
+        ['rotating its secret', (service: EventDestinationsService) => service.rotateSecret('dest-1')],
+        ['moving its address', (service: EventDestinationsService) => service.update('dest-1', { url: 'https://elsewhere.example.com/hook' })],
+    ])('refuses %s without one, before anything is stored', async (_, call) => {
+        const { service, repository, strongFactorGate } = build(row(), undefined, gate(true));
+
+        await expect(call(service)).rejects.toMatchObject({ statusCode: 403 });
+        expect(strongFactorGate.assertRecentIfAnyEnrolled).toHaveBeenCalledWith('op-1');
+        expect(repository.create).not.toHaveBeenCalled();
+        expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['renaming it', { name: 'Porch light' }],
+        ['switching it off', { enabled: false }],
+        ['changing what it is sent', { events: ['track.started'] }],
+        ['saving the address it already has', { name: 'Porch light', url: ` ${row().url} ` }],
+    ])('does not ask for %s', async (_, changes) => {
+        const { service, repository, strongFactorGate } = build(row(), undefined, gate(true));
+
+        await service.update('dest-1', changes);
+
+        expect(strongFactorGate.assertRecentIfAnyEnrolled).not.toHaveBeenCalled();
+        expect(repository.update).toHaveBeenCalled();
+    });
+
+    it('moves the address once one has been proved', async () => {
+        const { service, repository, strongFactorGate } = build();
+
+        await service.update('dest-1', { url: 'https://elsewhere.example.com/hook' });
+
+        expect(strongFactorGate.assertRecentIfAnyEnrolled).toHaveBeenCalledWith('op-1');
+        expect(repository.update).toHaveBeenCalledWith('dest-1', { url: 'https://elsewhere.example.com/hook' });
+    });
+});
+
 describe('a destination that does not exist', () => {
     it.each([
         ['update', (service: EventDestinationsService) => service.update('nope', { name: 'x' })],
+        ['move', (service: EventDestinationsService) => service.update('nope', { url: 'http://hub.local/hook' })],
         ['remove', (service: EventDestinationsService) => service.remove('nope')],
         ['rotate', (service: EventDestinationsService) => service.rotateSecret('nope')],
         ['test', (service: EventDestinationsService) => service.test('nope')],

@@ -8,8 +8,10 @@ import {
     resolveTalkUp,
     SETTLE_MS,
     talkUpAt,
+    talkUpBudget,
     TALK_UP_KEYS,
 } from '../../../src/modules/director/talk.up.js';
+import { DEFAULT_DUCK_FADE_MS, DUCK_FADE_KEY, DUCK_FADE_RANGE } from '../../../src/modules/playout/gain.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS } from '../../../src/modules/lyrics/vocal.runway.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -65,5 +67,23 @@ describe('resolveTalkUp', () => {
         expect(resolveTalkUp(settingsConfig().config).safetyMs).toBe(DEFAULT_TALK_UP_SAFETY_MS);
         expect(resolveTalkUp(settingsConfig({ [TALK_UP_KEYS.safetyMs]: '50' }).config).safetyMs).toBe(500);
         expect(resolveTalkUp(settingsConfig({ [TALK_UP_KEYS.safetyMs]: '99999' }).config).safetyMs).toBe(5_000);
+    });
+
+    it("reads the duck's ramp with the rest, so one pass times every link against one figure", () => {
+        expect(resolveTalkUp(settingsConfig().config).duckFadeMs).toBe(DEFAULT_DUCK_FADE_MS);
+        expect(resolveTalkUp(settingsConfig({ [DUCK_FADE_KEY]: '800' }).config).duckFadeMs).toBe(800);
+        expect(resolveTalkUp(settingsConfig({ [DUCK_FADE_KEY]: '5' }).config).duckFadeMs).toBe(DUCK_FADE_RANGE.min);
+        expect(resolveTalkUp(settingsConfig({ [DUCK_FADE_KEY]: 'slow' }).config).duckFadeMs).toBe(DEFAULT_DUCK_FADE_MS);
+    });
+});
+
+describe('talkUpBudget', () => {
+    it('offers the words that fit before the post after the room, the ramp and the lag', () => {
+        // 10000 - 1500 - 300 - 200 = 8000ms at 2.6 words a second.
+        expect(talkUpBudget({ kind: 'ms', ms: 10_000 }, 1_500, 300)).toEqual({ runwayMs: 10_000, words: 20 });
+    });
+
+    it('offers fewer for a slower ramp, the same figure the placement allows for', () => {
+        expect(talkUpBudget({ kind: 'ms', ms: 10_000 }, 1_500, 1_300)).toEqual({ runwayMs: 10_000, words: 18 });
     });
 });

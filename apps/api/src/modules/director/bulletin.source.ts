@@ -198,7 +198,17 @@ export class ReadLog {
         private readonly logger: Logger,
     ) {}
 
-    /** Whether this headline has already gone out inside the window. Valid once a `keep` or `forget` has been awaited. */
+    /**
+     * Wait until what an earlier process read has been merged in, so {@link has} can be believed.
+     *
+     * For a caller that only asks, the breaking-news watch: `keep` and `forget` both do this first,
+     * and the watch has nothing to keep and no window of its own to prune against.
+     */
+    async ready(): Promise<void> {
+        await this.restore();
+    }
+
+    /** Whether this headline has already gone out inside the window. Valid once `ready`, `keep` or `forget` has been awaited. */
     has(headline: string): boolean {
         return this.readAt.has(key(headline));
     }
@@ -347,6 +357,44 @@ export class CategoryWatch {
     }
 }
 
+/**
+ * The `context` keys a breaking bulletin's request carries: the one story it was asked for.
+ *
+ * Written by `BreakingNewsWatch` and read by {@link BulletinSource.storiesFor}, and nothing else
+ * reads them. All three are strings, so the request row stays JSON-safe.
+ */
+export const BREAKING_CONTEXT = { headline: 'headline', feedId: 'feedId', itemId: 'itemId' } as const;
+
+/** The story a breaking bulletin was asked to read, out of its request's context. */
+export interface BreakingStory {
+    headline: string;
+    feedId?: string;
+    itemId?: string;
+}
+
+/** The story a request named, or `undefined` for an ordinary bulletin. */
+export function breakingStoryOf(context: BreakContext | undefined): BreakingStory | undefined {
+    const text = (key: string): string | undefined => {
+        const value = context?.[key];
+        return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+    };
+
+    const headline = text(BREAKING_CONTEXT.headline);
+    if (headline === undefined) return undefined;
+
+    const feedId = text(BREAKING_CONTEXT.feedId);
+    const itemId = text(BREAKING_CONTEXT.itemId);
+    return { headline, ...(feedId === undefined ? {} : { feedId }), ...(itemId === undefined ? {} : { itemId }) };
+}
+
+/**
+ * How far down its feed a breaking story is looked for when the bulletin is written.
+ *
+ * The watch saw it near the top minutes ago, so ten is generous; a story that has fallen further
+ * than that in the time it took to write the break is read from its headline alone.
+ */
+const BREAKING_LOOKUP_LIMIT = 10;
+
 /** What a bulletin was given to read, and what it is about. */
 export interface Bulletin {
     stories: readonly BreakStory[];
@@ -386,6 +434,12 @@ export class BulletinSource {
         // nothing: `BreakPlanner` would not have planted this break if nothing could write the kind,
         // but a plugin can be uninstalled between planting and writing.
         if (!this.news.hasNews()) return { stories: [] };
+
+        // A bulletin somebody asked for about ONE story reads that story and nothing else, rather
+        // than taking turns over the roster: it exists because that story arrived. See
+        // `BreakingNewsWatch`.
+        const breaking = breakingStoryOf(context);
+        if (breaking !== undefined) return await this.breakingStory(breaking, now);
 
         // Picked per bulletin rather than fixed, so the station's news is not the same shape every
         // half hour. Spent immediately: `wanted` reaches both the ask below and `ReadLog`, so a
@@ -521,6 +575,46 @@ export class BulletinSource {
             // further in broke. Still not a fault worth failing the break over: the writer declines,
             // the station passes over the slot, and the next bulletin tries again.
             this.logger.info(`director: the news could not be read for a bulletin (${errorText(error)})`);
+            return { stories: [] };
+        }
+    }
+
+    /**
+     * The one story a breaking bulletin was asked for, found again on its feed so the writer has its
+     * words as well as its headline.
+     *
+     * Looked up rather than carried, because a request row is the wrong place for seven hundred
+     * characters of somebody else's article, and the watch asked for headlines only. A story that
+     * cannot be found again (the feed is down, the publisher pulled it, it slid off the page) is read
+     * from its headline alone, which is what the floor reads anyway.
+     *
+     * Declined when the station has already read it, which is the case of an ordinary bulletin
+     * taking the story between the watch asking and this being written: the station would otherwise
+     * break into its programme to say what it said five minutes ago. Kept in the read log on the way
+     * out, so the next ordinary bulletin does not read it again either.
+     */
+    private async breakingStory(asked: BreakingStory, now: number): Promise<Bulletin> {
+        try {
+            await this.read.ready();
+            if (this.read.has(asked.headline)) {
+                this.logger.info('director: a breaking story was read in a bulletin before its own could air, so it was skipped');
+                return { stories: [] };
+            }
+
+            const rules = await this.categories();
+            const found =
+                asked.feedId === undefined || asked.itemId === undefined
+                    ? undefined
+                    : (await this.news.fetchItems({ feedId: asked.feedId, limit: BREAKING_LOOKUP_LIMIT })).find(item => item.id === asked.itemId);
+            const story = toStory(found ?? { title: asked.headline }, rules, undefined);
+            if (story === undefined || this.read.has(story.headline)) return { stories: [] };
+
+            await this.read.keep([story.headline], now);
+            this.logger.debug('director: read a breaking story for its bulletin', { found: found !== undefined });
+            return { stories: [story] };
+        } catch (error) {
+            // `storiesFor`'s rule: the writer declines and the station passes over the slot.
+            this.logger.info(`director: a breaking story could not be read for its bulletin (${errorText(error)})`);
             return { stories: [] };
         }
     }

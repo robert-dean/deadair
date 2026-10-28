@@ -14,8 +14,14 @@ import {
     MIN_GAIN_DB,
     DEFAULT_SPEECH_TRIM_DB,
     DEFAULT_TARGET_LUFS,
-    DUCK_UNDER_VOICE_DB,
+    DEFAULT_DUCK_DEEPEST_DB,
+    DEFAULT_DUCK_SHALLOWEST_DB,
+    DEFAULT_DUCK_UNDER_VOICE_DB,
+    DUCK_DEEPEST_RANGE,
+    DUCK_SHALLOWEST_RANGE,
+    DUCK_UNDER_VOICE_RANGE,
     duckBedLufsFor,
+    resolveDuck,
     MAX_SPEECH_TRIM_DB,
     MIN_SPEECH_TRIM_DB,
     resolveSpeechTrimDb,
@@ -281,24 +287,70 @@ describe('programmeGainFor', () => {
 });
 
 describe('duckBedLufsFor', () => {
-    it('puts the bed DUCK_UNDER_VOICE_DB under where a break is aimed', () => {
+    const UNDER = DEFAULT_DUCK_UNDER_VOICE_DB;
+
+    it('puts the bed that far under where a break is aimed', () => {
         // Where the voice lands is the target less the trim, whatever the segment measured: that is
         // what `speechGainFor` aims every break at.
-        expect(duckBedLufsFor(TARGET, TRIM)).toBe(TARGET - TRIM - DUCK_UNDER_VOICE_DB);
-        expect(duckBedLufsFor(TARGET, TRIM)).toBe(TARGET + speechGainFor({ loudnessLufs: TARGET }, TARGET, TRIM) - DUCK_UNDER_VOICE_DB);
+        expect(duckBedLufsFor(TARGET, TRIM, UNDER)).toBe(TARGET - TRIM - UNDER);
+        expect(duckBedLufsFor(TARGET, TRIM, UNDER)).toBe(TARGET + speechGainFor({ loudnessLufs: TARGET }, TARGET, TRIM) - UNDER);
     });
 
     it('ducks a record at the default target exactly as the fixed -12 dB duck did', () => {
         // The claim the default rests on: only quieter and louder passages should move.
-        expect(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)).toBe(DEFAULT_TARGET_LUFS - 12);
+        expect(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, UNDER)).toBe(DEFAULT_TARGET_LUFS - 12);
     });
 
     it('follows the target and the trim, which is why it rides on the cue', () => {
-        expect(duckBedLufsFor(TARGET - 3, TRIM)).toBe(duckBedLufsFor(TARGET, TRIM) - 3);
-        expect(duckBedLufsFor(TARGET, TRIM + 2)).toBe(duckBedLufsFor(TARGET, TRIM) - 2);
+        expect(duckBedLufsFor(TARGET - 3, TRIM, UNDER)).toBe(duckBedLufsFor(TARGET, TRIM, UNDER) - 3);
+        expect(duckBedLufsFor(TARGET, TRIM + 2, UNDER)).toBe(duckBedLufsFor(TARGET, TRIM, UNDER) - 2);
+    });
+
+    it('moves the bed and not the voice when the distance under it changes', () => {
+        // The difference from the trim, and the reason both are settings: the trim moves the two
+        // together, so only this one answers "I cannot hear the DJ over the intro".
+        expect(duckBedLufsFor(TARGET, TRIM, UNDER + 4)).toBe(duckBedLufsFor(TARGET, TRIM, UNDER) - 4);
+        expect(speechAimLufs(TARGET, TRIM)).toBe(TARGET - TRIM);
     });
 
     it('falls back to the defaults for a figure that is not a number', () => {
-        expect(duckBedLufsFor(Number.NaN, Number.NaN)).toBe(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB));
+        expect(duckBedLufsFor(Number.NaN, Number.NaN, Number.NaN)).toBe(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, UNDER));
+    });
+});
+
+describe('resolveDuck', () => {
+    it('answers the defaults for settings nobody set', () => {
+        expect(resolveDuck('', '', '')).toEqual({
+            underVoiceDb: DEFAULT_DUCK_UNDER_VOICE_DB,
+            deepestDb: DEFAULT_DUCK_DEEPEST_DB,
+            shallowestDb: DEFAULT_DUCK_SHALLOWEST_DB,
+        });
+        expect(resolveDuck(undefined, 'deeper', 'a bit')).toEqual(resolveDuck('', '', ''));
+    });
+
+    it('reads each figure, however it was stored', () => {
+        // A setting is a string; a test handing over a number would pass either way.
+        expect(resolveDuck('14', '-24', '-1.5')).toEqual({ underVoiceDb: 14, deepestDb: -24, shallowestDb: -1.5 });
+    });
+
+    it('clamps each figure into its range rather than refusing it', () => {
+        const duck = resolveDuck('99', '-99', '6');
+        expect(duck.underVoiceDb).toBe(DUCK_UNDER_VOICE_RANGE.max);
+        expect(duck.deepestDb).toBe(DUCK_DEEPEST_RANGE.min);
+        expect(duck.shallowestDb).toBe(DUCK_SHALLOWEST_RANGE.max);
+        // A bound above zero would be a boost under the voice.
+        expect(resolveDuck('', '4', '').deepestDb).toBe(0);
+    });
+
+    it('answers a shallowest set deeper than the deepest with the deepest, which is a fixed drop', () => {
+        // What radio.liq would do with the pair anyway, said on the cue rather than settled there.
+        expect(resolveDuck('', '-8', '-12')).toMatchObject({ deepestDb: -8, shallowestDb: -8 });
+    });
+
+    it('matches the radio.env fallbacks it replaces', () => {
+        // `DUCK_GAIN_DB` and `DUCK_MIN_DB` in stream/radio.default.env, which a cue from an older
+        // app still ducks by: a default that disagreed would be a duck that changed at an upgrade.
+        expect(DEFAULT_DUCK_DEEPEST_DB).toBe(-18);
+        expect(DEFAULT_DUCK_SHALLOWEST_DB).toBe(-3);
     });
 });

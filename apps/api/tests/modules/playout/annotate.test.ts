@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import {
     blendOutOf,
     DUCK_BED_KEY,
+    DUCK_GAIN_KEY,
+    DUCK_MIN_KEY,
     duckAnnotations,
     itemAnnotations,
     VOICE_AIM_KEY,
@@ -18,6 +20,7 @@ import {
     DEFAULT_SPEECH_TRIM_DB,
     DEFAULT_TARGET_LUFS,
     duckBedLufsFor,
+    resolveDuck,
     programmeGainFor,
     speechAimLufs,
     speechGainFor,
@@ -102,11 +105,30 @@ describe('the voice aim, which the voice compressors put their threshold at', ()
 });
 
 describe('duckAnnotations', () => {
-    it('carries the level the bed ducks to, as a number radio.liq can parse', () => {
-        const annotations = duckAnnotations(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+    const duck = resolveDuck('', '', '');
 
-        expect(annotations[DUCK_BED_KEY]).toBe(String(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)));
+    it('carries the level the bed ducks to, as a number radio.liq can parse', () => {
+        const annotations = duckAnnotations(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, duck);
+
+        expect(annotations[DUCK_BED_KEY]).toBe(String(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, duck.underVoiceDb)));
         expect(Number.parseFloat(annotations[DUCK_BED_KEY]!)).toBeLessThan(0);
+    });
+
+    it('carries both bounds under the names radio.liq reads them by', () => {
+        // Always, rather than only when they differ from the default: a cue without them takes
+        // radio.env's, which is not the figure the operator set.
+        const annotations = duckAnnotations(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, resolveDuck('12', '-24', '-1.5'));
+
+        expect(DUCK_GAIN_KEY).toBe('deadair_duck_gain_db');
+        expect(DUCK_MIN_KEY).toBe('deadair_duck_min_db');
+        expect(annotations[DUCK_GAIN_KEY]).toBe('-24');
+        expect(annotations[DUCK_MIN_KEY]).toBe('-1.5');
+        expect(annotations[DUCK_BED_KEY]).toBe(String(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, 12)));
+    });
+
+    it('is not on a break that airs BETWEEN two records, for either bound', () => {
+        expect(itemAnnotations(speech(-9), context(true))[DUCK_GAIN_KEY]).toBeUndefined();
+        expect(itemAnnotations(speech(-9), context(true))[DUCK_MIN_KEY]).toBeUndefined();
     });
 
     it('is not on a break that airs BETWEEN two records, which nothing is ducked under', () => {

@@ -98,6 +98,8 @@ Two settings under Settings, Breaks let a link be said over a record instead of 
 
 **Room left around the singing** is how far from the singing either one keeps.
 
+How far the music drops while the presenter talks over it is under Settings, Playout. The station turns the record down to a level a set distance under the voice rather than by a fixed amount, so a quiet intro and a loud chorus both end up behind the presenter. You can set that distance, the most a very loud record may be pulled down, the least a quiet one dips, and how long the music takes to drop and come back. Each applies from the next break, with no restart. A longer drop leaves fewer words to fit before the singing, and the station allows for that when it decides what to talk up.
+
 ## Writing one again
 
 A break nothing could write is not tried again on its own, because the usual reason is that nothing true could be said about the records either side. After you change the phrasings or switch the model on, the pencil on the break's row on the **Desk** (**Write it again**) throws its words away and has it written afresh as its slot comes near, under whoever is presenting by then. It works on any break the station wrote that has not reached the player yet, finished ones included, but not on a recording, somebody else's programme, or one turn of a phone-in or other production. A break whose records have already aired cannot be written again, since there is nowhere true for it to go. Through the API it is `POST /api/director/air/items/{itemId}/rewrite`.

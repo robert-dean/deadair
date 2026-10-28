@@ -359,6 +359,20 @@ as a `voice` cue on the record it rides, armed with `X-Voice-At-Ms` like an inte
 bed ducks under it and nothing is faded into speech. Where the cue lands and why is
 [`breaks.md`](breaks.md) § "Talking up to the post".
 
+**How the bed ducks under a voice cue is the app's, carried on the cue.** The four `playout.duck*`
+settings (how far under the voice the record sits, the deepest and shallowest it may move to get
+there, and how long the ramp takes) are read when a cue is handed over, not when Liquidsoap starts.
+The level and both bounds ride the `annotate:` uri as `deadair_duck_bed_lufs`, `deadair_duck_gain_db`
+and `deadair_duck_min_db`; the ramp rides the arm as `X-Voice-Fade-Ms`, because the cue fires that
+long BEFORE its tags are read. So a change is heard on the next break, with no restart. The ramp is
+the one with a second reader: the director times a talk-up or talk-out with it, so it is read once
+per pass and carried on the cue (`RundownItem.voice.duckFadeMs`), which keeps the timing and the
+mixer on one figure even if the setting moves while a cue waits for its record. The `radio.env` keys
+of the same names are only what a cue armed without them gets. `TALK_OVER_TRACKS` is still a startup
+constant, and deliberately not a setting: turning it off swaps the duck for the voice preempting the
+bed, but nothing in the app pauses playout to leave the gap that mode assumes, so a switch would cut
+the voice over a record that keeps playing underneath.
+
 **A link said over the END of a record makes that record a hard join.** Its voice is stamped `endOf`
 (`RundownItem.voice.endOf`), `blendOutOf` answers zero for it, and the link ends at the record's
 measured end, so the next record starts straight after the last word. See [`breaks.md`](breaks.md)

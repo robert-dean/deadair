@@ -69,12 +69,17 @@ describe('talkOutIsOn', () => {
 describe('talkOutBudget', () => {
     it('offers the words that fit after the room, the ramp and the lag', () => {
         // 10s of tail: 10000 - 1500 - 300 - 200 = 8000ms at 2.6 words a second.
-        expect(talkOutBudget(tail(190_000, 200_000), 1_500)).toEqual({ tailMs: 10_000, words: 20 });
+        expect(talkOutBudget(tail(190_000, 200_000), 1_500, 300)).toEqual({ tailMs: 10_000, words: 20 });
+    });
+
+    it('offers fewer words for a slower ramp, which is the bed taking longer to come back', () => {
+        // 10000 - 1500 - 1300 - 200 = 7000ms, so two and a half words fewer than above.
+        expect(talkOutBudget(tail(190_000, 200_000), 1_500, 1_300)).toEqual({ tailMs: 10_000, words: 18 });
     });
 
     it('says nothing about a tail too short to bind on, or one any link fits', () => {
-        expect(talkOutBudget(tail(200_000 - RUNWAY_FLOOR_MS + 1, 200_000), 1_500)).toBeUndefined();
-        expect(talkOutBudget(tail(100_000, 100_000 + RUNWAY_CEILING_MS), 1_500)).toBeUndefined();
-        expect(talkOutBudget({ kind: 'none' }, 1_500)).toBeUndefined();
+        expect(talkOutBudget(tail(200_000 - RUNWAY_FLOOR_MS + 1, 200_000), 1_500, 300)).toBeUndefined();
+        expect(talkOutBudget(tail(100_000, 100_000 + RUNWAY_CEILING_MS), 1_500, 300)).toBeUndefined();
+        expect(talkOutBudget({ kind: 'none' }, 1_500, 300)).toBeUndefined();
     });
 });

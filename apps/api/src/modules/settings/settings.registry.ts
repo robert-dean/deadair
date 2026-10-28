@@ -2,9 +2,21 @@ import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_LIVE_AUTOMATION, LIVE_AUTOMATION_KEY } from '#modules/playout/live.automation.js';
 import {
+    DEFAULT_DUCK_DEEPEST_DB,
+    DEFAULT_DUCK_FADE_MS,
+    DEFAULT_DUCK_SHALLOWEST_DB,
+    DEFAULT_DUCK_UNDER_VOICE_DB,
     DEFAULT_LEVELING_ENABLED,
     DEFAULT_SPEECH_TRIM_DB,
     DEFAULT_TARGET_LUFS,
+    DUCK_DEEPEST_KEY,
+    DUCK_DEEPEST_RANGE,
+    DUCK_FADE_KEY,
+    DUCK_FADE_RANGE,
+    DUCK_SHALLOWEST_KEY,
+    DUCK_SHALLOWEST_RANGE,
+    DUCK_UNDER_VOICE_KEY,
+    DUCK_UNDER_VOICE_RANGE,
     LEVELING_ENABLED_KEY,
     SPEECH_TRIM_KEY,
     TARGET_LUFS_KEY,
@@ -49,6 +61,15 @@ import {
     MAX_STORY_COUNT,
 } from '#modules/director/bulletin.source.js';
 import { NEWS_FEEDS_KEY } from '#modules/news/news.settings.js';
+import {
+    BREAKING_KEYS,
+    DEFAULT_BREAKING_COOLDOWN_MINUTES,
+    DEFAULT_BREAKING_POLL_MINUTES,
+    MAX_BREAKING_COOLDOWN_MINUTES,
+    MAX_BREAKING_POLL_MINUTES,
+    MIN_BREAKING_COOLDOWN_MINUTES,
+    MIN_BREAKING_POLL_MINUTES,
+} from '#modules/director/breaking.news.settings.js';
 import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
 import { CHECK_FOR_UPDATES_DEFAULT, RELEASE_KEYS } from '#modules/station/station.release.watch.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
@@ -1307,6 +1328,41 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'still offered to the presenter.',
     },
     {
+        group: 'bulletins',
+        key: BREAKING_KEYS.feeds,
+        label: 'Breaking news feeds',
+        type: 'list',
+        placeholder: 'No feeds listed, so the station never breaks into its programme for news.',
+        // The same column and the same offer as the bulletin's own list above, and read through the
+        // same `feedRoster`. Empty means OFF here rather than every feed, because a station that has
+        // not chosen must not start interrupting itself on an upgrade.
+        columns: [{ key: 'feed', label: 'Feed', type: 'select', required: true, optionsFrom: 'station.newsFeeds' }],
+        help:
+            'Every new story on these feeds is read out on its own at the next break between records, while the station is on air. ' +
+            "Choose feeds that only carry what is worth stopping for, such as a publisher's breaking-news feed or local alerts: the station " +
+            'does not judge how urgent a story is, so every new one on a listed feed counts. Leave the list empty to never break in.',
+    },
+    {
+        group: 'bulletins',
+        key: BREAKING_KEYS.pollMinutes,
+        label: 'How often the breaking feeds are checked (minutes)',
+        type: 'number',
+        min: MIN_BREAKING_POLL_MINUTES,
+        max: MAX_BREAKING_POLL_MINUTES,
+        default: DEFAULT_BREAKING_POLL_MINUTES,
+        help: 'A story reaches the air within about this long of being published, plus the record that is playing. Each check asks every listed feed once, so a shorter wait costs the publishers more requests.',
+    },
+    {
+        group: 'bulletins',
+        key: BREAKING_KEYS.cooldownMinutes,
+        label: 'Least time between two breaking stories (minutes)',
+        type: 'number',
+        min: MIN_BREAKING_COOLDOWN_MINUTES,
+        max: MAX_BREAKING_COOLDOWN_MINUTES,
+        default: DEFAULT_BREAKING_COOLDOWN_MINUTES,
+        help: 'After one breaking story the station waits at least this long before breaking in again. A story that arrives in the meantime is left for the next ordinary bulletin rather than held back, since by then it is no longer breaking.',
+    },
+    {
         group: 'phrasings',
         key: NEWS_KEYS.templates,
         label: 'How the station introduces the news',
@@ -1464,6 +1520,46 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_SPEECH_TRIM_DB,
         help: 'How far under the target loudness a break is aimed. Levelled to exactly the figure the records sit at, a voice arrives on top of them: loudness is a gated average and speech is the denser, more continuous signal. Raise it for a DJ that still jumps out of the hour, lower it for one that disappears, and a negative number puts the voice over the music instead. It applies from the next break, with no restart.',
+    },
+    {
+        group: 'playout',
+        key: DUCK_UNDER_VOICE_KEY,
+        label: 'While the DJ talks over a record, keep the record under them by (dB)',
+        type: 'number',
+        default: DEFAULT_DUCK_UNDER_VOICE_DB,
+        min: DUCK_UNDER_VOICE_RANGE.min,
+        max: DUCK_UNDER_VOICE_RANGE.max,
+        help: 'Where the music sits under the voice during a talk-over, as a distance below it. The setting above moves the voice and the music together, so this is the one for "I cannot hear the DJ over the intro": raise it to pull the record further down, lower it to leave more of the record in. It applies from the next break, with no restart.',
+    },
+    {
+        group: 'playout',
+        key: DUCK_DEEPEST_KEY,
+        label: 'Never pull the record down by more than (dB)',
+        type: 'number',
+        default: DEFAULT_DUCK_DEEPEST_DB,
+        min: DUCK_DEEPEST_RANGE.min,
+        max: DUCK_DEEPEST_RANGE.max,
+        help: 'A limit on the figure above for a very loud record, so a wall-of-sound chorus is turned down under the DJ rather than turned off. Zero or below; the more negative, the further a loud record may drop. It applies from the next break, with no restart.',
+    },
+    {
+        group: 'playout',
+        key: DUCK_SHALLOWEST_KEY,
+        label: 'Always pull the record down by at least (dB)',
+        type: 'number',
+        default: DEFAULT_DUCK_SHALLOWEST_DB,
+        min: DUCK_SHALLOWEST_RANGE.min,
+        max: DUCK_SHALLOWEST_RANGE.max,
+        help: 'How far a quiet intro dips when the DJ comes in, even though it is already under the voice, so a break is heard as the DJ arriving rather than as a voice laid over the record. Zero leaves a quiet intro where it is. Set deeper than the limit above, the limit wins and every break drops the record by exactly that much. It applies from the next break, with no restart.',
+    },
+    {
+        group: 'playout',
+        key: DUCK_FADE_KEY,
+        label: 'Take this long to bring the record down and back up (ms)',
+        type: 'number',
+        default: DEFAULT_DUCK_FADE_MS,
+        min: DUCK_FADE_RANGE.min,
+        max: DUCK_FADE_RANGE.max,
+        help: 'How long the music takes to drop when the DJ comes in over a record, and to come back after they stop. Shorter is a sharper cut, longer is a gentler slide that spends more of a short intro getting out of the way. A link talked up to the vocal allows for this at both ends, so a longer one leaves fewer words to fit. It applies from the next break the station times, with no restart.',
     },
     {
         group: 'playout',

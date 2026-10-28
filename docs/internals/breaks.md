@@ -248,7 +248,8 @@ record with 6s of leading silence is 2s of runway on air. `lyrics/vocal.runway.t
 that shift is made, and both readers (this and the writer's budget) go through it: a comparable
 station had three call sites spelling it three ways, and the prompt and the timing then disagreed
 about one clip. `talkUpAt` then ends the link `breaks.talkUpSafetyMs` before the post, counts the
-duck's 300ms ramp after the last word as part of the link, allows `CUE_CLOCK_LAG_MS` (two ticks) for a
+duck's ramp after the last word as part of the link (`playout.duckFadeMs`, 300ms unless set, read once per
+pass and carried on the cue to the arm so the mixer fires it on the same ramp), allows `CUE_CLOCK_LAG_MS` (two ticks) for a
 cue firing late, and on an intro of 18s or more
 starts two seconds in rather than hanging silent until the post. The allowance was a RATIO until the cue
 clock was fixed: `on_air_elapsed` added a fixed tick per run and ran 3.5% slow, and now adds the time
@@ -859,6 +860,61 @@ headline followed by other outlets' headlines and their names — which is also 
 middle of aired sentences came from, and the fragments cut mid-word. Stripping the echo makes that substrate
 survivable; it does not make it good. An operator seeing publisher names read out in bulletins should point the
 feed at publishers.
+
+## Breaking news
+
+**A new story on one of the operator's breaking feeds is read out on its own at the next boundary.**
+`BreakingNewsWatch` (`director/breaking.news.watch.ts`) asks each feed listed under `news.breakingFeeds`
+what it has published in the last hour, every `news.breakingPollMinutes` (five by default, never under
+two), and posts a `BreakRequest` of kind `news`, urgency `next`, whose `context` names the one story:
+its headline, its feed and its item id. `next` rather than `interrupt`, because a story belongs between
+two records; either way it is rendered before it is placed, so a bulletin that is not ready never
+reaches its slot unready. **An empty list is the watch switched off**, which is every station that has
+not chosen one, unlike the bulletin's own roster above, where empty means every feed.
+
+**"Breaking" is the operator's choice of FEED, and nothing judges a story.** A feed carries no urgency
+field and the plugin API must not grow one: a publisher's flag would be a plugin claiming to know
+something it cannot. So every new story on a listed feed counts, and the help text says to list feeds
+that only carry what is worth stopping for, such as a publisher's own breaking-news feed or local
+alerts. Nothing about this reaches a plugin: the watch is host code polling the `news` capability, so
+urgency, cooldown and whether the station is even on air stay host decisions, and the director still
+places the break like every other request.
+
+**What is new is decided by id, and the first answer is a baseline.** The capability promises a stable
+`NewsItem.id` for one entry across calls, so the watch remembers ids rather than timestamps, and a
+publisher that re-dates its front page re-dates stories already seen. The first answer from each feed
+posts nothing, which is what keeps a restart, a newly listed feed or the station coming back on air from
+announcing a whole front page. Off air the watch asks nobody anything and drops the baseline, for that
+last reason. A story the station has already read in an ordinary bulletin is skipped as well, through
+`ReadLog`.
+
+**One story a pass, and one breaking bulletin per cooldown.** When several arrive at once only the
+newest is asked for and the rest are left to the next ordinary bulletin, because three breaking
+bulletins in a row is a news station. Every request is taken under ONE dedupe key
+(`news.breaking`) with `news.breakingCooldownMinutes` as its `cooldownMs` (thirty by default), so the
+DIRECTOR holds a second one off against the request table, which survives the restart a map in the
+watch would forget. A story the cooldown turned away is not retried: by the time it could air it is
+not breaking, and the ordinary bulletin will read it.
+
+**The bulletin reads the story it was asked for, rather than taking turns over the roster.**
+`BulletinSource.storiesFor` reads the request's context through `breakingStoryOf` and, when it names a
+story, finds it again on its feed so the writer has its words as well as its headline. The watch asked
+for headlines only and a request row is the wrong place for an article, which is why it is looked up
+rather than carried. A story that has gone from its feed is read from its headline alone, which is what
+the floor reads anyway. One the station read in an ordinary bulletin between the watch asking and this
+being written is declined, and the one it does read is kept in `ReadLog`, so the next ordinary bulletin
+does not say it again.
+
+**No bus, because the dependency points the right way.** `WelcomeAnnouncer` is the template, and it
+subscribes to `StationBus` because the audience it answers is in `playout`, after `director` in the
+module list. `news` registers BEFORE `director`, so the watch imports `NewsService` and posts to the
+director directly, which is the plain call `apps/api/CLAUDE.md` § "How work is dispatched" asks for.
+
+**An unchanged feed costs a 304.** `fetchFeed` in the plugin SDK remembers the `ETag` and
+`Last-Modified` a publisher sent with each feed, per plugin host, sends them back, and answers a 304
+with the document it already parsed. Every call still goes on the wire and the publisher still decides
+whether anything changed, so no caller is handed a stale feed by it; what the watch's polling costs a
+publisher with nothing new is a status line. `plugins/rss` and `plugins/podcast` get it without a change.
 
 ## The weather
 

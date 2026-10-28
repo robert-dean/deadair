@@ -301,6 +301,64 @@ export const SuspendInput = z.strictObject({
 export type SuspendInput = z.infer<typeof SuspendInput>;
 
 /**
+ * Which part of the similarity store to draw.
+ * generated from [SimilarityGraphQuery](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const SimilarityGraphQuery = z.strictObject({
+    around: z.uuid().optional().describe('A catalog artist to centre on. Absent draws the whole store, best-ranked edges first'),
+    depth: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(2))
+        .default(1)
+        .describe('How many steps out from `around`, following edges either way. Ignored without it'),
+    library: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .default(false)
+        .describe('Only artists the catalog holds, on both ends of every edge'),
+    limit: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(2000))
+        .default(500)
+        .describe('The most edges answered'),
+});
+export type SimilarityGraphQuery = z.infer<typeof SimilarityGraphQuery>;
+
+/**
+ * One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+ * the artists the sources name are not in the catalog at all.
+ * generated from [SimilarityNode](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const SimilarityNode = z.strictObject({
+    key: z.string().describe("The artist's name as the station folds it for matching. Unique in one graph"),
+    name: z.string().describe("The catalog's spelling when the catalog holds the artist, else the source's"),
+    artistId: z.uuid().optional().describe('The catalog artist, when the catalog holds one. Absent for an artist only a source has named'),
+});
+export type SimilarityNode = z.infer<typeof SimilarityNode>;
+
+export const SimilarityNodeInput = z.strictObject({});
+export type SimilarityNodeInput = z.infer<typeof SimilarityNodeInput>;
+
+/**
+ * One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+ * lists A, and both rows are answered when both exist.
+ * generated from [SimilarityEdge](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const SimilarityEdge = z.strictObject({
+    from: z.string().describe('The key of the artist whose neighbours these are'),
+    to: z.string().describe('The key of the neighbour'),
+    rank: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe("Position in `from`'s merged answer, from 0. The one weight comparable across sources"),
+    match: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe("The source's own score, comparable only inside that source's answer. Absent when it gave none"),
+    source: z.string().describe('The plugin id whose answer named this neighbour first'),
+});
+export type SimilarityEdge = z.infer<typeof SimilarityEdge>;
+
+export const SimilarityEdgeInput = z.strictObject({});
+export type SimilarityEdgeInput = z.infer<typeof SimilarityEdgeInput>;
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](../../../../data/contracts/catalog/catalog.types.ck)
@@ -605,6 +663,19 @@ export const AlbumEnrichmentData = z.strictObject({
     extra: z.record(z.string(), z.unknown()).optional(),
 });
 export type AlbumEnrichmentData = z.infer<typeof AlbumEnrichmentData>;
+
+/**
+ * generated from [SimilarityGraph](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const SimilarityGraph = z.strictObject({
+    nodes: z.array(SimilarityNode).describe('Every artist an edge names, once'),
+    edges: z.array(SimilarityEdge),
+    truncated: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('More edges matched than `limit` allowed'),
+});
+export type SimilarityGraph = z.infer<typeof SimilarityGraph>;
+
+export const SimilarityGraphInput = z.strictObject({});
+export type SimilarityGraphInput = z.infer<typeof SimilarityGraphInput>;
 
 /**
  * One page of artists, with the totals the request was counted against

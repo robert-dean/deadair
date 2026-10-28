@@ -12,6 +12,8 @@ import com.maroonedsoftware.deadair.sdk.models.ArtistPage
 import com.maroonedsoftware.deadair.sdk.models.CatalogQueryInput
 import com.maroonedsoftware.deadair.sdk.models.ClearEnrichmentQuery
 import com.maroonedsoftware.deadair.sdk.models.RateInput
+import com.maroonedsoftware.deadair.sdk.models.SimilarityGraph
+import com.maroonedsoftware.deadair.sdk.models.SimilarityGraphQuery
 import com.maroonedsoftware.deadair.sdk.models.SuspendInput
 import com.maroonedsoftware.deadair.sdk.models.Track
 import com.maroonedsoftware.deadair.sdk.models.TrackClearResult
@@ -364,6 +366,18 @@ class CatalogClient(private val http: SdkHttp) {
     suspend fun liftTrackSuspension(id: Uuid): Track {
         val response = http.execute(HttpMethod.Delete) {
             path("catalog", "tracks", segment(id), "suspension")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Get similarity graph
+     * Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist
+     */
+    suspend fun getSimilarityGraph(query: SimilarityGraphQuery? = null): SimilarityGraph {
+        val response = http.execute(HttpMethod.Get) {
+            path("catalog", "similarity")
+            params(query)
         }
         return http.decodeJson(response)
     }

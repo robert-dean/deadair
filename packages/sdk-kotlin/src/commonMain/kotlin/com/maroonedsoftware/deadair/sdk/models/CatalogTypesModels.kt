@@ -411,6 +411,65 @@ data class SuspendInput(
     val days: Long,
 )
 
+/** Which part of the similarity store to draw. */
+@Serializable
+data class SimilarityGraphQuery(
+    /** A catalog artist to centre on. Absent draws the whole store, best-ranked edges first */
+    val around: Uuid? = null,
+    /** How many steps out from `around`, following edges either way. Ignored without it */
+    val depth: Long? = 1L,
+    /** Only artists the catalog holds, on both ends of every edge */
+    val library: Boolean? = false,
+    /** The most edges answered */
+    val limit: Long? = 500L,
+)
+
+/**
+ * One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+ * the artists the sources name are not in the catalog at all.
+ */
+@Serializable
+data class SimilarityNode(
+    /** The artist's name as the station folds it for matching. Unique in one graph */
+    val key: String,
+    /** The catalog's spelling when the catalog holds the artist, else the source's */
+    val name: String,
+    /** The catalog artist, when the catalog holds one. Absent for an artist only a source has named */
+    val artistId: Uuid? = null,
+)
+
+/**
+ * One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+ * the artists the sources name are not in the catalog at all.
+ */
+@Serializable
+class SimilarityNodeInput
+
+/**
+ * One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+ * lists A, and both rows are answered when both exist.
+ */
+@Serializable
+data class SimilarityEdge(
+    /** The key of the artist whose neighbours these are */
+    val from: String,
+    /** The key of the neighbour */
+    val to: String,
+    /** Position in `from`'s merged answer, from 0. The one weight comparable across sources */
+    val rank: Long,
+    /** The source's own score, comparable only inside that source's answer. Absent when it gave none */
+    val match: Double? = null,
+    /** The plugin id whose answer named this neighbour first */
+    val source: String,
+)
+
+/**
+ * One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+ * lists A, and both rows are answered when both exist.
+ */
+@Serializable
+class SimilarityEdgeInput
+
 /**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
@@ -718,6 +777,18 @@ data class AlbumEnrichmentData(
     val links: List<EnrichmentLink>? = null,
     val extra: Map<String, JsonElement>? = null,
 )
+
+@Serializable
+data class SimilarityGraph(
+    /** Every artist an edge names, once */
+    val nodes: List<SimilarityNode>,
+    val edges: List<SimilarityEdge>,
+    /** More edges matched than `limit` allowed */
+    val truncated: Boolean,
+)
+
+@Serializable
+class SimilarityGraphInput
 
 /** One page of artists, with the totals the request was counted against */
 @Serializable

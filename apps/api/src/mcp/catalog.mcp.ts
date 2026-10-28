@@ -9,6 +9,7 @@ import { parseAndValidate } from '@maroonedsoftware/zod';
 import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
+import { SimilarityGraphService } from '#src/modules/similarity/similarity.graph.service.js';
 import { SuspensionsService } from '#src/modules/catalog/suspensions.service.js';
 import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import { VocalMarkersService } from '#src/modules/lyrics/vocal.markers.service.js';
@@ -22,6 +23,8 @@ import {
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
+    SimilarityGraph,
+    SimilarityGraphQuery,
     SuspendInput,
     Track,
     TrackClearResult,
@@ -69,6 +72,7 @@ const SuspendAlbumArgs = z.object({ id: z.uuid(), body: SuspendInput });
 const LiftAlbumSuspensionArgs = z.object({ id: z.uuid() });
 const SuspendTrackArgs = z.object({ id: z.uuid(), body: SuspendInput });
 const LiftTrackSuspensionArgs = z.object({ id: z.uuid() });
+const GetSimilarityGraphArgs = z.object({ query: SimilarityGraphQuery.optional() });
 
 /**
  * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/artists`
@@ -724,6 +728,33 @@ export class LiftTrackSuspensionMcpTool implements McpToolHandler {
     }
 }
 
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/similarity`
+ */
+@Injectable()
+export class GetSimilarityGraphMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'get_similarity_graph',
+        description:
+            'Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist',
+        inputSchema: z.toJSONSchema(GetSimilarityGraphArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(SimilarityGraph, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        const { query = await parseAndValidate({}, GetSimilarityGraphArgs.shape.query.unwrap()) } = await parseAndValidate(
+            args,
+            GetSimilarityGraphArgs,
+        );
+        const result = await container.get(SimilarityGraphService).getGraph(query);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
 export function registerCatalogMcpCatalog(map: McpToolHandlerMap, container: Container): void {
     map.set('list_artists', container.get(ListArtistsMcpTool));
@@ -754,6 +785,7 @@ export function registerCatalogMcpCatalog(map: McpToolHandlerMap, container: Con
     map.set('lift_album_suspension', container.get(LiftAlbumSuspensionMcpTool));
     map.set('suspend_track', container.get(SuspendTrackMcpTool));
     map.set('lift_track_suspension', container.get(LiftTrackSuspensionMcpTool));
+    map.set('get_similarity_graph', container.get(GetSimilarityGraphMcpTool));
 }
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
@@ -786,4 +818,5 @@ export function registerCatalogMcpToolClasses(registry: Registry): void {
     registry.register(LiftAlbumSuspensionMcpTool).useClass(LiftAlbumSuspensionMcpTool).asSingleton();
     registry.register(SuspendTrackMcpTool).useClass(SuspendTrackMcpTool).asSingleton();
     registry.register(LiftTrackSuspensionMcpTool).useClass(LiftTrackSuspensionMcpTool).asSingleton();
+    registry.register(GetSimilarityGraphMcpTool).useClass(GetSimilarityGraphMcpTool).asSingleton();
 }

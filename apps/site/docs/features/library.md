@@ -84,6 +84,14 @@ A record the library does not hold keeps its place in the order, drawn dimmed on
 
 **Air this playlist** works as it does for a provider's playlist, similar records included, and each record plays from whichever source has a copy. A block on the [timetable](./programme.md#the-timetable) can play one too: they are listed first under **Playing from** in the block's editor. Because a station playlist is read from the library rather than from a provider, it is the one to choose for a long pool of records, which a provider can be too slow to hand over when the block starts. Records the library does not hold yet are left out. **Export** saves a playlist as a file another station can import: records are named by title, artist and ISRC, never by this station's own ids, so they match up on the other side.
 
+## Who sounds like whom
+
+When the station programmes around an artist (a playlist with similar records mixed in, a show whose brief names its acts, a rotation that plays records it does not own yet), it asks your similarity plugins who sounds like them and keeps the answer. **Library → Similar** draws everything it has kept as one map. Each dot is an artist, sized by how many others it is joined to. Artists in your library are lit, and the rest are grey. A brighter line means the two artists each name the other. Scroll to zoom and drag to move. Hover over an artist to light its neighbours, and click one in your library to open its page. **Only artists in the library** narrows the map to your own. The most connected artists are listed under it.
+
+An artist's page has the same map for that artist alone, under **Sounds like**: the artists it names and the artists that name it, or **Two steps** out to see where one scene meets the next.
+
+The map shows only what the station has already asked. It never asks a plugin to draw itself, so a new station starts with an empty map, and it grows with what you play. Rank decides how strongly two artists are joined, because different plugins score similarity on scales that cannot be compared.
+
 ## In the console
 
-**Library** in the rail, or the L key: Tracks, Artists, Playlists, Charts, News, [Podcasts](./podcasts.md) and [Readings](./narrations.md). A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, Spotify's playback authorization and YouTube Music's cookie are on its page under Settings → Plugins. Measurement has its own section in Settings.
+**Library** in the rail, or the L key: Tracks, Artists, Similar, Playlists, Charts, News, [Podcasts](./podcasts.md) and [Readings](./narrations.md). A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, Spotify's playback authorization and YouTube Music's cookie are on its page under Settings → Plugins. Measurement has its own section in Settings.

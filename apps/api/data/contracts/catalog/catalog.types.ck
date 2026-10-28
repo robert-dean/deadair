@@ -483,3 +483,35 @@ contract AlbumEnrichmentDetail: {
 contract SuspendInput: { # Keep something off the station for a while, without passing judgement on it
     days: int(min=1, max=365) # How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date
 }
+
+# Which part of the similarity store to draw.
+contract SimilarityGraphQuery: {
+    around?: uuid # A catalog artist to centre on. Absent draws the whole store, best-ranked edges first
+    depth: int(min=1, max=2) = 1 # How many steps out from `around`, following edges either way. Ignored without it
+    library: boolean = false # Only artists the catalog holds, on both ends of every edge
+    limit: int(min=1, max=2000) = 500 # The most edges answered
+}
+
+# One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+# the artists the sources name are not in the catalog at all.
+contract SimilarityNode: {
+    key: readonly string # The artist's name as the station folds it for matching. Unique in one graph
+    name: readonly string # The catalog's spelling when the catalog holds the artist, else the source's
+    artistId?: readonly uuid # The catalog artist, when the catalog holds one. Absent for an artist only a source has named
+}
+
+# One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+# lists A, and both rows are answered when both exist.
+contract SimilarityEdge: {
+    from: readonly string # The key of the artist whose neighbours these are
+    to: readonly string # The key of the neighbour
+    rank: readonly int(min=0) # Position in `from`'s merged answer, from 0. The one weight comparable across sources
+    match?: readonly number # The source's own score, comparable only inside that source's answer. Absent when it gave none
+    source: readonly string # The plugin id whose answer named this neighbour first
+}
+
+contract SimilarityGraph: {
+    nodes: readonly array(SimilarityNode) # Every artist an edge names, once
+    edges: readonly array(SimilarityEdge)
+    truncated: readonly boolean # More edges matched than `limit` allowed
+}

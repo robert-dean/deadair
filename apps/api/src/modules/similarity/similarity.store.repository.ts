@@ -21,6 +21,26 @@ export interface StoredRecord extends ArtistTrack {
     source: string;
 }
 
+/** One stored neighbour read as an edge of the graph: `from` named `to`, at `rank` in its answer. */
+export interface StoredEdge {
+    from: string;
+    /** `from` as it was asked about. */
+    fromName: string;
+    to: string;
+    /** `to` as the source spelled it. */
+    toName: string;
+    rank: number;
+    match?: number;
+    source: string;
+}
+
+/** A catalog artist, as the graph joins one to a stored key. */
+export interface CatalogArtistKey {
+    id: string;
+    name: string;
+    artistKey: string;
+}
+
 /** A stored answer, with what is needed to judge whether it still serves. */
 export interface StoredAnswer<T> {
     /** How many were asked for when this was stored. */
@@ -127,6 +147,74 @@ export class SimilarityStoreRepository extends DataRepository {
             else own.push(neighbour);
         }
         return found;
+    }
+
+    /**
+     * Stored neighbours as edges, best-ranked first, for drawing who resembles whom.
+     *
+     * `touching` keeps the edges with either end among those keys, so a neighbourhood reads the
+     * artists that name a key as well as the ones it names. `library` keeps the edges with BOTH ends
+     * in the catalog, decided here rather than after the limit, so a library-only graph is not a
+     * handful of survivors of a limit spent on strangers. An artist listed as its own neighbour, or
+     * a name that folds to nothing, is not an edge.
+     */
+    async edges(options: { touching?: readonly string[]; library: boolean; limit: number }): Promise<StoredEdge[]> {
+        if (options.touching?.length === 0) return [];
+        let query = this.db
+            .selectFrom('deadair.similarArtists as sa')
+            .innerJoin('deadair.similarityAsks as ask', join =>
+                join.onRef('ask.stationKey', '=', 'sa.stationKey').onRef('ask.artistKey', '=', 'sa.artistKey').on('ask.kind', '=', 'artists'),
+            )
+            .select(['sa.artistKey', 'ask.artistName', 'sa.neighbourKey', 'sa.name', 'sa.rank', 'sa.match', 'sa.source'])
+            .where('sa.stationKey', '=', this.station.stationKey)
+            .where('sa.neighbourKey', '<>', '')
+            .whereRef('sa.neighbourKey', '<>', 'sa.artistKey');
+
+        const touching = options.touching;
+        if (touching !== undefined) {
+            query = query.where(eb => eb.or([eb('sa.artistKey', 'in', [...touching]), eb('sa.neighbourKey', 'in', [...touching])]));
+        }
+        if (options.library) {
+            for (const end of ['sa.artistKey', 'sa.neighbourKey'] as const) {
+                query = query.where(eb =>
+                    eb.exists(
+                        eb.selectFrom('deadair.artists as a').select('a.id').whereRef('a.artistKey', '=', end).where('a.mergedIntoId', 'is', null),
+                    ),
+                );
+            }
+        }
+
+        const rows = await query.orderBy('sa.rank').orderBy('sa.artistKey').limit(options.limit).execute();
+        return rows.map(row => ({
+            from: row.artistKey,
+            fromName: row.artistName,
+            to: row.neighbourKey,
+            toName: row.name,
+            rank: Number(row.rank),
+            source: row.source,
+            ...(row.match == null ? {} : { match: Number(row.match) }),
+        }));
+    }
+
+    /** The catalog artists among these keys, merged rows left out, for naming the graph's nodes. */
+    async catalogArtists(artistKeys: readonly string[]): Promise<CatalogArtistKey[]> {
+        if (artistKeys.length === 0) return [];
+        return this.db
+            .selectFrom('deadair.artists')
+            .select(['id', 'name', 'artistKey'])
+            .where('artistKey', 'in', [...artistKeys])
+            .where('mergedIntoId', 'is', null)
+            .execute();
+    }
+
+    /** One catalog artist by id, or `undefined` when there is none or it was merged away. */
+    async catalogArtist(id: string): Promise<CatalogArtistKey | undefined> {
+        return this.db
+            .selectFrom('deadair.artists')
+            .select(['id', 'name', 'artistKey'])
+            .where('id', '=', id)
+            .where('mergedIntoId', 'is', null)
+            .executeTakeFirst();
     }
 
     /**

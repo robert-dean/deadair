@@ -114,4 +114,4 @@ Timed lyrics light the line being sung and keep it in view, following the audio 
 
 ## In the console
 
-The console does not play the station itself, deliberately: it is the desk, and the listening surfaces are the mount, the three apps and the speakers it casts to. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**.
+The console does not play the station itself, deliberately: it is the desk, and the listening surfaces are the mount, the three apps and the speakers it casts to. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**, and who is behind that count is on **Check-up**, **Listeners**.

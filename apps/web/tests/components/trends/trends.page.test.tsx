@@ -13,9 +13,13 @@ import { render, screen } from '../../utils/render';
 
 const readMetricSeries = vi.fn();
 const readMetricNames = vi.fn();
+const getSettings = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { metrics: { readMetricSeries: (query: unknown) => readMetricSeries(query), readMetricNames: () => readMetricNames() } },
+    sdk: {
+        metrics: { readMetricSeries: (query: unknown) => readMetricSeries(query), readMetricNames: () => readMetricNames() },
+        settings: { getSettings: () => getSettings() },
+    },
 }));
 
 const from = DateTime.fromISO('2026-10-17T00:00:00Z', { zone: 'utc' });
@@ -37,7 +41,10 @@ function allWell() {
     });
 }
 
-beforeEach(() => setSession('token-123', 3600));
+beforeEach(() => {
+    setSession('token-123', 3600);
+    getSettings.mockResolvedValue({ descriptors: [], values: { 'metrics.currency': 'USD' }, configured: {}, derived: {} });
+});
 afterEach(() => {
     clearSession();
     vi.resetAllMocks();
@@ -53,7 +60,8 @@ describe('TrendsPage', () => {
         expect(asked).toEqual(
             expect.arrayContaining([
                 'station.listeners',
-                'model.tokens.input,model.tokens.output,model.call.ms,work.failed',
+                'model.tokens.input,model.tokens.output,model.call.ms,work.failed,model.cost',
+                'speech.characters,speech.cost',
                 'work.job.ms,work.plugin.ms,work.failed',
                 'library.tracks,library.cached,library.measured,storage.bytes',
             ]),
@@ -93,7 +101,68 @@ describe('TrendsPage', () => {
         expect(await screen.findByText('Average call')).toBeInTheDocument();
         expect(screen.getAllByText('4.0s')).toHaveLength(3);
         expect(screen.queryByText('42.7s')).not.toBeInTheDocument();
-        expect(screen.getByText('3')).toBeInTheDocument();
+        // Three calls, in the figure and again on the model's own row.
+        expect(screen.getAllByText('3')).toHaveLength(2);
+    });
+
+    it('says what each model spent, in the station’s currency, with an unpriced model still ranked by its tokens', async () => {
+        allWell();
+        getSettings.mockResolvedValue({ descriptors: [], values: { 'metrics.currency': 'EUR' }, configured: {}, derived: {} });
+        const answer = readMetricSeries.getMockImplementation();
+        readMetricSeries.mockImplementation(async (query: { names: string }) => {
+            if (!query.names.startsWith('model.')) return answer?.(query);
+            const hosted = { kind: 'director.write_break', model: 'cloud:sonnet' };
+            const local = { kind: 'director.write_break', model: 'local:qwen' };
+            return page([
+                { name: 'model.call.ms', labels: { ...hosted, outcome: 'ok' }, source: 'station', points: [point(0, 3000)] },
+                { name: 'model.call.ms', labels: { ...local, outcome: 'ok' }, source: 'station', points: [point(0, 900)] },
+                { name: 'model.tokens.input', labels: hosted, source: 'station', points: [point(0, 1000)] },
+                { name: 'model.tokens.input', labels: local, source: 'station', points: [point(0, 5000)] },
+                { name: 'model.cost', labels: hosted, source: 'station', points: [point(0, 1.5), point(1, 2.25)] },
+            ]);
+        });
+        render(<TrendsPage />);
+
+        expect(await screen.findByText('By model, most spent first')).toBeInTheDocument();
+        // The total and the hosted model's own row are the same €3.75.
+        expect(await screen.findAllByText('€3.75')).toHaveLength(2);
+        const rows = screen.getAllByRole('row').map(row => row.textContent ?? '');
+        const hosted = rows.findIndex(row => row.includes('cloud:sonnet'));
+        const local = rows.findIndex(row => row.includes('local:qwen'));
+        expect(hosted).toBeGreaterThan(-1);
+        expect(local).toBeGreaterThan(hosted);
+        expect(screen.queryByText(/No model has a price yet/)).not.toBeInTheDocument();
+    });
+
+    it('says how to price the model when calls were made and none has a price', async () => {
+        allWell();
+        const answer = readMetricSeries.getMockImplementation();
+        readMetricSeries.mockImplementation(async (query: { names: string }) => {
+            if (!query.names.startsWith('model.')) return answer?.(query);
+            return page([{ name: 'model.call.ms', labels: { kind: 'k', model: 'm', outcome: 'ok' }, source: 'station', points: [point(0, 3000)] }]);
+        });
+        render(<TrendsPage />);
+
+        expect(await screen.findByText(/No model has a price yet/)).toBeInTheDocument();
+    });
+
+    it('counts the characters each speech engine was handed, and what the priced one cost', async () => {
+        allWell();
+        const answer = readMetricSeries.getMockImplementation();
+        readMetricSeries.mockImplementation(async (query: { names: string }) => {
+            if (!query.names.startsWith('speech.')) return answer?.(query);
+            return page([
+                { name: 'speech.characters', labels: { plugin: 'deadair.elevenlabs' }, source: 'station', points: [point(0, 12000)] },
+                { name: 'speech.characters', labels: { plugin: 'deadair.kokoro' }, source: 'station', points: [point(0, 3400)] },
+                { name: 'speech.cost', labels: { plugin: 'deadair.elevenlabs' }, source: 'station', points: [point(0, 1.8)] },
+            ]);
+        });
+        render(<TrendsPage />);
+
+        expect(await screen.findByText('deadair.elevenlabs')).toBeInTheDocument();
+        expect(screen.getByText('15,400')).toBeInTheDocument();
+        expect(screen.getAllByText('$1.80')).toHaveLength(2);
+        expect(screen.getByText('3,400')).toBeInTheDocument();
     });
 
     it('loses only the section whose reading failed', async () => {
@@ -115,7 +184,7 @@ describe('TrendsPage', () => {
         readMetricSeries.mockResolvedValue(page([]));
         render(<TrendsPage />);
 
-        expect(await screen.findAllByText(/Nothing was measured in this range yet/)).toHaveLength(4);
+        expect(await screen.findAllByText(/Nothing was measured in this range yet/)).toHaveLength(5);
     });
 
     it('draws nothing for received metrics until another service has sent some', async () => {

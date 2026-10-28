@@ -96,9 +96,13 @@ export function unknownPlaceholders(template: string): string[] {
  * `[[…]]` is syntax and a lone `[` is TEXT: it survives to the script and gets read out, which is
  * what this exists to name. Invisible to {@link unknownPlaceholders}, which only ever inspects
  * `{{…}}`.
+ *
+ * A pad cue (`[sfx:honk]`) is syntax as well: the render step plays it and never reads it out, so it
+ * is taken out before looking. It was not, and every phrasing with a cue in it was reported as one the
+ * station would never pick.
  */
 export function hasStrayBracket(template: string): boolean {
-    return /[[\]]/.test(template.replace(/\[\[.*?\]\]/gs, ''));
+    return /[[\]]/.test(template.replace(/\[sfx:[a-z0-9-]+\]/gi, '').replace(/\[\[.*?\]\]/gs, ''));
 }
 
 /** What is wrong with a phrasing, as the editor names it. */

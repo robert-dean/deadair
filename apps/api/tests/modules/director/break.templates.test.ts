@@ -526,3 +526,23 @@ describe('the shipped pools, word for word', () => {
         });
     }
 });
+
+// A pad cue is syntax the render step plays, and `hasStrayBracket` once counted it as a lone bracket:
+// the console reported every phrasing carrying one as never picked, an import flagged them, and the
+// persona writer dropped them, while `renderTemplate` picked them like any other.
+describe('a phrasing with a pad cue in it', () => {
+    const honking = 'Whoo! That was {{previous.title}}! [sfx:honk][[ Here comes {{next.title}}!]]';
+
+    it('is usable', () => {
+        expect(unusablePhrasing(honking)).toBeUndefined();
+        expect(unusablePhrasing('That was {{previous.title}}.[[ Next, {{next.title}}. [sfx:honk]]]')).toBeUndefined();
+    });
+
+    it('keeps the cue in the script, for the render step to play', () => {
+        expect(renderTemplate(honking, { previous, next, station: 'The Far Frequency' }, spoken)?.script).toContain('[sfx:honk]');
+    });
+
+    it('still names a cue the render step would not recognise, which is read out', () => {
+        expect(unusablePhrasing('That was {{previous.title}}. [sfx:air horn]')).toContain('bracket');
+    });
+});

@@ -28,7 +28,7 @@ export const MAX_SPAN_BUFFER = 5000;
 
 /**
  * How each of the station's metrics goes out. Durations as histograms, so a collector keeps their
- * count, sum and extremes; tokens and failures as counters; everything else (listeners, the library,
+ * count, sum and extremes; tokens, costs and failures as counters; everything else (listeners, the library,
  * the disk, the model's queue) as a gauge.
  *
  * Counters and histograms go out CUMULATIVE: the bridge keeps each series' running total and sends it
@@ -36,9 +36,12 @@ export const MAX_SPAN_BUFFER = 5000;
  * wants it), so with delta temporality the rest of a minute flushed early went out as a second point
  * over the same interval, which a collector keeps one of. A cumulative total just grows.
  */
+/** The station's counters that are not token counts. A counter added to `metric.names.ts` goes here, or it is sent as a gauge. */
+const COUNTERS: ReadonlySet<string> = new Set([METRICS.failed, METRICS.modelCost, METRICS.speechCharacters, METRICS.speechCost]);
+
 export function metricKind(name: string): MetricKind {
     if (name.endsWith('.ms')) return 'histogram';
-    if (name.startsWith('model.tokens.') || name === METRICS.failed) return 'counter';
+    if (name.startsWith('model.tokens.') || COUNTERS.has(name)) return 'counter';
     return 'gauge';
 }
 

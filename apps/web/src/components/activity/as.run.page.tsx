@@ -109,6 +109,13 @@ function AsRunLine({ entry, onAir }: { entry: AsRunEntry; onAir: boolean }) {
                         </Text>
                     ) : undefined}
                 </Text>
+                {/* The model's own words, set apart from the station's by being labelled as a reason and
+                    drawn in italic. Only on a record the model picked while asked to say why. */}
+                {entry.pickedBecause === undefined ? undefined : (
+                    <Text size="xs" c="dimmed" fs="italic" title={t('asRun.pickedBecauseHint')}>
+                        {t('asRun.pickedBecause', { reason: entry.pickedBecause })}
+                    </Text>
+                )}
                 {entry.passedOver === undefined ? undefined : (
                     <Text size="xs" c={severityColor.warning}>
                         {t('asRun.passedOver', { count: entry.passedOver })}

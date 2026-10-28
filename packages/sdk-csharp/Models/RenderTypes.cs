@@ -243,6 +243,30 @@ public sealed record ScriptPromptMessage
     public required string Content { get; init; }
 }
 
+/// <summary>One stored fact a written break was handed, as it stood when the break was written</summary>
+public sealed record SegmentSource
+{
+    /// <summary>The sentence the writer was handed</summary>
+    [JsonPropertyName("claim")]
+    public required string Claim { get; init; }
+
+    /// <summary>Where a person checks it</summary>
+    [JsonPropertyName("sourceUrl")]
+    public required string SourceUrl { get; init; }
+
+    /// <summary>The words there that state it</summary>
+    [JsonPropertyName("sourceQuote")]
+    public required string SourceQuote { get; init; }
+
+    /// <summary>The plugin that fetched the page</summary>
+    [JsonPropertyName("sourceProvider")]
+    public required string SourceProvider { get; init; }
+
+    /// <summary>Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said</summary>
+    [JsonPropertyName("told")]
+    public required bool Told { get; init; }
+}
+
 /// <summary>
 /// What an operator thought of something the station said.
 ///
@@ -814,6 +838,12 @@ public sealed record ScriptHistoryQuery
     [JsonPropertyName("segmentId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SegmentId { get; init; }
+}
+
+public sealed record SegmentSourceList
+{
+    [JsonPropertyName("sources")]
+    public required List<SegmentSource> Sources { get; init; }
 }
 
 /// <summary>One attempt to write something the station would say, including the ones that came to nothing</summary>

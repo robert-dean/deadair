@@ -130,6 +130,20 @@ export interface BreakFact {
     trackId: string;
     /** The sentence, trimmed and short enough to say whole. */
     fact: string;
+    /** The stored claim it is, when it is one. Absent for a provider line, which has no source to show. */
+    factId?: string;
+}
+
+/**
+ * One sentence a writer is handed, and the stored claim it came from when it came from one.
+ *
+ * `factId` is what lets a break keep its evidence: a claim carries a source and a quote, so the
+ * break that was handed it can say where it came from. A provider line has neither and is absent
+ * here for the reason `facts.source_url` is `not null` — a sentence with no source has nothing to show.
+ */
+export interface OfferedFact {
+    text: string;
+    factId?: string;
 }
 
 /**
@@ -151,12 +165,12 @@ interface LevelCandidates {
  * rather than counted, so a line two providers composed about the artist and the album is said once
  * and costs one slot.
  */
-function spreadAcross(levels: readonly LevelCandidates[], limit: number): { chosen: string[]; used: string[] } {
+function spreadAcross(levels: readonly LevelCandidates[], limit: number): { chosen: OfferedFact[]; used: string[] } {
     const queues = levels.map(level => [
         ...level.claims.map(claim => ({ line: claim.claim, id: claim.id as string | undefined })),
         ...level.supplied.map(line => ({ line, id: undefined as string | undefined })),
     ]);
-    const chosen: string[] = [];
+    const chosen: OfferedFact[] = [];
     const used: string[] = [];
     const said = new Set<string>();
 
@@ -170,7 +184,7 @@ function spreadAcross(levels: readonly LevelCandidates[], limit: number): { chos
             if (next === undefined) continue;
 
             said.add(next.line.toLowerCase());
-            chosen.push(next.line);
+            chosen.push(next.id === undefined ? { text: next.line } : { text: next.line, factId: next.id });
             if (next.id !== undefined) used.push(next.id);
         }
     }
@@ -354,7 +368,23 @@ export class EnrichmentReadService {
         rotate = 0,
         options: { stamp?: boolean; budget?: FactBudget } = {},
     ): Promise<Map<string, string[]>> {
-        const facts = new Map<string, string[]>();
+        const offered = await this.offeredFactsForTracks(trackIds, rotate, options);
+        return new Map([...offered].map(([trackId, facts]) => [trackId, facts.map(fact => fact.text)]));
+    }
+
+    /**
+     * {@link factsForTracks}, with the stored claim each sentence came from.
+     *
+     * The same read, the same order and the same stamp: this is the one a caller putting a break to
+     * air uses, because the break keeps the claims it was handed as its evidence. A provider line
+     * comes back with no `factId`. See {@link OfferedFact}.
+     */
+    async offeredFactsForTracks(
+        trackIds: readonly string[],
+        rotate = 0,
+        options: { stamp?: boolean; budget?: FactBudget } = {},
+    ): Promise<Map<string, OfferedFact[]>> {
+        const facts = new Map<string, OfferedFact[]>();
         if (trackIds.length === 0) return facts;
 
         const budget = options.budget ?? DEFAULT_FACT_BUDGET;
@@ -388,12 +418,12 @@ export class EnrichmentReadService {
             const believed = (claims.get(trackId) ?? []).slice(0, budget.limit);
             used.push(...believed.map(claim => claim.id));
 
-            const chosen = [...believed.map(claim => claim.claim)];
+            const chosen: OfferedFact[] = believed.map(claim => ({ text: claim.claim, factId: claim.id }));
 
             if (chosen.length < budget.limit && row !== undefined) {
                 for (const fact of chooseFacts([...supplied.track, ...supplied.album, ...supplied.artist], rotate, budget.limit)) {
                     if (chosen.length >= budget.limit) break;
-                    if (!chosen.some(already => already.toLowerCase() === fact.toLowerCase())) chosen.push(fact);
+                    if (!chosen.some(already => already.text.toLowerCase() === fact.toLowerCase())) chosen.push({ text: fact });
                 }
             }
 
@@ -458,7 +488,7 @@ export class EnrichmentReadService {
                 // Caught for the reason the list read catches it: a failed stamp costs a claim its
                 // rest, and nothing here may cost a break its fact.
                 if (options.stamp !== false) void this.factRepository.markUsed([believed.id]).catch(() => undefined);
-                return { trackId, fact };
+                return { trackId, fact, factId: believed.id };
             }
         }
 

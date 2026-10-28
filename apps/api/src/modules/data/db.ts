@@ -1099,6 +1099,19 @@ export interface DeadairSegmentEvents {
   toState: "planned" | "writing" | "written" | "rendering" | "ready" | "failed";
 }
 
+export interface DeadairSegmentFacts {
+  claim: string;
+  createdAt: Generated<DateTime>;
+  factId: string | null;
+  id: Generated<string>;
+  segmentId: string;
+  sourceProvider: string;
+  sourceQuote: string;
+  sourceUrl: string;
+  stationKey: Generated<string>;
+  told: boolean;
+}
+
 export interface DeadairSegments {
   airsAt: DateTime | null;
   audioChecksum: string | null;
@@ -1463,6 +1476,7 @@ export interface DB {
   "deadair.scriptRatings": DeadairScriptRatings;
   "deadair.scrobbleQueue": DeadairScrobbleQueue;
   "deadair.segmentEvents": DeadairSegmentEvents;
+  "deadair.segmentFacts": DeadairSegmentFacts;
   "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;
   "deadair.similarArtists": DeadairSimilarArtists;

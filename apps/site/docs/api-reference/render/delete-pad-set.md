@@ -1,7 +1,7 @@
 ---
 title: 'Delete pad set'
 sidebar_label: 'Delete pad set'
-sidebar_position: 31
+sidebar_position: 32
 mdx:
     format: 'md'
 ---

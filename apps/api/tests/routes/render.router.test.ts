@@ -125,6 +125,8 @@ const serve = async (segment: Segment | undefined, options: { shares?: Partial<S
         // The joiner and the config, for a padded preview.
         unused,
         unused,
+        // Where a break's facts came from, which no case here reads.
+        unused,
     );
     const app = new Koa();
 

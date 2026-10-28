@@ -356,6 +356,8 @@ export const queryKeys = {
                 filter.personaKey ?? 'all',
             ] as const,
         summary: (hours: number) => ['scripts', 'summary', hours] as const,
+        /** Where one break's facts came from. Per segment, since a rewrite replaces them. */
+        sources: (segmentId: string) => ['scripts', 'sources', segmentId] as const,
     },
     /**
      * The station's programming, as opposed to `playout`, which is what the player was actually

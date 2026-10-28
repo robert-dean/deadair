@@ -164,6 +164,14 @@ public final class RenderClient: Sendable {
         return try http.decodeJSON(SegmentList.self, from: response)
     }
 
+    /// Read segment sources
+    /// The stored facts a written break was handed, the ones it said first
+    public func readSegmentSources(id: UUID) async throws -> SegmentSourceList {
+        let request = try SdkRequest(method: "GET", path: ["segments", http.segment(id), "sources"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(SegmentSourceList.self, from: response)
+    }
+
     /// Get segment audio
     /// The audio of one segment
     /// - Throws: `SdkError` on 503

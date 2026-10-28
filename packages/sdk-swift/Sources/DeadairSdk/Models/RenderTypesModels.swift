@@ -365,6 +365,54 @@ public struct ScriptPromptMessage: Codable, Equatable, Sendable {
     }
 }
 
+/// One stored fact a written break was handed, as it stood when the break was written
+public struct SegmentSource: Codable, Equatable, Sendable {
+    /// The sentence the writer was handed
+    public var claim: String
+    /// Where a person checks it
+    public var sourceUrl: String
+    /// The words there that state it
+    public var sourceQuote: String
+    /// The plugin that fetched the page
+    public var sourceProvider: String
+    /// Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said
+    public var told: Bool
+
+    public init(claim: String, sourceUrl: String, sourceQuote: String, sourceProvider: String, told: Bool) {
+        self.claim = claim
+        self.sourceUrl = sourceUrl
+        self.sourceQuote = sourceQuote
+        self.sourceProvider = sourceProvider
+        self.told = told
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case claim = "claim"
+        case sourceUrl = "sourceUrl"
+        case sourceQuote = "sourceQuote"
+        case sourceProvider = "sourceProvider"
+        case told = "told"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.claim = try container.decode(String.self, forKey: .claim)
+        self.sourceUrl = try container.decode(String.self, forKey: .sourceUrl)
+        self.sourceQuote = try container.decode(String.self, forKey: .sourceQuote)
+        self.sourceProvider = try container.decode(String.self, forKey: .sourceProvider)
+        self.told = try container.decode(Bool.self, forKey: .told)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.claim, forKey: .claim)
+        try container.encode(self.sourceUrl, forKey: .sourceUrl)
+        try container.encode(self.sourceQuote, forKey: .sourceQuote)
+        try container.encode(self.sourceProvider, forKey: .sourceProvider)
+        try container.encode(self.told, forKey: .told)
+    }
+}
+
 /// What an operator thought of something the station said.
 ///
 /// The catalog's three spellings exactly, and deliberately not a second vocabulary: an opinion is an
@@ -1281,6 +1329,28 @@ public struct ScriptHistoryQuery: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.outcome, forKey: .outcome)
         try container.encodeIfPresent(self.personaKey, forKey: .personaKey)
         try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
+    }
+}
+
+public struct SegmentSourceList: Codable, Equatable, Sendable {
+    public var sources: [SegmentSource]
+
+    public init(sources: [SegmentSource]) {
+        self.sources = sources
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sources = "sources"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sources = try container.decode([SegmentSource].self, forKey: .sources)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.sources, forKey: .sources)
     }
 }
 

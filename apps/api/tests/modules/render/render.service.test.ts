@@ -142,6 +142,8 @@ const service = (options: ServiceOptions = {}) => {
             {} as never,
             { join } as never,
             config,
+            // Where a break's facts came from, which no case here reads.
+            {} as never,
         ),
         findById,
         named,
@@ -847,6 +849,8 @@ describe('RenderService.uploadPad', () => {
             {} as never,
             {} as never,
             {} as never,
+            // Where a break's facts came from, which no case here reads.
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -954,6 +958,8 @@ describe('RenderService.deletePad', () => {
             // The joiner and the config, for a padded preview. No case here asks for one.
             {} as never,
             {} as never,
+            // Where a break's facts came from, which no case here reads.
+            {} as never,
         );
 
         return { service: render, remove, discard };
@@ -1011,6 +1017,8 @@ describe('RenderService.setPadUse', () => {
             // The copies listeners share, the joiner and the config. No case here asks for any of them.
             {} as never,
             {} as never,
+            {} as never,
+            // Where a break's facts came from, which no case here reads.
             {} as never,
         );
 
@@ -1074,6 +1082,8 @@ describe('RenderService.fetchPad', () => {
             {} as never,
             // The joiner and the config, for a padded preview. No case here asks for one.
             {} as never,
+            {} as never,
+            // Where a break's facts came from, which no case here reads.
             {} as never,
         );
 
@@ -1185,6 +1195,8 @@ describe('RenderService.uploadSegment', () => {
             // The joiner and the config, for a padded preview. No case here asks for one.
             {} as never,
             {} as never,
+            // Where a break's facts came from, which no case here reads.
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -1276,6 +1288,8 @@ describe('RenderService.deleteSegment', () => {
             // The joiner and the config, for a padded preview. No case here asks for one.
             {} as never,
             {} as never,
+            // Where a break's facts came from, which no case here reads.
+            {} as never,
         );
 
         return { service: render, remove, discard };
@@ -1304,5 +1318,51 @@ describe('RenderService.deleteSegment', () => {
         const { service: render } = deleter(undefined);
 
         expect(await status(render.deleteSegment(ID))).toBe(404);
+    });
+});
+
+// Where a break's facts came from. What the route owes the console is the rows as stored, said
+// first, without the claim id the console has no use for, and nothing at all rather than a 404 for
+// a break that was handed no stored fact, which is most of them.
+describe('RenderService.readSegmentSources', () => {
+    const sourcesOver = (rows: unknown[]) => {
+        const forSegment = vi.fn(async (_id: string) => rows);
+        const render = new RenderService(
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            // Where a break's facts came from: the only collaborator this route reaches.
+            { forSegment } as never,
+        );
+        return { render, forSegment };
+    };
+
+    it('answers the stored sources without their claim ids', async () => {
+        const told = { claim: 'Born in New Malden.', sourceUrl: 'https://x', sourceQuote: 'span', sourceProvider: 'wikipedia', told: true };
+        const { render, forSegment } = sourcesOver([
+            { ...told, factId: 'fact-a' },
+            { ...told, told: false },
+        ]);
+
+        await expect(render.readSegmentSources('seg-1')).resolves.toEqual({ sources: [told, { ...told, told: false }] });
+        expect(forSegment).toHaveBeenCalledWith('seg-1');
+    });
+
+    it('answers an empty list for a break handed nothing', async () => {
+        await expect(sourcesOver([]).render.readSegmentSources('seg-1')).resolves.toEqual({ sources: [] });
     });
 });

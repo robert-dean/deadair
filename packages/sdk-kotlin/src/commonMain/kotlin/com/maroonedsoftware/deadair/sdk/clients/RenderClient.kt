@@ -26,6 +26,7 @@ import com.maroonedsoftware.deadair.sdk.models.SegmentAudioQuery
 import com.maroonedsoftware.deadair.sdk.models.SegmentCreate
 import com.maroonedsoftware.deadair.sdk.models.SegmentList
 import com.maroonedsoftware.deadair.sdk.models.SegmentScanResult
+import com.maroonedsoftware.deadair.sdk.models.SegmentSourceList
 import com.maroonedsoftware.deadair.sdk.models.SpeechPreviewRequest
 import com.maroonedsoftware.deadair.sdk.models.VoiceList
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
@@ -212,6 +213,17 @@ class RenderClient(private val http: SdkHttp) {
     suspend fun deleteSegment(id: Uuid): SegmentList {
         val response = http.execute(HttpMethod.Delete) {
             path("segments", segment(id))
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Read segment sources
+     * The stored facts a written break was handed, the ones it said first
+     */
+    suspend fun readSegmentSources(id: Uuid): SegmentSourceList {
+        val response = http.execute(HttpMethod.Get) {
+            path("segments", segment(id), "sources")
         }
         return http.decodeJson(response)
     }

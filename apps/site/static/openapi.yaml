@@ -5550,6 +5550,25 @@ paths:
                     description: 'Not found'
                 '409':
                     description: Conflict
+    '/segments/{id}/sources':
+        get:
+            operationId: readSegmentSources
+            summary: 'Read segment sources'
+            description: 'The stored facts a written break was handed, the ones it said first'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/SegmentSourceList'
     '/segments/{id}/audio':
         get:
             operationId: getSegmentAudio
@@ -15758,6 +15777,42 @@ components:
                     maxLength: 100000
             required: [role, content]
             description: 'One turn of the conversation a writer sent'
+        SegmentSource:
+            type: object
+            properties:
+                claim:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                    description: 'The sentence the writer was handed'
+                sourceUrl:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: 'Where a person checks it'
+                sourceQuote:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: 'The words there that state it'
+                sourceProvider:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The plugin that fetched the page'
+                told:
+                    type: boolean
+                    description: "Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said"
+            required: [claim, sourceUrl, sourceQuote, sourceProvider, told]
+            description: 'One stored fact a written break was handed, as it stood when the break was written'
+        SegmentSourceList:
+            type: object
+            properties:
+                sources:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SegmentSource'
+            required: [sources]
         ScriptAttempt:
             type: object
             properties:

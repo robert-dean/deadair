@@ -160,8 +160,12 @@ function harness(
         writersFor: vi.fn(() => ['model', 'deterministic']),
     };
     const enrichment = {
-        factsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
-            options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
+        // The test's facts are plain sentences; a sentence that names its claim (`claim:<id>:<text>`)
+        // comes back as that stored claim, so a test about the break's evidence can say which it was handed.
+        offeredFactsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
+            options.factsThrow
+                ? Promise.reject(new Error('the enrichment tables are gone'))
+                : new Map([...(options.facts ?? new Map<string, string[]>())].map(([id, lines]) => [id, lines.map(offered)])),
         ),
         factForBreak: vi.fn(async (_previous: string | undefined, _next: string | undefined, _rotate?: number) =>
             options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : options.fact,
@@ -201,6 +205,8 @@ function harness(
         record: vi.fn(async (_write: unknown) => {}),
         markAired: vi.fn(async (_segmentId: string, _at: number) => {}),
     };
+    // Which stored claims each break was handed (migration 0124), replaced on every write.
+    const sources = { replaceForSegment: vi.fn(async (_segmentId: string, _handed: readonly unknown[]) => {}) };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((key: string, fallback: string) => options.settings?.[key] ?? fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -292,6 +298,7 @@ function harness(
         personas as never,
         pads as never,
         tellings as never,
+        sources as never,
         activity as never,
         floorWatch as never,
         jobs as never,
@@ -315,6 +322,7 @@ function harness(
         notes,
         personaStories,
         tellings,
+        sources,
         jobs,
         logger,
         activity,
@@ -326,6 +334,12 @@ function harness(
         speech,
         lyricLabels,
     };
+}
+
+/** A test's fact line as the enrichment read hands it over. See the `offeredFactsForTracks` double. */
+function offered(line: string): { text: string; factId?: string } {
+    const claim = /^claim:([^:]+):(.*)$/.exec(line);
+    return claim === null ? { text: line } : { text: claim[2]!, factId: claim[1]! };
 }
 
 describe('WriteBreakJob', () => {
@@ -1765,7 +1779,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             // No options on an ordinary break: the read is exactly the one the station always made.
-            expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+            expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({
                     previous: {
@@ -1798,7 +1812,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(enrichment.factsForTracks).not.toHaveBeenCalled();
+            expect(enrichment.offeredFactsForTracks).not.toHaveBeenCalled();
         });
 
         it('writes the break anyway when the facts cannot be read', async () => {
@@ -1854,7 +1868,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {
                     budget: { limit: 4, spread: true },
                 });
             });
@@ -1866,7 +1880,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
 
             it('reads the ordinary budget for a presenter with a rung nobody recognises', async () => {
@@ -1874,7 +1888,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
         });
 
@@ -1892,7 +1906,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
             });
 
             it('shows the writer neither record’s notes, and records none against the write', async () => {
@@ -1915,7 +1929,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
         });
 
@@ -1939,7 +1953,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(enrichment.factsForTracks).not.toHaveBeenCalled();
+                expect(enrichment.offeredFactsForTracks).not.toHaveBeenCalled();
                 expect(enrichment.factForBreak).toHaveBeenCalledWith('track-a', 'track-b', expect.any(Number));
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({
@@ -2046,7 +2060,7 @@ describe('WriteBreakJob', () => {
                 await job.run({ segmentId: miss });
 
                 expect(enrichment.factForBreak).not.toHaveBeenCalled();
-                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
+                expect(enrichment.offeredFactsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), { stamp: false });
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ previous: { title: 'Solid Air', artist: 'John Martyn', trackId: 'track-a' } }),
                     'model',
@@ -2062,7 +2076,7 @@ describe('WriteBreakJob', () => {
             const other = harness({ lineup: withIds('seg-2'), segment: planned({ id: 'seg-2' }) });
             await other.job.run({ segmentId: 'seg-2' });
 
-            const rotation = (call: typeof first) => call.enrichment.factsForTracks.mock.calls[0]![1];
+            const rotation = (call: typeof first) => call.enrichment.offeredFactsForTracks.mock.calls[0]![1];
             expect(rotation(second)).toBe(rotation(first));
             expect(rotation(other)).not.toBe(rotation(first));
         });
@@ -2081,6 +2095,81 @@ describe('WriteBreakJob', () => {
 
         expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'nothing to say', 'writing');
         expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    // Where the host got what it said: the stored claims a break was handed, and which it said, kept
+    // against the segment once its words have won.
+    describe('the sources a written break keeps', () => {
+        const withIds = (): StationLineup => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 'track-a'), track('Pink Moon', 'Nick Drake', 'track-b')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+        const known = new Map([
+            ['track-a', ['claim:fact-a:John Martyn was born in New Malden in 1948.']],
+            ['track-b', ['claim:fact-b:Pink Moon was recorded in Sound Techniques.', 'Nick Drake: English singer-songwriter.']],
+        ]);
+        const byModel = (script: string) => ({
+            written: { script, label: 'Talk break' },
+            writer: 'model',
+            attempts: [{ writer: 'model', outcome: 'written', written: { script, label: 'Talk break' }, durationMs: 1 }],
+        });
+        const never = { id: 'p-1', key: 'shockjock', label: 'Shock jock', style: 'a shock jock', defaultHost: true, trivia: 'never' } as Persona;
+
+        it('keeps every claim it was handed, said or not, and no provider line', async () => {
+            const { job, sources } = harness({
+                lineup: withIds(),
+                facts: known,
+                written: byModel('That was John Martyn, born in New Malden. Here is Nick Drake.'),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(sources.replaceForSegment).toHaveBeenCalledWith('seg-1', [
+                { factId: 'fact-a', claim: 'John Martyn was born in New Malden in 1948.', told: true },
+                { factId: 'fact-b', claim: 'Pink Moon was recorded in Sound Techniques.', told: false },
+            ]);
+        });
+
+        it('keeps nothing for a break the floor wrote, and still clears the last write’s', async () => {
+            const { job, sources } = harness({ lineup: withIds(), facts: known });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(sources.replaceForSegment).toHaveBeenCalledWith('seg-1', []);
+        });
+
+        it('keeps nothing for a presenter who was never shown the notes', async () => {
+            const { job, sources } = harness({
+                lineup: withIds(),
+                persona: never,
+                facts: known,
+                written: byModel('John Martyn, born in New Malden.'),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(sources.replaceForSegment).toHaveBeenCalledWith('seg-1', []);
+        });
+
+        it('keeps nothing when the words were lost to another writer', async () => {
+            const { job, segments, sources } = harness({ lineup: withIds(), facts: known, written: byModel('New Malden.') });
+            segments.writeScript.mockResolvedValueOnce(false);
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(sources.replaceForSegment).not.toHaveBeenCalled();
+        });
+
+        it('costs the break nothing when the record cannot be written', async () => {
+            const { job, sources, jobs } = harness({ lineup: withIds(), facts: known, written: byModel('New Malden.') });
+            sources.replaceForSegment.mockRejectedValueOnce(new Error('the table is gone'));
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+        });
     });
 
     describe('the forward claim', () => {

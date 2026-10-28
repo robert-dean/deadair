@@ -152,6 +152,23 @@ export const ScriptPromptMessage = z.strictObject({
 export type ScriptPromptMessage = z.infer<typeof ScriptPromptMessage>;
 
 /**
+ * One stored fact a written break was handed, as it stood when the break was written
+ * generated from [SegmentSource](../../../../data/contracts/render/render.types.ck)
+ */
+export const SegmentSource = z.strictObject({
+    claim: z.string().min(1).max(500).describe('The sentence the writer was handed'),
+    sourceUrl: z.string().min(1).max(2000).describe('Where a person checks it'),
+    sourceQuote: z.string().min(1).max(2000).describe('The words there that state it'),
+    sourceProvider: z.string().min(1).max(200).describe('The plugin that fetched the page'),
+    told: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            "Whether the break's words said it, as the station read them back. Never the model's own account, and a fact the read-back could not judge counts as not said",
+        ),
+});
+export type SegmentSource = z.infer<typeof SegmentSource>;
+
+/**
  * What an operator thought of something the station said.
  *
  * The catalog's three spellings exactly, and deliberately not a second vocabulary: an opinion is an
@@ -506,6 +523,14 @@ export const ScriptHistoryQuery = z.strictObject({
         ),
 });
 export type ScriptHistoryQuery = z.infer<typeof ScriptHistoryQuery>;
+
+/**
+ * generated from [SegmentSourceList](../../../../data/contracts/render/render.types.ck)
+ */
+export const SegmentSourceList = z.strictObject({
+    sources: z.array(SegmentSource),
+});
+export type SegmentSourceList = z.infer<typeof SegmentSourceList>;
 
 /**
  * One attempt to write something the station would say, including the ones that came to nothing

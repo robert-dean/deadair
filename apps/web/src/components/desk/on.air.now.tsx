@@ -20,6 +20,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
 import { usePhone } from '../shared/use.phone';
 import { HostOnAir } from '../onair/host.on.air';
+import { BreakSources, RENDER_PLUGIN_ID } from '../scripts/break.sources';
 import { useArmedPress } from './armed.press';
 import { CastMenu } from './cast.menu';
 import { formatClock } from '../../i18n/format.locale';
@@ -333,6 +334,11 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 {status.live?.state === 'onair' ? t('onAir.presenterLive') : silence.audible ? t('onAir.starting') : silence.detail}
                             </Text>
                         )}
+
+                        {/* While a break airs, where what it is saying came from. Only what it said. */}
+                        {nowPlaying?.item.pluginId === RENDER_PLUGIN_ID ? (
+                            <BreakSources segmentId={nowPlaying.item.externalId} saidOnly />
+                        ) : undefined}
 
                         {playhead ? (
                             <Group gap="xs" wrap="nowrap">

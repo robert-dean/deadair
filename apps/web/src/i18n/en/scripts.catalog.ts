@@ -46,6 +46,11 @@ export const scripts = {
             'The prompt was not kept. Turn on <settings>Keep the prompt and the raw answer</settings> under Words in Settings to keep it for the attempts after this one.',
         prompt: 'What it was sent',
     },
+    sources: {
+        said: 'Where what it said came from',
+        unsaid: 'Handed, not said',
+        link: 'Read it on {{provider}}',
+    },
     rating: {
         disliked: 'The station should not say things like this',
         neutral: 'Heard it, no opinion',

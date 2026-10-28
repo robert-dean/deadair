@@ -1,5 +1,5 @@
 import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ScriptAttempt, ScriptHistoryPage, ScriptOutcome, ScriptRating } from '@deadair/sdk';
+import type { ScriptAttempt, ScriptHistoryPage, ScriptOutcome, ScriptRating, SegmentSourceList } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -125,5 +125,21 @@ export function useRateScript() {
                       },
             );
         },
+    });
+}
+
+/**
+ * Where one break's facts came from: the stored claims its writer was handed, said first.
+ *
+ * Not polled. The rows change only when the break is written again, and the history above polls
+ * for that; a minute's staleness is the cost of not asking the station once per break per poll.
+ * `undefined` asks nothing, for a caller that has no break in hand.
+ */
+export function useSegmentSources(segmentId: string | undefined) {
+    return useQuery<SegmentSourceList>({
+        queryKey: queryKeys.scripts.sources(segmentId ?? ''),
+        queryFn: () => sdk.render.readSegmentSources(segmentId!),
+        enabled: segmentId !== undefined,
+        staleTime: 60_000,
     });
 }

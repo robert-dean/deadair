@@ -21,10 +21,12 @@ vi.mock('@tanstack/react-router', () => ({
 
 const history = vi.fn();
 const rate = vi.fn();
+const sources = vi.fn((_segmentId: string | undefined) => ({ data: undefined as unknown }));
 
 vi.mock('../../../src/api/scripts.queries', () => ({
     useScriptHistory: (filter: unknown) => history(filter),
     useRateScript: () => ({ mutate: rate, isPending: false, variables: undefined }),
+    useSegmentSources: (segmentId: string | undefined) => sources(segmentId),
 }));
 
 const shareBreak = vi.fn();
@@ -149,5 +151,42 @@ describe('ScriptsPage', () => {
 
         expect(shareBreak).toHaveBeenCalledWith('seg_7');
         expect(await screen.findByText('The station no longer has the audio for that break.')).toBeInTheDocument();
+    });
+
+    // A break's sources are replaced on every write, so they belong to the attempt whose words the
+    // break holds and to no earlier one.
+    it('shows where the facts came from on the newest written attempt only, said apart from handed', async () => {
+        const source = {
+            claim: 'Born in New Malden.',
+            sourceUrl: 'https://en.wikipedia.org/wiki/John_Martyn',
+            sourceQuote: 'born in New Malden',
+            sourceProvider: 'wikipedia',
+        };
+        sources.mockReturnValue({
+            data: {
+                sources: [
+                    { ...source, told: true },
+                    { ...source, claim: 'Signed to Island.', told: false },
+                ],
+            },
+        });
+        history.mockReturnValue(
+            answer([
+                attempt({ id: 'att-2', segmentId: 'seg_7', script: 'The newest words.' }),
+                attempt({ id: 'att-1', segmentId: 'seg_7', script: 'The words before.' }),
+            ]),
+        );
+        const user = setupUser();
+
+        render(<ScriptsPage segmentId="seg_7" />);
+        await user.click(screen.getByText('The words before.'));
+        expect(screen.queryByText('Where what it said came from')).not.toBeInTheDocument();
+
+        await user.click(screen.getByText('The newest words.'));
+        expect(await screen.findByText('Where what it said came from')).toBeInTheDocument();
+        expect(screen.getByText('Born in New Malden.')).toBeInTheDocument();
+        expect(screen.getByText('Handed, not said')).toBeInTheDocument();
+        expect(screen.getByText('Signed to Island.')).toBeInTheDocument();
+        expect(screen.getAllByRole('link', { name: 'Read it on wikipedia' })[0]).toHaveAttribute('href', source.sourceUrl);
     });
 });

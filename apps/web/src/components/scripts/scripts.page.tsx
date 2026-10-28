@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActionIcon, Anchor, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconShare } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
@@ -16,6 +16,7 @@ import { shareable, shareBreak, shareFailure, type ShareFailure } from './break.
 import { Eyebrow } from '../shared/eyebrow';
 import { FeedPage } from '../shared/feed.page';
 import { ScriptRatingControl } from './script.rating.control';
+import { BreakSources } from './break.sources';
 import { PageHeader } from '../shared/page.header';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
@@ -117,6 +118,20 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
 
     const failure = history.isError ? apiErrorMessage(history.error, t('failure')) : undefined;
 
+    // Which attempts hold each break's words as they stand: the newest written one per segment. A
+    // break's sources are replaced on every write, so they describe that attempt and no earlier one.
+    // Newest first and read from the head, so the first written row met for a segment is its newest.
+    const latestWritten = useMemo(() => {
+        const seen = new Set<string>();
+        const latest = new Set<string>();
+        for (const attempt of history.data?.pages.flatMap(page => page.attempts) ?? []) {
+            if (attempt.outcome !== 'written' || attempt.segmentId === undefined || seen.has(attempt.segmentId)) continue;
+            seen.add(attempt.segmentId);
+            latest.add(attempt.id);
+        }
+        return latest;
+    }, [history.data]);
+
     return (
         <FeedPage
             query={history}
@@ -137,7 +152,7 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
                         ? t('empty.all')
                         : t('empty.filtered')
             }
-            renderRow={attempt => <AttemptRow attempt={attempt} />}
+            renderRow={attempt => <AttemptRow attempt={attempt} latest={latestWritten.has(attempt.id)} />}
         >
             <PageHeader
                 title={title(t, segmentId, personaKey)}
@@ -184,6 +199,8 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
 
 interface AttemptRowProps {
     attempt: ScriptAttempt;
+    /** Whether this attempt holds its break's words as they stand, which is the only one its sources describe. */
+    latest: boolean;
 }
 
 /**
@@ -194,7 +211,7 @@ interface AttemptRowProps {
  * because the prompt is thousands of words and the point of the list is to read the station's voice
  * a dozen lines at a time.
  */
-function AttemptRow({ attempt }: AttemptRowProps) {
+function AttemptRow({ attempt, latest }: AttemptRowProps) {
     const { t } = useTranslation('scripts');
     const [open, setOpen] = useState(false);
     const [sharing, setSharing] = useState(false);
@@ -301,14 +318,14 @@ function AttemptRow({ attempt }: AttemptRowProps) {
             {/* Unmounted rather than hidden while collapsed: a page of fifty rows each holding a
                 few thousand words of prompt is worth not putting in the DOM to save a transition. */}
             <Collapse expanded={open} keepMounted={false}>
-                <AttemptDetail attempt={attempt} />
+                <AttemptDetail attempt={attempt} latest={latest} />
             </Collapse>
         </Stack>
     );
 }
 
 /** Everything about one attempt that is not the sentence it produced. */
-function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
+function AttemptDetail({ attempt, latest }: { attempt: ScriptAttempt; latest: boolean }) {
     const { t } = useTranslation('scripts');
     const tokens = attempt.usage?.totalTokens ?? attempt.usage?.outputTokens;
 
@@ -332,6 +349,9 @@ function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
                     {attempt.next === undefined ? undefined : <Neighbour label={t('detail.before')} track={attempt.next} />}
                 </Group>
             ) : undefined}
+
+            {/* Only on the attempt whose words the break holds: a rewrite replaces the sources. */}
+            {latest && attempt.segmentId !== undefined ? <BreakSources segmentId={attempt.segmentId} /> : undefined}
 
             {/* Shown for a written attempt too: a model that produced words and a reason produced both. */}
             {attempt.reason !== undefined && attempt.script !== undefined ? <Fact label={t('detail.note')} value={attempt.reason} /> : undefined}

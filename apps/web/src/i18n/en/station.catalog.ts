@@ -7,6 +7,7 @@ export const station = {
         title: 'Check-up',
         tabs: {
             machinery: { label: 'Machinery', hint: 'What every part of it is doing now' },
+            listeners: { label: 'Listeners', hint: 'Who is connected to the stream right now' },
             trends: { label: 'Trends', hint: 'How its numbers have moved over time' },
             history: { label: 'What it has been doing', hint: 'Everything that aired, wrote or failed' },
             asRun: { label: 'As run', hint: 'Every item that went out, when, and for how long' },
@@ -15,6 +16,37 @@ export const station = {
             logs: { label: 'Logs', hint: 'The station’s own log, and the audio chain’s' },
             releases: { label: 'What’s new', hint: 'What changed in each release' },
         },
+    },
+    listeners: {
+        title: 'Listeners',
+        description:
+            'Who is connected to the stream right now, read from Icecast and from the HLS players as you look. Nothing here is kept: close the page and the station stops asking.',
+        count_one: '{{count}} listening',
+        count_other: '{{count}} listening',
+        failure: 'Could not read who is listening.',
+        forbidden: 'Only an admin can see who is listening. The count is in the bar at the top of every page.',
+        empty: 'Nobody is listening right now.',
+        differs_one:
+            'The station counts {{count}} listener and lists {{listed}}. The two are read separately, so they can disagree for a few seconds, and one HLS row can stand for two players with the same address and the same player.',
+        differs_other:
+            'The station counts {{count}} listeners and lists {{listed}}. The two are read separately, so they can disagree for a few seconds, and one HLS row can stand for two players with the same address and the same player.',
+        unreadable: {
+            title_one: 'One stream could not be read, so its listeners are missing below',
+            title_other: '{{count}} streams could not be read, so their listeners are missing below',
+            unresolved:
+                '{{mount}}: the station has not found an Icecast 2.5 it can ask. Just after start-up this clears on its own within a minute; an older Icecast cannot be asked at all.',
+            refused:
+                '{{mount}}: Icecast refused the station’s admin password. It is probably running an older configuration than the one the station wrote, and restarting Icecast loads the current one.',
+            unanswered: '{{mount}}: Icecast did not answer in time.',
+        },
+        column: {
+            stream: 'Stream',
+            address: 'Address',
+            player: 'Player',
+            connected: 'Connected for',
+        },
+        hls: 'HLS',
+        noAgent: 'Did not say',
     },
     recordings: {
         title: 'Recordings',

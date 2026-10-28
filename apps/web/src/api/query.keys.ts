@@ -147,6 +147,8 @@ export const queryKeys = {
      */
     stream: {
         authorization: () => ['stream', 'authorization'] as const,
+        /** Who is connected right now. One key: the API answers with every mount and HLS at once. */
+        listeners: () => ['stream', 'listeners'] as const,
     },
     /**
      * How the station says a word. One key, like the voices above: every write answers with the

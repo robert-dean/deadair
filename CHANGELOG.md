@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.0] — 2026-10-28
+
+- The station can count what its model calls cost. Settings, Words, has a new list, What each model costs: a model and its price per million input and output tokens, as your provider charges it. Each call is priced as it is made, so changing a price later moves only what follows, and a model with no price is still counted in tokens. The figures are kept on the station's trends, and sent on to an OpenTelemetry collector as a counter when one is set.
+- The station counts the characters it hands each speech engine, and what they cost. Settings, Voice and audio, has a new list, What each speech engine costs: an engine and its price per million characters, for one that bills by the character such as ElevenLabs. Every character counts, voice previews and samples as well as breaks, and an engine you run yourself is counted in characters only.
+- **Check-up → Trends** says what the station spent. The model section shows the total for the range and a table by model, with its calls, tokens and spend, most spent first. A new section, **The voice**, shows the characters each speech engine was handed and what the priced ones cost. Figures are written in the currency set under **Settings**, **Words**, and a section with no prices says where to set them.
+
 ## [0.86.4] — 2026-10-28
 
 - When the model says why it picked a record, the reason is now kept with the record until it airs, and the as-run log carries it: `AsRunEntry.pickedBecause` on `GET /history/as-run`. It never leaves the station: event destinations, chat platforms and now playing do not see it.
@@ -1744,7 +1750,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.0...HEAD
+[0.87.0]: https://github.com/robert-dean/deadair/compare/v0.86.4...v0.87.0
 [0.86.4]: https://github.com/robert-dean/deadair/compare/v0.86.3...v0.86.4
 [0.86.3]: https://github.com/robert-dean/deadair/compare/v0.86.2...v0.86.3
 [0.86.2]: https://github.com/robert-dean/deadair/compare/v0.86.1...v0.86.2

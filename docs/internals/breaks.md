@@ -776,7 +776,18 @@ and marking it then would starve every bulletin in between of stories the editio
 placement is minutes before air, which is the "marked at selection" argument below. Pasted text has no
 headline a bulletin could read, so only a source with an address counts.
 
-**When everything in the window has been read the slot is DECLINED**, on the freshness window's own argument.
+**When everything in the window has been read the slot is DECLINED**, on the freshness window's own argument,
+unless the operator would rather fill it. `rotation.newsRepeatWhenRead` is `skip` (the default) or `repeat`,
+read through `repeatWhenRead`. Under `repeat` the bulletin reads again the stories read LONGEST AGO
+(`ReadLog.lastRead`), still only from what the feeds offer inside the window, and keeps them, so their rest
+starts over and the next repeat reaches for a different one. A category bulletin repeats its own stories under
+its own name first, and the general news (subject dropped) only where `rotation.newsCategoryFallback` chose it.
+The bulletin carries `recap`, which reaches `BreakWriteRequest.recap`, and the model writer's opening says the
+stories were read earlier and asks for a round-up rather than news just in: without it, three-hour-old
+headlines go out as though they had just come in. The station's own phrasings read them unchanged.
+`RecapWatch` reports the rising edge once on the activity feed (`news.repeating`), on `CategoryWatch`'s
+argument. A breaking bulletin is never repeated; one already read is still declined.
+
 The other half is `BreakPromptShape.showsFacts`, off for `NEWS_SHAPE` alone: the record coming up is shown so
 the bulletin can hand back in a line, and its NOTES are withheld, because both false discography claims this
 station has aired ("released in May three thousand nine hundred thirty-three") were a model finishing a note

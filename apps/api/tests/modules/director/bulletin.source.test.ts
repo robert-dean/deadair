@@ -16,6 +16,7 @@ import {
     editionHeadlines,
     MAX_STORY_COUNT,
     ReadLog,
+    RecapWatch,
 } from '../../../src/modules/director/bulletin.source.js';
 import type { ReadLogStore } from '../../../src/modules/director/bulletin.read.store.js';
 import { NEWS_KIND } from '../../../src/modules/director/news.break.writer.js';
@@ -80,6 +81,8 @@ interface Options {
     topics?: Topic[];
     /** The edge tracker. Shared where a test needs a second bulletin to see what the first reported. */
     watch?: CategoryWatch;
+    /** The repeat edge tracker, shared for the same reason. */
+    recaps?: RecapWatch;
     /**
      * What each feed says it IS, keyed by qualified feed id.
      *
@@ -132,7 +135,9 @@ function build(options: Options = {}, values: Record<string, unknown> = {}) {
     // the dice rather than on what it is checking.
     const pinned = { [BULLETIN_KEYS.storiesMin]: 3, [BULLETIN_KEYS.storiesMax]: 3, ...values };
 
-    return { source: new BulletinSource(news, options.read ?? readLog(), topics, watch, config(pinned), logger), fetchItems, watch };
+    const recaps = options.recaps ?? new RecapWatch(activity, logger);
+
+    return { source: new BulletinSource(news, options.read ?? readLog(), topics, watch, recaps, config(pinned), logger), fetchItems, watch };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -701,6 +706,175 @@ describe('what the station has already read', () => {
 // What a band asks for, and what the station does when it cannot have it. The failure both halves
 // are shaped against is the same one: a listener cannot tell a technology bulletin that is really
 // the day's headlines from a station that has got it wrong.
+// When the operator would rather the slot were filled than skipped. What has to hold is that a repeat
+// is always the story read longest ago, that it is still inside the window, that the writer is told it
+// is a repeat, and that a station repeating all afternoon says so once rather than every half hour.
+describe('repeating, when everything fresh has been read', () => {
+    const repeat = { [BULLETIN_KEYS.repeatWhenRead]: 'repeat', [BULLETIN_KEYS.storiesMin]: 1, [BULLETIN_KEYS.storiesMax]: 1 };
+    const two = [item('Bridge reopens after four years'), item('Council votes on the harbour')];
+
+    it('reads again the story read longest ago, and says it is a recap', async () => {
+        const read = readLog();
+        await read.keep(['Council votes on the harbour.'], NOW - 3 * 3_600_000);
+        await read.keep(['Bridge reopens after four years.'], NOW - 3_600_000);
+
+        const bulletin = await build({ items: two, read }, repeat).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Council votes on the harbour.']);
+        expect(bulletin?.recap).toBe(true);
+    });
+
+    it('starts the story’s rest again, so the next recap reaches for a different one', async () => {
+        const read = readLog();
+        await read.keep(['Council votes on the harbour.'], NOW - 3 * 3_600_000);
+        await read.keep(['Bridge reopens after four years.'], NOW - 3_600_000);
+
+        await build({ items: two, read }, repeat).source.storiesFor(NEWS_KIND, undefined, NOW);
+        const next = await build({ items: two, read }, repeat).source.storiesFor(NEWS_KIND, undefined, NOW + 1_800_000);
+
+        expect(next?.stories.map(story => story.headline)).toEqual(['Bridge reopens after four years.']);
+    });
+
+    it('reads fresh news first, and is no recap when there is any', async () => {
+        const read = readLog();
+        await read.keep(['Council votes on the harbour.'], NOW - 3 * 3_600_000);
+
+        const bulletin = await build({ items: two, read }, repeat).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Bridge reopens after four years.']);
+        expect(bulletin?.recap).toBeUndefined();
+    });
+
+    it('still skips by default, and for anything but the one word, read as the string it is stored as', async () => {
+        for (const value of [undefined, 'skip', '', 'true', 'yes']) {
+            const read = readLog();
+            await read.keep(['Council votes on the harbour.', 'Bridge reopens after four years.'], NOW - 3_600_000);
+            const bulletin = await build({ items: two, read }, { [BULLETIN_KEYS.repeatWhenRead]: value }).source.storiesFor(
+                NEWS_KIND,
+                undefined,
+                NOW,
+            );
+            expect(bulletin, String(value)).toEqual({ stories: [] });
+        }
+    });
+
+    it('repeats a category’s own stories under its name before reaching for anything else', async () => {
+        const technology = category('technology', { labels: ['Technology'], words: ['semiconductor'] });
+        const read = readLog();
+        await read.keep(['Semiconductor plant reopens.', 'Council votes on the harbour.'], NOW - 3_600_000);
+        const page = [item('Council votes on the harbour'), item('Semiconductor plant reopens')];
+
+        const bulletin = await build(
+            { items: page, read, topics: [technology] },
+            { ...repeat, [BULLETIN_KEYS.categoryFallback]: 'general' },
+        ).source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Semiconductor plant reopens.']);
+        expect(bulletin?.subject).toEqual({ key: 'technology', label: 'Technology' });
+        expect(bulletin?.recap).toBe(true);
+        // Its own stories were read, so it has not run dry.
+        expect(activity.record).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'news.categoryEmpty' }));
+    });
+
+    it('repeats the general news for an empty category only where the operator chose the general news', async () => {
+        const technology = category('technology', { labels: ['Technology'], words: ['semiconductor'] });
+        const page = [item('Council votes on the harbour')];
+
+        const skip = readLog();
+        await skip.keep(['Council votes on the harbour.'], NOW - 3_600_000);
+        const declined = await build({ items: page, read: skip, topics: [technology] }, repeat).source.storiesFor(
+            NEWS_KIND,
+            { topic: 'technology' },
+            NOW,
+        );
+        expect(declined?.stories).toEqual([]);
+
+        const general = readLog();
+        await general.keep(['Council votes on the harbour.'], NOW - 3_600_000);
+        const filled = await build(
+            { items: page, read: general, topics: [technology] },
+            { ...repeat, [BULLETIN_KEYS.categoryFallback]: 'general' },
+        ).source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+        expect(filled?.stories.map(story => story.headline)).toEqual(['Council votes on the harbour.']);
+        expect(filled?.subject).toBeUndefined();
+        expect(filled?.recap).toBe(true);
+    });
+
+    it('says it is repeating once, and again only after a bulletin had fresh news', async () => {
+        const recaps = new RecapWatch(activity, logger);
+        const read = readLog();
+        await read.keep(['Council votes on the harbour.', 'Bridge reopens after four years.'], NOW - 3_600_000);
+        const repeating = () =>
+            (activity.record as ReturnType<typeof vi.fn>).mock.calls.filter(([event]) => (event as { kind: string }).kind === 'news.repeating');
+
+        await build({ items: two, read, recaps }, repeat).source.storiesFor(NEWS_KIND, undefined, NOW);
+        await build({ items: two, read, recaps }, repeat).source.storiesFor(NEWS_KIND, undefined, NOW + 60_000);
+        expect(repeating()).toHaveLength(1);
+
+        await build({ items: [...two, item('Library extends its hours')], read, recaps }, repeat).source.storiesFor(
+            NEWS_KIND,
+            undefined,
+            NOW + 120_000,
+        );
+        await build({ items: [...two, item('Library extends its hours')], read, recaps }, repeat).source.storiesFor(
+            NEWS_KIND,
+            undefined,
+            NOW + 180_000,
+        );
+        expect(repeating()).toHaveLength(2);
+    });
+
+    it('never repeats a story older than the window, however long ago it was read', async () => {
+        const read = readLog();
+        await read.keep(['Council votes on the harbour.'], NOW - 3_600_000);
+        // Only what the feed still offers inside the window is ever a candidate, and this feed offers
+        // nothing fresh enough.
+        const stale = [item('Council votes on the harbour', { publishedAt: '2026-08-14T08:00:00.000Z' })];
+        const { source, fetchItems } = build({ items: stale, read }, repeat);
+
+        await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ since: new Date(NOW - 12 * 3_600_000).toISOString() }));
+    });
+
+    it('leaves a breaking bulletin alone: one already read is still declined', async () => {
+        const read = readLog();
+        await read.keep(['Bridge reopens after four years'], NOW - 60_000);
+
+        const bulletin = await build({ items: two, read }, repeat).source.storiesFor(NEWS_KIND, { headline: 'Bridge reopens after four years' }, NOW);
+
+        expect(bulletin).toEqual({ stories: [] });
+    });
+});
+
+// The two settings together, on one page: a Technology bulletin whose only technology story has been
+// read, beside a general story that has not. The order they compose in is the point: unread news of
+// any kind beats a repeat, and a repeat of the category's own story keeps its name.
+describe('the two fallbacks together', () => {
+    const technology = category('technology', { labels: ['Technology'], words: ['semiconductor'] });
+    const page = [item('Council votes on the harbour'), item('Semiconductor plant reopens')];
+    const one = { [BULLETIN_KEYS.storiesMin]: 1, [BULLETIN_KEYS.storiesMax]: 1 };
+
+    it.each([
+        { category: 'skip', repeat: 'skip', reads: [], subject: 'technology', recap: undefined },
+        { category: 'general', repeat: 'skip', reads: ['Council votes on the harbour.'], subject: undefined, recap: undefined },
+        { category: 'skip', repeat: 'repeat', reads: ['Semiconductor plant reopens.'], subject: 'technology', recap: true },
+        { category: 'general', repeat: 'repeat', reads: ['Council votes on the harbour.'], subject: undefined, recap: undefined },
+    ])('category $category, repeat $repeat', async ({ category: fallback, repeat, reads, subject, recap }) => {
+        const read = readLog();
+        await read.keep(['Semiconductor plant reopens.'], NOW - 2 * 3_600_000);
+
+        const bulletin = await build(
+            { items: page, read, topics: [technology] },
+            { ...one, [BULLETIN_KEYS.categoryFallback]: fallback, [BULLETIN_KEYS.repeatWhenRead]: repeat },
+        ).source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(reads);
+        expect(bulletin?.subject?.key).toBe(subject);
+        expect(bulletin?.recap).toBe(recap);
+    });
+});
+
 describe('what the bulletin is about', () => {
     const technology = category('technology', { labels: ['Technology'], words: ['semiconductor'] });
     const sport = category('sport', { labels: ['Sport'] });

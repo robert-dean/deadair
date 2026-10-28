@@ -57,6 +57,7 @@ import {
     BULLETIN_KEYS,
     DEFAULT_CATEGORY_FALLBACK,
     DEFAULT_MAX_AGE_HOURS,
+    DEFAULT_REPEAT_WHEN_READ,
     DEFAULT_STORY_COUNT_MAX,
     DEFAULT_STORY_COUNT_MIN,
     MAX_STORY_COUNT,
@@ -1322,6 +1323,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             { value: 'general', label: 'Read the general news instead' },
         ],
         help: 'What a bulletin the format clock asked for about one of your categories does when nothing unread belongs to it. Skipping keeps the slot honest: the station never reads the day’s headlines as though they were the technology news. Reading the general news fills it, introduced as the news rather than as the category. Either way the activity feed says the category ran dry.',
+    },
+    {
+        group: 'bulletins',
+        key: BULLETIN_KEYS.repeatWhenRead,
+        label: 'When every fresh story has been read',
+        type: 'select',
+        default: DEFAULT_REPEAT_WHEN_READ,
+        options: [
+            { value: 'skip', label: 'Skip the slot' },
+            { value: 'repeat', label: 'Repeat the oldest' },
+        ],
+        help: 'What a bulletin does when the feeds have nothing new since the last one. Skipping keeps the news new: a listener cannot tell this morning’s headlines read again at teatime from a station that is wrong. Repeating reads again the stories read longest ago, still within How old a story may be, presented as a round-up of the day’s headlines. The activity feed says once that bulletins have started repeating.',
     },
     {
         group: 'bulletins',

@@ -14,7 +14,7 @@ import { NewsBreakWriter } from './news.break.writer.js';
 import { ModelStoryBreakWriter } from './model.story.break.writer.js';
 import { StoryBreakWriter } from './story.break.writer.js';
 import { ReadLogStore } from './bulletin.read.store.js';
-import { BulletinSource, CategoryWatch, ReadLog } from './bulletin.source.js';
+import { BulletinSource, CategoryWatch, ReadLog, RecapWatch } from './bulletin.source.js';
 import { ModelWeatherBreakWriter } from './model.weather.break.writer.js';
 import { WeatherBreakWriter } from './weather.break.writer.js';
 import { WeatherSource } from './weather.source.js';
@@ -225,6 +225,8 @@ export const DirectorModule: ServerKitModule = {
         // for and the feeds never fill. An edge flag on the scoped source below would reset every
         // bulletin, and the activity feed would take a row every half hour. See `CategoryWatch`.
         registry.register(CategoryWatch).useClass(CategoryWatch).asSingleton();
+        // The same, for bulletins repeating what they read before. See `RecapWatch`.
+        registry.register(RecapWatch).useClass(RecapWatch).asSingleton();
         // Scoped with the `NewsService` it reads — which is why the log above is registered apart
         // from it rather than made a singleton itself, since that would capture a scoped
         // `NewsService` at the root. What a bulletin is written FROM, fetched once for whichever

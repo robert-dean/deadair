@@ -65,6 +65,8 @@ export const BULLETIN_KEYS = {
     maxAgeHours: 'rotation.newsMaxAgeHours',
     /** What a bulletin about a category does when the category has nothing unread. See {@link CATEGORY_FALLBACKS}. */
     categoryFallback: 'rotation.newsCategoryFallback',
+    /** What a bulletin does when every fresh story has been read. See {@link REPEAT_WHEN_READ}. */
+    repeatWhenRead: 'rotation.newsRepeatWhenRead',
 } as const;
 
 /**
@@ -76,6 +78,22 @@ export type CategoryFallback = (typeof CATEGORY_FALLBACKS)[number];
 
 /** Skip, which is what the station did before there was a choice. */
 export const DEFAULT_CATEGORY_FALLBACK: CategoryFallback = 'skip';
+
+/**
+ * What a bulletin does when every story in the freshness window has already been read: pass over
+ * the slot, or read again the ones read longest ago, presented as a recap.
+ */
+export const REPEAT_WHEN_READ = ['skip', 'repeat'] as const;
+export type RepeatWhenRead = (typeof REPEAT_WHEN_READ)[number];
+
+/** Skip, which is what the station did before there was a choice. */
+export const DEFAULT_REPEAT_WHEN_READ: RepeatWhenRead = 'skip';
+
+/** The stored choice, on {@link categoryFallback}'s rule. */
+export function repeatWhenRead(config: AppConfig): RepeatWhenRead {
+    const value = String(config.get(BULLETIN_KEYS.repeatWhenRead, DEFAULT_REPEAT_WHEN_READ)).trim().toLowerCase();
+    return REPEAT_WHEN_READ.find(candidate => candidate === value) ?? DEFAULT_REPEAT_WHEN_READ;
+}
 
 /**
  * The stored fallback, with anything unrecognised read as the default. A setting is a string, and a
@@ -239,6 +257,11 @@ export class ReadLog {
     /** Whether this headline has already gone out inside the window. Valid once `ready`, `keep` or `forget` has been awaited. */
     has(headline: string): boolean {
         return this.readAt.has(key(headline));
+    }
+
+    /** When this headline last went out, or `undefined` if it has not inside the window. Valid when {@link has} is. */
+    lastRead(headline: string): number | undefined {
+        return this.readAt.get(key(headline));
     }
 
     /** Mark everything this bulletin is about to read. */
@@ -439,6 +462,47 @@ export interface Bulletin {
     stories: readonly BreakStory[];
     /** The category the format clock asked for, when it asked for one. */
     subject?: BreakSubject;
+    /** Every story here was read before, so the bulletin is a round-up rather than news just in. See {@link repeatWhenRead}. */
+    recap?: true;
+}
+
+/**
+ * Says out loud when bulletins start repeating, and quietly when they stop.
+ *
+ * {@link CategoryWatch}'s shape: a station repeating all afternoon is one fact, so it is one row on
+ * the activity feed, written on the rising edge, rather than a row every half hour.
+ */
+@Injectable()
+export class RecapWatch {
+    private repeatingNow = false;
+
+    constructor(
+        private readonly activity: ActivityRecorder,
+        private readonly logger: Logger,
+    ) {}
+
+    /** The rising edge: this bulletin read only stories it had read before. */
+    repeating(count: number): void {
+        if (this.repeatingNow) return;
+        this.repeatingNow = true;
+
+        this.logger.info('director: every fresh story has been read, so bulletins are repeating the ones read longest ago as a recap', { count });
+        void this.activity.record({
+            module: 'director',
+            kind: 'news.repeating',
+            detail:
+                'Every story in the news window has already been read, so bulletins are reading again the ones read longest ago, as a ' +
+                'round-up. They go back to new stories as soon as the feeds carry some.',
+            data: { count },
+        });
+    }
+
+    /** The falling edge, so the next spell of repeats is reported too. */
+    fresh(): void {
+        if (!this.repeatingNow) return;
+        this.repeatingNow = false;
+        this.logger.info('director: bulletins have fresh stories to read again');
+    }
 }
 
 @Injectable()
@@ -450,6 +514,8 @@ export class BulletinSource {
         private readonly topics: TopicRepository,
         /** See {@link CategoryWatch}. A singleton for the same reason the read log is. */
         private readonly watch: CategoryWatch,
+        /** See {@link RecapWatch}. A singleton for the same reason. */
+        private readonly recaps: RecapWatch,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -570,27 +636,25 @@ export class BulletinSource {
                 return distinct(eligible).slice(0, wanted);
             };
 
+            const fallback = categoryFallback(this.config);
             let stories = choose(asked);
             let subject = asked;
+            let recap = false;
 
             // The category is empty. DECLINED rather than filled with general news, which is the
             // whole point of asking for one: a listener cannot tell a technology bulletin that is
-            // really the day's headlines from a station that has got it wrong. Said on the EDGE and
-            // on the activity feed, because a slot passed over every half hour all afternoon is
-            // otherwise invisible.
+            // really the day's headlines from a station that has got it wrong.
             //
             // Unless the operator chose the general news instead, in which case the bulletin is read
             // with its subject DROPPED, so neither writer calls it the category. The pages are the
             // ones already fetched: a roster asked for a category that turned out empty never
             // settled, so it was read all the way down and nothing further is worth asking.
-            if (asked !== undefined && stories.length === 0) {
-                const general = categoryFallback(this.config) === 'general' ? choose(undefined) : [];
-                this.watch.empty(asked, offered.length, general.length > 0);
-                if (general.length === 0) return { stories: [], subject: asked };
-                stories = general;
-                subject = undefined;
-            } else if (asked !== undefined) {
-                this.watch.filled(asked);
+            if (asked !== undefined && stories.length === 0 && fallback === 'general') {
+                const general = choose(undefined);
+                if (general.length > 0) {
+                    stories = general;
+                    subject = undefined;
+                }
             }
 
             // Nothing the station has not already said. DECLINED rather than repeated, on the same
@@ -599,19 +663,51 @@ export class BulletinSource {
             // cannot tell either from the station simply being wrong. Passing over the slot is
             // something the station is built to absorb.
             //
-            // Said at info rather than debug, and it is the one line here worth an operator's
-            // attention: a station whose clock asks for news every half hour and whose publisher
-            // posts three stories a day is silent at most bulletins, and this is what says so.
+            // Unless the operator would rather the slot were filled, in which case the stories read
+            // LONGEST AGO are read again, and the bulletin says it is a recap so the writer presents
+            // them as a round-up rather than as news just in. Still only what is inside the window,
+            // so this never reaches back past what the freshness rule allows. The category's own
+            // stories first, keeping its subject; then, where the operator chose the general news
+            // over an empty category, anything.
+            if (stories.length === 0 && repeatWhenRead(this.config) === 'repeat') {
+                const pools = asked === undefined ? [undefined] : fallback === 'general' ? [asked, undefined] : [asked];
+                for (const about of pools) {
+                    const again = this.longestAgo(offered, about, wanted);
+                    if (again.length === 0) continue;
+                    stories = again;
+                    subject = about;
+                    recap = true;
+                    break;
+                }
+            }
+
+            // Said on the EDGE and on the activity feed, because a slot passed over every half hour
+            // all afternoon is otherwise invisible. Reported once the outcome is known, so the
+            // sentence can say what the station did instead: a category whose own stories were read
+            // again as a recap has not run dry, and one replaced by the general news has.
+            if (asked !== undefined) {
+                if (subject !== undefined && stories.length > 0) this.watch.filled(asked);
+                else this.watch.empty(asked, offered.length, stories.length > 0);
+            }
+
             if (stories.length === 0) {
+                if (asked !== undefined) return { stories: [], subject: asked };
+                // Said at info rather than debug, and it is the one line here worth an operator's
+                // attention: a station whose clock asks for news every half hour and whose publisher
+                // posts three stories a day is silent at most bulletins, and this is what says so.
                 if (offered.length > 0)
                     this.logger.info('director: every story in the news window has already been read, so the bulletin was skipped');
                 return { stories: [] };
             }
 
+            // Kept whether fresh or repeated: a story read again starts its rest again, which is what
+            // makes the next recap reach for a different one.
             await this.read.keep(
                 stories.map(story => story.headline),
                 now,
             );
+            if (recap) this.recaps.repeating(stories.length);
+            else this.recaps.fresh();
 
             // At debug, because this runs on every bulletin and the interesting version of it is
             // the one where a bulletin turned out to be short.
@@ -628,8 +724,9 @@ export class BulletinSource {
                 feeds: roster.length === 0 ? 'all' : roster.length,
                 topic: asked?.key ?? 'anything',
                 ...(asked !== undefined && subject === undefined ? { fellBack: 'general' } : {}),
+                ...(recap ? { recap: true } : {}),
             });
-            return { stories, ...(subject === undefined ? {} : { subject }) };
+            return { stories, ...(subject === undefined ? {} : { subject }), ...(recap ? { recap: true as const } : {}) };
         } catch (error) {
             // `NewsService` already absorbs a failing plugin, so reaching here means something
             // further in broke. Still not a fault worth failing the break over: the writer declines,
@@ -677,6 +774,20 @@ export class BulletinSource {
             this.logger.info(`director: a breaking story could not be read for its bulletin (${errorText(error)})`);
             return { stories: [] };
         }
+    }
+
+    /**
+     * The stories read longest ago, about `about` or about anything, for a bulletin that repeats.
+     *
+     * Only what is still offered, so only what the freshness window allows, and only what has been
+     * read (everything here has, or a fresh bulletin would have taken it). Oldest-read first; a sort
+     * is stable, so stories read in the same bulletin keep the order the feeds gave them.
+     */
+    private longestAgo(offered: readonly BreakStory[], about: BreakSubject | undefined, wanted: number): BreakStory[] {
+        const pool = distinct(
+            offered.filter(story => this.read.has(story.headline) && (about === undefined || (story.categories ?? []).includes(about.key))),
+        );
+        return [...pool].sort((a, b) => (this.read.lastRead(a.headline) ?? 0) - (this.read.lastRead(b.headline) ?? 0)).slice(0, wanted);
     }
 
     /**

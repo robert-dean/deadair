@@ -360,6 +360,7 @@ export class BreakRequestBuilder {
             ...(airsAt === undefined ? {} : { moment: { at: airsAt, zone } }),
             ...(context === undefined ? {} : { context }),
             ...(bulletin === undefined ? {} : { stories: bulletin.stories }),
+            ...(bulletin?.recap === true ? { recap: true as const } : {}),
             ...(forecast?.reading === undefined ? {} : { weather: forecast.reading }),
             // The reading's own shelf life, travelling beside it so whichever writer takes it stamps
             // the same expiry. See `BreakWriteRequest.weatherFreshUntil`.

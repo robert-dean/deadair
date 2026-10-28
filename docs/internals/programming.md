@@ -102,6 +102,23 @@ the store holds the artists the station actually airs and walks toward. An empty
 act nobody knows is not asked about on every refill; an outage is not. A store that cannot be read or
 written costs the store and never the answer.
 
+**The store is drawn as a graph, and the drawing reads the store and nothing fresher.** `GET
+/catalog/similarity` (`SimilarityGraphService`) answers the stored neighbours as DIRECTED edges, one per
+`similar_artists` row, with the artists they name as nodes keyed by `normalizeKey` and joined to the catalog
+by `artist_key`, so a node carries an `artistId` only when the library holds that artist. It never asks a
+source: a console page must not cost a provider call per artist on the screen, and the store is exactly
+what the station has acted on, so an artist nobody has looked up has no edges of its own, which is the
+truth about the store rather than a gap in the answer. Without `around` it answers the best-ranked edges
+of the whole store; with it, one or two steps either way from a catalog artist, both the artists it names
+and the artists that name it. `library` keeps both ends in the catalog and is decided in SQL BEFORE the
+limit, so a library-only graph is not the handful that survived a limit spent on strangers. **The weight
+is the rank, never the source's `match`**: a Last.fm score and a Deezer one are not the same distance, so
+the console's layout (`similarity.layout.ts`, `d3-force` run to rest so the picture is the same every
+visit) folds A-names-B and B-names-A into one link weighted `1 / (rank + 1)` from the better of the two,
+and draws a pair that names each other brighter. The edges stay directed on the wire because a reader
+handed one line cannot unfold it. Two readers: the Library's Similar tab (the whole store, 600 edges at
+most) and the "Sounds like" card on an artist's page (its neighbourhood).
+
 **A brief's acts include the ones the library has never held, found among the neighbours of the ones it
 has.** Measured on the live station, 2026-10-25: The Church's brief names Mayhem, Darkthrone and Emperor
 and the library holds nothing by them, so `BriefArtists` never reached them. `BriefActs` asks who

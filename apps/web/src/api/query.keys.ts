@@ -405,5 +405,7 @@ export const queryKeys = {
         trackVocalMarkers: (id: string) => ['catalog', 'track', id, 'vocalMarkers'] as const,
         trackLyrics: (id: string) => ['catalog', 'track', id, 'lyrics'] as const,
         trackLyricsSources: (id: string) => ['catalog', 'track', id, 'lyrics', 'sources'] as const,
+        /** Who the similarity sources say resembles whom: the whole store, or one artist's neighbourhood. */
+        similarity: (library: boolean, around?: string, depth?: number) => ['catalog', 'similarity', library, around ?? '', depth ?? 0] as const,
     },
 } as const;

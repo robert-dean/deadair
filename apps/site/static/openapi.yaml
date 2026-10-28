@@ -1539,6 +1539,55 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/Track'
+    '/catalog/similarity':
+        get:
+            operationId: getGraph
+            summary: 'Get similarity graph'
+            description: 'Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist'
+            parameters:
+                - name: around
+                  in: query
+                  required: false
+                  description: 'A catalog artist to centre on. Absent draws the whole store, best-ranked edges first'
+                  schema:
+                      type: string
+                      format: uuid
+                      description: 'A catalog artist to centre on. Absent draws the whole store, best-ranked edges first'
+                - name: depth
+                  in: query
+                  required: false
+                  description: 'How many steps out from `around`, following edges either way. Ignored without it'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 2
+                      default: 1
+                      description: 'How many steps out from `around`, following edges either way. Ignored without it'
+                - name: library
+                  in: query
+                  required: false
+                  description: 'Only artists the catalog holds, on both ends of every edge'
+                  schema:
+                      type: boolean
+                      default: false
+                      description: 'Only artists the catalog holds, on both ends of every edge'
+                - name: limit
+                  in: query
+                  required: false
+                  description: 'The most edges answered'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 2000
+                      default: 500
+                      description: 'The most edges answered'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/SimilarityGraph'
     '/charts':
         get:
             operationId: readCharts
@@ -9827,6 +9876,94 @@ components:
                     description: 'How long, from now. Required, because a suspension with no end is a dislike, and that has its own control. Suspending again replaces the date'
             required: [days]
             description: 'Keep something off the station for a while, without passing judgement on it'
+        SimilarityGraphQuery:
+            type: object
+            properties:
+                around:
+                    type: string
+                    format: uuid
+                    description: 'A catalog artist to centre on. Absent draws the whole store, best-ranked edges first'
+                depth:
+                    type: integer
+                    minimum: 1
+                    maximum: 2
+                    default: 1
+                    description: 'How many steps out from `around`, following edges either way. Ignored without it'
+                library:
+                    type: boolean
+                    default: false
+                    description: 'Only artists the catalog holds, on both ends of every edge'
+                limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 2000
+                    default: 500
+                    description: 'The most edges answered'
+            required: [depth, library, limit]
+            description: 'Which part of the similarity store to draw.'
+        SimilarityNode:
+            type: object
+            properties:
+                key:
+                    type: string
+                    readOnly: true
+                    description: "The artist's name as the station folds it for matching. Unique in one graph"
+                name:
+                    type: string
+                    readOnly: true
+                    description: "The catalog's spelling when the catalog holds the artist, else the source's"
+                artistId:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                    description: 'The catalog artist, when the catalog holds one. Absent for an artist only a source has named'
+            required: [key, name]
+            description: "One artist in the similarity graph. Keyed by its folded name rather than an id, because most of\nthe artists the sources name are not in the catalog at all."
+        SimilarityEdge:
+            type: object
+            properties:
+                from:
+                    type: string
+                    readOnly: true
+                    description: 'The key of the artist whose neighbours these are'
+                to:
+                    type: string
+                    readOnly: true
+                    description: 'The key of the neighbour'
+                rank:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: "Position in `from`'s merged answer, from 0. The one weight comparable across sources"
+                match:
+                    type: number
+                    readOnly: true
+                    description: "The source's own score, comparable only inside that source's answer. Absent when it gave none"
+                source:
+                    type: string
+                    readOnly: true
+                    description: 'The plugin id whose answer named this neighbour first'
+            required: [from, to, rank, source]
+            description: "One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B\nlists A, and both rows are answered when both exist."
+        SimilarityGraph:
+            type: object
+            properties:
+                nodes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SimilarityNode'
+                    readOnly: true
+                    description: 'Every artist an edge names, once'
+                edges:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SimilarityEdge'
+                    readOnly: true
+                truncated:
+                    type: boolean
+                    readOnly: true
+                    description: 'More edges matched than `limit` allowed'
+            required: [nodes, edges, truncated]
         StationChart:
             type: object
             properties:

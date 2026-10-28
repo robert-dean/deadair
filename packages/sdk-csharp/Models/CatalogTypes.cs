@@ -733,6 +733,87 @@ public sealed record SuspendInput
     public required long Days { get; init; }
 }
 
+/// <summary>Which part of the similarity store to draw.</summary>
+public sealed record SimilarityGraphQuery
+{
+    /// <summary>A catalog artist to centre on. Absent draws the whole store, best-ranked edges first</summary>
+    [JsonPropertyName("around")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? Around { get; init; }
+
+    /// <summary>How many steps out from `around`, following edges either way. Ignored without it</summary>
+    [JsonPropertyName("depth")]
+    public long Depth { get; init; } = 1L;
+
+    /// <summary>Only artists the catalog holds, on both ends of every edge</summary>
+    [JsonPropertyName("library")]
+    public bool Library { get; init; } = false;
+
+    /// <summary>The most edges answered</summary>
+    [JsonPropertyName("limit")]
+    public long Limit { get; init; } = 500L;
+}
+
+/// <summary>
+/// One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+/// the artists the sources name are not in the catalog at all.
+/// </summary>
+public sealed record SimilarityNode
+{
+    /// <summary>The artist's name as the station folds it for matching. Unique in one graph</summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    /// <summary>The catalog's spelling when the catalog holds the artist, else the source's</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>The catalog artist, when the catalog holds one. Absent for an artist only a source has named</summary>
+    [JsonPropertyName("artistId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? ArtistId { get; init; }
+}
+
+/// <summary>
+/// One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+/// the artists the sources name are not in the catalog at all.
+/// </summary>
+public sealed record SimilarityNodeInput;
+
+/// <summary>
+/// One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+/// lists A, and both rows are answered when both exist.
+/// </summary>
+public sealed record SimilarityEdge
+{
+    /// <summary>The key of the artist whose neighbours these are</summary>
+    [JsonPropertyName("from")]
+    public required string From { get; init; }
+
+    /// <summary>The key of the neighbour</summary>
+    [JsonPropertyName("to")]
+    public required string To { get; init; }
+
+    /// <summary>Position in `from`'s merged answer, from 0. The one weight comparable across sources</summary>
+    [JsonPropertyName("rank")]
+    public required long Rank { get; init; }
+
+    /// <summary>The source's own score, comparable only inside that source's answer. Absent when it gave none</summary>
+    [JsonPropertyName("match")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Match { get; init; }
+
+    /// <summary>The plugin id whose answer named this neighbour first</summary>
+    [JsonPropertyName("source")]
+    public required string Source { get; init; }
+}
+
+/// <summary>
+/// One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+/// lists A, and both rows are answered when both exist.
+/// </summary>
+public sealed record SimilarityEdgeInput;
+
 /// <summary>
 /// Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
 /// excludes it, and nothing the station programmes may turn that off.
@@ -1330,6 +1411,22 @@ public sealed record AlbumEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, JsonElement>? Extra { get; init; }
 }
+
+public sealed record SimilarityGraph
+{
+    /// <summary>Every artist an edge names, once</summary>
+    [JsonPropertyName("nodes")]
+    public required List<SimilarityNode> Nodes { get; init; }
+
+    [JsonPropertyName("edges")]
+    public required List<SimilarityEdge> Edges { get; init; }
+
+    /// <summary>More edges matched than `limit` allowed</summary>
+    [JsonPropertyName("truncated")]
+    public required bool Truncated { get; init; }
+}
+
+public sealed record SimilarityGraphInput;
 
 /// <summary>One page of artists, with the totals the request was counted against</summary>
 public sealed record ArtistPage

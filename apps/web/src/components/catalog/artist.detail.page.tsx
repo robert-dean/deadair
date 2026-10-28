@@ -22,6 +22,7 @@ import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { PronunciationControl } from './pronunciation.control';
 import { RatingControl } from './rating.control';
+import { SimilarityNeighbourhoodCard } from './similarity.neighbourhood.card';
 import { SuspendControl } from './suspend.control';
 
 export interface ArtistDetailPageProps {
@@ -30,9 +31,11 @@ export interface ArtistDetailPageProps {
     /** How the list on this page is ordered and how much of it is shown, carried in the URL. */
     order: CatalogListOrder;
     onPageChange: (page: number) => void;
+    /** Another artist was chosen from the "Sounds like" map. */
+    onOpenArtist: (artistId: string) => void;
 }
 
-export function ArtistDetailPage({ artistId, page, order, onPageChange }: ArtistDetailPageProps) {
+export function ArtistDetailPage({ artistId, page, order, onPageChange, onOpenArtist }: ArtistDetailPageProps) {
     const { t } = useTranslation('catalog');
     const artist = useQuery(catalogArtistOptions(artistId));
     const albums = useQuery(catalogArtistAlbumsOptions(artistId, { page, ...order }));
@@ -160,6 +163,16 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                     <CatalogPagination total={albums.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
                 </>
             ) : undefined}
+
+            {/* After the albums, which are what this page is for. Suppressed with the enrichment
+                panel, on its reason: one alert about an artist who is not there is enough. */}
+            {artist.error ? undefined : (
+                <SimilarityNeighbourhoodCard
+                    artistId={artistId}
+                    {...(artist.data === undefined ? {} : { artistName: artist.data.name })}
+                    onOpenArtist={onOpenArtist}
+                />
+            )}
         </Stack>
     );
 }

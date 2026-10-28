@@ -144,4 +144,70 @@ describe('SimilarityStoreRepository', () => {
         const statements = captured.queries.map(query => query.sql.split(' ').slice(0, 3).join(' '));
         expect(statements).toEqual(['insert into "deadair"."similarity_asks"', 'delete from "deadair"."artist_records"']);
     });
+
+    describe('edges', () => {
+        it('reads stored neighbours as edges, best-ranked first, dropping a self-listing and a name that folds to nothing', async () => {
+            const { repository, captured } = repositoryAnswering([
+                {
+                    artistKey: 'slayer',
+                    artistName: 'Slayer',
+                    neighbourKey: 'megadeth',
+                    name: 'Megadeth',
+                    rank: 0,
+                    match: '0.82',
+                    source: 'deadair.lastfm',
+                },
+                {
+                    artistKey: 'slayer',
+                    artistName: 'Slayer',
+                    neighbourKey: 'kreator',
+                    name: 'Kreator',
+                    rank: 1,
+                    match: undefined,
+                    source: 'deadair.deezer',
+                },
+            ]);
+
+            expect(await repository.edges({ library: false, limit: 50 })).toEqual([
+                { from: 'slayer', fromName: 'Slayer', to: 'megadeth', toName: 'Megadeth', rank: 0, match: 0.82, source: 'deadair.lastfm' },
+                { from: 'slayer', fromName: 'Slayer', to: 'kreator', toName: 'Kreator', rank: 1, source: 'deadair.deezer' },
+            ]);
+
+            const { sql, parameters } = captured.queries[0]!;
+            expect(sql).toContain('from "deadair"."similar_artists" as "sa"');
+            expect(sql).toContain('"ask"."kind" = $1');
+            expect(sql).toContain('"sa"."neighbour_key" <> "sa"."artist_key"');
+            expect(sql).toContain('order by "sa"."rank", "sa"."artist_key" limit');
+            expect(sql).not.toContain('exists');
+            expect(parameters).toEqual(['artists', 'main', '', 50]);
+        });
+
+        it('keeps the edges touching a key from either end', async () => {
+            const { repository, captured } = repositoryAnswering([]);
+
+            await repository.edges({ touching: ['slayer'], library: false, limit: 10 });
+
+            expect(captured.queries[0]?.sql).toContain('("sa"."artist_key" in ($4) or "sa"."neighbour_key" in ($5))');
+        });
+
+        it('filters to the catalog on both ends before the limit, ignoring merged rows', async () => {
+            const { repository, captured } = repositoryAnswering([]);
+
+            await repository.edges({ library: true, limit: 10 });
+
+            const sql = captured.queries[0]!.sql;
+            expect(sql.match(/exists \(select "a"\."id" from "deadair"\."artists" as "a"/g)).toHaveLength(2);
+            expect(sql).toContain('"a"."artist_key" = "sa"."artist_key"');
+            expect(sql).toContain('"a"."artist_key" = "sa"."neighbour_key"');
+            expect(sql).toContain('"a"."merged_into_id" is null');
+            expect(sql.indexOf('exists')).toBeLessThan(sql.indexOf('limit'));
+        });
+
+        it('asks nothing for an empty neighbourhood', async () => {
+            const { repository, captured } = repositoryAnswering();
+
+            expect(await repository.edges({ touching: [], library: false, limit: 10 })).toEqual([]);
+            expect(captured.queries).toHaveLength(0);
+        });
+    });
 });

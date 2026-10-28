@@ -33,6 +33,9 @@ function ArtistDetailRoute() {
             onPageChange={next => {
                 void navigate({ search: previous => ({ ...previous, page: next }) });
             }}
+            onOpenArtist={next => {
+                void navigate({ to: '/catalog/artists/$artistId', params: { artistId: next }, search: CATALOG_ALBUM_DEFAULTS });
+            }}
         />
     );
 }

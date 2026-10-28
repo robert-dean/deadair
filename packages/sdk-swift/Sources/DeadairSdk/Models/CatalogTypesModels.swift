@@ -960,6 +960,162 @@ public struct SuspendInput: Codable, Equatable, Sendable {
     }
 }
 
+/// Which part of the similarity store to draw.
+public struct SimilarityGraphQuery: Codable, Equatable, Sendable {
+    /// A catalog artist to centre on. Absent draws the whole store, best-ranked edges first
+    public var around: UUID?
+    /// How many steps out from `around`, following edges either way. Ignored without it
+    public var depth: Int
+    /// Only artists the catalog holds, on both ends of every edge
+    public var library: Bool
+    /// The most edges answered
+    public var limit: Int
+
+    public init(around: UUID? = nil, depth: Int = 1, library: Bool = false, limit: Int = 500) {
+        self.around = around
+        self.depth = depth
+        self.library = library
+        self.limit = limit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case around = "around"
+        case depth = "depth"
+        case library = "library"
+        case limit = "limit"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.around = try container.decodeIfPresent(UUID.self, forKey: .around)
+        self.depth = try container.decodeIfPresent(Int.self, forKey: .depth) ?? 1
+        self.library = try container.decodeIfPresent(Bool.self, forKey: .library) ?? false
+        self.limit = try container.decodeIfPresent(Int.self, forKey: .limit) ?? 500
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.around, forKey: .around)
+        try container.encode(self.depth, forKey: .depth)
+        try container.encode(self.library, forKey: .library)
+        try container.encode(self.limit, forKey: .limit)
+    }
+}
+
+/// One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+/// the artists the sources name are not in the catalog at all.
+public struct SimilarityNode: Codable, Equatable, Sendable {
+    /// The artist's name as the station folds it for matching. Unique in one graph
+    public var key: String
+    /// The catalog's spelling when the catalog holds the artist, else the source's
+    public var name: String
+    /// The catalog artist, when the catalog holds one. Absent for an artist only a source has named
+    public var artistId: UUID?
+
+    public init(key: String, name: String, artistId: UUID? = nil) {
+        self.key = key
+        self.name = name
+        self.artistId = artistId
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case name = "name"
+        case artistId = "artistId"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.key = try container.decode(String.self, forKey: .key)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.artistId = try container.decodeIfPresent(UUID.self, forKey: .artistId)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.key, forKey: .key)
+        try container.encode(self.name, forKey: .name)
+        try container.encodeIfPresent(self.artistId, forKey: .artistId)
+    }
+}
+
+/// One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+/// the artists the sources name are not in the catalog at all.
+public struct SimilarityNodeInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+/// lists A, and both rows are answered when both exist.
+public struct SimilarityEdge: Codable, Equatable, Sendable {
+    /// The key of the artist whose neighbours these are
+    public var from: String
+    /// The key of the neighbour
+    public var to: String
+    /// Position in `from`'s merged answer, from 0. The one weight comparable across sources
+    public var rank: Int
+    /// The source's own score, comparable only inside that source's answer. Absent when it gave none
+    public var match: Double?
+    /// The plugin id whose answer named this neighbour first
+    public var source: String
+
+    public init(from: String, to: String, rank: Int, match: Double? = nil, source: String) {
+        self.from = from
+        self.to = to
+        self.rank = rank
+        self.match = match
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case from = "from"
+        case to = "to"
+        case rank = "rank"
+        case match = "match"
+        case source = "source"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.from = try container.decode(String.self, forKey: .from)
+        self.to = try container.decode(String.self, forKey: .to)
+        self.rank = try container.decode(Int.self, forKey: .rank)
+        self.match = try container.decodeIfPresent(Double.self, forKey: .match)
+        self.source = try container.decode(String.self, forKey: .source)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.from, forKey: .from)
+        try container.encode(self.to, forKey: .to)
+        try container.encode(self.rank, forKey: .rank)
+        try container.encodeIfPresent(self.match, forKey: .match)
+        try container.encode(self.source, forKey: .source)
+    }
+}
+
+/// One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+/// lists A, and both rows are answered when both exist.
+public struct SimilarityEdgeInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
 /// excludes it, and nothing the station programmes may turn that off.
 public struct RateInput: Codable, Equatable, Sendable {
@@ -1943,6 +2099,52 @@ public struct AlbumEnrichmentData: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.externalIds, forKey: .externalIds)
         try container.encodeIfPresent(self.links, forKey: .links)
         try container.encodeIfPresent(self.extra, forKey: .extra)
+    }
+}
+
+public struct SimilarityGraph: Codable, Equatable, Sendable {
+    /// Every artist an edge names, once
+    public var nodes: [SimilarityNode]
+    public var edges: [SimilarityEdge]
+    /// More edges matched than `limit` allowed
+    public var truncated: Bool
+
+    public init(nodes: [SimilarityNode], edges: [SimilarityEdge], truncated: Bool) {
+        self.nodes = nodes
+        self.edges = edges
+        self.truncated = truncated
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case nodes = "nodes"
+        case edges = "edges"
+        case truncated = "truncated"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.nodes = try container.decode([SimilarityNode].self, forKey: .nodes)
+        self.edges = try container.decode([SimilarityEdge].self, forKey: .edges)
+        self.truncated = try container.decode(Bool.self, forKey: .truncated)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.nodes, forKey: .nodes)
+        try container.encode(self.edges, forKey: .edges)
+        try container.encode(self.truncated, forKey: .truncated)
+    }
+}
+
+public struct SimilarityGraphInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
     }
 }
 

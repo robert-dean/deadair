@@ -29,6 +29,7 @@ import { Route as TrendsRouteImport } from './routes/trends'
 import { Route as VoiceRouteImport } from './routes/voice'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
+import { Route as CatalogSimilarityRouteImport } from './routes/catalog/similarity'
 import { Route as OauthAuthorizeRouteImport } from './routes/oauth/authorize'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
@@ -162,6 +163,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const CatalogIndexRoute = CatalogIndexRouteImport.update({
   id: '/catalog/',
   path: '/catalog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogSimilarityRoute = CatalogSimilarityRouteImport.update({
+  id: '/catalog/similarity',
+  path: '/catalog/similarity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OauthAuthorizeRoute = OauthAuthorizeRouteImport.update({
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/catalog/similarity': typeof CatalogSimilarityRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
@@ -412,6 +419,7 @@ export interface FileRoutesByTo {
   '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/catalog/similarity': typeof CatalogSimilarityRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
@@ -469,6 +477,7 @@ export interface FileRoutesById {
   '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/catalog/similarity': typeof CatalogSimilarityRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
@@ -527,6 +536,7 @@ export interface FileRouteTypes {
     | '/trends'
     | '/voice'
     | '/auth/callback'
+    | '/catalog/similarity'
     | '/oauth/authorize'
     | '/settings/analysis'
     | '/settings/appearance'
@@ -583,6 +593,7 @@ export interface FileRouteTypes {
     | '/trends'
     | '/voice'
     | '/auth/callback'
+    | '/catalog/similarity'
     | '/oauth/authorize'
     | '/settings/analysis'
     | '/settings/appearance'
@@ -639,6 +650,7 @@ export interface FileRouteTypes {
     | '/trends'
     | '/voice'
     | '/auth/callback'
+    | '/catalog/similarity'
     | '/oauth/authorize'
     | '/settings/analysis'
     | '/settings/appearance'
@@ -696,6 +708,7 @@ export interface RootRouteChildren {
   TrendsRoute: typeof TrendsRoute
   VoiceRoute: typeof VoiceRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  CatalogSimilarityRoute: typeof CatalogSimilarityRoute
   OauthAuthorizeRoute: typeof OauthAuthorizeRoute
   SettingsAnalysisRoute: typeof SettingsAnalysisRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
@@ -873,6 +886,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog'
       fullPath: '/catalog/'
       preLoaderRoute: typeof CatalogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/similarity': {
+      id: '/catalog/similarity'
+      path: '/catalog/similarity'
+      fullPath: '/catalog/similarity'
+      preLoaderRoute: typeof CatalogSimilarityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/oauth/authorize': {
@@ -1136,6 +1156,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrendsRoute: TrendsRoute,
   VoiceRoute: VoiceRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  CatalogSimilarityRoute: CatalogSimilarityRoute,
   OauthAuthorizeRoute: OauthAuthorizeRoute,
   SettingsAnalysisRoute: SettingsAnalysisRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,

@@ -10,6 +10,8 @@ import type {
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
+    SimilarityGraph,
+    SimilarityGraphQuery,
     SuspendInput,
     Track,
     TrackClearResult,
@@ -347,5 +349,17 @@ export class CatalogClient {
     async liftTrackSuspension(id: string): Promise<Track> {
         const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/suspension`, { method: 'DELETE' });
         return reviveTrack(await parseJson<Track>(result));
+    }
+
+    /**
+     * @name Get similarity graph
+     * @description Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist
+     */
+    async getSimilarityGraph(query?: SimilarityGraphQuery): Promise<SimilarityGraph> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/catalog/similarity${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<SimilarityGraph>(result);
     }
 }

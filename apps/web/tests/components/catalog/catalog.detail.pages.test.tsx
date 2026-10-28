@@ -26,6 +26,7 @@ const getAlbumEnrichment = vi.fn();
 const getTrackEnrichment = vi.fn();
 const rateArtist = vi.fn();
 const rateAlbum = vi.fn();
+const getSimilarityGraph = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -40,6 +41,7 @@ vi.mock('../../../src/api/client', () => ({
             getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
             rateArtist: (...args: unknown[]) => rateArtist(...args),
             rateAlbum: (...args: unknown[]) => rateAlbum(...args),
+            getSimilarityGraph: (...args: unknown[]) => getSimilarityGraph(...args),
         },
     },
 }));
@@ -65,6 +67,8 @@ const noop = () => undefined;
 beforeEach(() => {
     getArtistEnrichment.mockResolvedValue(noEnrichment('artistId', ARTIST_ID));
     getAlbumEnrichment.mockResolvedValue(noEnrichment('albumId', ALBUM_ID));
+    // Nobody asked about yet, so the "Sounds like" card says so and draws nothing.
+    getSimilarityGraph.mockResolvedValue({ nodes: [], edges: [], truncated: false });
 });
 
 afterEach(() => {
@@ -78,7 +82,7 @@ describe('ArtistDetailPage', () => {
             page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 'neutral', trackCount: 8 }]),
         );
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
 
         expect(await screen.findByRole('heading', { name: 'Sigur Rós' })).toBeInTheDocument();
         expect(screen.getByText('1 album • 11 tracks')).toBeInTheDocument();
@@ -103,7 +107,7 @@ describe('ArtistDetailPage', () => {
             ]),
         );
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
 
         expect(await screen.findByRole('img', { name: 'Sigur Rós' })).toHaveAttribute('src', '/api/art/aaaa');
         expect(await screen.findByRole('img', { name: '( )' })).toHaveAttribute('src', '/api/art/bbbb');
@@ -116,7 +120,7 @@ describe('ArtistDetailPage', () => {
         listArtistAlbums.mockResolvedValue(page([]));
         rateArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'disliked', albumCount: 0, trackCount: 2 });
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
         await screen.findByRole('heading', { name: 'Sigur Rós' });
 
         await userEvent.click(screen.getByRole('radio', { name: 'Dislike Sigur Rós' }));
@@ -133,7 +137,7 @@ describe('ArtistDetailPage', () => {
         );
         rateAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'liked', trackCount: 8 });
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
         await screen.findByText('( )');
 
         await userEvent.click(screen.getByRole('radio', { name: 'Like ( )' }));
@@ -147,7 +151,7 @@ describe('ArtistDetailPage', () => {
         getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
 
         expect(await screen.findByText(/Their tracks may still be in the catalog/)).toBeInTheDocument();
     });
@@ -161,7 +165,7 @@ describe('ArtistDetailPage', () => {
             sources: [{ provider: 'deadair.musicbrainz', fetchedAt: '2026-08-02T09:00:00.000Z', stale: false, found: true, data: {} }],
         });
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
 
         expect(await screen.findByText('Sigur Rós formed in Reykjavík in 1994.')).toBeInTheDocument();
         expect(screen.getByText('post-rock')).toBeInTheDocument();
@@ -172,7 +176,7 @@ describe('ArtistDetailPage', () => {
         getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
 
         expect(await screen.findByText(/No provider has been asked about this artist yet/)).toBeInTheDocument();
     });
@@ -181,7 +185,7 @@ describe('ArtistDetailPage', () => {
         getArtist.mockRejectedValue(new SdkError(404, 'Not Found', { statusCode: 404, message: 'artist is not in the catalog' }, new Headers()));
         listArtistAlbums.mockResolvedValue(page([]));
 
-        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} onOpenArtist={noop} />);
 
         expect(await screen.findByText('This artist could not be loaded')).toBeInTheDocument();
         expect(screen.queryByText('The albums could not be loaded')).not.toBeInTheDocument();

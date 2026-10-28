@@ -4,6 +4,7 @@ export const library = {
     tabs: {
         tracks: { label: 'Tracks', hint: 'Every record the station has ingested' },
         artists: { label: 'Artists', hint: 'Who the records are by' },
+        similarity: { label: 'Similar', hint: 'Which artists sound like which' },
         playlists: { label: 'Playlists', hint: 'What a music plugin can offer it' },
         charts: { label: 'Charts', hint: 'What is doing well elsewhere' },
         news: { label: 'News', hint: 'The stories a bulletin is written from' },

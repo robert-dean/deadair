@@ -308,6 +308,57 @@ export interface SuspendInput {
 }
 
 /**
+ * Which part of the similarity store to draw.
+ * generated from [SimilarityGraphQuery](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface SimilarityGraphQuery {
+    /** A catalog artist to centre on. Absent draws the whole store, best-ranked edges first */
+    around?: string;
+    /** How many steps out from `around`, following edges either way. Ignored without it */
+    depth?: number;
+    /** Only artists the catalog holds, on both ends of every edge */
+    library?: boolean;
+    /** The most edges answered */
+    limit?: number;
+}
+
+/**
+ * One artist in the similarity graph. Keyed by its folded name rather than an id, because most of
+ * the artists the sources name are not in the catalog at all.
+ * generated from [SimilarityNode](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface SimilarityNode {
+    /** The artist's name as the station folds it for matching. Unique in one graph */
+    key: string;
+    /** The catalog's spelling when the catalog holds the artist, else the source's */
+    name: string;
+    /** The catalog artist, when the catalog holds one. Absent for an artist only a source has named */
+    artistId?: string;
+}
+
+export interface SimilarityNodeInput {}
+
+/**
+ * One artist naming another as a neighbour. DIRECTED: that A lists B says nothing about whether B
+ * lists A, and both rows are answered when both exist.
+ * generated from [SimilarityEdge](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface SimilarityEdge {
+    /** The key of the artist whose neighbours these are */
+    from: string;
+    /** The key of the neighbour */
+    to: string;
+    /** Position in `from`'s merged answer, from 0. The one weight comparable across sources */
+    rank: number;
+    /** The source's own score, comparable only inside that source's answer. Absent when it gave none */
+    match?: number;
+    /** The plugin id whose answer named this neighbour first */
+    source: string;
+}
+
+export interface SimilarityEdgeInput {}
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
@@ -610,6 +661,19 @@ export interface AlbumEnrichmentData {
     links?: EnrichmentLink[];
     extra?: Record<string, unknown>;
 }
+
+/**
+ * generated from [SimilarityGraph](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface SimilarityGraph {
+    /** Every artist an edge names, once */
+    nodes: SimilarityNode[];
+    edges: SimilarityEdge[];
+    /** More edges matched than `limit` allowed */
+    truncated: boolean;
+}
+
+export interface SimilarityGraphInput {}
 
 /**
  * One page of artists, with the totals the request was counted against

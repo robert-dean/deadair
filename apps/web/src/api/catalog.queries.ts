@@ -93,6 +93,37 @@ export function catalogArtistsOptions(input: CatalogPageInput) {
     });
 }
 
+/** Which part of the similarity store to draw. `around` absent is the whole store. */
+export interface SimilarityGraphInput {
+    library: boolean;
+    around?: string;
+    depth?: 1 | 2;
+}
+
+/**
+ * The most edges a drawing asks for. The API allows 2000; past about this many the force layout
+ * stops reading as anything but a hairball on a console-sized canvas, and the answer says when it
+ * was cut.
+ */
+export const SIMILARITY_GRAPH_LIMIT = 600;
+
+export function catalogSimilarityOptions({ library, around, depth }: SimilarityGraphInput) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.similarity(library, around, depth),
+        queryFn: () =>
+            sdk.catalog.getSimilarityGraph({
+                library,
+                limit: SIMILARITY_GRAPH_LIMIT,
+                ...(around === undefined ? {} : { around, depth: depth ?? 1 }),
+            }),
+        // The store grows when the station looks somebody up, which is a refill's pace rather than a
+        // click's, so the catalog's own freshness is the right one here too.
+        staleTime: CATALOG_STALE_TIME,
+        // Flipping the library switch changes the key; keep the old drawing up until the new one lands.
+        placeholderData: keepPreviousData,
+    });
+}
+
 export function catalogArtistOptions(id: string) {
     return queryOptions({
         queryKey: queryKeys.catalog.artist(id),

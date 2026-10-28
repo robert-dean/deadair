@@ -482,6 +482,12 @@ export class AuthenticationRegistrationService {
             rpName,
         });
 
+        // Recorded against the actor it was issued to, as the email and authenticator registrations
+        // are, so verifying it can refuse anybody else. The factor service checks the attestation
+        // and nothing about who is redeeming it. Every attempt, because a repeat inside the window
+        // hands back the same registration and the record has to outlive the first one's expiry.
+        await this.cacheRegistration(actorId, result.registrationId, 'fido', result.expiresAt.diffNow());
+
         return {
             method: 'fido',
             registrationId: result.registrationId,
@@ -563,7 +569,13 @@ export class AuthenticationRegistrationService {
     }
 
     private async verifyFidoFactorRegistration(actorId: string, request: FidoFactorRegistrationVerification): Promise<AuthenticationSessionFactor> {
+        // No verifier: a passkey registration carries no PKCE challenge, so only the actor half of
+        // the check applies. It runs before the attestation is examined.
+        await this.checkRegistration(request.registrationId, actorId);
+
         const result = await this.fidoFactorService.createFidoFactorFromRegistration(actorId, request.registrationId, request.credential);
+
+        await this.deleteRegistration(actorId, request.registrationId, 'fido');
 
         return {
             issuedAt: DateTime.utc(),

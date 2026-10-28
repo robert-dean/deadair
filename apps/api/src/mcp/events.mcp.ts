@@ -7,14 +7,7 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { EventDestinationsService } from '#src/modules/events/event.destinations.service.js';
-import {
-    EventDeliveryList,
-    EventDestination,
-    EventDestinationList,
-    EventDestinationUpdate,
-    EventTestResult,
-    EventTypeList,
-} from '../modules/events/types/events.types.js';
+import { EventDeliveryList, EventDestinationList, EventTestResult, EventTypeList } from '../modules/events/types/events.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -26,7 +19,6 @@ function requireMcpContainer(context: McpToolContext): Container {
 
 const ListEventTypesArgs = z.object({});
 const ListEventDestinationsArgs = z.object({});
-const UpdateEventDestinationArgs = z.object({ id: z.uuid(), body: EventDestinationUpdate });
 const DeleteEventDestinationArgs = z.object({ id: z.uuid() });
 const TestEventDestinationArgs = z.object({ id: z.uuid() });
 const ListEventDeliveriesArgs = z.object({ id: z.uuid() });
@@ -71,29 +63,6 @@ export class ListEventDestinationsMcpTool implements McpToolHandler {
         const container = requireMcpContainer(context);
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
         const result = await container.get(EventDestinationsService).list();
-        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
-    }
-}
-
-/**
- * from [events.ck](../../data/contracts/events/events.ck) `PATCH /events/destinations/{id}`
- */
-@Injectable()
-export class UpdateEventDestinationMcpTool implements McpToolHandler {
-    readonly definition: Tool = {
-        name: 'update_event_destination',
-        description: "Change an event destination's name, address, or whether it is on",
-        inputSchema: z.toJSONSchema(UpdateEventDestinationArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
-        outputSchema: z.toJSONSchema(EventDestination, { unrepresentable: 'any' }) as Tool['outputSchema'],
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
-    };
-
-    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
-        const container = requireMcpContainer(context);
-        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
-        const { id, body } = await parseAndValidate(args, UpdateEventDestinationArgs);
-        const result = await container.get(EventDestinationsService).update(id, body);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -170,7 +139,6 @@ export class ListEventDeliveriesMcpTool implements McpToolHandler {
 export function registerEventsMcpCatalog(map: McpToolHandlerMap, container: Container): void {
     map.set('list_event_types', container.get(ListEventTypesMcpTool));
     map.set('list_event_destinations', container.get(ListEventDestinationsMcpTool));
-    map.set('update_event_destination', container.get(UpdateEventDestinationMcpTool));
     map.set('delete_event_destination', container.get(DeleteEventDestinationMcpTool));
     map.set('test_event_destination', container.get(TestEventDestinationMcpTool));
     map.set('list_event_deliveries', container.get(ListEventDeliveriesMcpTool));
@@ -180,7 +148,6 @@ export function registerEventsMcpCatalog(map: McpToolHandlerMap, container: Cont
 export function registerEventsMcpToolClasses(registry: Registry): void {
     registry.register(ListEventTypesMcpTool).useClass(ListEventTypesMcpTool).asSingleton();
     registry.register(ListEventDestinationsMcpTool).useClass(ListEventDestinationsMcpTool).asSingleton();
-    registry.register(UpdateEventDestinationMcpTool).useClass(UpdateEventDestinationMcpTool).asSingleton();
     registry.register(DeleteEventDestinationMcpTool).useClass(DeleteEventDestinationMcpTool).asSingleton();
     registry.register(TestEventDestinationMcpTool).useClass(TestEventDestinationMcpTool).asSingleton();
     registry.register(ListEventDeliveriesMcpTool).useClass(ListEventDeliveriesMcpTool).asSingleton();

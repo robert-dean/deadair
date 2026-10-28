@@ -60,6 +60,7 @@ import {
     EmailFactorService,
     EmailFactorServiceOptions,
     FidoFactorService,
+    FidoFactorServiceOptions,
     HtmlRedirectProvider,
     MfaChallengeService,
     MfaOrchestrator,
@@ -173,6 +174,7 @@ export class AuthenticationService {
         private readonly config: AppConfig,
         private readonly passwordLimiter: PasswordRateLimiter,
         private readonly passkeyRelyingParty: PasskeyRelyingParty,
+        private readonly fidoFactorServiceOptions: FidoFactorServiceOptions,
     ) {
         this.authenticateHandlerMap = new Map<AuthenticationGrantType, AuthenticationHandlers>();
         this.authenticateHandlerMap.set('client_credentials', {
@@ -723,6 +725,34 @@ export class AuthenticationService {
     }
 
     /**
+     * What `/auth/login/start` answers for a passkey sign-in when the address has no usable passkey:
+     * no account, an inactive address, or an account with none enrolled. The passkey counterpart of
+     * {@link unknownAddressAnswer}, shaped like what the factor service mints (a fresh 128-byte
+     * challenge, this request's relying party, the configured timeout, an expiry from now), so those
+     * three cannot be told apart.
+     *
+     * What it cannot hide is inherent to non-discoverable WebAuthn: an enrolled account's real answer
+     * lists its credential ids in `allowCredentials`, which this leaves empty. So an account WITH a
+     * passkey still stands out from the rest, but whether an address has an account at all no longer
+     * does, which is what the link and code starts already refuse to say.
+     */
+    private unknownPasskeyAnswer(rpId: string): FidoAuthenticationLoginStartResponse {
+        const timeout = this.fidoFactorServiceOptions.timeout;
+        return {
+            grant_type: 'fido',
+            challengeId: randomBytes(32).toString('base64url'),
+            expiresAt: DateTime.utc().plus(timeout),
+            assertion: {
+                challenge: randomBytes(128).toString('base64'),
+                timeout: timeout.toMillis(),
+                rpId,
+                userVerification: 'preferred',
+                allowCredentials: [],
+            },
+        };
+    }
+
+    /**
      * Finish a magic-link sign-in.
      *
      * The token is the one-time bearer and the challenge id is what binds it, so a link lifted out
@@ -1019,13 +1049,25 @@ export class AuthenticationService {
     }
 
     private async handleFidoStartLogin(request: FidoAuthenticationLoginStart): Promise<FidoAuthenticationLoginStartResponse> {
-        const factor = await this.emailFactorRepository.findFactor(request.email);
-        if (!factor || !factor.active) {
-            throw httpError(400);
-        }
-
+        // Throttled per address before any lookup, as the link and code starts are: the route is
+        // anonymous and takes any address, so unthrottled it is a way to harvest accounts.
+        await this.signInMailLimiter.consume(request.email);
+        // Resolved before the lookup too, so a refused app origin is refused whether or not the
+        // address has an account.
         const { rpId, rpOrigin } = this.passkeyRelyingParty.resolveForAssertion();
-        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, { rpId, rpOrigin });
+
+        const factor = await this.emailFactorRepository.findFactor(request.email);
+        if (!factor || !factor.active) return this.unknownPasskeyAnswer(rpId);
+
+        let challenge;
+        try {
+            challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, { rpId, rpOrigin });
+        } catch (error) {
+            // A known address with no passkey makes the factor service throw 404 "no factors found",
+            // which says the account exists as plainly as a 200 would.
+            if (IsHttpError(error) && error.statusCode === 404) return this.unknownPasskeyAnswer(rpId);
+            throw error;
+        }
 
         return {
             grant_type: 'fido',

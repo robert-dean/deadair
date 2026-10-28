@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
+import { SdkError } from '@deadair/sdk';
 
 import { EventDestinationsCard } from '../../../src/components/settings/event.destinations.card';
+import { clearSession } from '../../../src/auth/session.store';
 import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 
 const listEventDestinations = vi.fn();
@@ -12,9 +14,17 @@ const deleteEventDestination = vi.fn();
 const rotateEventDestinationSecret = vi.fn();
 const testEventDestination = vi.fn();
 const listEventDeliveries = vi.fn();
+const startMFAChallenge = vi.fn();
+const requestToken = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
+        authentication: {
+            requestToken: (...args: unknown[]) => requestToken(...args),
+            factors: {
+                startMFAChallenge: (...args: unknown[]) => startMFAChallenge(...args),
+            },
+        },
         events: {
             listEventDestinations: (...args: unknown[]) => listEventDestinations(...args),
             listEventTypes: (...args: unknown[]) => listEventTypes(...args),
@@ -38,8 +48,11 @@ afterEach(() => {
         rotateEventDestinationSecret,
         testEventDestination,
         listEventDeliveries,
+        startMFAChallenge,
+        requestToken,
     ])
         mock.mockReset();
+    clearSession();
 });
 
 const AT = DateTime.fromISO('2026-10-14T20:00:00Z');
@@ -67,6 +80,27 @@ const RELAY = {
     updatedAt: AT,
 };
 const SECRET = 'deadair_dest_0123456789abcdefghijABCDEFGHIJ0123456789a';
+
+const stepUpDenied = () =>
+    new SdkError(
+        403,
+        'Forbidden',
+        {
+            statusCode: 403,
+            message: 'Forbidden',
+            details: { kind: 'step_up_required', stepUp: { within: 'PT5M', excludeMethods: ['email', 'password', 'oidc'] } },
+        },
+        new Headers(),
+    );
+
+function withAuthenticator() {
+    startMFAChallenge.mockResolvedValue({
+        result: 'mfa_required',
+        challenge_id: 'mfa-9',
+        factors: [{ method: 'authenticator', method_id: 'totp-1', kind: 'possession', label: 'Phone' }],
+    });
+    requestToken.mockResolvedValue({ result: 'token', access_token: 'tok-2', expires_in: 900, token_type: 'Bearer', scope: '' });
+}
 
 function withTypes() {
     listEventTypes.mockResolvedValue({
@@ -117,6 +151,40 @@ describe('EventDestinationsCard', () => {
 
         await user.click(screen.getByRole('button', { name: 'I have copied it' }));
         expect(screen.queryByText(SECRET)).not.toBeInTheDocument();
+    });
+
+    it('re-verifies when the API asks for a recent factor, then adds the destination', async () => {
+        withTypes();
+        withAuthenticator();
+        listEventDestinations.mockResolvedValue({ destinations: [] });
+        createEventDestination.mockRejectedValueOnce(stepUpDenied()).mockResolvedValueOnce({ ...HALL, secret: SECRET });
+        const user = setupUser();
+        render(<EventDestinationsCard />);
+
+        await user.type(await screen.findByLabelText('Name'), 'Hall light');
+        await user.type(screen.getByLabelText('Address'), HALL.url);
+        await user.click(screen.getByRole('button', { name: 'Add destination' }));
+        expect(await screen.findByText('Confirm it is you')).toBeInTheDocument();
+        await user.type(await screen.findByLabelText('Authenticator code'), '123456');
+
+        expect(await screen.findByText(SECRET)).toBeInTheDocument();
+        expect(createEventDestination).toHaveBeenCalledTimes(2);
+    });
+
+    it('re-verifies before saving a destination the API wants confirmed', async () => {
+        withTypes();
+        withAuthenticator();
+        listEventDestinations.mockResolvedValue({ destinations: [HALL] });
+        updateEventDestination.mockRejectedValueOnce(stepUpDenied()).mockResolvedValueOnce(HALL);
+        const user = setupUser();
+        render(<EventDestinationsCard />);
+
+        await user.click(await screen.findByRole('button', { name: 'Edit' }));
+        await user.click(await screen.findByRole('button', { name: 'Save' }));
+        expect(await screen.findByText('Confirm it is you')).toBeInTheDocument();
+        await user.type(await screen.findByLabelText('Authenticator code'), '123456');
+
+        await waitFor(() => expect(updateEventDestination).toHaveBeenCalledTimes(2));
     });
 
     it('sends a test and says what the destination answered', async () => {

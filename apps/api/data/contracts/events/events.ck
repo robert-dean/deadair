@@ -8,7 +8,8 @@ options {
     security: {
         # The floor, reads included: a destination's address often carries its own secret (a home
         # automation hub's webhook id is the whole of its protection), so reading the list is an
-        # operator's business. The routes that hand out a signing secret are also kept out of MCP.
+        # operator's business. The routes that hand out a signing secret, and the one that can move
+        # an address, are kept out of MCP and ask for a recent strong factor in the service.
         policy: platform.manage
     }
 }
@@ -56,6 +57,7 @@ operation /events/destinations/{id}: {
     }
     patch: { # Change an event destination's name, address, or whether it is on
         name: Update event destination
+        mcp: exclude
         service: EventDestinationsService.update
         request: {
             application/json: EventDestinationUpdate

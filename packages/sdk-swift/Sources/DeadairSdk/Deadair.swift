@@ -50,6 +50,7 @@ public final class Deadair: Sendable {
     public let storage: StorageClient
     public let streamArchive: StreamArchiveClient
     public let stream: StreamClient
+    public let streamListeners: StreamListenersClient
     public let topics: TopicsClient
     public let invitations: InvitationsClient
     public let users: UsersClient
@@ -101,6 +102,7 @@ public final class Deadair: Sendable {
         self.storage = StorageClient(http: http)
         self.streamArchive = StreamArchiveClient(http: http)
         self.stream = StreamClient(http: http)
+        self.streamListeners = StreamListenersClient(http: http)
         self.topics = TopicsClient(http: http)
         self.invitations = InvitationsClient(http: http)
         self.users = UsersClient(http: http)

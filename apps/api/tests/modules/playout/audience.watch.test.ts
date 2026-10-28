@@ -384,7 +384,7 @@ describe('AudienceWatch', () => {
             await tick(0);
             expect(watch.listenerCount()).toBe(2);
 
-            register.seen('a-phone');
+            register.seen({ address: 'a-phone' });
 
             expect(watch.listenerCount()).toBe(3);
             watch.stop();
@@ -398,7 +398,7 @@ describe('AudienceWatch', () => {
             await tick(0);
             expect(watch.gateOpen()).toBe(false);
 
-            register.seen('a-phone');
+            register.seen({ address: 'a-phone' });
 
             expect(watch.gateOpen()).toBe(true);
             watch.stop();
@@ -416,7 +416,7 @@ describe('AudienceWatch', () => {
             watch.start();
             await tick(0);
 
-            register.seen('a-phone');
+            register.seen({ address: 'a-phone' });
 
             // Before any poll has come round.
             expect(edges).toEqual([true]);
@@ -434,7 +434,7 @@ describe('AudienceWatch', () => {
             watch.start();
             await tick(0);
 
-            register.seen('a-phone');
+            register.seen({ address: 'a-phone' });
 
             expect(watch.listenerCount()).toBe(1);
             expect(watch.reading().readAt).toBeUndefined();

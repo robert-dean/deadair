@@ -3,6 +3,7 @@ import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { IcecastClientsClient } from './icecast.clients.client.js';
 import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { HlsAudience } from './hls.audience.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
@@ -11,6 +12,7 @@ import { ApplePlayerClient } from './apple.player.client.js';
 import { AudioChainRestart } from './stream.restart.js';
 import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
+import { StreamListenersService } from './stream.listeners.service.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 import { ArchiveStore } from './archive.store.js';
 import { ArchiveService } from './archive.service.js';
@@ -57,6 +59,10 @@ export const StreamModule: ServerKitModule = {
         // Scoped: it depends on the scoped `SettingsRepository` and `EncryptionProvider`.
         registry.register(StreamService).useClass(StreamService).asScoped();
 
+        // Scoped like the service it sits beside, and holding nothing: everything it reads
+        // is a singleton's, and it is built per request only to answer that request.
+        registry.register(StreamListenersService).useClass(StreamListenersService).asScoped();
+
         // Singleton, and holds the two stream secrets pushed into it at `ready`:
         // it is reached from `PluginHostFactory`, which is itself a singleton
         // built long before any request scope exists.
@@ -73,6 +79,10 @@ export const StreamModule: ServerKitModule = {
         // reads the address and credentials off the stats client rather than the
         // settings, so the two can never disagree about which Icecast is being asked.
         registry.register(IcecastEventFeed).useClass(IcecastEventFeed).asSingleton();
+
+        // Who is behind that count, read from the same stats client on the same rule. It holds
+        // nothing, so its lifetime is only that of what it reads through.
+        registry.register(IcecastClientsClient).useClass(IcecastClientsClient).asSingleton();
 
         // Singleton, and it has to be: what it holds is the last render, which is a
         // fact about the volume rather than about a request, and the reading it is

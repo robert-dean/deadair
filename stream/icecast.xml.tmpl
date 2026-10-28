@@ -52,8 +52,31 @@
   </authentication>
 
   <hostname>{{HOSTNAME}}</hostname>
+  <!-- Who a listener is, as the edge saw them. Every listener reaches this server through the
+       nginx in front of it, so without this Icecast records nginx's address for all of them:
+       the count is right and every address in /admin/listclients is the same one. nginx sends
+       X-Forwarded-For, and this is what lets Icecast believe it, from that hop and no other.
+
+       2.5 moved the setting. 2.4's <paths><x-forwarded-for> still parses and is IGNORED,
+       measured on libretime/icecast:2.5.0 by sending the header from 127.0.0.1 and reading the
+       address back from listclients. What 2.5 reads is a virtual socket naming the proxy's
+       address, which the real socket trusts by id (src/connection_handle.c,
+       check_trusted_proxy). It takes the right-most entry of the header, walking left only
+       while each one is itself a trusted proxy, and that is the entry nginx appends, so a
+       client that sends its own header is still recorded at the address it connected from.
+       A client connecting from anywhere but this address keeps its own address whatever it
+       sends: measured from a second container, a forged header was not believed.
+
+       127.0.0.1 is the image, where nginx reaches Icecast over loopback. The compose dev tree's
+       nginx is a separate container and is not trusted, so dev listeners read as its address.
+       Behind a tunnel the hop nginx appends is the tunnel's, so the address is only as good as
+       REAL_IP_FROM makes it, exactly as for an HLS listener (docs/internals/deployment.md). -->
+  <listen-socket id="edge" type="virtual">
+    <client-address>127.0.0.1</client-address>
+  </listen-socket>
   <listen-socket>
     <port>8000</port>
+    <trusted-proxy>#edge</trusted-proxy>
   </listen-socket>
 
   <!-- The public voice stream. When Liquidsoap isn't connected, listeners are

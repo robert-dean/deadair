@@ -39,8 +39,13 @@
   </authentication>
 
   <hostname>localhost</hostname>
+  <!-- See icecast.xml.tmpl: without it every listener's address is nginx's. -->
+  <listen-socket id="edge" type="virtual">
+    <client-address>127.0.0.1</client-address>
+  </listen-socket>
   <listen-socket>
     <port>8000</port>
+    <trusted-proxy>#edge</trusted-proxy>
   </listen-socket>
 
   <!-- The public voice stream. When Liquidsoap isn't connected, listeners are

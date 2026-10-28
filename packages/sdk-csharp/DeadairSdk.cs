@@ -63,6 +63,7 @@ public sealed class DeadairSdk : IDisposable
         Storage = new StorageClient(Http);
         StreamArchive = new StreamArchiveClient(Http);
         Stream = new StreamClient(Http);
+        StreamListeners = new StreamListenersClient(Http);
         Topics = new TopicsClient(Http);
         Invitations = new InvitationsClient(Http);
         Users = new UsersClient(Http);
@@ -157,6 +158,8 @@ public sealed class DeadairSdk : IDisposable
     public StreamArchiveClient StreamArchive { get; }
 
     public StreamClient Stream { get; }
+
+    public StreamListenersClient StreamListeners { get; }
 
     public TopicsClient Topics { get; }
 

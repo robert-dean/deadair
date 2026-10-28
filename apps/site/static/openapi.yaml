@@ -6898,6 +6898,18 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/FetcherAuthorizationFinished'
+    '/stream/listeners':
+        get:
+            operationId: listListeners
+            summary: 'List stream listeners'
+            description: "Who is connected to the station's stream right now, over Icecast and over HLS"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StreamListeners'
     '/topics':
         get:
             operationId: listTopics
@@ -17655,6 +17667,70 @@ components:
                         '$ref': '#/components/schemas/Recording'
             required: [mode, retentionDays, recordings]
             description: 'Every recording, newest first, and whether the station is recording at all.'
+        ListenerConnection:
+            type: object
+            properties:
+                via:
+                    type: string
+                    enum: [icecast, hls]
+                    description: '`icecast` is a player holding a connection open on a mount. `hls` is a player re-fetching a playlist, counted while it keeps asking'
+                mount:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The Icecast mount it is on, such as `/live.mp3`. Absent over HLS, whose players are counted across every playlist together'
+                address:
+                    type: string
+                    minLength: 1
+                    maxLength: 64
+                    description: "The address the station recorded. A listener's own only where the edge in front of the station is trusted to say so; behind a tunnel without `REAL_IP_FROM` it is the tunnel's"
+                agent:
+                    type: string
+                    minLength: 1
+                    maxLength: 512
+                    description: 'What the player said it was, cut to 512 characters. Absent when it sent nothing'
+                connectedMs:
+                    type: integer
+                    minimum: 0
+                    description: 'How long it has been connected, to the second. Over HLS, since the first playlist fetch of this stretch of listening'
+            required: [via, address, connectedMs]
+            description: "One connection to the station's stream, as it stands at the moment of reading"
+        UnreadableMount:
+            type: object
+            properties:
+                mount:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                reason:
+                    type: string
+                    enum: [unresolved, refused, unanswered]
+                    description: '`unresolved`: the station has not yet found an Icecast 2.5 it can ask. `refused`: Icecast answered 401 or 403. `unanswered`: a timeout, a failed connection, or a reply that was not a client list'
+            required: [mount, reason]
+            description: 'An Icecast mount whose connections could not be read, so its listeners are missing from the list'
+        StreamListeners:
+            type: object
+            properties:
+                readAt:
+                    type: string
+                    format: date-time
+                    description: 'When this was read'
+                total:
+                    type: integer
+                    minimum: 0
+                    description: "The audience count the station is acting on, the same figure as the console's tally. It can differ from the number of connections: it is kept by a separate reading, and one HLS entry can stand for two players with the same address and agent"
+                connections:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ListenerConnection'
+                    description: "Every connection that could be read, Icecast mounts first in the station's mount order, then HLS, each longest-connected first"
+                unreadable:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/UnreadableMount'
+                    description: 'The mounts that could not be read. Empty when every one was. A mount listed here is not an empty mount'
+            required: [readAt, total, connections, unreadable]
+            description: "Who is connected to the station's stream right now. Read on request and never stored"
         FetcherAuthorization:
             type: object
             properties:

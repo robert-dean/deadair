@@ -123,12 +123,12 @@ for the files nginx serves itself, and the root `.m3u8` REDIRECT, since a cross-
 to every response in a redirect chain and `/live.m3u8` is the URL the station hands out.
 
 **That register is keyed on address plus user agent, so it is only ever as good as the address the edge
-reports.** nginx sets `X-Real-IP` to `$remote_addr` and `clientKey` reads it through `clientAddress`, which
+reports.** nginx sets `X-Real-IP` to `$remote_addr` and `hlsClient` reads it through `clientAddress`, which
 means that behind a tunnel or a reverse proxy every listener arrives as the SAME address and the key collapses
 to the user agent alone. Measured on a live station reached through a tunnel: one client was counted as two
 listeners, because a Go program fetched the playlist and then handed the URL to an ffmpeg reader that fetched
 it again under a second user agent — and two people using the same player would have been counted as one. The
-undercount `clientKey` documents is the acceptable direction; this is both directions at once. The fix is
+undercount `hlsClientKey` documents is the acceptable direction; this is both directions at once. The fix is
 `REAL_IP_FROM` at the edge rather than anything here (see `docs/internals/deployment.md`), because the app
 cannot tell a proxy's address from a listener's and nginx can be told. The same address keys the rate limiter,
 which is the more serious half: without it the whole internet shares one bucket.
@@ -457,6 +457,38 @@ message meet, and both are proof Icecast is alive.
 there, and airing on a failed request would be the worse mistake. What that means in practice is that only a
 POSITIVE reading moves it — a failed poll leaves the last count standing rather than reading as an empty room
 — so an Icecast that dies while somebody is listening does not take the station off air.
+
+**The list behind the count is read when somebody asks, and kept nowhere.** `GET /stream/listeners`
+(`stream.listeners.ck`, `StreamListenersService`) answers an operator with one row per connection: the
+Icecast mounts' own `/admin/listclients.json`, asked per mount through `IcecastClientsClient` when the
+request arrives, and `HlsAudience.present()`, which is the same register as the count with each player's
+address, agent and first tick kept beside its last. Nothing polls it, nothing stores it, nothing logs an
+address, and it is `platform.manage` and `mcp: exclude` for the reason `logs.ck` is: what it answers is
+other people's personal data. The console's Check-up → Listeners refetches it every five seconds while
+the page is open, and stops when it closes because nothing else holds the query.
+
+**Its `total` is the station's count, not the length of its list, and both are sent on purpose.** They
+are separate readings (the count is the stats poll plus the event feed, the list is a request made just
+now), and one HLS entry is one address plus agent, which can be two players. A page that derived the
+count from the list would hide the disagreement an operator most needs to see, so the console prints
+both and says why they can differ. A mount whose list could not be read is reported as `unreadable`
+with its reason and never as an empty list, for the reason `undefined` is kept apart from zero above.
+
+**It asks with the admin credential the stats poll already holds**, through `adminApi()`, as the event
+feed does. That works for a mount-scoped command only because every mount block declares its own
+credentials: measured on 2.5.0 against the committed config, admin and the mount's source credential
+both answer 200, and before the mounts carried credentials both were 401
+([icecast-2.5](https://github.com/robert-dean/deadair/discussions/17), whose table predates the change).
+A mount with no source answers 404, which is read as nobody on it. `listclients.json` is measured rather
+than documented: upstream describes only the XML form, and the JSON is a mechanical rendering of it whose
+shape `icecast.listclients.parse.ts` records.
+
+**An Icecast address is only real because Icecast trusts the edge.** Every listener reaches Icecast
+through nginx, and until both configs declared a trusted proxy, `listclients` recorded `127.0.0.1` for
+everybody. 2.5 ignores 2.4's `<paths><x-forwarded-for>` without a word, and reads a virtual listen socket
+naming the proxy's address instead; `stream/icecast.xml.tmpl` and `docs/internals/deployment.md` have
+the measurement. With that in place an Icecast address is exactly as good as an HLS one: real with
+`REAL_IP_FROM` set, the tunnel's without it.
 
 **A listener CLIENT is subject to all of this, and the consequences are worth stating once.**
 Connecting to a mount is what puts an audience-gated station on air, so the first seconds after a

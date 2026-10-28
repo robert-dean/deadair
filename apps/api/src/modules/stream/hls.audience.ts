@@ -42,26 +42,63 @@ import { Injectable } from 'injectkit';
  */
 export const HLS_PRESENCE_MS = 15_000;
 
+/**
+ * One HLS player, as far as an anonymous GET can say: who the edge says asked, and what
+ * they said they were. Built by the heartbeat middleware, which is the only thing that
+ * has the request.
+ */
+export interface HlsClient {
+    /** The address the edge reported. A listener's own only when the edge is trusted to say so. */
+    address: string;
+    /** What the player said it was. Absent when it sent nothing. */
+    agent?: string;
+}
+
+/** A player being counted right now, and since when. */
+export interface HlsPresence extends HlsClient {
+    /** Epoch milliseconds of the first tick of this stretch of listening. */
+    firstSeenAt: number;
+    /** Epoch milliseconds of the latest tick. */
+    lastSeenAt: number;
+}
+
+/**
+ * The register's key for a client.
+ *
+ * Address plus agent, in the form the heartbeat middleware has always built: the address
+ * alone would collapse a household behind one NAT into one listener, and the agent alone
+ * would collapse everyone using the same player. Two identical phones on one network are
+ * still one entry, which is the undercount `seen` documents.
+ */
+export const hlsClientKey = (client: HlsClient): string => `${client.address} ${client.agent ?? ''}`;
+
 @Injectable()
 export class HlsAudience {
-    /** Client key to the moment it was last heard from. */
-    private readonly seenAt = new Map<string, number>();
+    /** Client key to who it is and when it was heard from. */
+    private readonly seenAt = new Map<string, HlsPresence>();
     /** Told when the count changes, so the gate moves on arrival rather than on the next poll. */
     private readonly listeners = new Set<() => void>();
 
     /**
      * Note that a client has just asked for a playlist.
      *
-     * The key is the caller's, not this class's business: the route builds it from the
-     * client address and the user agent, which is as much identity as an anonymous GET
-     * carries. Two listeners behind one NAT with the same player therefore count as
-     * one. That is a known undercount and the acceptable direction to be wrong in — it
-     * can only ever make the station think fewer people are listening than are, and the
-     * gate opens on one.
+     * Two listeners behind one NAT with the same player count as one (see
+     * {@link hlsClientKey}). That is a known undercount and the acceptable direction to
+     * be wrong in: it can only ever make the station think fewer people are listening
+     * than are, and the gate opens on one.
+     *
+     * A client that had already lapsed starts a new stretch rather than resuming the old
+     * one, even if the prune has not got to it yet: somebody who stopped and came back
+     * ten minutes later has been listening for as long as they have been back.
      */
-    seen(client: string): void {
+    seen(client: HlsClient): void {
         const before = this.count();
-        this.seenAt.set(client, Date.now());
+        const now = Date.now();
+        const key = hlsClientKey(client);
+        const earlier = this.seenAt.get(key);
+        const firstSeenAt = earlier && earlier.lastSeenAt >= now - HLS_PRESENCE_MS ? earlier.firstSeenAt : now;
+
+        this.seenAt.set(key, { address: client.address, ...(client.agent ? { agent: client.agent } : {}), firstSeenAt, lastSeenAt: now });
         if (this.count() !== before) this.announce();
     }
 
@@ -72,9 +109,9 @@ export class HlsAudience {
      * a player that is counted keeps asking for the playlist, and every one of those asks has to be
      * served or the listener is dropped mid-programme by a cap they were inside.
      */
-    has(client: string): boolean {
-        const at = this.seenAt.get(client);
-        return at !== undefined && at >= Date.now() - HLS_PRESENCE_MS;
+    has(client: HlsClient): boolean {
+        const presence = this.seenAt.get(hlsClientKey(client));
+        return presence !== undefined && presence.lastSeenAt >= Date.now() - HLS_PRESENCE_MS;
     }
 
     /**
@@ -85,11 +122,20 @@ export class HlsAudience {
      * ever streamed over HLS does no work at all.
      */
     count(): number {
-        const cutoff = Date.now() - HLS_PRESENCE_MS;
-        for (const [client, at] of this.seenAt) {
-            if (at < cutoff) this.seenAt.delete(client);
-        }
+        this.prune();
         return this.seenAt.size;
+    }
+
+    /**
+     * Every player being counted right now, longest-listening first.
+     *
+     * The same window as {@link count}, so the two cannot disagree about who is there. A
+     * copy, so a caller holding it cannot edit the register. For somebody looking: like
+     * the register itself it is never stored, and nothing in the station acts on it.
+     */
+    present(): HlsPresence[] {
+        this.prune();
+        return [...this.seenAt.values()].map(presence => ({ ...presence })).sort((a, b) => a.firstSeenAt - b.firstSeenAt);
     }
 
     /**
@@ -108,6 +154,14 @@ export class HlsAudience {
     /** Forget everyone. For a shutdown, and for a test that wants a clean room. */
     clear(): void {
         this.seenAt.clear();
+    }
+
+    /** Drop everyone whose last tick is outside the window. */
+    private prune(): void {
+        const cutoff = Date.now() - HLS_PRESENCE_MS;
+        for (const [key, presence] of this.seenAt) {
+            if (presence.lastSeenAt < cutoff) this.seenAt.delete(key);
+        }
     }
 
     private announce(): void {

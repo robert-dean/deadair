@@ -14,6 +14,7 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AsRunRouteImport } from './routes/as-run'
 import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as CheckupRouteImport } from './routes/checkup'
+import { Route as ListenersRouteImport } from './routes/listeners'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as NarrationsRouteImport } from './routes/narrations'
@@ -88,6 +89,11 @@ const ChartsRoute = ChartsRouteImport.update({
 const CheckupRoute = CheckupRouteImport.update({
   id: '/checkup',
   path: '/checkup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListenersRoute = ListenersRouteImport.update({
+  id: '/listeners',
+  path: '/listeners',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -348,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/as-run': typeof AsRunRoute
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
+  '/listeners': typeof ListenersRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/narrations': typeof NarrationsRoute
@@ -405,6 +412,7 @@ export interface FileRoutesByTo {
   '/as-run': typeof AsRunRoute
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
+  '/listeners': typeof ListenersRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/narrations': typeof NarrationsRoute
@@ -463,6 +471,7 @@ export interface FileRoutesById {
   '/as-run': typeof AsRunRoute
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
+  '/listeners': typeof ListenersRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/narrations': typeof NarrationsRoute
@@ -522,6 +531,7 @@ export interface FileRouteTypes {
     | '/as-run'
     | '/charts'
     | '/checkup'
+    | '/listeners'
     | '/login'
     | '/logs'
     | '/narrations'
@@ -579,6 +589,7 @@ export interface FileRouteTypes {
     | '/as-run'
     | '/charts'
     | '/checkup'
+    | '/listeners'
     | '/login'
     | '/logs'
     | '/narrations'
@@ -636,6 +647,7 @@ export interface FileRouteTypes {
     | '/as-run'
     | '/charts'
     | '/checkup'
+    | '/listeners'
     | '/login'
     | '/logs'
     | '/narrations'
@@ -694,6 +706,7 @@ export interface RootRouteChildren {
   AsRunRoute: typeof AsRunRoute
   ChartsRoute: typeof ChartsRoute
   CheckupRoute: typeof CheckupRoute
+  ListenersRoute: typeof ListenersRoute
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
   NarrationsRoute: typeof NarrationsRoute
@@ -781,6 +794,13 @@ declare module '@tanstack/react-router' {
       path: '/checkup'
       fullPath: '/checkup'
       preLoaderRoute: typeof CheckupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/listeners': {
+      id: '/listeners'
+      path: '/listeners'
+      fullPath: '/listeners'
+      preLoaderRoute: typeof ListenersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1142,6 +1162,7 @@ const rootRouteChildren: RootRouteChildren = {
   AsRunRoute: AsRunRoute,
   ChartsRoute: ChartsRoute,
   CheckupRoute: CheckupRoute,
+  ListenersRoute: ListenersRoute,
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
   NarrationsRoute: NarrationsRoute,

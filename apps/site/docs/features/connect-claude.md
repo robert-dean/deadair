@@ -73,7 +73,8 @@ recorded, Claude says which setting and where it is in the console rather than c
 
 A few things are never offered, whatever your role: signing in and credentials, connected apps,
 first-run setup, plugin configuration and sign-in, changing the station's settings (it can read
-them) and its log files. Those stay in the console.
+them), its log files and the list of who is listening, since that is other people's addresses. Those
+stay in the console, though Claude can still say how many are listening.
 
 Beyond that, it can do exactly what you can, and no more. An app connected by a listener can read
 what a listener can read; one connected by an administrator can do what they can, if it was allowed

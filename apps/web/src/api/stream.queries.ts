@@ -74,3 +74,24 @@ export function useFinishFetcherAuthorization() {
         },
     });
 }
+
+/**
+ * How often the list is read again while it is open.
+ *
+ * Five seconds, a third of the window an HLS player is counted for, so somebody who closes their
+ * player drops off the page about as soon as the station stops counting them. Each read asks Icecast
+ * for every mount, which is a few small requests on the station's own network, and it stops when the
+ * page closes because nothing else holds this query.
+ */
+const LISTENERS_REFETCH_MS = 5_000;
+
+export const streamListenersOptions = queryOptions({
+    queryKey: queryKeys.stream.listeners(),
+    queryFn: () => sdk.stream.listStreamListeners(),
+    refetchInterval: LISTENERS_REFETCH_MS,
+});
+
+/** Who is connected to the stream right now, one row per connection. Operators only: others are answered 403. */
+export function useStreamListeners() {
+    return useQuery(streamListenersOptions);
+}

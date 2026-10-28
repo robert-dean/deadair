@@ -16,6 +16,7 @@ import { i18n } from '../../i18n/i18n.setup';
  */
 export const CHECKUP_TABS = [
     tab('machinery'),
+    tab('listeners'),
     tab('trends'),
     tab('history'),
     tab('asRun'),
@@ -25,7 +26,7 @@ export const CHECKUP_TABS = [
     tab('releases'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function tab<TKey extends 'machinery' | 'trends' | 'history' | 'asRun' | 'recordings' | 'cost' | 'logs' | 'releases'>(key: TKey) {
+function tab<TKey extends 'machinery' | 'listeners' | 'trends' | 'history' | 'asRun' | 'recordings' | 'cost' | 'logs' | 'releases'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -42,9 +43,10 @@ export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
 /** Where each tab goes, so the palette and the tab strip cannot disagree about it. */
 export const CHECKUP_ROUTES: Record<
     CheckupTab,
-    '/checkup' | '/trends' | '/activity' | '/as-run' | '/recordings' | '/traces' | '/logs' | '/releases'
+    '/checkup' | '/listeners' | '/trends' | '/activity' | '/as-run' | '/recordings' | '/traces' | '/logs' | '/releases'
 > = {
     machinery: '/checkup',
+    listeners: '/listeners',
     trends: '/trends',
     history: '/activity',
     asRun: '/as-run',
@@ -66,6 +68,9 @@ export interface CheckupShellProps {
  * NOW — five loops turning, six of nine plugins up — the activity feed says what it DID, and the
  * traces say what each decision spent doing it. An operator who finds a stalled loop on the first
  * page immediately wants the second, and one who finds a warning there wants the third.
+ *
+ * Listeners sits beside Machinery because it is the same tense: who the machinery is serving right
+ * now, connection by connection, where the tally in the chrome gives only the count.
  *
  * Recordings sits beside As run because it is the same history heard rather than read: As run says
  * what went out and when, and the archive is what it sounded like.

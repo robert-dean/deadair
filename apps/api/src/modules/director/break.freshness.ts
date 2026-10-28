@@ -115,6 +115,8 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // break was written is inside it when the break airs, because the window is hours wide and the
     // gap is minutes.
     stories: 'fetched-for-air',
+    // Whether those stories are a repeat. A fact about the same fetch, true for as long as it is.
+    recap: 'fetched-for-air',
 
     // The reading. `WeatherSource` declines one already too old to be true at air, which is the
     // `fetched-for-air` half, AND stamps `claims_reading_until` so drift past the projection is

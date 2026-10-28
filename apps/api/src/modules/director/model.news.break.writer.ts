@@ -93,6 +93,12 @@ export const NEWS_SHAPE: BreakPromptShape = {
         // it is only a description: the stories below have already been cut to the category, so a
         // model that ignored this sentence would still be reading the right ones.
         (request.subject === undefined ? 'This is the news.' : `This is the ${request.subject.label} news, so say so as you introduce it.`) +
+        // A repeat, when every fresh story had been read and the operator chose to fill the slot.
+        // Said in the opening for the subject's reason: it changes what the bulletin IS. Without it
+        // a model reads three-hour-old headlines as though they had just come in.
+        (request.recap === true
+            ? " You have read these stories on air earlier today, so present them as a round-up of the day's headlines, not as news just in."
+            : '') +
         // Who is reading it, said in the introduction the way a newsreader does ("This is Walter,
         // here's the news"). The role sentence already gives the name, and knowing it was never the
         // same as saying it: bulletins went out anonymous. Only when there IS a name, because a

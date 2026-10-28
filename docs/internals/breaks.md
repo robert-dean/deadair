@@ -776,7 +776,18 @@ and marking it then would starve every bulletin in between of stories the editio
 placement is minutes before air, which is the "marked at selection" argument below. Pasted text has no
 headline a bulletin could read, so only a source with an address counts.
 
-**When everything in the window has been read the slot is DECLINED**, on the freshness window's own argument.
+**When everything in the window has been read the slot is DECLINED**, on the freshness window's own argument,
+unless the operator would rather fill it. `rotation.newsRepeatWhenRead` is `skip` (the default) or `repeat`,
+read through `repeatWhenRead`. Under `repeat` the bulletin reads again the stories read LONGEST AGO
+(`ReadLog.lastRead`), still only from what the feeds offer inside the window, and keeps them, so their rest
+starts over and the next repeat reaches for a different one. A category bulletin repeats its own stories under
+its own name first, and the general news (subject dropped) only where `rotation.newsCategoryFallback` chose it.
+The bulletin carries `recap`, which reaches `BreakWriteRequest.recap`, and the model writer's opening says the
+stories were read earlier and asks for a round-up rather than news just in: without it, three-hour-old
+headlines go out as though they had just come in. The station's own phrasings read them unchanged.
+`RecapWatch` reports the rising edge once on the activity feed (`news.repeating`), on `CategoryWatch`'s
+argument. A breaking bulletin is never repeated; one already read is still declined.
+
 The other half is `BreakPromptShape.showsFacts`, off for `NEWS_SHAPE` alone: the record coming up is shown so
 the bulletin can hand back in a line, and its NOTES are withheld, because both false discography claims this
 station has aired ("released in May three thousand nine hundred thirty-three") were a model finishing a note
@@ -1196,6 +1207,19 @@ category claims takes its turn — on most stations the categories cover a fract
 Eleven categories are seeded on `persona.defaults.ts`'s rule, none naming a feed (only this operator has one)
 and `local` naming nothing at all, because only the operator knows their town and a guess would look as though
 it worked.
+
+**An operator may choose the general news over the silence, and the subject is dropped when they do.** A
+station running forty feeds asked for it ([#329](https://github.com/robert-dean/deadair/discussions/329)):
+its bands name categories the feeds often leave empty, and it would rather hear the news than nothing.
+`rotation.newsCategoryFallback` is `skip` (the default, and everything above) or `general`, read through
+`categoryFallback`, so anything it cannot parse is `skip`. Under `general` an empty category is read again
+over the same pages with no category cut, and the bulletin goes out with NO subject. That is what keeps the
+posture: both writers already say plain "News" for a bulletin with no subject, so the harbour story is never
+introduced as the technology news, and nothing in either writer had to change. The pages are the ones
+already fetched, since a roster asked for a category that turned out empty never settled and was read all
+the way down. `CategoryWatch.empty` still fires on the edge, worded for what the station did instead, because
+a band that has quietly been general news all week must not look like one that is working. A category that
+is empty while the general news is too still declines, with its subject.
 
 **A category can also be a rule about what is NEVER read, which is the same matching with the
 threshold moved.** A general feed from a publisher with a deals desk carries the deals desk: this

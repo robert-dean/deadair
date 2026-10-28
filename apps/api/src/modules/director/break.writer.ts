@@ -549,6 +549,12 @@ export interface BreakWriteRequest {
      */
     stories?: readonly BreakStory[];
     /**
+     * Every one of {@link stories} has been read before, because nothing fresh was left and the
+     * operator would rather the slot were filled (`rotation.newsRepeatWhenRead`). A writer presents
+     * them as a round-up of the day's headlines rather than as news just in.
+     */
+    recap?: true;
+    /**
      * What it is like outside, for a kind of break that says so.
      *
      * {@link stories}'s opposite number, arriving the same way and for the same reasons: fetched by

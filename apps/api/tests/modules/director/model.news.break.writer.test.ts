@@ -101,6 +101,21 @@ describe('what it will air', () => {
         expect(user).toContain('This is the Technology news');
     });
 
+    it('tells the model a repeated bulletin is a round-up, and only then', async () => {
+        // In the opening for the subject's reason: a repeat changes what the bulletin IS. Without it
+        // a model reads three-hour-old headlines as though they had just come in.
+        const userTurn = (converse: { mock: { calls: { 0: { messages: { role: string; content: unknown }[] } }[] } }) =>
+            String((converse.mock.calls[0]?.[0].messages ?? []).find(message => message.role === 'user')?.content ?? '');
+
+        const repeated = build('Earlier today: a chip plant reopened.');
+        await repeated.writer.write(request({ recap: true }));
+        expect(userTurn(repeated.converse)).toContain('present them as a round-up of the day');
+
+        const fresh = build('A chip plant reopened.');
+        await fresh.writer.write(request());
+        expect(userTurn(fresh.converse)).not.toContain('round-up');
+    });
+
     it('gives itself room for a bulletin rather than a talk break', async () => {
         const { writer, converse } = build(`${'word '.repeat(NEWS_MAX_WORDS - 1)}end.`);
 

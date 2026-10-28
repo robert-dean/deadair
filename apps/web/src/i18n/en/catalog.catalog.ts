@@ -379,6 +379,15 @@ export const catalog = {
         connections_one: '{{count}} connection',
         connections_other: '{{count}} connections',
         mostConnected: 'Most connected',
+        neighbourhood: {
+            title: 'Sounds like',
+            depthLabel: 'How far out to draw',
+            oneStep: 'One step',
+            twoSteps: 'Two steps',
+            fullMap: 'Open the full map',
+            empty: 'Nobody has been asked who sounds like {{name}} yet. The station asks when it programmes around an artist, so this fills as it plays them.',
+            truncated: 'Only the strongest connections are drawn. There are more.',
+        },
     },
     search: {
         clear: 'Clear search',

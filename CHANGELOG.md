@@ -9,6 +9,20 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.86.3] — 2026-10-28
+
+- An artist's page has a "Sounds like" card: a small map of who the similarity sources say sounds like that artist, with the artist ringed in the middle. One step shows the artists it names and the artists that name it. Two steps also shows their neighbours, which is where one scene meets the next. Click an artist in the library to open their page. Its direct neighbours are listed under the map, strongest first. An artist the station has not looked up yet says so instead.
+- A bulletin the format clock asked for about one of your categories can now read the general news when the category has nothing unread, instead of skipping the slot. Set **When a category has no news** (Settings, Bulletins) to **Read the general news instead**. The bulletin is then introduced as the news rather than as the category, and the activity feed still says the category ran dry. Skipping stays the default.
+- A bulletin can now fill its slot when every fresh story has already been read, instead of skipping it. Set **When every fresh story has been read** (Settings, Bulletins) to **Repeat the oldest**. The bulletin reads again the stories it read longest ago, still within the freshness window, and the presenter introduces them as a round-up of the day's headlines rather than as news just in. The activity feed says once that bulletins have started repeating. Skipping stays the default.
+- The event destinations card on Settings can now ask you to confirm it is you (an authenticator code or a passkey) when the station wants a recent strong factor to add a destination, give one a new secret or change its address, and carries on once you have.
+- Changing an event destination's address now needs a recent strong factor (an authenticator code or a passkey, when you have one), as adding a destination and giving it a new secret now do too. A destination keeps its secret when its address changes, so moving it would otherwise send every later event, still signed, wherever somebody pointed it. Connected apps can no longer change a destination over MCP at all. Renaming one, switching it off and changing what it is sent need nothing extra.
+- A talk break that repeats a number from a fact it was given about the record (24 weeks at number one, released on July 2) is no longer refused as a made-up weather reading. When the weather was on offer, any figure that wasn't a reading was treated as invented, so those breaks fell back to the plain template and the fact never aired. A number that matches neither the reading nor anything the break was shown is still refused.
+- A connected app is told what the station is and where everything is. The MCP endpoint now sends instructions when Claude or another app connects: how its tools fit together, that settings can be read but not changed, and which operation does what, from the running order and requests to the format clock, news editions, kinds of break, going live and recordings. A new `help` tool answers the same text with the list of tools, for an app that ignores instructions.
+- Adding a passkey to your account can now be finished only by the account that started it, as adding an email address or an authenticator app already could.
+- Starting a passkey sign-in no longer tells anyone whether an address has an account. It used to answer differently for an unknown address, an account with no passkey and one with a passkey, with no limit on how often it could be asked. Now the first two get the same answer, and passkey starts share the per-address limit the emailed link and code already have.
+- The Library has a Similar tab: a map of the artists the similarity sources say sound alike, drawn from what the station has already looked up. Each dot is an artist, sized by how many others it is joined to. Artists in the library are lit and the rest are grey. A brighter line means each artist names the other. Scroll to zoom and drag to move. Hover over an artist to light its neighbours, and click one in the library to open its page. A switch keeps the map to artists in the library. The most connected artists are listed under the map.
+- `GET /catalog/similarity` answers who the similarity sources say resembles whom, as the station has stored it, as a graph of artists and the edges between them. Without `around` it answers the best-ranked edges of everything stored. With `around` set to a catalog artist it answers that artist's neighbourhood, one or two steps out, following edges in both directions. `library=true` keeps only artists the catalog holds. Edges are directed and carry each one's rank, which is the only weight that compares across sources. Each source's own score is passed through only for display. The answer comes from the store only and never asks a source, so an artist nobody has looked up has no edges yet.
+
 ## [0.86.2] — 2026-10-28
 
 - Breaking news. List the feeds worth stopping for under Bulletins, and every new story on them is read out on its own at the next break between records while the station is on air. The station checks them every five minutes by default and waits at least thirty minutes between two breaking stories; both are settings. Nothing changes until a feed is listed.
@@ -1724,7 +1738,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.3...HEAD
+[0.86.3]: https://github.com/robert-dean/deadair/compare/v0.86.2...v0.86.3
 [0.86.2]: https://github.com/robert-dean/deadair/compare/v0.86.1...v0.86.2
 [0.86.1]: https://github.com/robert-dean/deadair/compare/v0.86.0...v0.86.1
 [0.86.0]: https://github.com/robert-dean/deadair/compare/v0.85.3...v0.86.0

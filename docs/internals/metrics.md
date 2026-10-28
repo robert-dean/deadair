@@ -141,6 +141,14 @@ every fifteen minutes on a range drawn by the minute, a service that sent once. 
 exactly those and nothing else, through Mantine's `lineProps`/`areaProps`, which it spreads after its
 own `dot`.
 
+**Money is drawn in the station's currency, read from `GET /settings`**, which has the same
+`platform.view` floor as Trends, rather than carried on the series page: the counters are plain
+numbers and the currency is one setting, so a contract field would repeat it on every read. Until the
+settings arrive the figure is written in the default, and a code `Intl` does not know is written after
+the figure rather than refused (`formatMoney`). The model section ranks by model across every kind of
+call, by spend and then by tokens, so an unpriced local model is still ranked by how much it was asked
+to do; the speech section is characters by engine.
+
 **Each section reads its own query**, on Check-up's rule that one dead reader costs one box and not the
 page. The work section is two ranked tables rather than a chart, because "which queue took the time"
 is a ranking and a line per queue would need a colour per queue.

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
 import type { MetricSeries } from '@deadair/sdk';
 
-import { binSeries, binWidthMs, holdGauge, MAX_BINS, meanOf, rangeWindow, rank, total } from '../../../src/components/trends/trends.data';
+import { binSeries, binWidthMs, holdGauge, MAX_BINS, meanOf, rangeWindow, rank, total, totalsBy } from '../../../src/components/trends/trends.data';
 
 const at = (iso: string) => DateTime.fromISO(iso, { zone: 'utc' });
 const point = (iso: string, value: number) => ({ at: at(iso), count: 1, sum: value, min: value, max: value, last: value });
@@ -112,5 +112,32 @@ describe('total, meanOf and rank', () => {
         expect(meanOf(undefined)).toBeUndefined();
         expect(rank([fast, slow], 5).map(r => r.labels.queue)).toEqual(['slow', 'fast']);
         expect(rank([fast, slow], 1)).toHaveLength(1);
+    });
+});
+
+describe('totalsBy', () => {
+    const series = (labels: Record<string, string>, ...sums: number[]): MetricSeries => ({
+        name: 'model.cost',
+        labels,
+        source: 'station',
+        points: sums.map((sum, minute) => ({ at: DateTime.fromMillis(minute * 60_000), count: 1, sum, min: sum, max: sum, last: sum })),
+    });
+
+    it('folds every other label away, largest first', () => {
+        const rows = totalsBy(
+            [
+                series({ kind: 'a', model: 'x' }, 1, 2),
+                series({ kind: 'b', model: 'x' }, 4),
+                series({ kind: 'a', model: 'y' }, 10),
+                series({ kind: 'a' }, 99),
+            ],
+            'model',
+            5,
+        );
+
+        expect(rows).toEqual([
+            { value: 'y', sum: 10, count: 1 },
+            { value: 'x', sum: 7, count: 3 },
+        ]);
     });
 });

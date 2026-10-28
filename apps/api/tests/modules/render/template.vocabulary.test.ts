@@ -34,7 +34,8 @@ import {
  * The first group is what the station itself ships, which must be clean on both sides or the editor
  * warns about the defaults. The rest are the shapes that actually turn up: a typo, a lone bracket a
  * voice reads out, a legal optional chunk with a placeholder inside it, and the two degenerate
- * spellings of a placeholder.
+ * spellings of a placeholder. The last three are pad cues: two the render step plays, one inside an
+ * optional chunk, and one whose name it would not recognise, which is a bracket that gets read out.
  */
 const FIXTURES = [
     ...DEFAULT_TEMPLATES,
@@ -45,6 +46,9 @@ const FIXTURES = [
     'That was {{}}.',
     'Nothing here names anything at all.',
     '[[ {{next.artist.name}} ]] and a stray ] as well',
+    'Whoo! That was {{previous.title}}! [sfx:honk][[ Here comes {{next.title}}!]]',
+    'That was {{previous.title}}.[[ Next, {{next.title}}. [sfx:honk]]]',
+    'That was {{previous.title}}. [sfx:air horn]',
 ];
 
 describe('the phrasing vocabulary', () => {

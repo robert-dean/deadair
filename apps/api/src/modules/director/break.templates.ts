@@ -452,9 +452,15 @@ export function unknownPlaceholders(template: string): string[] {
  * Answers a boolean rather than the offending text, because there is nothing useful to do with it: a
  * lone bracket cannot be repaired without guessing whether the author meant an optional chunk or a
  * stage direction, and those want opposite treatments.
+ *
+ * A pad cue (`[sfx:honk]`) is syntax too, and is taken out first: the render step turns it into the
+ * sound and never reads it out. Counting it as a lone bracket had the console warning that every
+ * phrasing with a cue in it would never be picked, when `renderTemplate` picks them like any other.
+ * The name is the same narrow shape `pad.cues.ts` matches, so a cue the render step would not
+ * recognise is still a bracket that gets read out.
  */
 export function hasStrayBracket(template: string): boolean {
-    return /[[\]]/.test(template.replace(/\[\[.*?\]\]/gs, ''));
+    return /[[\]]/.test(template.replace(/\[sfx:[a-z0-9-]+\]/gi, '').replace(/\[\[.*?\]\]/gs, ''));
 }
 
 /**

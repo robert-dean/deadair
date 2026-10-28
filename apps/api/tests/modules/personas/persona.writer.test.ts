@@ -275,6 +275,13 @@ describe('the self-check', () => {
         expect(generated.droppedTemplates).toEqual(['[Mate] That was {{previous.title}}.']);
     });
 
+    it('keeps a phrasing with a pad cue in it, which the render step plays rather than reads out', () => {
+        const generated = readPersona(answer({ templates: ['That was {{previous.title}}! [sfx:honk]'] }))!;
+
+        expect(generated.draft.templates).toBe('That was {{previous.title}}! [sfx:honk]');
+        expect(generated.droppedTemplates).toEqual([]);
+    });
+
     it('keeps the [[double]] form, which is the syntax rather than text', () => {
         const generated = readPersona(answer({ templates: ['That was {{previous.title}}.[[ Next, {{next.title}}.]]'] }))!;
 

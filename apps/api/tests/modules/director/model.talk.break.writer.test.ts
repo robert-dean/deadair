@@ -641,6 +641,35 @@ describe('ModelTalkBreakWriter and a reading it was offered', () => {
         expect(written?.script).toContain('At number 43');
     });
 
+    it('does not read a figure from a fact it was shown as a temperature', async () => {
+        // The '80s show on 2026-10-28: refused twice for "24" from the very fact that said it, and the
+        // break aired from the floor.
+        const told = { ...next, facts: ['The Purple Rain album spent 24 consecutive weeks at number one on the U.S. Billboard 200.'] };
+        const { writer } = build({ answer: 'Purple Rain spent 24 weeks at number one. Here is Pink Moon.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next: told, weather, weatherFreshUntil: freshUntil });
+
+        expect(written?.script).toContain('24 weeks');
+    });
+
+    it('does not read the day of a date in a fact as a temperature', async () => {
+        const told = { ...next, facts: ['It was released on July 2, 1984, via Portrait Records.'] };
+        const { writer } = build({ answer: 'This came out on July 2, 1984. Here is Pink Moon.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next: told, weather, weatherFreshUntil: freshUntil });
+
+        expect(written?.script).toContain('July 2');
+    });
+
+    it('still declines an invented reading beside a fact with a figure in it', async () => {
+        const told = { ...next, facts: ['It spent 24 weeks at number one.'] };
+        const { writer } = build({ answer: "It's 31 degrees out there. 24 weeks at number one, and here is Pink Moon." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next: told, weather, weatherFreshUntil: freshUntil });
+
+        expect(written).toBeUndefined();
+    });
+
     it('still declines an invented reading beside a chart position', async () => {
         const charted = { ...next, chart: { rank: 43, name: 'Top 100' } };
         const { writer } = build({ answer: "It's 31 degrees out there. At number 43, Pink Moon to cool you down." });

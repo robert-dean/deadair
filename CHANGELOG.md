@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.86.4] — 2026-10-28
+
+- When the model says why it picked a record, the reason is now kept with the record until it airs, and the as-run log carries it: `AsRunEntry.pickedBecause` on `GET /history/as-run`. It never leaves the station: event destinations, chat platforms and now playing do not see it.
+- **Check-up → As run** shows why the model picked a record, under the record, when **Say why each record was picked** is on. Records the station drew itself have no reason and look as they always did.
+- The model that programmes the station can now say why it picked each record. Turn on **Say why each record was picked** (Settings, Model). It costs the model more to write on every refill, so it is off by default. Records the station chooses itself never get a reason.
+
 ## [0.86.3] — 2026-10-28
 
 - An artist's page has a "Sounds like" card: a small map of who the similarity sources say sounds like that artist, with the artist ringed in the middle. One step shows the artists it names and the artists that name it. Two steps also shows their neighbours, which is where one scene meets the next. Click an artist in the library to open their page. Its direct neighbours are listed under the map, strongest first. An artist the station has not looked up yet says so instead.
@@ -1738,7 +1744,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.86.4...HEAD
+[0.86.4]: https://github.com/robert-dean/deadair/compare/v0.86.3...v0.86.4
 [0.86.3]: https://github.com/robert-dean/deadair/compare/v0.86.2...v0.86.3
 [0.86.2]: https://github.com/robert-dean/deadair/compare/v0.86.1...v0.86.2
 [0.86.1]: https://github.com/robert-dean/deadair/compare/v0.86.0...v0.86.1

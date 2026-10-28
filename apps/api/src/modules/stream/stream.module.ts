@@ -12,6 +12,7 @@ import { ApplePlayerClient } from './apple.player.client.js';
 import { AudioChainRestart } from './stream.restart.js';
 import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
+import { StreamListenersService } from './stream.listeners.service.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 import { ArchiveStore } from './archive.store.js';
 import { ArchiveService } from './archive.service.js';
@@ -57,6 +58,10 @@ export const StreamModule: ServerKitModule = {
     setup: async (registry: Registry, config: AppConfig) => {
         // Scoped: it depends on the scoped `SettingsRepository` and `EncryptionProvider`.
         registry.register(StreamService).useClass(StreamService).asScoped();
+
+        // Scoped like the service it sits beside, and holding nothing: everything it reads
+        // is a singleton's, and it is built per request only to answer that request.
+        registry.register(StreamListenersService).useClass(StreamListenersService).asScoped();
 
         // Singleton, and holds the two stream secrets pushed into it at `ready`:
         // it is reached from `PluginHostFactory`, which is itself a singleton

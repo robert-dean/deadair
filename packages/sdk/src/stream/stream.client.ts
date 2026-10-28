@@ -1,5 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
+import type { StreamListeners } from './types/stream.listeners.types.js';
+import { reviveStreamListeners } from './types/stream.listeners.types.js';
 import type {
     FetcherAuthorization,
     FetcherAuthorizationFinished,
@@ -72,5 +74,14 @@ export class StreamClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<FetcherAuthorizationFinished>(result);
+    }
+
+    /**
+     * @name List stream listeners
+     * @description Who is connected to the station's stream right now, over Icecast and over HLS
+     */
+    async listStreamListeners(): Promise<StreamListeners> {
+        const result = await this.fetch(`/stream/listeners`, { method: 'GET' });
+        return reviveStreamListeners(await parseJson<StreamListeners>(result));
     }
 }

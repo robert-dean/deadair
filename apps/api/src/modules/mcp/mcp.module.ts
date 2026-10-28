@@ -16,13 +16,16 @@ import { McpToolCatalog, registerMcpCatalog, registerMcpToolClasses, registerMcp
 import { CALL_API_TOOL, CallApiTool } from '#src/mcp/call.api.tool.js';
 import { SEARCH_API_TOOL, SearchApiTool } from '#src/mcp/search.api.tool.js';
 import { WHOAMI_TOOL, WhoAmITool } from '#src/mcp/whoami.tool.js';
+import { HELP_TOOL, STATION_INSTRUCTIONS, stationHelpTool } from '#src/mcp/station.instructions.js';
 
 /** What an MCP client sees as `serverInfo.name` during `initialize`. */
 export const MCP_SERVER_NAME = 'deadair';
 
 /**
- * The tools `tools/list` reports: every operation a contract flags `mcp`, `whoami`, and the two that
- * reach the rest, `search_api` to find an operation and `call_api` to run it.
+ * The tools `tools/list` reports: every operation a contract flags `mcp`, `whoami`, the two that
+ * reach the rest, `search_api` to find an operation and `call_api` to run it, and `help`, which
+ * answers `STATION_INSTRUCTIONS` and then the list. `help` is the copy of the instructions a client
+ * that ignores `initialize`'s `instructions` still reaches, so the two are one text.
  *
  * Every one is wrapped by `explainToolErrors`, so a refusal or a bad argument reaches the model as a
  * tool result it can act on ("not allowed", "these fields are missing") rather than as a JSON-RPC
@@ -33,6 +36,7 @@ export function buildMcpTools(container: Container): McpToolHandlerMap {
     tools.set(WHOAMI_TOOL, container.get(WhoAmITool));
     tools.set(SEARCH_API_TOOL, container.get(SearchApiTool));
     tools.set(CALL_API_TOOL, container.get(CallApiTool));
+    tools.set(HELP_TOOL, stationHelpTool(tools));
     return explainToolErrors(tools);
 }
 
@@ -71,7 +75,12 @@ export const McpModule: ServerKitModule = {
     setup: async (registry: Registry, config: AppConfig) => {
         registry
             .register(McpConfig)
-            .useFactory((): McpConfig => ({ serverName: MCP_SERVER_NAME, version: buildVersion(config) ?? 'dev', sessionMode: 'stateless' }))
+            .useFactory((): McpConfig => ({
+                serverName: MCP_SERVER_NAME,
+                version: buildVersion(config) ?? 'dev',
+                sessionMode: 'stateless',
+                instructions: STATION_INSTRUCTIONS,
+            }))
             .asSingleton();
         registerMcpToolClasses(registry);
         registry.register(WhoAmITool).useClass(WhoAmITool).asSingleton();

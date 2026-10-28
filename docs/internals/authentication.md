@@ -387,6 +387,18 @@ once at `info` (`mcp: call_api`, with the operation, the grant, `ok` or `refused
 is what the listed set is meant to be grown from: an operation called through here often enough
 deserves an `mcp` block of its own.
 
+**What the model is told before it calls anything is `src/mcp/station.instructions.ts`.** One text,
+sent as `instructions` at `initialize` and opening the answer of the `help` tool, because a client may
+ignore the first and every client exposes tools. It says how the listed tools, `search_api` and
+`call_api` fit together, that settings are read-only here (so the answer to "turn on breaking news"
+is where it is in the console), and names the operation behind each part of the station, so the model
+can hand a name straight to `search_api` instead of guessing words. A feature an operator would ask a
+model to use gets a line there when it ships: a new operation nobody names is found only by a search
+that happens to use its words. `tests/mcp/station.instructions.test.ts` fails on any name in it that
+is not an operation, which is what a rename otherwise turns into: a confident wrong name in every
+conversation. The package's help tool declares no annotations, so `stationHelpTool` adds
+`readOnlyHint` rather than let clients treat reading the help as a write.
+
 **A description is written for the model**, in the operation's `mcp` block rather than its `#`
 comment: what the tool answers, and when to use it rather than its neighbour. The hints come from
 the HTTP method unless the block says otherwise (a `GET` is read-only and idempotent, a `DELETE`

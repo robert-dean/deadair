@@ -26,12 +26,13 @@ const container = (() => {
 describe('the listed MCP tools', () => {
     const tools = [...buildMcpTools(container).values()].map(tool => tool.definition);
 
-    it('are the everyday operations, whoami, and the two that reach the rest', () => {
+    it('are the everyday operations, whoami, help, and the two that reach the rest', () => {
         expect(tools.map(tool => tool.name).sort()).toEqual([
             'call_api',
             'create_request',
             'get_now_playing',
             'get_playout_status',
+            'help',
             'insist_on_request',
             'list_my_requests',
             'read_current_slot',

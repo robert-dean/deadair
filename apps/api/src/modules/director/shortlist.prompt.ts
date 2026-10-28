@@ -2,6 +2,7 @@ import type { LlmMessage } from '@deadair/plugin-sdk';
 import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
 import type { TrackPick } from './set.generator.js';
 import type { ShortlistEntry } from './shortlist.js';
+import { pickReason } from './pick.reason.js';
 
 /**
  * The conversation for a refill that hands the model a numbered list (`Shortlist`), and the reader
@@ -31,6 +32,8 @@ export interface ShortlistPromptRequest {
 export interface ShortlistPromptSettings {
     station?: string;
     maxPerArtist?: number;
+    /** Ask for a short reason beside each record (`llm.setReasons`). Absent asks for numbers alone, exactly as before. */
+    reasons?: boolean;
 }
 
 export function shortlistPrompt(request: ShortlistPromptRequest, settings: ShortlistPromptSettings = {}): LlmMessage[] {
@@ -57,10 +60,19 @@ function systemPrompt(settings: ShortlistPromptSettings): string {
         '- Records marked "like" an artist are neighbours of the acts the operator named. Use them to vary the hour, not to replace those acts.',
         '- Order them so the set flows: think about what follows what.',
         '- If the operator asks for a particular record or a style the list does not have, you may search for it with search_music and add it as',
-        '  {"title": "...", "artist": "..."} copied exactly from the search. Do this only for what the list lacks; never search for something already on it.',
+        settings.reasons
+            ? '  {"title": "...", "artist": "...", "why": "..."} copied exactly from the search. Do this only for what the list lacks; never search for something already on it.'
+            : '  {"title": "...", "artist": "..."} copied exactly from the search. Do this only for what the list lacks; never search for something already on it.',
         '',
-        'Answer with a JSON array and nothing else, like this:',
-        '[12, 3, 40, 7]',
+        // The reason costs output tokens on every refill, which is why it is the operator's choice.
+        // One sentence, about the record in this set, so it reads as a line in the as-run log.
+        ...(settings.reasons
+            ? [
+                  'For each record, say in "why" why it belongs in this set: one short sentence a listener could follow, about the record and what was asked for.',
+                  'Answer with a JSON array and nothing else, like this:',
+                  '[{"n": 12, "why": "..."}, {"n": 3, "why": "..."}]',
+              ]
+            : ['Answer with a JSON array and nothing else, like this:', '[12, 3, 40, 7]']),
     ].join('\n');
 }
 
@@ -110,6 +122,12 @@ function describe(number: number, entry: ShortlistEntry): string {
  * records") is not a choice; without one, from the whole answer, because a local model told to answer
  * with an array frequently answers with a plain list instead.
  *
+ * An object may also be a choice off the list with its reason, `{"n": 12, "why": "..."}`, which is
+ * what the prompt asks for when `llm.setReasons` is on. Bare numbers and these mix freely, so a model
+ * that forgets the reason halfway through still has every record it named read. An object the answer
+ * did not finish is dropped WHOLE before any number is read, or a reason cut off at "the 80s" would
+ * leave `80` behind to be taken for a choice.
+ *
  * @param max - Never return more than this, whatever the model sent.
  */
 export function readChoices(text: string, list: readonly ShortlistEntry[], max: number): TrackPick[] {
@@ -130,26 +148,39 @@ export function readChoices(text: string, list: readonly ShortlistEntry[], max: 
     const objects = jsonObjects(region);
     let rest = region;
     for (const object of objects) rest = rest.replace(object, ` @object${objects.indexOf(object)}@ `);
+    // What is left of an object the answer never closed, which is a truncated reason, not choices.
+    rest = rest.replace(/\{[^}]*$/, '');
+
+    const fromList = (number: number, why?: string): TrackPick | undefined => {
+        const entry = list[number - 1];
+        if (entry === undefined) return undefined;
+        return {
+            title: entry.title,
+            artist: entry.artist,
+            ...(entry.trackId === undefined ? {} : { trackId: entry.trackId }),
+            ...(why === undefined ? {} : { pickedBecause: why }),
+        };
+    };
 
     for (const token of rest.match(/@object\d+@|(?<![\d.])\d{1,3}(?![\d.])/g) ?? []) {
-        if (token.startsWith('@object')) {
-            const named = fromObject(objects[Number(token.slice('@object'.length, -1))]!);
-            if (named !== undefined) take(named);
-            continue;
-        }
-        const entry = list[Number(token) - 1];
-        if (entry === undefined) continue;
-        take({ title: entry.title, artist: entry.artist, ...(entry.trackId === undefined ? {} : { trackId: entry.trackId }) });
+        const pick = token.startsWith('@object')
+            ? fromObject(objects[Number(token.slice('@object'.length, -1))]!, fromList)
+            : fromList(Number(token));
+        if (pick !== undefined) take(pick);
     }
     return picks;
 }
 
-function fromObject(span: string): TrackPick | undefined {
+/** A choice off the list with its reason, or a record the model searched for, with its reason if it gave one. */
+function fromObject(span: string, fromList: (number: number, why?: string) => TrackPick | undefined): TrackPick | undefined {
     try {
-        const value = JSON.parse(span) as { title?: unknown; artist?: unknown };
+        const value = JSON.parse(span) as { n?: unknown; title?: unknown; artist?: unknown; why?: unknown };
+        const why = pickReason(value.why);
+        if (typeof value.n === 'number' && Number.isInteger(value.n)) return fromList(value.n, why);
+
         const title = typeof value.title === 'string' ? value.title.trim() : '';
         const artist = typeof value.artist === 'string' ? value.artist.trim() : '';
-        return title.length > 0 && artist.length > 0 ? { title, artist } : undefined;
+        return title.length > 0 && artist.length > 0 ? { title, artist, ...(why === undefined ? {} : { pickedBecause: why }) } : undefined;
     } catch {
         return undefined;
     }

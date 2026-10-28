@@ -104,6 +104,7 @@ import {
     DEFAULT_SET_REASONING,
     MODEL_GENERATOR_DEFAULT,
     MODEL_GENERATOR_KEYS,
+    MODEL_REASONS_DEFAULT,
     MODEL_SHORTLIST_DEFAULT,
 } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
@@ -1891,6 +1892,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: MODEL_SHORTLIST_DEFAULT,
         dependsOn: MODEL_GENERATOR_KEYS.enabled,
         help: 'On, a brief that names its artists is programmed from a numbered list the station builds itself: records by those artists and a few who sound like them, from your library and from what your providers have said, with anything that played too recently, any artist who just played and anything you dislike already taken out. The model answers with numbers, which is far quicker than searching and writing out titles, and every record it picks can play. It can still search for something the list lacks, such as a song the brief names by title. Off, or for a brief that names no artists, the model searches as it always has.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.reasons,
+        label: 'Say why each record was picked',
+        type: 'boolean',
+        default: MODEL_REASONS_DEFAULT,
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        help: 'On, the model writes one short sentence beside each record it picks, saying why it belongs in the set, and Check-up, As run shows it under the record when it airs. It costs the model more to write on every refill, which is the slowest thing the station asks of it, so watch how long refills take after turning it on. Records the station chooses itself, when the model does not, never have a reason: there is nothing honest to say.',
     },
     {
         group: 'llm',

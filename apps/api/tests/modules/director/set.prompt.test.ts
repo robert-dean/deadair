@@ -538,6 +538,22 @@ describe('readPicks', () => {
         // whatever prose surrounds it.
         expect(readPicks('[]', 10)).toEqual([]);
     });
+
+    it('reads a reason beside a record, tidied to one line, and keeps a record whose reason is broken', () => {
+        const answer = '[{"title": "A", "artist": "One", "why": "  Opens\\nthe hour  "}, {"title": "B", "artist": "Two", "why": 4}]';
+
+        expect(readPicks(answer, 10)).toEqual([
+            { title: 'A', artist: 'One', pickedBecause: 'Opens the hour' },
+            { title: 'B', artist: 'Two' },
+        ]);
+    });
+});
+
+describe('asking for reasons in the set prompt', () => {
+    it('asks for a reason only when told to, and is unchanged when not', () => {
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toContain('"why"');
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { reasons: true }))).toContain('{"title": "...", "artist": "...", "why": "..."}');
+    });
 });
 
 describe('a genre steer in the set prompt', () => {

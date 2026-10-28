@@ -993,6 +993,52 @@ describe('ModelSetGenerator with a shortlist', () => {
         return request.messages.find(message => message.role === 'user')?.content ?? '';
     };
 
+    describe('saying why', () => {
+        const systemTurn = (converse: ReturnType<typeof build>['converse']): string => {
+            const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+            return request.messages.find(message => message.role === 'system')?.content ?? '';
+        };
+        const answer = '[{"n": 3, "why": "Opens on the darkest of them."}, {"n": 2, "why": "Then the coldest."}]';
+
+        it('asks for a reason and keeps it on the pick when the operator turned it on', async () => {
+            const { generator, converse } = build({
+                enabled: true,
+                shortlist: list,
+                text: answer,
+                settings: { [MODEL_GENERATOR_KEYS.reasons]: 'true' },
+            });
+
+            const picks = await generator.generate(inputs(2));
+
+            expect(systemTurn(converse)).toContain('"why"');
+            expect(picks.map(pick => pick.pickedBecause)).toEqual(['Opens on the darkest of them.', 'Then the coldest.']);
+        });
+
+        it('neither asks nor keeps one when it is off, read as the string a settings row holds', async () => {
+            for (const value of [undefined, 'false', '', 'maybe']) {
+                const { generator, converse } = build({
+                    enabled: true,
+                    shortlist: list,
+                    text: answer,
+                    ...(value === undefined ? {} : { settings: { [MODEL_GENERATOR_KEYS.reasons]: value } }),
+                });
+
+                const picks = await generator.generate(inputs(2));
+
+                expect(systemTurn(converse), String(value)).not.toContain('"why"');
+                // Read and then dropped: a volunteered reason is not the operator's choice.
+                expect(
+                    picks.map(pick => pick.title),
+                    String(value),
+                ).toEqual(['A Fine Day to Die', 'Freezing Moon']);
+                expect(
+                    picks.every(pick => pick.pickedBecause === undefined),
+                    String(value),
+                ).toBe(true);
+            }
+        });
+    });
+
     it('hands the model the numbered list and reads its answer as numbers', async () => {
         const { generator, converse } = build({ enabled: true, shortlist: list, text: '[3, 2]', toolCallsMade: 0 });
 

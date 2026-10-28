@@ -266,7 +266,15 @@ export const MODEL_GENERATOR_KEYS = {
     maxTokens: 'llm.setMaxTokens',
     reasoning: 'llm.setReasoning',
     shortlist: 'llm.setShortlist',
+    /** Ask the model to say why it picked each record. See `pick.reason.ts`. */
+    reasons: 'llm.setReasons',
 } as const;
+
+/**
+ * OFF: a reason is output tokens on every refill, on the slowest call the station makes, so an
+ * operator turns it on and reads the cost off the refill's log line before leaving it on.
+ */
+export const MODEL_REASONS_DEFAULT = false;
 
 /** ON: a brief that names its acts is programmed from a screened list rather than from searches. See `Shortlist`. */
 export const MODEL_SHORTLIST_DEFAULT = true;
@@ -345,6 +353,8 @@ export class ModelSetGenerator extends SetGenerator {
         const answerCeiling = maxOutputTokens(this.config);
         // Before the prompt, and after `rememberAired`, whose marks it orders each artist's records by.
         // Off, or a brief it cannot serve yet, and the model searches exactly as it did before.
+        // Read per refill like the rest. Off, the prompt is word for word what it was before reasons.
+        const reasons = settingIsOn(this.config, MODEL_GENERATOR_KEYS.reasons, MODEL_REASONS_DEFAULT);
         const list = settingIsOn(this.config, MODEL_GENERATOR_KEYS.shortlist, MODEL_SHORTLIST_DEFAULT)
             ? await this.shortlist.build(inputs, reach)
             : undefined;
@@ -382,6 +392,7 @@ export class ModelSetGenerator extends SetGenerator {
                           // about without the history to check it against, and it is judged at the resolver.
                           cleanOnly: demandsClean(advisoryPolicy(this.config)),
                           maxPerArtist: inputs.rules.maxPerArtist,
+                          ...(reasons ? { reasons } : {}),
                       },
                   )
                 : shortlistPrompt(
@@ -392,7 +403,11 @@ export class ModelSetGenerator extends SetGenerator {
                           ...(inputs.era === undefined ? {} : { era: inputs.era }),
                           ...(steer === undefined ? {} : { lean: steer.genres }),
                       },
-                      { station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title), maxPerArtist: inputs.rules.maxPerArtist },
+                      {
+                          station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+                          maxPerArtist: inputs.rules.maxPerArtist,
+                          ...(reasons ? { reasons } : {}),
+                      },
                   );
         // What the answer IS, which depends on what the model was asked: numbers off the list, or records.
         const read = (text: string): TrackPick[] => (list === undefined ? readPicks(text, inputs.count) : readChoices(text, list, inputs.count));
@@ -462,7 +477,10 @@ export class ModelSetGenerator extends SetGenerator {
             throw error;
         }
 
-        const named = read(result.text);
+        // A reason the model volunteered unasked is not kept: whether the station says why is the
+        // operator's choice, and the as-run log must not carry reasons on some refills and not others
+        // depending on a model's mood.
+        const named = read(result.text).map(pick => (reasons ? pick : withoutReason(pick)));
         const picks = spaceOwnArtists(named);
 
         // Logged whichever way it went, and with the numbers rather than a verdict. "The model got
@@ -478,6 +496,9 @@ export class ModelSetGenerator extends SetGenerator {
             // How many lines it chose from, when it was handed a list; absent when it searched.
             ...(list === undefined ? {} : { listed: list.length }),
             searches: result.toolCallsMade,
+            // Whether this refill was asked for reasons, and how many it got, beside the tokens and
+            // the time: the cost of `llm.setReasons` is read off these lines, on and off.
+            ...(reasons ? { reasons: picks.filter(pick => pick.pickedBecause !== undefined).length } : {}),
             durationMs: Date.now() - started,
             finish: result.finishReason,
             ...(result.usage === undefined ? {} : { tokens: result.usage.totalTokens ?? result.usage.outputTokens }),
@@ -898,6 +919,13 @@ const actOf = (pick: TrackPick): { artistKey: string; creditKey: string } => ({
     artistKey: artistKey([pick.artist]),
     creditKey: creditKey(pick.artist),
 });
+
+/** A pick with no reason, for a refill that was not asked for one. */
+function withoutReason(pick: TrackPick): TrackPick {
+    if (pick.pickedBecause === undefined) return pick;
+    const { pickedBecause: _dropped, ...rest } = pick;
+    return rest;
+}
 
 function spaceOwnArtists(picks: readonly TrackPick[]): TrackPick[] {
     const pending = [...picks];

@@ -1243,24 +1243,32 @@ export function permittedYears(
 const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefined =>
     guard.weather === undefined
         ? undefined
-        : inventedFigure(withoutChartFigures(withoutRecordNames(script, guard), guard), guard.weather, guard.language);
+        : inventedFigure(withoutShownFigures(withoutRecordNames(script, guard), guard), guard.weather, guard.language);
 
 /**
- * The script with every figure a shown record's chart placing carried taken out, so a position is
- * not mistaken for a temperature.
+ * The script with every figure a shown record carried taken out, its chart placing and its facts, so
+ * a true claim about the record is not mistaken for a temperature.
  *
  * A chart show asks for "at number 43", and a talk break is OFFERED the weather, so the figure check
  * reads every break on that show. With the rank left in, it refused every model-written break of the
  * US countdown from 09:44 on 2026-10-23, all six aired from the floor, and the reason given each time
  * was the very rank the prompt had asked for. Any figure equal to one the placing carried is out, not
- * only one after "number": "43 on the chart" and "eleven weeks" are the same true claim. What it costs
- * is an invented reading that happens to equal a rank, which is the narrow miss this file prefers.
+ * only one after "number": "43 on the chart" and "eleven weeks" are the same true claim.
+ *
+ * The facts are the same failure one field along. On 2026-10-28 the '80s show was refused twice for
+ * "24" going into Let's Go Crazy, from a fact that said Purple Rain spent 24 weeks at number one,
+ * and twice for "2" going into She Bop, from "released on July 2, 1984". Both aired from the floor.
+ * Only whole figures are read out of a fact, which is all this function strips from a script.
+ *
+ * What it costs is an invented reading that happens to equal a rank or a fact's figure, which is the
+ * narrow miss this file prefers.
  */
-function withoutChartFigures(script: string, guard: AnswerGuard): string {
+function withoutShownFigures(script: string, guard: AnswerGuard): string {
     const figures = new Set(
-        (guard.names ?? []).flatMap(record =>
-            record?.chart === undefined ? [] : [record.chart.rank, record.chart.peak, record.chart.weeksOn].filter(value => value !== undefined),
-        ),
+        (guard.names ?? []).flatMap(record => [
+            ...(record?.chart === undefined ? [] : [record.chart.rank, record.chart.peak, record.chart.weeksOn].filter(value => value !== undefined)),
+            ...(record?.facts ?? []).flatMap(fact => [...fact.matchAll(/(?<![\d.,])\d+(?![\d]|[.,]\d)/g)].map(match => Number(match[0]))),
+        ]),
     );
     // A number standing on its own, so a rank of 9 never takes the hour out of "9:30" or a digit out of "9.5".
     return figures.size === 0 ? script : script.replace(/(?<![\d:.,])\d+(?![\d:]|[.,]\d)/g, digits => (figures.has(Number(digits)) ? ' ' : digits));

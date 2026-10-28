@@ -260,4 +260,13 @@ public final class CatalogClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(Track.self, from: response)
     }
+
+    /// Get similarity graph
+    /// Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist
+    public func getSimilarityGraph(query: SimilarityGraphQuery? = nil) async throws -> SimilarityGraph {
+        var request = SdkRequest(method: "GET", path: ["catalog", "similarity"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(SimilarityGraph.self, from: response)
+    }
 }

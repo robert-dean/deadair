@@ -4,6 +4,7 @@ import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
 import { LyricsReadService } from '#src/modules/lyrics/lyrics.read.service.js';
+import { SimilarityGraphService } from '#src/modules/similarity/similarity.graph.service.js';
 import { SuspensionsService } from '#src/modules/catalog/suspensions.service.js';
 import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import { VocalMarkersService } from '#src/modules/lyrics/vocal.markers.service.js';
@@ -17,6 +18,8 @@ import {
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
+    SimilarityGraph,
+    SimilarityGraphQuery,
     SuspendInput,
     Track,
     TrackClearResult,
@@ -633,6 +636,21 @@ CatalogRouter.delete('/catalog/tracks/:id/suspension', requirePolicy({ policy: '
 
     const service = ctx.container.get(SuspensionsService);
     const result: Track = await service.liftTrack(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/similarity`
+ */
+CatalogRouter.get('/catalog/similarity', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, SimilarityGraphQuery.strict());
+
+    const service = ctx.container.get(SimilarityGraphService);
+    const result: SimilarityGraph = await service.getGraph(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

@@ -417,4 +417,18 @@ public sealed class CatalogClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<Track>(response);
     }
+
+    /// <summary>
+    /// Get similarity graph
+    /// Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist
+    /// </summary>
+    public async Task<SimilarityGraph> GetSimilarityGraphAsync(SimilarityGraphQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("catalog", "similarity"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<SimilarityGraph>(response);
+    }
 }

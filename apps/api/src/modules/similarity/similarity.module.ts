@@ -3,6 +3,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SimilarityService } from './similarity.service.js';
 import { SimilarityStoreRepository } from './similarity.store.repository.js';
+import { SimilarityGraphService } from './similarity.graph.service.js';
 
 /**
  * Who else sounds like this, out of whatever similarity plugins are installed.
@@ -23,5 +24,7 @@ export const SimilarityModule: ServerKitModule = {
         // What the sources have said, kept: see `0119_similarity_store.sql`. Scoped like every
         // repository, so it shares the scope's database handle.
         registry.register(SimilarityStoreRepository).useClass(SimilarityStoreRepository).asScoped();
+        // The store read back as a graph, for `GET /catalog/similarity`. Reads the store only.
+        registry.register(SimilarityGraphService).useClass(SimilarityGraphService).asScoped();
     },
 };

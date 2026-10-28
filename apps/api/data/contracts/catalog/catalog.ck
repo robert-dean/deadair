@@ -10,6 +10,7 @@ options {
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
         VocalMarkersService: "#src/modules/lyrics/vocal.markers.service.js"
         LyricsReadService: "#src/modules/lyrics/lyrics.read.service.js"
+        SimilarityGraphService: "#src/modules/similarity/similarity.graph.service.js"
     }
     security: {
         # The floor for every operation in this file, cascading file -> route -> operation. Almost
@@ -545,6 +546,19 @@ operation /catalog/tracks/{id}/suspension: {
         response: {
             200: {
                 application/json: Track
+            }
+        }
+    }
+}
+
+operation /catalog/similarity: {
+    get: { # Who the similarity sources say resembles whom, as the station has stored it. Without `around`, the best-ranked edges of the whole store; with it, the neighbourhood of one artist
+        name: Get similarity graph
+        service: SimilarityGraphService.getGraph
+        query: SimilarityGraphQuery
+        response: {
+            200: {
+                application/json: SimilarityGraph
             }
         }
     }

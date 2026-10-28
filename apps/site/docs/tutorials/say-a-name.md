@@ -25,6 +25,13 @@ It is in **Said this way** now, and the station says it your way from the next b
 ![Pronunciations: each name as written, and as the station says it](/img/console/voice.pronunciations.webp)
 *Fig. 1. **Voice → Pronunciations**. The rows with a sentence beside them came from the article the station found the name in.*
 
+**For an artist, you can do this from their page instead.** Open the artist in the **Library** and
+press **Pronunciation** in the header, beside **Suspend**. Write the name in **Say Röyksopp as**,
+press the play button to hear it in the default voice, and press **Save**. The header then reads
+`Said "royk-sop"`, with **Change** to edit it. It is the same entry as on Voice → Pronunciations, so
+either page shows what the other saved. If the button reads **Pronunciation proposed**, the station
+found one in an article: saving accepts it, in your words if you changed them.
+
 **Write the "said" form however your speech engine reads best.** It goes to the engine untouched.
 Plain respelling, with hyphens between syllables, works on every engine. An engine that takes its
 own phoneme markup, such as Kokoro, can be given that instead.

@@ -8,7 +8,8 @@ description: Give the station news bulletins read from feeds you choose, and wea
 By the end of this page the station reads a short news bulletin at the top of every hour, written
 from feeds you chose, and reports the weather where it is at half past. Both come from sources you
 can see, so a bulletin says only what a publisher published and a weather report gives only figures
-a service measured.
+a service measured. Two optional steps go further: breaking in when a story breaks, and a longer
+news programme the station makes fresh every weekday evening.
 
 [Breaks](../features/breaks.md#bulletins) explains bulletins and [the weather](../features/breaks.md#the-weather)
 in full, including what each will refuse to say.
@@ -115,7 +116,45 @@ technology bulletin at half past; on a `weather` band it reports somewhere other
 station is. Both lists come from **Voice → Subjects**, where you can add categories and locations of
 your own.
 
-## 6. Let it look things up (optional)
+## 6. Break in for breaking news (optional)
+
+A bulletin on the hour can be an hour late for a story that matters. The station can watch a feed and
+break in at the next gap between records when something new appears there.
+
+1. Add the newsroom's breaking alerts feed on the RSS plugin as in step 1. Pick a feed that posts
+   rarely and urgently: one that posts all day would break in all day.
+2. Open **Settings → Bulletins** and find **Breaking news feeds**. Press **Add** and pick that
+   **Feed**.
+3. Leave **How often the breaking feeds are checked (minutes)** at 5 and **Least time between two
+   breaking stories (minutes)** at 30 to begin with.
+4. Press **Save bulletins**.
+
+Nothing is read straight away. The first check only notes what the feed already holds, so the
+station never reads out a whole front page. The next story published there goes on air after the
+record playing, as a bulletin about that one story. One that arrives within thirty minutes of the
+last is left for the next ordinary bulletin. [Breaking news](../features/breaks.md#breaking-news)
+has the whole of it.
+
+## 7. A longer news programme on a schedule (optional)
+
+A bulletin is a few headlines. For a ten-minute evening news, make a show of the station's own and
+put it on the clock, and the station makes a fresh edition each time.
+
+1. Open **Library → Podcasts** and press **New show** under **Your shows**. Choose the **News in depth** template, name
+   it (`The Evening News`), and under **News it reads** pick your feeds. Set a length and a
+   presenter if you want other than the station's defaults. Save.
+2. Open **Voice → Subjects**. Under **Own shows**, add one: give it a label and pick
+   `The Evening News` as the **Show**. Save.
+3. Open **Programme → Today**, **Format clock**, and press **Add band**. Write `podcast` as the
+   **Sort of break**, choose **once a day at** and `18:00`, and pick **Mon** to **Fri** under
+   **on**. Under **About**, pick the subject from step 2. Save.
+
+The list shows the band with "Mon–Fri" under its time. On a weekday afternoon the edition appears on
+**Voice → Productions** as it is made, and it airs at the first gap at or after six. It leaves
+out the stories earlier editions already told, and the next bulletin leaves out the ones it read.
+On a quiet news day with nothing new, there is no edition and the station plays on.
+
+## 8. Let it look things up (optional)
 
 Bulletins come from your feeds and nothing else, and no web search reaches air inside a break. What
 the **Web search** plugin adds is background: it reads sites you trust about the artists and records
@@ -132,7 +171,7 @@ Open **Settings → Plugins** and open **Web search**. Switch it on, then:
 
 Press **Save configuration**.
 
-## 7. Listen
+## 9. Listen
 
 When the hour comes, the record finishes and the presenter reads the bulletin: a few stories in their
 own words, with the facts kept, and then back to the music. At half past, the weather where the
@@ -157,6 +196,12 @@ and why. Open a bulletin there to see which stories it was given.
   what the station reads.
 - **Publishers' names turn up in the middle of stories.** The feed points at an aggregator rather than
   a newsroom. Use the publisher's own feed.
+- **A breaking story never broke in.** It was already in the feed when the station first looked,
+  it came within **Least time between two breaking stories (minutes)** of the last one, or the
+  station was off the air. Each of those leaves it to the next ordinary bulletin.
+- **No evening edition.** The show had nothing new to say: its feeds held no story within its window
+  that an earlier edition had not told. Check the band is `podcast` with the subject from **Own
+  shows** under **About**, and that the day is one picked under **on**.
 - **No weather at half past.** **Where the station is** is empty, the service could not be reached,
   or its reading would have been older than **How old a reading may be (minutes)** by the time it
   aired. The National Weather Service may refuse requests with no **Contact address**, and only

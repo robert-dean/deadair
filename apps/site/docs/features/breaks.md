@@ -43,6 +43,19 @@ A bulletin never repeats a story while it is fresh (twelve hours by default), an
 
 News categories under Voice, Subjects let a band on the format clock ask for a subject; a bulletin whose category matches nothing is skipped rather than aired under the wrong name. A category marked off air is withheld everywhere, which is how a publisher's deals desk stays out of your news.
 
+A bulletin is short by design. For a longer, scheduled programme of the news (a morning, noon or evening edition), make a news show of the station's own and put it on the format clock: see [shows the station makes](./podcasts.md#on-the-format-clock). A story an edition read is not read again by the next bulletin.
+
+## Breaking news
+
+A feed can be watched as well as read. List it under **Breaking news feeds** in Settings, Bulletins, and the station checks it every few minutes (**How often the breaking feeds are checked (minutes)**, five by default). When a story appears there that the station has not seen, it asks for a bulletin about that one story at the next gap between records, read the way any bulletin is.
+
+- **The list is empty on a fresh install**, which is off. Put only feeds that post rarely and urgently there, such as a newsroom's breaking alerts: a feed that posts all day belongs in the ordinary bulletins.
+- **What was there already is not news.** The first look at each feed only notes what it holds, so switching the watch on, adding a feed, a restart or coming back on air never reads out a whole front page. Off the air nothing is checked.
+- **One at a time.** After one breaking story the station waits at least **Least time between two breaking stories (minutes)**, thirty by default, before breaking in again. A story that arrives in that wait is left for the next ordinary bulletin rather than held, because by then it is no longer breaking. Only the newest new story is taken from each check.
+- **Never twice.** A story an ordinary bulletin already read is not broken in with, and one a breaking bulletin read is not read again at the top of the hour.
+
+Everything a bulletin refuses still applies: a quiet spell, breaks switched off, no voice or no room in the running order turn a breaking story down, and it is not tried again.
+
 ## The weather
 
 Where the station is, and its units, are under Settings, Station. A weather break states only figures a service measured: no comparison with yesterday, no advice about coats. A model naming a temperature it was not given is declined, and a reading that will be older than "How old a reading may be (minutes)" (two hours by default) when it airs is not used.
@@ -72,6 +85,25 @@ When the timetable moves from one block to the next, the station says so between
 On a guest host's night the guest presents the new show and knows whose show it usually is, so they say they are sitting in, and every break they write that night knows it too. On a show with co-hosts, each talk break is said by whichever presenter was heard from least recently and names who else is on; the changeover and the welcome stay with the lead host.
 
 Only a change the timetable makes is marked. Putting something on air yourself stays silent. The lines come from **"What the station says when the show changes"** under Voice, Phrasings, where `{{show.name}}` is the show starting, `{{outgoing.show}}` the one ending and `{{outgoing.name}}` its host. The station picks a line thanking the last host if one fits, then one naming the new show, then one naming the old. If the change lands in the last seconds of a record there is not always time to speak one, and the new show simply starts.
+
+## Kinds of break you write
+
+The kinds above are the station's own. You can add kinds of your own on **Voice → Kinds of break**: a two-line poem about the moment, a memory of taping songs off the radio, a word about the weekend, anything the station could say between records. A kind is a brief rather than code, and the station's model writes one whenever a band for it comes round on the format clock, in the voice of whoever is presenting.
+
+**New kind of break** asks for:
+
+- **Name**, which is what the console calls it and is never read out.
+- **On the format clock as**, the word a band names it by: lowercase words joined by hyphens, such as `poem`. It cannot change once saved, and it cannot be one the station already uses, such as `news` or `talk`.
+- **What it is for**, written to the presenter: what to cover, and when to say nothing. It is read before every one of these the station writes.
+- **Rules of its own**, one per line, optional.
+- **While writing one, the presenter sees**: the record that has just finished, the rest of the show's records, what the station knows about them, and their own notebook. Each is a tick, so a kind that should not talk about the music can be shown none of it.
+- **Switched on**. A new kind is off until you have read it back.
+
+Then add a band on the format clock (Programme, Today) whose sort of break is that word. The list on Kinds of break says whether each kind can air (**Off**, **On**, or **Not airing** when it is on but the model or the voice is not) and how many bands name it. A kind a band still names cannot be deleted.
+
+**Your rules are added to the station's, never instead of them.** A kind of your own stays in character, names no record it was not shown, and states nothing it was not told, and it never gets the things only the station's own kinds use: cues over a record, stories, the weather or the date. **It needs a model.** There is no floor of phrasings under a kind you wrote, so on a station whose model is off its bands are passed over, and the clock says nothing can produce them.
+
+**Moving kinds between stations.** **Export** on a kind's row, or **Export all**, saves a file; **Import** on another station reads one. Before anything is written, the import shows what it would do with each kind: **New**, one you already have (**Keep mine** unless you choose **Replace**), or **Not allowed** for a word the station uses itself. Everything an import writes arrives switched off, so read it back and switch it on.
 
 ## What a break looks like
 

@@ -79,6 +79,21 @@ it would do with each kind: **New**, **Keep mine** or **Replace** for one it alr
 allowed** for a word that station uses itself. Press **Import**. Everything imported arrives switched
 off, so read it back and switch it on there, then give it a band on that station's clock.
 
+## With Claude
+
+With Claude connected and allowed to **Read and manage**
+([how](./connect-a-model.md#connect-claude-if-you-want-it-too)), Claude can write the brief
+with you and set the whole thing up:
+
+> Make a new kind of break called "From the vaults": the presenter recalls taping songs off the
+> radio as a kid, prompted by the record that just finished, in two or three sentences. Leave it
+> switched off and show me the brief before you save it. Then put it on the clock at twenty past
+> every hour on weekends.
+
+Claude creates the kind switched off and adds the band. Read the brief back on **Voice → Kinds of
+break** and switch it on there, or tell Claude to. It can also export your kinds, or preview an
+import, and tell you what the import would do before it does it.
+
 ## If it goes wrong
 
 - **The band says nothing can produce it.** The kind is off, or the station has no model writing the

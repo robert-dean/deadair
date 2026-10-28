@@ -60,6 +60,17 @@ ten", "what did the late-night host say about that record" or "why is it quiet" 
 you can just ask. Claude is told to check with you before anything that deletes or undoes, and every
 call it makes this way is written to the station's log.
 
+When it connects, Claude is told what the station is and where everything is: how these tools fit
+together, that it may read the station's settings but not change them, and which operation does
+what. That covers the running order and quiet spells, ratings and suspensions, requests, the
+timetable and live shows, the format clock on chosen days, news and scheduled news editions, kinds of
+break you write, going live, recordings and pronunciations. Claude reads that before you ask anything.
+A **help** tool answers the same thing with the list of tools, for an app that ignores what it is told
+on connecting, so "what can you do on my station?" always has an answer.
+
+When what you ask for is a setting, such as the breaking news feeds or whether live shows are
+recorded, Claude says which setting and where it is in the console rather than changing it.
+
 A few things are never offered, whatever your role: signing in and credentials, connected apps,
 first-run setup, plugin configuration and sign-in, changing the station's settings (it can read
 them) and its log files. Those stay in the console.

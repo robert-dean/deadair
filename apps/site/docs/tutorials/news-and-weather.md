@@ -180,6 +180,21 @@ station is, in your units.
 **Voice → What it said** lists every break the station wrote, newest first, with the ones it declined
 and why. Open a bulletin there to see which stories it was given.
 
+## With Claude
+
+With Claude connected and allowed to **Read and manage**
+([how](./connect-a-model.md#connect-claude-if-you-want-it-too)), the format clock and the news
+edition can be set up by asking:
+
+> Make a ten-minute news show of the station's own that reads my feeds, and put it on the clock as
+> an evening edition at six on weekdays. Show me the band before you create it.
+
+> Read me the latest headlines from my feeds, then ask the station for a news bulletin now.
+
+Claude creates the show, the subject that names it and the band. The settings on this page
+(**Settings → Bulletins**, **Settings → Station**, and the breaking news feeds) are ones Claude can
+read but not change, so it tells you what to set and where.
+
 ## If it goes wrong
 
 - **The band says "nothing can produce this".** Nothing on the station can make that sort of break.

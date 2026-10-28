@@ -99,6 +99,21 @@ Open **Check-up → Recordings**. Tonight's show is at the top with its name and
 **Play** opens a player you can skip around in, and **Download** saves the MP3 named after the date
 and the show, ready for an editor.
 
+## With Claude
+
+Claude cannot hear your encoder or press BUTT's button, but it can do the rest. With Claude connected
+and allowed to **Read and manage** ([how](./connect-a-model.md#connect-claude-if-you-want-it-too)):
+
+> Book a live show called Friday Night Live every Friday in November from nine until ten, and tell
+> me what plays before and after it.
+
+> I'm about to go live. Arm the live input as "Late Session", and tell me when the station hears me.
+
+> List last week's recordings and tell me how long each live show ran.
+
+Handing back cuts you off for everybody listening, so Claude asks before it does. Whether live shows
+are recorded is a setting, which Claude can read but not change; it tells you where to switch it on.
+
 ## If it goes wrong
 
 - **The countdown never starts.** The station is not hearing sound: check the encoder is connected

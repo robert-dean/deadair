@@ -542,6 +542,24 @@ per-artist cap) before the search rescue. **A list shorter than the batch is nev
 brief naming no acts, and `llm.setShortlist` (on) turns it off: each of those is the search-driven refill
 exactly as it was.
 
+**The model can be asked why it picked each record, and only the model ever is**
+([#26](https://github.com/robert-dean/deadair/discussions/26)). `llm.setReasons` (off) changes the answer
+format of both prompts: `{"n": 12, "why": "..."}` off the list, `{"title","artist","why"}` from a search.
+`readChoices` takes bare numbers and these mixed, so a model that forgets the reason halfway loses no
+record, and it drops an object the answer never closed before reading any number, or a reason cut off at
+"the 80s" would leave `80` to be read as a choice. `pickReason` makes the text one line of at most 160
+characters. A reason the model volunteers with the setting off is dropped, so the log is not reasons on
+some refills and not others. It lands on `TrackPick.pickedBecause`, which the catalog draw, the rescue
+and the other generators never set: the draw's honest answer is the weights that moved, a different kind
+of sentence, and an invented one would be the first line nobody could trust. **It is reported and never
+read to decide anything.** Off by default because it is output tokens on the slowest call the station
+makes; the refill's log line counts the reasons beside `tokens` and `durationMs`, so the cost is read off
+the log with it on and off. From the pick it rides `PickResolver` onto `RundownItem.pickedBecause` (the one field taken from
+the pick, beside `chart` and `deepCut`), survives a restart inside the lineup's `track` jsonb, and is written
+to `as_run.picked_because` when the record airs (migration 0123). Not `play_history`, which the repeat
+window reads on every pick. Every outbound path names its fields, so the model's words never reach an event
+destination, a chat platform, `/nowplaying` or the playout status.
+
 **A listener's request search reaches the providers on the same terms, through `RequestProviderSearch`
 rather than this tool.** It reuses `ProviderSearch` and the same two narrowing reads (`ownership` and
 `dislikedArtistKeys`, guests passed as well as the lead), and differs in four ways that come from a person

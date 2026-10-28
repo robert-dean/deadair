@@ -26,6 +26,7 @@
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
 import type { TrackPick } from './set.generator.js';
+import { pickReason } from './pick.reason.js';
 
 /**
  * The rule that keeps a record shown as context from being read as a record offered.
@@ -143,6 +144,8 @@ export interface SetPromptSettings {
      * chosen, long after the model named the work, and the work is playable either way.
      */
     cleanOnly?: boolean;
+    /** Ask for a short reason beside each record (`llm.setReasons`). Absent asks for records alone, exactly as before. */
+    reasons?: boolean;
 }
 
 /** What the model is being asked to choose between. */
@@ -387,8 +390,14 @@ function systemPrompt(settings: SetPromptSettings): string {
               ]
             : []),
         '',
-        'Answer with a JSON array and nothing else, like this:',
-        '[{"title": "...", "artist": "..."}, {"title": "...", "artist": "..."}]',
+        // The reason costs output tokens on every refill, which is why it is the operator's choice.
+        ...(settings.reasons
+            ? [
+                  'For each record, say in "why" why it belongs in this set: one short sentence a listener could follow, about the record and what was asked for.',
+                  'Answer with a JSON array and nothing else, like this:',
+                  '[{"title": "...", "artist": "...", "why": "..."}, {"title": "...", "artist": "...", "why": "..."}]',
+              ]
+            : ['Answer with a JSON array and nothing else, like this:', '[{"title": "...", "artist": "..."}, {"title": "...", "artist": "..."}]']),
         // Exactly, and it matters more since a search result can be a record the station does not
         // own: the lookup that fetches it matches on the normalized title and lead artist, so a
         // tidied-up title finds nothing where the tool's own spelling finds the record. The same
@@ -675,11 +684,13 @@ function fromJson(answer: string): TrackPick[] | undefined {
         }
         if (typeof entry !== 'object' || entry === null) continue;
 
-        const { title, artist } = entry as { title?: unknown; artist?: unknown };
+        const { title, artist, why } = entry as { title?: unknown; artist?: unknown; why?: unknown };
         if (typeof title !== 'string' || typeof artist !== 'string') continue;
         if (title.trim().length === 0 || artist.trim().length === 0) continue;
 
-        picks.push({ title: title.trim(), artist: artist.trim() });
+        // Read whenever it is there; whether to keep it is the generator's call, on `llm.setReasons`.
+        const reason = pickReason(why);
+        picks.push({ title: title.trim(), artist: artist.trim(), ...(reason === undefined ? {} : { pickedBecause: reason }) });
     }
     return picks;
 }

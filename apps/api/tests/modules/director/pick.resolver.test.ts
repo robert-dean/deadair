@@ -311,6 +311,21 @@ describe('PickResolver', () => {
         expect(resolved.find(track => track.trackId === 'track-2')).not.toHaveProperty('deepCut');
     });
 
+    it('carries why the model picked a record onto it, and nothing onto one it gave no reason for', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            metadata: { 'track-1': { title: 'Windowlicker', credit: 'Aphex Twin' }, 'track-2': { title: 'Xtal', credit: 'Aphex Twin' } },
+        });
+
+        const resolved = await resolve(resolver, [
+            { title: 'Windowlicker', artist: 'Aphex Twin', trackId: 'track-1', pickedBecause: 'The brief asked for something jagged.' },
+            { title: 'Xtal', artist: 'Aphex Twin', trackId: 'track-2' },
+        ]);
+
+        expect(resolved.find(track => track.trackId === 'track-1')?.pickedBecause).toBe('The brief asked for something jagged.');
+        expect(resolved.find(track => track.trackId === 'track-2')).not.toHaveProperty('pickedBecause');
+    });
+
     it('shows the credit as written on the release, not the identity it was chosen by', async () => {
         // The pick's artist is the lead, which is what a cooldown counts. A listener
         // should see what the record says.

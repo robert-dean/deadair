@@ -78,6 +78,14 @@ describe('AsRunRepository.record', () => {
         expect(insert?.parameters).toEqual(expect.arrayContaining(['record', record.trackId, 'Pink Moon', 'Nick Drake', 'import', 3]));
     });
 
+    it('writes why the model picked a record beside it, and nothing for a record with no reason', async () => {
+        const [, explained] = await write({ ...record, pickedBecause: 'Something quiet after the news.' });
+        const [, plain] = await write(record);
+
+        expect(explained?.parameters).toContain('Something quiet after the news.');
+        expect(plain?.parameters).not.toContain('Something quiet after the news.');
+    });
+
     it('writes a break with its segment, and no source, since a record’s provenance is not a break’s', async () => {
         const [, insert] = await write(breakItem);
 

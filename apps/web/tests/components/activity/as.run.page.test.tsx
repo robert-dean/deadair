@@ -96,6 +96,20 @@ describe('AsRunPage', () => {
         expect(screen.getByText(/moved past 3 items that had been handed over/)).toBeInTheDocument();
     });
 
+    it('says why the model picked a record, and nothing under one with no reason', () => {
+        log.mockReturnValue(
+            answer([
+                item({ id: 'explained', pickedBecause: 'A slow one to close the hour.', endedAt: AT.plus({ minutes: 3 }) }),
+                item({ id: 'plain', at: AT.minus({ minutes: 4 }), endedAt: AT.minus({ minutes: 1 }) }),
+            ]),
+        );
+
+        render(<AsRunPage />);
+
+        expect(screen.getAllByText(/^Picked because:/)).toHaveLength(1);
+        expect(screen.getByText('Picked because: A slow one to close the hour.')).toBeInTheDocument();
+    });
+
     it('reads the live head until a moment is chosen', () => {
         log.mockReturnValue(answer([]));
 

@@ -94,6 +94,9 @@ export class AsRunRepository extends DataRepository {
                     where later.station_key = ${entry.stationKey} and later.aired_at > ${at}
                 )`,
                 passedOver: Math.max(0, Math.floor(entry.passedOver)),
+                // Why the model picked a record, when it was asked to say. Null for a break, whose
+                // render item has no such field, and for every record the station drew itself.
+                pickedBecause: render ? null : (item.pickedBecause ?? null),
             })
             .execute();
 

@@ -41,6 +41,13 @@ export interface TrackPick {
      * on {@link chart}'s terms, so a break can say so. Only ever `true` or absent.
      */
     deepCut?: true;
+    /**
+     * Why the model picked it, in its own words, when the operator asked it to say
+     * (`llm.setReasons`). Set by `ModelSetGenerator` alone, carried onto the record on
+     * {@link chart}'s terms and kept in the as-run log. Shown, and never read to decide anything:
+     * not by the resolver, the rotation rules or the repeat window. See `pick.reason.ts`.
+     */
+    pickedBecause?: string;
 }
 
 /**

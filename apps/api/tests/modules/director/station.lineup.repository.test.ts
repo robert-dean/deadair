@@ -106,6 +106,8 @@ const items = (): StationLineupItem[] => [
             artist: 'Somebody Popular',
             artists: ['Somebody Popular'],
             chart: { rank: 7, name: 'Top 100', peak: 3, weeksOn: 11 },
+            // Survives a restart with the rest of the record, so a reason is still there when it airs.
+            pickedBecause: 'The chart put it here, and the brief asked for the chart.',
         },
     },
     { id: 'item-break', kind: 'segment', state: 'planned', segmentId: 'seg-break' },

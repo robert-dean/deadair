@@ -243,6 +243,7 @@ export interface DeadairAsRun {
   itemId: string;
   kind: "record" | "break" | "programme";
   passedOver: Generated<number>;
+  pickedBecause: string | null;
   segmentId: string | null;
   source: string | null;
   stationKey: Generated<string>;

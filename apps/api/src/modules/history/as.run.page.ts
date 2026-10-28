@@ -20,6 +20,7 @@ export interface AsRunRow {
     segmentId: string | null;
     passedOver: number | null;
     detail: string | null;
+    pickedBecause: string | null;
 }
 
 /** One line as the contract carries it. A zero `passedOver` is left off, since it is the ordinary case. */
@@ -35,5 +36,6 @@ export function toAsRunEntry(row: AsRunRow): AsRunEntry {
         ...(row.segmentId == null ? {} : { segmentId: row.segmentId }),
         ...(row.passedOver == null || Number(row.passedOver) === 0 ? {} : { passedOver: Number(row.passedOver) }),
         ...(row.detail == null ? {} : { detail: row.detail }),
+        ...(row.pickedBecause == null ? {} : { pickedBecause: row.pickedBecause }),
     };
 }

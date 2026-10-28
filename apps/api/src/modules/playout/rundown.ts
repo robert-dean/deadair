@@ -261,6 +261,12 @@ export interface RundownItem {
      * history the station keeps. Set on {@link chart}'s rule and read by the break writer only.
      */
     deepCut?: true;
+    /**
+     * Why the model picked it, in its own words, when the operator asked it to say
+     * (`llm.setReasons`). Set on {@link chart}'s rule, written to the as-run log when it airs, and
+     * read by nothing else: no rule, no break and nothing sent outside the station.
+     */
+    pickedBecause?: string;
 }
 
 /**

@@ -50,6 +50,8 @@ export const activity = {
         by: 'by {{artists}}',
         passedOver_one: 'The player moved past {{count}} item that had been handed over to reach this one. It never aired.',
         passedOver_other: 'The player moved past {{count}} items that had been handed over to reach this one. They never aired.',
+        pickedBecause: 'Picked because: {{reason}}',
+        pickedBecauseHint: 'The model’s own words, from when it chose this record.',
         onAirNow: 'on air',
         noEnd: 'no end seen',
     },

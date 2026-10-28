@@ -79,6 +79,13 @@ describe('airedEvent', () => {
         expect(event?.notAfter).toBe(AIRED_AT + 4 * 60_000);
     });
 
+    it('never sends why the model picked a record to anybody outside the station', () => {
+        // The model's own words stay in the as-run log; a destination gets the station's facts.
+        const event = airedEvent(record({ pickedBecause: 'A slow one to close the hour.' }), AIRED_AT, undefined);
+
+        expect(JSON.stringify(event)).not.toContain('A slow one to close the hour.');
+    });
+
     it('sends nothing for a record with no title', () => {
         expect(airedEvent(record({ title: '  ' }), AIRED_AT, undefined)).toBeUndefined();
     });

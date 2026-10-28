@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.2] — 2026-10-28
+
+- A written break now keeps the stored facts it was handed, each with its source link and the quoted span that states it, and whether the station's own read-back found the host saying it (migration `0124_segment_facts`). The source is copied with the break, so it survives the fact being removed with its record. Provider lines, a break the station's own phrasings wrote, and a presenter who is never shown the notes keep nothing. A rewrite replaces the last write's sources.
+- **Voice → What it said** shows where a break's facts came from: open the newest written attempt for a break and each stored fact it was handed is listed with the quoted span and a link to the page, the ones the host said apart from the ones it was handed and left out. **On air now** on the desk shows the same for a break while it airs, the facts it said only. A break handed no stored fact shows nothing extra.
+- `GET /segments/{id}/sources` answers where a break's facts came from: each stored fact its writer was handed, with the page, the quoted span that states it, the plugin that fetched it, and whether the break's words said it. The ones it said come first. A break handed no stored fact answers an empty list. Read with the same access as the rest of the render routes.
+
 ## [0.87.1] — 2026-10-28
 
 - Icecast now records each listener's own address instead of the station's internal proxy for all of them. Behind a tunnel the address is only real once `REAL_IP_FROM` is set, as it already is for HLS listeners. Icecast restarts once when this update is applied, so anyone listening at that moment reconnects.
@@ -1757,7 +1763,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.2...HEAD
+[0.87.2]: https://github.com/robert-dean/deadair/compare/v0.87.1...v0.87.2
 [0.87.1]: https://github.com/robert-dean/deadair/compare/v0.87.0...v0.87.1
 [0.87.0]: https://github.com/robert-dean/deadair/compare/v0.86.4...v0.87.0
 [0.86.4]: https://github.com/robert-dean/deadair/compare/v0.86.3...v0.86.4

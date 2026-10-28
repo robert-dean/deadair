@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.1] — 2026-10-28
+
+- Icecast now records each listener's own address instead of the station's internal proxy for all of them. Behind a tunnel the address is only real once `REAL_IP_FROM` is set, as it already is for HLS listeners. Icecast restarts once when this update is applied, so anyone listening at that moment reconnects.
+- **Check-up → Listeners** shows who is connected to the stream right now: each connection's stream, address, player and how long it has been listening, refreshed every few seconds while the page is open. A stream the station could not read is named instead of looking empty, and the station's own count is explained when it differs from the list. Only an admin can see it; any other account is told so.
+- A phrasing with a sound in it, such as `[sfx:honk]`, is no longer reported as one the station would never pick. The persona editor warned about every such line, importing a character listed them as unusable, and generating a character threw them away, although the station airs them and plays the sound. A cue naming a sound the station would not recognise is still reported, because it would be read out.
+- `GET /stream/listeners` lists who is connected to the station's stream right now, one row per connection: the Icecast mount or HLS, the address, the player and how long it has been connected, with the station's own listener count beside it. Operators only, and not offered to MCP clients, since what it answers is listeners' addresses. Nothing about it is stored: Icecast is asked when the request arrives. A mount that could not be read is listed as such rather than as empty.
+
 ## [0.87.0] — 2026-10-28
 
 - The station can count what its model calls cost. Settings, Words, has a new list, What each model costs: a model and its price per million input and output tokens, as your provider charges it. Each call is priced as it is made, so changing a price later moves only what follows, and a model with no price is still counted in tokens. The figures are kept on the station's trends, and sent on to an OpenTelemetry collector as a counter when one is set.
@@ -1750,7 +1757,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.1...HEAD
+[0.87.1]: https://github.com/robert-dean/deadair/compare/v0.87.0...v0.87.1
 [0.87.0]: https://github.com/robert-dean/deadair/compare/v0.86.4...v0.87.0
 [0.86.4]: https://github.com/robert-dean/deadair/compare/v0.86.3...v0.86.4
 [0.86.3]: https://github.com/robert-dean/deadair/compare/v0.86.2...v0.86.3

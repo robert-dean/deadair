@@ -12,6 +12,7 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
 import { hasKind, NEWSREADER_READS, type Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
+import { SegmentFactsRepository } from '#modules/render/segment.facts.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
 import { isCarriedKind } from './carried.kind.js';
 import { BreakRequestRepository } from './break.request.repository.js';
@@ -25,7 +26,7 @@ import { isTrackItem, type StationLineup, type StationLineupItem } from './stati
 import { songKey } from './rotation.keys.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
-import { BreakRequestBuilder, type ChosenStory, type Neighbour, type Neighbours } from './break.request.builder.js';
+import { BreakRequestBuilder, type ChosenStory, type HandedClaim, type Neighbour, type Neighbours } from './break.request.builder.js';
 import { mentionsFact } from './fact.mentions.js';
 import { nonEmptyText } from '#modules/shared/text.value.js';
 
@@ -90,6 +91,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly padRepository: PadRepository,
         /** The ledger behind the two stamps on a story. See {@link spend}. */
         private readonly tellings: PersonaTellingRepository,
+        /** Which stored claims each break was handed, for where the host got what it said. See {@link keepSources}. */
+        private readonly sources: SegmentFactsRepository,
         private readonly activity: ActivityRecorder,
         // Outlives this job, which is scoped: whether the model has been failing for an hour is a run
         // across many writes. See `BreakFloorWatch`.
@@ -190,6 +193,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             request: built,
             chosen,
             handedFact,
+            handedClaims,
         } = await this.builder.build({
             kind: segment.kind,
             turn: segment.id,
@@ -287,6 +291,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // this line the break could still have been lost; after it, what a listener will hear is
         // settled. See `spend`.
         await this.spend(segmentId, chosen, { ...result.written, script });
+        // Beside the story and on the same terms: settled now, and only now.
+        await this.keepSources(segmentId, result.writer === DETERMINISTIC_WRITER ? [] : handedClaims, script, neighbours);
 
         // Last, and deliberately: a render that ran before the script was committed would claim a
         // segment with nothing to say and fail it. If this send fails the row survives as a written
@@ -599,6 +605,31 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     }
 
     /**
+     * Keep which stored claims this break was handed, and which of them its words said.
+     *
+     * Called where {@link spend} is and for its reasons: only once `writeScript` has won, and on every
+     * write including one handed nothing, so a rewrite takes the last write's sources with it. A break
+     * the floor wrote is handed nothing here, because the station's own phrasings never read a note.
+     *
+     * `told` is the station's read-back (`mentionsFact`), never the model's word for it, and a claim
+     * the read-back cannot judge counts as not said: what this feeds is a source shown as the thing the
+     * host said, and that should err towards absent.
+     *
+     * Best-effort: a record of the sources that could not be written costs the record and never the break.
+     */
+    private async keepSources(segmentId: string, handed: readonly HandedClaim[], script: string, neighbours: Neighbours): Promise<void> {
+        const names = recordNamesOf(neighbours);
+        try {
+            await this.sources.replaceForSegment(
+                segmentId,
+                handed.map(claim => ({ factId: claim.factId, claim: claim.text, told: mentionsFact(script, claim.text, names) === true })),
+            );
+        } catch (error) {
+            this.logger.warn(`director: could not record where a break's facts came from (${errorText(error)})`);
+        }
+    }
+
+    /**
      * Write down every writer that was asked and what it said.
      *
      * Best-effort, and the `catch` is the whole point: nothing reads this table to decide anything,
@@ -623,8 +654,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     ): Promise<void> {
         if (result.attempts.length === 0) return;
 
-        // A link names its records anyway, so their names are no evidence the fact was said.
-        const recordNames = [neighbours.previous, neighbours.next].flatMap(side => (side === undefined ? [] : [side.track.title, side.track.artist]));
+        const recordNames = recordNamesOf(neighbours);
         const factUsedBy = (script: string | undefined): { factUsed?: boolean } => {
             const used = handedFact === undefined || script === undefined ? undefined : mentionsFact(script, handedFact, recordNames);
             return used === undefined ? {} : { factUsed: used };
@@ -684,6 +714,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         await this.fail(segmentId, reason);
     }
 }
+
+/** The records' own names, which a link says anyway and so are no evidence a fact was said. See `mentionsFact`. */
+const recordNamesOf = (neighbours: Neighbours): string[] =>
+    [neighbours.previous, neighbours.next].flatMap(side => (side === undefined ? [] : [side.track.title, side.track.artist]));
 
 /**
  * The records either side of a break, as the order stands now.

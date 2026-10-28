@@ -426,6 +426,17 @@ where fact_used is not null and outcome = 'written' and created_at > now() - int
 group by persona_key;
 ```
 
+**A written break keeps the claims it was handed, and which of them it said.** `deadair.segment_facts`
+(migration `0124`) holds one row per stored claim a break's writer was shown, keyed on the SEGMENT because
+that is what airs, with the claim, its URL, its quote and its provider COPIED off `deadair.facts`: a fact
+goes with its record and the record of what a break was handed must not. `told` is `mentionsFact`'s
+read-back against the finished script, never the model's word for it, and a claim the read-back cannot
+judge counts as not said, so a source shown as the thing the host said errs towards absent. Provider lines
+are never kept, having no source. `WriteBreakJob.keepSources` writes it where `spend` writes a telling, only
+once `writeScript` has won and on every write including one handed nothing, so a rewrite takes the last
+write's sources with it; a break the floor wrote and a presenter at `never` keep none. It is what the
+console shows under "What it said" and on the desk while a break airs. Listener apps do not read it yet.
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next

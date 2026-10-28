@@ -16,6 +16,7 @@ import { RenderService } from './render.service.js';
 import { SegmentLibrary } from './segment.library.js';
 import { ScriptHistoryRepository } from './script.history.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
+import { SegmentFactsRepository } from './segment.facts.repository.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
 import { SpeechGate } from './speech.gate.js';
@@ -140,6 +141,7 @@ export const RenderModule: ServerKitModule = {
         // rows describe segments: the director writes it, the way it writes segments themselves.
         registry.register(ScriptHistoryRepository).useClass(ScriptHistoryRepository).asScoped();
         registry.register(ScriptRatingsRepository).useClass(ScriptRatingsRepository).asScoped();
+        registry.register(SegmentFactsRepository).useClass(SegmentFactsRepository).asScoped();
 
         // Scoped with the repository it writes through. The inbox path is a constructor argument
         // rather than a config lookup of its own, so the class stays testable against a temp

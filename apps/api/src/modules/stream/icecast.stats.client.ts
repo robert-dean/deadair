@@ -58,6 +58,14 @@ const STATS_TIMEOUT_MS = 1500;
  * between noticing a listener in milliseconds and noticing them in a minute, and nothing
  * about it looks broken.
  *
+ * A MISS expires on the same clock: a timeout, a dropped connection or a 5xx says the
+ * server was slow or busy at that moment, not that it lacks the endpoint. The case is a
+ * box that stalls for a second and a half (measured live on 2026-10-29, when the
+ * Liquidsoap control call timed out in the same second): the admin endpoint misses its
+ * timeout, the deprecated one answers the next probe, and before this expired the
+ * station read from it until it restarted. That cost everything {@link IcecastStatsClient.adminApi}
+ * answers, so the Check-up page could not list a single listener on any mount.
+ *
  * Five minutes because the cost is one request to a local socket, and the operator who
  * has deliberately closed `/admin/` to this role pays exactly that and nothing else.
  */
@@ -230,7 +238,7 @@ export class IcecastStatsClient {
     private reportedMissing = false;
     /** The same discipline for "the admin endpoint refused us". See {@link noteRefusal}. */
     private reportedDenied = false;
-    /** When the admin endpoint last refused us, so that the refusal can expire. See {@link ADMIN_RETRY_MS}. */
+    /** When the admin endpoint last refused us or missed, so that either can expire. See {@link ADMIN_RETRY_MS}. */
     private deniedAt?: number;
     /** Told when the endpoint changes. See {@link onResolved}. */
     private readonly resolvedListeners = new Set<() => void>();
@@ -480,6 +488,7 @@ export class IcecastStatsClient {
             });
             if (!response.ok) {
                 this.noteRefusal(endpoint, response.status);
+                if (response.status >= 500) this.noteMiss(endpoint);
                 return undefined;
             }
 
@@ -491,9 +500,20 @@ export class IcecastStatsClient {
             return isStatsDocument(body) ? body : undefined;
         } catch {
             // Unresolvable host (the compose name off-network), refused, timed out, or a
-            // body that is not JSON. All the same thing here: this address did not answer.
+            // body that is not JSON. All the same thing here: this address did not answer,
+            // which on the admin endpoint is a miss to retry rather than an answer to keep.
+            this.noteMiss(endpoint);
             return undefined;
         }
+    }
+
+    /**
+     * Stamp an admin endpoint that did not answer this time, so that falling back from it
+     * is retested rather than kept. Silent, unlike a refusal: the fallback's own "reading
+     * the audience from" line already says where the poll went.
+     */
+    private noteMiss(endpoint: StatsEndpoint): void {
+        if (isAdminEndpoint(endpoint.path)) this.deniedAt = Date.now();
     }
 
     /** The admin credentials, on the admin endpoint and nowhere else. */

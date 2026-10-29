@@ -292,7 +292,8 @@ interface Asked {
  * A `fetch` answering from a url→body table; anything unlisted is a 404.
  *
  * A body of a bare number stands for a status code, so a test can say "this
- * endpoint is there and refuses you" as easily as "it is not there".
+ * endpoint is there and refuses you" as easily as "it is not there". An `Error`
+ * is thrown, which is how a timeout or a dropped connection reaches the client.
  */
 function stubFetch(answers: Record<string, unknown>) {
     const calls: Asked[] = [];
@@ -303,6 +304,7 @@ function stubFetch(answers: Record<string, unknown>) {
 
         const body = answers[asked];
         if (body === undefined) return new Response('not found', { status: 404 });
+        if (body instanceof Error) throw body;
         if (typeof body === 'number') return new Response('denied', { status: body });
         return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
     });
@@ -565,6 +567,33 @@ describe('IcecastStatsClient', () => {
             await expect(pollAfter(stats, 60 * 60_000)).resolves.toBe(2);
 
             expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(1);
+        });
+
+        // A stall is not a refusal and not a 2.4, but it lands on the same fallback, and before
+        // this it stayed there until a restart: measured live, with the Check-up page reporting
+        // every mount "unresolved" ten hours after a box-wide stall of a second and a half.
+        it.each([
+            ['times out', new DOMException('The operation was aborted due to timeout', 'TimeoutError')],
+            ['answers a 5xx', 503],
+        ])('is asked again when it %s on a poll it used to answer', async (_label, miss) => {
+            const answers: Record<string, unknown> = { [ADMIN]: document(1), [DEPRECATED]: document(1) };
+            const calls = stubFetch(answers);
+            const stats = client('hunter2');
+
+            await stats.listeners();
+            expect(stats.adminApi()).toBeDefined();
+
+            answers[ADMIN] = miss;
+            await expect(stats.listeners()).resolves.toBe(1);
+            expect(stats.adminApi()).toBeUndefined();
+
+            // The stall has passed, but nothing asks until the retry is due.
+            answers[ADMIN] = document(2);
+            await expect(stats.listeners()).resolves.toBe(1);
+            expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(2);
+
+            await expect(pollAfter(stats, 5 * 60_000)).resolves.toBe(2);
+            expect(stats.adminApi()).toEqual({ base: 'http://127.0.0.1:8000', password: 'hunter2' });
         });
 
         it('says so again when a server that let it in later refuses it', async () => {

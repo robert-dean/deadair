@@ -536,6 +536,93 @@ describe('the last pass of a polished production', () => {
 // No production is ever handed a weather reading, so a host describing the sky made it up. The check
 // pass is where that is caught, and what it hands `checkBeat` decides whether a host answering a
 // caller's own weather is refused for it, so this runs the real pass over a real three-turn call.
+// Rationing a signature inside one programme was not enough: a banter is commissioned every thirty
+// minutes, each started with nothing spent, and Garth said "We fear change" in 23 of 99 banter beats
+// without once saying it after being told it was spent.
+describe("a speaker's signatures spent before the programme", () => {
+    const PLAN = { beats: [0, 1].map((speaker, ordinal) => ({ ordinal, speaker, words: 12 })) } as never;
+    const CAST = [
+        { role: 'host', name: 'Garth', personaId: 'p-garth' },
+        { role: 'host', name: 'Wayne', personaId: 'p-wayne' },
+    ] as never;
+    const garth = { id: 'p-garth', key: 'garth', label: 'Garth', style: 'a shy drummer', catchphrases: ['We fear change'] };
+    const wayne = { id: 'p-wayne', key: 'wayne', label: 'Wayne', style: 'a metalhead', catchphrases: ['Party on'] };
+
+    async function redrafted(
+        spokenBy: (key: string, withinMs: number, limit: number, options?: { excludingProduction?: string }) => Promise<string[]>,
+    ) {
+        const beats = ['Um. Drums.', 'Excellent, Garth.'].map((script, index) => ({
+            id: `beat-${index}`,
+            script,
+            label: 'Banter',
+            pads: [],
+            productionOrdinal: index,
+        }));
+        const productions = {
+            claim: vi.fn(async () => production({ state: 'checking', writingMode: 'polished', plan: PLAN, casting: CAST })),
+            isCancelled: vi.fn(async () => false),
+        } as never;
+        const segments = { beatsOf: vi.fn(async () => beats), writeScript: vi.fn(async () => {}) } as never;
+        const history = { spokenBy: vi.fn(spokenBy) };
+        const personas = {
+            presenting: vi.fn(async () => undefined),
+            find: vi.fn(async (id: string) => [garth, wayne].find(p => p.id === id)),
+        } as never;
+        const speech = { cues: vi.fn(async () => []) } as never;
+        const converse = vi.fn(async (_conversation: { messages: { content: string }[] }) => ({ text: 'Rewritten.' }));
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            segments,
+            history as never,
+            personas,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            speech,
+            { converse } as never,
+            {} as never,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            {} as never,
+            {} as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const check = (job as unknown as { check: (input: Production) => Promise<boolean> }).check.bind(job);
+        await check(production({ id: 'prod-1', state: 'checking' }));
+
+        // Each re-draft's prompt, in beat order. Beats this short are re-drafted for their length.
+        return { history, asked: converse.mock.calls.map(([conversation]) => conversation.messages.map(message => message.content).join('\n')) };
+    }
+
+    it('tells a speaker a signature they said in the last hour is spent, and not the other speaker', async () => {
+        const { asked } = await redrafted(async key => (key === 'garth' ? ['Um. We fear change, Wayne.'] : []));
+
+        expect(asked[0]).toContain('You have already said "We fear change" recently');
+        expect(asked[1]).not.toMatch(/already said/);
+    });
+
+    it("reads every speaker's hour without this programme's own beats", async () => {
+        const { history } = await redrafted(async () => []);
+
+        expect(history.spokenBy).toHaveBeenCalledWith('garth', 60 * 60 * 1000, expect.any(Number), { excludingProduction: 'prod-1' });
+        expect(history.spokenBy).toHaveBeenCalledWith('wayne', 60 * 60 * 1000, expect.any(Number), { excludingProduction: 'prod-1' });
+    });
+
+    it('still re-drafts when the read fails, with nothing spent', async () => {
+        const { asked } = await redrafted(async () => Promise.reject(new Error('the history table is gone')));
+
+        expect(asked.length).toBeGreaterThan(0);
+        expect(asked[0]).not.toMatch(/already said/);
+    });
+});
+
 describe('weather in a phone-in', () => {
     const PLAN = { beats: [0, 1, 0].map((speaker, ordinal) => ({ ordinal, speaker, words: 12 })) } as never;
     const CAST = [

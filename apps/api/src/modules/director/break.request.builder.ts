@@ -398,6 +398,7 @@ export class BreakRequestBuilder {
             ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(kind)),
+            ...(await this.ownWords(kind, persona)),
             // Read here rather than held by any writer, for the reason the facts above are: the
             // character the station is in is a property of the moment, and every binding uses a
             // different half of it. Read per break, so an operator putting a different persona on
@@ -499,6 +500,29 @@ export class BreakRequestBuilder {
         } catch (error) {
             this.logger.warn(`director: could not read what the station has said this broadcast (${errorText(error)})`);
             return { recent: await this.segments.recentScripts(kind, RECENT_WINDOW) };
+        }
+    }
+
+    /**
+     * What the presenter saying this break said in the last hour, in breaks of this kind.
+     *
+     * The speaker's own memory beside the station's, read over the same hour and to the same length
+     * as {@link memory}, so "recently" means one thing whichever list answers it. See
+     * `BreakWriteRequest.own` for why the station's list could not carry a habit on a show with
+     * co-hosts.
+     *
+     * Best-effort for the reason the station's memory is: a read that fails costs the recall rather
+     * than the break.
+     */
+    private async ownWords(kind: string, persona: Persona | undefined): Promise<{ own?: readonly string[] }> {
+        if (persona === undefined) return {};
+
+        try {
+            const own = await this.history.spokenBy(persona.key, CARRY_WINDOW_MS, RECENT_WINDOW, { kind });
+            return own.length === 0 ? {} : { own };
+        } catch (error) {
+            this.logger.warn(`director: could not read what ${persona.key} has said lately (${errorText(error)})`);
+            return {};
         }
     }
 

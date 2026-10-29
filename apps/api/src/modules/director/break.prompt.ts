@@ -1444,60 +1444,70 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
                     'a different first word and a different shape, not the same run-up with the records swapped.',
             );
         }
+    }
 
-        // The opening rule one scale larger, and it exists because fixing the openings did not fix
-        // the repetition — it moved it into the middle of the sentence. Measured over thirty-nine
-        // consecutive breaks under one persona: groove 26, friend 35, signal 17, pattern 14, clock
-        // 12, echo 11, needle 8, whispers 7. Every break opened differently and they were all the
-        // same break.
-        //
-        // A persona is what makes this worse rather than better, which is the part worth stating:
-        // `dictionMarkers` are asked for by name in every prompt and counted in every answer, so the
-        // cheapest way to pass the character check is to say the marker list again, and nothing was
-        // reading back how often. So the markers are deliberately NOT exempt here.
-        //
-        // An ASK and never a refusal, unlike the openings. A word is not wrong for being used twice,
-        // the sheet genuinely does want its vocabulary in the answer, and a check that declined over
-        // this would be refusing the character for being itself. Naming the habit is the whole
-        // intervention — it is the same bargain the spent signatures are on, and that one lands.
-        // English only, because the stop list that keeps "the" and "and" out of it is English. On a
-        // German station it would name "nicht" and "eine" as habits.
-        const worn = settings.language === undefined ? overusedWords(request.recent) : [];
-        if (worn.length > 0) {
-            parts.push(
-                `You have leaned on ${worn.map(word => `"${word}"`).join(', ')} in nearly every recent break. Reach past ${worn.length === 1 ? 'it' : 'them'} ` +
-                    'this time. Your character has more than one way to say what it means, and saying it the same way every time is how a ' +
-                    'presenter starts to sound like a recording.',
-            );
-        }
+    // The opening rule one scale larger, and it exists because fixing the openings did not fix
+    // the repetition — it moved it into the middle of the sentence. Measured over thirty-nine
+    // consecutive breaks under one persona: groove 26, friend 35, signal 17, pattern 14, clock
+    // 12, echo 11, needle 8, whispers 7. Every break opened differently and they were all the
+    // same break.
+    //
+    // A persona is what makes this worse rather than better, which is the part worth stating:
+    // `dictionMarkers` are asked for by name in every prompt and counted in every answer, so the
+    // cheapest way to pass the character check is to say the marker list again, and nothing was
+    // reading back how often. So the markers are deliberately NOT exempt here.
+    //
+    // An ASK and never a refusal, unlike the openings. A word is not wrong for being used twice,
+    // the sheet genuinely does want its vocabulary in the answer, and a check that declined over
+    // this would be refusing the character for being itself. Naming the habit is the whole
+    // intervention — it is the same bargain the spent signatures are on, and that one lands.
+    // English only, because the stop list that keeps "the" and "and" out of it is English. On a
+    // German station it would name "nicht" and "eine" as habits.
+    //
+    // Read from the presenter's OWN breaks when the station has them, because a habit belongs to
+    // whoever has it. The station's list is whoever spoke last, and on a show with co-hosts one banter
+    // fills it: Garth's "basement" was in 26 of his 99 talk breaks and this line never once named it,
+    // while it named "just", "like" and "wayne" off a window that was mostly Wayne. See
+    // `BreakWriteRequest.own`.
+    const worn = settings.language === undefined ? overusedWords(request.own ?? request.recent) : [];
+    if (worn.length > 0) {
+        parts.push(
+            `You have leaned on ${worn.map(word => `"${word}"`).join(', ')} in nearly every recent break. Reach past ${worn.length === 1 ? 'it' : 'them'} ` +
+                'this time. Your character has more than one way to say what it means, and saying it the same way every time is how a ' +
+                'presenter starts to sound like a recording.',
+        );
+    }
 
-        // The moment-dependent half of the catchphrase rule, and it is here rather than in the sheet
-        // for the reason everything is here rather than there: which signatures are spent is a fact
-        // about tonight, and the system turn is who the station is. The sheet says "at most one, and
-        // not every time"; this is the sentence that makes "not every time" mean something, and
-        // `characterFault` refuses a script that ignores it.
-        //
-        // The invitation matters as much as the refusal. Told only what it may not say, a model
-        // reaches for the nearest other thing the sheet gave it, which is a sample line — the
-        // failure one rule over. Told to make a new one, it does the character rather than quoting
-        // it, and the station gets a signature that is genuinely its own.
-        //
-        // And told what the new one may not be built on, because the invitation alone had an obvious
-        // answer: a signature with a name in it ("Party on, Garth!") whose name is not in the room,
-        // and the station's name in every prompt. A twenty-break audition of that character on
-        // 2026-10-21 ended fifteen times on "Party on, Deadair!" or a cousin of it.
-        const spent = settings.persona === undefined ? [] : spentCatchphrases(settings.persona, request.recent);
-        if (spent.length > 0) {
-            parts.push(
-                `You have already said ${spent.map(phrase => `"${phrase}"`).join(' and ')} recently. Do not say ${spent.length === 1 ? 'it' : 'any of them'} again now.` +
-                    // The prohibition stays for a break whose character is a lean, because the guard
-                    // still refuses a spent signature there; the invitation to make a new sign-off
-                    // does not. See `BreakPromptShape.voice`.
-                    (shape.voice === 'lean'
-                        ? ''
-                        : " If you want a line to go out on, make up a new one of your own in the same voice, and do not build it on the station's name."),
-            );
-        }
+    // The moment-dependent half of the catchphrase rule, and it is here rather than in the sheet
+    // for the reason everything is here rather than there: which signatures are spent is a fact
+    // about tonight, and the system turn is who the station is. The sheet says "at most one, and
+    // not every time"; this is the sentence that makes "not every time" mean something, and
+    // `characterFault` refuses a script that ignores it.
+    //
+    // The invitation matters as much as the refusal. Told only what it may not say, a model
+    // reaches for the nearest other thing the sheet gave it, which is a sample line — the
+    // failure one rule over. Told to make a new one, it does the character rather than quoting
+    // it, and the station gets a signature that is genuinely its own.
+    //
+    // And told what the new one may not be built on, because the invitation alone had an obvious
+    // answer: a signature with a name in it ("Party on, Garth!") whose name is not in the room,
+    // and the station's name in every prompt. A twenty-break audition of that character on
+    // 2026-10-21 ended fifteen times on "Party on, Deadair!" or a cousin of it.
+    //
+    // Spent by EITHER list: what the station said lately and what this presenter said in the last
+    // hour. The guard reads the same two (`CharacterContext.own`), so a script is refused only for a
+    // signature this sentence named.
+    const spent = settings.persona === undefined ? [] : spentCatchphrases(settings.persona, [...(request.recent ?? []), ...(request.own ?? [])]);
+    if (spent.length > 0) {
+        parts.push(
+            `You have already said ${spent.map(phrase => `"${phrase}"`).join(' and ')} recently. Do not say ${spent.length === 1 ? 'it' : 'any of them'} again now.` +
+                // The prohibition stays for a break whose character is a lean, because the guard
+                // still refuses a spent signature there; the invitation to make a new sign-off
+                // does not. See `BreakPromptShape.voice`.
+                (shape.voice === 'lean'
+                    ? ''
+                    : " If you want a line to go out on, make up a new one of your own in the same voice, and do not build it on the station's name."),
+        );
     }
 
     // BEFORE the clock, and the order is the argument. `request.clock` is twelve-hour with no am or

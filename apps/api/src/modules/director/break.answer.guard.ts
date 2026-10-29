@@ -472,6 +472,13 @@ export interface AnswerGuard {
      */
     recent?: readonly string[];
     /**
+     * What this presenter said in the last hour, exactly as the prompt was shown it.
+     *
+     * Read beside {@link recent} for spent signatures and nothing else, on the same bargain: the
+     * prompt names a signature as spent off both lists, so the guard refuses off both.
+     */
+    own?: readonly string[];
+    /**
      * The records this break was shown, at least one of which it has to name.
      *
      * Empty or absent means the question is not asked, which covers every kind whose shape does not
@@ -1391,6 +1398,7 @@ export function faultIn(script: string, guard: AnswerGuard, cued?: string): Char
     return characterFault(guard.persona, script, {
         ...(cued === undefined ? {} : { cued }),
         ...(guard.recent === undefined ? {} : { recent: guard.recent }),
+        ...(guard.own === undefined ? {} : { own: guard.own }),
         ...(guard.told === undefined ? {} : { told: guard.told }),
         ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),
         ...(guard.language === undefined ? {} : { language: guard.language }),

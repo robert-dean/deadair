@@ -686,6 +686,17 @@ names them. That last one asks and never refuses, deliberately — `dictionMarke
 counted in every answer, so the cheapest way to pass the character check is to say the marker list again, and
 a check that declined over it would be refusing the character for being itself.
 
+**A habit belongs to whoever has it, so the worn-word line reads the presenter's own breaks.** `recent` is
+the station's last six lines, whoever said them, and on a show with co-hosts one banter fills it with beats.
+Measured on 2026-10-29: Garth's newest talk break was handed a jingle, one of his own breaks and four banter
+beats (two of them Wayne's), and over a week the line named "just", "like" and "wayne" while "basement" sat in
+26 of his 99 talk breaks and was never named once. `BreakWriteRequest.own` is his last hour in breaks of the
+same kind (`ScriptHistoryRepository.spokenBy`), same length and same hour as `recent`, and `overusedWords`
+reads it when it is there. Replayed over his previous two weeks, it would have named "basement" 11 times,
+"drumming" 20 and "sorry" 6. Of the same KIND, because the banter is a different format with different habits
+and mixed in it dilutes the share that names one. The spent-signature rule reads both lists, prompt and guard
+alike, and `repeatOf` still reads only `recent`, since that is the list the prompt quotes back.
+
 **The writers hear the mood the show is leaning into, as a lean.** A broadcast's mood stages
 (`schedule_slots.moods`, copied onto the running order) used to steer the draw and nothing else, so a
 slot an operator set to lean lonely after ten had its records lean that way while the presenter was

@@ -397,6 +397,16 @@ with no outline, five of their six asks cut off by a break or a bulletin, and th
 not plan it, twice". Each beat was then written blind and every one repeated the same catchphrases.
 `production.unplanned` now names which count ran out.
 
+**A signature is spent across programmes, not just inside one.** Each beat is told which of its speaker's
+catchphrases are spent, and inside one programme that works: over a week, not one of Garth's banter beats said
+"We fear change" after being told it was spent. But 23 of his 99 banter beats said it, because a co-hosted show
+commissions a banter every thirty minutes and each one began with nothing spent, so a listener heard it twice
+an hour. Each speaker's last hour outside the programme now spends their signatures too (`SPENT_ACROSS_MS`,
+read through `ScriptHistoryRepository.spokenBy` with `excludingProduction`), across every kind, since a
+catchphrase heard in a talk break is as spent as one heard in a banter. The programme's own beats are left out of
+that read because a re-draft must not be told its signature is spent by its own first attempt, which is
+`written` in the table by then. Best-effort: a failed read costs the rationing and never the programme.
+
 **The outline gets four minutes, not the beats' two** (`OUTLINE_BUDGET_MS`). It is the one call in the pass left
 at the model's default reasoning, and on the live station the outlines that came back took 70 to 111 seconds for
 3,000 to 4,800 output tokens, so the slow half of them hit the old 120-second budget exactly: on 2026-10-21 three

@@ -203,6 +203,47 @@ describe('ScriptHistoryRepository.spokenSince', () => {
     });
 });
 
+describe('ScriptHistoryRepository.spokenBy', () => {
+    it('answers nothing for a window or a limit of zero without asking the database', async () => {
+        await expect(repositoryOver(untouchableDb()).spokenBy('garth', 0, 6)).resolves.toEqual([]);
+        await expect(repositoryOver(untouchableDb()).spokenBy('garth', 3_600_000, 0)).resolves.toEqual([]);
+    });
+
+    it("reads one character's lines on this station, against the database clock", async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenBy('garth', 3_600_000, 6);
+
+        expect(captured.sql).toContain('persona_key =');
+        expect(captured.parameters).toContain('garth');
+        expect(captured.sql).toContain('station_key =');
+        expect(captured.parameters).toContain(STATION);
+        expect(captured.sql).toContain(`created_at >= now() - '3600000 milliseconds'::interval`);
+    });
+
+    // A habit is a habit of the format: Garth's banter turns diluted the share that would have named
+    // what his talk breaks kept saying.
+    it('narrows to one kind when asked, and reads every kind when not', async () => {
+        const narrowed: Captured = {};
+        await repositoryOver(fakeDb([], narrowed)).spokenBy('garth', 3_600_000, 6, { kind: 'talkbreak' });
+        expect(narrowed.sql).toContain('and kind =');
+        expect(narrowed.parameters).toContain('talkbreak');
+
+        const every: Captured = {};
+        await repositoryOver(fakeDb([], every)).spokenBy('garth', 3_600_000, 6);
+        expect(every.sql).not.toContain('and kind =');
+    });
+
+    it('reads the latest written attempt per segment, newest first', async () => {
+        const captured: Captured = {};
+        const said = await repositoryOver(fakeDb([{ script: 'the newest' }, { script: 'the one before' }], captured)).spokenBy('garth', 3_600_000, 6);
+
+        expect(captured.sql).toContain(`outcome = 'written'`);
+        expect(captured.sql).toContain('distinct on (coalesce(segment_id::text, id::text))');
+        expect(captured.sql).toContain('order by said.created_at desc');
+        expect(said).toEqual(['the newest', 'the one before']);
+    });
+});
+
 describe('ScriptHistoryRepository.page', () => {
     it('answers nothing for a page of zero without asking the database', async () => {
         await expect(repositoryOver(untouchableDb()).page({ limit: 0 })).resolves.toEqual([]);

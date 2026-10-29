@@ -587,6 +587,24 @@ describe('breakPrompt', () => {
         it('says none of it for a station with nothing behind it', () => {
             expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toMatch(/you have leaned on/i);
         });
+
+        // A habit belongs to whoever has it. On a show with co-hosts the station's list is mostly the
+        // other presenter's banter, and Garth's "basement" (26 of his 99 talk breaks) was never named.
+        it("reads the presenter's own breaks when it has them, rather than whoever spoke last", () => {
+            const station = ['Party on, the record rules.', 'This is Deadair.', 'Excellent, here comes the guitar.'];
+            const said = user(prompt({ kind: 'talkbreak', previous, next, recent: station, own: worn }));
+
+            expect(said).toContain('"groove"');
+            expect(said).toContain('"friend"');
+        });
+
+        it('judges the habit on the station list when the presenter has said nothing lately', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous, next, recent: worn }))).toContain('"groove"');
+        });
+
+        it('names a habit from the presenter alone, with nothing else behind the station', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous, next, own: worn }))).toMatch(/you have leaned on/i);
+        });
     });
 
     // Measured on 2026-10-01: a bulletin about an execution and a dismissed prosecution ended
@@ -667,6 +685,16 @@ describe('breakPrompt', () => {
             const said = user(prompt({ kind: 'talkbreak', previous, recent: ['Aye. Arrr, and there it goes.'] }, { persona, station: 'Deadair' }));
 
             expect(said).toMatch(/make up a new one of your own in the same voice, and do not build it on the station's name/i);
+        });
+
+        // A signature the presenter said in their own last hour is spent as surely as one the station
+        // list still holds, which is what the banter was flushing out of it.
+        it('counts one the presenter said in their own last hour', () => {
+            const said = user(
+                prompt({ kind: 'talkbreak', previous, recent: ['This is Deadair.'], own: ['Aye. Arrr, and there it goes.'] }, { persona }),
+            );
+
+            expect(said).toContain('You have already said "Arrr, and there it goes" recently');
         });
 
         it('says nothing about signatures the station has not used, because that is a rule about nothing', () => {

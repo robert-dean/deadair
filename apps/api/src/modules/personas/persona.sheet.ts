@@ -1534,6 +1534,15 @@ export interface CharacterContext {
     /** The last few things the station said, as `BreakWriteRequest.recent` holds them. */
     recent?: readonly string[];
     /**
+     * What this character said in the last hour, as `BreakWriteRequest.own` holds it.
+     *
+     * Read only for spent signatures, beside {@link recent}: a catchphrase is spent by either list,
+     * exactly as the prompt says it is. Not read for {@link repeatOf}, whose list is the one the
+     * prompt quotes back as "you said these recently", and a script is refused for repeating only
+     * what it was shown.
+     */
+    own?: readonly string[];
+    /**
      * What this character said the last few times it picked up the thread this break was handed.
      *
      * Shown to the model so a running joke can be BUILT on, and refused here so it cannot be
@@ -1620,7 +1629,7 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     if (context.told !== undefined && echoOf(context.told, script) !== undefined) return 'retold-verbatim';
     if (avoidedWording(sheet, context.cued ?? script).length > 0) return 'avoided-wording';
 
-    const spent = spentCatchphrases(sheet, context.recent);
+    const spent = spentCatchphrases(sheet, [...(context.recent ?? []), ...(context.own ?? [])]);
     if (spent.length > 0 && catchphrasesIn(spent, script).length > 0) return 'spent-catchphrase';
 
     // The checks a kind may be excused. See `CharacterContext.dialect`.

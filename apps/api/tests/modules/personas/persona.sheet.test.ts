@@ -704,6 +704,23 @@ describe('characterFault', () => {
         expect(characterFault(sheet, 'Alright, next up is Pantera. I said what I said.', { recent })).toBe('spent-catchphrase');
     });
 
+    // The prompt names a signature as spent off either list, so the guard refuses off either.
+    it("refuses a signature the presenter said in their own last hour, beyond the station's list", () => {
+        const own = ['Wow. Anyway, that was Danzig. I said what I said.'];
+
+        expect(characterFault(sheet, 'Alright, next up is Pantera. I said what I said.', { recent: ['That was Ozzy. Wow.'], own })).toBe(
+            'spent-catchphrase',
+        );
+    });
+
+    // `repeatOf` reads the list the prompt quotes back, and the presenter's own is not quoted.
+    it("does not judge a repeated stretch against the presenter's own list", () => {
+        const own = ['Wow, that was Hell Fire, a San Francisco outfit that tried to out-shout the whole Bay Area. Anyway.'];
+        const script = 'Wow, that was Hell Fire, a San Francisco outfit that tried to out-shout the whole Bay Area. Anyway.';
+
+        expect(characterFault(sheet, script, { own })).not.toBe('repeated-itself');
+    });
+
     // The bargain: refused only for repeating something it was shown and told not to repeat.
     it('allows the same signature when the station has not just used it', () => {
         expect(characterFault(sheet, 'Alright, next up is Pantera. I said what I said.', { recent: ['That was Ozzy. Wow.'] })).toBeUndefined();

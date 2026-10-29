@@ -98,6 +98,8 @@ function harness(
         broadcastId?: string;
         /** For the one test that proves a broken history read still produces a break. */
         spokenThrows?: boolean;
+        /** What the presenting character said in the last hour, in breaks of this kind. */
+        saidByMe?: readonly string[] | Error;
         /** What is on the presenting character's soundboard. Empty for every test that is not about one. */
         pads?: { name: string }[];
         /** How long since the station last made a noise, which is what the floor's spacing reads. */
@@ -149,6 +151,10 @@ function harness(
         // Empty unless a test says, which is the state every assertion above this file's memory tests
         // was written against: a list topped up from nowhere is the list it was.
         spokenSince: vi.fn(async (_withinMs: number, _limit: number, _excluding?: string) => options.saidBefore ?? []),
+        // Empty unless a test says, and never asked for a station presenting as nobody.
+        spokenBy: vi.fn(async (_personaKey: string, _withinMs: number, _limit: number, _options?: { kind?: string }) =>
+            options.saidByMe instanceof Error ? Promise.reject(options.saidByMe) : (options.saidByMe ?? []),
+        ),
     };
     const wrote = (script: string, label: string, writer: string) => ({
         written: { script, label },
@@ -2458,6 +2464,62 @@ describe('WriteBreakJob', () => {
             // the block on what the moment HOLDS, and an empty heading is a heading with nothing
             // under it.
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }), 'model');
+        });
+
+        // The station's list is whoever spoke last, and on a show with co-hosts one banter fills it:
+        // Garth's newest talk break was handed four banter beats and one of his own breaks, so his
+        // own habits never reached the check that names a worn word.
+        describe("the presenter's own memory", () => {
+            const garth = { id: 'p-garth', key: 'garth', label: 'Garth', style: 'a shy drummer', defaultHost: true } as Persona;
+
+            it('hands the writers what this presenter said in the last hour, in breaks of this kind', async () => {
+                const { job, writers, history } = harness({
+                    lineup: await lineupWithBreak(),
+                    persona: garth,
+                    said: ['a banter beat of Wayne'],
+                    saidByMe: ['I hid in the basement.', 'The basement again.'],
+                });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(history.spokenBy).toHaveBeenCalledWith('garth', 60 * 60 * 1000, expect.any(Number), { kind: 'talkbreak' });
+                expect(writers.write).toHaveBeenCalledWith(
+                    expect.objectContaining({ recent: ['a banter beat of Wayne'], own: ['I hid in the basement.', 'The basement again.'] }),
+                    'model',
+                );
+            });
+
+            it('asks nothing for a station presenting as nobody', async () => {
+                const { job, writers, history } = harness({ lineup: await lineupWithBreak() });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(history.spokenBy).not.toHaveBeenCalled();
+                expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ own: expect.anything() }), 'model');
+            });
+
+            // Absent rather than empty, so the prompt falls back to the station's list rather than
+            // judging a habit from nothing.
+            it('leaves it off when the presenter has said nothing in the hour', async () => {
+                const { job, writers } = harness({ lineup: await lineupWithBreak(), persona: garth, saidByMe: [] });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ own: expect.anything() }), 'model');
+            });
+
+            it('still writes the break when the read fails', async () => {
+                const { job, writers, logger } = harness({
+                    lineup: await lineupWithBreak(),
+                    persona: garth,
+                    saidByMe: new Error('the history table is gone'),
+                });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ own: expect.anything() }), 'model');
+                expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not read what garth has said lately'));
+            });
         });
 
         // The fallback is not a nicety: handing an empty `recent` would quietly disarm the

@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.3] — 2026-10-29
+
+- A stall no longer leaves the station reading Icecast's deprecated stats endpoint until it restarts. When the admin endpoint times out, drops the connection or answers a 5xx, the poll falls back as before, then tries the admin endpoint again after five minutes, as it already did after a refused password. While the station was stuck on the fallback, Check-up → Listeners reported every mount as "has not found an Icecast 2.5 it can ask". A 404 still means a 2.4 server and is not retried.
+- A talk break now remembers what its own presenter said in the last hour, beside what the station said. The worn-word line reads the presenter's own breaks, so a co-host's habits are named instead of being drowned out by the other host's banter, and a catchphrase the presenter used in that hour counts as spent.
+- A co-host's catchphrase now stays spent for an hour across banters and talk breaks, instead of resetting with every new banter. Each banter used to start with nothing spent, so a phrase like "We fear change" came back about twice an hour.
+
 ## [0.87.2] — 2026-10-28
 
 - A written break now keeps the stored facts it was handed, each with its source link and the quoted span that states it, and whether the station's own read-back found the host saying it (migration `0124_segment_facts`). The source is copied with the break, so it survives the fact being removed with its record. Provider lines, a break the station's own phrasings wrote, and a presenter who is never shown the notes keep nothing. A rewrite replaces the last write's sources.
@@ -1763,7 +1769,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.3...HEAD
+[0.87.3]: https://github.com/robert-dean/deadair/compare/v0.87.2...v0.87.3
 [0.87.2]: https://github.com/robert-dean/deadair/compare/v0.87.1...v0.87.2
 [0.87.1]: https://github.com/robert-dean/deadair/compare/v0.87.0...v0.87.1
 [0.87.0]: https://github.com/robert-dean/deadair/compare/v0.86.4...v0.87.0

@@ -135,6 +135,20 @@ export const PLAIN_KINDS: readonly string[] = ['news', 'bulletin'];
  */
 export const MAX_PRODUCTION_PADS = 2;
 
+/**
+ * How far back a speaker's signatures stay spent across programmes: an hour, the window a talk break
+ * remembers its presenter over, so "recently" means one thing on both sides of the station.
+ *
+ * Rationing a catchphrase inside one programme was not enough. Measured on 2026-10-29: in a week of
+ * banter not one of Garth's beats said "We fear change" after being told it was spent, and 23 of his
+ * 99 banter beats said it anyway, because a banter is commissioned every thirty minutes and each one
+ * started with nothing spent. A listener heard it twice an hour.
+ */
+export const SPENT_ACROSS_MS = 60 * 60 * 1000;
+
+/** How many of a speaker's lines from that hour are read: enough for a busy co-host's whole hour, as a bound rather than a target. */
+export const SPENT_ACROSS_LINES = 30;
+
 export interface ProducePayload {
     /**
      * Which production to work on.
@@ -542,6 +556,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // One read per character rather than one per beat. A production is up to twenty-four beats
         // and the sheet does not change while it is being written.
         const sheets = await this.sheets(claimed, casting);
+        // What each speaker said in the hour before this programme, which spends their signatures
+        // beside what they say in it. See `SPENT_ACROSS_MS`.
+        const lately = await this.saidLately(claimed.id, sheets);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         // Once for the production rather than once per beat: a programme does not cross into a
@@ -586,7 +603,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // Which of this character's signatures the programme has already spent. The measured
             // failure without it: "I said what I said" in 23 of 24 beats, because the sheet offers
             // its catchphrases to every beat and no beat could see what the others had done.
-            const spent = persona === undefined ? [] : spentCatchphrases(persona, mine);
+            const spent = persona === undefined ? [] : spentCatchphrases(persona, [...mine, ...(lately.get(at) ?? [])]);
             // Built once so the retry below asks for exactly the same thing, and held so the history
             // row can carry it: a retry that rebuilt the prompt would be a different question, and a
             // beat that failed twice for two different reasons is one nobody can diagnose.
@@ -781,6 +798,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // The same division the draft was written to, so a re-draft is held to the notes it had.
         const covers = beatNotes(claimed.notes, claimed.outline, plan.beats.length);
         const sheets = await this.sheets(claimed, casting);
+        // The same hour the draft was held to, read without this programme's own beats, so a re-draft
+        // is never told its signature is spent by its own first attempt.
+        const lately = await this.saidLately(claimed.id, sheets);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         const airs = this.whenItAirs(claimed);
@@ -855,9 +875,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // Everything THIS SPEAKER says EXCEPT this beat: a re-draft must not be told
                         // its own signature is spent by its own first attempt, which would forbid the
                         // one line it is allowed to keep — and must not be told somebody else's is.
-                        ...(spentOf(persona, mineExcept(beats, plan, at, index)).length === 0
+                        ...(spentOf(persona, [...mineExcept(beats, plan, at, index), ...(lately.get(at) ?? [])]).length === 0
                             ? {}
-                            : { spent: spentOf(persona, mineExcept(beats, plan, at, index)) }),
+                            : { spent: spentOf(persona, [...mineExcept(beats, plan, at, index), ...(lately.get(at) ?? [])]) }),
                         ...(speaker === undefined ? {} : { speaker }),
                         ...(previousAt === undefined || casting[previousAt] === undefined ? {} : { previousSpeaker: casting[previousAt]! }),
                         ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
@@ -1249,6 +1269,28 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * A member whose persona has since been deleted simply has no sheet, which is the same state as
      * a station presenting as nobody: the turn is written plainly and still goes out.
      */
+    /**
+     * What each cast member with a sheet said in the last hour outside this programme, by cast position.
+     *
+     * Every kind, because a catchphrase heard in a talk break is as spent as one heard in a banter.
+     * Best-effort: a read that fails costs the rationing across programmes and never the programme.
+     */
+    private async saidLately(productionId: string, sheets: ReadonlyMap<number, Persona>): Promise<Map<number, string[]>> {
+        const lately = new Map<number, string[]>();
+        for (const [at, persona] of sheets) {
+            try {
+                lately.set(at, await this.history.spokenBy(persona.key, SPENT_ACROSS_MS, SPENT_ACROSS_LINES, { excludingProduction: productionId }));
+            } catch (error) {
+                this.logger.warn('productions: could not read what a speaker said lately', {
+                    production: productionId,
+                    persona: persona.key,
+                    error: errorText(error),
+                });
+            }
+        }
+        return lately;
+    }
+
     private async sheets(production: Production, casting: ProductionCast): Promise<Map<number, Persona>> {
         const sheets = new Map<number, Persona>();
 

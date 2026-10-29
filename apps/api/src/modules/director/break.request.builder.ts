@@ -518,7 +518,7 @@ export class BreakRequestBuilder {
         if (persona === undefined) return {};
 
         try {
-            const own = await this.history.spokenBy(persona.key, CARRY_WINDOW_MS, RECENT_WINDOW, kind);
+            const own = await this.history.spokenBy(persona.key, CARRY_WINDOW_MS, RECENT_WINDOW, { kind });
             return own.length === 0 ? {} : { own };
         } catch (error) {
             this.logger.warn(`director: could not read what ${persona.key} has said lately (${errorText(error)})`);

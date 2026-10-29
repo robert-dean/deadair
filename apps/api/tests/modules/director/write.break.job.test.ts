@@ -152,7 +152,7 @@ function harness(
         // was written against: a list topped up from nowhere is the list it was.
         spokenSince: vi.fn(async (_withinMs: number, _limit: number, _excluding?: string) => options.saidBefore ?? []),
         // Empty unless a test says, and never asked for a station presenting as nobody.
-        spokenBy: vi.fn(async (_personaKey: string, _withinMs: number, _limit: number, _kind?: string) =>
+        spokenBy: vi.fn(async (_personaKey: string, _withinMs: number, _limit: number, _options?: { kind?: string }) =>
             options.saidByMe instanceof Error ? Promise.reject(options.saidByMe) : (options.saidByMe ?? []),
         ),
     };
@@ -2482,7 +2482,7 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(history.spokenBy).toHaveBeenCalledWith('garth', 60 * 60 * 1000, expect.any(Number), 'talkbreak');
+                expect(history.spokenBy).toHaveBeenCalledWith('garth', 60 * 60 * 1000, expect.any(Number), { kind: 'talkbreak' });
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ recent: ['a banter beat of Wayne'], own: ['I hid in the basement.', 'The basement again.'] }),
                     'model',

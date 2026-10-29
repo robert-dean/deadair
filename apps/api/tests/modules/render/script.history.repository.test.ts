@@ -224,7 +224,7 @@ describe('ScriptHistoryRepository.spokenBy', () => {
     // what his talk breaks kept saying.
     it('narrows to one kind when asked, and reads every kind when not', async () => {
         const narrowed: Captured = {};
-        await repositoryOver(fakeDb([], narrowed)).spokenBy('garth', 3_600_000, 6, 'talkbreak');
+        await repositoryOver(fakeDb([], narrowed)).spokenBy('garth', 3_600_000, 6, { kind: 'talkbreak' });
         expect(narrowed.sql).toContain('and kind =');
         expect(narrowed.parameters).toContain('talkbreak');
 

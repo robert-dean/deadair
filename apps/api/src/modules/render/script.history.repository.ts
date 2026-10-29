@@ -403,12 +403,24 @@ export class ScriptHistoryRepository extends DataRepository {
      * out, it reads every kind, which is what a signature wants: a catchphrase heard in the banter is
      * as spent as one heard in a talk break.
      *
+     * `excludingProduction` leaves one programme's own beats out, for a production asking what its
+     * speaker said BEFORE it: a beat being re-drafted must not be told its signature is spent by its
+     * own first attempt, and that attempt is in this table as `written`. A row whose segment has gone
+     * (`on delete set null`) is kept, since it cannot belong to the programme asking.
+     *
      * Filtered, deduplicated and ordered exactly as {@link spokenSince} is, for the same reasons, and
      * cut against the database's clock on the same argument. `0` or less, on either bound, answers
      * nothing without asking.
      */
-    async spokenBy(personaKey: string, withinMs: number, limit: number, kind?: string): Promise<string[]> {
+    async spokenBy(
+        personaKey: string,
+        withinMs: number,
+        limit: number,
+        options: { kind?: string; excludingProduction?: string } = {},
+    ): Promise<string[]> {
         if (withinMs <= 0 || limit <= 0) return [];
+
+        const { kind, excludingProduction } = options;
 
         const rows = await sql<{ script: string }>`
             select script from (
@@ -417,6 +429,11 @@ export class ScriptHistoryRepository extends DataRepository {
                 where station_key = ${this.identity.stationKey}
                   and persona_key = ${personaKey}
                   ${kind === undefined ? sql`` : sql`and kind = ${kind}`}
+                  ${
+                      excludingProduction === undefined
+                          ? sql``
+                          : sql`and segment_id is distinct from all (select id from deadair.segments where production_id = ${excludingProduction})`
+                  }
                   and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
                   and outcome = 'written'
                   and script is not null

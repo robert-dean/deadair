@@ -303,6 +303,9 @@ export interface BeatRequest {
      * It is the same mechanism `break.prompt.ts` already runs between breaks, applied inside one
      * programme, and it works the same way: name what is spent and invite a new one, because a model
      * told only what it may not say reaches for the nearest other thing the sheet gave it.
+     *
+     * Spent by the speaker's last hour outside the programme too (`SPENT_ACROSS_MS`), because a banter
+     * is commissioned every thirty minutes and each one used to start with nothing spent.
      */
     spent?: readonly string[];
     /** Whether this station is broadcast-clean. See {@link OutlineRequest.cleanLanguage}. */
@@ -640,7 +643,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     // over, and is exactly how the same block in `break.prompt.ts` is worded.
     if (request.spent !== undefined && request.spent.length > 0) {
         parts.push(
-            `You have already said ${request.spent.map(phrase => `"${phrase}"`).join(' and ')} earlier in this programme. ` +
+            `You have already said ${request.spent.map(phrase => `"${phrase}"`).join(' and ')} recently, in this programme or just before it. ` +
                 `Do not use ${request.spent.length === 1 ? 'it' : 'any of them'} again. Say it a different way, or make up a new line of your own.`,
         );
     }

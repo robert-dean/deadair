@@ -389,6 +389,47 @@ export class ScriptHistoryRepository extends DataRepository {
     }
 
     /**
+     * What ONE character has said in the last `withinMs`, newest first, optionally of one kind.
+     *
+     * The speaker's own half of a presenter's memory, which {@link spokenDuring} cannot be: that read
+     * is the STATION's last few lines, whoever said them, and on a show with co-hosts a single banter
+     * fills it. Measured on 2026-10-29: Garth's newest talk break was handed a jingle, one of his own
+     * breaks and four banter beats, two of them Wayne's, so the habits he had across his own breaks
+     * ("basement" in 26 of 99) never reached the check that names a worn word, which saw only "just",
+     * "like" and "wayne".
+     *
+     * `kind` narrows it to one format, because a habit is a habit of the format: Garth's banter turns
+     * almost never said "basement", and mixed in they dilute the very share that would name it. Left
+     * out, it reads every kind, which is what a signature wants: a catchphrase heard in the banter is
+     * as spent as one heard in a talk break.
+     *
+     * Filtered, deduplicated and ordered exactly as {@link spokenSince} is, for the same reasons, and
+     * cut against the database's clock on the same argument. `0` or less, on either bound, answers
+     * nothing without asking.
+     */
+    async spokenBy(personaKey: string, withinMs: number, limit: number, kind?: string): Promise<string[]> {
+        if (withinMs <= 0 || limit <= 0) return [];
+
+        const rows = await sql<{ script: string }>`
+            select script from (
+                select distinct on (coalesce(segment_id::text, id::text)) script, created_at
+                from deadair.script_history
+                where station_key = ${this.identity.stationKey}
+                  and persona_key = ${personaKey}
+                  ${kind === undefined ? sql`` : sql`and kind = ${kind}`}
+                  and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
+                  and outcome = 'written'
+                  and script is not null
+                order by coalesce(segment_id::text, id::text), created_at desc
+            ) said
+            order by said.created_at desc
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+
+        return rows.rows.map(row => row.script);
+    }
+
+    /**
      * What ONE character has actually said, oldest first, since a given moment.
      *
      * The read the notebook's distil pass makes, and the reason `persona_key` exists on this table.

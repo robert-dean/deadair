@@ -494,6 +494,17 @@ export interface BreakWriteRequest {
      */
     recent?: readonly string[];
     /**
+     * What the presenter saying this break said in the last hour, newest first, in breaks of this kind.
+     *
+     * The speaker's own memory beside the station's. {@link recent} is the last few lines anybody
+     * said, which is right for the opening ("do not start where the last break started") and wrong for
+     * a habit: on a show with co-hosts one banter fills it, so a character's own habits across their
+     * own breaks never reach the check that names a worn word. This is what that check reads when it
+     * is here, and the spent-signature rule reads both lists. Absent for a station presenting as
+     * nobody, and for a presenter with nothing said in the window.
+     */
+    own?: readonly string[];
+    /**
      * What this broadcast has played, newest first, as title and LEAD artist.
      *
      * The other half of a presenter's memory, and the half the station could never answer before: a

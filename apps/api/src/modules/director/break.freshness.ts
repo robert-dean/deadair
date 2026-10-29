@@ -108,6 +108,8 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // only grows: a phrase spent twenty minutes ago is still spent, and a record played is still
     // played. The list being SHORT by the time the break airs is not a way of being untrue.
     recent: 'timeless',
+    // The presenter's own last hour, which is history on exactly that argument.
+    own: 'timeless',
     played: 'timeless',
 
     // The bulletin, fetched against `airs_at` by `BulletinSource.storiesFor` and cut to the

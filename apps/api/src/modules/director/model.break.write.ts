@@ -132,6 +132,8 @@ export async function writeWithModel(host: ModelWriteHost, ask: ModelWriteAsk): 
         // The list the prompt was built from, so a signature is refused only where the prompt named
         // it as spent. See `AnswerGuard.recent`.
         ...(request.recent === undefined ? {} : { recent: request.recent }),
+        // And the presenter's own, which the prompt read beside it. See `AnswerGuard.own`.
+        ...(request.own === undefined ? {} : { own: request.own }),
         // The same daypart the prompt stated, so a script is refused for contradicting it only where
         // it was actually told. See `AnswerGuard.dayPart`.
         ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),

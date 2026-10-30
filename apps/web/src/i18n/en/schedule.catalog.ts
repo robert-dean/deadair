@@ -40,7 +40,7 @@ export const schedule = {
         caption: {
             none: 'Nothing is scheduled, so the station plays the sustaining source set below.',
             week: 'A repeating week: every block runs on the days it is set to. A special runs on its own dates instead and cuts into whatever usually airs then; it is marked as one, and edited under Specials. The hours nothing covers play the sustaining source set below.',
-            gestures: 'Drag a block to move it, drag an edge to change when it starts or ends, or click an empty hour to add one.',
+            gestures: 'Drag a block to move it, drag an edge to change when it starts or ends, or click an empty hour to add one. An edge two blocks share moves both.',
             airing: 'The block the station is airing now is filled in.',
         },
     },
@@ -66,6 +66,7 @@ export const schedule = {
         gone: 'That slot is no longer in the schedule.',
         specialDates:
             'A special runs on its dates, so it cannot be dragged to another day. Change its dates under Specials; its times drag as usual.',
+        swallowed: 'That would leave nothing of {{name}}. Drag the edge to somewhere inside it, or delete it first.',
         carriedOver:
             'That is the tail of a block that started the night before, so its top is the start of the day rather than the start of the block. Drag it on the day it begins.',
     },

@@ -21,7 +21,7 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "youtubei.js": "18.1.0"
+        "youtubei.js": "18.3.0"
     },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",
@@ -31,7 +31,7 @@
         "@deadair/plugin-sdk": "workspace:*",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "vitest": "^5.0.3",
-        "zod": "^4.6.6"
+        "vitest": "^5.0.5",
+        "zod": "^4.6.7"
     }
 }

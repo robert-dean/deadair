@@ -48,6 +48,18 @@ describe('StreamAuthorizationCard', () => {
         expect(screen.getByText('Not authorized')).toBeInTheDocument();
     });
 
+    // The login is fine here, so the card must not answer with "the station holds its own
+    // authorization" over a station that cannot fetch a record.
+    it('says plainly when Spotify is refusing the audio keys', async () => {
+        readFetcherAuthorization.mockResolvedValue({ reachable: true, configured: true, authorized: true, session: true, audioKeysRefused: 12 });
+
+        render(<StreamAuthorizationCard plugin={spotify} />);
+
+        expect(await screen.findByText('Spotify is refusing this account the audio')).toBeInTheDocument();
+        expect(screen.getByText('Keys refused')).toBeInTheDocument();
+        expect(screen.queryByText('Authorized')).not.toBeInTheDocument();
+    });
+
     // The two states that must never collapse into one. "Authorize Spotify" is useless advice to
     // somebody whose fetcher is not running, and it is the advice a card that read these as one
     // fact would give.

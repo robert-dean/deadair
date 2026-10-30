@@ -13,6 +13,8 @@ export interface FetcherAuthorization {
     session: boolean;
     /** The last reason a login was refused. Present is not the same as fatal: a session may have recovered since */
     loginError?: string;
+    /** How many fetches in a row Spotify has refused the audio key for, once that is a run rather than a moment. Absent otherwise. The login is fine throughout, so nothing else here shows it, and a new authorization only helps if it is for a different account */
+    audioKeysRefused?: number;
     /** An authorization already started and not yet finished, so an operator who lost the URL is given it back rather than having to start again */
     pendingUrl?: string;
     /** The address the browser will be sent to and will not be able to load. Reported so the console can say which page is expected to fail, rather than leaving that looking like a fault. Absent when the fetcher did not answer, since it is the only thing that knows it */

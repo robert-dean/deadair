@@ -63,6 +63,12 @@ type sessionHolder struct {
 	// answers "why is nothing playing", instead of a log dig through a wall of backoff lines
 	// that all say the same thing.
 	lastError string
+	// How many fetches in a row Spotify has refused the audio key for, with the login itself fine.
+	//
+	// A count rather than a flag because one refusal proves nothing: the same answer is what an
+	// audio-key quota looks like. What it says about the ACCOUNT is the run of them, and that is
+	// invisible everywhere else, since `session` and `storedLogin` both read healthy throughout.
+	keysRefused int
 
 	creds  credentialSource
 	log    librespot.Logger
@@ -136,6 +142,8 @@ func (h *sessionHolder) establish(ctx context.Context, creds login) (*session, e
 	defer h.mu.Unlock()
 	h.current.close()
 	h.current, h.lastFailure, h.backoff, h.lastError = sess, time.Time{}, 0, ""
+	// An authorization may have changed the account, and the run belonged to the old one.
+	h.keysRefused = 0
 	return sess, nil
 }
 
@@ -171,6 +179,27 @@ func (h *sessionHolder) failure() string {
 	return h.lastError
 }
 
+// How many fetches in a row have been refused their audio key, for the health probe.
+func (h *sessionHolder) audioKeysRefused() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.keysRefused
+}
+
+// Count a fetch's outcome toward the run of refused keys. A fetch that failed for any other reason
+// says nothing either way: it may never have reached the key, so it neither extends the run nor
+// ends it.
+func (h *sessionHolder) noteFetch(err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	switch {
+	case err == nil:
+		h.keysRefused = 0
+	case isKeyRefused(err):
+		h.keysRefused++
+	}
+}
+
 // Drop any live session and forget the backoff, so the next request logs in again from scratch.
 // For a push that names a DIFFERENT account: the live accesspoint is authenticated as the old one,
 // and every track it serves after that would come from the wrong library.
@@ -180,6 +209,7 @@ func (h *sessionHolder) reset() {
 	h.current.close()
 	h.current = nil
 	h.lastFailure, h.backoff, h.lastError = time.Time{}, 0, ""
+	h.keysRefused = 0
 }
 
 // Forget the backoff without touching a live session.

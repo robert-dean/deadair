@@ -102,6 +102,12 @@ export interface FetcherAuthorizationState {
     session: boolean;
     /** The last reason a login was refused. Present is not the same as fatal: a session may have recovered since. */
     loginError?: string;
+    /**
+     * How many fetches in a row Spotify has refused the audio key for, present only from
+     * {@link KEY_REFUSALS_BEFORE_REPORTING} up. The login is fine throughout, so `authorized` and
+     * `session` both read healthy over a station that cannot fetch a single record.
+     */
+    audioKeysRefused?: number;
     /** An authorization already started and not yet finished, so an operator who lost the URL can be given it back. */
     pendingUrl?: string;
     /**
@@ -112,6 +118,15 @@ export interface FetcherAuthorizationState {
      */
     callbackUrl?: string;
 }
+
+/**
+ * How many refused keys in a row are a fact about the account rather than a moment.
+ *
+ * The shim answers the same way for a key quota, which clears by itself, so the first few are said
+ * nothing about. Any record served ends the run, so a station that is actually playing never gets
+ * here, and a station that cannot fetch at all gets here within a pass or two of the ripener.
+ */
+const KEY_REFUSALS_BEFORE_REPORTING = 5;
 
 /**
  * What an authorization failure can be, as a status this app is willing to answer with.
@@ -303,6 +318,7 @@ export class SpotifyShimClient {
                 session?: boolean;
                 storedLogin?: boolean;
                 loginError?: string;
+                audioKeysRefused?: number;
                 authorizeUrl?: string;
                 callbackUrl?: string;
             };
@@ -314,6 +330,7 @@ export class SpotifyShimClient {
                 authorized: health.storedLogin === true,
                 session: health.session === true,
                 loginError: health.loginError,
+                ...((health.audioKeysRefused ?? 0) >= KEY_REFUSALS_BEFORE_REPORTING ? { audioKeysRefused: health.audioKeysRefused } : {}),
                 pendingUrl: health.authorizeUrl,
                 callbackUrl: health.callbackUrl,
             };

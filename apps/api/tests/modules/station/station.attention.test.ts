@@ -160,6 +160,18 @@ describe('attention', () => {
         expect(item?.detail).toContain('separate one-time authorization');
     });
 
+    it('names a refused fetcher above the records it is costing, and sends nobody to re-authorize the same account', () => {
+        const items = attention(
+            facts({
+                refusedFetcher: { pluginId: 'deadair.spotify', pluginName: 'Spotify', refused: 12 },
+                failing: 40,
+            }),
+        );
+
+        expect(items[0]).toMatchObject({ code: 'fetcherKeysRefused', severity: 'failure', route: '/plugins/deadair.spotify', count: 12 });
+        expect(items[0]?.detail).toContain('different account');
+    });
+
     it('says nothing about a fetcher on a station that has no fact about one', () => {
         // Undefined covers an authorized fetcher, a fetcher that did not answer, and a station whose
         // records come from somewhere that has none. None of the three is something to go and do.

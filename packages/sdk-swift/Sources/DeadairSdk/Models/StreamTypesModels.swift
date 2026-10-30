@@ -13,17 +13,20 @@ public struct FetcherAuthorization: Codable, Equatable, Sendable {
     public var session: Bool
     /// The last reason a login was refused. Present is not the same as fatal: a session may have recovered since
     public var loginError: String?
+    /// How many fetches in a row Spotify has refused the audio key for, once that is a run rather than a moment. Absent otherwise. The login is fine throughout, so nothing else here shows it, and a new authorization only helps if it is for a different account
+    public var audioKeysRefused: Int?
     /// An authorization already started and not yet finished, so an operator who lost the URL is given it back rather than having to start again
     public var pendingUrl: String?
     /// The address the browser will be sent to and will not be able to load. Reported so the console can say which page is expected to fail, rather than leaving that looking like a fault. Absent when the fetcher did not answer, since it is the only thing that knows it
     public var callbackUrl: String?
 
-    public init(reachable: Bool, configured: Bool, authorized: Bool, session: Bool, loginError: String? = nil, pendingUrl: String? = nil, callbackUrl: String? = nil) {
+    public init(reachable: Bool, configured: Bool, authorized: Bool, session: Bool, loginError: String? = nil, audioKeysRefused: Int? = nil, pendingUrl: String? = nil, callbackUrl: String? = nil) {
         self.reachable = reachable
         self.configured = configured
         self.authorized = authorized
         self.session = session
         self.loginError = loginError
+        self.audioKeysRefused = audioKeysRefused
         self.pendingUrl = pendingUrl
         self.callbackUrl = callbackUrl
     }
@@ -34,6 +37,7 @@ public struct FetcherAuthorization: Codable, Equatable, Sendable {
         case authorized = "authorized"
         case session = "session"
         case loginError = "loginError"
+        case audioKeysRefused = "audioKeysRefused"
         case pendingUrl = "pendingUrl"
         case callbackUrl = "callbackUrl"
     }
@@ -45,6 +49,7 @@ public struct FetcherAuthorization: Codable, Equatable, Sendable {
         self.authorized = try container.decode(Bool.self, forKey: .authorized)
         self.session = try container.decode(Bool.self, forKey: .session)
         self.loginError = try container.decodeIfPresent(String.self, forKey: .loginError)
+        self.audioKeysRefused = try container.decodeIfPresent(Int.self, forKey: .audioKeysRefused)
         self.pendingUrl = try container.decodeIfPresent(String.self, forKey: .pendingUrl)
         self.callbackUrl = try container.decodeIfPresent(String.self, forKey: .callbackUrl)
     }
@@ -56,6 +61,7 @@ public struct FetcherAuthorization: Codable, Equatable, Sendable {
         try container.encode(self.authorized, forKey: .authorized)
         try container.encode(self.session, forKey: .session)
         try container.encodeIfPresent(self.loginError, forKey: .loginError)
+        try container.encodeIfPresent(self.audioKeysRefused, forKey: .audioKeysRefused)
         try container.encodeIfPresent(self.pendingUrl, forKey: .pendingUrl)
         try container.encodeIfPresent(self.callbackUrl, forKey: .callbackUrl)
     }

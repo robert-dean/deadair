@@ -9,14 +9,7 @@ import { BreakFloorWatch } from '#modules/director/break.floor.watch.js';
 import { PlayoutService } from '#modules/playout/playout.service.js';
 import { PluginsService } from '#modules/plugins/plugins.service.js';
 import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
-import {
-    attention,
-    EVIDENCE_LIMIT,
-    type AttentionFacts,
-    type BrokenPlugin,
-    type DroppedRecord,
-    type UnauthorizedFetcher,
-} from './station.attention.js';
+import { attention, EVIDENCE_LIMIT, type AttentionFacts, type BrokenPlugin, type DroppedRecord } from './station.attention.js';
 import type { StationAttention } from './types/station.types.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -86,7 +79,7 @@ export class StationAttentionService {
             // question only exists if a plugin that feeds the fetcher is switched on. A station
             // whose records come from somewhere else would otherwise be told to authorize a fetcher
             // it never uses, which is precisely the wrong entry that teaches an operator to skim.
-            unauthorizedFetcher: await this.unauthorizedFetcher(plugins.fetches),
+            ...(await this.fetcherFacts(plugins.fetches)),
             singleHop: readForwardedHop(),
             ...floorFact(this.floorWatch),
         };
@@ -108,24 +101,28 @@ export class StationAttentionService {
     }
 
     /**
-     * Whether the track fetcher is running without a login of its own.
+     * What is wrong with the track fetcher, if anything an authorization page can speak to.
      *
-     * Reported for exactly one reading — it ANSWERED, and it holds nothing — and `undefined` for
-     * every other, including a fetcher that did not answer at all. That case is a different fault
-     * with a different fix, and an authorization is useless advice for it.
+     * `unauthorizedFetcher` is reported for exactly one reading — it ANSWERED, and it holds nothing.
+     * `refusedFetcher` is the other way a fetcher that answered fails: it holds a login and the
+     * provider will not give it keys. A fetcher that did not answer at all is neither, because that
+     * is a different fault with a different fix and an authorization is useless advice for it.
      */
-    private async unauthorizedFetcher(plugin: FetcherPlugin | undefined): Promise<UnauthorizedFetcher | undefined> {
-        if (plugin === undefined) return undefined;
+    private async fetcherFacts(plugin: FetcherPlugin | undefined): Promise<Pick<AttentionFacts, 'unauthorizedFetcher' | 'refusedFetcher'>> {
+        if (plugin === undefined) return {};
 
         // Never throws by construction, but caught with the rest of them: this list is the worst
         // place for one unhappy reader to take the whole answer down.
         try {
             const state = await this.fetcher.authorization();
-            if (!state.reachable || state.authorized) return undefined;
-            return { pluginId: plugin.id, pluginName: plugin.name };
+            if (!state.reachable) return {};
+
+            const named = { pluginId: plugin.id, pluginName: plugin.name };
+            if (!state.authorized) return { unauthorizedFetcher: named };
+            return state.audioKeysRefused === undefined ? {} : { refusedFetcher: { ...named, refused: state.audioKeysRefused } };
         } catch (error) {
             this.logger.warn(`station: the track fetcher's authorization could not be read (${errorText(error)})`);
-            return undefined;
+            return {};
         }
     }
 

@@ -17805,6 +17805,10 @@ components:
                     type: string
                     maxLength: 500
                     description: 'The last reason a login was refused. Present is not the same as fatal: a session may have recovered since'
+                audioKeysRefused:
+                    type: integer
+                    minimum: 1
+                    description: 'How many fetches in a row Spotify has refused the audio key for, once that is a run rather than a moment. Absent otherwise. The login is fine throughout, so nothing else here shows it, and a new authorization only helps if it is for a different account'
                 pendingUrl:
                     type: string
                     maxLength: 2000

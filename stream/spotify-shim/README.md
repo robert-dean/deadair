@@ -60,7 +60,7 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 Seven endpoints:
 
 ```
-GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"…"}
+GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"…","audioKeysRefused":3}
 POST /authorize           ← start this shim's own one-time Spotify authorization
 GET  /login?code=         ← where Spotify returns the operator's browser
 POST /authorize/complete  ← that same callback, relayed by something that is not that browser
@@ -78,6 +78,14 @@ first thing to read when the station queues tracks and never plays one: a refuse
 everywhere else as a fetch that times out, and the reason is several layers down. The same reason is
 logged once, at warn, when the login is attempted — never per request, because once the backoff is
 set every later request would repeat it a line per track.
+
+`audioKeysRefused` is how many fetches in a row Spotify has refused the audio key for, absent while
+there are none. The login succeeds and storage resolves, and then every key comes back as `failed
+retrieving aes key with code 1`. Measured on a Premium Duo plan with both of its accounts, at every
+bitrate, through a tunnel into the account's own country, and through a second independent client
+with the same stored login, so this is Spotify refusing the account rather than anything this shim
+can change. The app reports it once the run reaches five: one refusal is also what a key quota looks
+like, and a served record ends the run.
 
 `POST /session` takes `{"username","accessToken","expiresAt"}` (unix **milli**seconds, matching the
 app's plugin boundary) behind `X-Spotify-Login-Secret`, and answers **202** without waiting for the

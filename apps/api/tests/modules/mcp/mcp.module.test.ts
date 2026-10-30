@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { buildMcpCatalog, buildMcpTools } from '../../../src/modules/mcp/mcp.module.js';
+import { buildMcpCatalog, buildMcpConfig, buildMcpTools } from '../../../src/modules/mcp/mcp.module.js';
 import { CallApiTool } from '../../../src/mcp/call.api.tool.js';
 import { McpToolCatalog } from '../../../src/mcp/mcp.tools.js';
 import { SearchApiTool } from '../../../src/mcp/search.api.tool.js';
@@ -22,6 +22,24 @@ const container = (() => {
     const catalog = buildMcpCatalog({ get: resolve } as never);
     return { get: resolve } as never;
 })();
+
+describe('what initialize says about the server', () => {
+    const configOf = (values: Record<string, string>) => ({ get: (key: string, fallback: unknown) => values[key] ?? fallback }) as never;
+
+    it('points at the logo on the console, wherever the API is', () => {
+        const config = buildMcpConfig(configOf({ APP_BASE_URL: 'https://api.example.com/x', SPA_BASE_URL: 'https://console.example.com/y' }));
+        expect(config.icons).toEqual([{ src: 'https://console.example.com/logo.png', mimeType: 'image/png', sizes: ['512x512'] }]);
+    });
+
+    it('takes the API address when the console has none of its own', () => {
+        const config = buildMcpConfig(configOf({ APP_BASE_URL: 'https://radio.example.com' }));
+        expect(config.icons?.[0]?.src).toBe('https://radio.example.com/logo.png');
+    });
+
+    it('sends no icon from a station with no public address', () => {
+        expect(buildMcpConfig(configOf({}))).not.toHaveProperty('icons');
+    });
+});
 
 describe('the listed MCP tools', () => {
     const tools = [...buildMcpTools(container).values()].map(tool => tool.definition);

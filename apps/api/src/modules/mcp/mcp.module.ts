@@ -12,6 +12,7 @@ import {
     McpToolHandlerMap,
 } from '@maroonedsoftware/mcp';
 import { buildVersion } from '#modules/shared/build.revision.js';
+import { urlOrigin } from '#modules/shared/url.origin.js';
 import { McpToolCatalog, registerMcpCatalog, registerMcpToolClasses, registerMcpTools } from '#src/mcp/mcp.tools.js';
 import { CALL_API_TOOL, CallApiTool } from '#src/mcp/call.api.tool.js';
 import { SEARCH_API_TOOL, SearchApiTool } from '#src/mcp/search.api.tool.js';
@@ -20,6 +21,26 @@ import { HELP_TOOL, STATION_INSTRUCTIONS, stationHelpTool } from '#src/mcp/stati
 
 /** What an MCP client sees as `serverInfo.name` during `initialize`. */
 export const MCP_SERVER_NAME = 'deadair';
+
+/** What an MCP client sees as `serverInfo.websiteUrl`: the project's site, not the station's own address. */
+export const MCP_WEBSITE_URL = 'https://deadair.radio';
+
+/**
+ * What `initialize` says about the server. The icon is the console's logo, so it is at the console's
+ * origin, and a station with no public address has nothing to point a client at and sends none. A URL
+ * rather than a `data:` URI, which some clients have refused a connection over.
+ */
+export function buildMcpConfig(config: AppConfig): McpConfig {
+    const console = urlOrigin(String(config.get('SPA_BASE_URL', ''))) ?? urlOrigin(String(config.get('APP_BASE_URL', '')));
+    return {
+        serverName: MCP_SERVER_NAME,
+        version: buildVersion(config) ?? 'dev',
+        ...(console === undefined ? {} : { icons: [{ src: `${console}/logo.png`, mimeType: 'image/png', sizes: ['512x512'] }] }),
+        websiteUrl: MCP_WEBSITE_URL,
+        sessionMode: 'stateless',
+        instructions: STATION_INSTRUCTIONS,
+    };
+}
 
 /**
  * The tools `tools/list` reports: every operation a contract flags `mcp`, `whoami`, the two that
@@ -75,12 +96,7 @@ export const McpModule: ServerKitModule = {
     setup: async (registry: Registry, config: AppConfig) => {
         registry
             .register(McpConfig)
-            .useFactory((): McpConfig => ({
-                serverName: MCP_SERVER_NAME,
-                version: buildVersion(config) ?? 'dev',
-                sessionMode: 'stateless',
-                instructions: STATION_INSTRUCTIONS,
-            }))
+            .useFactory((): McpConfig => buildMcpConfig(config))
             .asSingleton();
         registerMcpToolClasses(registry);
         registry.register(WhoAmITool).useClass(WhoAmITool).asSingleton();

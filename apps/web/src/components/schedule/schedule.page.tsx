@@ -17,7 +17,7 @@ import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, stationClockAt, weekdayOf } from './schedule.day';
-import { blockEdit, minutesOf, resizedEnd, type DraggedBlock, type SlotEdit } from './schedule.edits';
+import { blockEdit, minutesOf, resizeEdit, writesOf, type DraggedBlock, type SlotEdit, type SlotTimes } from './schedule.edits';
 import { describeApplied } from './slot.applied';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RulesPanel } from './rules.panel';
@@ -217,14 +217,15 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             return;
         }
 
-        const slot = slots.find(candidate => candidate.id === edit.slotId);
-        if (slot === undefined) return;
-
         setRefusal(undefined);
-        update.mutate({
-            id: slot.id,
-            body: { ...bodyOf(slot), startsAtMinutes: edit.startsAtMinutes, ...(edit.days ? { days: [...edit.days] } : {}) },
+        const [first, second] = writesOf(edit).flatMap(times => {
+            const slot = slots.find(candidate => candidate.id === times.slotId);
+            return slot === undefined ? [] : [{ id: slot.id, body: withTimes(slot, times) }];
         });
+        if (first === undefined) return;
+
+        // One after the other, because the first makes the room the second needs.
+        update.mutate(first, second === undefined ? {} : { onSuccess: () => update.mutate(second) });
     };
 
     const openSlot = (event: ScheduleEventData) => {
@@ -270,18 +271,17 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
         // to the slot, so it is not draggable at all. `moveEdit` refuses it too; this is what stops
         // somebody trying and watching it spring back.
         canDragEvent: (event: ScheduleEventData) => beginsItsSlot(event, slots),
-        // Move and resize are the same edit now: the block ends up where it was dropped. A slot
-        // used to be a START, so its lower edge belonged to the NEXT slot and the two gestures meant
-        // different things to different rows.
+        // A block ends up where it was dropped. A slot used to be a START, so its lower edge belonged
+        // to the NEXT slot and the two gestures meant different things to different rows.
         onEventDrop: ({ event, newStart, newEnd }: { event: ScheduleEventData; newStart: string; newEnd: string }) => {
             const block = blockOf(event);
             if (block) apply(blockEdit(block, newStart, newEnd, slots));
         },
-        // A lower edge dragged to the bottom of the column comes back as 23:59; `resizedEnd` reads it
-        // as the midnight it is.
+        // An edge can be shared with the next block along, which a whole block's move cannot, so
+        // `resizeEdit` is the one that asks.
         onEventResize: ({ event, newStart, newEnd }: { event: ScheduleEventData; newStart: string; newEnd: string }) => {
             const block = blockOf(event);
-            if (block) apply(blockEdit(block, newStart, resizedEnd(block, newEnd), slots));
+            if (block) apply(resizeEdit(block, newStart, newEnd, slots));
         },
     };
 
@@ -504,6 +504,11 @@ function beginsItsSlot(event: ScheduleEventData, slots: readonly ScheduleSlot[])
     const slot = slots.find(candidate => candidate.id === block?.slotId);
 
     return block !== undefined && slot !== undefined && minutesOf(block.start) === slot.startsAtMinutes;
+}
+
+/** A slot with a gesture's times on it, days included only when the gesture changed them. */
+function withTimes(slot: ScheduleSlot, { startsAtMinutes, endsAtMinutes, days }: SlotTimes): ScheduleSlotInput {
+    return { ...bodyOf(slot), startsAtMinutes, endsAtMinutes, ...(days ? { days: [...days] } : {}) };
 }
 
 /**

@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleSlot } from '@deadair/sdk';
 
-import { blockEdit, resizedEnd, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
+import { blockEdit, resizedEnd, resizeEdit, writesOf, type DraggedBlock, type SlotEdit } from '../../../src/components/schedule/schedule.edits';
 
 const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: number[] = []): ScheduleSlot => ({
     id,
@@ -81,11 +81,31 @@ describe('blockEdit', () => {
     it('moves a block ending at midnight by whole minutes', () => {
         // The grid is handed the API's own end, the next day's 00:00, so a drag keeps the block's
         // length exactly: an hour earlier lands on 23:00 rather than a second short of it.
-        const dragged = block('late', '22:00', '24:00');
+        const dragged = block('closer', '22:00', '24:00');
 
-        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 23:00:00', SLOTS)).toMatchObject({
+        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 23:00:00', [slot('closer', at(22), 0)])).toMatchObject({
             startsAtMinutes: at(21),
             endsAtMinutes: at(23),
+        });
+    });
+
+    describe('a block running past midnight', () => {
+        // Drawn to the bottom of the column, which is not where it ends.
+        const head = block('late', '22:00', '24:00');
+
+        it('keeps its real end when its top edge is dragged', () => {
+            expect(blockEdit(head, '2026-08-19 21:00:00', head.end, SLOTS)).toMatchObject({ startsAtMinutes: at(21), endsAtMinutes: at(2) });
+        });
+
+        it('keeps its length when the whole block is moved', () => {
+            expect(blockEdit(head, '2026-08-19 21:00:00', '2026-08-19 23:00:00', SLOTS)).toMatchObject({
+                startsAtMinutes: at(21),
+                endsAtMinutes: at(1),
+            });
+        });
+
+        it('keeps its real end when a move crosses into the next column', () => {
+            expect(blockEdit(head, '2026-08-20 22:00:00', '2026-08-21 00:00:00', SLOTS)).toMatchObject({ endsAtMinutes: at(2) });
         });
     });
 
@@ -117,6 +137,86 @@ describe('blockEdit', () => {
         expect(blockEdit(block('deleted', '06:00', '10:00'), '2026-08-19 07:00:00', '2026-08-19 11:00:00', SLOTS)).toMatchObject({
             kind: 'refused',
         });
+    });
+});
+
+describe('resizeEdit', () => {
+    const BLUES = slot('blues', at(16), at(19), [1, 2, 3]);
+    const GLAM = slot('glam', at(19), at(22), [1, 2, 3]);
+    const TOUCHING = [BLUES, GLAM];
+
+    const moved = (edit: SlotEdit) => {
+        if (edit.kind !== 'move') throw new Error(`refused: ${edit.reason}`);
+        return writesOf(edit);
+    };
+
+    it('keeps a free edge to the one block', () => {
+        expect(moved(resizeEdit(block('breakfast', '06:00', '10:00'), '2026-08-19 06:00:00', '2026-08-19 11:00:00', SLOTS))).toEqual([
+            { slotId: 'breakfast', startsAtMinutes: at(6), endsAtMinutes: at(11) },
+        ]);
+    });
+
+    it('takes the neighbour along when a top edge pushes into it, shrinking the neighbour first', () => {
+        expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 18:00:00', '2026-08-19 22:00:00', TOUCHING))).toEqual([
+            { slotId: 'blues', startsAtMinutes: at(16), endsAtMinutes: at(18) },
+            { slotId: 'glam', startsAtMinutes: at(18), endsAtMinutes: at(22) },
+        ]);
+    });
+
+    it('takes the neighbour along when a lower edge pushes into it', () => {
+        expect(moved(resizeEdit(block('blues', '16:00', '19:00'), '2026-08-19 16:00:00', '2026-08-19 20:00:00', TOUCHING))).toEqual([
+            { slotId: 'glam', startsAtMinutes: at(20), endsAtMinutes: at(22) },
+            { slotId: 'blues', startsAtMinutes: at(16), endsAtMinutes: at(20) },
+        ]);
+    });
+
+    it('closes the gap when an edge is pulled away, shrinking the dragged block first', () => {
+        expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 20:00:00', '2026-08-19 22:00:00', TOUCHING))).toEqual([
+            { slotId: 'glam', startsAtMinutes: at(20), endsAtMinutes: at(22) },
+            { slotId: 'blues', startsAtMinutes: at(16), endsAtMinutes: at(20) },
+        ]);
+    });
+
+    it('leaves a neighbour alone on different days, for the API to answer', () => {
+        // Following the drag would move it on the day it does not touch.
+        const slots = [slot('blues', at(16), at(19), [1, 2]), GLAM];
+
+        expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 18:00:00', '2026-08-19 22:00:00', slots))).toHaveLength(1);
+    });
+
+    it('reads empty days as every day when comparing them', () => {
+        const slots = [slot('blues', at(16), at(19)), slot('glam', at(19), at(22), [0, 1, 2, 3, 4, 5, 6])];
+
+        expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 18:00:00', '2026-08-19 22:00:00', slots))).toHaveLength(2);
+    });
+
+    it('matches a neighbour across midnight by the day it closes on', () => {
+        // Monday night's show touches Tuesday morning's.
+        const slots = [slot('night', at(22), at(2), [1]), slot('dawn', at(2), at(6), [2])];
+
+        expect(moved(resizeEdit(block('dawn', '02:00', '06:00'), '2026-08-19 01:00:00', '2026-08-19 06:00:00', slots))).toEqual([
+            { slotId: 'night', startsAtMinutes: at(22), endsAtMinutes: at(1) },
+            { slotId: 'dawn', startsAtMinutes: at(1), endsAtMinutes: at(6) },
+        ]);
+    });
+
+    it('refuses to swallow the neighbour, which would turn it into a full day', () => {
+        expect(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 16:00:00', '2026-08-19 22:00:00', TOUCHING)).toMatchObject({ kind: 'refused' });
+    });
+
+    it('never takes a special along', () => {
+        const slots = [{ ...BLUES, startsOn: '2026-10-31', endsOn: '2026-10-31' }, GLAM];
+
+        expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 18:00:00', '2026-08-19 22:00:00', slots))).toHaveLength(1);
+    });
+
+    it('reads the bottom of the column as midnight, for the neighbour too', () => {
+        const slots = [slot('evening', at(20), at(23)), slot('closer', at(23), at(2))];
+
+        expect(moved(resizeEdit(block('evening', '20:00', '23:00'), '2026-08-19 20:00:00', '2026-08-19 23:59:00', slots))).toEqual([
+            { slotId: 'closer', startsAtMinutes: 0, endsAtMinutes: at(2) },
+            { slotId: 'evening', startsAtMinutes: at(20), endsAtMinutes: 0 },
+        ]);
     });
 });
 

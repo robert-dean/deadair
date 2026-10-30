@@ -14,12 +14,13 @@ import (
 	"time"
 
 	librespot "github.com/devgianlu/go-librespot"
+	"github.com/devgianlu/go-librespot/audio"
 )
 
 // The HTTP half: one track per request, so Liquidsoap's request.queue can fetch a Spotify track
 // the same way it fetches a pre-signed Subsonic URL.
 //
-//	GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"..."}
+//	GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"...","audioKeysRefused":3}
 //	POST /authorize           ← start this shim's own one-time Spotify authorization
 //	GET  /login?code=         ← where Spotify sends the operator's browser back (see authorize.go)
 //	POST /authorize/complete  ← the same callback, relayed by something that is not that browser
@@ -99,6 +100,11 @@ func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	body := map[string]any{"ok": true, "session": s.sessions.live(), "storedLogin": s.store.present()}
 	if failure := s.sessions.failure(); failure != "" {
 		body["loginError"] = failure
+	}
+	// `audioKeysRefused` is the fault the two above cannot see: a login Spotify accepts on an account
+	// it will not hand keys to. Everything else about that shim reads as healthy.
+	if refused := s.sessions.audioKeysRefused(); refused > 0 {
+		body["audioKeysRefused"] = refused
 	}
 	if url := s.auth.pendingURL(); url != "" {
 		body["authorizeUrl"] = url
@@ -584,12 +590,14 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 // on it identically, and the first one to notice is the fetch of an item that is about to air.
 // Rather than failing that item and recovering on the next, we drop the session and try again on a
 // fresh login, which costs about 300ms.
-func (s *server) openWithRetry(ctx context.Context, id string) (*trackStream, error) {
+func (s *server) openWithRetry(ctx context.Context, id string) (stream *trackStream, err error) {
+	defer func() { s.sessions.noteFetch(err) }()
+
 	sess, err := s.sessions.get(ctx)
 	if err != nil {
 		return nil, err
 	}
-	stream, err := sess.openTrack(ctx, s.client, s.log, id, s.bitrate)
+	stream, err = sess.openTrack(ctx, s.client, s.log, id, s.bitrate)
 	if err == nil {
 		return stream, nil
 	}
@@ -606,6 +614,13 @@ func (s *server) openWithRetry(ctx context.Context, id string) (*trackStream, er
 		return nil, fmt.Errorf("%w (reconnect also failed: %v)", err, retryErr)
 	}
 	return sess.openTrack(ctx, s.client, s.log, id, s.bitrate)
+}
+
+// Whether Spotify answered the audio key request with a refusal, as opposed to not answering it. A
+// timeout or a closed accesspoint arrives from the same call and is not this.
+func isKeyRefused(err error) bool {
+	var refused *audio.KeyProviderError
+	return errors.As(err, &refused)
 }
 
 // Whether the failure is about this track rather than the connection carrying it.

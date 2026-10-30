@@ -122,6 +122,11 @@ export interface AttentionFacts {
      */
     unauthorizedFetcher?: UnauthorizedFetcher;
     /**
+     * The station's track fetcher, where it is signed in and the provider is refusing it the audio
+     * keys. `undefined` in every other case.
+     */
+    refusedFetcher?: RefusedFetcher;
+    /**
      * A resolved caller address that looks like a proxy talking to itself, and how often this
      * process has seen one.
      *
@@ -173,6 +178,17 @@ export interface UnauthorizedFetcher {
     /** The plugin whose records it fetches, so the line can route at the page that fixes it. */
     pluginId: string;
     pluginName: string;
+}
+
+/**
+ * A track fetcher whose login is accepted and whose audio keys are not.
+ *
+ * Its own fact rather than a kind of {@link UnauthorizedFetcher}, because the advice is the opposite:
+ * that one is fixed by authorizing, and here the authorization is already fine.
+ */
+export interface RefusedFetcher extends UnauthorizedFetcher {
+    /** How many fetches in a row were refused. */
+    refused: number;
 }
 
 /**
@@ -302,6 +318,24 @@ function supply(facts: AttentionFacts): AttentionItem[] {
                 `${pluginName} is connected and can read your library, but the station's track fetcher holds no login of its own, ` +
                 'so every record is dropped for want of audio. This is a separate one-time authorization, done on the plugin page.',
             route: `/plugins/${pluginId}`,
+        });
+    }
+
+    // A `failure` for the same reason as the one above, and with nothing to fix on this station: two
+    // independent clients get the same refusal on the same login. Saying so is the whole of it, since
+    // the alternative is an operator changing bitrates and networks over a fault that is not there.
+    if (facts.refusedFetcher) {
+        const { pluginId, pluginName, refused } = facts.refusedFetcher;
+        items.push({
+            code: 'fetcherKeysRefused',
+            severity: 'failure',
+            title: `${pluginName} is refusing this account's audio keys`,
+            detail:
+                `The track fetcher is signed in, but ${pluginName} refused the key for the last ${refused} records it asked for, ` +
+                'so each one is dropped for want of audio. This is a refusal of the account rather than a fault in the station, ' +
+                'and neither a bitrate nor a network changes it. The one thing to try here is authorizing a different account on the plugin page.',
+            route: `/plugins/${pluginId}`,
+            count: refused,
         });
     }
 

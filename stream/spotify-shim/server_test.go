@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	librespot "github.com/devgianlu/go-librespot"
+	"github.com/devgianlu/go-librespot/audio"
 )
 
 // Routing, and specifically which requests are allowed to reach Spotify.
@@ -233,6 +235,60 @@ func TestHealthReportsTheSessionWithoutOpeningOne(t *testing.T) {
 		t.Fatalf("health answered %d, want 200", rec.Result().StatusCode)
 	}
 	if body := rec.Body.String(); body != `{"ok":true,"session":false,"storedLogin":false}`+"\n" {
+		t.Fatalf("health said %q", body)
+	}
+}
+
+// Only a refusal counts: a key request that timed out never heard from Spotify, and the track error
+// around the refusal is how it arrives from openTrack.
+func TestAKeyRefusalIsToldFromAKeyThatNeverArrived(t *testing.T) {
+	if !isKeyRefused(fmt.Errorf("failed retrieving audio key: %w", &audio.KeyProviderError{Code: 1})) {
+		t.Fatal("a refused key was not recognized")
+	}
+	if isKeyRefused(fmt.Errorf("failed retrieving audio key: %w", context.DeadlineExceeded)) {
+		t.Fatal("a timeout was read as a refusal")
+	}
+}
+
+// The run is what says something about the account, so one success has to end it and a failure
+// that never reached the key must not.
+func TestTheRunOfRefusedKeysIsConsecutive(t *testing.T) {
+	holder := newSessionHolder(staticCredentials{}, &librespot.NullLogger{}, nil)
+	refused := fmt.Errorf("failed retrieving audio key: %w", &audio.KeyProviderError{Code: 1})
+
+	holder.noteFetch(refused)
+	holder.noteFetch(refused)
+	holder.noteFetch(errors.New("failed getting track metadata"))
+	if got := holder.audioKeysRefused(); got != 2 {
+		t.Fatalf("run is %d, want 2", got)
+	}
+
+	holder.noteFetch(nil)
+	if got := holder.audioKeysRefused(); got != 0 {
+		t.Fatalf("a served record left the run at %d", got)
+	}
+}
+
+// The authorization that replaces the account has to clear the warning about the old one.
+func TestResettingTheSessionForgetsTheRefusals(t *testing.T) {
+	holder := newSessionHolder(staticCredentials{}, &librespot.NullLogger{}, nil)
+	holder.noteFetch(&audio.KeyProviderError{Code: 1})
+
+	holder.reset()
+
+	if got := holder.audioKeysRefused(); got != 0 {
+		t.Fatalf("reset left the run at %d", got)
+	}
+}
+
+func TestHealthReportsRefusedKeys(t *testing.T) {
+	srv := &server{log: &librespot.NullLogger{}, secret: secret, sessions: newSessionHolder(staticCredentials{}, &librespot.NullLogger{}, nil)}
+	srv.sessions.noteFetch(&audio.KeyProviderError{Code: 1})
+
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, httptest.NewRequest("GET", "/health", nil))
+
+	if body := rec.Body.String(); !strings.Contains(body, `"audioKeysRefused":1`) {
 		t.Fatalf("health said %q", body)
 	}
 }

@@ -109,7 +109,13 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
                     </Alert>
                 ) : undefined}
 
-                {state?.reachable && state.authorized ? <Text size="sm">{t('stream.authorized')}</Text> : undefined}
+                {state?.reachable && state.authorized && !state.audioKeysRefused ? <Text size="sm">{t('stream.authorized')}</Text> : undefined}
+
+                {state?.reachable && state.authorized && state.audioKeysRefused ? (
+                    <Alert color="red" title={t('stream.keysRefused.title')}>
+                        {t('stream.keysRefused.body', { count: state.audioKeysRefused })}
+                    </Alert>
+                ) : undefined}
 
                 {state?.reachable && !state.authorized ? (
                     <Alert color="yellow" title={t('stream.unauthorized.title')}>
@@ -211,7 +217,7 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
  * fixing, not the station doing its job, and those two must never be drawn alike.
  */
 function lampFor(
-    state: { reachable: boolean; configured: boolean; authorized: boolean },
+    state: { reachable: boolean; configured: boolean; authorized: boolean; audioKeysRefused?: number },
     t: TFunction<'plugins'>,
 ): {
     tone: 'ok' | 'fault' | 'standby' | 'off';
@@ -219,5 +225,6 @@ function lampFor(
 } {
     if (!state.configured) return { tone: 'off', label: t('stream.lamp.notSetUp') };
     if (!state.reachable) return { tone: 'standby', label: t('stream.lamp.notAnswering') };
-    return state.authorized ? { tone: 'ok', label: t('stream.lamp.authorized') } : { tone: 'fault', label: t('stream.lamp.notAuthorized') };
+    if (!state.authorized) return { tone: 'fault', label: t('stream.lamp.notAuthorized') };
+    return state.audioKeysRefused ? { tone: 'fault', label: t('stream.lamp.keysRefused') } : { tone: 'ok', label: t('stream.lamp.authorized') };
 }

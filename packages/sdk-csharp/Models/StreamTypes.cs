@@ -35,6 +35,11 @@ public sealed record FetcherAuthorization
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LoginError { get; init; }
 
+    /// <summary>How many fetches in a row Spotify has refused the audio key for, once that is a run rather than a moment. Absent otherwise. The login is fine throughout, so nothing else here shows it, and a new authorization only helps if it is for a different account</summary>
+    [JsonPropertyName("audioKeysRefused")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? AudioKeysRefused { get; init; }
+
     /// <summary>An authorization already started and not yet finished, so an operator who lost the URL is given it back rather than having to start again</summary>
     [JsonPropertyName("pendingUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

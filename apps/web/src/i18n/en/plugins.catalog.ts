@@ -150,6 +150,13 @@ export const plugins = {
             title: 'The station cannot fetch any audio yet',
             body: 'Without this, every record is dropped from the running order for want of audio, however healthy the connection above looks.',
         },
+        keysRefused: {
+            title: 'Spotify is refusing this account the audio',
+            body_one:
+                'The login is fine, and Spotify refused the audio key for the last record the station asked for. Bitrate and network make no difference to this. Authorizing a different account is the one thing to try from here.',
+            body_other:
+                'The login is fine, and Spotify refused the audio keys for the last {{count}} records the station asked for. Bitrate and network make no difference to this. Authorizing a different account is the one thing to try from here.',
+        },
         lastLoginFailure: 'Last login failure',
         startError: {
             title: 'Could not start the authorization',
@@ -186,6 +193,7 @@ export const plugins = {
             notAnswering: 'Not answering',
             authorized: 'Authorized',
             notAuthorized: 'Not authorized',
+            keysRefused: 'Keys refused',
         },
     },
     capability: {

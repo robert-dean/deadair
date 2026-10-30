@@ -218,6 +218,16 @@ describe('the track fetcher authorization', () => {
         expect(state.loginError).toContain('INVALID_CREDENTIALS');
     });
 
+    it('reports refused audio keys once they are a run, and not before', async () => {
+        const below = await clientWith({}, healthy({ ok: true, session: true, storedLogin: true, audioKeysRefused: 4 })).client.authorization();
+        const run = await clientWith({}, healthy({ ok: true, session: true, storedLogin: true, audioKeysRefused: 5 })).client.authorization();
+
+        expect(below.audioKeysRefused).toBeUndefined();
+        expect(run.audioKeysRefused).toBe(5);
+        // The login is fine, which is exactly why nothing else on this state shows the fault.
+        expect(run.authorized).toBe(true);
+    });
+
     it('reports a fetcher that is not answering as unreachable rather than as unauthorized', async () => {
         const { client } = clientWith({}, new Error('ECONNREFUSED'));
 

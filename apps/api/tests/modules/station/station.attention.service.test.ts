@@ -120,6 +120,20 @@ describe('StationAttentionService.read', () => {
         expect(items[0]).toMatchObject({ code: 'fetcherNotAuthorized', route: '/plugins/deadair.spotify' });
     });
 
+    it('reports a fetcher that is authorized and being refused its keys', async () => {
+        resetForwardedHop();
+
+        const { items } = await service({
+            plugins: [
+                plugin({ id: 'deadair.spotify', name: 'Spotify', capabilities: ['catalog', 'stream', 'steer', 'oauth'], usesTrackFetcher: true }),
+            ],
+            authorization: { reachable: true, configured: true, authorized: true, session: true, audioKeysRefused: 238 },
+        }).read();
+
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({ code: 'fetcherKeysRefused', severity: 'failure', count: 238 });
+    });
+
     it('says nothing about a fetcher that is authorized', async () => {
         resetForwardedHop();
 

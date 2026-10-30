@@ -24,6 +24,12 @@ export const FetcherAuthorization = z.strictObject({
         .max(500)
         .optional()
         .describe('The last reason a login was refused. Present is not the same as fatal: a session may have recovered since'),
+    audioKeysRefused: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1))
+        .optional()
+        .describe(
+            'How many fetches in a row Spotify has refused the audio key for, once that is a run rather than a moment. Absent otherwise. The login is fine throughout, so nothing else here shows it, and a new authorization only helps if it is for a different account',
+        ),
     pendingUrl: z
         .string()
         .max(2000)

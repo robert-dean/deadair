@@ -185,7 +185,9 @@ const isPast = (state: string): boolean => state !== 'planned' && state !== 'han
  * change to wake the next one.
  *
  * Four, which is more consecutive segments than `BreakPlanner` will ever place: it plants one break
- * per slot and never two in a row. It is slack rather than a rule, so being wrong costs one pass.
+ * per slot and never two in a row. Other edits can still stack them (a countdown cut leaves the
+ * breaks of the records it took out), so it is slack rather than a rule: a pass that finds nothing
+ * but skips asks for another, and being wrong costs that pass.
  */
 const SEGMENT_SLACK = 4;
 
@@ -2586,6 +2588,10 @@ export class DirectorService {
                 // the claim check would drop the break at hand-over either way — and this is only
                 // the attempt to have something true to say instead. See `reopenPromises`.
                 void this.reopenPromises(prepared.unavailable);
+                // Items came off the order and nothing reached the rundown, so `prepare` announced
+                // no change and no pass would follow: the order behind them would sit there with the
+                // station silent. Each pass like this consumes what it looked at, so it ends.
+                if (prepared.items.length === 0 && prepared.skipped.length + prepared.unavailable.length > 0) this.wake();
                 // Throttled. Nobody is waiting on this, and both ways of being late fail the same
                 // direction: the record says less has been committed than has, so the recovery
                 // replays rather than skips. For a station whose order is read back at boot,

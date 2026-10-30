@@ -2545,6 +2545,24 @@ describe('DirectorService committing segments', () => {
         expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a']);
     });
 
+    // Live on 30 October: a countdown cut left five breaks in a row at the head of the order, all
+    // reopened for rewriting. One pass skipped the lot and handed over nothing, so the rundown never
+    // changed, nothing asked for another pass, and the station sat silent over a full running order.
+    it('goes round again when a pass skipped everything it looked at', async () => {
+        const ids = ['seg-1', 'seg-2', 'seg-3', 'seg-4', 'seg-5'];
+        const { director, lineup, rundown, seed } = build({
+            items: ['a', 'b'],
+            segments: ids.map(id => ({ id, kind: 'talkbreak', state: 'planned' as const, label: 'A talk break', source: 'render' })),
+        });
+        await seed();
+        ids.forEach((id, at) => lineup.insertSegment(id, at));
+
+        await director.start();
+        await settle();
+
+        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a']);
+    });
+
     // The lineup names it and the library no longer holds it: same outcome as one that is not
     // ready, and distinguishable only in the log.
     it('skips a segment the library has lost', async () => {

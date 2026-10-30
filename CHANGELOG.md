@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.6] — 2026-10-30
+
+- The station now serves a real `/favicon.ico`. Anything asking for that address used to get the console's web page with a success status instead of an image.
+- The MCP endpoint now tells clients the station's logo and website when they connect, so an app that shows server icons can show deadair's. Claude does not read this for custom connectors yet, so its connector list is unchanged.
+- Dragging a timetable block now saves its end time, and dragging an edge two blocks share moves both of them
+
 ## [0.87.5] — 2026-10-30
 
 - A resumed event stream no longer skips an event that was cut off before it was dispatched, and a cursor the server cleared is no longer sent back as an empty `Last-Event-ID` header.
@@ -1777,7 +1783,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.6...HEAD
+[0.87.6]: https://github.com/robert-dean/deadair/compare/v0.87.5...v0.87.6
 [0.87.5]: https://github.com/robert-dean/deadair/compare/v0.87.4...v0.87.5
 [0.87.4]: https://github.com/robert-dean/deadair/compare/v0.87.3...v0.87.4
 [0.87.3]: https://github.com/robert-dean/deadair/compare/v0.87.2...v0.87.3

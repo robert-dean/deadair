@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.7] — 2026-10-30
+
+- The station no longer goes silent over a full running order when a pass skips every item it looks at and hands nothing to the player.
+
 ## [0.87.6] — 2026-10-30
 
 - The station now serves a real `/favicon.ico`. Anything asking for that address used to get the console's web page with a success status instead of an image.
@@ -1783,7 +1787,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.6...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.7...HEAD
+[0.87.7]: https://github.com/robert-dean/deadair/compare/v0.87.6...v0.87.7
 [0.87.6]: https://github.com/robert-dean/deadair/compare/v0.87.5...v0.87.6
 [0.87.5]: https://github.com/robert-dean/deadair/compare/v0.87.4...v0.87.5
 [0.87.4]: https://github.com/robert-dean/deadair/compare/v0.87.3...v0.87.4

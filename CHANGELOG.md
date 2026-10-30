@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.5] — 2026-10-30
+
+- A resumed event stream no longer skips an event that was cut off before it was dispatched, and a cursor the server cleared is no longer sent back as an empty `Last-Event-ID` header.
+
 ## [0.87.4] — 2026-10-30
 
 - When Spotify accepts the track fetcher's login and then refuses it the audio key for record after record, the console now says so: on the attention list and on the playback authorization card, instead of only dropping records because their audio would not arrive in time.
@@ -1773,7 +1777,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.5...HEAD
+[0.87.5]: https://github.com/robert-dean/deadair/compare/v0.87.4...v0.87.5
 [0.87.4]: https://github.com/robert-dean/deadair/compare/v0.87.3...v0.87.4
 [0.87.3]: https://github.com/robert-dean/deadair/compare/v0.87.2...v0.87.3
 [0.87.2]: https://github.com/robert-dean/deadair/compare/v0.87.1...v0.87.2

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.4] — 2026-10-30
+
+- When Spotify accepts the track fetcher's login and then refuses it the audio key for record after record, the console now says so: on the attention list and on the playback authorization card, instead of only dropping records because their audio would not arrive in time.
+
 ## [0.87.3] — 2026-10-29
 
 - A stall no longer leaves the station reading Icecast's deprecated stats endpoint until it restarts. When the admin endpoint times out, drops the connection or answers a 5xx, the poll falls back as before, then tries the admin endpoint again after five minutes, as it already did after a refused password. While the station was stuck on the fallback, Check-up → Listeners reported every mount as "has not found an Icecast 2.5 it can ask". A 404 still means a 2.4 server and is not retried.
@@ -1769,7 +1773,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.4...HEAD
+[0.87.4]: https://github.com/robert-dean/deadair/compare/v0.87.3...v0.87.4
 [0.87.3]: https://github.com/robert-dean/deadair/compare/v0.87.2...v0.87.3
 [0.87.2]: https://github.com/robert-dean/deadair/compare/v0.87.1...v0.87.2
 [0.87.1]: https://github.com/robert-dean/deadair/compare/v0.87.0...v0.87.1

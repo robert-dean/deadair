@@ -18,8 +18,8 @@
     },
     "devDependencies": {
         "@deadair/sdk": "workspace:*",
-        "@elgato/cli": "^1.10.2",
-        "@elgato/streamdeck": "^3.0.2",
+        "@elgato/cli": "^1.10.3",
+        "@elgato/streamdeck": "^3.0.3",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*"
     }

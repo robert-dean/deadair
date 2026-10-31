@@ -246,6 +246,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
                     // keep a pad hit in a kind of break whose shape refused to offer one, which is the same
                     // class of disagreement `maxWordsFor` exists to prevent one field up.
                     pads: offeredPads(settings, TALK_BREAK_SHAPE),
+                    // Only the shows this break was handed may be announced.
+                    shows: [request.previous?.concert, request.next?.concert].filter(show => show !== undefined),
                     // The dates this break was actually handed, from the same two records the prompt was
                     // built from. Unconditional, like `cues` and for the same reason: an EMPTY permitted set
                     // is the statement a factless break makes rather than a question left unasked, and it is

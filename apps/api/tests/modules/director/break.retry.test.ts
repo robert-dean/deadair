@@ -24,6 +24,7 @@ describe('worthRetrying', () => {
             'invented-figure',
             'quoted-lyric',
             'invented-home',
+            'invented-concert',
             'swapped-credit',
             'station-sign-off',
         ] as WriteFault[]) {

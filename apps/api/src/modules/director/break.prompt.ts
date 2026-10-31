@@ -34,6 +34,7 @@
  * badly, and a rule about them would be a rule about nothing.
  */
 
+import { concertLine } from './break.concert.js';
 import { withoutCues, type LlmMessage, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import { padOffer, withoutPads, type PadUseNote } from '#modules/render/pad.cues.js';
 import { MAX_REACTIONS } from '#modules/render/speakable.script.js';
@@ -1615,6 +1616,7 @@ function describe(track: BreakTrack, withFacts: boolean): string {
         if (track.album?.trim()) lines.push(`- Album: ${spoken(track.album.trim())}`);
         if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
         if (track.chart) lines.push(`- Chart: ${spokenPlacing(track.chart)}`);
+        if (track.concert) lines.push(concertLine(track.artist, track.concert));
         // Said as why it is on, as a chart position is: a deep cut is a choice the station made.
         if (track.deepCut) lines.push('- Deep cut: an album track this station has not played in months');
         // The one connection to another record a break may state, because the station planned it.

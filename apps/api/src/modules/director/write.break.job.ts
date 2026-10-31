@@ -4,6 +4,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { ConcertService } from '#modules/concerts/concert.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { padCue, padPlacementsIn, padsIn, withoutPads } from '#modules/render/pad.cues.js';
 import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
@@ -32,6 +33,8 @@ import { errorText } from '#modules/shared/error.text.js';
 import { BreakRequestBuilder, type ChosenStory, type HandedClaim, type Neighbour, type Neighbours } from './break.request.builder.js';
 import { mentionsFact } from './fact.mentions.js';
 import { nonEmptyText } from '#modules/shared/text.value.js';
+import { concertWindow, spokenConcertDate } from './break.concert.js';
+import { stationZone } from './clock.words.js';
 
 export interface WriteBreakPayload {
     /**
@@ -98,6 +101,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly sources: SegmentFactsRepository,
         /** Which album titles span several artists. See {@link withoutCollections}. */
         private readonly candidates: CandidatesRepository,
+        /** When an artist is next nearby. See {@link withConcert}. */
+        private readonly concerts: ConcertService,
         private readonly activity: ActivityRecorder,
         // Outlives this job, which is scoped: whether the model has been failing for an hour is a run
         // across many writes. See `BreakFloorWatch`.
@@ -150,7 +155,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
 
         // A break with no position genuinely has no neighbours, which is a shape every writer
         // already answers for: it is the same pair a break at the head of an order is handed.
-        const neighbours: Neighbours = await this.withoutCollections(found ?? {});
+        const neighbours: Neighbours = await this.withConcert(lineup, segmentId, await this.withoutCollections(found ?? {}));
 
         // Claimed rather than read, so two runs cannot both write the same break: only one
         // `planned → writing` wins and the loser stops here. That is what makes a duplicate send
@@ -726,6 +731,33 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(neighbours.previous === undefined ? {} : { previous: checked(neighbours.previous) }),
             ...(neighbours.next === undefined ? {} : { next: checked(neighbours.next) }),
         };
+    }
+
+    /**
+     * The neighbours with one artist's next local show on them, when the show on air asked for it.
+     *
+     * A talk break alone, the record coming up before the one behind it, and one show at most, so a
+     * link is a link rather than a listings page. No date is an ordinary answer and costs nothing.
+     */
+    private async withConcert(lineup: StationLineup, segmentId: string, neighbours: Neighbours): Promise<Neighbours> {
+        if (lineup.rules.concerts !== true) return neighbours;
+
+        const item = lineup.all().find(candidate => candidate.kind === 'segment' && candidate.segmentId === segmentId);
+        if (item?.kind !== 'segment' || item.segmentKind !== TALK_BREAK_KIND) return neighbours;
+
+        const { from, until } = concertWindow(Date.now(), stationZone(this.config));
+        for (const side of ['next', 'previous'] as const) {
+            const neighbour = neighbours[side];
+            if (neighbour === undefined || neighbour.track.programme !== undefined) continue;
+
+            const show = await this.concerts.nextDate(neighbour.track.artist, from, until);
+            if (show === undefined) continue;
+
+            const concert = { venue: show.venue, date: spokenConcertDate(show.startsOn), ...(show.city === undefined ? {} : { city: show.city }) };
+            return { ...neighbours, [side]: { ...neighbour, track: { ...neighbour.track, concert } } };
+        }
+
+        return neighbours;
     }
 
     /**

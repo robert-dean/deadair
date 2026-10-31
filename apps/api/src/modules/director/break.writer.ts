@@ -44,6 +44,14 @@ import type { RoughTime } from './clock.words.js';
 import type { ChartPlacing } from '#modules/playout/rundown.js';
 
 /** A record, as a writer sees one. */
+/** A show a break may mention, in the words it may say it in. */
+export interface BreakConcert {
+    venue: string;
+    city?: string;
+    /** As it is said: `Saturday, November 14`. */
+    date: string;
+}
+
 export interface BreakTrack {
     title: string;
     /** The credit as it should be READ, which is why it is one string and not the artists array. */
@@ -124,6 +132,12 @@ export interface BreakTrack {
      * the floor can say it through `{{next.chart.rank}}`.
      */
     chart?: ChartPlacing;
+    /**
+     * This artist's next show near the station, on a show that asked for it and on one record of a
+     * break at most. Set by `WriteBreakJob`, and it stays true between the writing and the slot for
+     * the reason `concertWindow` gives, so it needs no claim of its own.
+     */
+    concert?: BreakConcert;
     /** An album track the station has not aired in months, drawn because of it. Shown as material like {@link chart}. */
     deepCut?: true;
     /**

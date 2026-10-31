@@ -100,6 +100,8 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     // One claim added to a sound break, the year's kind of mistake about a different subject: told
     // which phrase, the fix is a deletion.
     'invented-home',
+    // The same kind of mistake about a show: told which sentence, the fix is a deletion.
+    'invented-concert',
     // A sound break with one phrase the wrong way round. Not the substrate kind of mistake, though it
     // is about the records: the model named the right record on the right side and joined its two
     // halves backwards, so told which words (`BreakRetry.said`) the fix is to turn them round.
@@ -152,6 +154,8 @@ const NUDGES: Record<string, string> = {
     'quoted-lyric': 'That quoted the words of a record, which the station never says on air. Say the same break again in your own words.',
     'invented-home':
         'That called somewhere here that is not where the station is. Say the same break again without it: the only place that is here is the one you were told, and if you were told none, do not say where you are.',
+    'invented-concert':
+        'That announced a show or a date you were not given. Say the same break again without it, or with only the venue and date you were told.',
     'swapped-credit':
         'That said a record the wrong way round, naming the artist as the song. Say the same break again with the title first and the artist after it: the title "by" the artist.',
     'station-sign-off':

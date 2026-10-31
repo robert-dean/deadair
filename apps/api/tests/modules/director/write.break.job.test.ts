@@ -52,6 +52,8 @@ function harness(
     options: {
         segment?: Segment;
         lineup?: StationLineup;
+        /** The next show the concert service knows of, by artist. */
+        concerts?: Record<string, { artist: string; venue: string; city?: string; startsOn: string }>;
         written?: unknown;
         wrote?: boolean;
         historyThrows?: boolean;
@@ -296,6 +298,7 @@ function harness(
         logger as never,
     );
 
+    const concerts = { nextDate: vi.fn(async (artist: string) => options.concerts?.[artist]) };
     const candidates = {
         albumTitlesAcrossArtists: vi.fn(async () => {
             if (options.spanning === 'throws') throw new Error('the catalog is away');
@@ -315,6 +318,7 @@ function harness(
         tellings as never,
         sources as never,
         candidates as never,
+        concerts as never,
         activity as never,
         floorWatch as never,
         jobs as never,
@@ -327,6 +331,7 @@ function harness(
     return {
         job,
         candidates,
+        concerts,
         floorWatch,
         segments,
         pads,
@@ -1644,6 +1649,64 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: { title: 'Yeah!', artist: 'USHER' } }), 'model');
+    });
+
+    describe('an upcoming show', () => {
+        const SHOW = { artist: 'Nick Drake', venue: 'Tabernacle', city: 'Atlanta', startsOn: '2026-11-14' };
+
+        const onShow = (rules: { concerts?: boolean }, kind = 'talkbreak'): StationLineup => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import', rules });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            lineup.insertSegment('seg-1', 1, undefined, kind);
+            return lineup;
+        };
+
+        it('hands the writer the next date of the record coming up, on a show that asked', async () => {
+            const { job, writers } = harness({ lineup: onShow({ concerts: true }), concerts: { 'Nick Drake': SHOW } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    next: expect.objectContaining({ concert: { venue: 'Tabernacle', city: 'Atlanta', date: 'Saturday, November 14' } }),
+                }),
+                'model',
+            );
+        });
+
+        it('asks nothing on a show that did not', async () => {
+            const { job, writers, concerts } = harness({ lineup: onShow({}), concerts: { 'Nick Drake': SHOW } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(concerts.nextDate).not.toHaveBeenCalled();
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ next: expect.not.objectContaining({ concert: expect.anything() }) }),
+                'model',
+            );
+        });
+
+        it('puts one show on a break, the record coming up first', async () => {
+            const { job, writers } = harness({
+                lineup: onShow({ concerts: true }),
+                concerts: { 'Nick Drake': SHOW, 'John Martyn': { ...SHOW, artist: 'John Martyn' } },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ previous: expect.not.objectContaining({ concert: expect.anything() }) }),
+                'model',
+            );
+        });
+
+        it('leaves a kind that is not a talk break alone', async () => {
+            const { job, concerts } = harness({ lineup: onShow({ concerts: true }, 'news'), concerts: { 'Nick Drake': SHOW } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(concerts.nextDate).not.toHaveBeenCalled();
+        });
     });
 
     it('tells the writer where a chart placed the record coming up', async () => {

@@ -6,6 +6,7 @@
  * Split out of `break.prompt.ts`, which keeps what the station ASKS for. See that file's header for
  * the failure both halves are shaped around.
  */
+import { inventedConcertSentence } from './break.concert.js';
 import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
 import { isSpeechDelivery, sentencesOf, sentencesWithin, withoutCues, type LlmMessage, type SpeechDelivery } from '@deadair/plugin-sdk';
 import { withoutPads } from '#modules/render/pad.cues.js';
@@ -21,7 +22,7 @@ import {
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import { claimedHomeIn } from '#modules/shared/station.home.js';
 import { inventedFigure, unofferedWeather } from './weather.figures.js';
-import type { BreakTrack } from './break.writer.js';
+import type { BreakConcert, BreakTrack } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { bareWords, NOT_A_HABIT, PRESENTER_CUES, DEFAULT_MAX_WORDS } from './break.prompt.js';
@@ -593,6 +594,12 @@ export interface AnswerGuard {
      * `inventedHomeIn`.
      */
     homes?: readonly string[];
+    /**
+     * The shows this break was handed, which is the only way one may be announced. Absent asks
+     * nothing; EMPTY means none was, so a sentence selling a show is the model's own. See
+     * `inventedConcertSentence`.
+     */
+    shows?: readonly BreakConcert[];
     /**
      * The station's name, which a script may say and may not say a line TO. Build it with
      * `stationGuard`, from the same setting the prompt names the station from. Absent asks nothing.
@@ -1443,6 +1450,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // and this one to the persona sheet or the station's own text, where a home town was planted.
     'invented-home':
         'the model called somewhere here that is not where the station is, which a listener there hears as the station not knowing its own town',
+    'invented-concert': 'the model announced a show or a date it was not handed, which sends a listener to a venue for nothing',
     'station-sign-off': 'the model said a line to the station by name, as though the station were the listener',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
@@ -1482,6 +1490,7 @@ export type WriteFault =
     | 'quoted-lyric'
     | 'unoffered-weather'
     | 'invented-home'
+    | 'invented-concert'
     | 'station-sign-off'
     | 'character-trimmed';
 
@@ -1576,6 +1585,9 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // an operator reading "called somewhere else here" wants to know where.
     const home = inventedHomeIn(speakable, guard);
     if (home !== undefined) return reasoned('invented-home', home);
+    // A show nobody confirmed sends a listener to a venue for nothing. English only, like the home check.
+    const show = guard.shows === undefined || guard.language !== undefined ? undefined : inventedConcertSentence(speakable, guard.shows);
+    if (show !== undefined) return reasoned('invented-concert', show);
     // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
     // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
     if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');

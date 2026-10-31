@@ -481,6 +481,12 @@ export function ChartPositionsField(input: GetInputPropsReturnType) {
     return <Checkbox label={t('chartPositions.label')} description={t('chartPositions.description')} {...input} />;
 }
 
+/** Whether the host may mention an artist's next local show. Off unless ticked, and it needs a concert plugin to have anything to say. */
+export function ConcertsField(input: GetInputPropsReturnType) {
+    const { t } = useTranslation('programme');
+    return <Checkbox label={t('concerts.label')} description={t('concerts.description')} {...input} />;
+}
+
 /**
  * Whether records that sound like the playlist's own are mixed in among them.
  *

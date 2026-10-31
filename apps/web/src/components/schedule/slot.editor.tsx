@@ -11,6 +11,7 @@ import {
     CallinsField,
     ChartOrderField,
     ChartPositionsField,
+    ConcertsField,
     chartSourceValue,
     EraFields,
     EraNote,
@@ -146,6 +147,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                         sourceChartOrder: values.chartOrder,
                         // Sent only when it is OFF: absent is yes. See `ChartPositionsField`.
                         ...(values.chartPositions ? {} : { chartPositions: false }),
+                        // Sent only when it is ON: absent is no.
+                        ...(values.concerts ? { concerts: true } : {}),
                     }
                   : source.kind === 'station'
                     ? { sourceStationPlaylistId: source.stationPlaylistId }
@@ -342,6 +345,7 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                             ) : undefined}
 
                             <HostField {...form.getInputProps('personaId')} />
+                            <ConcertsField {...form.getInputProps('concerts', { type: 'checkbox' })} />
 
                             {/* Under the host it sits in for. */}
                             <GuestHostsField
@@ -528,6 +532,7 @@ interface FormValues {
     chartOrder: NonNullable<ScheduleSlot['sourceChartOrder']>;
     /** Ticked sends nothing, which is yes; unticked sends `false`. Drawn only for a chart. */
     chartPositions: boolean;
+    concerts: boolean;
     personaId: string;
     brief: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
@@ -592,6 +597,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         // default the API would have applied anyway.
         chartOrder: slot?.sourceChartOrder ?? 'countdown',
         chartPositions: slot?.chartPositions ?? true,
+        concerts: slot?.concerts ?? false,
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',

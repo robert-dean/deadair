@@ -308,6 +308,12 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says',
         ),
+    concerts: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
+        ),
     albumId: z
         .uuid()
         .optional()

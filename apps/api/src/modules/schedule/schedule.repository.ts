@@ -204,6 +204,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         callins: draft.callins ?? null,
         mixInSimilar: draft.mixInSimilar ?? null,
         chartPositions: draft.chartPositions ?? null,
+        concerts: draft.concerts ?? null,
         breaks: draft.breaks ?? null,
         requestShow: draft.requestShow ?? null,
         requestFollowOn: draft.requestFollowOn ?? null,
@@ -290,6 +291,7 @@ function toSlot(row: {
     callins: boolean | null;
     mixInSimilar: boolean | null;
     chartPositions: boolean | null;
+    concerts: boolean | null;
     breaks: boolean | null;
     requestShow: boolean | null;
     requestFollowOn: number | null;
@@ -340,6 +342,7 @@ function toSlot(row: {
         // The same `== null`, for the same reason: `false` is a slot declining a station default.
         ...(row.mixInSimilar == null ? {} : { mixInSimilar: row.mixInSimilar }),
         ...(row.chartPositions == null ? {} : { chartPositions: row.chartPositions }),
+        ...(row.concerts == null ? {} : { concerts: row.concerts }),
         ...(row.breaks == null ? {} : { breaks: row.breaks }),
         ...(row.requestShow == null ? {} : { requestShow: row.requestShow }),
         ...(row.requestFollowOn == null ? {} : { requestFollowOn: row.requestFollowOn }),

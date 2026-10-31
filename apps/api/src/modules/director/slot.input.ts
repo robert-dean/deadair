@@ -35,6 +35,7 @@ export function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean
         ...(slot.mixInSimilar === undefined || withoutSource ? {} : { mixInSimilar: slot.mixInSimilar }),
         // The same three-way again, except that absent is yes: see `StationLineupRules.chartPositions`.
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
+        ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
         // The same three-way, and absent is the mode's answer: a countdown slot is a setlist that says yes.
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         // A kind of show rather than a station setting, so absent is simply no.

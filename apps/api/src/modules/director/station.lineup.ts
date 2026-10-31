@@ -357,6 +357,13 @@ export interface StationLineupRules {
      */
     chartPositions?: boolean;
     /**
+     * Whether the host may mention an artist's next show near the station.
+     *
+     * Absent is no: a date is a request to somebody else's service per artist, spent only on a show
+     * that asked. A show rule for `chartPositions`' reason. Read by `WriteBreakJob`.
+     */
+    concerts?: boolean;
+    /**
      * Whether one record may be blended into the next.
      *
      * Off for a `setlist` and a `feature` without anybody setting it, by the same

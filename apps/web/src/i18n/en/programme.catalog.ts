@@ -100,6 +100,10 @@ export const programme = {
         label: "Say each record's chart position",
         description: 'The host says where the chart placed a record, and its highest position where the chart gives one, when talking about it.',
     },
+    concerts: {
+        label: 'Mention upcoming local shows',
+        description: "When a record's artist has a show coming up near the station, the host may say so. Needs a concert plugin, such as Ticketmaster.",
+    },
     mixInSimilar: {
         label: 'Mix in similar records',
         description:

@@ -1008,6 +1008,7 @@ export interface DeadairScheduleSlots {
   brief: Generated<string>;
   callins: boolean | null;
   chartPositions: boolean | null;
+  concerts: boolean | null;
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
   endsAtMinutes: number;

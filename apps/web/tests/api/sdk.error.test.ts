@@ -6,6 +6,7 @@ import {
     apiErrorMessage,
     authChallenge,
     isClientError,
+    isRefreshRefused,
     isForbidden,
     isInsufficientScope,
     isInvalidToken,
@@ -29,6 +30,35 @@ describe('sdkError', () => {
         expect(sdkError(error)).toBe(error);
         expect(sdkError(new TypeError('network down'))).toBeUndefined();
         expect(sdkError('not an error at all')).toBeUndefined();
+    });
+});
+
+describe('isRefreshRefused', () => {
+    it.each(['invalid_request', 'invalid_token', 'invalid_grant'])('is the station refusing with %s', code => {
+        expect(isRefreshRefused(failure(401, { 'WWW-Authenticate': `Bearer error="${code}"` }))).toBe(true);
+    });
+
+    it('reads the error out of a challenge with other parameters in it', () => {
+        expect(isRefreshRefused(failure(401, { 'WWW-Authenticate': 'Bearer realm="api", error="invalid_token", error_description="spent"' }))).toBe(
+            true,
+        );
+    });
+
+    it.each([
+        ['a 401 with no challenge', 401, {}],
+        ['a proxy challenging for its own login', 401, { 'WWW-Authenticate': 'Basic realm="tunnel"' }],
+        ['a bearer challenge naming no error', 401, { 'WWW-Authenticate': 'Bearer realm="tunnel"' }],
+        ['a name that belongs to another grant', 401, { 'WWW-Authenticate': 'Bearer error="invalid_challenge"' }],
+        ['a refusal name on another status', 403, { 'WWW-Authenticate': 'Bearer error="invalid_token"' }],
+        ['the rate limiter', 429, {}],
+        ['a request timeout', 408, {}],
+        ['a bad gateway', 502, {}],
+    ])('is not %s', (_what, status, headers) => {
+        expect(isRefreshRefused(failure(status, headers))).toBe(false);
+    });
+
+    it('is not a failure to reach the station at all', () => {
+        expect(isRefreshRefused(new TypeError('offline'))).toBe(false);
     });
 });
 

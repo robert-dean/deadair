@@ -434,9 +434,15 @@ out to replace is still the current one — if it is not, somebody else already 
 answer is the good one. Taking a second turn there is exactly the replay the station treats as
 theft.
 
-**A session ends on a 4xx to the refresh and on nothing else.** Not a network failure, not a 5xx: a
-tunnel reconnecting or a phone changing cell would otherwise sign the operator out several times a
-day, and a station having a bad minute says nothing about whether a session is still good.
+**A session ends when the station itself refuses the refresh, and on nothing else.** That is a 401
+naming `invalid_request`, `invalid_token` or `invalid_grant` in `WWW-Authenticate`
+(`SdkError.refusesRefresh`), not a 4xx. Not a network failure, not a 5xx, and not a 4xx somebody else
+wrote: the station's rate limiter answers 429 and runs before the route, and a tunnel, a WAF or a
+proxy can answer anything, without having looked at the token. A station having a bad minute says
+nothing about whether a session is still good. A network failure is rethrown and any other answer
+becomes `SessionUnavailableException`, both with the session untouched, and it is a type of its own
+because a rethrown 403 would tell `refreshRoles` the account holds no roles.
+`docs/internals/authentication.md` § "What ends a session" has the rule for all four clients.
 
 **Roles come from `GET /auth/session`, are cached beside the tokens, and are a HINT, never a
 gate.** The JWT carries no roles and the token response's `scope` is empty, so that one read is the

@@ -204,6 +204,45 @@ while mail is configured). An account created through a provider starts out exac
 a second step (an authenticator's code, an emailed one, or on Android a passkey). Password sign-in
 stays.
 
+## What ends a session
+
+**A client ends a session when the station itself refuses the refresh, and on nothing else.** All
+four keep this rule in one place: `isRefreshRefused` in the console, `SdkError.refusesRefresh` on iOS
+and Android, `ApiError.RefusesRefresh` on the desktop.
+
+A refusal is a 401 from `POST /auth/token` whose `WWW-Authenticate` names one of three things:
+
+| Name | Meaning | Written by |
+| --- | --- | --- |
+| `invalid_request` | no token at all: a browser with no cookie, which is every first visit | `handleRefreshToken` |
+| `invalid_token` | malformed, expired, replayed, a revoked family, or the session is gone | ServerKit's `refreshSession` |
+| `invalid_grant` | the account behind the session is gone or switched off | `refuseIfSubjectIsGone` |
+
+The challenge is the discriminator rather than the error body because the body carries no code: a
+refusal renders as `{ statusCode: 401, message: 'Unauthorized' }`, which any framework could send,
+while all four SDKs expose the response headers and the three apps already read this one to tell
+sign-in refusals apart. It used to be any 4xx, which read every one of these as a dead token: the
+station's own rate limiter, which answers 429 ahead of the route and does not exempt refresh, a
+tunnel's or a WAF's 403, a proxy's 401 or 404, and a 408. None of them looked at the token, and the
+apps deleted a good one over them. A proxy's 401 does not name one of the three because the refresh
+carries no bearer, and RFC 6750 §3.1 has a challenge to a request without credentials leave the error
+code out.
+
+**So a refusal on this path has to use one of those names.** Anything else reads as the station being
+unavailable, which is the safe way round: the token is kept, and the client makes one more attempt on
+the next call or navigation. Nothing retries on a timer, so a token that can never be refreshed costs
+one request per call rather than a loop. An edge that strips `WWW-Authenticate` from an answer would
+leave a client holding a dead token until somebody signs out by hand; the console's own edge does not,
+and the API lists the header in its CORS `exposeHeaders`.
+
+**The apps do not rethrow the refresh's own status.** iOS and Android throw `SessionUnavailable` and
+`SessionUnavailableException`, and the desktop hands back the caller's 401. A rethrown 403 from a WAF
+would otherwise reach the roles read as "this account holds no roles" and wipe the cache.
+
+The console's no-cookie case is the same rule from the other side: `invalid_request` is cached as an
+anonymous verdict, which is what stops a page with no cookie asking once per redirect, and anything
+that is not a refusal caches nothing, so the next navigation asks again.
+
 ## Password lockout
 
 **Five wrong passwords lock out the CALLER for five minutes, not the account.** The library's

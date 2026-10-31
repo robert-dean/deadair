@@ -464,11 +464,13 @@ public sealed class SessionManager : IDisposable
                     new RefreshTokenAuthenticationRequest { RefreshToken = current.RefreshToken },
                     cancellationToken).ConfigureAwait(false);
             }
-            catch (SdkException failure) when (failure.Status is >= 400 and < 500)
+            catch (SdkException failure) when (ApiError.RefusesRefresh(failure))
             {
-                // A 4xx ENDS the session and nothing else does. Not a network failure, not a 5xx:
-                // those are the station being unreachable, and signing somebody out because their
-                // wifi dropped is the wrong answer.
+                // The station's own refusal ENDS the session and nothing else does. Not a network
+                // failure, not a 5xx, and not a 4xx somebody else wrote: those are the station being
+                // unreachable, and signing somebody out because their wifi dropped is the wrong
+                // answer. Nothing here asks again, so a token that can never be refreshed costs one
+                // exchange per 401 rather than a loop.
                 await EndAsync(cancellationToken).ConfigureAwait(false);
                 return new RefreshOutcome.SessionEnded();
             }

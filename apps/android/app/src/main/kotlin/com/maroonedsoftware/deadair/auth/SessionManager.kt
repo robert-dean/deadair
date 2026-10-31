@@ -21,6 +21,7 @@ import com.maroonedsoftware.deadair.sdk.runtime.SdkError
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.station.StationUrl
 import io.ktor.http.HttpMethod
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +37,16 @@ import kotlinx.coroutines.sync.withLock
 
 /** Nothing is signed in, so the call that needed a session was never made. */
 class NotSignedInException : Exception("Not signed in to this station")
+
+/**
+ * A refresh got an answer that was not the station's verdict on the token, so the session stands.
+ *
+ * Its own type rather than the [SdkError] that caused it, because a caller reads a status as being
+ * about what it asked for: a WAF's 403 on the refresh would otherwise reach `refreshRoles` as "this
+ * account holds no roles" and `OperatorActions` as "no longer the operator". An [IOException] is what
+ * every caller already reads as "could not reach the station", which is the truth.
+ */
+class SessionUnavailableException(cause: SdkError) : IOException("The station did not answer the refresh (${cause.status})", cause)
 
 /**
  * What the station said to "Forgot your password?".
@@ -154,10 +165,12 @@ sealed interface SignInResult {
  *
  * ## What ends a session and what does not
  *
- * A 4xx to the refresh ends it: the token is spent, revoked, or the account is gone, and no amount
- * of retrying makes any of those better. A network failure does NOT — a tunnel reconnecting or a
- * phone changing cell would otherwise sign the operator out several times a day — and neither does
- * a 5xx, which is the station having a bad minute rather than a statement about this session.
+ * The station's own refusal of the refresh ends it ([refusesRefresh]): the token is spent, revoked,
+ * or the account is gone, and no amount of retrying makes any of those better. A network failure
+ * does NOT, because a tunnel reconnecting or a phone changing cell would otherwise sign the operator
+ * out several times a day. Neither does a 5xx, which is the station having a bad minute rather than
+ * a statement about this session, nor a 4xx somebody else wrote, which is the station's own rate
+ * limiter as often as a tunnel or a WAF, and none of those looked at the token.
  */
 class SessionManager(
     private val store: SessionStorage,
@@ -520,13 +533,12 @@ class SessionManager(
                         .requestToken(RefreshTokenAuthenticationRequest(refreshToken = current.refreshToken))
                 } catch (error: SdkError) {
                     // Spent, revoked, or the account is gone. None of those improve on a retry.
-                    // A 5xx is the station having a bad minute and says nothing about this
-                    // session, so it is rethrown rather than treated as the end of one.
-                    if (error.status in CLIENT_ERRORS) {
-                        store.clear()
-                        return@withLock null
-                    }
-                    throw error
+                    // Any other answer says nothing about this session. Nothing here asks again:
+                    // the next call makes one more attempt, so a token that can never be refreshed
+                    // costs one request per call rather than a loop.
+                    if (!error.refusesRefresh) throw SessionUnavailableException(error)
+                    store.clear()
+                    return@withLock null
                 }
 
             if (answer !is AuthenticationTokenIssued) {
@@ -549,7 +561,6 @@ class SessionManager(
         const val BAD_REQUEST = 400
         const val TOO_MANY_REQUESTS = 429
         const val SERVICE_UNAVAILABLE = 503
-        val CLIENT_ERRORS = 400..499
 
         /** A grant the station will not honour, and one it read and rejected. Both are retyped. */
         val CREDENTIAL_REFUSALS = setOf(400, UNAUTHORIZED)

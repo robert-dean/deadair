@@ -2,7 +2,7 @@ import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { sdk } from '../api/client';
 import { queryKeys } from '../api/query.keys';
-import { isClientError } from '../api/sdk.error';
+import { isRefreshRefused } from '../api/sdk.error';
 import { clearSession, isAuthenticated, sessionEpoch, setSession } from './session.store';
 
 /**
@@ -22,14 +22,16 @@ interface RestoreVerdict {
  * design, and it is what the query cache is built on:
  *
  * - resolves `true` — the cookie yielded a token, which is now in the store.
- * - resolves `false` — the server answered, and its answer was that this cookie buys no session.
- *   A 4xx means the cookie is missing, expired, malformed or revoked, and asking again with the
- *   same cookie gets the same 4xx. Worth caching, and caching it is the loop guard: a page whose
+ * - resolves `false`: the station answered, and its answer was that this cookie buys no session:
+ *   it is missing, expired, malformed or revoked (see `isRefreshRefused`), and asking again with the
+ *   same cookie gets the same answer. Worth caching, and caching it is the loop guard: a page whose
  *   cookie cannot be redeemed asks once, not once per redirect.
  * - throws — the question never landed. A `TypeError` from `fetch` (offline, DNS, the dev API not
- *   up yet) or a 5xx (the API is up but its dependencies are not) says nothing about the cookie,
- *   and caching "unknown" as "anonymous" is what strands a valid session at /login until a hard
- *   reload. Query holds no data for a rejected fetch, so the next caller asks again.
+ *   up yet), a 5xx (the API is up but its dependencies are not), or a 4xx the station did not write
+ *   (its rate limiter, a tunnel, a WAF, a proxy) says nothing about the cookie, and caching
+ *   "unknown" as "anonymous" is what strands a valid session at /login until a hard reload. Query
+ *   holds no data for a rejected fetch, so the next caller asks again. That caller is a navigation
+ *   or a 401, never a timer, so this cannot become a loop either.
  */
 async function redeemRefreshCookie(): Promise<boolean> {
     try {
@@ -44,7 +46,7 @@ async function redeemRefreshCookie(): Promise<boolean> {
         setSession(response.access_token, response.expires_in);
         return true;
     } catch (error) {
-        if (!isClientError(error)) {
+        if (!isRefreshRefused(error)) {
             // Leave the store untouched: a live token stays usable, and an expired one already reads
             // as anonymous through `isAuthenticated`, so nothing downstream can send it either way.
             // Clearing here would only manufacture a logout out of someone else's outage.

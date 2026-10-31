@@ -5,9 +5,14 @@ import { SdkError } from '@deadair/sdk';
 import { clearSession, getSession, isAuthenticated, setSession } from '../../src/auth/session.store';
 import { resetSessionBootstrap, restoreSession } from '../../src/auth/session.bootstrap';
 
-/** What the API returns when the refresh cookie is missing, expired, or revoked. */
-function unauthorized(): SdkError {
-    return new SdkError(401, 'Unauthorized', { statusCode: 401, message: 'invalid_grant' }, new Headers());
+/** What the API returns when the refresh cookie is expired or revoked, or its account is gone. */
+function unauthorized(code = 'invalid_token'): SdkError {
+    return new SdkError(
+        401,
+        'Unauthorized',
+        { statusCode: 401, message: 'Unauthorized' },
+        new Headers({ 'WWW-Authenticate': `Bearer error="${code}"` }),
+    );
 }
 
 /** What a reachable-but-broken API returns: says nothing about the cookie. */
@@ -61,6 +66,34 @@ describe('restoreSession', () => {
 
         await expect(restoreSession(queryClient)).resolves.toBe(false);
         expect(getSession().accessToken).toBeUndefined();
+    });
+
+    it.each(['invalid_request', 'invalid_token', 'invalid_grant'])('reads the station refusing with %s as anonymous, and caches it', async code => {
+        // `invalid_request` is a browser with no cookie at all, which is every first visit.
+        requestToken.mockRejectedValue(unauthorized(code));
+
+        await expect(restoreSession(queryClient)).resolves.toBe(false);
+        await restoreSession(queryClient);
+
+        expect(requestToken).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        ['its own rate limiter', 429, {}],
+        ['a request timeout', 408, {}],
+        ['a WAF', 403, {}],
+        ['a proxy missing the route', 404, {}],
+        ['a proxy challenging for its own login', 401, { 'WWW-Authenticate': 'Basic realm="tunnel"' }],
+        ['a proxy that names no error', 401, { 'WWW-Authenticate': 'Bearer realm="tunnel"' }],
+    ])('caches no verdict on a refusal from %s, so the cookie gets another go', async (_who, status, headers) => {
+        requestToken.mockRejectedValueOnce(new SdkError(status, 'Refused', undefined, new Headers(headers)));
+        requestToken.mockResolvedValueOnce({ result: 'token', access_token: 'tok-1', expires_in: 3600 });
+
+        await expect(restoreSession(queryClient)).resolves.toBe(false);
+        await expect(restoreSession(queryClient)).resolves.toBe(true);
+
+        expect(requestToken).toHaveBeenCalledTimes(2);
+        expect(getSession().accessToken).toBe('tok-1');
     });
 
     it('makes the call once across concurrent and repeat invocations, then again after reset', async () => {

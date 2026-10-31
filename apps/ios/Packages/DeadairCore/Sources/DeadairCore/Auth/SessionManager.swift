@@ -5,6 +5,17 @@ import Observation
 /// Nothing is signed in to this station, so the call that needed a session was never made.
 public struct NotSignedIn: Error, Equatable {}
 
+/// A refresh got an answer that was not the station's verdict on the token, so the session stands.
+///
+/// Its own type rather than the `SdkError` that caused it, because a caller reads a status as being
+/// about what it asked for: a WAF's 403 on the refresh would otherwise reach `refreshRoles` as "this
+/// account holds no roles" and `OperatorActions` as "no longer the operator". Not an `SdkError` is
+/// what every caller already reads as "could not reach the station", which is the truth.
+public struct SessionUnavailable: Error, Equatable {
+    /// What the refresh was answered with, for a log.
+    public let status: Int
+}
+
 /// What the station said to "Forgot your password?". `apps/android`'s `ResetResult`.
 ///
 /// `sent` is the same answer whether or not the address has an account, because the station gives
@@ -103,9 +114,10 @@ public protocol OperatorSession: AnyObject {
 /// already replaced takes the replacement rather than refreshing again. Taking a second turn would
 /// be exactly the replay the station treats as theft.
 ///
-/// **A session ends on a 4xx to the refresh and on nothing else.** Not a network failure, not a
-/// 5xx: a tunnel reconnecting or a phone changing cell would otherwise sign the operator out several
-/// times a day.
+/// **A session ends when the station itself refuses the refresh, and on nothing else.** That is
+/// `SdkError.refusesRefresh`, not a 4xx: not a network failure, not a 5xx, and not a 4xx somebody
+/// else wrote, which is the station's own rate limiter as often as a tunnel or a WAF. Any of those
+/// would otherwise sign the operator out over a token that was never looked at.
 @MainActor
 @Observable
 public final class SessionManager: OperatorSession {
@@ -350,9 +362,11 @@ public final class SessionManager: OperatorSession {
             do {
                 let grant = RefreshTokenAuthenticationRequest(refreshToken: current.refreshToken)
                 answer = try await sdkFor(station) { [:] }.authentication.requestToken(body: .refreshTokenAuthenticationRequest(grant))
-            } catch let error as SdkError where (400..<500).contains(error.status) {
+            } catch let error as SdkError where error.refusesRefresh {
                 // Spent, revoked, or the account is gone. None of those improve on a retry.
                 return nil
+            } catch let error as SdkError where error.status != 0 {
+                throw SessionUnavailable(status: error.status)
             }
             guard case .authenticationTokenIssued(let issued) = answer else { return nil }
             // A rotation answers with both halves. Keeping the old refresh token when it does not
@@ -366,7 +380,9 @@ public final class SessionManager: OperatorSession {
         refreshing = task
         defer { refreshing = nil }
 
-        // A 5xx or a network failure is rethrown with the session untouched.
+        // Any other answer, or a network failure, is thrown with the session untouched. Nothing here
+        // asks again: the next call makes one more attempt, so a token that can never be refreshed
+        // costs one request per call rather than a loop.
         let next = try await task.value
         if let next { save(next) } else { clear() }
         return next

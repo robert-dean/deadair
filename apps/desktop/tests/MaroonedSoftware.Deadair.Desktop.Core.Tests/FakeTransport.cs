@@ -26,6 +26,9 @@ public sealed class FakeTransport : HttpMessageHandler
     /// <summary>What the token endpoint answers. 200 unless a test says otherwise.</summary>
     public HttpStatusCode RefreshAnswers { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>What goes in `WWW-Authenticate` beside <see cref="RefreshAnswers"/>, if anything.</summary>
+    public string? RefreshChallenge { get; set; }
+
     /// <summary>Makes a rotation answer without a new refresh token, which is allowed.</summary>
     public bool RefreshOmitsRefreshToken { get; set; }
 
@@ -155,7 +158,13 @@ public sealed class FakeTransport : HttpMessageHandler
 
         if (isRefresh && RefreshAnswers != HttpStatusCode.OK)
         {
-            return new HttpResponseMessage(RefreshAnswers) { Content = new StringContent("{}") };
+            var refused = new HttpResponseMessage(RefreshAnswers) { Content = new StringContent("{}") };
+            if (RefreshChallenge is not null)
+            {
+                refused.Headers.TryAddWithoutValidation("WWW-Authenticate", RefreshChallenge);
+            }
+
+            return refused;
         }
 
         // Each exchange issues a distinguishable token, so a test can tell the replay's header from

@@ -87,6 +87,19 @@ describe('AuthenticationService refresh grant', () => {
         expect(h.responseCookieJar.clearRefreshToken).not.toHaveBeenCalled();
     });
 
+    it('answers a browser with no cookie with the refusal the clients read as anonymous', async () => {
+        // The console turns on this name: `isRefreshRefused` is what makes a first visit anonymous
+        // rather than a station that could not be reached.
+        const h = build();
+        h.requestCookieJar.getRefreshToken.mockReturnValue(undefined);
+
+        const error = await h.refresh().catch((e: unknown) => e);
+
+        expect(IsHttpError(error) && error.statusCode).toBe(401);
+        expect(IsHttpError(error) && error.headers?.['WWW-Authenticate']).toContain('invalid_request');
+        expect(h.sessionService.refreshSession).not.toHaveBeenCalled();
+    });
+
     it('leaves a token the refresh grant refuses to that grant, and never asks after the actor', async () => {
         // Replay detection and family revocation belong to refreshSession, and they run before the
         // guard: a token that grant refuses is not this check's verdict to render.

@@ -519,6 +519,32 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * Which of these album titles the catalog holds under at least `artists` different artists, as
+     * `name_key`s, which is the one trace a various-artists release leaves: an album row belongs to
+     * the lead of the track that created it. See `collection.album.ts`.
+     *
+     * Asked once per break about at most two titles. `albums_artist_name_key_idx` leads on the artist,
+     * so this reads the albums table, which is a few thousand short rows.
+     */
+    async albumTitlesAcrossArtists(names: readonly string[], artists: number): Promise<Set<string>> {
+        const keys = [...new Set(names.map(normalizeKey))];
+        if (keys.length === 0) return new Set();
+
+        const rows = await this.db
+            .selectFrom('deadair.albums')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.albums.artistId')
+            .select('deadair.albums.nameKey')
+            .where('deadair.albums.nameKey', 'in', keys)
+            .where('deadair.albums.mergedIntoId', 'is', null)
+            .groupBy('deadair.albums.nameKey')
+            // A merged artist still holds its old album rows, and is one artist with its survivor.
+            .having(sql<number>`count(distinct coalesce(deadair.artists.merged_into_id, deadair.artists.id))`, '>=', artists)
+            .execute();
+
+        return new Set(rows.map(row => row.nameKey));
+    }
+
+    /**
      * When a batch of works was first released, as far as this catalog knows.
      *
      * {@link standingsFor}'s sibling, and it exists for the same reason: a pick can arrive from a

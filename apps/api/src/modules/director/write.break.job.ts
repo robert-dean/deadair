@@ -24,6 +24,9 @@ import { resolveWriterOrder } from './writer.order.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { isTrackItem, type StationLineup, type StationLineupItem } from './station.lineup.js';
 import { songKey } from './rotation.keys.js';
+import { normalizeKey } from '#modules/catalog/catalog.keys.js';
+import { CandidatesRepository } from './candidates.repository.js';
+import { isVariousArtists, maySpanArtists, namesACollection, SEVERAL_ARTISTS } from './collection.album.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { BreakRequestBuilder, type ChosenStory, type HandedClaim, type Neighbour, type Neighbours } from './break.request.builder.js';
@@ -93,6 +96,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly tellings: PersonaTellingRepository,
         /** Which stored claims each break was handed, for where the host got what it said. See {@link keepSources}. */
         private readonly sources: SegmentFactsRepository,
+        /** Which album titles span several artists. See {@link withoutCollections}. */
+        private readonly candidates: CandidatesRepository,
         private readonly activity: ActivityRecorder,
         // Outlives this job, which is scoped: whether the model has been failing for an hour is a run
         // across many writes. See `BreakFloorWatch`.
@@ -145,7 +150,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
 
         // A break with no position genuinely has no neighbours, which is a shape every writer
         // already answers for: it is the same pair a break at the head of an order is handed.
-        const neighbours: Neighbours = found ?? {};
+        const neighbours: Neighbours = await this.withoutCollections(found ?? {});
 
         // Claimed rather than read, so two runs cannot both write the same break: only one
         // `planned → writing` wins and the loser stops here. That is what makes a duplicate send
@@ -690,6 +695,37 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         } catch (error) {
             this.logger.warn(`director: could not record what was written (${errorText(error)})`);
         }
+    }
+
+    /**
+     * The neighbours with any album that is evidently a collection taken off, so a presenter never
+     * says a song came from a best-of. Off the track rather than blanked: `describe` and `{{next.album}}`
+     * already treat an album that is absent as one the station does not know. See `collection.album.ts`.
+     *
+     * A failed catalog read costs the check and never the break, so the album stays.
+     */
+    private async withoutCollections(neighbours: Neighbours): Promise<Neighbours> {
+        const albums = [neighbours.previous, neighbours.next].flatMap(side => (side?.track.album === undefined ? [] : [side.track.album]));
+        const shared = albums.filter(album => !namesACollection(album) && maySpanArtists(album));
+
+        let spanning = new Set<string>();
+        try {
+            spanning = await this.candidates.albumTitlesAcrossArtists(shared, SEVERAL_ARTISTS);
+        } catch (error) {
+            this.logger.warn(`director: could not read which albums span several artists (${errorText(error)})`);
+        }
+
+        const checked = (side: Neighbour): Neighbour => {
+            const { album, ...track } = side.track;
+            if (album === undefined) return side;
+            const collection = namesACollection(album) || isVariousArtists(side.track.artist) || spanning.has(normalizeKey(album));
+            return collection ? { ...side, track } : side;
+        };
+
+        return {
+            ...(neighbours.previous === undefined ? {} : { previous: checked(neighbours.previous) }),
+            ...(neighbours.next === undefined ? {} : { next: checked(neighbours.next) }),
+        };
     }
 
     /**

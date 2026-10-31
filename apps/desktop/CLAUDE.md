@@ -174,6 +174,35 @@ that carries the audio; the older `AVURLAssetHTTPHeaderFieldsKey` trick applies 
 alone, so the request that actually streams goes out as AppleCoreMedia and is counted as a different
 listener from the rest of the app.
 
+**A wait that never ends is a drop, and only the media clock may call it off.** AVPlayer reports a dead
+connection as a failure only some of the time; the rest it waits for bytes that are not coming, and a
+wait after audio reads as `Playing` so that a two-second hiccup flashes no banner. So wifi going with
+the stream open left the bar on Listening over silence, with no retry. `PlaybackConductor` now holds a
+timer on every wait: `StallLimit` (10s) on a connection that has carried audio, `WarmUpLimit` (30s) on
+one that has not yet, which includes every retry, because a new connection is warm-up whatever the
+last one did. A wait is timed once from its first reading, or a player repeating itself on each poll
+would hold the limit off for ever.
+
+At the limit it reads `da_player_position` first, because `AVPlayerItemPlaybackStalledNotification`
+can leave the phase at Buffering with audio still coming out, and each reload repeats Icecast's burst.
+Moved by a second or more means the phase is stale, and the wait is watched again from there; stood
+still, or a player with no `IPlaybackClock`, means a drop. Both the clock and the conductor belong to
+the UI thread, so the timer only raises `StallDue` and the view model posts `StallElapsed` back.
+
+Measured 2026-10-31 through the shim against a paced local MP3 mount that stopped sending and held
+its socket open: the clock ran at a second a second and read 0.00 through warm-up, the phase went to
+Buffering as the buffer ran out, the clock stood at exactly 17.46 from then on, and AVPlayer reported
+a failure of its own 11 seconds into the wait. So on a quiet socket the limit and AVPlayer are
+close, and it is the cases where AVPlayer says nothing that the limit is for. A real wifi drop has
+not been measured.
+
+**A retry tears the old player down, and that reports `Stopped`.** Read as a drop, it spent the backoff
+and armed a second retry on top of the attempt, which cut off a mount that takes five seconds to answer
+and happened to double as the only watch on a retry that hung. `BeginRetry` marks the attempt as ours
+and starts its watch itself, so one that reports nothing at all is still timed. An attempt says
+Reconnecting until it has audio. The BluOS player has no clock, so a speaker waiting past the limit is
+reloaded on the limit alone, which is unmeasured against a real amp.
+
 ## Avalonia 12, and five things that are not in any migration guide
 
 **`ExtendClientAreaChromeHints` was REMOVED.** The window runs under the title bar with

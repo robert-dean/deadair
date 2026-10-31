@@ -240,4 +240,374 @@ public class PlaybackConductorTests
         time.Advance(secondWait - firstWait);
         Assert.Equal(1, fired);
     }
+
+    /// <summary>
+    /// A conductor wired the way the listener wires it, minus the dispatcher: a timer that runs out
+    /// asks the conductor at once, and every retry it wants is counted as a reload.
+    /// </summary>
+    private sealed class Rig
+    {
+        public FakeTimeProvider Time { get; } = new();
+
+        /// <summary>What the player's clock says. Leave null for a player without one.</summary>
+        public TimeSpan? Position { get; set; }
+
+        public int Reloads { get; private set; }
+
+        public PlaybackConductor Conductor { get; }
+
+        public Rig()
+        {
+            Conductor = new PlaybackConductor(Time, () => Position);
+            Conductor.StallDue += () => Conductor.StallElapsed();
+            Conductor.RetryDue += () =>
+            {
+                if (Conductor.BeginRetry())
+                {
+                    Reloads++;
+                }
+            };
+        }
+
+        public void Reads(PlayerPhase phase) => Conductor.Observed(new PlayerStatus(phase));
+
+        /// <summary>Audio has been heard and the connection has just gone quiet.</summary>
+        public void Stalled()
+        {
+            Conductor.Requested();
+            Reads(PlayerPhase.Opening);
+            Reads(PlayerPhase.Playing);
+            Reads(PlayerPhase.Buffering);
+        }
+
+        /// <summary>The scenario this exists for: a stall that outlasted the limit, and its retry.</summary>
+        public void StalledIntoARetry()
+        {
+            Stalled();
+            Time.Advance(PlaybackConductor.StallLimit);
+            Time.Advance(Conductor.RetryIn!.Value);
+        }
+    }
+
+    [Fact]
+    public void AStallPastTheLimitIsADrop_EvenThoughThePlayerNeverSaidSo()
+    {
+        // Wifi gone with the stream open: AVPlayer waits for bytes that are not coming and reports no
+        // failure, so nothing but this limit ever takes the bar off Listening.
+        var rig = new Rig();
+        rig.Stalled();
+
+        rig.Time.Advance(PlaybackConductor.StallLimit - TimeSpan.FromMilliseconds(1));
+        Assert.Equal(ListeningState.Playing, rig.Conductor.State);
+
+        rig.Time.Advance(TimeSpan.FromMilliseconds(1));
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+        Assert.NotNull(rig.Conductor.RetryIn);
+        Assert.Equal(0, rig.Reloads);
+
+        rig.Time.Advance(rig.Conductor.RetryIn!.Value);
+        Assert.Equal(1, rig.Reloads);
+    }
+
+    [Fact]
+    public void AnOrdinaryHiccupThatResumesInsideTheLimitReloadsNothing()
+    {
+        var rig = new Rig();
+        rig.Stalled();
+
+        rig.Time.Advance(PlaybackConductor.StallLimit - TimeSpan.FromSeconds(1));
+        rig.Reads(PlayerPhase.Playing);
+        rig.Time.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(ListeningState.Playing, rig.Conductor.State);
+        Assert.Equal(0, rig.Reloads);
+    }
+
+    [Fact]
+    public void AClockThatHasMovedMeansThePhaseIsStale_AndAHealthyStreamIsNeverReloaded()
+    {
+        // A stall notification can leave the phase at Buffering with audio still coming out. Reloading
+        // that would cut off a stream that is fine and repeat Icecast's burst, however long it lasts.
+        var rig = new Rig { Position = TimeSpan.FromSeconds(100) };
+        rig.Stalled();
+
+        for (var limit = 0; limit < 20; limit++)
+        {
+            rig.Position += PlaybackConductor.StallLimit;
+            rig.Time.Advance(PlaybackConductor.StallLimit);
+        }
+
+        Assert.Equal(ListeningState.Playing, rig.Conductor.State);
+        Assert.Null(rig.Conductor.RetryIn);
+        Assert.Equal(0, rig.Reloads);
+    }
+
+    [Fact]
+    public void AClockThatStopsAfterMovingIsStillCaught_OneLimitLater()
+    {
+        // The tail of a buffer playing out, then nothing. The first limit passes on the clock, which
+        // must not be the end of the watching.
+        var rig = new Rig { Position = TimeSpan.FromSeconds(100) };
+        rig.Stalled();
+
+        rig.Position += TimeSpan.FromSeconds(3);
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+        Assert.Equal(ListeningState.Playing, rig.Conductor.State);
+
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+    }
+
+    [Fact]
+    public void AClockThatStood_IsADrop()
+    {
+        var rig = new Rig { Position = TimeSpan.FromSeconds(100) };
+        rig.Stalled();
+
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+    }
+
+    [Fact]
+    public void AClockThatOnlyTwitched_IsADrop()
+    {
+        // Moving a hair would otherwise hold off the reload one limit at a time, for ever.
+        var rig = new Rig { Position = TimeSpan.FromSeconds(100) };
+        rig.Stalled();
+
+        rig.Position += TimeSpan.FromMilliseconds(50);
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+    }
+
+    [Fact]
+    public void ARetryThatHangsInOpeningIsWatchedToo_AndKeepsSpendingTheBackoff()
+    {
+        var rig = new Rig();
+        rig.StalledIntoARetry();
+        Assert.Equal(1, rig.Reloads);
+        var firstWait = TimeSpan.FromSeconds(1);
+
+        rig.Reads(PlayerPhase.Stopped);
+        rig.Reads(PlayerPhase.Opening);
+
+        rig.Time.Advance(PlaybackConductor.WarmUpLimit - TimeSpan.FromMilliseconds(1));
+        Assert.Null(rig.Conductor.RetryIn);
+
+        rig.Time.Advance(TimeSpan.FromMilliseconds(1));
+        Assert.Equal(firstWait * 2, rig.Conductor.RetryIn);
+
+        rig.Time.Advance(rig.Conductor.RetryIn!.Value);
+        Assert.Equal(2, rig.Reloads);
+    }
+
+    [Fact]
+    public void ARetryThatNeverReportsAnythingIsWatched()
+    {
+        // Nothing to arm a watch from a reading: the mounts were unavailable, or a device took the
+        // request and went quiet.
+        var rig = new Rig();
+        rig.StalledIntoARetry();
+
+        rig.Time.Advance(PlaybackConductor.WarmUpLimit);
+
+        Assert.NotNull(rig.Conductor.RetryIn);
+        rig.Time.Advance(rig.Conductor.RetryIn!.Value);
+        Assert.Equal(2, rig.Reloads);
+    }
+
+    [Fact]
+    public void WarmUpIsWatchedOnItsOwnLimit()
+    {
+        var rig = new Rig();
+        rig.Conductor.Requested();
+        rig.Reads(PlayerPhase.Opening);
+
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+        Assert.Null(rig.Conductor.RetryIn);
+
+        rig.Time.Advance(PlaybackConductor.WarmUpLimit - PlaybackConductor.StallLimit);
+        Assert.Equal(ListeningState.WarmingUp, rig.Conductor.State);
+        Assert.NotNull(rig.Conductor.RetryIn);
+    }
+
+    [Fact]
+    public void TheOldPlayerStoppingForARetryIsNotASecondDrop()
+    {
+        // The Mac's player reports Stopped when a retry tears it down. Counting that spent the backoff
+        // and armed another reload on top of the attempt it belonged to, which for the five seconds
+        // the MP3 mount takes to answer meant cutting that attempt off.
+        var rig = new Rig();
+        rig.StalledIntoARetry();
+
+        rig.Reads(PlayerPhase.Stopped);
+        rig.Reads(PlayerPhase.Opening);
+
+        Assert.Null(rig.Conductor.RetryIn);
+        rig.Time.Advance(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, rig.Reloads);
+    }
+
+    [Fact]
+    public void AStopOnceTheRetryIsConnectingIsARealDrop()
+    {
+        var rig = new Rig();
+        rig.StalledIntoARetry();
+        rig.Reads(PlayerPhase.Stopped);
+        rig.Reads(PlayerPhase.Opening);
+
+        rig.Reads(PlayerPhase.Stopped);
+
+        Assert.NotNull(rig.Conductor.RetryIn);
+    }
+
+    [Fact]
+    public void AnAttemptSaysReconnecting_UntilItActuallyHasAudio()
+    {
+        // Listening during a retry is the same untruth as Listening over a stall.
+        var rig = new Rig();
+        rig.StalledIntoARetry();
+
+        rig.Reads(PlayerPhase.Stopped);
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+
+        rig.Reads(PlayerPhase.Opening);
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+
+        rig.Reads(PlayerPhase.Buffering);
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+
+        rig.Reads(PlayerPhase.Playing);
+        Assert.Equal(ListeningState.Playing, rig.Conductor.State);
+    }
+
+    [Fact]
+    public void ADeadConnectionEndsUnreachable_AndTheRetriesStop()
+    {
+        var rig = new Rig();
+        rig.Stalled();
+
+        // Every attempt hangs. A loop bound far past the five-minute budget, so a retry that went
+        // unwatched fails this rather than hanging it.
+        for (var second = 0; second < 2000 && rig.Conductor.State != ListeningState.Unreachable; second++)
+        {
+            rig.Time.Advance(TimeSpan.FromSeconds(1));
+        }
+
+        Assert.Equal(ListeningState.Unreachable, rig.Conductor.State);
+
+        var reloads = rig.Reloads;
+        rig.Time.Advance(TimeSpan.FromHours(1));
+        Assert.Equal(reloads, rig.Reloads);
+    }
+
+    [Fact]
+    public void RepeatedReadingsDoNotHoldTheLimitOff()
+    {
+        // A network player says the same thing on every poll.
+        var rig = new Rig();
+        rig.Stalled();
+
+        for (var poll = 0; poll < 10; poll++)
+        {
+            rig.Time.Advance(TimeSpan.FromSeconds(1));
+            rig.Reads(PlayerPhase.Buffering);
+        }
+
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+    }
+
+    [Fact]
+    public void ReadingsDuringTheWaitForARetryDoNotCancelIt()
+    {
+        var rig = new Rig();
+        rig.Stalled();
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+        var wait = rig.Conductor.RetryIn;
+
+        rig.Reads(PlayerPhase.Buffering);
+
+        Assert.Equal(wait, rig.Conductor.RetryIn);
+        Assert.Equal(ListeningState.Reconnecting, rig.Conductor.State);
+        rig.Time.Advance(wait!.Value);
+        Assert.Equal(1, rig.Reloads);
+    }
+
+    [Fact]
+    public void RecoveringOnItsOwnAfterAStallCancelsTheRetry()
+    {
+        var rig = new Rig();
+        rig.Stalled();
+        rig.Time.Advance(PlaybackConductor.StallLimit);
+
+        rig.Reads(PlayerPhase.Playing);
+        rig.Time.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(ListeningState.Playing, rig.Conductor.State);
+        Assert.Equal(0, rig.Reloads);
+    }
+
+    [Fact]
+    public void StoppingEndsTheWatch()
+    {
+        var rig = new Rig();
+        rig.Stalled();
+
+        rig.Conductor.Released();
+        rig.Time.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(ListeningState.Stopped, rig.Conductor.State);
+        Assert.Null(rig.Conductor.RetryIn);
+        Assert.Equal(0, rig.Reloads);
+    }
+
+    [Fact]
+    public void AStopPressedAfterTheRetryFiredWinsOverIt()
+    {
+        // The retry is posted to the UI thread, so the stop can land first. The player must stay down.
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+        time.Advance(conductor.RetryIn!.Value);
+
+        conductor.Released();
+
+        Assert.False(conductor.BeginRetry());
+    }
+
+    [Fact]
+    public void AStallEventOvertakenByAudioIsIgnored()
+    {
+        // The same race from the other side: the limit ran out with Playing already on its way.
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+        conductor.Observed(new PlayerStatus(PlayerPhase.Buffering));
+        time.Advance(PlaybackConductor.StallLimit);
+
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+
+        Assert.False(conductor.StallElapsed());
+        Assert.Equal(ListeningState.Playing, conductor.State);
+    }
+
+    [Fact]
+    public void AStallEventCannotCutALaterWaitShort()
+    {
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+        conductor.Observed(new PlayerStatus(PlayerPhase.Buffering));
+        time.Advance(PlaybackConductor.StallLimit);
+
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+        conductor.Observed(new PlayerStatus(PlayerPhase.Buffering));
+
+        Assert.False(conductor.StallElapsed());
+    }
 }

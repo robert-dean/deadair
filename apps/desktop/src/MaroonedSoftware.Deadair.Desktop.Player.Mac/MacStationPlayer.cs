@@ -19,7 +19,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Player.Mac;
 /// agent from the app's API and artwork requests is counted as a second listener.
 /// </para>
 /// </remarks>
-public sealed class MacStationPlayer : IStationPlayer
+public sealed class MacStationPlayer : IStationPlayer, IPlaybackClock
 {
     private readonly string _userAgent;
     private readonly object _gate = new();
@@ -72,6 +72,24 @@ public sealed class MacStationPlayer : IStationPlayer
                 {
                     NativePlayer.SetVolume(_handle, _volume);
                 }
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public TimeSpan? Position
+    {
+        get
+        {
+            lock (_gate)
+            {
+                if (_handle == nint.Zero)
+                {
+                    return null;
+                }
+
+                var seconds = NativePlayer.Position(_handle);
+                return seconds < 0 ? null : TimeSpan.FromSeconds(seconds);
             }
         }
     }

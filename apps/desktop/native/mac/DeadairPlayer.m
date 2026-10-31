@@ -10,6 +10,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <AppKit/AppKit.h>
+#import <CoreMedia/CoreMedia.h>
 #import <Foundation/Foundation.h>
 #import <MediaPlayer/MediaPlayer.h>
 
@@ -253,6 +254,14 @@ int da_player_phase(void *handle) {
         return DA_PHASE_STOPPED;
     }
     return (int)((__bridge DeadairPlayer *)handle).phase;
+}
+
+double da_player_position(void *handle) {
+    if (handle == NULL) {
+        return -1;
+    }
+    CMTime position = ((__bridge DeadairPlayer *)handle).player.currentTime;
+    return CMTIME_IS_NUMERIC(position) ? CMTimeGetSeconds(position) : -1;
 }
 
 void da_player_set_volume(void *handle, double volume) {

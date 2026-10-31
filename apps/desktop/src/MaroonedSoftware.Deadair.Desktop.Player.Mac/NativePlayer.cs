@@ -30,6 +30,9 @@ internal static partial class NativePlayer
     [LibraryImport(Library, EntryPoint = "da_player_phase")]
     internal static partial int Phase(nint handle);
 
+    [LibraryImport(Library, EntryPoint = "da_player_position")]
+    internal static partial double Position(nint handle);
+
     [LibraryImport(Library, EntryPoint = "da_player_set_volume")]
     internal static partial void SetVolume(nint handle, double volume);
 

@@ -146,8 +146,29 @@ export function movedSecretFields(
     return moved;
 }
 
+/** Every C0 control character and DEL. */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\x00-\x1f\x7f]/g;
+
+/** The same, sparing `\n` and `\r`. */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS_EXCEPT_LINE_BREAKS = /[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g;
+
+/**
+ * A credential as it should be stored, whichever of the three routes it was saved through.
+ *
+ * Stripped because nothing an upstream issues holds a control character, and one pasted in with a key
+ * makes every request that sends it throw before it leaves. Stripped before the trim, so `'\0 key'`
+ * does not keep its space. `multiline` is the exception a PEM block and a list of header lines need,
+ * and declared rather than inferred: a line break in an ordinary key is exactly the fault this
+ * removes, and only the field knows which one it is holding.
+ */
+export const cleanSecret = (text: string, declared: Pick<ConfigField, 'multiline'>): string =>
+    text.replace(declared.multiline === true ? CONTROL_CHARACTERS_EXCEPT_LINE_BREAKS : CONTROL_CHARACTERS, '').trim();
+
 /**
  * What a submitted secret FIELD means: a value sets it, and `null`, `''` or nothing at all clears it.
+ * So does a value that is nothing but what {@link cleanSecret} strips, which is blank by another name.
  * A field left out of the submission is kept, which is the caller's business rather than this one's.
  *
  * The same answer for the save and for the form a plugin's schema judges before it. They used to
@@ -155,9 +176,9 @@ export function movedSecretFields(
  * submitted blank passed validation and was then deleted. A CELL is different, deliberately: there
  * `''` is a cell nobody typed into and keeps what is stored (see {@link intentOf}).
  */
-export function secretFieldIntent(value: unknown): { set: string } | 'clear' {
+export function secretFieldIntent(value: unknown, field: Pick<ConfigField, 'multiline'>): { set: string } | 'clear' {
     if (value === undefined || value === null) return 'clear';
-    const text = typeof value === 'string' ? value.trim() : String(value).trim();
+    const text = cleanSecret(typeof value === 'string' ? value : String(value), field);
     return text.length === 0 ? 'clear' : { set: text };
 }
 
@@ -180,14 +201,15 @@ type CellIntent = { set: string } | 'clear' | 'keep';
  *
  * A string sets it, `null` clears it, absent keeps whatever is stored. The middle one is why the
  * console sends `null` rather than `''`: an empty string is what a half-typed field looks like, and
- * clearing a credential is deliberate enough to deserve its own value.
+ * clearing a credential is deliberate enough to deserve its own value. A cell holding nothing but
+ * what {@link cleanSecret} strips is blank, so it keeps too.
  */
-function intentOf(cell: unknown): CellIntent {
+function intentOf(cell: unknown, column: ConfigFieldColumn): CellIntent {
     if (cell === null) return 'clear';
     if (typeof cell !== 'string') return 'keep';
 
-    const trimmed = cell.trim();
-    return trimmed.length === 0 ? 'keep' : { set: trimmed };
+    const cleaned = cleanSecret(cell, column);
+    return cleaned.length === 0 ? 'keep' : { set: cleaned };
 }
 
 /** One row as it arrives from the console: ordinary cells as strings, a secret cell possibly `null`. */
@@ -280,12 +302,12 @@ export function splitRowSecrets(
         // A row with nothing but an id is one the console left behind: an operator adding a row and
         // thinking better of it. Dropped, along with anything it was holding.
         const hasCells = Object.keys(stored).length > 1;
-        const hasSecrets = columns.some(column => intentOf(submittedRow[column.key]) !== 'keep');
+        const hasSecrets = columns.some(column => intentOf(submittedRow[column.key], column) !== 'keep');
         if (!hasCells && !hasSecrets) continue;
 
         for (const column of columns) {
             const key = rowSecretKey(field.key, rowId, column.key);
-            const intent = intentOf(submittedRow[column.key]);
+            const intent = intentOf(submittedRow[column.key], column);
 
             if (intent === 'clear') delete secrets[key];
             else if (intent !== 'keep') secrets[key] = encrypt(intent.set);
@@ -371,7 +393,7 @@ export function formAsItWillBe(
 
         if (field.type === 'secret') {
             if (!isSubmitted) continue;
-            const intent = secretFieldIntent(submitted[field.key]);
+            const intent = secretFieldIntent(submitted[field.key], field);
             if (intent === 'clear') delete effective[field.key];
             else effective[field.key] = intent.set;
             continue;
@@ -414,7 +436,7 @@ function rowsAsTheyWillBe(field: ConfigField, storedValue: unknown, secrets: Rec
 
         const rowId = idOf(row);
         for (const column of columns) {
-            const intent = intentOf(row[column.key]);
+            const intent = intentOf(row[column.key], column);
 
             if (intent === 'clear') {
                 delete filled[column.key];

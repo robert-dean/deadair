@@ -254,6 +254,15 @@ export interface ConfigFieldColumn {
      * a field: a row whose address moves to another origin has to have its credential typed again.
      */
     sentTo?: string;
+
+    /**
+     * Line breaks are part of this credential: a PEM block, or one header per line.
+     *
+     * A save strips control characters from every secret, because one in a key breaks every request
+     * that sends it. A declared field keeps `\n` and `\r` and loses the rest. Ignored on every other
+     * type, and undeclared means a line break is stripped.
+     */
+    multiline?: boolean;
 }
 
 /**
@@ -563,6 +572,15 @@ export interface ConfigField {
      * there is none, so filling in an address that was empty is a move too.
      */
     sentTo?: string;
+
+    /**
+     * Line breaks are part of this credential: a PEM block, or one header per line.
+     *
+     * A save strips control characters from every secret, because one in a key breaks every request
+     * that sends it. A declared field keeps `\n` and `\r` and loses the rest. Ignored on every other
+     * type, and undeclared means a line break is stripped.
+     */
+    multiline?: boolean;
 }
 
 /**
@@ -662,6 +680,7 @@ export const configFieldColumnSchema = z.object({
     dependsOn: z.string().min(1).optional(),
     dependsOnValues: z.array(z.string().min(1)).optional(),
     sentTo: z.string().min(1).optional(),
+    multiline: z.boolean().optional(),
 });
 
 export const configFieldPresetSchema = z.object({
@@ -691,4 +710,5 @@ export const configFieldSchema = z.object({
     // Named here for the reason `dependsOn` is named on a column: the loader keeps the zod OUTPUT,
     // and a declaration stripped at load is a protection that is silently not there.
     sentTo: z.string().min(1).optional(),
+    multiline: z.boolean().optional(),
 });

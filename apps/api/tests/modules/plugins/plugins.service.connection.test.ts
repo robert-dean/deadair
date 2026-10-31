@@ -161,3 +161,39 @@ describe("testing a weather plugin against the station's own place", () => {
         await expect(service.testPlugin(PLUGIN_ID)).resolves.toEqual({ ok: true, message: 'Connected as radio.' });
     });
 });
+
+describe('a test failing on a stored key a header cannot carry', () => {
+    const refusal = (): string => {
+        try {
+            new Headers({ authorization: 'Bearer sk-abc\ndef' });
+        } catch (error) {
+            return (error as Error).message;
+        }
+        throw new Error('the platform accepted the header');
+    };
+
+    it('does not answer with the key when the plugin throws', async () => {
+        const { service } = serviceWith(async () => {
+            throw new Error(refusal());
+        });
+
+        const result = await service.testPlugin(PLUGIN_ID);
+
+        expect(result.ok).toBe(false);
+        expect(result.message).not.toContain('sk-abc');
+    });
+
+    it('does not answer with the key when the plugin caught it and reported it itself', async () => {
+        const { service } = serviceWith(async () => ({ ok: false, message: refusal() }));
+
+        const result = await service.testPlugin(PLUGIN_ID);
+
+        expect(result.message).not.toContain('sk-abc');
+    });
+
+    it('does not undefine a message or invent one', async () => {
+        const { service } = serviceWith(async () => ({ ok: true }));
+
+        expect((await service.testPlugin(PLUGIN_ID)).message).toBeUndefined();
+    });
+});

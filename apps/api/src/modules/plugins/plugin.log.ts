@@ -6,6 +6,7 @@ import type { PluginLogger } from '@deadair/plugin-sdk';
 // injectkit sees `Object` for that slot and fails registration verification.
 import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import type { LogEntry } from '#src/logging/rotating.log.store.js';
+import { withoutHeaderValue } from '#modules/shared/error.text.js';
 import type { PluginLogLevel } from './types/plugins.types.js';
 
 /** Minimum-severity ordering for the file-only verbosity gate. Console output ignores this entirely. */
@@ -142,7 +143,14 @@ export class PluginLog {
      * because that stream interleaves every plugin (and the host itself) and
      * needs the tag to attribute a line.
      */
-    private emit(pluginId: string, level: PluginLogLevel, message: string, meta?: Record<string, unknown>): void {
+    private emit(pluginId: string, level: PluginLogLevel, rawMessage: string, rawMeta?: Record<string, unknown>): void {
+        // Here rather than at each caller, because a plugin writes its own caught errors to this log.
+        const message = withoutHeaderValue(rawMessage);
+        const meta =
+            rawMeta === undefined
+                ? undefined
+                : Object.fromEntries(Object.entries(rawMeta).map(([key, value]) => [key, typeof value === 'string' ? withoutHeaderValue(value) : value]));
+
         this.logger[level](message, { ...meta, plugin: pluginId });
 
         if (LEVEL_ORDER[level] < LEVEL_ORDER[this.levelOf(pluginId)]) return;

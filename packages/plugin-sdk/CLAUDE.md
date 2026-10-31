@@ -122,6 +122,13 @@ to Brave or Tavily and never to the SearXNG address beside it, nor musicbrainz's
 ytmusic's cookie, which go to fixed hosts too. The station's own settings use the same declaration:
 `mail.password` names `mail.host`, and a sign-in provider's client secret names its issuer.
 
+**A save strips C0 control characters and DEL from every secret, so one whose line breaks matter declares
+`multiline`.** One stray newline in a key makes every request that sends it throw, and undici quotes the value
+in the error. `cleanSecret` in `apps/api/src/modules/shared/config.rows.ts` is the one place, for fields, cells and station
+settings; `multiline` keeps `\n` and `\r` only. Undeclared means a line break is stripped, so a PEM without it
+stops parsing. Bundled: apple-music's `privateKey` and llm's `headers` column. `withoutHeaderValue` in
+`shared/error.text.ts` covers what was stored before this existed.
+
 **A CELL's choices can also come from the plugin, which is the second of those three ways reaching one column
 rather than one field.** `suggestConfigOptions()` publishes under `columnSuggestionKey(fieldKey, columnKey)` —
 `voices.engine`, a dot-joined pair that cannot collide with a field key because a column key may not contain

@@ -127,6 +127,8 @@ export const appleMusicManifest: PluginManifest = {
             key: 'privateKey',
             label: 'MusicKit private key',
             type: 'secret',
+            // A PEM block, and it does not parse without its line breaks.
+            multiline: true,
             help: 'The contents of the .p8 file, including the BEGIN and END lines. Creating one needs a paid Apple Developer Program membership.',
         },
     ],

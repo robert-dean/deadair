@@ -309,6 +309,8 @@ export const llmManifest: PluginManifest = {
                     key: 'headers',
                     label: 'Extra headers',
                     type: 'secret',
+                    // One `Name: value` per line, read by `parseHeaderLines`.
+                    multiline: true,
                     placeholder: 'X-Gateway-Key: value',
                     sentTo: 'baseUrl',
                     dependsOn: 'kind',

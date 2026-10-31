@@ -5,9 +5,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { parseRows, ROW_ID_KEY, rowSecretKey, type ConfigField } from '@deadair/plugin-sdk';
+import { configFieldColumnSchema, configFieldSchema, parseRows, ROW_ID_KEY, rowSecretKey, type ConfigField } from '@deadair/plugin-sdk';
 
 import {
+    cleanSecret,
     configuredCells,
     formAsItWillBe,
     holdsRowSecrets,
@@ -231,9 +232,9 @@ describe('the form as a schema should judge it', () => {
         // and was then deleted by the save it had just approved.
         expect(formAsItWillBe(fields, stored, secrets, { apiKey: '' }).apiKey).toBeUndefined();
         expect(formAsItWillBe(fields, stored, secrets, { apiKey: '   ' }).apiKey).toBeUndefined();
-        expect(secretFieldIntent('')).toBe('clear');
-        expect(secretFieldIntent(null)).toBe('clear');
-        expect(secretFieldIntent(' sk-new ')).toEqual({ set: 'sk-new' });
+        expect(secretFieldIntent('', {})).toBe('clear');
+        expect(secretFieldIntent(null, {})).toBe('clear');
+        expect(secretFieldIntent(' sk-new ', {})).toEqual({ set: 'sk-new' });
     });
 
     it('takes a plain field the submission blanked out of the form, so an optional schema accepts it', () => {
@@ -401,5 +402,62 @@ describe('originOf', () => {
     it('is empty for no address', () => {
         expect(originOf(undefined)).toBe('');
         expect(originOf('  ')).toBe('');
+    });
+});
+
+describe('a credential holding control characters', () => {
+    const PEM = '-----BEGIN PRIVATE KEY-----\nMIGT\r\nabc\n-----END PRIVATE KEY-----';
+
+    it('strips C0 characters and DEL from an interior, keeping the rest', () => {
+        expect(cleanSecret('sk-abc\ndef\u0000g\thi\u007fj', {})).toBe('sk-abcdefghij');
+    });
+
+    it('leaves a key with nothing to strip exactly as it was, spaces inside included', () => {
+        expect(cleanSecret('correct horse', {})).toBe('correct horse');
+    });
+
+    it('trims what stripping exposed', () => {
+        expect(cleanSecret('\u0000 sk-abc \u0000', {})).toBe('sk-abc');
+    });
+
+    it('keeps the line breaks of a field that declares them, and nothing else', () => {
+        expect(cleanSecret(`${PEM}\n`, { multiline: true })).toBe(PEM);
+        expect(cleanSecret('A: 1\u0000\nB:\t2', { multiline: true })).toBe('A: 1\nB:2');
+    });
+
+    it('survives the manifest schema, or a declared field would lose its line breaks after a load', () => {
+        const declared = { key: 'k', label: 'K', type: 'secret', multiline: true };
+
+        expect(configFieldSchema.parse(declared).multiline).toBe(true);
+        expect(configFieldColumnSchema.parse(declared).multiline).toBe(true);
+    });
+
+    it('clears a field that strips to nothing, as blank does', () => {
+        expect(secretFieldIntent('\n\u0000\u007f', {})).toBe('clear');
+        expect(secretFieldIntent('sk-abc\ndef', {})).toEqual({ set: 'sk-abcdef' });
+    });
+
+    it('cleans a cell by its own column, and keeps what is stored when one strips to nothing', () => {
+        const field: ConfigField = {
+            key: 'providers',
+            label: 'Providers',
+            type: 'list',
+            columns: [
+                { key: 'name', label: 'Name', type: 'string' },
+                { key: 'apiKey', label: 'Key', type: 'secret' },
+                { key: 'headers', label: 'Headers', type: 'secret', multiline: true },
+            ],
+        };
+        const submitted = JSON.stringify([
+            { _id: 'one', name: 'a', apiKey: 'sk-abc\ndef', headers: 'A: 1\nB: 2' },
+            { _id: 'two', name: 'b', apiKey: '\u0000' },
+        ]);
+        const stored = { 'providers/two/apiKey': 'kept' };
+
+        const { secrets } = splitRowSecrets(field, submitted.replaceAll('_id', ROW_ID_KEY), stored, plain => `sealed:${plain}`);
+
+        expect(secrets['providers/one/apiKey']).toBe('sealed:sk-abcdef');
+        expect(secrets['providers/one/headers']).toBe('sealed:A: 1\nB: 2');
+        expect(secrets['providers/two/apiKey']).toBe('kept');
     });
 });

@@ -265,6 +265,10 @@ export const ConfigFieldColumn = z.strictObject({
         .describe(
             "`secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused",
         ),
+    multiline: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('`secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character'),
 });
 export type ConfigFieldColumn = z.infer<typeof ConfigFieldColumn>;
 
@@ -403,6 +407,10 @@ export const ConfigFieldDescriptor = z.strictObject({
         .describe(
             '`secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused',
         ),
+    multiline: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('`secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character'),
 });
 export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
 

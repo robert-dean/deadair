@@ -155,4 +155,24 @@ describe('telling a refused value from a refused field', () => {
         expect(arm.isReasoningValueRefusal?.(refusal("reasoning_effort does not support 'none'", 500), 'none')).toBe(false);
         expect(arm.isReasoningValueRefusal?.(new Error("reasoning_effort does not support 'none'"), 'none')).toBe(false);
     });
+
+    it('reads reasoning being mandatory as a refused value, though the body never names the field', () => {
+        const error = refusal('Reasoning is mandatory for this endpoint and cannot be disabled.');
+
+        expect(arm.isReasoningValueRefusal?.(error, 'none')).toBe(true);
+        expect(arm.isReasoningRefusal(error)).toBe(false);
+    });
+
+    it('matches the mandatory wording whatever its case', () => {
+        expect(arm.isReasoningValueRefusal?.(refusal('REASONING IS MANDATORY for this endpoint'), 'none')).toBe(true);
+    });
+
+    it('takes the mandatory wording only as a 400, and no looser wording in its place', () => {
+        const words = 'Reasoning is mandatory for this endpoint and cannot be disabled.';
+
+        expect(arm.isReasoningValueRefusal?.(refusal(words, 500), 'none')).toBe(false);
+        expect(arm.isReasoningValueRefusal?.(new Error(words), 'none')).toBe(false);
+        expect(arm.isReasoningValueRefusal?.(refusal('Reasoning is not available for this endpoint.'), 'none')).toBe(false);
+        expect(arm.isReasoningValueRefusal?.(refusal('A system prompt is mandatory for this endpoint.'), 'none')).toBe(false);
+    });
 });

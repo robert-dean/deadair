@@ -92,7 +92,9 @@ export interface ProviderArm {
      *
      * Asked before {@link isReasoningRefusal}, which a value refusal usually
      * satisfies too, so the bar is the same high one: the body has to name the
-     * field AND the value, or say the value is not one it takes.
+     * field AND the value, or say the value is not one it takes. A body saying
+     * thinking cannot be switched off says that second thing without naming the
+     * field, and an arm may take that exact wording.
      */
     isReasoningValueRefusal?(error: unknown, value: string): boolean;
 

@@ -41,6 +41,14 @@ function valueRefusalResponse(value = 'none'): () => Response {
         });
 }
 
+/** A gateway refusing `none` for a model that always reasons. Its words never name the field. */
+function mandatoryReasoningResponse(): Response {
+    return new Response(JSON.stringify({ error: { message: 'Reasoning is mandatory for this endpoint and cannot be disabled.', code: 400 } }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+    });
+}
+
 function plainErrorResponse(status: number): Response {
     return new Response(JSON.stringify({ error: { message: 'internal error' } }), {
         status,
@@ -232,5 +240,43 @@ describe('a refused none', () => {
         expect(host.calls).toHaveLength(3);
         expect(reasoningEffortSent(host, 1)).toBe('minimal');
         expect(reasoningEffortSent(host, 2)).toBe('none');
+    });
+});
+
+describe('a model on which reasoning is mandatory', () => {
+    it('steps none down to minimal and the words still arrive', async () => {
+        const host = scriptedHost([mandatoryReasoningResponse, () => sseResponse('Hello.')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        const result = await collectGeneration(await plugin.generate(request));
+
+        expect(result.text).toBe('Hello.');
+        expect(host.calls).toHaveLength(2);
+        expect(reasoningEffortSent(host, 0)).toBe('none');
+        expect(reasoningEffortSent(host, 1)).toBe('minimal');
+    });
+
+    it('latches for the whole row, so another model behind the same address gets minimal too', async () => {
+        const host = scriptedHost([mandatoryReasoningResponse, () => sseResponse('first'), () => sseResponse('second')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        await collectGeneration(await plugin.generate(request));
+        const second = await collectGeneration(await plugin.generate({ ...request, model: 'srv:gpt-y' }));
+
+        expect(second.text).toBe('second');
+        expect(host.calls).toHaveLength(3);
+        expect(reasoningEffortSent(host, 2)).toBe('minimal');
+    });
+
+    it('drops the field when minimal draws the same answer, which ends the chain', async () => {
+        const host = scriptedHost([mandatoryReasoningResponse, mandatoryReasoningResponse, () => sseResponse('Hello.')]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'off' });
+
+        const result = await collectGeneration(await plugin.generate(request));
+
+        expect(result.text).toBe('Hello.');
+        expect(host.calls).toHaveLength(3);
+        expect(reasoningEffortSent(host, 1)).toBe('minimal');
+        expect(reasoningEffortSent(host, 2)).toBeUndefined();
     });
 });

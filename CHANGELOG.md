@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.87.8] — 2026-10-31
+
+- Presenters no longer say a song came from a best-of or a various-artists compilation. An album that is evidently a collection is left out of what a break is told about the record.
+- A model that says reasoning is mandatory and cannot be disabled now gets the same step down to `minimal` as any other refused `none`, instead of failing the call and being marked down.
+- A listener joining the Opus mount after an idle spell starts at the live edge instead of tens of seconds behind it, because the mount now encodes at a constant bitrate and its burst stays half a second long.
+- Presenters say amounts in pounds and euros the way they say dollars, and clock times such as 8pm, 8:30pm and 8 p.m. as times.
+- A session now ends only when the station itself refuses the refresh. A rate limit, a tunnel, a firewall or a proxy answering in its place no longer signs the operator out or deletes a good token.
+- A secret saved with a control character in it no longer breaks every call that sends it, and Test connection and the plugin log no longer quote a stored key a request header refused. Secrets whose line breaks matter declare `multiline` and keep them.
+
 ## [0.87.7] — 2026-10-30
 
 - The station no longer goes silent over a full running order when a pass skips every item it looks at and hands nothing to the player.
@@ -1787,7 +1796,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.7...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.8...HEAD
+[0.87.8]: https://github.com/robert-dean/deadair/compare/v0.87.7...v0.87.8
 [0.87.7]: https://github.com/robert-dean/deadair/compare/v0.87.6...v0.87.7
 [0.87.6]: https://github.com/robert-dean/deadair/compare/v0.87.5...v0.87.6
 [0.87.5]: https://github.com/robert-dean/deadair/compare/v0.87.4...v0.87.5

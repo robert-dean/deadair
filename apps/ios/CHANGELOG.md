@@ -8,6 +8,11 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.15.1] — 2026-10-31
+
+- A retry that hangs is now timed out like the first one, so the app moves on to the next attempt and eventually says the station is unreachable, instead of staying on warming up or reconnecting until the system gives up.
+- A session now ends only when the station itself refuses the refresh. A rate limit, a tunnel, a firewall or a proxy answering in its place no longer signs the operator out or deletes a good token.
+
 ## [0.15.0] — 2026-10-21
 
 - Tap one of your past requests to ask for it again. It opens the usual request sheet for that record with the dedication and message it went with filled in, to change or keep before sending. The station decides on it like any new request.

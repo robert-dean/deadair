@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.26.2] — 2026-10-31
+
+- A session now ends only when the station itself refuses the refresh. A rate limit, a tunnel, a firewall or a proxy answering in its place no longer signs the operator out or deletes a good token.
+
 ## [0.26.1] — 2026-10-23
 
 - The Quick Settings tile reads "On" as soon as the shade is opened with the station already playing, rather than "Warming up" until the player next changed. The connection the tile binds on each open now takes the player's playing and buffering state from the moment it binds, not only whether play was asked for.
@@ -296,7 +300,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.26.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.26.2...HEAD
+[0.26.2]: https://github.com/robert-dean/deadair/compare/android-v0.26.1...android-v0.26.2
 [0.26.1]: https://github.com/robert-dean/deadair/compare/android-v0.26.0...android-v0.26.1
 [0.26.0]: https://github.com/robert-dean/deadair/compare/android-v0.25.0...android-v0.26.0
 [0.25.0]: https://github.com/robert-dean/deadair/compare/android-v0.24.1...android-v0.25.0

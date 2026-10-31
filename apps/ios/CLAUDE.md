@@ -86,7 +86,9 @@ audio has been heard is a drop `reconnecting`, and only after the backoff is spe
 `unreachable`. A wait for audio that never ends is a drop too: `AVPlayer` reports a dead
 connection as a failure only some of the time, and otherwise waits for ever under a screen saying
 playing, so the conductor gives a wait ten seconds once audio has been heard and thirty before
-(`stallLimit`, `warmUpLimit`), then retries it as the failure the player did not report. Not yet
+(`stallLimit`, `warmUpLimit`), then retries it as the failure the player did not report. The
+conductor arms that watch for each attempt it makes, because `StationPlayer.report` drops a repeated
+phase and a retry after a hung attempt is opening over opening: no reading arrives to arm it. Not yet
 seen happen on a phone; the limits are reasoned, not measured. `airState` separates off air from warming up by whether this app is asking for audio,
 because the station answers `onAir: false` to both.
 

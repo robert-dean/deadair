@@ -395,7 +395,8 @@ struct PlaybackConductorTests {
         conductor.networkChanged(cell)
         #expect(fired == 1)
         #expect(conductor.retryIn == nil)
-        #expect(clock.scheduled == 0)
+        // The old wait is gone, and the one thing left on the clock is the watch on the new attempt.
+        #expect(clock.scheduled == 1)
 
         conductor.observed(.failed)
         #expect(conductor.retryIn == .seconds(1))
@@ -493,6 +494,114 @@ struct PlaybackConductorTests {
         #expect(conductor.retryIn == .seconds(2))
     }
 
+    @Test func aColdStartThatKeepsHangingIsTimedOutEveryTime() {
+        // `play()` reports opening and the first timeout leaves the phase there, so no retry after
+        // the first attempt is ever heard from.
+        let conductor = conductor()
+        let player = DedupingPlayer(conductor)
+        var timedOut = 0
+        conductor.onTimedOut = { timedOut += 1 }
+        conductor.onRetryDue = { player.report(.opening) }
+        conductor.requested()
+        player.report(.opening)
+
+        clock.advance(by: .seconds(30))
+        #expect(timedOut == 1)
+        #expect(conductor.retryIn == .seconds(1))
+
+        clock.advance(by: .seconds(1))
+        #expect(player.delivered == 1)
+        #expect(conductor.retryIn == nil)
+
+        clock.advance(by: .milliseconds(29_999))
+        #expect(timedOut == 1)
+        clock.advance(by: .milliseconds(1))
+        #expect(timedOut == 2)
+        #expect(conductor.state == .warmingUp)
+        #expect(conductor.retryIn == .seconds(2))
+
+        clock.advance(by: .seconds(2 + 30))
+        #expect(timedOut == 3)
+        #expect(conductor.retryIn == .seconds(4))
+        #expect(player.delivered == 1)
+
+        clock.advance(by: .seconds(30 * 60))
+        #expect(conductor.state == .unreachable)
+        #expect(clock.scheduled == 0)
+    }
+
+    @Test func aReconnectThatKeepsHangingIsTimedOutEveryTime() {
+        // A stall fires the watch and the retry goes from buffering to opening, which is heard. That
+        // attempt hangs, and the next retry is opening to opening, which is not.
+        let conductor = conductor()
+        let player = DedupingPlayer(conductor)
+        conductor.onRetryDue = { player.report(.opening) }
+        conductor.requested()
+        player.report(.opening)
+        player.report(.playing)
+        player.report(.buffering)
+
+        clock.advance(by: .seconds(10))
+        #expect(conductor.state == .reconnecting)
+        #expect(conductor.retryIn == .seconds(1))
+
+        clock.advance(by: .seconds(1))
+        #expect(player.delivered == 4)
+
+        clock.advance(by: .seconds(10))
+        #expect(conductor.state == .reconnecting)
+        #expect(conductor.retryIn == .seconds(2))
+
+        clock.advance(by: .seconds(2))
+        #expect(player.delivered == 4)
+        #expect(conductor.retryIn == nil)
+
+        clock.advance(by: .milliseconds(9_999))
+        #expect(conductor.retryIn == nil)
+        clock.advance(by: .milliseconds(1))
+        #expect(conductor.state == .reconnecting)
+        #expect(conductor.retryIn == .seconds(4))
+
+        clock.advance(by: .seconds(30 * 60))
+        #expect(conductor.state == .unreachable)
+        #expect(clock.scheduled == 0)
+    }
+
+    @Test func aHungAttemptThatEndsInAudioStopsBeingWatched() {
+        let conductor = conductor()
+        let player = DedupingPlayer(conductor)
+        conductor.onRetryDue = { player.report(.opening) }
+        conductor.requested()
+        player.report(.opening)
+        clock.advance(by: .seconds(30 + 1))
+
+        player.report(.playing)
+
+        #expect(conductor.state == .playing)
+        #expect(clock.scheduled == 0)
+    }
+
+    @Test func aRetryOnTheNetworksReturnIsWatchedToo() {
+        // The attempt that hung was still opening when the network went, so the retry on its return
+        // is opening to opening as well.
+        let conductor = conductor()
+        let player = DedupingPlayer(conductor)
+        conductor.onRetryDue = { player.report(.opening) }
+        conductor.networkChanged(wifi)
+        conductor.requested()
+        player.report(.opening)
+        conductor.networkChanged(nil)
+
+        clock.advance(by: .seconds(30))
+        #expect(conductor.awaitingNetwork)
+
+        conductor.networkChanged(wifi)
+        #expect(player.delivered == 1)
+
+        clock.advance(by: .seconds(30))
+        #expect(conductor.retryIn == .seconds(1))
+    }
+
     @Test func aStallWithNoNetworkWaitsForOne() {
         let conductor = conductor()
         var fired = 0
@@ -522,5 +631,27 @@ struct PlaybackConductorTests {
 
         #expect(conductor.state == .stopped)
         #expect(clock.scheduled == 0)
+    }
+}
+
+/// `StationPlayer.report`, which says nothing when the phase has not moved. The app target has no
+/// tests, so this is the one place the conductor meets that: a retry that follows a hung attempt
+/// reports opening over opening, and the conductor hears nothing at all.
+@MainActor
+private final class DedupingPlayer {
+    private let conductor: PlaybackConductor
+    private var phase: PlayerPhase = .stopped
+    /// How many readings reached the conductor.
+    private(set) var delivered = 0
+
+    init(_ conductor: PlaybackConductor) {
+        self.conductor = conductor
+    }
+
+    func report(_ next: PlayerPhase) {
+        guard next != phase else { return }
+        phase = next
+        delivered += 1
+        conductor.observed(next)
     }
 }

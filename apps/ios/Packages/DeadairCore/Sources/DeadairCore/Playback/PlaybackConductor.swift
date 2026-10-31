@@ -67,6 +67,10 @@ public enum ListeningState: Equatable, Sendable {
 /// left. Now a wait that outlasts `stallLimit` (after audio has been heard) or `warmUpLimit`
 /// (before, where a waking station is legitimately quiet for five seconds) is treated as the
 /// failure the player did not report, and retried as one.
+///
+/// **Every attempt is watched, whether the player says anything or not.** The player reports a phase
+/// only when it moves, so the retry after a hung attempt is opening over opening and arrives here as
+/// silence. The watch on an attempt is therefore armed by the conductor making it, not by a reading.
 @MainActor
 @Observable
 public final class PlaybackConductor {
@@ -99,7 +103,8 @@ public final class PlaybackConductor {
     @ObservationIgnored private var offlineGiveUp: Cancel?
     @ObservationIgnored private let stallLimit: Duration
     @ObservationIgnored private let warmUpLimit: Duration
-    /// The timer on a wait for audio, armed while the player is opening or buffering.
+    /// The timer on a wait for audio, armed while the player is opening or buffering and for every
+    /// attempt this makes.
     @ObservationIgnored private var stallWatch: Cancel?
 
     /// `offlineLimit` is how long a drop waits for the network before it is unreachable. Longer than
@@ -187,9 +192,9 @@ public final class PlaybackConductor {
         guard wantsToPlay else { return }
         if held {
             backoff.reset()
-            onRetryDue?()
+            attempt()
         } else if moved, heldConnection {
-            onRetryDue?()
+            attempt()
         }
     }
 
@@ -256,8 +261,17 @@ public final class PlaybackConductor {
             self.pendingRetry = nil
             // The listener may have pressed stop, or the player may have recovered on its own,
             // in the moment between the timer being armed and it firing.
-            if self.wantsToPlay, self.state != .playing { self.onRetryDue?() }
+            if self.wantsToPlay, self.state != .playing { self.attempt() }
         }
+    }
+
+    /// Ask for a fresh attempt, with its own watch. Armed first, because a player that does report
+    /// opening does so from inside `onRetryDue`, and that reading replaces this watch with its own.
+    private func attempt() {
+        retryIn = nil
+        stopWatchingStall()
+        watchStall()
+        onRetryDue?()
     }
 
     /// Treat the wait for audio as a drop if it runs past its limit.

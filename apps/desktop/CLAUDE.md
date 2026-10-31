@@ -682,8 +682,13 @@ handling — one signs the operator out, the other changes nothing and hands bac
 **The refresh is single-flight, and that is not tidiness.** Refresh tokens are single-use and
 rotating, and presenting a spent one revokes the whole family — so two pollers hitting 401 together
 must produce one refresh, and the lock has to re-check whether the token it set out to replace is
-still current after it acquires. **A session ends on a 4xx to the refresh and on nothing else**: not
-a network failure, not a 5xx.
+still current after it acquires. **A session ends when the station itself refuses the refresh, and
+on nothing else**: a 401 naming `invalid_request`, `invalid_token` or `invalid_grant` in
+`WWW-Authenticate` (`ApiError.RefusesRefresh`), not a 4xx. Not a network failure, not a 5xx, and not a
+4xx somebody else wrote: the station's rate limiter answers 429 and runs before the route, and a
+tunnel, a WAF or a proxy can answer anything, without having looked at the token. All of those are
+`Unavailable`. `docs/internals/authentication.md` § "What ends a session" has the rule for all four
+clients.
 
 **Roles come from `GET /auth/session` and are a HINT.** They decide what is drawn; the API decides
 what is allowed. A 403 refreshes them rather than being reported as a failure. The web console gates

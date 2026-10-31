@@ -92,9 +92,10 @@ struct SessionManagerTests {
         #expect(storage.session?.accessToken == "access-2")
     }
 
-    @Test func endsTheSessionWhenTheStationRefusesTheRefreshToken() async {
+    @Test(arguments: ["invalid_token", "invalid_grant", "invalid_request"])
+    func endsTheSessionWhenTheStationRefusesTheRefreshToken(name: String) async {
         let storage = MemorySessionStorage(signedIn())
-        let fake = FakeStation { _ in .empty(401) }
+        let fake = FakeStation { request in request.path.hasSuffix("/auth/token") ? .refusal(name) : .empty(401) }
         let manager = manager(storage, fake)
 
         await #expect(throws: NotSignedIn.self) { try await history(manager) }
@@ -123,6 +124,38 @@ struct SessionManagerTests {
 
         #expect(storage.session == signedIn())
         #expect(storage.cleared == 0)
+    }
+
+    /// The station's own limiter answers ahead of the route, and a tunnel, a WAF or a proxy can
+    /// answer anything. None of them looked at the token.
+    @Test(arguments: [
+        (429, nil), (408, nil), (403, nil), (404, nil), (400, nil), (401, nil),
+        (401, #"Basic realm="tunnel""#), (401, #"Bearer realm="tunnel""#), (403, #"Bearer error="invalid_token""#),
+    ] as [(Int, String?)])
+    func keepsTheSessionOnA4xxTheStationDidNotWrite(status: Int, challenge: String?) async {
+        let storage = MemorySessionStorage(signedIn())
+        let fake = FakeStation { request in
+            guard request.path.hasSuffix("/auth/token") else { return .empty(401) }
+            return challenge.map { .challenge(status, $0) } ?? .empty(status)
+        }
+        let manager = manager(storage, fake)
+
+        // Not the `SdkError`, so no caller reads the refresh's status as being about what it asked for.
+        await #expect(throws: SessionUnavailable(status: status)) { try await history(manager) }
+        #expect(storage.session == signedIn())
+        #expect(storage.cleared == 0)
+        // The call and one refresh. A token that can never be refreshed must not loop.
+        #expect(fake.requests.count == 2)
+    }
+
+    @Test func aWafRefusingTheRefreshDoesNotReadAsAnAccountWithNoRoles() async {
+        let storage = MemorySessionStorage(signedIn(roles: [.admin]))
+        let fake = FakeStation { request in request.path.hasSuffix("/auth/token") ? .empty(403) : .empty(401) }
+        let manager = manager(storage, fake)
+
+        try? await manager.refreshRoles()
+
+        #expect(storage.session?.roles == [.admin])
     }
 
     @Test func letsAFailureThatIsNotA401ThroughUntouched() async {

@@ -436,8 +436,14 @@ and a caller whose token was already replaced takes the replacement. `refreshesE
 holds two 401s at a barrier so both arrive with the old token; with the in-flight share removed it
 counts two refreshes, which is how it is known to test the thing.
 
-**A session ends on a 4xx to the refresh and on nothing else.** A 5xx or a network failure is
-rethrown with the session untouched.
+**A session ends when the station itself refuses the refresh, and on nothing else.** That is a 401
+naming `invalid_request`, `invalid_token` or `invalid_grant` in `WWW-Authenticate`
+(`SdkError.refusesRefresh`), not a 4xx: the station's rate limiter answers 429 and runs before the
+route, and a tunnel, a WAF or a proxy can answer anything, without having looked at the token. A
+network failure is rethrown and any other answer becomes `SessionUnavailable`, both with the session
+untouched, and it is a type of its own because a rethrown 403 would tell `refreshRoles` the account
+holds no roles. `docs/internals/authentication.md` § "What ends a session" has the rule for all four
+clients.
 
 **Roles come from `GET /auth/session`, are cached beside the tokens, and are a HINT.** A 403 on
 that read is stored as no roles. `ensureRoles` asks once per process per account, and a failure is

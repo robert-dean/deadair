@@ -75,6 +75,18 @@ class SessionManagerTest {
 
     private fun sessionBody(vararg roles: String) = """{"actorId":"u-1","roles":[${roles.joinToString(",") { "\"$it\"" }}]}"""
 
+    /** A 401 naming what it refused, exactly as the token endpoint does. */
+    private fun MockRequestHandleScope.refusal(error: String): HttpResponseData =
+        respond(
+            content = """{"statusCode":401,"message":"Unauthorized"}""",
+            status = HttpStatusCode.Unauthorized,
+            headers =
+                headersOf(
+                    HttpHeaders.ContentType to listOf(ContentType.Application.Json.toString()),
+                    HttpHeaders.WWWAuthenticate to listOf("""Bearer error="$error", error_description="the station said so""""),
+                ),
+        )
+
     private fun MockRequestHandleScope.json(body: String, status: HttpStatusCode = HttpStatusCode.OK): HttpResponseData =
         respond(content = body, status = status, headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
 
@@ -207,23 +219,85 @@ class SessionManagerTest {
 
     @Test
     fun `ends the session when the station refuses the refresh token`() = runTest {
-        val store = FakeStore(signedIn())
+        for (name in listOf("invalid_token", "invalid_grant", "invalid_request")) {
+            val store = FakeStore(signedIn())
+            val (manager, _) =
+                managerOver(store, backgroundScope) { request ->
+                    if (request.url.encodedPath.endsWith("/auth/token")) refusal(name)
+                    else respondError(HttpStatusCode.Unauthorized)
+                }
+
+            var thrown: Exception? = null
+            try {
+                manager.withSession { it.history.readHistory() }
+            } catch (error: Exception) {
+                thrown = error
+            }
+
+            assertTrue(name, thrown is NotSignedInException)
+            assertNull(name, store.state.value)
+            assertEquals(name, 1, store.cleared)
+        }
+    }
+
+    @Test
+    fun `keeps the session on a 4xx the station did not write, and reads it as unreachable`() = runTest {
+        // The station's own limiter answers ahead of the route, and a tunnel, a WAF or a proxy can
+        // answer anything. None of them looked at the token.
+        val answers: List<Pair<HttpStatusCode, String?>> =
+            listOf(
+                HttpStatusCode.TooManyRequests to null,
+                HttpStatusCode.RequestTimeout to null,
+                HttpStatusCode.Forbidden to null,
+                HttpStatusCode.NotFound to null,
+                HttpStatusCode.BadRequest to null,
+                HttpStatusCode.Unauthorized to null,
+                HttpStatusCode.Unauthorized to """Basic realm="tunnel"""",
+                HttpStatusCode.Unauthorized to """Bearer realm="tunnel"""",
+                HttpStatusCode.Forbidden to """Bearer error="invalid_token"""",
+            )
+        for ((status, challenge) in answers) {
+            val store = FakeStore(signedIn())
+            val (manager, engine) =
+                managerOver(store, backgroundScope) { request ->
+                    when {
+                        !request.url.encodedPath.endsWith("/auth/token") -> respondError(HttpStatusCode.Unauthorized)
+                        challenge == null -> respondError(status)
+                        else -> respond(content = "", status = status, headers = headersOf(HttpHeaders.WWWAuthenticate, challenge))
+                    }
+                }
+
+            var thrown: Exception? = null
+            try {
+                manager.withSession { it.history.readHistory() }
+            } catch (error: Exception) {
+                thrown = error
+            }
+
+            val answer = "$status $challenge"
+            // An IOException and not the SdkError, so no caller reads the refresh's status as being
+            // about what it asked for.
+            assertTrue(answer, thrown is SessionUnavailableException)
+            assertEquals(answer, signedIn(), store.state.value)
+            assertEquals(answer, 0, store.cleared)
+            // The call and one refresh. A token that can never be refreshed must not loop.
+            assertEquals(answer, 2, engine.requestHistory.size)
+        }
+    }
+
+    @Test
+    fun `a WAF refusing the refresh does not read as an account with no roles`() = runTest {
+        val roles = setOf(PlatformRole.ADMIN)
+        val store = FakeStore(signedIn().copy(roles = roles))
         val (manager, _) =
             managerOver(store, backgroundScope) { request ->
-                if (request.url.encodedPath.endsWith("/auth/token")) respondError(HttpStatusCode.Unauthorized)
+                if (request.url.encodedPath.endsWith("/auth/token")) respondError(HttpStatusCode.Forbidden)
                 else respondError(HttpStatusCode.Unauthorized)
             }
 
-        var thrown: Exception? = null
-        try {
-            manager.withSession { it.history.readHistory() }
-        } catch (error: Exception) {
-            thrown = error
-        }
+        runCatching { manager.refreshRoles() }
 
-        assertTrue(thrown is NotSignedInException)
-        assertNull(store.state.value)
-        assertEquals(1, store.cleared)
+        assertEquals(roles, store.state.value?.roles)
     }
 
     @Test

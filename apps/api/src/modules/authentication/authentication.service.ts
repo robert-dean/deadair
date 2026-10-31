@@ -546,6 +546,11 @@ export class AuthenticationService {
         //
         // A browser client holds the refresh token only as the httpOnly cookie, so it sends no
         // body token; refreshCookieMiddleware stashed the presented cookie in the RequestCookieJar.
+        //
+        // Every refusal on this path is a 401 naming `invalid_request`, `invalid_token` or
+        // `invalid_grant` in its `WWW-Authenticate`, and the four clients end a session on exactly
+        // that and on nothing else. A new refusal needs one of those names, or it reads as the
+        // station being down and the client keeps a dead token.
         const bodyToken = request.refresh_token;
         const refreshToken = bodyToken ?? this.requestCookieJar.getRefreshToken();
         if (!refreshToken) {

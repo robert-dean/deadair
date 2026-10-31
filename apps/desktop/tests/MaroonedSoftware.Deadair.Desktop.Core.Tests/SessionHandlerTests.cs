@@ -76,12 +76,16 @@ public class SessionHandlerTests
         Assert.Equal("{\"minutes\":30}", transport.Seen[^1].Body);
     }
 
-    [Fact]
-    public async Task EndsTheSessionWhenTheRefreshIsRefused()
+    [Theory]
+    [InlineData("invalid_token")]
+    [InlineData("invalid_grant")]
+    [InlineData("invalid_request")]
+    public async Task EndsTheSessionWhenTheStationRefusesTheRefresh(string name)
     {
         var (client, transport, session) = await SignedInAsync();
         transport.AnswerOnce(HttpStatusCode.Unauthorized);
-        transport.RefreshAnswers = HttpStatusCode.BadRequest;
+        transport.RefreshAnswers = HttpStatusCode.Unauthorized;
+        transport.RefreshChallenge = $"Bearer error=\"{name}\", error_description=\"the station said so\"";
 
         var response = await client.GetAsync(
             new Uri($"{Origin}/api/playout/status"),
@@ -100,9 +104,38 @@ public class SessionHandlerTests
 
         await client.GetAsync(new Uri($"{Origin}/api/playout/status"), TestContext.Current.CancellationToken);
 
-        // A 4xx to the refresh ends a session and NOTHING else does. Signing somebody out because
-        // their wifi dropped, or because the station restarted, is the wrong answer.
+        // The station's own refusal ends a session and NOTHING else does. Signing somebody out
+        // because their wifi dropped, or because the station restarted, is the wrong answer.
         Assert.IsType<SessionState.SignedIn>(session.State);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests, null)] // the station's own limiter, ahead of the route
+    [InlineData(HttpStatusCode.RequestTimeout, null)]
+    [InlineData(HttpStatusCode.Forbidden, null)] // a WAF
+    [InlineData(HttpStatusCode.NotFound, null)] // a proxy with no such route
+    [InlineData(HttpStatusCode.BadRequest, null)]
+    [InlineData(HttpStatusCode.Unauthorized, null)]
+    [InlineData(HttpStatusCode.Unauthorized, "Basic realm=\"tunnel\"")]
+    [InlineData(HttpStatusCode.Unauthorized, "Bearer realm=\"tunnel\"")]
+    [InlineData(HttpStatusCode.Forbidden, "Bearer error=\"invalid_token\"")]
+    public async Task KeepsTheSessionWhenTheAnswerIsNotTheStationsRefusal(HttpStatusCode status, string? challenge)
+    {
+        var (client, transport, session) = await SignedInAsync();
+        transport.AnswerOnce(HttpStatusCode.Unauthorized);
+        transport.RefreshAnswers = status;
+        transport.RefreshChallenge = challenge;
+
+        var response = await client.GetAsync(new Uri($"{Origin}/api/playout/status"), TestContext.Current.CancellationToken);
+
+        Assert.IsType<SessionState.SignedIn>(session.State);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        // The token that was kept is still the one presented once the station can be asked again.
+        transport.AnswerOnce(HttpStatusCode.Unauthorized);
+        transport.RefreshAnswers = HttpStatusCode.OK;
+        var recovered = await client.GetAsync(new Uri($"{Origin}/api/playout/status"), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
     }
 
     [Fact]

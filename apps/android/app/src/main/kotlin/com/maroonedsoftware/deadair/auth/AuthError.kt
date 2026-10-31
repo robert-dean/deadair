@@ -25,6 +25,29 @@ fun authErrorIn(challenges: List<String>): String? = challenges.firstNotNullOfOr
 val SdkError.authError: String?
     get() = authErrorIn(response.headers.getAll(HttpHeaders.WWWAuthenticate).orEmpty())
 
+/**
+ * Whether the STATION refused a refresh, which is the only answer that ends a session.
+ *
+ * A 401 carrying one of [REFRESH_REFUSALS], rather than any 4xx, because a 4xx on this route is not
+ * reliably a verdict on the token. The station's own limiter answers 429 and runs before the route,
+ * a tunnel or a WAF answers 403, a proxy answers 401 or 404, and none of those looked at the token.
+ * The challenge is what separates them: this request carries no bearer, and RFC 6750 §3.1 has
+ * anything challenging a request without credentials leave the error code out, so a proxy's 401
+ * names none of these. The same rule as `isRefreshRefused` in the console, `SdkError.refusesRefresh`
+ * on iOS and `ApiError.RefusesRefresh` on the desktop.
+ */
+val SdkError.refusesRefresh: Boolean
+    get() = status == UNAUTHORIZED && authError in REFRESH_REFUSALS
+
+private const val UNAUTHORIZED = 401
+
+/**
+ * What the station puts in the challenge when it refuses a refresh: `invalid_token` for a token that
+ * is spent, revoked or unreadable, `invalid_grant` for one whose account is gone, and
+ * `invalid_request` for none at all. Every other name belongs to some other grant.
+ */
+private val REFRESH_REFUSALS = setOf("invalid_request", "invalid_token", "invalid_grant")
+
 /** `error="..."`, wherever it sits among the challenge's parameters. */
 private val ERROR_PARAMETER = Regex("""error="([^"]*)"""")
 

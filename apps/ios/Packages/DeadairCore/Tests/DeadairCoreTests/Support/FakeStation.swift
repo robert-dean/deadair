@@ -19,6 +19,8 @@ final class FakeStation: @unchecked Sendable {
         case empty(Int)
         /// A 401 naming what it refused, exactly as the token endpoint does.
         case refusal(String)
+        /// Any status with any `WWW-Authenticate`, which is what somebody else's refusal looks like.
+        case challenge(Int, String)
         case unreachable
     }
 
@@ -51,6 +53,8 @@ final class FakeStation: @unchecked Sendable {
             case .refusal(let error):
                 let headers = ["Content-Type": "application/json", "WWW-Authenticate": #"Bearer error="\#(error)", error_description="the station said so""#]
                 return (Data(#"{"message":"Unauthorized"}"#.utf8), HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: headers)!)
+            case .challenge(let status, let header):
+                return (Data(), HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: ["WWW-Authenticate": header])!)
             case .unreachable:
                 throw URLError(.cannotConnectToHost)
             }

@@ -18,8 +18,8 @@ export function sdkError(error: unknown): SdkError | undefined {
  * The distinction this draws is between an answer and a failure to ask: a 4xx is the server's
  * verdict on the request, and repeating the same request gets the same verdict. Anything else —
  * a 5xx, or a `TypeError` from `fetch` when the network is down — leaves the question genuinely
- * unanswered. Both the retry policy and the refresh-cookie bootstrap turn on exactly this line,
- * so it is defined once here.
+ * unanswered. The retry policy turns on this line. The refresh-cookie bootstrap does not, because a
+ * 4xx there may not be the station's at all: see {@link isRefreshRefused}.
  */
 export function isClientError(error: unknown): boolean {
     const status = sdkError(error)?.status;
@@ -134,6 +134,29 @@ export function authChallenge(error: unknown): AuthChallenge | undefined {
  */
 export function isInvalidToken(error: unknown): boolean {
     return sdkError(error)?.status === 401;
+}
+
+/**
+ * What the station puts in the challenge when it refuses a refresh: `invalid_request` for no token at
+ * all (a browser with no cookie), `invalid_token` for one that is spent, revoked or unreadable, and
+ * `invalid_grant` for one whose account is gone. Every other name belongs to some other grant.
+ */
+const REFRESH_REFUSALS: ReadonlySet<string | undefined> = new Set(['invalid_request', 'invalid_token', 'invalid_grant']);
+
+/**
+ * Whether the STATION refused a refresh, which is the only answer that ends a session.
+ *
+ * A 401 carrying one of those names, rather than any 4xx, because a 4xx on this route is not reliably
+ * a verdict on the token. The API's own limiter answers 429 and runs before the route, a tunnel or a
+ * WAF answers 403, a proxy answers 401 or 404, and none of those looked at the token. The challenge
+ * is what separates them: this request carries no bearer, and RFC 6750 §3.1 has anything challenging
+ * a request without credentials leave the error code out, so a proxy's 401 names none of these.
+ *
+ * The same rule is `SdkError.refusesRefresh` in the iOS and Android apps and
+ * `ApiError.RefusesRefresh` in the desktop app.
+ */
+export function isRefreshRefused(error: unknown): boolean {
+    return sdkError(error)?.status === 401 && REFRESH_REFUSALS.has(authChallenge(error)?.error);
 }
 
 /**

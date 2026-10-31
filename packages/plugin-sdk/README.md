@@ -25,6 +25,7 @@ A plugin extends deadair by declaring capabilities:
 | `search`     | ask the open web a question: words in, pages out               |
 | `weather`    | say what it is like outside: a place in, measurements out       |
 | `almanac`    | say what happened on a date: a month and a day in, entries out |
+| `concerts`   | say when an artist is next playing nearby: an artist and a place in, dates out |
 | `scrobble`   | report what the station played to somebody else's service      |
 | `messaging`  | talk to people on a chat platform: messages in, messages out   |
 | `output`     | play the station on a speaker: a mount's URL in, a device plays |
@@ -881,6 +882,22 @@ and the line between them is what the station does with them. A news item is a
 fact to MENTION, and what airs is a sentence a model wrote about it; a narration
 piece is read as it stands, and reading it out is the whole programme. A source
 whose text would need summarising is a news source even if it publishes books.
+
+## Saying when an artist is next in town
+
+A `concerts` plugin has one method, and the caller supplies the artist and the place:
+
+```ts
+async getConcerts(query: ConcertQuery): Promise<Concert[]> {
+    const listings = await this.search(query.artist, query.place);
+    return listings.filter(show => show.performers.includes(query.artist)).map(toConcert);
+}
+```
+
+**Match the artist exactly.** Ticket services search on keywords, and what you return is said on air as
+a fact about that artist, so a tribute night or a similarly named band must be dropped, not ranked lower.
+**Answer only with what is on.** Leave out anything cancelled, postponed or undated. **An empty list is
+the ordinary answer.** A service that refused throws, for a `weather` plugin's reason.
 
 ## Saying what it is like outside
 

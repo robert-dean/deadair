@@ -226,6 +226,12 @@ export const PLUGIN_CAPABILITY_OUTPUT = 'output';
  */
 export const PLUGIN_CAPABILITY_LYRICS = 'lyrics';
 
+/**
+ * Says when an artist is next playing near the station: an artist and a place in,
+ * dated listings out. `capabilities/concerts.ts` says why it is not enrichment.
+ */
+export const PLUGIN_CAPABILITY_CONCERTS = 'concerts';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -249,6 +255,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_MESSAGING,
     PLUGIN_CAPABILITY_OUTPUT,
     PLUGIN_CAPABILITY_LYRICS,
+    PLUGIN_CAPABILITY_CONCERTS,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

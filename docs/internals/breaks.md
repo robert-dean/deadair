@@ -514,6 +514,20 @@ can actually back is "not inside the 120 days of history kept", and a number wou
 one. No switch of its own and no floor variable: it is material, and the floor says nothing it was not
 built to.
 
+**A collection is not where a record came from, so its name is not handed over.** A record keeps the album it
+was first ingested from, and nothing marks a compilation: no provider sends a release type, and an album row
+belongs to the lead of the track that created it, so there is no album-level artist either and a
+various-artists release is one row per artist under one `name_key`. `WriteBreakJob.withoutCollections` takes
+`album` off a neighbour on the evidence there is (`collection.album.ts`): the title says so, the record's own
+credit is "Various Artists", or the catalog holds a title of two words or more that is not a live album under
+three different artists (`CandidatesRepository.albumTitlesAcrossArtists`). The field comes off rather than
+being blanked, so `describe` prints no line and `{{next.album}}` behaves as for any record with no album: a
+`[[chunk]]` drops, and a phrasing that needs it outright does not apply. It happens once, in the job, so the
+prompt, the floor and `permittedYears` all see the same record, and a year inside a hidden album's title is
+then not permitted, because it was not shown. Misses are the side to err on, and the three-artist reading is
+not calibrated against a real catalog. The `year` is not touched: a record first met on a compilation can
+still carry that release's date.
+
 ## What the prompt says, and what it left out
 
 **The station has two sentences of its own above every show and every persona.** `station.identity` (who

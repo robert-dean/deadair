@@ -60,6 +60,8 @@ function harness(
         factsThrow?: boolean;
         /** What `factForBreak` answers, for a presenter at `always`. */
         fact?: { trackId: string; fact: string };
+        /** The album `name_key`s the catalog holds under several artists, or a throw for a failed read. */
+        spanning?: string[] | 'throws';
         /** The persona on air, for the one test about handing it to the writers. */
         persona?: Persona;
         /** The regular host a guest sits in for, for the tests about saying whose show it is. */
@@ -294,6 +296,13 @@ function harness(
         logger as never,
     );
 
+    const candidates = {
+        albumTitlesAcrossArtists: vi.fn(async () => {
+            if (options.spanning === 'throws') throw new Error('the catalog is away');
+            return new Set(options.spanning ?? []);
+        }),
+    };
+
     const job = new WriteBreakJob(
         lineups as never,
         segments as never,
@@ -305,6 +314,7 @@ function harness(
         pads as never,
         tellings as never,
         sources as never,
+        candidates as never,
         activity as never,
         floorWatch as never,
         jobs as never,
@@ -316,6 +326,7 @@ function harness(
 
     return {
         job,
+        candidates,
         floorWatch,
         segments,
         pads,
@@ -1570,6 +1581,50 @@ describe('WriteBreakJob', () => {
             }),
             'model',
         );
+    });
+
+    describe('an album that is a collection', () => {
+        const onAlbum = (album: string, artist = 'Nick Drake'): RundownTrack => ({ ...track('Pink Moon', artist), album });
+        const before = async (record: RundownTrack): Promise<StationLineup> => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([record, track('Solid Air', 'John Martyn')]);
+            lineup.insertSegment('seg-1', 1);
+            return lineup;
+        };
+        const handed = (writers: { write: ReturnType<typeof vi.fn> }) => (writers.write.mock.calls[0]![0] as BreakWriteRequest).previous;
+
+        it('hands over a real album as it stands', async () => {
+            const { job, writers } = harness({ lineup: await before(onAlbum('Pink Moon')) });
+            await job.run({ segmentId: 'seg-1' });
+            expect(handed(writers)).toEqual({ title: 'Pink Moon', artist: 'Nick Drake', album: 'Pink Moon' });
+        });
+
+        it('takes off one whose title says so, without asking the catalog', async () => {
+            const { job, writers, candidates } = harness({ lineup: await before(onAlbum('The Very Best of Nick Drake')) });
+            await job.run({ segmentId: 'seg-1' });
+            expect(handed(writers)).toEqual({ title: 'Pink Moon', artist: 'Nick Drake' });
+            expect(candidates.albumTitlesAcrossArtists).toHaveBeenCalledWith([], 3);
+        });
+
+        it('takes off one credited to various artists', async () => {
+            const { job, writers } = harness({ lineup: await before(onAlbum('Sounds of the Season', 'Various Artists')) });
+            await job.run({ segmentId: 'seg-1' });
+            expect(handed(writers)).not.toHaveProperty('album');
+        });
+
+        it('takes off one the catalog holds under several artists', async () => {
+            const { job, writers, candidates } = harness({ lineup: await before(onAlbum('Pure Moods')), spanning: ['pure moods'] });
+            await job.run({ segmentId: 'seg-1' });
+            expect(candidates.albumTitlesAcrossArtists).toHaveBeenCalledWith(['Pure Moods'], 3);
+            expect(handed(writers)).not.toHaveProperty('album');
+        });
+
+        // The check is worth less than the break it sits in front of.
+        it('keeps the album and still writes when the catalog cannot be read', async () => {
+            const { job, writers } = harness({ lineup: await before(onAlbum('Pure Moods')), spanning: 'throws' });
+            await job.run({ segmentId: 'seg-1' });
+            expect(handed(writers)).toEqual({ title: 'Pink Moon', artist: 'Nick Drake', album: 'Pure Moods' });
+        });
     });
 
     // `artists` is the credit as written, for display, and everything a generator resolves carries

@@ -150,6 +150,57 @@ describe('transposeForSpeech: symbols that stand in for words', () => {
     });
 });
 
+describe('transposeForSpeech: pounds and euros', () => {
+    it('says the currency after the figure', () => {
+        expect(say('Tickets are £5.')).toBe('Tickets are 5 pounds.');
+        expect(say('Tickets are €5.')).toBe('Tickets are 5 euros.');
+        expect(say('Down from £349.99.')).toBe('Down from 349.99 pounds.');
+    });
+
+    it('reaches as far as the scale, spelled or abbreviated', () => {
+        expect(say('A fine of £17.1 Billion is due.')).toBe('A fine of 17.1 Billion pounds is due.');
+        expect(say('Worth €2bn today.')).toBe('Worth 2 billion euros today.');
+        expect(say('It raised £100K last month.')).toBe('It raised 100 thousand pounds last month.');
+        expect(say('Sold for €5m today.')).toBe('Sold for 5 million euros today.');
+    });
+
+    it('goes singular in front of what the amount buys, as dollars do', () => {
+        expect(say('A £100 billion railway.')).toBe('A 100 billion pound railway.');
+        expect(say('A €150 discount on the monitor.')).toBe('A 150 euro discount on the monitor.');
+        expect(say('It costs €30 more.')).toBe('It costs 30 euros more.');
+        expect(say('It is £88 a month.')).toBe('It is 88 pounds a month.');
+    });
+
+    it('keeps a clause comma out of the figure and a thousands comma in it', () => {
+        expect(say('A £103,000 fee.')).toBe('A 103,000 pound fee.');
+        expect(say('It was €8, you know.')).toBe('It was 8 euros, you know.');
+    });
+
+    it('leaves a decimal comma alone rather than turning it into a different amount', () => {
+        expect(say('Only €12,50 tonight.')).toBe('Only €12,50 tonight.');
+        expect(say('Only €12,5 tonight.')).toBe('Only €12,5 tonight.');
+        expect(say('A bargain at £3,99.')).toBe('A bargain at £3,99.');
+        expect(say('It cost €1.234,56 in all.')).toBe('It cost €1.234,56 in all.');
+        expect(say('It cost €1,234,56 in all.')).toBe('It cost €1,234,56 in all.');
+    });
+
+    it('still reads a sentence stop after a whole amount', () => {
+        expect(say('It was €12. Then it rose.')).toBe('It was 12 euros. Then it rose.');
+    });
+
+    it('keeps a symbol it could not read, which is all that says the figure is money', () => {
+        expect(say('Priced in € only.')).toBe('Priced in € only.');
+    });
+
+    it('does not change what a dollar amount says, decimal comma included', () => {
+        expect(say('Only $12,50 tonight.')).toBe('Only 12 dollars,50 tonight.');
+    });
+
+    it('leaves all of it to the engine on a station that is not English', () => {
+        expect(transposeForSpeech('Nur €12 oder £5.', [], 'de')).toBe('Nur €12 oder £5.');
+    });
+});
+
 describe('transposeForSpeech: numbers', () => {
     it('says a year as a person says it', () => {
         expect(say('That was 1984.')).toBe('That was nineteen eighty-four.');
@@ -169,6 +220,69 @@ describe('transposeForSpeech: numbers', () => {
         expect(say('It is 9:00 here.')).toBe("It is nine o'clock here.");
         expect(say('It is 9:30 here.')).toBe('It is nine thirty here.');
         expect(say('It is 9:05 here.')).toBe('It is nine oh five here.');
+    });
+
+    describe('a meridiem', () => {
+        it('spaces the letters out, attached or not', () => {
+            expect(say('Back at 8pm tonight.')).toBe('Back at 8 P M tonight.');
+            expect(say('Back at 8PM tonight.')).toBe('Back at 8 P M tonight.');
+            expect(say('Back at 8 pm tonight.')).toBe('Back at 8 P M tonight.');
+            expect(say('Up at 6am again.')).toBe('Up at 6 A M again.');
+            expect(say('Up at 6 AM again.')).toBe('Up at 6 A M again.');
+        });
+
+        it('reads the dotted forms the same way', () => {
+            expect(say('Back at 8 p.m. tonight.')).toBe('Back at 8 P M tonight.');
+            expect(say('Up at 6 a.m. again.')).toBe('Up at 6 A M again.');
+            expect(say('Back at 8 P.M. tonight.')).toBe('Back at 8 P M tonight.');
+        });
+
+        it('keeps a full stop only where it also ended the sentence', () => {
+            expect(say('We open at 8 p.m.')).toBe('We open at 8 P M.');
+            expect(say('We open at 8 p.m. The bar is free.')).toBe('We open at 8 P M. The bar is free.');
+            expect(say('We open at 8pm.')).toBe('We open at 8 P M.');
+            expect(say('At 8 p.m., we open.')).toBe('At 8 P M, we open.');
+        });
+
+        it('says the minutes as a clock face does', () => {
+            expect(say('Back at 8:30pm tonight.')).toBe('Back at eight thirty P M tonight.');
+            expect(say('Back at 8:30 pm tonight.')).toBe('Back at eight thirty P M tonight.');
+            expect(say('Back at 8.30pm tonight.')).toBe('Back at eight thirty P M tonight.');
+            expect(say('Up at 6:05 am again.')).toBe('Up at six oh five A M again.');
+        });
+
+        it("says nothing of o'clock on the hour", () => {
+            expect(say('Back at 8:00pm tonight.')).toBe('Back at 8 P M tonight.');
+            expect(say('Back at 08:00 PM tonight.')).toBe('Back at 8 P M tonight.');
+        });
+
+        it('reads both ends of a range', () => {
+            expect(say('On from 8pm-10pm.')).toBe('On from 8 P M-10 P M.');
+        });
+
+        it('leaves a spaced lower-case am, which is a verb', () => {
+            expect(say('Number 3 am I.')).toBe('Number 3 am I.');
+        });
+
+        it('leaves pm and am inside words', () => {
+            expect(say('A pmt and an amp at 8 amps.')).toBe('A pmt and an amp at 8 amps.');
+            expect(say('Stamped at the camp.')).toBe('Stamped at the camp.');
+            expect(say('On 3pmx today.')).toBe('On 3pmx today.');
+        });
+
+        it('leaves what is not an hour on a twelve-hour clock', () => {
+            expect(say('Mark 3.8pm here.')).toBe('Mark 3.8pm here.');
+            expect(say('Up 25pm here.')).toBe('Up 25pm here.');
+        });
+
+        it('does not read a million as a time', () => {
+            expect(say('Sold for £8m today.')).toBe('Sold for 8 million pounds today.');
+            expect(say('A run of 5m today.')).toBe('A run of 5m today.');
+        });
+
+        it('leaves the letters to the engine on a station that is not English', () => {
+            expect(transposeForSpeech('Bis 8pm.', [], 'de')).toBe('Bis 8pm.');
+        });
     });
 
     it('says an ordinal and the idiom that is not a fraction', () => {

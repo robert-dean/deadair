@@ -520,3 +520,18 @@ pass of it forgot `back` and `last`, which the tests caught as "$5.99 back then"
 Nothing in the list can fail the other way, because every word in it is one no amount has ever described.
 Punctuation and the end of the script both read as standing, since "349.99 dollar." would be wrong in the most
 audible place there is.
+
+**`£` and `€` take the same road, and stop at a decimal comma.** `MONEY` reads all three symbols and the marker
+carries the currency (`#POUNDS#`, `#EURO#`), so scale, plural and modifier behave exactly as they do for `$`.
+Pence and cents are not read, because `$` does not read them either. What `£` and `€` do that `$` does not is
+refuse: `€12,50` read by those digits is `12` and then a comma, "12 euros,50", which is a different fact rather
+than a mispronunciation, so a comma or a dot with a digit behind it that did not group into the figure leaves the
+whole amount untouched. That is also why neither symbol joined `SPARE_CUES`: the ones still there by then are on
+amounts the pass refused, where the symbol is all that says the figure is money.
+
+**A meridiem is spelled, and only straight after an hour.** `sayNumbers` takes `8pm`, `8:30pm`, `8.30 PM` and
+`8 p.m.` first, before the clock face, because `\b` holds the clock pass off `8:30pm` and because it would
+otherwise say `8:00 PM` as "eight o'clock". The letters come out spaced (`8 P M`), which is what the file says a
+letter is and what `sayInitialisms` already made of `p.m.`. A bare hour, a space and a lower-case `am` is left
+alone because that is the verb ("number 3 am I"); `AM`, `pm`, `3am` and `3 a.m.` are not. Nothing here overlaps
+`clock.words.ts`, whose phrasings carry no meridiem by design.

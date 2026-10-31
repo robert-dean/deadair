@@ -2143,12 +2143,18 @@ if opus_mount != "" then
   # here or nowhere. Here is the right place. The bus stays at 44.1 kHz because the MUSIC is
   # 44.1 kHz, and moving the whole chain to 48 to save this one conversion would resample every
   # ordinary record instead of resampling this one mount.
+  #
+  # **`vbr="none"` is stated on every branch because Icecast's burst is sized in BYTES.** The
+  # default is variable bitrate, which on `blank()` silence falls to a couple of hundred bytes
+  # a second, so after an idle spell half a second's worth of bytes held tens of seconds of
+  # silence and a listener joined that far behind live. Constant bitrate keeps bytes and time
+  # the same thing. `apps/api/tests/modules/stream/opus.encoder.test.ts` holds every branch to it.
   def opus_encoder(rate) =
-    if rate == 96 then %opus(bitrate=96, samplerate=48000)
-    elsif rate == 128 then %opus(bitrate=128, samplerate=48000)
-    elsif rate == 192 then %opus(bitrate=192, samplerate=48000)
-    elsif rate == 256 then %opus(bitrate=256, samplerate=48000)
-    else %opus(bitrate=160, samplerate=48000)
+    if rate == 96 then %opus(bitrate=96, samplerate=48000, vbr="none")
+    elsif rate == 128 then %opus(bitrate=128, samplerate=48000, vbr="none")
+    elsif rate == 192 then %opus(bitrate=192, samplerate=48000, vbr="none")
+    elsif rate == 256 then %opus(bitrate=256, samplerate=48000, vbr="none")
+    else %opus(bitrate=160, samplerate=48000, vbr="none")
     end
   end
 

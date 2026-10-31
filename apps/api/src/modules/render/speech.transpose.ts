@@ -50,6 +50,10 @@ import { applyPronunciations, type Pronunciation } from './pronunciation.lexicon
  * The cue alternative comes FIRST, which is the whole trick: a regular expression takes the earliest
  * alternative that matches at a position, so `[laugh]` is claimed as a cue before the bare `[` in the
  * character class can claim it. Reverse them and every cue loses its opening bracket.
+ *
+ * `£` and `€` are in neither class, and that is deliberate. A `€` that reaches here is on an amount
+ * {@link saySymbols} REFUSED, such as `€12,50`, or on nothing it could read at all. There the symbol is
+ * the only thing saying the figure is money, and the engine's own normaliser is its better reader.
  */
 const SPARE_CUES = new RegExp(`\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]|[*_\`^<>{}[\\]=+@#&$%]`, 'gi');
 
@@ -224,8 +228,8 @@ function joinLines(text: string): string {
  *
  * `$` is the one that is guessed rather than known — a bare `$5` cannot be dropped, because the
  * number without it is a different fact — so it is read as dollars and an operator whose station
- * talks in another currency has a list to fix it in. What the amount IS goes with it; see
- * {@link MONEY_SCALES}.
+ * talks in another currency has a list to fix it in. `£` and `€` name their currencies outright and
+ * are read the same way. What the amount IS goes with it; see {@link MONEY_SCALES}.
  */
 function saySymbols(text: string): string {
     return (
@@ -250,8 +254,11 @@ function saySymbols(text: string): string {
             // and `$17.1 billion` is one amount, and the word goes after all of what it names. The
             // marker survives {@link settle}'s drop-list and becomes the word there, singular or
             // plural as {@link modifiesWhatFollows} read the sentence. See {@link MONEY_SCALES}.
-            .replace(MONEY, (all: string, figure: string, scale: string | undefined, offset: number, whole: string) => {
-                const marker = modifiesWhatFollows(whole.slice(offset + all.length)) ? '#DOLLAR#' : '#DOLLARS#';
+            .replace(MONEY, (all: string, symbol: string, figure: string, scale: string | undefined, offset: number, whole: string) => {
+                const rest = whole.slice(offset + all.length);
+                if (hasContinentalPunctuation(symbol, scale, rest)) return all;
+
+                const marker = `#${CURRENCIES[symbol] as string}${modifiesWhatFollows(rest) ? '' : 'S'}#`;
                 if (scale === undefined) return `${figure}${marker}`;
 
                 // An abbreviation is said as the word it stands for; a word the writer already spelled
@@ -300,8 +307,9 @@ const UNIT_WORDS: Record<string, { one: string; many: string }> = {
  * rewritten by the `m` entry.
  *
  * Bare letters are safe here and nowhere else in this file, because they are read only in the two
- * characters after a `$`. `m` alone is metres, minutes or a middle initial; `$5m` is five million
- * dollars and nothing else. {@link MONEY} is what holds them to that position.
+ * characters after an amount. `m` alone is metres, minutes or a middle initial; `$5m` is five million
+ * dollars and nothing else, and `£5m` and `€5m` likewise. {@link MONEY} is what holds them to that
+ * position.
  */
 const MONEY_SCALES: Record<string, string> = { k: 'thousand', m: 'million', bn: 'billion', b: 'billion', t: 'trillion' };
 
@@ -341,7 +349,29 @@ const MONEY_SCALES: Record<string, string> = { k: 'thousand', m: 'million', bn: 
  * pause — and it costs nothing, because a thousands separator with anything but three digits after
  * it was never a thousands separator.
  */
-const MONEY = /\$(\d+(?:,\d{3})*(?:\.\d+)?)(\s*(?:bn|k|m|b|t)\b|\s+(?:hundred|thousand|million|billion|trillion)\b)?/gi;
+const MONEY = /([$£€])(\d+(?:,\d{3})*(?:\.\d+)?)(\s*(?:bn|k|m|b|t)\b|\s+(?:hundred|thousand|million|billion|trillion)\b)?/gi;
+
+/**
+ * What each symbol in {@link MONEY} is said as, in the capitals of the marker that carries it.
+ *
+ * {@link settle} turns the marker back into the word, and is the only other place that knows the list.
+ * Cents and pence are read for none of them: `$5.99` goes out as a figure, and `£5.99` with it.
+ */
+const CURRENCIES: Record<string, string> = { $: 'DOLLAR', '£': 'POUND', '€': 'EURO' };
+
+/**
+ * Whether a pound or euro amount carries on past where {@link MONEY}'s figure stopped.
+ *
+ * `€12,50` is twelve euros fifty, and {@link MONEY} sees `12` and then a comma, which would go out as
+ * "12 euros,50": a changed fact rather than a mispronounced word. A comma or a dot with a digit straight
+ * behind it, which did not group into the figure, was never the sentence's punctuation, so the whole
+ * amount is left for the engine with its symbol. See {@link SPARE_CUES}.
+ *
+ * Not for `$`, whose readings stay exactly as they were. And not after a scale word, which ends an amount.
+ */
+function hasContinentalPunctuation(symbol: string, scale: string | undefined, rest: string): boolean {
+    return symbol !== '$' && scale === undefined && /^[.,]\d/.test(rest);
+}
 
 /**
  * The words that cannot be a thing an amount of money is describing.
@@ -482,9 +512,48 @@ function yearWords(value: number): string {
 }
 
 /**
+ * A twelve-hour time with its half of the day: `8pm`, `8:30pm`, `8.30 PM`, `8 p.m.`.
+ *
+ * The letters are what an engine loses. Run into a digit they are not a word at all, and written
+ * apart `am` is read as the verb.
+ *
+ * ## What it refuses
+ *
+ * Only an hour a twelve-hour clock has, and only a whole figure: the guards in front are the year's, so
+ * `3.8pm` and `25pm` stay as they are. The one behind leaves `8 amps` alone, and nothing matches without
+ * a digit in front of it, so `pm` inside a word is out of reach.
+ *
+ * The form it cannot read is a bare hour, a space and a lower-case `am`, because that is an English
+ * verb and "number 3 am I" is not a time. {@link sayMeridiem} declines it by name. Attached, dotted, in
+ * capitals or with minutes it can only be the time, and `pm` is no word in any spelling.
+ */
+const MERIDIEM = /(?<![\p{L}\p{N}])(?<!\d[.,:])(1[0-2]|0?[1-9])(?:[:.]([0-5]\d))?(\s*)([ap](?:\.m\.?|m))(?![\p{L}\p{N}])/giu;
+
+/**
+ * One {@link MERIDIEM}, as a time with its letters spaced out.
+ *
+ * Spaced capitals because that is what this file says a letter is ({@link sayInitialisms}), and because
+ * it is what `p.m.` already came out as before this pass existed. The minutes stay on a colon for the
+ * clock face in {@link sayNumbers} to read, and `:00` goes, since "eight o'clock P M" is not said.
+ *
+ * A dotted form's last full stop closes the abbreviation and may close the sentence too. It stays only
+ * where the next thing starts one, so `8 p.m. tonight` does not gain a pause and `8 p.m.` at the end of
+ * a sentence does not lose one.
+ */
+function sayMeridiem(all: string, hours: string, minutes: string | undefined, gap: string, written: string, offset: number, whole: string): string {
+    if (gap.length > 0 && minutes === undefined && /^am$/i.test(written) && written !== 'AM') return all;
+
+    const rest = whole.slice(offset + all.length);
+    const closes = written.endsWith('.') && (rest.length === 0 || /^\s+\p{Lu}/u.test(rest));
+    const clock = minutes === undefined || minutes === '00' ? `${Number(hours)}` : `${Number(hours)}:${minutes}`;
+
+    return `${clock} ${(written[0] as string).toUpperCase()} M${closes ? '.' : ''}`;
+}
+
+/**
  * The numbers an engine reliably gets wrong, and only those.
  *
- * A year, a decade, an ordinal, a clock time and the two idioms that are not really numbers at all.
+ * A year, a decade, an ordinal, a clock time, a meridiem and the two idioms that are not really numbers at all.
  * A plain integer is left alone deliberately: engines say "forty" for `40` perfectly well, while a
  * pass keen enough to catch every digit turns `99 Luftballons` and `Blink-182` into a different wrong
  * answer — and the second sort of wrong is worse, because it is the station mangling a name it was
@@ -498,6 +567,9 @@ function sayNumbers(text: string): string {
         text
             // `24/7`, which is neither a date nor a fraction.
             .replace(/\b24\s*\/\s*7\b/g, 'twenty-four seven')
+            // Before the clock face, which `\b` holds off `8:30pm` and which would make `8:00 PM`
+            // "eight o'clock". See {@link MERIDIEM}.
+            .replace(MERIDIEM, sayMeridiem)
             // A clock face. `:00` is the one that is not a number at all.
             .replace(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g, (_match, hours: string, minutes: string) => {
                 const hour = twoDigitWords(Number(hours));
@@ -584,7 +656,7 @@ function settle(text: string, spare: RegExp = SPARE_CUES): string {
             // One pattern rather than two replaces, so the plural can never be matched as the singular
             // followed by a stray `S#`. Which one was written is `saySymbols`' reading of the sentence;
             // see `modifiesWhatFollows`.
-            .replace(/#DOLLARS?#/g, marker => (marker === '#DOLLARS#' ? ' dollars' : ' dollar'))
+            .replace(/#(?:DOLLAR|POUND|EURO)S?#/g, marker => ` ${marker.slice(1, -1).toLowerCase()}`)
             // Separators.
             .replace(/[/\\|~]+/g, ' ')
             // Decoration, including the symbols the passes above have already had their say about,

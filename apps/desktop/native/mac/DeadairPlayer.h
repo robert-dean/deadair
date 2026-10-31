@@ -52,6 +52,13 @@ void da_player_stop(void *handle);
 /// The current phase, for a caller that would rather ask than remember.
 int da_player_phase(void *handle);
 
+/// How far into the item playback has got, in seconds, or negative when the player cannot say.
+///
+/// The media clock, read for one reason: it moves only while audio is actually coming out, so it can
+/// tell a phase left behind by a stall notification from a stream that really has stopped. Read it
+/// from the thread that drives the player.
+double da_player_position(void *handle);
+
 /// 0.0 to 1.0.
 void da_player_set_volume(void *handle, double volume);
 

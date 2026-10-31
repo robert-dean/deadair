@@ -17,6 +17,7 @@ clang -dynamiclib \
     -mmacosx-version-min=13.0 \
     -fobjc-arc \
     -framework AVFoundation \
+    -framework CoreMedia \
     -framework Foundation \
     -framework MediaPlayer \
     -framework AppKit \

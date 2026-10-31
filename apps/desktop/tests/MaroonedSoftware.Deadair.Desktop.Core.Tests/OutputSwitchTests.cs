@@ -210,6 +210,41 @@ public sealed class OutputSwitchTests
         Assert.True(@switch.VolumeKnown);
     }
 
+    [Fact]
+    public async Task AskingTheClock_ReadsTheCurrentTarget_AndAPlayerWithoutOneCannotSay()
+    {
+        var position = TimeSpan.FromSeconds(42);
+        await using var @switch = new OutputSwitch(new Clocked(position));
+
+        Assert.Equal(position, @switch.Position);
+
+        await @switch.SelectAsync(Kitchen, new NullStationPlayer(), TestContext.Current.CancellationToken);
+
+        Assert.Null(@switch.Position);
+    }
+
+    /// <summary>A player with a media clock, stopped at the moment it was built with.</summary>
+    private sealed class Clocked(TimeSpan position) : IStationPlayer, IPlaybackClock
+    {
+        public TimeSpan? Position => position;
+
+        public PlayerStatus Status => PlayerStatus.Stopped;
+
+        public event Action<PlayerStatus>? StatusChanged;
+
+        public double Volume { get; set; }
+
+        public Task PlayAsync(Uri mount, CancellationToken cancellationToken = default)
+        {
+            StatusChanged?.Invoke(new PlayerStatus(PlayerPhase.Opening));
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     /// <summary>Writes what it was asked to do, so an ordering can be asserted rather than inferred.</summary>
     private sealed class Watched(string name, List<string> log) : IStationPlayer
     {

@@ -21,7 +21,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Playback;
 /// anything.
 /// </para>
 /// </remarks>
-public sealed class OutputSwitch : IStationPlayer, IVolumeReadback
+public sealed class OutputSwitch : IStationPlayer, IVolumeReadback, IPlaybackClock
 {
     private readonly IStationPlayer _local;
     private readonly Lock _gate = new();
@@ -62,6 +62,9 @@ public sealed class OutputSwitch : IStationPlayer, IVolumeReadback
     public bool VolumeKnown => _current is IVolumeReadback readback ? readback.VolumeKnown : true;
 
     public event Action? VolumeChanged;
+
+    /// <summary>The current target's media clock, or null when it has none to read.</summary>
+    public TimeSpan? Position => _current is IPlaybackClock clock ? clock.Position : null;
 
     /// <summary>
     /// 0.0 to 1.0, on whichever target is current.

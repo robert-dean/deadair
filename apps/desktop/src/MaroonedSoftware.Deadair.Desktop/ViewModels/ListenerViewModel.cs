@@ -35,7 +35,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private readonly ISettingsStore _settings;
     private readonly HttpClient _http;
     private readonly IUiDispatcher _dispatcher;
-    private readonly PlaybackConductor _conductor = new();
+    private readonly PlaybackConductor _conductor;
     private readonly DispatcherTicker _ticker;
 
     /// <summary>
@@ -110,6 +110,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _settings = settings;
         _http = http;
         _dispatcher = dispatcher;
+        _conductor = new PlaybackConductor(time, () => _player.Position);
 
         _player.StatusChanged += OnPlayerStatus;
 
@@ -135,6 +136,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         // The conductor's own retry, scheduled rather than merely computed. Requested() must not be
         // called here: that would reset the backoff the failure just advanced.
         _conductor.RetryDue += OnRetryDue;
+        _conductor.StallDue += OnStallDue;
 
         // Raised on the hold's own timer thread, never the UI thread, exactly like the conductor's
         // RetryDue above.
@@ -625,7 +627,27 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     /// <see cref="PlaybackConductor.Requested"/> is deliberately not called, since that would reset
     /// the backoff the failure just advanced.
     /// </summary>
-    private void OnRetryDue() => _dispatcher.Post(() => _ = PlayChosenMountAsync());
+    private void OnRetryDue() => _dispatcher.Post(() =>
+    {
+        if (_conductor.BeginRetry())
+        {
+            _ = PlayChosenMountAsync();
+        }
+    });
+
+    /// <summary>
+    /// A wait for audio has reached its limit. On the UI thread because that is the only thread the
+    /// player's clock may be read from, and the conductor reads it to decide.
+    /// </summary>
+    private void OnStallDue() => _dispatcher.Post(() =>
+    {
+        if (_conductor.StallElapsed())
+        {
+            Trace.WriteLine($"player: no audio past the limit, retrying in {_conductor.RetryIn}");
+            Apply();
+            PublishToSystem();
+        }
+    });
 
     /// <summary>Raised so the desk can act on a Skip asked for from outside the window.</summary>
     public event Func<Task>? SkipRequested;
@@ -1031,6 +1053,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _player.TargetChanged -= OnTargetChanged;
         _player.VolumeChanged -= OnDeviceVolumeChanged;
         _conductor.RetryDue -= OnRetryDue;
+        _conductor.StallDue -= OnStallDue;
         _conductor.Dispose();
         _hold.Released -= OnHoldReleased;
         _hold.Dispose();

@@ -8,6 +8,11 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.5] — 2026-10-31
+
+- A connection that goes quiet is now noticed. When the stream stops arriving without the player reporting a failure, as can happen when wifi drops, the app used to go on saying Listening over silence. It now retries after 10 seconds without audio, unless playback is still moving, and a retry that hangs is retried in turn until the app says it cannot reach the station.
+- A session now ends only when the station itself refuses the refresh. A rate limit, a tunnel, a firewall or a proxy answering in its place no longer signs the operator out or deletes a good token.
+
 ## [0.17.4] — 2026-10-28
 
 - Editing or moving a band on the format clock keeps the days of the week it runs on, which are set from the web console. A `podcast` band's subject can be one of the station's own shows.
@@ -191,7 +196,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.5...HEAD
+[0.17.5]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.4...desktop-v0.17.5
 [0.17.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.3...desktop-v0.17.4
 [0.17.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...desktop-v0.17.3
 [0.17.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.1...desktop-v0.17.2

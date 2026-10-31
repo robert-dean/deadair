@@ -198,6 +198,17 @@ describe('SettingsService.write', () => {
         expect(written).toEqual([{ key: MAIL_KEYS.password, value: null }]);
     });
 
+    it('strips control characters from a secret, and clears one that strips to nothing', async () => {
+        const kept = build();
+        const cleared = build();
+
+        await kept.service.write({ [MAIL_KEYS.password]: 'hunter\n2\u0000' });
+        await cleared.service.write({ [MAIL_KEYS.password]: '\u0000\n' });
+
+        expect(encryption.decrypt(kept.written[0]!.value!)).toBe('hunter2');
+        expect(cleared.written).toEqual([{ key: MAIL_KEYS.password, value: null }]);
+    });
+
     it('refuses to keep the mail password when the server it is sent to moves, and writes nothing', async () => {
         // Otherwise anybody allowed to save the mail settings could point the station at their own
         // SMTP server and be handed a password the console never shows them.

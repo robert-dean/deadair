@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { causeText, errorText, serverkitErrorText } from '../../../src/modules/shared/error.text.js';
+import { causeText, errorText, serverkitErrorText, withoutHeaderValue } from '../../../src/modules/shared/error.text.js';
 
 /** A rejection shaped the way undici shapes one: the useful half is a level down. */
 const fetchFailure = (code: string, message: string): Error => new TypeError('fetch failed', { cause: Object.assign(new Error(message), { code }) });
@@ -39,5 +39,46 @@ describe('causeText', () => {
         expect(causeText('nope')).toBe('nope');
         expect(errorText('nope')).toBe('nope');
         expect(serverkitErrorText('nope')).toBe('nope');
+    });
+});
+
+describe('an invalid header in a message', () => {
+    const KEY = 'sk-abc"def';
+
+    /** The real complaint, so a Node upgrade that rewords it fails here rather than leaking. */
+    const refusal = (set: (headers: Headers) => void): Error => {
+        try {
+            set(new Headers());
+        } catch (error) {
+            return error as Error;
+        }
+        throw new Error('the platform accepted the header');
+    };
+
+    it('takes the value out of what append and set throw', () => {
+        for (const error of [refusal(h => h.append('authorization', `Bearer ${KEY}\nx`)), refusal(h => h.set('authorization', `Bearer ${KEY}\u0000x`))]) {
+            expect(serverkitErrorText(error)).not.toContain('sk-abc');
+            expect(serverkitErrorText(error)).toContain('a request header value holds a character');
+        }
+    });
+
+    it('takes a refused name out as well', () => {
+        expect(withoutHeaderValue(refusal(h => h.append(`${KEY} x`, 'y')).message)).not.toContain('sk-abc');
+    });
+
+    it('keeps the sentence around it', () => {
+        const message = refusal(h => h.set('a', `${KEY}\nx`)).message;
+
+        expect(withoutHeaderValue(`openai: ${message}`)).toMatch(/^openai: a request header value /);
+    });
+
+    it('clears a cause as well', () => {
+        const error = new TypeError('fetch failed', { cause: refusal(h => h.set('a', `${KEY}\nx`)) });
+
+        expect(causeText(error)).not.toContain('sk-abc');
+    });
+
+    it('leaves every other message alone', () => {
+        expect(withoutHeaderValue('fetch failed: "x" is invalid')).toBe('fetch failed: "x" is invalid');
     });
 });

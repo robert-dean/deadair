@@ -139,6 +139,8 @@ data class StationSettingDescriptor(
     val rangeWith: String? = null,
     /** `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused */
     val sentTo: String? = null,
+    /** `secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character */
+    val multiline: Boolean? = null,
     val group: SettingGroup,
 )
 

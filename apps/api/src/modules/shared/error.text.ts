@@ -15,6 +15,21 @@
  * error itself.
  */
 
+/** What undici throws for a header it will not send, which quotes the whole of it. Greedy so a `"` inside the value ends nothing. */
+const INVALID_HEADER = /Headers\.\w+: "[\s\S]*" is an invalid header (value|name)\.?/g;
+
+/**
+ * `text` with any invalid-header complaint replaced by one that quotes nothing.
+ *
+ * `fetch` and `new Headers` put the refused value in their message, and the refused value is usually
+ * `Bearer <key>`: a key stored with a control character in it would reach the Test connection
+ * response and the plugin log word for word. A save strips those now, but what is already stored is
+ * still sent, so this is what keeps those messages clean. By shape rather than by comparing with the
+ * plugin's secrets because the throw can happen inside plugin code, where the host never saw the value.
+ */
+export const withoutHeaderValue = (text: string): string =>
+    text.replace(INVALID_HEADER, (_, part: string) => `a request header ${part} holds a character HTTP does not allow, so save that credential again`);
+
 /**
  * The message, or the value itself stringified when something threw a non-Error.
  *
@@ -33,10 +48,10 @@ export const errorText = (error: unknown): string => (error instanceof Error ? e
  * from inside the station can use {@link errorText}.
  */
 export const serverkitErrorText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
+    if (!(error instanceof Error)) return withoutHeaderValue(String(error));
     const details = (error as { details?: Record<string, unknown> }).details;
     const detail = details?.message;
-    return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
+    return withoutHeaderValue(typeof detail === 'string' && detail.length > 0 ? detail : error.message);
 };
 
 /**
@@ -54,7 +69,7 @@ export const serverkitErrorText = (error: unknown): string => {
  * carries one: the code is the half that can be searched for.
  */
 export const causeText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
+    if (!(error instanceof Error)) return withoutHeaderValue(String(error));
 
     const causes: string[] = [];
     for (let cause = error.cause; cause instanceof Error && causes.length < 3; cause = cause.cause) {
@@ -62,5 +77,5 @@ export const causeText = (error: unknown): string => {
         causes.push(code === undefined ? cause.message : `${cause.message} (${code})`);
     }
 
-    return causes.length === 0 ? error.message : `${error.message}: ${causes.join(': ')}`;
+    return withoutHeaderValue(causes.length === 0 ? error.message : `${error.message}: ${causes.join(': ')}`);
 };

@@ -174,4 +174,19 @@ describe('PluginLog', () => {
             expect(result).toBe('log contents');
         });
     });
+
+    describe('a line carrying a refused header', () => {
+        it('reaches neither sink with the value in it', () => {
+            const logger = stubLogger();
+            const store = new FakeLogStore();
+            const log = new PluginLog(logger, store as unknown as RotatingLogStore, new PluginLogOptions('info'));
+            const refusal = 'Headers.append: "Bearer sk-abc\ndef" is an invalid header value.';
+
+            log.for('plugin.a').error(`failed: ${refusal}`, { error: refusal, status: 500 });
+
+            const lines = JSON.stringify([vi.mocked(logger.error).mock.calls, store.append.mock.calls]);
+            expect(lines).not.toContain('sk-abc');
+            expect(store.append.mock.calls[0]?.[3]).toMatchObject({ status: 500 });
+        });
+    });
 });

@@ -111,7 +111,7 @@ export class PluginConfigService {
         for (const field of fields.filter(isSecretField)) {
             if (!Object.hasOwn(submitted, field.key)) continue;
             // `null` or blank clears; the form a plugin's schema judged first read it the same way.
-            const intent = secretFieldIntent(submitted[field.key]);
+            const intent = secretFieldIntent(submitted[field.key], field);
             if (intent === 'clear') delete secrets[field.key];
             else secrets[field.key] = this.encryptionProvider.encrypt(intent.set);
         }

@@ -302,6 +302,11 @@ public sealed record StationSettingDescriptor
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SentTo { get; init; }
 
+    /// <summary>`secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character</summary>
+    [JsonPropertyName("multiline")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Multiline { get; init; }
+
     [JsonPropertyName("group")]
     public required SettingGroup Group { get; init; }
 }

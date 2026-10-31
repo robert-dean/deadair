@@ -14615,6 +14615,9 @@ components:
                     minLength: 1
                     maxLength: 200
                     description: "`secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused"
+                multiline:
+                    type: boolean
+                    description: '`secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character'
             required: [key, label, type]
             description: "One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the\ncontrol rather than the value; a `secret` cell is encrypted on its own and is never in the row at all"
         ConfigFieldPreset:
@@ -14706,6 +14709,9 @@ components:
                     minLength: 1
                     maxLength: 200
                     description: '`secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused'
+                multiline:
+                    type: boolean
+                    description: '`secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character'
             required: [key, label, type]
             description: "Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code"
         PluginSummary:

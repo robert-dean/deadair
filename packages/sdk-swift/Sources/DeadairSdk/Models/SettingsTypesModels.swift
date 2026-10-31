@@ -271,9 +271,11 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
     public var rangeWith: String?
     /// `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused
     public var sentTo: String?
+    /// `secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character
+    public var multiline: Bool?
     public var group: SettingGroup
 
-    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, presets: [ConfigFieldPreset]? = nil, dependsOn: String? = nil, rangeWith: String? = nil, sentTo: String? = nil, group: SettingGroup) {
+    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, presets: [ConfigFieldPreset]? = nil, dependsOn: String? = nil, rangeWith: String? = nil, sentTo: String? = nil, multiline: Bool? = nil, group: SettingGroup) {
         self.key = key
         self.label = label
         self.type = type
@@ -293,6 +295,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         self.dependsOn = dependsOn
         self.rangeWith = rangeWith
         self.sentTo = sentTo
+        self.multiline = multiline
         self.group = group
     }
 
@@ -316,6 +319,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         case dependsOn = "dependsOn"
         case rangeWith = "rangeWith"
         case sentTo = "sentTo"
+        case multiline = "multiline"
         case group = "group"
     }
 
@@ -340,6 +344,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         self.dependsOn = try container.decodeIfPresent(String.self, forKey: .dependsOn)
         self.rangeWith = try container.decodeIfPresent(String.self, forKey: .rangeWith)
         self.sentTo = try container.decodeIfPresent(String.self, forKey: .sentTo)
+        self.multiline = try container.decodeIfPresent(Bool.self, forKey: .multiline)
         self.group = try container.decode(SettingGroup.self, forKey: .group)
     }
 
@@ -364,6 +369,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.dependsOn, forKey: .dependsOn)
         try container.encodeIfPresent(self.rangeWith, forKey: .rangeWith)
         try container.encodeIfPresent(self.sentTo, forKey: .sentTo)
+        try container.encodeIfPresent(self.multiline, forKey: .multiline)
         try container.encode(self.group, forKey: .group)
     }
 }

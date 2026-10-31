@@ -5,7 +5,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { isRowSecretKey } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { configuredCells, holdsRowSecrets, movedSecretFields, splitRowSecrets } from '#modules/shared/config.rows.js';
+import { cleanSecret, configuredCells, holdsRowSecrets, movedSecretFields, splitRowSecrets } from '#modules/shared/config.rows.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { isStreamSettingKey } from '#modules/stream/stream.settings.js';
 import { SettingsRepository } from './settings.repository.js';
@@ -150,7 +150,7 @@ export class SettingsService {
             }
 
             if (isSecretField(descriptor)) {
-                const raw = typeof submittedValue === 'string' ? submittedValue.trim() : '';
+                const raw = typeof submittedValue === 'string' ? cleanSecret(submittedValue, descriptor) : '';
                 writes.push({ key, value: raw === '' ? null : this.encryption.encrypt(raw) });
                 continue;
             }

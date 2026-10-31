@@ -221,6 +221,8 @@ export interface ConfigFieldColumn {
     dependsOnValues?: string[];
     /** `secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused */
     sentTo?: string;
+    /** `secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character */
+    multiline?: boolean;
 }
 
 /**
@@ -330,6 +332,8 @@ export interface ConfigFieldDescriptor {
     rangeWith?: string;
     /** `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused */
     sentTo?: string;
+    /** `secret` only: line breaks are part of this credential, so a save keeps them while it strips every other control character */
+    multiline?: boolean;
 }
 
 /**

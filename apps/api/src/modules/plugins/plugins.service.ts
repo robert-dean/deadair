@@ -41,7 +41,7 @@ import type {
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
-import { serverkitErrorText } from '#modules/shared/error.text.js';
+import { serverkitErrorText, withoutHeaderValue } from '#modules/shared/error.text.js';
 import { WeatherService } from '#modules/weather/weather.service.js';
 import { ProviderPlaylistsRepository } from '#modules/catalog/provider.playlists.repository.js';
 
@@ -485,7 +485,8 @@ export class PluginsService {
             const result = await this.pluginInvoker.probe(id, PROBE_OP, async () => instance.testConnection!());
             const home = result.ok ? await this.weather?.homeCheck(id) : undefined;
             const message = home === undefined ? result.message : [result.message, home].filter(Boolean).join(' ');
-            return { ok: result.ok, message };
+            // Most plugins catch their own failure and answer with its text, so the catch below is not enough.
+            return { ok: result.ok, message: message === undefined ? undefined : withoutHeaderValue(message) };
         } catch (error) {
             return { ok: false, message: serverkitErrorText(error) };
         }

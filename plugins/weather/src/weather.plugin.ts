@@ -116,7 +116,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
         const config = await this.host.config.get();
 
         this.engine = readEngine(config.engine);
-        this.apiKey = configString(config.apiKey) ?? '';
+        this.apiKey = configString(await this.host.secrets.get('apiKey')) ?? '';
         this.cacheMs = clamp(positive(config.cacheMinutes) ?? DEFAULT_CACHE_MINUTES, 1, MAX_CACHE_MINUTES) * 60_000;
 
         const contact = configString(config.contact) ?? '';

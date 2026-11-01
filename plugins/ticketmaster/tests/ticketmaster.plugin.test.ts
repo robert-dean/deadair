@@ -25,7 +25,7 @@ const GEOCODED = { results: [{ latitude: 33.749, longitude: -84.388 }] };
 beforeEach(async () => {
     host = createFakePluginHost();
     plugin = new TicketmasterPlugin();
-    host.seedConfig({ apiKey: 'key' });
+    host.seedSecret('apiKey', 'key');
     await plugin.init(host);
 });
 
@@ -109,6 +109,25 @@ describe('getConcerts', () => {
         await expect(plugin.getConcerts(query)).rejects.toThrow(/Ticketmaster answered/);
         await expect(plugin.getConcerts(query)).resolves.toEqual([]);
         expect(host.calls).toHaveLength(2);
+    });
+});
+
+describe('testConnection', () => {
+    it('sends the stored secret, which is the only place a secret field is kept', async () => {
+        queueJson({});
+
+        await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Ticketmaster answered.' });
+        expect(new URL(host.calls[0]!.url).searchParams.get('apikey')).toBe('key');
+    });
+
+    it('says there is no key without asking, whatever plain config holds', async () => {
+        const keyless = createFakePluginHost();
+        const unkeyed = new TicketmasterPlugin();
+        keyless.seedConfig({ apiKey: 'never-read' });
+        await unkeyed.init(keyless);
+
+        await expect(unkeyed.testConnection()).resolves.toEqual({ ok: false, message: 'There is no API key yet.' });
+        expect(keyless.calls).toHaveLength(0);
     });
 });
 

@@ -107,7 +107,8 @@ describe('AppleMusicPlugin, with a developer key', () => {
             publicKeyEncoding: { type: 'spki', format: 'pem' },
         });
         host = createFakePluginHost();
-        host.seedConfig({ storefront, teamId: 'DEF123GHIJ', keyId: 'ABC123DEFG', privateKey });
+        host.seedConfig({ storefront, teamId: 'DEF123GHIJ', keyId: 'ABC123DEFG' });
+        host.seedSecret('privateKey', privateKey);
         const plugin = new AppleMusicPlugin();
         await plugin.init(host);
         return plugin;
@@ -123,7 +124,8 @@ describe('AppleMusicPlugin, with a developer key', () => {
         );
 
         const host = createFakePluginHost();
-        host.seedConfig({ storefront: 'us', teamId: 'DEF123GHIJ', keyId: 'ABC123DEFG', privateKey });
+        host.seedConfig({ storefront: 'us', teamId: 'DEF123GHIJ', keyId: 'ABC123DEFG' });
+        host.seedSecret('privateKey', privateKey);
         const plugin = new AppleMusicPlugin();
         await plugin.init(host);
 
@@ -139,6 +141,18 @@ describe('AppleMusicPlugin, with a developer key', () => {
         expect(found[0]?.isrc).toBe('GBAAA9400050');
         expect(host.calls[0]?.url).toContain('api.music.apple.com/v1/catalog/us/search');
         expect(host.calls[0]?.headers?.authorization).toMatch(/^Bearer ey/);
+    });
+
+    it('stays on the public API when the key is only in plain config, where a secret field is never kept', async () => {
+        const host = createFakePluginHost();
+        host.seedConfig({ storefront: 'us', teamId: 'DEF123GHIJ', keyId: 'ABC123DEFG', privateKey: '-----BEGIN PRIVATE KEY-----' });
+        const plugin = new AppleMusicPlugin();
+        await plugin.init(host);
+        host.queueResponse({ body: JSON.stringify({ results: [] }) });
+
+        await plugin.searchTracks('roads', { limit: 1 });
+
+        expect(host.calls[0]?.url).toContain('itunes.apple.com');
     });
 
     it('reads a pasted playlist link in its own storefront, and calls a missing one not found', async () => {

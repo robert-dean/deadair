@@ -39,6 +39,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **Web search.** SearXNG, self-hosted with no account, or Brave or Tavily, which need a key. Give it sites worth quoting and it reads those, and only those, for background on records.
 - **RSS.** The feeds you point it at, for news bulletins, and optionally the story behind each headline.
 - **Weather.** Open-Meteo, which needs no account and covers the world; the US National Weather Service, free and United States only; or OpenWeatherMap, which needs a key.
+- **Ticketmaster.** When the artists on a show are next playing near the station, for a show that asks. It needs a free API key from [Ticketmaster's developer site](https://developer.ticketmaster.com), and [upcoming shows](./breaks.md#upcoming-shows) explains the rest.
 - **Podcasts.** The podcast feeds you subscribe to, so the station can carry somebody else's programme at a time you choose. It can look a show up in Apple's podcast directory. See [podcasts](./podcasts.md).
 
 **Voice and words**

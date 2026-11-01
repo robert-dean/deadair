@@ -70,6 +70,14 @@ A day is mostly general history, so **"What the station picks out of the day"** 
 
 A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Bulletins, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
 
+## Upcoming shows
+
+A presenter can say when an artist is next playing nearby, on a show that asks for it: tick **"Mention upcoming local shows"** on the block. It is off by default, because a date means asking somebody else's service about each artist. It needs a concert plugin, such as the bundled Ticketmaster one, a model writing the breaks and Where the station is set under Settings, Station. The station's own phrasings underneath the model never mention a show.
+
+A talk break is handed one show at most, for the record coming up or else the one behind it, and the date is offered rather than asked for, so plenty of links ignore it. The artist has to match exactly, so a tribute act never counts, and anything cancelled, postponed or undated is left out. The earliest date offered is tomorrow, so a date cannot go past before the break airs. A model that talks about tickets or tour dates with no show in hand is declined, and one given a show has to state that show's date and no other. That check is English only.
+
+Listings are reused for six hours by default, so a show called off this afternoon can still be mentioned until the listing is read again. Shorten **Reuse an answer for** in the plugin's settings if that matters more to you than the daily allowance. **How far counts as nearby** is 60 kilometres from the station unless you change it.
+
 ## Jingles
 
 A jingle is a few seconds of the station saying its own name between two records. Set **"Minutes between jingles"** under Settings, Breaks to how often you want one; zero, the default, is off. A jingle never lands next to a break, and a break always gets first choice of the gap between two records.

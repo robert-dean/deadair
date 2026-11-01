@@ -39,6 +39,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import com.maroonedsoftware.deadair.auth.OperatorLock
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * The application object, and the few long-lived objects that hang off it.
@@ -92,6 +96,19 @@ class AppGraph(private val application: Application) {
             scope = scope,
             appOrigin = { appOrigin },
         )
+
+    /** Process-lifetime, so a trip to another screen is not a new lock. */
+    val operatorLock: OperatorLock = OperatorLock(SystemClock::elapsedRealtime)
+
+    /**
+     * Whether the operator's controls want unlocking on this phone right now. Off until the
+     * settings have been read, which no finger is quick enough to get in ahead of.
+     */
+    val operatorLocked: StateFlow<Boolean> =
+        combine(settings.settings, sessions.state, operatorLock.isOpen) { kept, state, open ->
+            kept.operatorLock && !open && state is SessionState.SignedIn && state.isOperator
+        }
+            .stateIn(scope, SharingStarted.Eagerly, false)
 
     /** What the station has played. Behind the session, like the schedule beside it. */
     val history: HistoryRepository =

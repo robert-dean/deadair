@@ -8,10 +8,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
-import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.sdk.models.Rating
 import com.maroonedsoftware.deadair.ui.LoadState
 import kotlinx.coroutines.launch
+import com.maroonedsoftware.deadair.ui.rememberOperates
 
 /**
  * The operator's rating control for a detail page, or nothing for anyone else.
@@ -21,8 +21,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun rememberRating(graph: AppGraph, detail: Detail<*>, write: suspend (Rating) -> Boolean): RatingHandler? {
-    val session by graph.sessions.state.collectAsStateWithLifecycle()
-    val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
+    val isOperator = rememberOperates(graph)
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     if (!isOperator || detail.state !is LoadState.Loaded) return null

@@ -526,6 +526,12 @@
     <string name="what_it_said">What it said</string>
     <!-- The Manage page: the station's controls from Up next, in three groups. -->
     <string name="manage">Manage</string>
+    <string name="operator_lock">Lock the operator\'s controls</string>
+    <string name="operator_lock_detail">Asks for your fingerprint, face or screen lock before the station\'s controls appear, and again after five minutes away. Listening, the widget and a car\'s next button are not affected.</string>
+    <string name="operator_lock_prompt">Unlock the station\'s controls</string>
+    <string name="operator_lock_locked">The station\'s controls are locked</string>
+    <string name="operator_lock_locked_detail">Unlock them to carry on here. Listening is not affected.</string>
+    <string name="operator_lock_unlock">Unlock</string>
     <string name="manage_this_show">This show</string>
     <string name="manage_put_on">Put something on</string>
     <string name="manage_replan">Replan the show</string>

@@ -3,7 +3,6 @@ package com.maroonedsoftware.deadair
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -66,8 +65,14 @@ import com.maroonedsoftware.deadair.ui.setup.SetupScreen
 import com.maroonedsoftware.deadair.ui.setup.rememberStationScanner
 import com.maroonedsoftware.deadair.ui.text.LocalUses24HourClock
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
+import androidx.fragment.app.FragmentActivity
+import com.maroonedsoftware.deadair.ui.OperatorGate
+import com.maroonedsoftware.deadair.ui.ownerCanBeChecked
+import com.maroonedsoftware.deadair.ui.rememberOperates
+import com.maroonedsoftware.deadair.ui.rememberOwnerCheck
 
-class MainActivity : ComponentActivity() {
+// A `FragmentActivity` because `BiometricPrompt` is hosted by one; nothing here uses a fragment.
+class MainActivity : FragmentActivity() {
     /**
      * A `deadair://` link waiting to be offered. Set from the intent that launched the activity and
      * from every one after it (`singleTask` delivers those to `onNewIntent`), and cleared once shown.
@@ -130,6 +135,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        (application as DeadairApp).graph.operatorLock.returned()
+    }
+
+    override fun onStop() {
+        (application as DeadairApp).graph.operatorLock.left()
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -180,6 +195,9 @@ private fun Listener(
     LaunchedEffect(session) {
         if (session is SessionState.SignedIn) graph.sessions.ensureRoles()
     }
+
+    val operates = rememberOperates(graph)
+    val checkOwner = rememberOwnerCheck()
 
     val context = LocalContext.current
     val connection = remember { PlayerConnection(context) }
@@ -335,7 +353,22 @@ private fun Listener(
                                     onSignOut = model::signOut,
                                     // The operator's, and drawn only for them: the rest of this
                                     // screen is the phone's, and this is the station's.
-                                    onDesk = if ((session as? SessionState.SignedIn)?.isOperator == true) ({ backStack.add(Destination.Desk) }) else null,
+                                    onDesk = if (operates) ({ backStack.add(Destination.Desk) }) else null,
+                                    operatorLock = loaded.operatorLock,
+                                    // The switch asks both ways, or the lock is one tap from off.
+                                    // Turning it on proves it works on this phone, and that proof
+                                    // is an unlock, so the operator is not asked twice in a row.
+                                    onOperatorLock =
+                                        if ((session as? SessionState.SignedIn)?.isOperator == true && (ownerCanBeChecked(context) || loaded.operatorLock)) {
+                                            { on ->
+                                                checkOwner {
+                                                    graph.operatorLock.unlocked()
+                                                    model.setOperatorLock(on)
+                                                }
+                                            }
+                                        } else {
+                                            null
+                                        },
                                     sleep = playback.sleep,
                                     canWaitForRecord = rememberPlayhead((nowPlaying as? NowPlayingState.Answered)?.reading) != null,
                                     onSleep =
@@ -360,15 +393,17 @@ private fun Listener(
                         )
                     }
                     entry<Destination.Plan> { key ->
-                        PlanRoute(
-                            graph = graph,
-                            currentBrief = key.currentBrief,
-                            somethingOn = key.somethingOn,
-                            onBack = { backStack.removeLastOrNull() },
-                            // Replanning and going on air both end the errand: the stack unwinds to
-                            // Home, where the tab shows what the station did with it.
-                            onDone = { while (backStack.size > 1) backStack.removeLastOrNull() },
-                        )
+                        OperatorGate(graph) {
+                            PlanRoute(
+                                graph = graph,
+                                currentBrief = key.currentBrief,
+                                somethingOn = key.somethingOn,
+                                onBack = { backStack.removeLastOrNull() },
+                                // Replanning and going on air both end the errand: the stack unwinds to
+                                // Home, where the tab shows what the station did with it.
+                                onDone = { while (backStack.size > 1) backStack.removeLastOrNull() },
+                            )
+                        }
                     }
                     entry<Destination.History> {
                         HistoryRoute(
@@ -412,7 +447,9 @@ private fun Listener(
                         )
                     }
                     entry<Destination.Desk> {
-                        DeskRoute(graph = graph, settings = loaded, onBack = { backStack.removeLastOrNull() }, onSignIn = openSignIn)
+                        OperatorGate(graph) {
+                            DeskRoute(graph = graph, settings = loaded, onBack = { backStack.removeLastOrNull() }, onSignIn = openSignIn)
+                        }
                     }
                     entry<Destination.Scripts> { key ->
                         ScriptsRoute(
@@ -423,15 +460,17 @@ private fun Listener(
                         )
                     }
                     entry<Destination.AirSomething> {
-                        AirSomethingRoute(
-                            graph = graph,
-                            onBack = { backStack.removeLastOrNull() },
-                            onPlaylist = { pluginId, playlistId -> backStack.add(Destination.Playlist(pluginId, playlistId)) },
-                            onChart = { id -> backStack.add(Destination.Chart(id)) },
-                        )
+                        OperatorGate(graph) {
+                            AirSomethingRoute(
+                                graph = graph,
+                                onBack = { backStack.removeLastOrNull() },
+                                onPlaylist = { pluginId, playlistId -> backStack.add(Destination.Playlist(pluginId, playlistId)) },
+                                onChart = { id -> backStack.add(Destination.Chart(id)) },
+                            )
+                        }
                     }
                     entry<Destination.AddRecord> {
-                        AddRecordRoute(graph = graph, onBack = { backStack.removeLastOrNull() })
+                        OperatorGate(graph) { AddRecordRoute(graph = graph, onBack = { backStack.removeLastOrNull() }) }
                     }
                     entry<Destination.Request> {
                         RequestRoute(graph = graph, onBack = { backStack.removeLastOrNull() })
@@ -439,21 +478,25 @@ private fun Listener(
                     // Airing something ends the errand: the stack unwinds to Home, where the
                     // transport shows what just happened.
                     entry<Destination.Playlist> { key ->
-                        PlaylistRoute(
-                            graph = graph,
-                            pluginId = key.pluginId,
-                            playlistId = key.playlistId,
-                            onBack = { backStack.removeLastOrNull() },
-                            onAired = { while (backStack.size > 1) backStack.removeLastOrNull() },
-                        )
+                        OperatorGate(graph) {
+                            PlaylistRoute(
+                                graph = graph,
+                                pluginId = key.pluginId,
+                                playlistId = key.playlistId,
+                                onBack = { backStack.removeLastOrNull() },
+                                onAired = { while (backStack.size > 1) backStack.removeLastOrNull() },
+                            )
+                        }
                     }
                     entry<Destination.Chart> { key ->
-                        ChartRoute(
-                            graph = graph,
-                            chartId = key.id,
-                            onBack = { backStack.removeLastOrNull() },
-                            onAired = { while (backStack.size > 1) backStack.removeLastOrNull() },
-                        )
+                        OperatorGate(graph) {
+                            ChartRoute(
+                                graph = graph,
+                                chartId = key.id,
+                                onBack = { backStack.removeLastOrNull() },
+                                onAired = { while (backStack.size > 1) backStack.removeLastOrNull() },
+                            )
+                        }
                     }
                     entry<Destination.Track> { key ->
                         TrackRoute(

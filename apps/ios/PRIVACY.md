@@ -47,6 +47,11 @@ exchange for those tokens, and is not kept afterwards. Nor is the one-time code,
 asks for one. The session is removed when you sign out and when you point the app at a different
 station. None of it is transmitted to Marooned Software.
 
+If you are the station's operator and turn on "Lock the operator's controls", the app remembers that
+setting and asks your iPhone to check that it is you. The iPhone does the checking: the app never
+sees your face, fingerprint or passcode, only whether the check passed, and nothing about it is sent
+anywhere.
+
 ## What the app connects to
 
 Only the station address you enter, and whatever that station's own responses point at.

@@ -498,6 +498,21 @@ nobody is looking at). They exist so a screen can be screenshotted on a simulato
 `simctl launch` and no tap at all, which is the only safe way to look at a screen that acts on air
 (see the recast above). Release builds ignore both.
 
+## The operator lock
+
+**Android's rule, for the same reasons: `apps/android/CLAUDE.md`, "The operator lock".** A switch in
+the account section puts the operator's controls behind Face ID, Touch ID or the passcode, and it
+gates what is drawn and nothing else. The Keychain item stays `AfterFirstUnlockThisDeviceOnly`, which
+is why this is not `kSecAccessControl`: a biometric item could not be read by the player, CarPlay or a
+lock-screen press. `OperatorLock` starts shut in every process and shuts after five minutes in the
+background, on the continuous clock. Only `.background` starts that clock, because Face ID's own sheet
+makes the scene `.inactive`.
+
+**`AppModel.isOperator` is the one read.** It is false while locked, so locked is the listener's app;
+the rare reader that needs the account's role itself uses `session.state.isOperator`, which is what
+`followOperatorRole` keeps for the lock screen's next button. Pages that are nothing but the
+operator's go through `OperatorGate` in `pageDestinations`, and a new one has to as well.
+
 ## What has been verified
 
 `DeadairCore`'s tests pass, 412 of them on 2026-10-02, with warnings as errors, under both the Command Line Tools

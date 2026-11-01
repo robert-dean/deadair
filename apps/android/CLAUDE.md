@@ -462,6 +462,33 @@ there must not be able to take the station address with it. They are not encrypt
 app-private storage can read a keystore-wrapped copy too. That is a real limit, and `PRIVACY.md`
 states what is kept rather than implying more.
 
+## The operator lock
+
+**A switch in Settings puts the operator's controls behind the phone's own fingerprint, face or
+screen lock, and it is a gate on what is DRAWN.** `OperatorLock` holds whether the owner has proved
+it lately. It starts shut in every process and shuts again after five minutes out of sight, timed on
+`elapsedRealtime` so a changed clock does not reopen it. The session stays where it was, deliberately:
+binding the tokens to a biometric would stop the player, the widget and a car's next button reaching
+them with nobody at the screen, and token refresh with them. So the lock answers an unlocked phone in
+somebody else's hand, and it is not encryption. The station knows nothing of it, and every press is
+still the API's to decide.
+
+**Locked is the listener's app, through one read.** Every operator control reads `rememberOperates`
+rather than the session, so there is no list of what the lock covers. Pages that are nothing but the
+operator's (Desk, Plan, AirSomething, AddRecord, Playlist, Chart) sit inside `OperatorGate`, which
+draws Unlock over the page rather than unwinding the stack, so what was open is still there afterwards
+and a stack restored after process death needs no case of its own. Up next's header offers Unlock where
+Manage was. A new operator-only destination has to be wrapped too.
+
+**Three things are left outside it on purpose.** The widget's and the media session's skip read the
+session, because they are the controls that work with nobody at the screen, and locking the
+app is not meant to take them away. The switch asks both ways, or the lock is one tap from off. A
+phone whose lock has since been removed answers yes rather than shutting its owner out.
+
+**`MainActivity` is a `FragmentActivity` only because `BiometricPrompt` needs one.** Weak biometrics
+plus the screen lock is the pair `OWNER_CHECKS` asks for: it is the one combination that works from
+`minSdk` up, and a face that fails falls through to the PIN.
+
 ## Signing and release
 
 **The upload key is not in this repository and must never be.** It lives at

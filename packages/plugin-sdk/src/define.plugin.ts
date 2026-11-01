@@ -5,6 +5,7 @@ import type { LyricsProvider } from './capabilities/lyrics.js';
 import type { MessagingProvider } from './capabilities/messaging.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
 import type { NarrationProvider } from './capabilities/narration.js';
+import type { ConcertsProvider } from './capabilities/concerts.js';
 import type { NewsProvider } from './capabilities/news.js';
 import type { OutputProvider } from './capabilities/output.js';
 import type { PodcastProvider } from './capabilities/podcast.js';
@@ -67,6 +68,9 @@ export type SearchPluginInstance = PluginLifecycle & SearchProvider;
 
 /** Instance shape for a `weather` plugin. */
 export type WeatherPluginInstance = PluginLifecycle & WeatherProvider;
+
+/** Instance shape for a `concerts` plugin. */
+export type ConcertsPluginInstance = PluginLifecycle & ConcertsProvider;
 
 /** Instance shape for an `almanac` plugin. */
 export type AlmanacPluginInstance = PluginLifecycle & AlmanacProvider;

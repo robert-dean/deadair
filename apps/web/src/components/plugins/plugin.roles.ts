@@ -29,6 +29,7 @@ export const KNOWN_CAPABILITIES = [
     'weather',
     'podcast',
     'almanac',
+    'concerts',
     'charts',
     'output',
     'oauth',
@@ -69,7 +70,7 @@ export const PLUGIN_ROLES: readonly PluginRole[] = [
     role('writing', ['llm']),
     role('audio', ['analysis', 'mixer', 'transcode']),
     role('knowledge', ['enrichment', 'lyrics', 'similarity', 'search', 'scrobble']),
-    role('programmes', ['news', 'weather', 'podcast', 'almanac', 'charts']),
+    role('programmes', ['news', 'weather', 'podcast', 'almanac', 'concerts', 'charts']),
 ];
 
 /** Where a plugin goes when it declares nothing any group above claims. Never empty-handed. */

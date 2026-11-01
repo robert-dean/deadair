@@ -214,6 +214,7 @@ export const plugins = {
         weather: 'Weather',
         podcast: 'Podcasts',
         almanac: 'On this day',
+        concerts: 'Upcoming shows',
         charts: 'Charts',
         output: 'Plays on speakers',
         oauth: 'Sign-in',

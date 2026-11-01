@@ -147,6 +147,8 @@ data class ScheduleSlot(
     val mixInSimilar: Boolean? = null,
     /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out */
     val chartPositions: Boolean? = null,
+    /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
+    val concerts: Boolean? = null,
     /** Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away */
     val requestShow: Boolean? = null,
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
@@ -217,6 +219,8 @@ data class ScheduleSlotInput(
     val mixInSimilar: Boolean? = null,
     /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out */
     val chartPositions: Boolean? = null,
+    /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
+    val concerts: Boolean? = null,
     /** Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away */
     val requestShow: Boolean? = null,
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */

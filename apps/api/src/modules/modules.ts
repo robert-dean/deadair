@@ -22,6 +22,7 @@ import { SimilarityModule } from './similarity/similarity.module.js';
 import { SearchModule } from './search/search.module.js';
 import { WeatherModule } from './weather/weather.module.js';
 import { AlmanacModule } from './almanac/almanac.module.js';
+import { ConcertsModule } from './concerts/concerts.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { PersonasModule } from './personas/personas.module.js';
@@ -174,6 +175,8 @@ const ordered: ServerKitModule[] = [
     // makes, so nothing fixes it relative to TopicsModule and it sits beside the capability it
     // most resembles.
     AlmanacModule,
+    // Beside the others that answer about the world, with AlmanacModule's edges and no subjects of its own.
+    ConcertsModule,
     // Beside the three above and for their reasons: after PluginsModule, whose registry and invoker it
     // reads, and no loop of its own (a cron job re-reads the feeds). Before TopicsModule, because a
     // `syndicated` band names its show through a topic kind this module owns, and the owner of a kind

@@ -789,6 +789,33 @@ describe('SlotEditor', () => {
         expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ chartPositions: false }));
     });
 
+    it('leaves upcoming shows off until somebody ticks them, and sends only the tick', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100' }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        const box = await screen.findByRole('checkbox', { name: 'Mention upcoming local shows' });
+        expect(box).not.toBeChecked();
+
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('concerts');
+
+        await setupUser().click(box);
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[1]![0]).toEqual(expect.objectContaining({ concerts: true }));
+    });
+
     it("opens a slot that plays one of the station's own playlists on it, and sends it back alone", async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

@@ -12,6 +12,7 @@ export * from './capabilities/narration.js';
 export * from './capabilities/news.js';
 export * from './capabilities/output.js';
 export * from './capabilities/podcast.js';
+export * from './capabilities/concerts.js';
 export * from './capabilities/scrobble.js';
 export * from './capabilities/search.js';
 export * from './capabilities/similarity.js';

@@ -528,6 +528,22 @@ then not permitted, because it was not shown. Misses are the side to err on, and
 not calibrated against a real catalog. The `year` is not touched: a record first met on a compilation can
 still carry that release's date.
 
+**An upcoming show is the one claim on air that sends a listener somewhere, so it is checked at both ends.**
+`BreakTrack.concert` is set by `WriteBreakJob.withConcert` on a talk break, only when the show asked for it
+(`schedule_slots.concerts`, absent is no, because a date is a request per artist to somebody else's service).
+The record coming up is asked before the one behind it and a break carries one show at most. It is not stored
+with the facts: `ConcertService` asks the `concerts` capability per break, the plugin caches for hours, and a
+date is true only until its night. The plugin matches the artist exactly, since a keyword search returns tribute
+acts, and leaves out anything cancelled, postponed or undated. `concertWindow` starts TOMORROW on the station's
+calendar, which is the claim's whole freshness: the writer's words cannot be re-cut, and a date that is at least
+tomorrow when written cannot pass inside the write-ahead. A show called off afterwards is the exposure left, as
+large as the cache plus the write-ahead. `describe` shows it as material, offered rather than asked for.
+`invented-concert` holds the answer to it: with no show handed, a sentence using show words ("tickets", "tour
+dates", "next show") is refused, and with one handed, a sentence about it must carry that date and no other.
+The words were measured on 2026-10-31 against 3,230 written breaks of the previous thirty days, of which one
+said "on tour", which is why that phrase is left out, and none used the others. English only, and retryable on
+`invented-home`'s argument, since the fix is a deletion.
+
 ## What the prompt says, and what it left out
 
 **The station has two sentences of its own above every show and every persona.** `station.identity` (who

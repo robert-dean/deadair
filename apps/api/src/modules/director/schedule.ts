@@ -248,6 +248,8 @@ export interface ScheduleSlot {
      * slot whose source is a chart, or a rotation that takes a chart's share, has anything to say.
      */
     chartPositions?: boolean;
+    /** Whether the host may mention an artist's next local show. Absent is no; see `StationLineupRules.concerts`. */
+    concerts?: boolean;
     /**
      * The dates this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *

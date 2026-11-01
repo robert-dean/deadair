@@ -209,6 +209,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot\'s chart without its positions read out',
         ),
+    concerts: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
+        ),
     requestShow: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -384,6 +390,12 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot\'s chart without its positions read out',
+        ),
+    concerts: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
         ),
     requestShow: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

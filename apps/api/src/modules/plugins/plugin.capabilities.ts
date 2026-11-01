@@ -3,6 +3,7 @@ import {
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_CHARTS,
+    PLUGIN_CAPABILITY_CONCERTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_LYRICS,
@@ -38,6 +39,7 @@ import {
     type PluginManifest,
     type SearchPluginInstance,
     type SpeechPluginInstance,
+    type ConcertsPluginInstance,
     type WeatherPluginInstance,
 } from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
@@ -503,6 +505,35 @@ export const asAlmanacPlugin = (record: PluginRecord): AlmanacPlugin | undefined
     if (!implementsAlmanac(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as AlmanacPluginInstance };
+};
+
+/** The one method that earns the `concerts` capability. */
+export const CONCERTS_METHODS = ['getConcerts'] as const satisfies ReadonlyArray<keyof ConcertsPluginInstance>;
+
+/** A plugin narrowed to "can say when an artist is next nearby, right now". */
+export interface ConcertsPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: ConcertsPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `concerts` capability. */
+export const implementsConcerts = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_CONCERTS)) return false;
+    return CONCERTS_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The concert-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, and the answers do not combine, for {@link asWeatherPlugin}'s
+ * reason: `ConcertService` asks the first that answers and stops.
+ */
+export const asConcertsPlugin = (record: PluginRecord): ConcertsPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsConcerts(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as ConcertsPluginInstance };
 };
 
 /** The one method that earns the `scrobble` capability. */

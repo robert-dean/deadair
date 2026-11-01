@@ -1700,7 +1700,7 @@ on the web console: it answers 409 with a sentence naming the other block, shown
 it expands empty days and a wrapping block's tail onto the next weekday in ways a second copy here
 would one day disagree with. `PUT` replaces the row, so the editor sends every field, including the ones it does not draw:
 a slot's mood, a special's dates, its guest hosts and co-hosts, whether it resumes its playlist,
-`breaks`, `chartPositions`, the request show and its follow-on, and the slot's own repeat window,
+`breaks`, `chartPositions`, `concerts`, the request show and its follow-on, and the slot's own repeat window,
 artist cooldown and per-artist cap all ride through untouched in `SlotDraft.Kept`, because an edit
 here that dropped them would turn Halloween into a show every night and silence a countdown's host.
 **A new `ScheduleSlot` field the editor does not draw goes into `SlotPassthrough`, `From` and

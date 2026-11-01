@@ -2054,6 +2054,7 @@ export function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRule
         ...(input.callins === undefined ? {} : { callins: input.callins }),
         ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
         ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
+        ...(input.concerts === undefined ? {} : { concerts: input.concerts }),
         ...(input.requestShow === undefined ? {} : { requestShow: input.requestShow }),
         ...(input.requestFollowOn === undefined ? {} : { requestFollowOn: input.requestFollowOn }),
         ...(input.requestCooldownMinutes === undefined ? {} : { requestCooldownMinutes: input.requestCooldownMinutes }),

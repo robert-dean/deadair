@@ -10676,6 +10676,9 @@ components:
                 chartPositions:
                     type: boolean
                     description: 'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says'
+                concerts:
+                    type: boolean
+                    description: "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no"
                 albumId:
                     type: string
                     format: uuid
@@ -16695,6 +16698,9 @@ components:
                 chartPositions:
                     type: boolean
                     description: 'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot''s chart without its positions read out'
+                concerts:
+                    type: boolean
+                    description: "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no"
                 requestShow:
                     type: boolean
                     description: 'Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away'

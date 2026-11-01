@@ -139,7 +139,8 @@ plugins/*             bundled plugins: spotify, navidrome, jellyfin, emby, plex,
                       on today's date), lrclib (the words of records and the timing of their lines,
                       read by the host and never said), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
-                      (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
+                      (Open-Meteo, the US National Weather Service or OpenWeatherMap), ticketmaster
+                      (when the artists on a show are next playing nearby), podcast (the
                       shows the station carries, read from their feeds), telegram, discord and
                       slack (the station on chat platforms: commands answered, what airs announced;
                       the last two over a socket the plugin holds), kokoro, chatterbox,
@@ -165,7 +166,7 @@ deploy/, unraid/                  how somebody else installs it
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `metrics`, `crypto`,
 `authentication`, `permissions`, `policy`, `oauth`, `art`, `catalog`, `onboarding`, `settings`, `languages`, `stream`, `mail`,
 `plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
-`podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
+`concerts`, `podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
 `nowplaying`, `analysis`, `lyrics`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
 `station`, `requests`, `messaging`, `events`, `outputs`, `mcp`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it

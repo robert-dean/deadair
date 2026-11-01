@@ -38,6 +38,7 @@ mediarouter = "1.8.1"
 # phone's passkey provider before Android 14. Checked against Google's Maven on 2026-10-19: 1.7.0 is
 # still in alpha.
 credentials = "1.6.0"
+biometric = "1.1.0"
 junit = "4.13.2"
 
 [libraries]
@@ -54,6 +55,7 @@ androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }

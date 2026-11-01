@@ -16,6 +16,7 @@ struct DeadairApp: App {
 /// pushed, so Setup is never a place back can reach: `apps/android` makes the same choice.
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -33,6 +34,13 @@ struct RootView: View {
         }
         .toasts()
         .onOpenURL { model.open($0) }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .background: model.leftForeground()
+            case .active: model.returnedToForeground()
+            default: break
+            }
+        }
         // The first appearance, not every foregrounding (which is what `scenePhase` would give);
         // `OpenPlay` answers yes once per process however often this runs.
         .task { model.opened() }

@@ -38,6 +38,11 @@ not kept afterwards. Nor is the one-time code, when the station asks for one. Th
 app at a different station, and when the app is uninstalled. None of it is transmitted to Marooned Software,
 and none of it is included in a cloud backup or in a transfer to a new phone.
 
+If you are the station's operator and turn on "Lock the operator's controls", the app remembers that
+setting and asks your phone to check that it is you. The phone does the checking: the app never sees
+your fingerprint, face or screen lock, only whether the check passed, and nothing about it is sent
+anywhere.
+
 ## What the app connects to
 
 Only the station address you enter, and whatever that station's own responses point at.

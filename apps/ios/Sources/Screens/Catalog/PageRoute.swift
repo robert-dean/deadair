@@ -72,13 +72,13 @@ extension View {
             case .album(let id): AlbumPage(id: id)
             case .artist(let id): ArtistPage(id: id)
             case .scripts(let segmentId): ScriptsScreen(segmentId: segmentId)
-            case .desk: DeskScreen()
+            case .desk: OperatorGate { DeskScreen() }
             case .manage: ManageScreen()
-            case .plan(let brief, let on): PlanScreen(currentBrief: brief, somethingOn: on)
-            case .airSomething: AirSomethingScreen()
-            case .playlist(let pluginId, let playlistId, let name): PlaylistScreen(pluginId: pluginId, playlistId: playlistId, name: name)
-            case .chart(let id, let name): ChartScreen(chartId: id, name: name)
-            case .addRecord: AddRecordScreen()
+            case .plan(let brief, let on): OperatorGate { PlanScreen(currentBrief: brief, somethingOn: on) }
+            case .airSomething: OperatorGate { AirSomethingScreen() }
+            case .playlist(let pluginId, let playlistId, let name): OperatorGate { PlaylistScreen(pluginId: pluginId, playlistId: playlistId, name: name) }
+            case .chart(let id, let name): OperatorGate { ChartScreen(chartId: id, name: name) }
+            case .addRecord: OperatorGate { AddRecordScreen() }
             case .request: RequestScreen()
             case .history: HistoryScreen()
             case .signIn: SignInScreen()

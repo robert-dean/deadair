@@ -53,6 +53,7 @@ class SettingsStore(private val context: Context) {
                 wallpaperColor = stored[WALLPAPER_COLOR] ?: STATION_PALETTE.accent,
                 widgetFollows = stored[WIDGET_FOLLOWS]?.let { name -> WidgetFollows.entries.firstOrNull { it.name == name } } ?: WidgetFollows.THIS_PHONE,
                 keepAwake = stored[KEEP_AWAKE]?.let { name -> KeepAwake.entries.firstOrNull { it.name == name } } ?: KeepAwake.NEVER,
+                operatorLock = stored[OPERATOR_LOCK] ?: false,
             )
         }
 
@@ -83,6 +84,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setKeepAwake(keepAwake: KeepAwake) {
         context.preferences.edit { it[KEEP_AWAKE] = keepAwake.name }
+    }
+
+    suspend fun setOperatorLock(on: Boolean) {
+        context.preferences.edit { it[OPERATOR_LOCK] = on }
     }
 
     suspend fun setWallpaperFollows(follows: WallpaperFollows) {
@@ -126,5 +131,6 @@ class SettingsStore(private val context: Context) {
         val WALLPAPER_COLOR = intPreferencesKey("wallpaper_colour")
         val WIDGET_FOLLOWS = stringPreferencesKey("widget_follows")
         val KEEP_AWAKE = stringPreferencesKey("keep_awake")
+        val OPERATOR_LOCK = booleanPreferencesKey("operator_lock")
     }
 }

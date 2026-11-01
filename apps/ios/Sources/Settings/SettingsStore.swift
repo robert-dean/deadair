@@ -27,7 +27,8 @@ final class SettingsStore {
             formatText: defaults.string(forKey: Keys.format),
             playOnOpenText: defaults.string(forKey: Keys.playOnOpen),
             showOnLockScreenText: defaults.string(forKey: Keys.showOnLockScreen),
-            keepAwakeText: defaults.string(forKey: Keys.keepAwake)
+            keepAwakeText: defaults.string(forKey: Keys.keepAwake),
+            operatorLockText: defaults.string(forKey: Keys.operatorLock)
         )
     }
 
@@ -66,6 +67,11 @@ final class SettingsStore {
         write()
     }
 
+    func setOperatorLock(_ on: Bool) {
+        settings.operatorLock = on
+        write()
+    }
+
     private func write() {
         defaults.set(settings.stationText, forKey: Keys.station)
         defaults.set(settings.stationName, forKey: Keys.name)
@@ -73,6 +79,7 @@ final class SettingsStore {
         defaults.set(settings.playOnOpenText, forKey: Keys.playOnOpen)
         defaults.set(settings.showOnLockScreenText, forKey: Keys.showOnLockScreen)
         defaults.set(settings.keepAwakeText, forKey: Keys.keepAwake)
+        defaults.set(settings.operatorLockText, forKey: Keys.operatorLock)
     }
 
     private enum Keys {
@@ -82,6 +89,7 @@ final class SettingsStore {
         static let playOnOpen = "play_on_open"
         static let showOnLockScreen = "show_on_lock_screen"
         static let keepAwake = "keep_awake"
+        static let operatorLock = "operator_lock"
         /// Set once the stored format has been read for Automatic; see `formatTextFromBeforeAutomatic`.
         static let automaticFormat = "format_automatic_read"
     }

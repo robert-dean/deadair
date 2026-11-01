@@ -21,6 +21,7 @@ import com.maroonedsoftware.deadair.ui.order.orderMenu
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.resolve
 import kotlinx.coroutines.launch
+import com.maroonedsoftware.deadair.ui.rememberOperates
 
 /**
  * The Manage page, wired: the running order read here, and every
@@ -42,7 +43,7 @@ fun ManageRoute(
     onScripts: () -> Unit,
 ) {
     val session by graph.sessions.state.collectAsStateWithLifecycle()
-    val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
+    val isOperator = rememberOperates(graph)
     val order by graph.order.state.collectAsStateWithLifecycle()
     val loaded = (order as? OrderState.Loaded)?.order
     // Only for the brief and whether anything is on: who presents it is changed on Up next, where it is read.

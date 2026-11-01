@@ -24,6 +24,7 @@ import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.resolve
 import java.io.File
 import kotlinx.coroutines.launch
+import com.maroonedsoftware.deadair.ui.rememberOperates
 
 /**
  * What it said, wired.
@@ -46,7 +47,7 @@ fun ScriptsRoute(graph: AppGraph, segmentId: String?, onBack: () -> Unit, onSign
         }
     val state by repository.state.collectAsStateWithLifecycle()
     val session by graph.sessions.state.collectAsStateWithLifecycle()
-    val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
+    val isOperator = rememberOperates(graph)
 
     var busyId by remember { mutableStateOf<String?>(null) }
     val rating =

@@ -11,12 +11,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
 import com.maroonedsoftware.deadair.R
-import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.TrackDetail
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.add.playNextIndex
 import kotlinx.coroutines.launch
+import com.maroonedsoftware.deadair.ui.rememberOperates
 
 /**
  * What the record page offers the operator for putting this record on.
@@ -49,8 +49,7 @@ fun TrackDetail.hasLocalAudio(): Boolean = bindings.any { it.byteSize != null }
  */
 @Composable
 fun rememberAddToOrder(graph: AppGraph, detail: Detail<TrackDetail>, snackbarHost: SnackbarHostState): AddToOrderHandler? {
-    val session by graph.sessions.state.collectAsStateWithLifecycle()
-    val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
+    val isOperator = rememberOperates(graph)
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     val addedWords = stringResource(R.string.record_added)

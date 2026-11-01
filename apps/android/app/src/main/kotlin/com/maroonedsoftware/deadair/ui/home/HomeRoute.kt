@@ -74,6 +74,8 @@ import com.maroonedsoftware.deadair.ui.schedule.WhatsOnScreen
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.resolve
 import kotlinx.coroutines.launch
+import com.maroonedsoftware.deadair.ui.rememberOperates
+import com.maroonedsoftware.deadair.ui.rememberUnlock
 
 /**
  * The tabbed screen, wired.
@@ -118,7 +120,10 @@ fun HomeRoute(
     val schedule by graph.schedule.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val session by graph.sessions.state.collectAsStateWithLifecycle()
-    val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
+    val isOperator = rememberOperates(graph)
+
+    val locked by graph.operatorLocked.collectAsStateWithLifecycle()
+    val unlock = rememberUnlock(graph)
 
     val snackbarHost = remember { SnackbarHostState() }
     ShowOperatorNotices(graph.operator.notices, snackbarHost)
@@ -193,6 +198,12 @@ fun HomeRoute(
                     Icon(painterResource(R.drawable.ic_tune), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.manage))
+                }
+            locked ->
+                FilledTonalButton(onClick = unlock, contentPadding = PaddingValues(start = 12.dp, end = 16.dp)) {
+                    Icon(painterResource(R.drawable.ic_lock), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.operator_lock_unlock))
                 }
             session is SessionState.SignedIn ->
                 IconButton(onClick = { onScripts(null) }) {

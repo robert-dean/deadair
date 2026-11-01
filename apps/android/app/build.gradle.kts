@@ -158,6 +158,8 @@ dependencies {
     // A passkey as the second step of signing in.
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
+    // The phone's own check before the operator's controls, when the operator asked for one.
+    implementation(libs.androidx.biometric)
     // The system output switcher and the selected route's name, for Now playing's output button.
     implementation(libs.androidx.mediarouter)
     implementation(libs.bundles.media3)

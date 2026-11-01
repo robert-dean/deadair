@@ -118,6 +118,13 @@ fun SettingsScreen(
     onSleep: ((SleepRequest?) -> Unit)? = null,
     /** Open the desk. `null` for anyone the station does not call its operator, who gets no row. */
     onDesk: (() -> Unit)? = null,
+    /** Whether the operator's controls are behind the phone's own lock. */
+    operatorLock: Boolean = false,
+    /**
+     * Ask for that, or stop. `null` for anyone who is not the operator and on a phone with no lock
+     * of its own to ask, who get no row.
+     */
+    onOperatorLock: ((Boolean) -> Unit)? = null,
     /**
      * Send the playback journal, answering `false` when there was nothing to send. `null` draws no
      * row, which is what the previews pass.
@@ -299,6 +306,14 @@ fun SettingsScreen(
 
             Text(stringResource(R.string.section_account), style = MaterialTheme.typography.titleMedium)
             AccountSection(session = session, onOpenSignIn = onOpenSignIn, onSignOut = onSignOut)
+            onOperatorLock?.let {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.operator_lock)) },
+                    supportingContent = { Text(stringResource(R.string.operator_lock_detail)) },
+                    trailingContent = { Switch(checked = operatorLock, onCheckedChange = null) },
+                    modifier = Modifier.fillMaxWidth().selectable(selected = operatorLock, role = Role.Switch, onClick = { it(!operatorLock) }),
+                )
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 

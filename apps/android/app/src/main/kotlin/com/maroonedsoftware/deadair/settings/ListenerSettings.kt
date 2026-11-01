@@ -41,4 +41,6 @@ data class ListenerSettings(
     val widgetFollows: WidgetFollows = WidgetFollows.THIS_PHONE,
     /** When Now playing keeps the screen on. Never by default; the rule is `nowplaying.keepAwake`. */
     val keepAwake: KeepAwake = KeepAwake.NEVER,
+    /** Ask for the phone's own fingerprint, face or screen lock before the operator's controls. Off by default; see `OperatorLock`. */
+    val operatorLock: Boolean = false,
 )

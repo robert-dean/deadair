@@ -181,6 +181,10 @@ class SettingsViewModel(
         viewModelScope.launch { store.setKeepAwake(keepAwake) }
     }
 
+    fun setOperatorLock(on: Boolean) {
+        viewModelScope.launch { store.setOperatorLock(on) }
+    }
+
     fun onEmailChange(email: String) {
         _account.value = AccountState.typingEmail(_account.value, email)
     }

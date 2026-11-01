@@ -6,13 +6,19 @@ struct ListenerSettingsTests {
     @Test func readsBackWhatItWrote() {
         let settings = ListenerSettings(
             station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls, playOnOpen: true, showOnLockScreen: false,
-            keepAwake: .whileCharging)
+            keepAwake: .whileCharging, operatorLock: true)
 
         let read = ListenerSettings(
             stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText, playOnOpenText: settings.playOnOpenText,
-            showOnLockScreenText: settings.showOnLockScreenText, keepAwakeText: settings.keepAwakeText)
+            showOnLockScreenText: settings.showOnLockScreenText, keepAwakeText: settings.keepAwakeText, operatorLockText: settings.operatorLockText)
 
         #expect(read == settings)
+    }
+
+    @Test func leavesTheOperatorsControlsUnlockedUnlessTurnedOn() {
+        #expect(!ListenerSettings().operatorLock)
+        #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, operatorLockText: nil).operatorLock)
+        #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, operatorLockText: "sometimes").operatorLock)
     }
 
     @Test func showsOnTheLockScreenUnlessTurnedOff() {

@@ -25,8 +25,9 @@ import {
 let host: FakePluginHost;
 let plugin: WeatherPlugin;
 
-const initialize = async (config: Record<string, unknown> = {}): Promise<void> => {
+const initialize = async (config: Record<string, unknown> = {}, apiKey?: string): Promise<void> => {
     host.seedConfig({ engine: 'openmeteo', ...config });
+    if (apiKey !== undefined) host.seedSecret('apiKey', apiKey);
     await plugin.init(host);
 };
 
@@ -246,7 +247,7 @@ describe('the National Weather Service', () => {
 
 describe('OpenWeatherMap', () => {
     it('uses its own geocoder rather than borrowing the keyless one', async () => {
-        await initialize({ engine: 'openweathermap', apiKey: 'a-key' });
+        await initialize({ engine: 'openweathermap' }, 'a-key');
         queueJson([{ name: 'Atlanta', lat: 33.749, lon: -84.388, state: 'Georgia' }]);
         queueJson({ dt: 1_800_000_000, timezone: -14_400, name: 'Atlanta', weather: [{ id: 800 }], main: { temp: 24 } });
 
@@ -254,11 +255,12 @@ describe('OpenWeatherMap', () => {
 
         expect(host.calls.every(call => new URL(call.url).hostname === OPENWEATHERMAP_HOST)).toBe(true);
         expect(host.calls[0]?.url).toContain('/geo/1.0/direct');
+        expect(new URL(host.calls[0]!.url).searchParams.get('appid')).toBe('a-key');
         expect(reading?.current.condition).toBe('clear');
     });
 
     it('asks for metric, and converts the wind that comes back with it', async () => {
-        await initialize({ engine: 'openweathermap', apiKey: 'a-key' });
+        await initialize({ engine: 'openweathermap' }, 'a-key');
         queueJson([{ name: 'Atlanta', lat: 33.749, lon: -84.388 }]);
         queueJson({ dt: 1_800_000_000, timezone: 0, weather: [{ id: 800 }], main: { temp: 24 }, wind: { speed: 10 } });
 
@@ -269,7 +271,7 @@ describe('OpenWeatherMap', () => {
     });
 
     it('asks for the description in the station language, since the condition is read off the id', async () => {
-        await initialize({ engine: 'openweathermap', apiKey: 'a-key' });
+        await initialize({ engine: 'openweathermap' }, 'a-key');
         queueJson([{ name: 'Atlanta', lat: 33.749, lon: -84.388 }]);
         queueJson({ dt: 1_800_000_000, timezone: 0, weather: [{ id: 800, description: 'Klarer Himmel' }], main: { temp: 24 } });
 
@@ -280,7 +282,7 @@ describe('OpenWeatherMap', () => {
     });
 
     it('names the key when the service says 401, which the status alone does not', async () => {
-        await initialize({ engine: 'openweathermap', apiKey: 'wrong' });
+        await initialize({ engine: 'openweathermap' }, 'wrong');
         host.queueResponse({ status: 401, body: '{}' });
 
         await expect(plugin.getWeather({ place: 'Atlanta' })).rejects.toThrow(/key/);

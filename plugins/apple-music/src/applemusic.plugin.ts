@@ -42,7 +42,10 @@ export class AppleMusicPlugin extends Plugin implements MusicProviderCatalog, Mu
 
         const raw = await host.config.get();
         const parsed = configSchema.safeParse(raw);
-        const config: AppleMusicConfig = parsed.success ? parsed.data : { storefront: 'us' };
+        const config: AppleMusicConfig = {
+            ...(parsed.success ? parsed.data : { storefront: 'us' }),
+            privateKey: await host.secrets.get('privateKey'),
+        };
 
         if (hasDeveloperKey(config)) {
             const tokens = new DeveloperTokenSource({ teamId: config.teamId!, keyId: config.keyId!, privateKey: config.privateKey! });

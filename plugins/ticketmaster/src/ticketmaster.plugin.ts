@@ -63,7 +63,7 @@ export class TicketmasterPlugin extends Plugin implements ConcertsPluginInstance
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
 
-        this.apiKey = configString(config.apiKey) ?? '';
+        this.apiKey = configString(await this.host.secrets.get('apiKey')) ?? '';
         this.cacheMs = clamp(positive(config.cacheHours) ?? DEFAULT_CACHE_HOURS, 1, MAX_CACHE_HOURS) * 3_600_000;
         this.radiusKm = clamp(positive(config.radiusKm) ?? DEFAULT_RADIUS_KM, 1, MAX_RADIUS_KM);
 

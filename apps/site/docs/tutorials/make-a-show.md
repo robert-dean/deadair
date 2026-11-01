@@ -70,6 +70,26 @@ To hear a brief without waiting for the timetable, press **Plan** on the Desk, c
 show**, paste the brief, pick the host, and press **Go on air**. That improvises the show now, once;
 the timetable is what repeats it.
 
+## Mention upcoming local shows (optional)
+
+The presenter can say when an artist on the show is next playing near the station. You need a model
+writing the breaks ([Give the station a model](./connect-a-model.md)) and a free Ticketmaster key.
+
+1. Sign up at [developer.ticketmaster.com](https://developer.ticketmaster.com) and open **My Apps**.
+   Your account comes with an app, or you can create one. Copy its **Consumer Key**: that is the API
+   key, and the secret beside it is not needed.
+2. Open **Settings → Plugins** and open **Ticketmaster**. Switch it on if it is off, paste the key into
+   **API key** and press **Save configuration**. Then press **Test connection**: **You should see**
+   "Ticketmaster answered."
+3. Open **Settings → Station** and check **Where the station is** is filled in. Shows are looked up
+   around that place.
+4. Open the block on **Programme → Timetable**, tick **Mention upcoming local shows** and save it.
+
+Only a block with the box ticked asks, so you choose which shows spend the key's allowance of 5,000
+requests a day. A link mentions a date only when an artist either side of it has one coming up, and
+not every time, so a quiet hour is normal. [Upcoming shows](../features/breaks.md#upcoming-shows)
+explains what the presenter may say.
+
 ## With Claude
 
 With Claude connected and allowed to **Read and manage**
@@ -95,6 +115,9 @@ Then check the result on **Programme → Timetable**, as above.
   the other a [special](../features/programme.md#specials) if it is only on some dates.
 - **It started at the wrong time.** The station's clock is **Station timezone** under Settings →
   Station, not the server's.
+- **The presenter never mentions a concert.** Check that **Test connection** on the Ticketmaster
+  plugin passes, **Where the station is** is set, the block has **Mention upcoming local shows**
+  ticked, and a model is writing the breaks. An artist with no listing nearby has nothing to mention.
 - **The playlist show is skipped.** A playlist with nothing the station may play is not aired, and the
   activity feed says so.
 

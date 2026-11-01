@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.88.0] — 2026-11-01
+
+- Add a `concerts` plugin capability, and a bundled Ticketmaster plugin that answers it with an artist's upcoming shows near the station.
+- A show can opt in to its host mentioning upcoming local concerts, with a new `concerts` field on schedule slots and on putting a broadcast on air.
+- On a show that asks for it, a talk break can mention the next local date of the artist either side of it, and a break announcing a show it was not handed is refused and written again.
+
 ## [0.87.8] — 2026-10-31
 
 - Presenters no longer say a song came from a best-of or a various-artists compilation. An album that is evidently a collection is left out of what a break is told about the record.
@@ -1796,7 +1802,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.87.8...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.88.0...HEAD
+[0.88.0]: https://github.com/robert-dean/deadair/compare/v0.87.8...v0.88.0
 [0.87.8]: https://github.com/robert-dean/deadair/compare/v0.87.7...v0.87.8
 [0.87.7]: https://github.com/robert-dean/deadair/compare/v0.87.6...v0.87.7
 [0.87.6]: https://github.com/robert-dean/deadair/compare/v0.87.5...v0.87.6

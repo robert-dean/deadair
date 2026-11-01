@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.88.1] — 2026-11-01
+
+- Read each plugin's secret field through `host.secrets`, so a saved Ticketmaster key, OpenWeatherMap key or MusicKit private key is actually used.
+
 ## [0.88.0] — 2026-11-01
 
 - Add a `concerts` plugin capability, and a bundled Ticketmaster plugin that answers it with an artist's upcoming shows near the station.
@@ -1802,7 +1806,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.88.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.88.1...HEAD
+[0.88.1]: https://github.com/robert-dean/deadair/compare/v0.88.0...v0.88.1
 [0.88.0]: https://github.com/robert-dean/deadair/compare/v0.87.8...v0.88.0
 [0.87.8]: https://github.com/robert-dean/deadair/compare/v0.87.7...v0.87.8
 [0.87.7]: https://github.com/robert-dean/deadair/compare/v0.87.6...v0.87.7

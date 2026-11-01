@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-11-01
+
+- Add an optional lock that asks for your fingerprint, face or screen lock before the operator's controls appear on the phone, and again after five minutes away. Listening is not affected.
+
 ## [0.26.2] — 2026-10-31
 
 - A session now ends only when the station itself refuses the refresh. A rate limit, a tunnel, a firewall or a proxy answering in its place no longer signs the operator out or deletes a good token.
@@ -300,7 +304,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.26.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.27.0...HEAD
+[0.27.0]: https://github.com/robert-dean/deadair/compare/android-v0.26.2...android-v0.27.0
 [0.26.2]: https://github.com/robert-dean/deadair/compare/android-v0.26.1...android-v0.26.2
 [0.26.1]: https://github.com/robert-dean/deadair/compare/android-v0.26.0...android-v0.26.1
 [0.26.0]: https://github.com/robert-dean/deadair/compare/android-v0.25.0...android-v0.26.0

@@ -36,6 +36,9 @@ final class AppModel {
     let airActions: AirActions
     let scriptActions: ScriptActions
 
+    /// Whether the phone's owner has proved it lately. Read through `operatorLocked` and `isOperator`.
+    private(set) var operatorLock = OperatorLock()
+
     /// A station a `deadair://` link proposed, waiting for somebody to check it and press Listen.
     var proposed: StationUrl?
 
@@ -194,7 +197,38 @@ final class AppModel {
 
     /// Whether the station last said this account operates it. A hint for what to draw: the
     /// station still decides every press, and `operatorActions` re-reads this when it says no.
-    var isOperator: Bool { session.state.isOperator }
+    ///
+    /// And the phone's lock open: every operator control reads this rather than the session, so
+    /// locked is the listener's app, and there is no second list of what the lock covers.
+    var isOperator: Bool { session.state.isOperator && !operatorLocked }
+
+    /// Whether the operator's controls want unlocking on this phone right now.
+    var operatorLocked: Bool {
+        session.state.isOperator && settings.settings.operatorLock && !operatorLock.isOpen
+    }
+
+    /// Unlock the operator's controls, once the phone has said this is its owner.
+    func unlockOperator() async {
+        if await DeviceOwner.check() { operatorLock.unlocked() }
+    }
+
+    /// The switch asks both ways, or the lock is one tap from off. Turning it on proves it works on
+    /// this phone, and that proof is an unlock, so the operator is not asked twice in a row.
+    func setOperatorLock(_ on: Bool) async {
+        guard await DeviceOwner.check() else { return }
+        operatorLock.unlocked()
+        settings.setOperatorLock(on)
+    }
+
+    /// The app went into the background, which Face ID's own sheet does not count as.
+    func leftForeground() {
+        operatorLock.left(at: .now)
+    }
+
+    /// The app came back from the background.
+    func returnedToForeground() {
+        operatorLock.returned(at: .now)
+    }
 
     /// What Now playing and the player bar draw: the record this phone's listener is hearing while
     /// it plays, which is the one the lock screen shows, and the poll's reading otherwise. Drawn

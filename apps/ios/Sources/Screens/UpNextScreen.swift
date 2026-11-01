@@ -102,6 +102,11 @@ struct UpNextScreen: View {
                 requestLink
                 manageLink
             }
+        } else if model.operatorLocked {
+            HStack(spacing: 4) {
+                requestLink
+                unlockButton
+            }
         } else if model.signedIn {
             HStack(spacing: 0) {
                 requestLink
@@ -125,6 +130,20 @@ struct UpNextScreen: View {
     private var manageLink: some View {
         NavigationLink(value: PageRoute.manage) {
             Label(String(localized: "Manage"), systemImage: "slider.horizontal.3")
+                .font(.subheadline.weight(.semibold))
+                .padding(.leading, 12)
+                .padding(.trailing, 16)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(.tint.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var unlockButton: some View {
+        Button {
+            Task { await model.unlockOperator() }
+        } label: {
+            Label(String(localized: "Unlock"), systemImage: "lock.fill")
                 .font(.subheadline.weight(.semibold))
                 .padding(.leading, 12)
                 .padding(.trailing, 16)

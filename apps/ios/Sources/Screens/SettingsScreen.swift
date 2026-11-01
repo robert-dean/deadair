@@ -160,6 +160,17 @@ struct AccountSection: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                if roles.contains(.admin), DeviceOwner.canBeChecked || model.settings.settings.operatorLock {
+                    // The explicit-closure setter, not the method passed straight in: see apps/ios/CLAUDE.md.
+                    Toggle(isOn: Binding(get: { model.settings.settings.operatorLock }, set: { on in Task { await model.setOperatorLock(on) } })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(localized: "Lock the operator's controls"))
+                            Text(String(localized: "Asks for Face ID, Touch ID or your passcode before the station's controls appear, and again after five minutes away. Listening, the widget and the lock screen are not affected."))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 Button(String(localized: "Sign out"), role: .destructive) { confirmingSignOut = true }
                     .confirmationDialog(String(localized: "Sign out?"), isPresented: $confirmingSignOut, titleVisibility: .visible) {
                         Button(String(localized: "Sign out"), role: .destructive) { Task { await model.session.signOut() } }

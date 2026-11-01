@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-11-01
+
+- Add an optional lock that asks for your fingerprint, face or screen lock before the operator's controls appear on the phone, and again after five minutes away. Listening is not affected.
+
 ## [0.15.1] — 2026-10-31
 
 - A retry that hangs is now timed out like the first one, so the app moves on to the next attempt and eventually says the station is unreachable, instead of staying on warming up or reconnecting until the system gives up.

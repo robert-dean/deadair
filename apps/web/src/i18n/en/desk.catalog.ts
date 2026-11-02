@@ -22,6 +22,8 @@ export const desk = {
         shuffle: 'Shuffle',
         orderFailed: 'The running order could not be read',
         orderFailedFallback: 'The station is not answering.',
+        playoutFailed: 'What the station is playing could not be read',
+        playoutFailedFallback: 'The station is not answering, which says nothing about whether it is on air.',
         browsePlaylists: 'Browse playlists',
         empty: 'Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to prepare first and nothing of yours is written into.',
         runsDry: 'The order runs dry at about <num>{{time}}</num>.',
@@ -52,6 +54,8 @@ export const desk = {
         quietHint:
             'No breaks of the station’s own, and no greetings or requested breaks, until that many records have started. A programme on the schedule still airs.',
         quietFailed: 'The station could not be told to keep quiet.',
+        holdFailed: 'The hold on this broadcast could not be changed.',
+        airModeFailed: 'What puts the station on air could not be changed.',
         briefHint: 'Every refill of this broadcast is programmed against this until the station is put on air again.',
         brief: 'asked for: {{brief}}',
         starting: 'Starting…',

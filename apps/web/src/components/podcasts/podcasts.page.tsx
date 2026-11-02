@@ -164,7 +164,7 @@ function Episode({ episode, asking, onFetch }: { episode: StationEpisode; asking
     const canFetch = !episode.fetched && key !== 'fetching';
 
     return (
-        <Card padding="md">
+        <Card>
             <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
                 <Stack gap="xxs" style={{ minWidth: 0 }}>
                     <Group gap="xs" wrap="wrap">

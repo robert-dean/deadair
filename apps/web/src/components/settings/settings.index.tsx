@@ -23,7 +23,6 @@ export function SettingsIndex() {
             {SETTINGS_SECTIONS.map(section => (
                 <Card
                     key={section.id}
-                    padding="md"
                     className={classes.row}
                     // A whole card is the tap target rather than the label inside it, which is the
                     // difference between a list that works with a thumb and one that works with a

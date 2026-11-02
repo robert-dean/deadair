@@ -52,7 +52,7 @@ export function PersonaAuditionCard({
     const unsettled = run.state === 'queued' || run.state === 'running';
 
     return (
-        <Card withBorder padding="sm">
+        <Card padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
                     <Stack gap="xxs">

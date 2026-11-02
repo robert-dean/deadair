@@ -123,7 +123,6 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     return (
         <Stack gap="sm">
             <Card
-                withBorder
                 padding="lg"
                 // The tally rule along the top edge, in the one colour that means ON AIR on a desk.
                 // Dimmed to the border's own weight when it is not: a red rule over a stood-down

@@ -57,7 +57,7 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
     const unfamiliar = kind.trim() !== '' && !offered.includes(kind.trim());
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <Stack gap="sm">
                 <Eyebrow>{t('uploadCard.title')}</Eyebrow>
 

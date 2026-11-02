@@ -132,7 +132,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
     const ready = Math.min(slice(counts.cached - cachedUnmeasured, counts.total), Math.max(0, 100 - unmeasured));
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <Stack gap="xs">
                 {/* The sentence first, because it is what an operator came for. Five chips each
                     holding a number made the reader do the division: the question is never "how

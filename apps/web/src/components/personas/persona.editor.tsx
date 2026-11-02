@@ -221,7 +221,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
             >
                 <Stack gap="md" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} pr="xs">
                     {persona === undefined ? (
-                        <Card withBorder padding="sm">
+                        <Card padding="sm">
                             <Stack gap="xs">
                                 <Eyebrow>{t('editor.generate.eyebrow')}</Eyebrow>
                                 <Textarea

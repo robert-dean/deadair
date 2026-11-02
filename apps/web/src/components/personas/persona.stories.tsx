@@ -105,7 +105,7 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
     );
 
     return (
-        <Card withBorder mt="sm" padding="sm">
+        <Card mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                     <Eyebrow>{t('stories.eyebrow')}</Eyebrow>

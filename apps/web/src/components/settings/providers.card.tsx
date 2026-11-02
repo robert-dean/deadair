@@ -76,7 +76,7 @@ function CapabilityCard({ state }: { state: ProviderCapabilityState }) {
     const only = state.candidates.length === 1 ? state.candidates[0] : undefined;
 
     return (
-        <Card id={state.capability} withBorder padding="md">
+        <Card id={state.capability}>
             <Stack gap="sm">
                 <div>
                     <Title order={4}>{worded ? t(`providers.capability.${worded}.title`) : state.capability}</Title>

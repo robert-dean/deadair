@@ -145,7 +145,7 @@ function PadRack({ pads, sets }: { pads: Pad[]; sets: PadSet[] }) {
                     <Trans t={t} i18nKey="page.empty" components={{ code: <code /> }} />
                 </EmptyState>
             ) : (
-                <Card withBorder padding="md">
+                <Card>
                     <Stack gap="sm">
                         <Eyebrow>{t('page.library')}</Eyebrow>
                         <PadTable
@@ -162,7 +162,7 @@ function PadRack({ pads, sets }: { pads: Pad[]; sets: PadSet[] }) {
             )}
 
             {rejected.length > 0 ? (
-                <Card withBorder padding="md">
+                <Card>
                     <Stack gap="sm">
                         <Eyebrow>{t('page.turnedDown')}</Eyebrow>
                         <Text size="xs" c="dimmed">
@@ -244,7 +244,7 @@ function SetList({
     };
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <Stack gap="sm">
                 <Eyebrow>{t('sets.eyebrow')}</Eyebrow>
                 <Text size="xs" c="dimmed">
@@ -590,7 +590,7 @@ async function download(pad: Pad): Promise<void> {
 function ScanResult({ result }: { result: { scanned: number; imported: number; replaced: number; contested: number; skipped: number } }) {
     const { t } = useTranslation('pads');
     return (
-        <Card withBorder padding="sm">
+        <Card padding="sm">
             <Text size="sm">
                 {/* The replaced count is bold only when something was, so the tag is drawn as nothing at 0. */}
                 <Trans

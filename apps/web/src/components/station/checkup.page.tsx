@@ -302,7 +302,7 @@ function Section({ title, failed, pending, children }: { title: string; failed: 
     return (
         <Stack gap="xs">
             <Eyebrow>{title}</Eyebrow>
-            <Card padding="md">
+            <Card>
                 {failed ? (
                     <Text size="sm" c="red.4">
                         {t('checkup.section.failed')}

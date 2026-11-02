@@ -53,7 +53,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
     const busy = write.isPending || update.isPending || remove.isPending || setState.isPending;
 
     return (
-        <Card withBorder mt="sm" padding="sm">
+        <Card mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                     <Eyebrow>{t('notes.eyebrow')}</Eyebrow>

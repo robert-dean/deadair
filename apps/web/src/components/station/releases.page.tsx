@@ -197,7 +197,7 @@ export function checkOutcome(releases: StationReleases, now: DateTime): string {
 function ReleaseCard({ release, state }: { release: StationRelease; state?: 'running' | 'available' }) {
     const { t } = useTranslation('station');
     return (
-        <Card padding="md">
+        <Card>
             <Stack gap="sm">
                 <Group gap="sm" wrap="wrap">
                     <Title order={3} className="da-num">

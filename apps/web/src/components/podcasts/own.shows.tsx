@@ -395,7 +395,7 @@ function ShowForm({
     };
 
     return (
-        <Card withBorder>
+        <Card>
             <form onSubmit={form.onSubmit(values => onSubmit(showBodyOf(values)))}>
                 <Stack gap="md">
                     {error !== null && error !== undefined ? <ErrorAlert title={t('own.error.save')} error={error} /> : undefined}

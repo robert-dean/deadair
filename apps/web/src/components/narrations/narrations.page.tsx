@@ -165,7 +165,7 @@ function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boole
     const canRender = !piece.rendered && piece.withdrawnAt === undefined && key !== 'reading';
 
     return (
-        <Card padding="md">
+        <Card>
             <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
                 <Stack gap="xxs" style={{ minWidth: 0 }}>
                     <Group gap="xs" wrap="wrap">

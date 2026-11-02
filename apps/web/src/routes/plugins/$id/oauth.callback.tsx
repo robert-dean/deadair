@@ -32,7 +32,7 @@ function PluginOAuthCallbackRoute() {
 function PluginOAuthCallbackPending() {
     const { t } = useTranslation('routes');
     return (
-        <Card withBorder padding="xl" radius="sm" maw={560}>
+        <Card padding="xl" radius="sm" maw={560}>
             <Stack gap="md">
                 <SectionHeading title={t('pluginOAuth.title')} />
                 <Group gap="sm">

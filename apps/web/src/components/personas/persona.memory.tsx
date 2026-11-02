@@ -69,7 +69,7 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
     };
 
     return (
-        <Card withBorder mt="sm" padding="sm">
+        <Card mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                     <Eyebrow>{t('memory.eyebrow')}</Eyebrow>
@@ -216,7 +216,7 @@ function Count({ label, value }: { label: string; value: number }) {
 function TellingRow({ telling, busy, onRollBack }: { telling: PersonaTelling; busy: boolean; onRollBack: () => void }) {
     const { t } = useTranslation('personas');
     return (
-        <Card withBorder padding="xs" radius="sm">
+        <Card padding="xs" radius="sm">
             <Group justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
                 <Stack gap={4} style={{ minWidth: 0 }}>
                     <Group gap="xs">

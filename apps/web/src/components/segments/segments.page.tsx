@@ -305,7 +305,7 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
     const ready = label.trim().length > 0 && script.trim().length > 0;
 
     return (
-        <Card padding="md">
+        <Card>
             <Stack gap="sm">
                 <TextInput
                     label={t('compose.label.label')}

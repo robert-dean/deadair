@@ -63,7 +63,7 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
     };
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <Stack gap="sm">
                 <Eyebrow>{t('upload.eyebrow')}</Eyebrow>
 

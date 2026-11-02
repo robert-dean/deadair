@@ -43,7 +43,7 @@ export function PresentingBanner() {
     const failure = recast.isError ? apiErrorMessage(recast.error, t('presenting.failure')) : undefined;
 
     return (
-        <Card withBorder>
+        <Card>
             <Stack gap="xs">
                 <Eyebrow c="grape">{t('presenting.eyebrow')}</Eyebrow>
                 <Group justify="space-between" align="flex-start" gap="md" wrap="nowrap">

@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.0] — 2026-11-02
+
+- Read the explicit marking Navidrome reports, so the advisory setting applies to a local library's tagged files.
+- Find a record asked for as "title by artist", which a request search used to answer with nothing.
+
 ## [0.88.2] — 2026-11-02
 
 - Stop signing out an app or a console session when it repeats a token refresh within thirty seconds, which clients sharing one connector can do by accident.
@@ -1811,7 +1816,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.88.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.0...HEAD
+[0.89.0]: https://github.com/robert-dean/deadair/compare/v0.88.2...v0.89.0
 [0.88.2]: https://github.com/robert-dean/deadair/compare/v0.88.1...v0.88.2
 [0.88.1]: https://github.com/robert-dean/deadair/compare/v0.88.0...v0.88.1
 [0.88.0]: https://github.com/robert-dean/deadair/compare/v0.87.8...v0.88.0

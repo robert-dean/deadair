@@ -1886,6 +1886,10 @@ const HOSTS = [
         // background into a habit. They went for era words with more range. The second audition put
         // `away message` in five breaks as the same simile and turned seventeen drafts down, so it left
         // too, for the plain words he was writing the good breaks in.
+        //
+        // On air on 2 November `the disc` turned down "this disc's just starting to spin" and
+        // `where it goes` turned down "where a song goes", which is the same habit said another way,
+        // so the two widened to match. `away message` stays out for the reason above.
         dictionMarkers: [
             'a mix CD',
             'burned',
@@ -1895,9 +1899,11 @@ const HOSTS = [
             'track two',
             'the B-side',
             'the last track',
-            'the disc',
+            'disc',
             'on yours',
             'where it goes',
+            'where it all goes',
+            'where a song goes',
         ],
         // He was `countdown` with a faster delivery: both sincere about a record somebody cared
         // about, with backgrounds that were the same sentence twice. The split is MECHANISM rather

@@ -43,10 +43,12 @@ import { settingsConfig } from '../utils/settings.config.js';
 const LOOPBACK = '127.0.0.1';
 const ORIGIN = 'https://radio.example.com';
 let server: Server | undefined;
+let warnings: { message: string; fields: Record<string, unknown> }[] = [];
 
 afterEach(async () => {
     await new Promise<void>(resolve => (server ? server.close(() => resolve()) : resolve()));
     server = undefined;
+    warnings = [];
 });
 
 function inMemoryCache(): CacheProvider {
@@ -108,6 +110,9 @@ async function serve(enabled = 'true'): Promise<string> {
         (ctx as unknown as { container: { get: (token: unknown) => unknown } }).container = {
             get: (token: unknown) =>
                 token === ServerKitBodyParser ? bodyParser : token === AppConfig ? config : token === OAuthAuthorizationServer ? facade : undefined,
+        };
+        (ctx as unknown as { logger: { warn: (message: string, fields: Record<string, unknown>) => void } }).logger = {
+            warn: (message, fields) => warnings.push({ message, fields }),
         };
         await next();
     });
@@ -227,6 +232,34 @@ describe('the token endpoint', () => {
         expect(response.status).toBe(400);
         expect(JSON.parse(response.body)).toMatchObject({ error: 'invalid_grant' });
         expect(response.headers['cache-control']).toBe('no-store');
+    });
+
+    it('logs why it refused, and never the token', async () => {
+        const url = await serve();
+        const registered = JSON.parse(
+            (
+                await send(`${url}/auth/oauth/register`, 'POST', json({ redirect_uris: [REDIRECT], token_endpoint_auth_method: 'none' }), {
+                    'content-type': 'application/json',
+                })
+            ).body,
+        );
+        const body = new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: 'secret-code',
+            redirect_uri: REDIRECT,
+            code_verifier: 'x'.repeat(43),
+            client_id: registered.client_id,
+        });
+
+        await send(`${url}/auth/oauth/token`, 'POST', body.toString(), { 'content-type': 'application/x-www-form-urlencoded' });
+
+        expect(warnings).toEqual([
+            {
+                message: 'oauth: token refused',
+                fields: expect.objectContaining({ error: 'invalid_grant', grantType: 'authorization_code', clientId: registered.client_id }),
+            },
+        ]);
+        expect(JSON.stringify(warnings)).not.toContain('secret-code');
     });
 
     it('takes JSON too, and names an unsupported grant', async () => {

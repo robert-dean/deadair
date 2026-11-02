@@ -336,6 +336,12 @@ sharing one connector can refresh at once, and a client can lose the answer and 
 `REFRESH_REUSE_GRACE` answers a repeat inside the window with the pair the first exchange issued.
 The client check still runs on the repeat, and after the window a replay revokes the family as before.
 
+**A refused token request is logged, because nothing else would.** The endpoint renders RFC 6749's 400
+itself, so the error middleware never sees it. `oauth: token refused` names the error, the grant type
+and the client, never a token or code. Sessions live in Redis and grants in Postgres, so a Redis that
+comes back empty leaves an app connected with no tools; these lines, repeating `invalid_grant` for a
+`refresh_token`, are how that looks from here.
+
 **A grant has a ceiling, the one an API key has, and its tuples are never stored.** The session acts
 as the person, and `UserActor.grant` narrows it to the station scopes the grant holds (`view`,
 `manage`), read through `delegatedGrants` by every check that narrows a key: the platform policies,

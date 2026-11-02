@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { Alert, Badge, Button, Divider, FileButton, Group, List, Modal, SegmentedControl, Stack, Table, Text } from '@mantine/core';
-import type { PersonaFile, PersonaImportEntry, PersonaImportNotice, PersonaImportPlan, PersonaImportResult } from '@deadair/sdk';
+import { Alert, Badge, Button, Divider, FileButton, Group, Modal, SegmentedControl, Stack, Table, Text } from '@mantine/core';
+import type { PersonaImportEntry, PersonaImportNotice, PersonaImportPlan, PersonaImportResult } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { useImportPersonas, usePreviewPersonaImport } from '../../api/personas.queries';
+import { ImportNotices } from '../shared/import.notices';
+import { useImportFlow } from '../shared/use.import.flow';
 import { usePhone } from '../shared/use.phone';
 import { upgradePersonaFile } from './persona.file.upgrade';
 import { kindsOf, type PersonaKind } from './persona.kind';
 import { ErrorAlert } from '../shared/error.alert';
-import { toneColor } from '../shared/status';
 
 export interface PersonaImportModalProps {
     opened: boolean;
@@ -53,60 +53,18 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
     const preview = usePreviewPersonaImport();
     const write = useImportPersonas();
 
-    // The parsed document, held so the Import button sends exactly what was previewed rather than
-    // re-reading a file the operator may have replaced on disk in between.
-    const [file, setFile] = useState<PersonaFile | undefined>(undefined);
-    const [name, setName] = useState<string | undefined>(undefined);
-    // A file that is not JSON never reaches the API, so this failure has nowhere else to live.
-    const [unreadable, setUnreadable] = useState<string | undefined>(undefined);
-    // Keys of characters already here that the operator chose to replace. Empty is the safe answer,
-    // and the one every new file starts from.
-    const [replacing, setReplacing] = useState<ReadonlySet<string>>(new Set());
-
-    const close = () => {
-        setFile(undefined);
-        setName(undefined);
-        setUnreadable(undefined);
-        setReplacing(new Set());
-        preview.reset();
-        write.reset();
-        onClose();
-    };
-
-    const choose = async (chosen: File | null) => {
-        if (chosen === null) return;
-
-        setUnreadable(undefined);
-        setReplacing(new Set());
-        preview.reset();
-        write.reset();
-        setName(chosen.name);
-
-        let parsed: PersonaFile;
-        try {
-            parsed = upgradePersonaFile(JSON.parse(await chosen.text()));
-        } catch {
-            setFile(undefined);
-            setUnreadable(t('import.unreadable', { name: chosen.name }));
-            return;
-        }
-
-        setFile(parsed);
-        preview.mutate(parsed);
-    };
+    const { file, name, unreadable, replacing, choose, decide, close } = useImportFlow({
+        parse: text => upgradePersonaFile(JSON.parse(text)),
+        unreadable: name => t('import.unreadable', { name }),
+        onRead: parsed => preview.mutate(parsed),
+        mutations: [preview, write],
+        onClose,
+    });
 
     const result = write.data;
     // Once written, the rows are what the station DID, so they come from its answer and stop offering
     // a choice. Until then they are the preview with the operator's choices laid over it.
     const plan = result?.plan ?? (preview.data === undefined ? undefined : chosen(preview.data, replacing));
-
-    const decide = (key: string, replace: boolean) =>
-        setReplacing(current => {
-            const next = new Set(current);
-            if (replace) next.add(key);
-            else next.delete(key);
-            return next;
-        });
 
     return (
         <Modal opened={opened} onClose={close} title={t('import.title')} size="lg" fullScreen={phone}>
@@ -222,7 +180,7 @@ function ImportPlan({ plan, onChoose }: { plan: PersonaImportPlan; onChoose?: (k
     const held = plan.personas.filter(isHeld).length;
     return (
         <Stack gap="sm">
-            {plan.notices.length > 0 ? <Notices notices={plan.notices} /> : undefined}
+            {plan.notices.length > 0 ? <ImportNotices notices={plan.notices} alarming={changesTheAir} /> : undefined}
 
             {onChoose !== undefined && held > 0 ? (
                 <Alert color="yellow" title={t('import.held.title', { count: held })}>
@@ -260,7 +218,9 @@ function ImportPlan({ plan, onChoose }: { plan: PersonaImportPlan; onChoose?: (k
                                         </Group>
                                         {/* What a skipped character's notices describe is a replace that is not
                                             going to happen, so they wait until somebody chooses it. */}
-                                        {entry.outcome !== 'skip' && entry.notices.length > 0 ? <Notices notices={entry.notices} /> : undefined}
+                                        {entry.outcome !== 'skip' && entry.notices.length > 0 ? (
+                                            <ImportNotices notices={entry.notices} alarming={changesTheAir} />
+                                        ) : undefined}
                                     </Stack>
                                 </Table.Td>
                                 <Table.Td>
@@ -295,27 +255,8 @@ function ImportPlan({ plan, onChoose }: { plan: PersonaImportPlan; onChoose?: (k
     );
 }
 
-/**
- * The things to know, in the station's own sentences.
- *
- * Dimmed rather than coloured, with one exception: none of these refuses an import and most describe
- * a state the station can be in perfectly well, so painting them as faults would teach an operator to
- * fear a file that is fine. The exception is `on-air`, which is the one that changes what a listener
- * hears in the next few minutes.
- */
-function Notices({ notices }: { notices: readonly PersonaImportNotice[] }) {
-    return (
-        <List size="xs" spacing={2}>
-            {notices.map((notice, index) => (
-                <List.Item key={`${notice.kind}-${index}`}>
-                    <Text size="xs" c={notice.kind === 'on-air' ? toneColor.fault : 'dimmed'} span>
-                        {notice.message}
-                    </Text>
-                </List.Item>
-            ))}
-        </List>
-    );
-}
+/** The one notice painted as a fault: it is the one that changes what a listener hears in the next few minutes. */
+const changesTheAir = (notice: PersonaImportNotice): boolean => notice.kind === 'on-air';
 
 const outcomeColor: Record<PersonaImportEntry['outcome'], string> = { create: 'teal', update: 'blue', skip: 'gray' };
 

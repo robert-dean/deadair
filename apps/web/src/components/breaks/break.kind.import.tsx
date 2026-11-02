@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Alert, Badge, Button, Code, FileButton, Group, List, Modal, SegmentedControl, Stack, Table, Text } from '@mantine/core';
-import type { BreakKindFile, BreakKindImportEntry, BreakKindImportNotice, BreakKindImportPlan, BreakKindImportResult } from '@deadair/sdk';
+import { Alert, Badge, Button, Code, FileButton, Group, Modal, SegmentedControl, Stack, Table, Text } from '@mantine/core';
+import type { BreakKindFile, BreakKindImportEntry, BreakKindImportPlan, BreakKindImportResult } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { useImportBreakKinds, usePreviewBreakKindImport } from '../../api/break.kinds.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { ImportNotices } from '../shared/import.notices';
+import { useImportFlow } from '../shared/use.import.flow';
 import { usePhone } from '../shared/use.phone';
 
 export interface BreakKindImportModalProps {
@@ -28,51 +29,14 @@ export function BreakKindImportModal({ opened, onClose }: BreakKindImportModalPr
     const preview = usePreviewBreakKindImport();
     const write = useImportBreakKinds();
 
-    const [file, setFile] = useState<BreakKindFile | undefined>(undefined);
-    const [name, setName] = useState<string | undefined>(undefined);
-    const [unreadable, setUnreadable] = useState<string | undefined>(undefined);
-    const [replacing, setReplacing] = useState<ReadonlySet<string>>(new Set());
-
-    const close = () => {
-        setFile(undefined);
-        setName(undefined);
-        setUnreadable(undefined);
-        setReplacing(new Set());
-        preview.reset();
-        write.reset();
-        onClose();
-    };
-
-    const choose = async (chosen: File | null) => {
-        if (chosen === null) return;
-
-        setUnreadable(undefined);
-        setReplacing(new Set());
-        preview.reset();
-        write.reset();
-        setName(chosen.name);
-
-        let parsed: BreakKindFile;
-        try {
-            parsed = JSON.parse(await chosen.text()) as BreakKindFile;
-        } catch {
-            setFile(undefined);
-            setUnreadable(t('import.unreadable', { name: chosen.name }));
-            return;
-        }
-
-        setFile(parsed);
-        preview.mutate({ file: parsed, replace: [] });
-    };
-
-    const decide = (key: string, replace: boolean) => {
-        if (file === undefined) return;
-        const next = new Set(replacing);
-        if (replace) next.add(key);
-        else next.delete(key);
-        setReplacing(next);
-        preview.mutate({ file, replace: [...next] });
-    };
+    const { file, name, unreadable, replacing, choose, decide, close } = useImportFlow({
+        parse: text => JSON.parse(text) as BreakKindFile,
+        unreadable: name => t('import.unreadable', { name }),
+        onRead: parsed => preview.mutate({ file: parsed, replace: [] }),
+        onDecide: (chosen, next) => preview.mutate({ file: chosen, replace: [...next] }),
+        mutations: [preview, write],
+        onClose,
+    });
 
     const result = write.data;
     const plan = result?.plan ?? preview.data;
@@ -163,7 +127,7 @@ function ImportPlan({
 
     return (
         <Stack gap="sm">
-            {plan.notices.length > 0 ? <Notices notices={plan.notices} /> : undefined}
+            {plan.notices.length > 0 ? <ImportNotices notices={plan.notices} /> : undefined}
 
             {onChoose !== undefined && held > 0 ? (
                 <Alert color="yellow" title={t('import.held.title', { count: held })}>
@@ -190,7 +154,7 @@ function ImportPlan({
                                             <Text size="sm">{entry.name}</Text>
                                             <Code>{entry.key}</Code>
                                         </Group>
-                                        {entry.notices.length > 0 ? <Notices notices={entry.notices} /> : undefined}
+                                        {entry.notices.length > 0 ? <ImportNotices notices={entry.notices} /> : undefined}
                                     </Stack>
                                 </Table.Td>
                                 <Table.Td>
@@ -217,20 +181,6 @@ function ImportPlan({
                 </Table>
             </Table.ScrollContainer>
         </Stack>
-    );
-}
-
-function Notices({ notices }: { notices: readonly BreakKindImportNotice[] }) {
-    return (
-        <List size="xs" spacing={2}>
-            {notices.map((notice, index) => (
-                <List.Item key={`${notice.kind}-${index}`}>
-                    <Text size="xs" c="dimmed" span>
-                        {notice.message}
-                    </Text>
-                </List.Item>
-            ))}
-        </List>
     );
 }
 

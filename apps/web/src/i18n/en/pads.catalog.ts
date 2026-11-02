@@ -36,7 +36,7 @@ export const pads = {
         rename: 'Rename this set',
         renameUnpoints: 'Renaming unpoints {{personas}} — a persona names a set by its name',
         renameSet: 'Rename {{key}}',
-        removeHint: 'Remove the set. Every sound on it stays in the library.',
+        removeHint: 'Delete the set. Every sound on it stays in the library.',
         deleteSet: 'Delete {{key}}',
         newPlaceholder: 'a name a persona can point at',
         renameLabel: 'New name for {{key}}',

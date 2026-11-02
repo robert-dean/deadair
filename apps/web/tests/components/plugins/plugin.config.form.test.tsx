@@ -159,7 +159,7 @@ describe('PluginConfigForm', () => {
         await save();
 
         expect(await screen.findByText('Too short')).toBeInTheDocument();
-        expect(screen.queryByText('Save failed')).not.toBeInTheDocument();
+        expect(screen.queryByText('That could not be saved')).not.toBeInTheDocument();
     });
 
     it('puts a refused stored secret under the secret, when the address it is sent to moved', async () => {
@@ -201,7 +201,7 @@ describe('PluginConfigForm', () => {
         expect(await screen.findByText('Enter it again: the address it is sent to changed.')).toBeInTheDocument();
         // Described by the message, which is how the input itself carries it rather than the page.
         expect(screen.getByLabelText('API key', { exact: false })).toHaveAccessibleDescription(expect.stringContaining('Enter it again'));
-        expect(screen.queryByText('Save failed')).not.toBeInTheDocument();
+        expect(screen.queryByText('That could not be saved')).not.toBeInTheDocument();
     });
 
     it('will not submit an unanswered required field', async () => {

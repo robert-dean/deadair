@@ -288,7 +288,7 @@ export const catalog = {
             label: 'Try the copies again now',
             title: 'Try the copies again now?',
             consequence:
-                'Clears the backoff and un-benches every copy, so the station may try each of them straight away rather than waiting. This is what to press once an upstream that was failing is working again. It does not touch a copy the provider REFUSED — that is the one below.',
+                'Clears the backoff and puts every copy back in use, so the station may try each of them straight away rather than waiting. This is what to press once an upstream that was failing is working again. It does not touch a copy the provider REFUSED — that is the one below.',
             confirm: 'Try again',
         },
         offer: {
@@ -311,7 +311,7 @@ export const catalog = {
             button: 'Try these again ({{count}})',
             title: 'Try these records again?',
             consequence:
-                'Clears the backoff and un-benches every copy, so the station may try each of them straight away rather than waiting out its gate. This is what to press once an upstream that was failing is working again.',
+                'Clears the backoff and puts every copy back in use, so the station may try each of them straight away rather than waiting out its gate. This is what to press once an upstream that was failing is working again.',
             confirm: 'Try again',
         },
         remeasure: {

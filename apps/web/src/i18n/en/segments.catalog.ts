@@ -38,7 +38,7 @@ export const segments = {
         play: 'Play {{label}}',
         playFailed: 'That segment would not play.',
         defaultVoice: 'default',
-        deleteTooltip: 'Remove it, and the inbox file behind it',
+        deleteTooltip: 'Delete it, and the inbox file behind it',
         delete: 'Delete {{label}}',
     },
     compose: {

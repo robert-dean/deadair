@@ -1,20 +1,32 @@
 import { useEffect, useState } from 'react';
-import { Box, Autocomplete, Button, Group, Input, Loader, MultiSelect, NumberInput, Pill, Select, Stack, Switch, TagsInput, Text, Textarea, TextInput } from '@mantine/core';
+import { Box, Button, Group, Loader, Select, Stack, Switch, Text, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
-import { CopyableCode } from '../shared/copyable.code';
 import { ErrorAlert } from '../shared/error.alert';
 import { usePhone } from '../shared/use.phone';
 import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
-import { isModelList, ModelListField } from './model.list.field';
 import classes from './config.fields.form.module.css';
-import { type FieldRow, ROW_ID_KEY, rowSecretKey, nameOf, cellNameOf, columnsOf, rowsOf, type FormValues, initialValues, isInput, isVisible, isAnswered, buildSubmission, parseChosen, emptyRow, presetRow, tagsOf } from './config.fields.values';
-import { suggestionsAsValues } from './config.suggestions';
-import { isRangeEnd, SecretField, BytesField, rangeEndOf, RangeField, isSlider, SliderField } from './config.input.fields';
-import { type RowSecretState, RowsField } from './config.rows.field';
+import {
+    type FieldRow,
+    ROW_ID_KEY,
+    rowSecretKey,
+    nameOf,
+    cellNameOf,
+    columnsOf,
+    rowsOf,
+    type FormValues,
+    initialValues,
+    isInput,
+    isVisible,
+    isAnswered,
+    buildSubmission,
+} from './config.fields.values';
+import { isRangeEnd, SecretField } from './config.input.fields';
+import { type RowSecretState } from './config.rows.field';
+import { ListField, MultiselectField, NoteField, NumberField, SuggestionInput, TagsField } from './config.typed.fields';
 
 export interface ConfigFieldsFormProps {
     /** What to render, in the order to render it. */
@@ -335,22 +347,7 @@ export function ConfigFieldsForm({
     function renderField(field: ConfigFieldDescriptor, index: number) {
         const name = nameOf(index);
         if (field.type === 'note') {
-            // A note with a derived value is one worth taking somewhere else, which is the only
-            // reason the server would work one out for a field that stores nothing: the sign-in
-            // redirect address, which the operator pastes into each identity provider.
-            const shown = inForce(field);
-            if (shown !== undefined) {
-                return (
-                    <Input.Wrapper key={field.key} label={field.label} description={field.help}>
-                        <CopyableCode value={shown} mt="xxs" />
-                    </Input.Wrapper>
-                );
-            }
-            return (
-                <Text key={field.key} size="sm" c="dimmed">
-                    {field.help ?? field.label}
-                </Text>
-            );
+            return <NoteField key={field.key} field={field} shown={inForce(field)} />;
         }
         if (!isVisible(field, fields, form.getValues())) {
             return undefined;
@@ -386,42 +383,8 @@ export function ConfigFieldsForm({
                 );
             case 'boolean':
                 return <Switch key={field.key} {...common} description={undefined} {...form.getInputProps(name, { type: 'checkbox' })} />;
-            case 'number': {
-                if (field.unit === 'bytes') return <BytesField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />;
-                // Before the single-handled case, because a field may reasonably declare both and
-                // a pair is the more specific answer.
-                const rangeEnd = rangeEndOf(field, fields);
-                if (rangeEnd !== -1) {
-                    return (
-                        <RangeField
-                            key={field.key}
-                            common={common}
-                            field={field}
-                            lower={form.getInputProps(name)}
-                            upper={form.getInputProps(nameOf(rangeEnd))}
-                        />
-                    );
-                }
-                // A control the field ASKED for, and only where it declared the range one needs.
-                // Falling through rather than failing is deliberate: this is a hint about drawing,
-                // and a spinner is a worse form than a slider but an infinitely better one than a
-                // blank space where a setting should be.
-                if (isSlider(field)) return <SliderField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />;
-                return (
-                    // The declared range, which Mantine clamps to on blur. Clamping is right HERE
-                    // and wrong on the server for the same reason: here the number changes in front
-                    // of the person who typed it, so nothing is stored that they did not see. The
-                    // route refuses instead, because by then nobody is looking.
-                    <NumberInput
-                        key={field.key}
-                        {...common}
-                        min={field.min}
-                        max={field.max}
-                        placeholder={field.placeholder}
-                        {...form.getInputProps(name)}
-                    />
-                );
-            }
+            case 'number':
+                return <NumberField key={field.key} field={field} fields={fields} form={form} name={name} common={common} />;
             // Stored and submitted exactly like a `string`, so nothing outside this line knows it
             // is different. What it buys is that a setting somebody WRITES — a list of phrasings, a
             // persona, a prompt — is editable here rather than in psql, which is where a paragraph
@@ -430,145 +393,49 @@ export function ConfigFieldsForm({
                 return <Textarea key={field.key} {...common} placeholder={field.placeholder} rows={8} {...form.getInputProps(name)} />;
             case 'select':
                 return <Select key={field.key} {...common} placeholder={field.placeholder} data={optionsFor(field)} {...form.getInputProps(name)} />;
-            case 'multiselect': {
-                // Held in the form as the JSON array it is stored and submitted as, so nothing in
-                // `initialValues` or `buildSubmission` has to know this type exists.
-                const { error: fieldError } = form.getInputProps(name);
+            case 'multiselect':
+                return <MultiselectField key={field.key} field={field} form={form} name={name} common={common} options={optionsFor(field)} />;
+            case 'list':
                 return (
-                    <MultiSelect
-                        key={field.key}
-                        {...common}
-                        placeholder={field.placeholder}
-                        data={optionsFor(field)}
-                        searchable
-                        clearable
-                        error={fieldError}
-                        value={parseChosen(form.getValues()[name])}
-                        onChange={chosen => {
-                            form.setFieldValue(name, JSON.stringify(chosen));
-                        }}
-                    />
-                );
-            }
-            case 'list': {
-                const { error: fieldError } = form.getInputProps(name);
-                // A list of models is chosen rather than typed into, so it is a list box of its own.
-                // Its rows are still this form's rows, under the one cell name a one-column list has.
-                if (isModelList(field)) {
-                    const column = columnsOf(field)[0]!;
-                    const cell = cellNameOf(0);
-                    return (
-                        <ModelListField
-                            key={field.key}
-                            field={field}
-                            models={rowsOf(form.getValues()[name])
-                                .map(row => row[cell]?.trim() ?? '')
-                                .filter(model => model.length > 0)}
-                            options={columnOptionsFor(field, column)}
-                            {...(inForce(field) === undefined ? {} : { defaultModel: inForce(field)! })}
-                            error={typeof fieldError === 'string' ? fieldError : undefined}
-                            disabled={pending}
-                            onAdd={model => {
-                                form.insertListItem(name, { ...emptyRow(columnsOf(field)), [cell]: model });
-                            }}
-                            onRemove={index => {
-                                form.removeListItem(name, index);
-                            }}
-                            onMove={(index, by) => {
-                                form.reorderListItem(name, { from: index, to: index + by });
-                            }}
-                        />
-                    );
-                }
-                return (
-                    <RowsField
+                    <ListField
                         key={field.key}
                         field={field}
+                        form={form}
                         name={name}
+                        common={common}
                         phone={phone}
-                        rows={rowsOf(form.getValues()[name])}
-                        error={typeof fieldError === 'string' ? fieldError : undefined}
-                        disabled={pending}
-                        cellProps={path => form.getInputProps(path)}
-                        cellKey={path => form.key(path)}
-                        optionsFor={column => columnOptionsFor(field, column)}
+                        inForce={inForce(field)}
+                        columnOptionsFor={column => columnOptionsFor(field, column)}
                         secretCell={(row, column) => secretCellState(field, row, column)}
-                        onAdd={preset => {
-                            form.insertListItem(name, preset === undefined ? emptyRow(columnsOf(field)) : presetRow(columnsOf(field), preset));
-                        }}
-                        onRemove={index => {
-                            form.removeListItem(name, index);
-                        }}
-                        onMove={(index, by) => {
-                            form.reorderListItem(name, { from: index, to: index + by });
-                        }}
                     />
                 );
-            }
             case 'url':
-                return suggestionInput(field, name, { inputMode: 'url', placeholder: inForce(field) ?? field.placeholder ?? 'https://' });
-            default: {
-                // A `string` that is really a set. Split and joined here and nowhere else, so the
-                // stored value is the same comma-separated line the reader behind it splits.
+                return (
+                    <SuggestionInput
+                        key={field.key}
+                        form={form}
+                        name={name}
+                        common={common}
+                        options={optionsFor(field)}
+                        suggestable={hasSuggestions(field)}
+                        extra={{ inputMode: 'url', placeholder: inForce(field) ?? field.placeholder ?? 'https://' }}
+                    />
+                );
+            default:
                 if (field.control === 'tags') {
-                    const { error: fieldError } = form.getInputProps(name);
-                    return (
-                        <TagsInput
-                            key={field.key}
-                            {...common}
-                            placeholder={field.placeholder}
-                            data={optionsFor(field)}
-                            clearable
-                            error={fieldError}
-                            // Named for whatever reads the DOM rather than for a screen reader,
-                            // exactly as the sustaining picker names its clear cross: Mantine marks
-                            // a pill's remove button `aria-hidden` with `tabindex="-1"`, on the
-                            // grounds that the combobox beside it is the control and Backspace is
-                            // the keyboard path. It is still the only way a kind is dropped with a
-                            // mouse, and unlabelled it is one of a row of identical buttons.
-                            renderPill={({ value: tag, onRemove, disabled }) => (
-                                <Pill
-                                    withRemoveButton={!disabled}
-                                    onRemove={onRemove}
-                                    removeButtonProps={{ 'aria-label': t('form.removeTag', { tag: tag ?? '' }) }}
-                                >
-                                    {tag}
-                                </Pill>
-                            )}
-                            value={tagsOf(form.getValues()[name])}
-                            onChange={chosen => {
-                                form.setFieldValue(name, chosen.join(','));
-                            }}
-                        />
-                    );
+                    return <TagsField key={field.key} field={field} form={form} name={name} common={common} options={optionsFor(field)} />;
                 }
-                return suggestionInput(field, name, { placeholder: inForce(field) ?? field.placeholder });
-            }
-        }
-
-        /**
-         * A free-text field, as an autocomplete when there is something to suggest.
-         *
-         * Autocomplete rather than a dropdown deliberately: the source enumerating a value is not
-         * the same as the value being valid, and a model behind a proxy that does not list it, or a
-         * device that was offline when we asked, has to stay typeable. The suggestions are help,
-         * not a whitelist.
-         */
-        function suggestionInput(suggestable: ConfigFieldDescriptor, fieldName: string, extra: { inputMode?: 'url'; placeholder?: string }) {
-            if (!hasSuggestions(suggestable)) {
-                return <TextInput key={suggestable.key} {...common} {...extra} {...form.getInputProps(fieldName)} />;
-            }
-
-            return (
-                <Autocomplete
-                    key={suggestable.key}
-                    {...common}
-                    {...extra}
-                    {...suggestionsAsValues(optionsFor(suggestable))}
-                    limit={Infinity}
-                    {...form.getInputProps(fieldName)}
-                />
-            );
+                return (
+                    <SuggestionInput
+                        key={field.key}
+                        form={form}
+                        name={name}
+                        common={common}
+                        options={optionsFor(field)}
+                        suggestable={hasSuggestions(field)}
+                        extra={{ placeholder: inForce(field) ?? field.placeholder }}
+                    />
+                );
         }
     }
 

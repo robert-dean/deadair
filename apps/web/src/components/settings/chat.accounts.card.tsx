@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Code, Group, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Card, Code, Group, Stack, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { MessagingLink, MessagingLinkCode } from '@deadair/sdk';
 
@@ -10,6 +10,7 @@ import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
+import { SectionHeading } from '../shared/section.heading';
 
 /** A plugin id as a person would say it: `deadair.telegram` is Telegram. */
 const platformName = (pluginId: string): string => {
@@ -39,14 +40,7 @@ export function ChatAccountsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('chatAccounts.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('chatAccounts.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('chatAccounts.title')} description={t('chatAccounts.intro')} />
                 {links.error ? (
                     <ErrorAlert title={t('chatAccounts.unavailable.title')} error={links.error} fallback={t('chatAccounts.unavailable.fallback')} />
                 ) : undefined}

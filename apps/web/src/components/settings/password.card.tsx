@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Card, Group, PasswordInput, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Group, PasswordInput, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { MIN_PASSWORD_LENGTH } from '../../auth/password.rule';
 import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone } from '../shared/notify';
+import { SectionHeading } from '../shared/section.heading';
 import { isStepUpCancelled, type useStepUpGate } from './step.up.dialog';
 
 interface PasswordValues {
@@ -110,22 +111,22 @@ export function PasswordCard({ hasPassword, gate }: { hasPassword: boolean; gate
                 })}
             >
                 <Stack gap="md">
-                    <Stack gap="xxs">
-                        <Title order={2} size="h4">
-                            {resetting
+                    <SectionHeading
+                        title={
+                            resetting
                                 ? t('security.password.resetTitle')
                                 : hasPassword
                                   ? t('security.password.changeTitle')
-                                  : t('security.password.addTitle')}
-                        </Title>
-                        <Text size="sm" c="dimmed">
-                            {resetting
+                                  : t('security.password.addTitle')
+                        }
+                        description={
+                            resetting
                                 ? t('security.password.resetIntro')
                                 : hasPassword
                                   ? t('security.password.changeIntro')
-                                  : t('security.password.addIntro')}
-                        </Text>
-                    </Stack>
+                                  : t('security.password.addIntro')
+                        }
+                    />
 
                     {failure ? (
                         <ErrorAlert title={t('security.password.failed')}>

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Card, Stack, Text, Title } from '@mantine/core';
+import { Card, Stack } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { ConfigFieldDescriptor, StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 
@@ -9,6 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 import { AppearanceCard } from './appearance.card';
 import { LanguagesCard } from './languages.card';
 import { ConfigFieldsForm } from './config.fields.form';
@@ -108,16 +109,7 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
 
 /** The title and the sentence that open a section's form. */
 function SectionHeader({ title, blurb }: { title: string; blurb?: string }) {
-    return (
-        <Stack gap="xxs">
-            <Title order={2} size="h4">
-                {title}
-            </Title>
-            <Text size="sm" c="dimmed">
-                {blurb}
-            </Text>
-        </Stack>
-    );
+    return <SectionHeading title={title} description={blurb} />;
 }
 
 export interface SettingsSectionPageProps {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Anchor, Badge, Button, Card, Code, Group, Image, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Anchor, Badge, Button, Card, Code, Group, Image, Stack, Text, TextInput } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { AuthenticationFactor } from '@deadair/sdk';
@@ -26,6 +26,7 @@ import { notifyDone, notifySaved } from '../shared/notify';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 import { LinkedSigninsCard } from './linked.signins.card';
 import { PasswordCard } from './password.card';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
@@ -79,14 +80,7 @@ export function SecurityCard() {
         <Stack gap="lg">
             <Card padding="lg">
                 <Stack gap="md">
-                    <Stack gap="xxs">
-                        <Title order={2} size="h4">
-                            {t('security.title')}
-                        </Title>
-                        <Text size="sm" c="dimmed">
-                            {t('security.intro')}
-                        </Text>
-                    </Stack>
+                    <SectionHeading title={t('security.title')} description={t('security.intro')} />
 
                     <QueryView
                         query={factors}
@@ -248,14 +242,7 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('security.authenticator.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('security.authenticator.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('security.authenticator.title')} description={t('security.authenticator.intro')} />
 
                 {failure ? (
                     <ErrorAlert title={registration ? t('security.notEnrolled') : t('security.authenticator.startFailed')}>
@@ -355,14 +342,7 @@ function EnrolPasskeyCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) 
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('security.passkey.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('security.passkey.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('security.passkey.title')} description={t('security.passkey.intro')} />
 
                 {failure ? (
                     <ErrorAlert title={t('security.passkey.startFailed')}>{apiErrorMessage(failure, t('security.passkey.startFallback'))}</ErrorAlert>
@@ -460,14 +440,7 @@ function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('security.email.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('security.email.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('security.email.title')} description={t('security.email.intro')} />
 
                 {failure ? (
                     <ErrorAlert title={registration ? t('security.notEnrolled') : t('security.email.sendFailed')}>

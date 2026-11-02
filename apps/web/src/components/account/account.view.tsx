@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { SecurityCard } from '../settings/security.card';
 import { StationMark } from '../shell/station.mark';
+import { SectionHeading } from '../shared/section.heading';
 
 export interface AccountViewProps {
     loggingOut: boolean;
@@ -40,9 +41,7 @@ export function AccountView({ loggingOut, onLogout }: AccountViewProps) {
 
                     <Card padding="lg">
                         <Stack gap="sm">
-                            <Title order={2} size="h4">
-                                {t('listen.title')}
-                            </Title>
+                            <SectionHeading title={t('listen.title')} />
                             <Group>
                                 <Button component="a" href={`deadair://connect?station=${encodeURIComponent(origin)}`}>
                                     {t('listen.app')}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Card, Group, Stack, Text } from '@mantine/core';
 import { useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { AuthenticationFactor, OidcProviderSummary } from '@deadair/sdk';
@@ -10,6 +10,7 @@ import { i18n } from '../../i18n/i18n.setup';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone } from '../shared/notify';
+import { SectionHeading } from '../shared/section.heading';
 import { isStepUpCancelled, type useStepUpGate } from './step.up.dialog';
 
 type Gate = ReturnType<typeof useStepUpGate>;
@@ -56,14 +57,7 @@ export function LinkedSigninsCard({ factors, gate }: { factors: readonly Authent
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('linkedSignins.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('linkedSignins.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('linkedSignins.title')} description={t('linkedSignins.intro')} />
 
                 {search.linked ? (
                     <Alert color="teal" title={t('linkedSignins.linked.title')}>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Select, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { OAuthClientAuthMethod, OAuthClientIssued, OAuthClientSummary } from '@deadair/sdk';
 
@@ -12,6 +12,7 @@ import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
 
 type Gate = ReturnType<typeof useStepUpGate>;
@@ -38,14 +39,7 @@ export function OAuthClientsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('oauthClients.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('oauthClients.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('oauthClients.title')} description={t('oauthClients.intro')} />
 
                 {issued ? <IssuedPanel issued={issued} onDone={() => setIssued(undefined)} /> : undefined}
                 <QueryView

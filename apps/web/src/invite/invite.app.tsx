@@ -10,6 +10,7 @@ import { ErrorAlert } from '../components/shared/error.alert';
 import { CopyButton } from '../components/shared/copy.button';
 import { MIN_PASSWORD_LENGTH } from '../auth/password.rule';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../components/shared/one.time.code.input';
+import { SectionHeading } from '../components/shared/section.heading';
 import { inviteSdk } from './invite.client';
 import { tokenFromHash } from './invite.token';
 
@@ -154,9 +155,7 @@ function SignUp({ token, details, onAccepted, onStop }: SignUpProps) {
                 <Text>{t(`role.${details.role}`, { station: details.stationName })}</Text>
 
                 <Stack gap="sm">
-                    <Title order={2} size="h4">
-                        {t('account.title')}
-                    </Title>
+                    <SectionHeading title={t('account.title')} />
                     <TextInput
                         label={t('account.email')}
                         description={t('account.emailHelp')}

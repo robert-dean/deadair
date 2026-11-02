@@ -1,4 +1,4 @@
-import { Card, Group, Progress, Stack, Table, Text, Title, Tooltip } from '@mantine/core';
+import { Card, Group, Progress, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { StorageStore } from '@deadair/sdk';
 
@@ -7,6 +7,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatTimeOfDay } from '../shared/feed.moment';
 import { formatBytes } from '../shared/format.bytes';
 import { PhoneCard } from '../shared/phone.card';
+import { SectionHeading } from '../shared/section.heading';
 import { usePhone } from '../shared/use.phone';
 
 /**
@@ -36,14 +37,7 @@ export function StorageCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('storage.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('storage.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('storage.title')} description={t('storage.intro')} />
 
                 {storage.error ? (
                     <ErrorAlert title={t('storage.unavailable.title')} error={storage.error} fallback={t('storage.unavailable.fallback')} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Code, Drawer, Group, Modal, MultiSelect, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Code, Drawer, Group, Modal, MultiSelect, Stack, Switch, Table, Text, TextInput } from '@mantine/core';
 import { Trans, useTranslation } from 'react-i18next';
 import type { EventDelivery, EventDestination, EventTestResult } from '@deadair/sdk';
 
@@ -22,6 +22,7 @@ import { notifyDone, notifySaved } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
+import { SectionHeading } from '../shared/section.heading';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
@@ -82,14 +83,7 @@ export function EventDestinationsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('eventDestinations.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('eventDestinations.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('eventDestinations.title')} description={t('eventDestinations.intro')} />
 
                 {minted ? <SecretPanel minted={minted} onDone={() => setMinted(undefined)} /> : undefined}
                 {tested ? <TestPanel name={tested.name} result={tested.result} onDone={() => setTested(undefined)} /> : undefined}

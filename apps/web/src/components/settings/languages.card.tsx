@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Badge, Button, Card, Code, Group, Select, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Code, Group, Select, Stack, Text } from '@mantine/core';
 import { IconDownload, IconUpload } from '@tabler/icons-react';
 import type { ConsoleLanguage } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,7 @@ import { ConfirmModal } from '../shared/confirm.modal';
 import { saveDownload } from '../shared/download';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
+import { SectionHeading } from '../shared/section.heading';
 import { LanguageImportModal } from './language.import';
 
 /**
@@ -48,14 +49,7 @@ export function LanguagesCard() {
         // The anchor the section list and the command palette both jump to, clear of the sticky header.
         <Card padding="lg" id="languages" style={{ scrollMarginTop: 76 }}>
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('languages.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('languages.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('languages.title')} description={t('languages.intro')} />
 
                 <LanguagePicker languages={languages.data?.languages ?? []} />
 

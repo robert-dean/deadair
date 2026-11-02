@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Group, Stack, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { OAuthGrant } from '@deadair/sdk';
 
@@ -10,6 +10,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { SectionHeading } from '../shared/section.heading';
 
 /**
  * The apps this person has let act as them, and a way to disconnect one.
@@ -29,14 +30,7 @@ export function ConnectedAppsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('connectedApps.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('connectedApps.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('connectedApps.title')} description={t('connectedApps.intro')} />
                 {grants.error ? (
                     <ErrorAlert
                         title={t('connectedApps.unavailable.title')}

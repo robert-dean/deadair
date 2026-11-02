@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 
 /** What the station will take in. The server decides by the BYTES; this only saves an obvious mistake a round trip. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -63,14 +64,7 @@ function BreakArtList({ breaks }: { breaks: BreakArtwork[] }) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('breakArt.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('breakArt.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('breakArt.title')} description={t('breakArt.intro')} />
 
                 {replace.isError ? <ErrorAlert title={t('breakArt.replaceFailed')} error={replace.error} /> : undefined}
                 {revert.isError ? <ErrorAlert title={t('breakArt.revertFailed')} error={revert.error} /> : undefined}

@@ -44,6 +44,23 @@ function renderOAuthError(ctx: ServerKitContext, error: unknown): void {
 }
 
 /**
+ * Says why the token endpoint refused, which is otherwise visible only to the client: RFC 6749 wants a
+ * 400 rendered here rather than thrown, so the error middleware never logs one. A refused refresh is
+ * what a connector that has lost its session does, and it shows the operator nothing but a connector
+ * with no tools. Names the request's public fields and never a token, code or secret.
+ */
+function logRefusedToken(ctx: ServerKitContext, error: unknown): void {
+    if (!IsOAuthError(error)) return;
+    const body = (ctx.parsedBody ?? {}) as Record<string, unknown>;
+    ctx.logger.warn('oauth: token refused', {
+        error: error.code,
+        description: error.description,
+        grantType: body.grant_type,
+        clientId: body.client_id,
+    });
+}
+
+/**
  * Tighter than the station-wide limit, per caller: registration writes a row per call, and the token
  * endpoint is where a guessed code or a stolen refresh token is tried. Claude registers once per
  * connection and refreshes at most every few minutes, so twenty a minute is far above any honest
@@ -103,6 +120,7 @@ OAuthProtocolRouter.post('/auth/oauth/token', limitOAuth, bodyParserMiddleware([
         const authorization = (ctx.state as Record<string, unknown>)[OAUTH_CLIENT_AUTHORIZATION];
         ctx.body = await server.token(body, typeof authorization === 'string' ? { authorization } : {});
     } catch (error) {
+        logRefusedToken(ctx, error);
         renderOAuthError(ctx, error);
     }
 });

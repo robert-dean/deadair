@@ -29,6 +29,7 @@ export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }:
     // Held here rather than inside the fields form, which renders the kind's own descriptors and
     // knows nothing about a subject having a name.
     const [label, setLabel] = useState(topic?.label ?? '');
+    const [fieldsDirty, setFieldsDirty] = useState(false);
 
     const save = async (config: Record<string, unknown>) => {
         const named = label.trim();
@@ -52,6 +53,8 @@ export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }:
             onClose={onClose}
             title={topic ? t('editor.editTitle', { noun: kind.nounOne }) : t('editor.newTitle', { noun: kind.nounOne })}
             size="lg"
+            closeOnClickOutside={false}
+            closeOnEscape={!fieldsDirty && label === (topic?.label ?? '')}
         >
             <Stack gap="md">
                 <TextInput
@@ -69,6 +72,7 @@ export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }:
                 ) : undefined}
 
                 <ConfigFieldsForm
+                    onDirtyChange={setFieldsDirty}
                     fields={kind.fields}
                     stored={storedValues(kind, topic)}
                     secretsConfigured={{}}

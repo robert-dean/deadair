@@ -25,13 +25,13 @@ const band = (over: Partial<ClockBand> = {}): ClockBand => ({
     ...over,
 });
 
-function open(target: ClockBand) {
+function open(target: ClockBand, onClose = vi.fn()) {
     const onSubmit = vi.fn();
     render(
         <BandEditor
             target={{ kind: 'edit', band: target }}
             kinds={['podcast']}
-            onClose={vi.fn()}
+            onClose={onClose}
             onSubmit={onSubmit}
             onDelete={vi.fn()}
             saving={false}
@@ -81,5 +81,30 @@ describe('daysOf', () => {
         expect(daysOf(band({ days: [2, 3, 4, 5] }))).toBe('Tue–Fri');
         expect(daysOf(band({ days: [6, 0] }))).toBe('Sat, Sun');
         expect(daysOf(band({ days: [1, 3, 5, 6, 0] }))).toBe('Mon, Wed, Fri–Sun');
+    });
+});
+
+// Escape used to throw away whatever had been typed, and the backdrop did the same with one stray click.
+describe('BandEditor holding an edit', () => {
+    it('closes on Escape while nothing has changed', async () => {
+        const user = setupUser();
+        const onClose = vi.fn();
+        open(band(), onClose);
+        await screen.findByRole('button', { name: 'Save' });
+
+        await user.keyboard('{Escape}');
+
+        expect(onClose).toHaveBeenCalled();
+    });
+
+    it('stays open on Escape once something has changed', async () => {
+        const user = setupUser();
+        const onClose = vi.fn();
+        open(band(), onClose);
+
+        await user.click(await screen.findByRole('switch'));
+        await user.keyboard('{Escape}');
+
+        expect(onClose).not.toHaveBeenCalled();
     });
 });

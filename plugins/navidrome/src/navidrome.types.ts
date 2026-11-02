@@ -65,6 +65,8 @@ export interface SubsonicChild {
     genres?: { name?: string }[];
     /** OpenSubsonic, and the reason a local library can hand out an mbid at all. */
     musicBrainzId?: string;
+    /** OpenSubsonic: `explicit`, `clean`, or `""` for a file with no such tag. */
+    explicitStatus?: string;
     suffix?: string;
     contentType?: string;
     bitRate?: number;

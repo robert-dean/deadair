@@ -145,11 +145,17 @@ export function SegmentsPage() {
                 opened={deleting !== undefined}
                 title={t('delete.title', { label: deleting?.label ?? '' })}
                 confirmLabel={t('delete.confirm')}
-                onConfirm={async () => {
-                    if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle={t('delete.failed')}
+                errorFallback={t('delete.failedFallback')}
+                onConfirm={() => {
+                    if (deleting !== undefined) remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                }}
+                onClose={() => {
+                    remove.reset();
                     setDeleting(undefined);
                 }}
-                onClose={() => setDeleting(undefined)}
             >
                 {t('delete.body')}
             </ConfirmModal>

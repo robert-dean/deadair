@@ -177,11 +177,17 @@ export function PadsPage() {
                 opened={deleting !== undefined}
                 title={t('page.deleteTitle', { label: deleting?.label ?? '' })}
                 confirmLabel={t('page.deleteConfirm')}
-                onConfirm={async () => {
-                    if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle={t('page.deleteFailed')}
+                errorFallback={t('page.deleteFailedFallback')}
+                onConfirm={() => {
+                    if (deleting !== undefined) remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                }}
+                onClose={() => {
+                    remove.reset();
                     setDeleting(undefined);
                 }}
-                onClose={() => setDeleting(undefined)}
             >
                 <Trans t={t} i18nKey="page.deleteBody" values={{ name: deleting?.name ?? '' }} components={{ code: <code /> }} />
             </ConfirmModal>
@@ -331,11 +337,17 @@ function SetList({
                     opened={deleting !== undefined}
                     title={t('sets.deleteTitle', { key: deleting?.key ?? '' })}
                     confirmLabel={t('sets.deleteConfirm')}
-                    onConfirm={async () => {
-                        if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                    confirming={remove.isPending}
+                    error={remove.error}
+                    errorTitle={t('sets.deleteFailed')}
+                    errorFallback={t('sets.deleteFailedFallback')}
+                    onConfirm={() => {
+                        if (deleting !== undefined) remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                    }}
+                    onClose={() => {
+                        remove.reset();
                         setDeleting(undefined);
                     }}
-                    onClose={() => setDeleting(undefined)}
                 >
                     {t('sets.deleteBody')}{' '}
                     {deleting !== undefined && deleting.personas.length > 0

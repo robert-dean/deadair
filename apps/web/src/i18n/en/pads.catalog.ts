@@ -20,6 +20,8 @@ export const pads = {
             'Kept rather than deleted, because the scan re-reads the library: a row that was removed would be back on the next pass. A turned-down sound stays on its sets and reserves nothing — put it back and it is reachable again.',
         deleteTitle: 'Delete {{label}}?',
         deleteConfirm: 'Delete the sound',
+        deleteFailed: 'The sound could not be deleted',
+        deleteFailedFallback: 'It is still in the library.',
         deleteBody:
             'The file this console wrote for it goes too, so the next scan does not read it back in. Any script already written naming <code>[sfx:{{name}}]</code> will simply find nothing and be spoken without it.',
     },
@@ -39,6 +41,8 @@ export const pads = {
         add: 'Add a set',
         deleteTitle: 'Delete the {{key}} set?',
         deleteConfirm: 'Delete the set',
+        deleteFailed: 'The set could not be deleted',
+        deleteFailedFallback: 'It is still there, with its sounds on it.',
         deleteBody: 'Every sound on it stays in the library and on any other set.',
         leftWithNothing: '{{personas}} will be left with nothing to reach for.',
         nobodyPointed: 'Nobody is pointed at it.',

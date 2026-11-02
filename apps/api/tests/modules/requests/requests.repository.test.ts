@@ -8,7 +8,7 @@ import { KyselyDefaultPlugins } from '@maroonedsoftware/kysely';
 import { describe, expect, it } from 'vitest';
 
 import type { DB } from '../../../src/modules/data/db.js';
-import { OpenRequestTaken, RequestsRepository, type NewRequest } from '../../../src/modules/requests/requests.repository.js';
+import { OpenRequestTaken, RequestsRepository, searchWords, type NewRequest } from '../../../src/modules/requests/requests.repository.js';
 
 /** A database that compiles the statement for real and then fails it with `error`, as the driver would. */
 function failingDb(error: unknown): Kysely<DB> {
@@ -70,5 +70,25 @@ describe('RequestsRepository.create', () => {
 
         const gone = Object.assign(new Error('connection refused'), { code: 'ECONNREFUSED' });
         await expect(new RequestsRepository(failingDb(gone)).create(REQUEST)).rejects.toBe(gone);
+    });
+});
+
+describe('searchWords', () => {
+    it('leaves out the "by" between a title and an artist, which neither of them contains', () => {
+        expect(searchWords('disturbia by rihanna')).toEqual(['disturbia', 'rihanna']);
+        expect(searchWords('Disturbia BY Rihanna')).toEqual(['Disturbia', 'Rihanna']);
+    });
+
+    it('still finds a title with "by" in it from the words around it', () => {
+        expect(searchWords('stand by me')).toEqual(['stand', 'me']);
+    });
+
+    it('keeps "by" when it is the whole search', () => {
+        expect(searchWords('by')).toEqual(['by']);
+    });
+
+    it('takes the dashes off a word and stops at eight words', () => {
+        expect(searchWords('rihanna - disturbia')).toEqual(['rihanna', 'disturbia']);
+        expect(searchWords('a b c d e f g h i j')).toHaveLength(8);
     });
 });

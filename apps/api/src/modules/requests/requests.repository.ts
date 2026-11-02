@@ -66,6 +66,23 @@ export interface NewRequest {
     operator?: true;
 }
 
+/**
+ * The words a request search has to find, at most eight.
+ *
+ * A lone `by` between other words goes, because every word must match and "disturbia by rihanna" is
+ * how a person asks: the word is in neither the title nor the artist, so the record they named came
+ * back as not held. Dropping it costs a title with "by" in it nothing, since the words around it still
+ * match, and a search for `by` alone keeps it. Exported for the tests.
+ */
+export function searchWords(query: string): string[] {
+    const words = query
+        .split(/\s+/)
+        .map(word => word.replace(/^[-–—]+|[-–—]+$/g, ''))
+        .filter(word => word.length > 0);
+    const named = words.filter(word => word.toLowerCase() !== 'by');
+    return (named.length === 0 ? words : named).slice(0, 8);
+}
+
 /** The two partial unique indexes that hold the one-at-a-time rules (migration 0088), by what each one holds. */
 const ONE_OPEN_INDEXES: Record<string, OpenRequestTaken['which']> = {
     listener_requests_one_open_per_requester_idx: 'requester',
@@ -328,15 +345,11 @@ export class RequestsRepository extends DataRepository {
     }
 
     /**
-     * Records the station holds and could play, matching every word of `query` against the title or
-     * the artist. Exact titles first, then titles that start with it, then the rest by title.
+     * Records the station holds and could play, matching every word of {@link searchWords} against
+     * the title or the artist. Exact titles first, then titles that start with it, then the rest by title.
      */
     async search(query: string, limit: number): Promise<RequestableRow[]> {
-        const words = query
-            .split(/\s+/)
-            .map(word => word.replace(/^[-–—]+|[-–—]+$/g, ''))
-            .filter(word => word.length > 0)
-            .slice(0, 8);
+        const words = searchWords(query);
         if (words.length === 0) return [];
 
         const whole = query.trim().toLowerCase();

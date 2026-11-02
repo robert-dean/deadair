@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.1] — 2026-11-02
+
+- Stop refusing a weather break, a bulletin or a welcome for the name of the record it hands over to, and read a "ft." credit said as "featuring" as naming that record. Widen the millennium host's words so "this disc's" and "where a song goes" count as his.
+
 ## [0.89.0] — 2026-11-02
 
 - Read the explicit marking Navidrome reports, so the advisory setting applies to a local library's tagged files.
@@ -1816,7 +1820,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.1...HEAD
+[0.89.1]: https://github.com/robert-dean/deadair/compare/v0.89.0...v0.89.1
 [0.89.0]: https://github.com/robert-dean/deadair/compare/v0.88.2...v0.89.0
 [0.88.2]: https://github.com/robert-dean/deadair/compare/v0.88.1...v0.88.2
 [0.88.1]: https://github.com/robert-dean/deadair/compare/v0.88.0...v0.88.1

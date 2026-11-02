@@ -88,7 +88,7 @@ export function PersonasPage() {
     // A download is not state this app holds, so there is no query and no mutation behind it — only
     // whether one is in flight, and what went wrong if it did. Keyed by persona id, with the roster
     // export under `ROSTER`, so a failure lands on the card that asked for it rather than at the top
-    // of a list of fourteen. See `CardFailure`.
+    // of a list of fourteen. See `CardFailure` in `persona.card.tsx`.
     // Its own dialog rather than a drop zone on the page, because taking a file in is three steps —
     // choose, read what it would do, do it — and none of them belongs beside a roster.
     const [importing, setImporting] = useState(false);

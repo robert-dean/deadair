@@ -217,7 +217,7 @@ export function ConfigFieldsForm({
      * bitrate, where 128 and 192 are what nearly everybody wants and `radio.liq` interpolates
      * whatever is typed — `%mp3(bitrate=…)` takes an `int_of_string`, unlike the Opus and AAC
      * encoders next to it, which is exactly why those two ARE closed sets and this one is not.
-     * Suggestions rather than a whitelist is what `suggestionInput` below already argues for.
+     * Suggestions rather than a whitelist is what `SuggestionInput` in `config.typed.fields.tsx` already argues for.
      */
     const hasSuggestions = (field: ConfigFieldDescriptor): boolean => offered(field.key).length > 0 || (field.options ?? []).length > 0;
 

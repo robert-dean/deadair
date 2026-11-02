@@ -156,7 +156,7 @@ export function PersonaEditorWho({ form, persona, ownKey, setOwnKey, hosting, gu
                         data={hostOptions}
                         searchable
                         clearable
-                        // Labelled for the reason `config.fields.form.tsx` labels its tag pills:
+                        // Labelled for the reason `config.typed.fields.tsx` labels its tag pills:
                         // Mantine hides a pill's remove button from the accessibility tree, and
                         // it is still the only way a host is dropped with a mouse.
                         renderPill={({ value, onRemove, disabled }) => (

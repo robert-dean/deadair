@@ -8,6 +8,10 @@
  */
 export const personas = {
     portrait: {
+        removeTitle: 'Remove the picture of {{name}}?',
+        removeConfirm: 'Remove the picture',
+        removeBody:
+            'Listeners’ apps go back to the record’s cover while this presenter is on air. The only way back is to drop the picture here again.',
         label: 'Picture',
         description:
             'Shown in listeners’ apps while this presenter is on air, in place of the record’s cover. Saved as soon as you drop it, not with the rest of this sheet.',
@@ -546,6 +550,9 @@ export const personas = {
         },
     },
     notes: {
+        deleteTitle: 'Delete this note?',
+        deleteBody: 'The station stops drawing on it, and it cannot be brought back.',
+        deleteFailed: 'That note could not be deleted',
         eyebrow: 'Notebook',
         subtitle: 'what this character has settled into, and what it has said before',
         loadError: 'The notebook could not be loaded',
@@ -577,6 +584,9 @@ export const personas = {
         duration: '{{ms}}ms',
     },
     stories: {
+        deleteTitle: 'Delete this story?',
+        deleteBody: 'Its details and beats go with it, the station stops telling it, and it cannot be brought back.',
+        deleteFailed: 'That story could not be deleted',
         eyebrow: 'Stories',
         subtitle: 'things that have happened to this character, told on air',
         loadError: 'The stories could not be loaded',

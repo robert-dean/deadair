@@ -4,6 +4,7 @@ import type { PersonaNote } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { useDeletePersonaNote, usePersonaNotes, useSetPersonaNoteState, useUpdatePersonaNote, useWritePersonaNote } from '../../api/personas.queries';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -42,6 +43,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
     const remove = useDeletePersonaNote();
     const setState = useSetPersonaNoteState();
     const { t } = useTranslation('personas');
+    const [deleting, setDeleting] = useState<PersonaNote | undefined>(undefined);
 
     const all = notes.data?.notes ?? [];
     const suggested = all.filter(note => note.state === 'suggested');
@@ -62,10 +64,10 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
 
                 {notes.error ? <ErrorAlert title={t('notes.loadError')} error={notes.error} fallback={t('shared.unchanged')} /> : undefined}
 
-                {(write.error ?? update.error ?? remove.error ?? setState.error) ? (
+                {(write.error ?? update.error ?? setState.error) ? (
                     <ErrorAlert
                         title={t('notes.saveError.title')}
-                        error={write.error ?? update.error ?? remove.error ?? setState.error!}
+                        error={write.error ?? update.error ?? setState.error!}
                         fallback={t('notes.saveError.fallback')}
                     />
                 ) : undefined}
@@ -116,13 +118,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                             note={note}
                             busy={busy}
                             actions={
-                                <Button
-                                    variant="subtle"
-                                    color="red"
-                                    size="compact-xs"
-                                    disabled={busy}
-                                    onClick={() => remove.mutate({ id: personaId, noteId: note.id })}
-                                >
+                                <Button variant="subtle" color="red" size="compact-xs" disabled={busy} onClick={() => setDeleting(note)}>
                                     {t('shared.delete')}
                                 </Button>
                             }
@@ -163,6 +159,25 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                     busy={busy}
                     onWrite={(kind, note) => write.mutate({ id: personaId, body: { kind, note } }, { onSuccess: () => undefined })}
                 />
+
+                <ConfirmModal
+                    opened={deleting !== undefined}
+                    title={t('notes.deleteTitle')}
+                    confirmLabel={t('shared.delete')}
+                    confirming={remove.isPending}
+                    error={remove.error}
+                    errorTitle={t('notes.deleteFailed')}
+                    onConfirm={() => {
+                        if (deleting !== undefined)
+                            remove.mutate({ id: personaId, noteId: deleting.id }, { onSuccess: () => setDeleting(undefined) });
+                    }}
+                    onClose={() => {
+                        remove.reset();
+                        setDeleting(undefined);
+                    }}
+                >
+                    {t('notes.deleteBody')}
+                </ConfirmModal>
             </Stack>
         </Card>
     );

@@ -49,12 +49,15 @@ describe('PersonaPortrait', () => {
         expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
     });
 
-    it('takes the picture away for this persona', async () => {
+    it('asks, then takes the picture away for this persona', async () => {
         listPersonaPortraits.mockResolvedValue({ portraits: [{ personaId: ID, url: 'art/aaaa/cover.png' }] });
         removePersonaPortrait.mockResolvedValue({ portraits: [] });
 
         render(<PersonaPortrait personaId={ID} name="Sonny" />);
         await userEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+        expect(removePersonaPortrait).not.toHaveBeenCalled();
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Remove the picture' }));
 
         await waitFor(() => expect(removePersonaPortrait).toHaveBeenCalledWith(ID));
     });

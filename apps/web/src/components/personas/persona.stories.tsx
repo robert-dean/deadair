@@ -16,6 +16,7 @@ import {
     useUpdatePersonaStory,
     useWritePersonaStory,
 } from '../../api/personas.queries';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -55,6 +56,7 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
     const removeBeat = useDeletePersonaStoryBeat();
     const setBeatState = useSetPersonaStoryBeatState();
     const { t } = useTranslation('personas');
+    const [deleting, setDeleting] = useState<PersonaStory | undefined>(undefined);
 
     const all = stories.data?.stories ?? [];
     const suggested = all.filter(story => story.state === 'suggested');
@@ -76,7 +78,6 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
     const failure =
         write.error ??
         update.error ??
-        remove.error ??
         setState.error ??
         addDetail.error ??
         removeDetail.error ??
@@ -155,13 +156,7 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
                     {active.map(story =>
                         row(
                             story,
-                            <Button
-                                variant="subtle"
-                                color="red"
-                                size="compact-xs"
-                                disabled={busy}
-                                onClick={() => remove.mutate({ id: personaId, storyId: story.id })}
-                            >
+                            <Button variant="subtle" color="red" size="compact-xs" disabled={busy} onClick={() => setDeleting(story)}>
                                 {t('shared.delete')}
                             </Button>,
                         ),
@@ -193,6 +188,25 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
                 ) : undefined}
 
                 <StoryComposer busy={busy} onWrite={(title, story) => write.mutate({ id: personaId, body: { title, story } })} />
+
+                <ConfirmModal
+                    opened={deleting !== undefined}
+                    title={t('stories.deleteTitle')}
+                    confirmLabel={t('shared.delete')}
+                    confirming={remove.isPending}
+                    error={remove.error}
+                    errorTitle={t('stories.deleteFailed')}
+                    onConfirm={() => {
+                        if (deleting !== undefined)
+                            remove.mutate({ id: personaId, storyId: deleting.id }, { onSuccess: () => setDeleting(undefined) });
+                    }}
+                    onClose={() => {
+                        remove.reset();
+                        setDeleting(undefined);
+                    }}
+                >
+                    {t('stories.deleteBody')}
+                </ConfirmModal>
             </Stack>
         </Card>
     );

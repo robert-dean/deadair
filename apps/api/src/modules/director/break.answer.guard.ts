@@ -156,10 +156,17 @@ const saysNameInflected = (spoken: string, candidate: string): boolean =>
  *
  * The read title is the one {@link describe} shows the model, so it has to count: without it a break
  * saying "Tornado Of Souls" for "Tornado Of Souls - 2004 Remix", and not the artist, named the record
- * it was shown and was refused for naming neither.
+ * it was shown and was refused for naming neither. A credit is read out the same way, so "1989 ft.
+ * The Midnight" said as "1989 featuring The Midnight" is that record too.
  */
 const identifiersOf = (record: BreakTrack): string[] =>
-    [record.title, record.title.replace(/\([^)]*\)/g, ' '), spoken(record.title), record.artist]
+    [
+        record.title,
+        record.title.replace(/\([^)]*\)/g, ' '),
+        spoken(record.title),
+        record.title.replace(/\b(?:ft|feat)\b\.?/gi, 'featuring'),
+        record.artist,
+    ]
         .map(bareWords)
         .filter(candidate => candidate.length > 0);
 
@@ -971,8 +978,13 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  * the station wanted while a break wrongly passed costs one wrong word — with the floor underneath
  * being a correct sentence either way. The narrow miss is the survivable one.
  *
- * A guard carrying no records changes nothing, which keeps every kind that populates no names — a
- * welcome, a bulletin, a link at the top of an order — reading exactly the script it always did.
+ * A guard carrying no records changes nothing, which keeps a link at the top of an order reading
+ * exactly the script it always did.
+ *
+ * The cues count as well as {@link AnswerGuard.names}, because a weather break, a bulletin and a
+ * welcome pass only `cues`: they may hand over to the next record without being refused for failing
+ * to. Measured on the live station on 2 November, when a weather break was refused for the 9 in
+ * `Your Love (9PM)` and a bulletin for handing over to `1989 ft. The Midnight` at quarter to eight.
  *
  * ## The names come out and the punctuation stays
  *
@@ -986,7 +998,7 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  * bounds on letters, and the no-records path above always handed them the punctuated script anyway.
  */
 export const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
-    const records = (guard.names ?? []).filter((record): record is BreakTrack => record !== undefined);
+    const records = [...(guard.names ?? []), guard.cues?.previous, guard.cues?.next].filter((record): record is BreakTrack => record !== undefined);
     if (records.length === 0) return script;
 
     // The script's words exactly as `bareWords` splits them (reactions and pads out first, then every

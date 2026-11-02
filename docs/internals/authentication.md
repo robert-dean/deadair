@@ -330,6 +330,12 @@ route is the second lock: it reads the grant, and refuses everything while the s
 session lasts seven days (`OAUTH_SESSION_LIFETIME`); the app refreshes it, and a refresh is refused
 for a revoked grant or the wrong client.
 
+**A refresh token repeated within thirty seconds is a retry, not a theft.** Refresh tokens rotate, and
+a token presented twice otherwise revokes its whole family, which is permanent for the app. Clients
+sharing one connector can refresh at once, and a client can lose the answer and retry, so
+`REFRESH_REUSE_GRACE` answers a repeat inside the window with the pair the first exchange issued.
+The client check still runs on the repeat, and after the window a replay revokes the family as before.
+
 **A grant has a ceiling, the one an API key has, and its tuples are never stored.** The session acts
 as the person, and `UserActor.grant` narrows it to the station scopes the grant holds (`view`,
 `manage`), read through `delegatedGrants` by every check that narrows a key: the platform policies,

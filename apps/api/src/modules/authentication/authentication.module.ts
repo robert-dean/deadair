@@ -59,6 +59,7 @@ import { DeadairPasswordFactorRepository } from './repositories/password.factor.
 import { AuthenticationService } from './authentication.service.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { SessionActivityService } from './session.activity.service.js';
+import { authenticationSessionOptions } from './session.options.js';
 import { SessionAuditSink } from './session.audit.sink.js';
 import { SessionEventRepository } from './repositories/session.event.repository.js';
 import { LoginActivityRepository } from './repositories/login.activity.repository.js';
@@ -200,7 +201,7 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry
             .register(AuthenticationSessionServiceOptions)
-            .useValue(new AuthenticationSessionServiceOptions('deadair', 'deadair', Duration.fromMillis(1000 * 60 * 60 * 24 * 30)));
+            .useValue(authenticationSessionOptions());
 
         // Audit. Scoped, so the sink sees this request's IP and User-Agent — which
         // is what the hook factory above existed to arrange. ServerKit swallows a

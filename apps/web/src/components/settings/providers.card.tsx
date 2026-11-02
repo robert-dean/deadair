@@ -4,8 +4,8 @@ import type { ProviderCapabilityState } from '@deadair/sdk';
 
 import { usePluginProviders } from '../../api/plugins.queries';
 import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { ProviderPick } from './provider.pick';
 import { ProviderRanking } from './provider.ranking';
 
@@ -48,21 +48,18 @@ export function ProvidersCard() {
     const { t } = useTranslation('settings');
     const providers = usePluginProviders();
 
-    if (providers.isPending) return <PageSkeleton variant="rows" count={3} />;
-
-    if (providers.error || !providers.data) {
-        return <ErrorAlert title={t('providers.unavailable.title')} error={providers.error} fallback={t('providers.unavailable.fallback')} />;
-    }
-
-    if (providers.data.capabilities.length === 0) {
-        return <EmptyState title={t('providers.empty.title')}>{t('providers.empty.body')}</EmptyState>;
-    }
-
     return (
         <Stack gap="lg">
-            {providers.data.capabilities.map(state => (
-                <CapabilityCard key={state.capability} state={state} />
-            ))}
+            <QueryView
+                query={providers}
+                skeleton={<PageSkeleton variant="rows" count={3} />}
+                errorTitle={t('providers.unavailable.title')}
+                errorFallback={t('providers.unavailable.fallback')}
+                isEmpty={data => data.capabilities.length === 0}
+                empty={<EmptyState title={t('providers.empty.title')}>{t('providers.empty.body')}</EmptyState>}
+            >
+                {data => data.capabilities.map(state => <CapabilityCard key={state.capability} state={state} />)}
+            </QueryView>
         </Stack>
     );
 }

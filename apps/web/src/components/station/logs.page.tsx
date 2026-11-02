@@ -13,6 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatBytes } from '../shared/format.bytes';
 import { formatMomentFull, formatMomentStamp } from '../shared/feed.moment';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 
 /**
  * A Mantine palette name per level, so a scan of the tail reads severity at a glance.
@@ -57,26 +58,43 @@ const LEVELS: readonly LogLevel[] = ['trace', 'debug', 'info', 'warn', 'error'];
 export function LogsPage() {
     const { t } = useTranslation('station');
     const sources = useLogSources();
+
+    return (
+        <Stack gap="md">
+            <QueryView
+                query={sources}
+                skeleton={<PageSkeleton variant="rows" />}
+                errorTitle={t('logs.loadFailedTitle')}
+                errorFallback={t('logs.loadFailedFallback')}
+                isEmpty={data => data.sources.length === 0}
+                empty={<EmptyState title={t('logs.noneTitle')}>{t('logs.none')}</EmptyState>}
+            >
+                {data => <LogViewer available={data.sources} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** One source's tail, and the controls over it. `available` is never empty: `LogsPage` says so instead of drawing this. */
+function LogViewer({ available }: { available: LogSource[] }) {
+    const { t } = useTranslation('station');
     const [chosenId, setChosenId] = useState<string | undefined>(undefined);
     const [level, setLevel] = useState<LogLevel | undefined>(undefined);
     const [downloading, setDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | undefined>(undefined);
 
-    const available = sources.data?.sources ?? [];
     // The first source, until an operator picks one. The API answers in a fixed order with the
     // station's own log at the head, which is the one somebody opening this page came for. Not
     // memoized: `available` is a fresh array every render, so a `useMemo` over it would recompute
     // every time anyway while looking as though it did not.
-    const source: LogSource | undefined = available.find(entry => entry.id === chosenId) ?? available[0];
+    const source = available.find(entry => entry.id === chosenId) ?? available[0]!;
 
     // Asking for a level the chosen source cannot apply would put a filter on screen that does
     // nothing, so it is dropped at the point of asking rather than left to the server to ignore.
-    const appliedLevel = source?.levels === true ? level : undefined;
-    const log = useLog(source?.id, appliedLevel);
+    const appliedLevel = source.levels === true ? level : undefined;
+    const log = useLog(source.id, appliedLevel);
 
     async function download(): Promise<void> {
-        if (source === undefined) return;
-
         setDownloading(true);
         setDownloadError(undefined);
         try {
@@ -87,12 +105,6 @@ export function LogsPage() {
         } finally {
             setDownloading(false);
         }
-    }
-
-    if (sources.isPending) return <PageSkeleton variant="rows" />;
-    if (sources.error) return <ErrorAlert title={t('logs.loadFailedTitle')} error={sources.error} fallback={t('logs.loadFailedFallback')} />;
-    if (source === undefined) {
-        return <EmptyState title={t('logs.noneTitle')}>{t('logs.none')}</EmptyState>;
     }
 
     const lines = log.data?.lines ?? [];

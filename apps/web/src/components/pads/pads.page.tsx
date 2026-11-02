@@ -38,6 +38,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 
 /**
  * The soundboard: the short sounds a presenter reaches for.
@@ -68,6 +69,24 @@ import { PageSkeleton } from '../shared/page.skeleton';
 export function PadsPage() {
     const { t } = useTranslation('pads');
     const rack = usePads();
+
+    return (
+        <Stack gap="lg">
+            <QueryView
+                query={rack}
+                skeleton={<PageSkeleton variant="rows" count={6} />}
+                errorTitle={t('page.loadFailed')}
+                errorFallback={t('page.loadFailedFallback')}
+            >
+                {({ pads, sets }) => <PadRack pads={pads} sets={sets} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** The page, with a rack to draw. Its own component so a failed refetch keeps the rack on screen under the alert, a half-typed set name with it. */
+function PadRack({ pads, sets }: { pads: Pad[]; sets: PadSet[] }) {
+    const { t } = useTranslation('pads');
     const scan = useScanPads();
     const setState = useSetPadState();
     const setUse = useSetPadUse();
@@ -83,11 +102,6 @@ export function PadsPage() {
     const [deleting, setDeleting] = useState<Pad | undefined>(undefined);
     const [using, setUsing] = useState<Pad | undefined>(undefined);
 
-    if (rack.isPending) return <PageSkeleton variant="rows" count={6} />;
-    if (rack.isError) return <ErrorAlert title={t('page.loadFailed')} error={rack.error} />;
-
-    const pads = rack.data?.pads ?? [];
-    const sets = rack.data?.sets ?? [];
     const active = pads.filter(pad => pad.state === 'active');
     const rejected = pads.filter(pad => pad.state === 'rejected');
 
@@ -99,7 +113,7 @@ export function PadsPage() {
     };
 
     return (
-        <Stack gap="lg">
+        <>
             <PageHeader
                 eyebrow={t('page.eyebrow')}
                 title={t('page.title')}
@@ -192,7 +206,7 @@ export function PadsPage() {
             >
                 <Trans t={t} i18nKey="page.deleteBody" values={{ name: deleting?.name ?? '' }} components={{ code: <code /> }} />
             </ConfirmModal>
-        </Stack>
+        </>
     );
 }
 

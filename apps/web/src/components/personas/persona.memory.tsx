@@ -46,8 +46,6 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
     const [asking, setAsking] = useState<PersonaTelling | 'reset' | undefined>(undefined);
     const [relearn, setRelearn] = useState(false);
 
-    const tellings = memory.data?.tellings ?? [];
-
     const ask = (what: PersonaTelling | 'reset') => {
         setAsking(what);
         setRelearn(false);
@@ -80,31 +78,34 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
                     </Text>
                 </Group>
 
-                {memory.error ? <ErrorAlert title={t('memory.loadError')} error={memory.error} fallback={t('shared.unchanged')} /> : undefined}
-
                 {rollback.error ? (
                     <ErrorAlert title={t('memory.rollbackError.title')} error={rollback.error} fallback={t('memory.rollbackError.fallback')} />
                 ) : undefined}
 
-                {memory.isPending ? <PageSkeleton variant="card" /> : undefined}
+                <QueryView
+                    query={memory}
+                    skeleton={<PageSkeleton variant="card" />}
+                    errorTitle={t('memory.loadError')}
+                    errorFallback={t('shared.unchanged')}
+                    isEmpty={data => data.tellings.length === 0}
+                    empty={<EmptyState title={t('memory.empty.title')}>{t('memory.empty.body')}</EmptyState>}
+                >
+                    {data => (
+                        <>
+                            {data.tellings.map(telling => (
+                                <TellingRow key={telling.id} telling={telling} busy={rollback.isPending} onRollBack={() => ask(telling)} />
+                            ))}
 
-                {!memory.isPending && tellings.length === 0 ? (
-                    <EmptyState title={t('memory.empty.title')}>{t('memory.empty.body')}</EmptyState>
-                ) : undefined}
-
-                {tellings.map(telling => (
-                    <TellingRow key={telling.id} telling={telling} busy={rollback.isPending} onRollBack={() => ask(telling)} />
-                ))}
-
-                {tellings.length > 0 ? (
-                    <Group justify="flex-end">
-                        <Tooltip label={t('memory.clearTooltip')} withArrow>
-                            <Button variant="subtle" color="red" size="compact-xs" disabled={rollback.isPending} onClick={() => ask('reset')}>
-                                {t('memory.clearAll')}
-                            </Button>
-                        </Tooltip>
-                    </Group>
-                ) : undefined}
+                            <Group justify="flex-end">
+                                <Tooltip label={t('memory.clearTooltip')} withArrow>
+                                    <Button variant="subtle" color="red" size="compact-xs" disabled={rollback.isPending} onClick={() => ask('reset')}>
+                                        {t('memory.clearAll')}
+                                    </Button>
+                                </Tooltip>
+                            </Group>
+                        </>
+                    )}
+                </QueryView>
             </Stack>
 
             <Modal

@@ -9,12 +9,12 @@ import { useDeleteRecording, useRecordings } from '../../api/archive.queries';
 import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
 import { useArmedPress } from '../desk/armed.press';
 import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { formatBytes } from '../shared/format.bytes';
 import { formatDuration } from '../shared/format.duration';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 import { toneColor } from '../shared/status';
 import { formatClock, perLocale } from '../../i18n/format.locale';
@@ -72,40 +72,43 @@ export function RecordingsPage() {
                 ) : undefined}
             </PageHeader>
 
-            {archive.isError ? <ErrorAlert error={archive.error} fallback={t('recordings.failure')} /> : undefined}
-            {archive.isPending ? <PageSkeleton variant="rows" count={4} /> : undefined}
-
-            {archive.data && archive.data.recordings.length === 0 ? (
-                <EmptyState>
-                    {archive.data.mode === 'off' ? (
-                        <Trans
-                            t={t}
-                            i18nKey="recordings.empty.off"
-                            components={{ settings: <Anchor renderRoot={(props: object) => <Link to="/settings/stream" {...props} />} /> }}
-                        />
-                    ) : (
-                        t(`recordings.empty.${archive.data.mode}`)
-                    )}
-                </EmptyState>
-            ) : undefined}
-
-            {archive.data
-                ? byDay(archive.data.recordings).map(([day, recordings]) => (
-                      <Stack key={day} gap="xs">
-                          <Eyebrow>{day}</Eyebrow>
-                          <Card padding={0}>
-                              {recordings.map(recording => (
-                                  <RecordingRow
-                                      key={recording.id}
-                                      recording={recording}
-                                      playing={playing === recording.id}
-                                      onPlay={() => setPlaying(current => (current === recording.id ? undefined : recording.id))}
-                                  />
-                              ))}
-                          </Card>
-                      </Stack>
-                  ))
-                : undefined}
+            <QueryView
+                query={archive}
+                skeleton={<PageSkeleton variant="rows" count={4} />}
+                errorFallback={t('recordings.failure')}
+                isEmpty={data => data.recordings.length === 0}
+                empty={data => (
+                    <EmptyState>
+                        {data.mode === 'off' ? (
+                            <Trans
+                                t={t}
+                                i18nKey="recordings.empty.off"
+                                components={{ settings: <Anchor renderRoot={(props: object) => <Link to="/settings/stream" {...props} />} /> }}
+                            />
+                        ) : (
+                            t(`recordings.empty.${data.mode}`)
+                        )}
+                    </EmptyState>
+                )}
+            >
+                {data =>
+                    byDay(data.recordings).map(([day, recordings]) => (
+                        <Stack key={day} gap="xs">
+                            <Eyebrow>{day}</Eyebrow>
+                            <Card padding={0}>
+                                {recordings.map(recording => (
+                                    <RecordingRow
+                                        key={recording.id}
+                                        recording={recording}
+                                        playing={playing === recording.id}
+                                        onPlay={() => setPlaying(current => (current === recording.id ? undefined : recording.id))}
+                                    />
+                                ))}
+                            </Card>
+                        </Stack>
+                    ))
+                }
+            </QueryView>
         </Stack>
     );
 }

@@ -5,6 +5,7 @@
 export const pads = {
     page: {
         loadFailed: 'The soundboard could not be read',
+        loadFailedFallback: 'The rack is unavailable.',
         eyebrow: 'Station',
         title: 'Soundboard',
         description:

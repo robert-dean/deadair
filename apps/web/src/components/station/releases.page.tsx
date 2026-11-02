@@ -12,6 +12,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { MarkdownView } from '../shared/markdown.view';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { formatLocale, hourCycle } from '../../i18n/format.locale';
 import { i18n } from '../../i18n/i18n.setup';
 
@@ -35,46 +36,40 @@ export const RELEASES_SHOWN = 5;
 export function ReleasesPage() {
     const { t } = useTranslation('station');
     const releases = useStationReleases();
-    const [showAll, setShowAll] = useState(false);
 
-    const header = (
-        <PageHeader
-            title={t('releases.title')}
-            description={
-                <Text size="sm" c="dimmed">
-                    {t('releases.description')}
-                </Text>
-            }
-        />
+    return (
+        <Stack gap="lg">
+            <PageHeader
+                title={t('releases.title')}
+                description={
+                    <Text size="sm" c="dimmed">
+                        {t('releases.description')}
+                    </Text>
+                }
+            />
+            <QueryView
+                query={releases}
+                skeleton={<PageSkeleton variant="card" />}
+                errorTitle={t('releases.loadFailedTitle')}
+                errorFallback={t('releases.loadFailedFallback')}
+            >
+                {data => <ReleaseList releases={data} />}
+            </QueryView>
+        </Stack>
     );
+}
 
-    if (releases.isPending) {
-        return (
-            <Stack gap="lg">
-                {header}
-                <PageSkeleton variant="card" />
-            </Stack>
-        );
-    }
-
-    if (releases.error) {
-        return (
-            <Stack gap="lg">
-                {header}
-                <ErrorAlert title={t('releases.loadFailedTitle')} error={releases.error} fallback={t('releases.loadFailedFallback')} />
-            </Stack>
-        );
-    }
-
-    const { current, notes, available } = releases.data;
+/** The check line, anything newer, and the notes this station carries, the older ones folded away. */
+function ReleaseList({ releases }: { releases: StationReleases }) {
+    const { t } = useTranslation('station');
+    const [showAll, setShowAll] = useState(false);
+    const { current, notes, available } = releases;
     const shown = showAll ? notes : notes.slice(0, RELEASES_SHOWN);
     const hidden = notes.length - shown.length;
 
     return (
-        <Stack gap="lg">
-            {header}
-
-            <CheckLine releases={releases.data} />
+        <>
+            <CheckLine releases={releases} />
 
             {available.length > 0 && (
                 <Stack gap="md">
@@ -103,7 +98,7 @@ export function ReleasesPage() {
                     )}
                 </Stack>
             )}
-        </Stack>
+        </>
     );
 }
 

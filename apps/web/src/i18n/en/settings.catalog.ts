@@ -162,6 +162,7 @@ export const settings = {
         title: 'Break artwork',
         intro: 'What a listener’s player shows while the station is talking. A kind with no picture of its own shows the station’s logo, as the bed and off air do.',
         readFailed: 'Could not read what the station shows',
+        readFailedFallback: 'The list of pictures is unavailable.',
         replaceFailed: 'That picture did not go up',
         revertFailed: 'That did not go back',
         empty: {

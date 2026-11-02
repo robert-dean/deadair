@@ -10,6 +10,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 
 /** What the station will take in. The server decides by the BYTES; this only saves an obvious mistake a round trip. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -38,13 +39,26 @@ const MAX_BYTES = 4 * 1024 * 1024;
 export function BreakArtCard() {
     const { t } = useTranslation('settings');
     const artwork = useBreakArtwork();
+
+    return (
+        <Stack gap="lg">
+            <QueryView
+                query={artwork}
+                skeleton={<PageSkeleton variant="rows" count={2} />}
+                errorTitle={t('breakArt.readFailed')}
+                errorFallback={t('breakArt.readFailedFallback')}
+            >
+                {({ breaks }) => <BreakArtList breaks={breaks} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** The card itself, with a list to draw. Holds the two writes, so a failed refetch leaves a reply to either on screen. */
+function BreakArtList({ breaks }: { breaks: BreakArtwork[] }) {
+    const { t } = useTranslation('settings');
     const replace = useReplaceBreakArtwork();
     const revert = useRevertBreakArtwork();
-
-    if (artwork.isPending) return <PageSkeleton variant="rows" count={2} />;
-    if (artwork.isError) return <ErrorAlert title={t('breakArt.readFailed')} error={artwork.error} />;
-
-    const breaks = artwork.data?.breaks ?? [];
 
     return (
         <Card padding="lg">

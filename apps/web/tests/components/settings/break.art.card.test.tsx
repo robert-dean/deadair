@@ -75,6 +75,21 @@ describe('BreakArtCard', () => {
         await waitFor(() => expect(revertBreakArtwork).toHaveBeenCalledWith('weather'));
     });
 
+    // The card used to return early on any error, so a refetch that failed swapped the whole list
+    // for the alert. The revert is what asks again here, because a write settles by invalidating.
+    it('keeps its rows under the alert when a refetch fails', async () => {
+        listBreakArtwork.mockResolvedValueOnce(LISTING).mockRejectedValue(new Error('no station'));
+        revertBreakArtwork.mockResolvedValue(LISTING);
+
+        render(<BreakArtCard />);
+        await waitFor(() => expect(screen.getByText('weather')).toBeInTheDocument());
+        await userEvent.click(screen.getAllByRole('button', { name: 'Put the original back' })[2]!);
+
+        await waitFor(() => expect(screen.getByText('Could not read what the station shows')).toBeInTheDocument());
+        expect(screen.getByText('weather')).toBeInTheDocument();
+        expect(screen.getByText('news')).toBeInTheDocument();
+    });
+
     it('says so rather than drawing an empty page when the station holds nothing', async () => {
         // A first boot before the shipped pictures have been taken in, or a station whose seed
         // failed. Every break wears the logo then, which is a state worth naming.

@@ -8,6 +8,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { AppearanceCard } from './appearance.card';
 import { LanguagesCard } from './languages.card';
 import { ConfigFieldsForm } from './config.fields.form';
@@ -174,33 +175,32 @@ export function SettingsGroupPage({ group, label, header }: SettingsGroupPagePro
     // here now, so there is nothing to aggregate.
     const [unsaved, setUnsaved] = useState(false);
 
-    if (settings.isPending) {
-        // The width matters as much as the shape: this is a card inside `maw={720}`, and a
-        // full-width placeholder is a different page than the one that replaces it.
-        return (
-            <Stack gap="lg">
-                <PageSkeleton variant="rows" count={4} />
-            </Stack>
-        );
-    }
+    const fieldsOf = (data: StationSettings) => data.descriptors.filter(descriptor => descriptor.group === group);
 
-    if (settings.error || !settings.data) {
-        return <ErrorAlert title={t('page.unavailable.title')} error={settings.error} fallback={t('page.unavailable.fallback')} />;
-    }
-
-    const fields = settings.data.descriptors.filter(descriptor => descriptor.group === group);
-
-    // A group with nothing in it is not an empty card: it is a group whose settings have not been
-    // built yet, and drawing a heading over nothing invites the operator to look for them. The
-    // section list leaves it out for the same reason, so this is only reachable by typing the URL.
-    if (fields.length === 0) {
-        return <EmptyState title={t('page.emptyGroup.title', { name: label.toLowerCase() })}>{t('page.emptyGroup.body')}</EmptyState>;
-    }
-
+    // The width matters as much as the shape: this is a card inside `maw={720}`, and a full-width
+    // placeholder is a different page than the one that replaces it. A failed refetch keeps the
+    // form under the alert, where blanking it would throw away whatever was being typed.
     return (
         <Stack gap="lg">
-            <UnsavedGuard dirty={unsaved} />
-            <SettingsGroupCard label={label} header={header} fields={fields} settings={settings.data} onDirtyChange={setUnsaved} />
+            <QueryView
+                query={settings}
+                skeleton={<PageSkeleton variant="rows" count={4} />}
+                errorTitle={t('page.unavailable.title')}
+                errorFallback={t('page.unavailable.fallback')}
+                // A group with nothing in it is not an empty card: it is a group whose settings have
+                // not been built yet, and drawing a heading over nothing invites the operator to look
+                // for them. The section list leaves it out for the same reason, so this is only
+                // reachable by typing the URL.
+                isEmpty={data => fieldsOf(data).length === 0}
+                empty={<EmptyState title={t('page.emptyGroup.title', { name: label.toLowerCase() })}>{t('page.emptyGroup.body')}</EmptyState>}
+            >
+                {data => (
+                    <>
+                        <UnsavedGuard dirty={unsaved} />
+                        <SettingsGroupCard label={label} header={header} fields={fieldsOf(data)} settings={data} onDirtyChange={setUnsaved} />
+                    </>
+                )}
+            </QueryView>
         </Stack>
     );
 }

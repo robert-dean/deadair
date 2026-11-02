@@ -7,6 +7,7 @@ export const productions = {
     stop: 'Stop',
     error: {
         list: 'Could not read what the station is making',
+        listFallback: 'The list is unavailable.',
         cancel: 'Could not stop that production',
     },
     empty: {

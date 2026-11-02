@@ -7,8 +7,8 @@ export interface QueryViewProps<T> {
     query: { data: T | undefined; error: unknown; isPending: boolean };
     /** What stands in while the first answer is coming, usually a `PageSkeleton`. */
     skeleton: ReactNode;
-    /** What failed, in the console's words, as `ErrorAlert` takes them. */
-    errorTitle: string;
+    /** What failed, in the console's words, as `ErrorAlert` takes them; a fallback that is already a finished sentence needs no title over it. */
+    errorTitle?: string;
     errorFallback: string;
     /** Whether an answer has nothing in it to draw. Without it, every answer is drawn. */
     isEmpty?: (data: T) => boolean;

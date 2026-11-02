@@ -10,6 +10,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentMinute, type Moment } from '../shared/feed.moment';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { toneColor, type StatusTone } from '../shared/status';
 import { ProductionForm } from './production.form';
 
@@ -61,27 +62,33 @@ export function ProductionsPage() {
                 />
             )}
 
-            {productions.isError && <ErrorAlert title={t('error.list')} error={productions.error} />}
             {cancel.isError && <ErrorAlert title={t('error.cancel')} error={cancel.error} />}
 
-            {productions.isLoading && <PageSkeleton variant="rows" />}
-
-            {productions.data?.productions.length === 0 && !asking && (
-                <EmptyState title={t('empty.title')}>
-                    <Trans t={t} i18nKey="empty.body" components={{ code: <code /> }} />
-                </EmptyState>
-            )}
-
-            <Stack gap="sm">
-                {productions.data?.productions.map(production => (
-                    <ProductionCard
-                        key={production.id}
-                        production={production}
-                        stopping={cancel.isPending && cancel.variables === production.id}
-                        onCancel={() => cancel.mutate(production.id)}
-                    />
-                ))}
-            </Stack>
+            <QueryView
+                query={productions}
+                skeleton={<PageSkeleton variant="rows" />}
+                errorTitle={t('error.list')}
+                errorFallback={t('error.listFallback')}
+                isEmpty={data => data.productions.length === 0 && !asking}
+                empty={
+                    <EmptyState title={t('empty.title')}>
+                        <Trans t={t} i18nKey="empty.body" components={{ code: <code /> }} />
+                    </EmptyState>
+                }
+            >
+                {data => (
+                    <Stack gap="sm">
+                        {data.productions.map(production => (
+                            <ProductionCard
+                                key={production.id}
+                                production={production}
+                                stopping={cancel.isPending && cancel.variables === production.id}
+                                onCancel={() => cancel.mutate(production.id)}
+                            />
+                        ))}
+                    </Stack>
+                )}
+            </QueryView>
         </Stack>
     );
 }

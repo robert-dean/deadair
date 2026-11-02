@@ -13,6 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { usePhone } from '../shared/use.phone';
 import { PluginAttentionStrip } from './plugin.attention';
 import { PluginCard } from './plugin.card';
@@ -119,100 +120,103 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                 </ErrorAlert>
             ) : undefined}
 
-            {plugins.error ? (
-                <ErrorAlert title={t('page.loadFailedTitle')} error={plugins.error} fallback={t('page.loadFailedFallback')} />
-            ) : undefined}
+            <QueryView
+                query={plugins}
+                skeleton={
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                        {[0, 1, 2].map(index => (
+                            <PageSkeleton key={index} variant="card" />
+                        ))}
+                    </SimpleGrid>
+                }
+                errorTitle={t('page.loadFailedTitle')}
+                errorFallback={t('page.loadFailedFallback')}
+                isEmpty={data => data.length === 0}
+                empty={<EmptyState title={t('page.empty.title')}>{t('page.empty.body')}</EmptyState>}
+            >
+                {data => (
+                    <>
+                        {/* Over the search rather than under it, and blind to it: this is the page saying what is
+                            wrong, not a view of what was asked for. Hidden where the cards already are that list,
+                            or where the operator asked for the plugins they switched off. */}
+                        {show === 'all' || show === 'enabled' ? <PluginAttentionStrip plugins={data} /> : undefined}
 
-            {plugins.isPending ? (
-                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                    {[0, 1, 2].map(index => (
-                        <PageSkeleton key={index} variant="card" />
-                    ))}
-                </SimpleGrid>
-            ) : undefined}
+                        <Group gap="sm" align="center">
+                            <CatalogSearch
+                                key={searchKey}
+                                value={params.q}
+                                placeholder={t('page.search')}
+                                onChange={q => {
+                                    onParamsChange({ q });
+                                }}
+                            />
+                            <ShowFilter
+                                plugins={searched}
+                                value={show}
+                                onChange={show => {
+                                    onParamsChange({ show });
+                                }}
+                            />
+                            {/* No table on a phone, so no choice of one: it would be a row of five columns
+                                scrolled sideways, which the cards already say better. */}
+                            {phone ? undefined : (
+                                <SegmentedControl
+                                    size="xs"
+                                    ml="auto"
+                                    aria-label={t('page.view.ariaLabel')}
+                                    value={params.view}
+                                    onChange={next => {
+                                        onParamsChange({ view: PLUGIN_VIEWS.find(known => known === next) ?? 'cards' });
+                                    }}
+                                    data={[
+                                        { value: 'cards', label: t('page.view.cards') },
+                                        { value: 'table', label: t('page.view.table') },
+                                    ]}
+                                />
+                            )}
+                        </Group>
 
-            {plugins.data?.length === 0 ? <EmptyState title={t('page.empty.title')}>{t('page.empty.body')}</EmptyState> : undefined}
+                        {shown.length === 0 ? (
+                            <EmptyState
+                                title={t('page.noMatch.title')}
+                                action={
+                                    <Button
+                                        variant="default"
+                                        size="compact-sm"
+                                        onClick={() => {
+                                            setSearchKey(key => key + 1);
+                                            // The filters, not the layout: somebody reading the table wants the
+                                            // table back with everything in it.
+                                            onParamsChange({ q: PLUGINS_PAGE_DEFAULTS.q, show: 'all' });
+                                        }}
+                                    >
+                                        {t('page.noMatch.clear')}
+                                    </Button>
+                                }
+                            >
+                                {t('page.noMatch.body')}
+                            </EmptyState>
+                        ) : undefined}
 
-            {/* Over the search rather than under it, and blind to it: this is the page saying what is
-                wrong, not a view of what was asked for. Hidden where the cards already are that list,
-                or where the operator asked for the plugins they switched off. */}
-            {plugins.data && (show === 'all' || show === 'enabled') ? <PluginAttentionStrip plugins={plugins.data} /> : undefined}
+                        {shown.length > 0 && params.view === 'table' && !phone ? <PluginTable groups={groupByRole(shown)} /> : undefined}
 
-            {plugins.data && plugins.data.length > 0 ? (
-                <Group gap="sm" align="center">
-                    <CatalogSearch
-                        key={searchKey}
-                        value={params.q}
-                        placeholder={t('page.search')}
-                        onChange={q => {
-                            onParamsChange({ q });
-                        }}
-                    />
-                    <ShowFilter
-                        plugins={searched}
-                        value={show}
-                        onChange={show => {
-                            onParamsChange({ show });
-                        }}
-                    />
-                    {/* No table on a phone, so no choice of one: it would be a row of five columns
-                        scrolled sideways, which the cards already say better. */}
-                    {phone ? undefined : (
-                        <SegmentedControl
-                            size="xs"
-                            ml="auto"
-                            aria-label={t('page.view.ariaLabel')}
-                            value={params.view}
-                            onChange={next => {
-                                onParamsChange({ view: PLUGIN_VIEWS.find(known => known === next) ?? 'cards' });
-                            }}
-                            data={[
-                                { value: 'cards', label: t('page.view.cards') },
-                                { value: 'table', label: t('page.view.table') },
-                            ]}
-                        />
-                    )}
-                </Group>
-            ) : undefined}
-
-            {plugins.data && plugins.data.length > 0 && shown.length === 0 ? (
-                <EmptyState
-                    title={t('page.noMatch.title')}
-                    action={
-                        <Button
-                            variant="default"
-                            size="compact-sm"
-                            onClick={() => {
-                                setSearchKey(key => key + 1);
-                                // The filters, not the layout: somebody reading the table wants the
-                                // table back with everything in it.
-                                onParamsChange({ q: PLUGINS_PAGE_DEFAULTS.q, show: 'all' });
-                            }}
-                        >
-                            {t('page.noMatch.clear')}
-                        </Button>
-                    }
-                >
-                    {t('page.noMatch.body')}
-                </EmptyState>
-            ) : undefined}
-
-            {shown.length > 0 && params.view === 'table' && !phone ? <PluginTable groups={groupByRole(shown)} /> : undefined}
-
-            {shown.length > 0 && (params.view === 'cards' || phone)
-                ? groupByRole(shown).map(({ role, plugins: members }) => (
-                      <Stack key={role.key} gap="xs" component="section" aria-label={role.title}>
-                          <Eyebrow>
-                              {role.title} · {members.length}
-                          </Eyebrow>
-                          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                              {members.map(plugin => (
-                                  <PluginCard key={plugin.id} plugin={plugin} />
-                              ))}
-                          </SimpleGrid>
-                      </Stack>
-                  ))
-                : undefined}
+                        {shown.length > 0 && (params.view === 'cards' || phone)
+                            ? groupByRole(shown).map(({ role, plugins: members }) => (
+                                  <Stack key={role.key} gap="xs" component="section" aria-label={role.title}>
+                                      <Eyebrow>
+                                          {role.title} · {members.length}
+                                      </Eyebrow>
+                                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                                          {members.map(plugin => (
+                                              <PluginCard key={plugin.id} plugin={plugin} />
+                                          ))}
+                                      </SimpleGrid>
+                                  </Stack>
+                              ))
+                            : undefined}
+                    </>
+                )}
+            </QueryView>
         </Stack>
     );
 }

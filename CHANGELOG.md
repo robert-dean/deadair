@@ -9,6 +9,18 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.2] — 2026-11-02
+
+- Deleting a persona's note or story, or removing its picture, now asks first, because none of them can be brought back.
+- Deleting a sound, a sound set or a recording now shows that it is working, and says why when it fails, instead of leaving the dialog open with no explanation.
+- The desk now says so when a hold or an air-mode change fails, and when what the station is playing cannot be read, rather than showing nothing or loading for ever.
+- Rows that open on a click can now be reached from the keyboard, the presenter badge opens its menu from the keyboard, and the inputs that had no name now have one.
+- The slot, band, break-kind and subject editors no longer lose an edit to a stray click outside them, or to Escape once something has changed.
+- Tidied console wording so that a control and its tooltip or dialog use the same word for the same action.
+- Settings and Voice now group their sections under headings in the rail, and Appearance and Languages sit together at the end of Settings.
+- A refetch that fails no longer blanks the page. The soundboard, a settings form, a record or plugin's own page, the traces, the logs, the releases and the rest keep what they were showing under the alert, and a list that could not be read at all no longer reads as an empty one.
+- Writes that failed with nothing on screen now say so: soundboard changes, provider choices, pronunciations, ratings and suspensions. A failed read of the subjects list no longer looks like an empty list, and accepting a pronunciation marks only its own row as busy.
+
 ## [0.89.1] — 2026-11-02
 
 - Stop refusing a weather break, a bulletin or a welcome for the name of the record it hands over to, and read a "ft." credit said as "featuring" as naming that record. Widen the millennium host's words so "this disc's" and "where a song goes" count as his.
@@ -1820,7 +1832,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.2...HEAD
+[0.89.2]: https://github.com/robert-dean/deadair/compare/v0.89.1...v0.89.2
 [0.89.1]: https://github.com/robert-dean/deadair/compare/v0.89.0...v0.89.1
 [0.89.0]: https://github.com/robert-dean/deadair/compare/v0.88.2...v0.89.0
 [0.88.2]: https://github.com/robert-dean/deadair/compare/v0.88.1...v0.88.2

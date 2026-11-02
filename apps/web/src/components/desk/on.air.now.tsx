@@ -116,12 +116,13 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
         startCast.isError ? apiErrorMessage(startCast.error, t('onAir.cast.startFailed')) : undefined,
         stopCast.isError ? apiErrorMessage(stopCast.error, t('onAir.cast.stopFailed')) : undefined,
         quiet.isError ? apiErrorMessage(quiet.error, t('onAir.quietFailed')) : undefined,
+        hold.isError ? apiErrorMessage(hold.error, t('onAir.holdFailed')) : undefined,
+        setAirMode.isError ? apiErrorMessage(setAirMode.error, t('onAir.airModeFailed')) : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
         <Stack gap="sm">
             <Card
-                withBorder
                 padding="lg"
                 // The tally rule along the top edge, in the one colour that means ON AIR on a desk.
                 // Dimmed to the border's own weight when it is not: a red rule over a stood-down

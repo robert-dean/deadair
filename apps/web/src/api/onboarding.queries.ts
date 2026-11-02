@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { AdminAccountOnboardingRequirementInput, OnboardingRequirement } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -16,10 +16,6 @@ export const onboardingRequirementsOptions = queryOptions({
     queryFn: () => sdk.onboarding.getOnboardingRequirements(),
     staleTime: Infinity,
 });
-
-export function useOnboardingRequirements() {
-    return useQuery(onboardingRequirementsOptions);
-}
 
 /** Forces the next read to hit the API. For a step that completed without reporting a new list. */
 export async function invalidateOnboardingRequirements(queryClient: QueryClient): Promise<void> {

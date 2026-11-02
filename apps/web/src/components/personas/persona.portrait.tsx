@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { Button, Group, Stack, Text } from '@mantine/core';
-import { Dropzone } from '@mantine/dropzone';
-import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
+import { IconPhoto } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { artSrc } from '../../api/art';
 import { usePersonaPortraits, useRemovePersonaPortrait, useReplacePersonaPortrait } from '../../api/persona.portrait.queries';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
+import { UploadDropzone } from '../shared/upload.dropzone';
 
 /** What the API takes, decided there by the bytes. Here so a wrong file is refused before it is sent. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -23,6 +25,7 @@ export function PersonaPortrait({ personaId, name }: { personaId: string; name: 
     const portraits = usePersonaPortraits();
     const replace = useReplacePersonaPortrait();
     const remove = useRemovePersonaPortrait();
+    const [removing, setRemoving] = useState(false);
 
     const portrait = portraits.data?.portraits.find(candidate => candidate.personaId === personaId);
     const busy = replace.isPending || remove.isPending;
@@ -40,7 +43,6 @@ export function PersonaPortrait({ personaId, name }: { personaId: string; name: 
 
             {portraits.isError ? <ErrorAlert title={t('portrait.readFailed')} error={portraits.error} /> : undefined}
             {replace.isError ? <ErrorAlert title={t('portrait.replaceFailed')} error={replace.error} /> : undefined}
-            {remove.isError ? <ErrorAlert title={t('portrait.removeFailed')} error={remove.error} /> : undefined}
 
             <Group gap="md" align="center" wrap="nowrap">
                 {portrait === undefined ? undefined : (
@@ -52,7 +54,11 @@ export function PersonaPortrait({ personaId, name }: { personaId: string; name: 
                         style={{ borderRadius: 'var(--mantine-radius-sm)', objectFit: 'cover', flexShrink: 0 }}
                     />
                 )}
-                <Dropzone
+                <UploadDropzone
+                    icon={IconPhoto}
+                    iconSize={24}
+                    minHeight={56}
+                    prompt={portrait === undefined ? t('portrait.drop.add') : t('portrait.drop.replace')}
                     style={{ flex: 1 }}
                     onDrop={files => {
                         const file = files[0];
@@ -65,26 +71,29 @@ export function PersonaPortrait({ personaId, name }: { personaId: string; name: 
                     maxSize={MAX_BYTES}
                     maxFiles={1}
                     loading={busy}
-                >
-                    <Group justify="center" gap="md" mih={56} style={{ pointerEvents: 'none' }}>
-                        <Dropzone.Accept>
-                            <IconUpload size={24} />
-                        </Dropzone.Accept>
-                        <Dropzone.Reject>
-                            <IconX size={24} />
-                        </Dropzone.Reject>
-                        <Dropzone.Idle>
-                            <IconPhoto size={24} />
-                        </Dropzone.Idle>
-                        <Text size="sm">{portrait === undefined ? t('portrait.drop.add') : t('portrait.drop.replace')}</Text>
-                    </Group>
-                </Dropzone>
+                />
                 {portrait === undefined ? undefined : (
-                    <Button variant="default" size="xs" disabled={busy} onClick={() => remove.mutate(personaId)}>
+                    <Button variant="default" size="xs" disabled={busy} onClick={() => setRemoving(true)}>
                         {t('portrait.remove')}
                     </Button>
                 )}
             </Group>
+
+            <ConfirmModal
+                opened={removing}
+                title={t('portrait.removeTitle', { name })}
+                confirmLabel={t('portrait.removeConfirm')}
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle={t('portrait.removeFailed')}
+                onConfirm={() => remove.mutate(personaId, { onSuccess: () => setRemoving(false) })}
+                onClose={() => {
+                    remove.reset();
+                    setRemoving(false);
+                }}
+            >
+                {t('portrait.removeBody')}
+            </ConfirmModal>
         </Stack>
     );
 }

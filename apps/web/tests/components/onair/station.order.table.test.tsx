@@ -10,7 +10,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 import type { StationOrderItem } from '@deadair/sdk';
 
-import { StationOrderTable, skipReading } from '../../../src/components/onair/station.order.table';
+import { skipReading } from '../../../src/components/onair/station.order.rules';
+import { StationOrderTable } from '../../../src/components/onair/station.order.table';
 import { measureTheOrderPort } from '../../utils/order.port';
 import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 

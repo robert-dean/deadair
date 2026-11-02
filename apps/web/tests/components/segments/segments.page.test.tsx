@@ -12,6 +12,7 @@ const listSegments = vi.fn();
 const createSegment = vi.fn();
 const scanTheSegmentInbox = vi.fn();
 const listVoices = vi.fn();
+const deleteSegment = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -20,6 +21,7 @@ vi.mock('../../../src/api/client', () => ({
             createSegment: (...args: unknown[]) => createSegment(...args),
             scanTheSegmentInbox: (...args: unknown[]) => scanTheSegmentInbox(...args),
             listVoices: (...args: unknown[]) => listVoices(...args),
+            deleteSegment: (...args: unknown[]) => deleteSegment(...args),
         },
     },
 }));
@@ -141,6 +143,22 @@ describe('SegmentsPage', () => {
         await setupUser().click(await screen.findByRole('button', { name: 'Write one' }));
 
         expect(screen.getByRole('button', { name: 'Plan it' })).toBeDisabled();
+    });
+
+    // The dialog stays open on a failure, which is right, and it used to stay open saying nothing:
+    // the button simply seemed not to work.
+    it('reports a failed delete inside the dialog, and leaves it open', async () => {
+        listSegments.mockResolvedValue({ segments: [segment()] });
+        listVoices.mockResolvedValue({ voices: [] });
+        deleteSegment.mockRejectedValue(new Error('offline'));
+        const user = setupUser();
+        render(<SegmentsPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'Delete Top of hour' }));
+        await user.click(await screen.findByRole('button', { name: 'Delete the recording' }));
+
+        expect(await screen.findByText('The recording could not be deleted')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Delete the recording' })).toBeInTheDocument();
     });
 
     it('says what an empty library means rather than showing a bare table', async () => {

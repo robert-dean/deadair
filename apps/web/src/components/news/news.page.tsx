@@ -130,7 +130,7 @@ export function NewsPage() {
 function Story({ story, category }: { story: NewsStory; category?: string }) {
     const { t } = useTranslation('news');
     return (
-        <Card padding="md">
+        <Card>
             <Stack gap="xxs">
                 <Group gap="xs" wrap="wrap">
                     <Badge size="xs" variant="light" color="gray" tt="none">

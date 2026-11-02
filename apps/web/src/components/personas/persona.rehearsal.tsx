@@ -35,7 +35,7 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
     const spoken = rehearsal.script;
 
     return (
-        <Card withBorder mt="sm" padding="sm">
+        <Card mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                     <Group gap="xs" wrap="nowrap">

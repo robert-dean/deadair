@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ProviderCapabilityState } from '@deadair/sdk';
 
 import { useUpdateSettings } from '../../api/settings.queries';
+import { ErrorAlert } from '../shared/error.alert';
 import { notifySaved } from '../shared/notify';
 import { StatusLamp } from '../shared/status.lamp';
 import { statusOf } from '../plugins/plugin.status';
@@ -93,6 +94,7 @@ export function ProviderRanking({ state }: { state: ProviderCapabilityState }) {
 
     return (
         <Stack gap="sm">
+            {update.error ? <ErrorAlert title={t('providerRanking.saveFailed')} error={update.error} /> : undefined}
             <Group gap="xs">
                 <Badge size="sm" variant="light" color={theirs ? 'teal' : 'gray'} tt="none">
                     {theirs ? t('providerRanking.theirs') : t('providerRanking.default')}

@@ -8,7 +8,7 @@ export const plugins = {
     },
     config: {
         submit: 'Save configuration',
-        failureTitle: 'Save failed',
+        failureTitle: 'That could not be saved',
         failureMessage: 'The configuration could not be saved.',
     },
     logs: {

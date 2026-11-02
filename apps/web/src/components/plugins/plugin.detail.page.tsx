@@ -3,12 +3,14 @@ import { IconArrowLeft } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import type { PluginDetail } from '@deadair/sdk';
 
 import { pluginDetailOptions, useSetPluginEnabled, useTestPlugin } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
@@ -27,33 +29,36 @@ export interface PluginDetailPageProps {
 export function PluginDetailPage({ id }: PluginDetailPageProps) {
     const { t } = useTranslation('plugins');
     const plugin = useQuery(pluginDetailOptions(id));
-    const setEnabled = useSetPluginEnabled();
-    const test = useTestPlugin(id);
-
-    if (plugin.isPending) {
-        return (
-            <Stack gap="lg">
-                <PageSkeleton variant="card" />
-            </Stack>
-        );
-    }
-
-    if (plugin.error || !plugin.data) {
-        return (
-            <Stack gap="md" align="flex-start">
-                <ErrorAlert title={t('detail.unavailableTitle')} error={plugin.error} fallback={t('detail.unavailableFallback', { id })} />
-                <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
-                    {t('detail.backToPlugins')}
-                </Anchor>
-            </Stack>
-        );
-    }
-
-    const detail = plugin.data;
-    const status = statusOf(detail.status);
 
     return (
         <Stack gap="lg">
+            <QueryView
+                query={plugin}
+                skeleton={<PageSkeleton variant="card" />}
+                errorTitle={t('detail.unavailableTitle')}
+                errorFallback={t('detail.unavailableFallback', { id })}
+            >
+                {detail => <PluginBody id={id} detail={detail} />}
+            </QueryView>
+            {/* Only with nothing to draw, which is when the page's own way back is not on screen. */}
+            {plugin.error && plugin.data === undefined ? (
+                <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
+                    {t('detail.backToPlugins')}
+                </Anchor>
+            ) : undefined}
+        </Stack>
+    );
+}
+
+/** The page, for a plugin that answered. Its own component so a failed refetch leaves the forms under the alert with what was typed in them. */
+function PluginBody({ id, detail }: PluginDetailPageProps & { detail: PluginDetail }) {
+    const { t } = useTranslation('plugins');
+    const setEnabled = useSetPluginEnabled();
+    const test = useTestPlugin(id);
+    const status = statusOf(detail.status);
+
+    return (
+        <>
             {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                 router's own types, and with them the check that this route still exists. */}
             <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
@@ -203,6 +208,6 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             <PluginLogsCard plugin={detail} />
 
             {detail.origin === 'installed' ? <PluginRemoveCard plugin={detail} /> : undefined}
-        </Stack>
+        </>
     );
 }

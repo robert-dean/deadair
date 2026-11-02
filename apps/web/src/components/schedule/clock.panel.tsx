@@ -8,6 +8,7 @@ import { useClockBands, useCreateClockBand, useDeleteClockBand, useUpdateClockBa
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { severityColor } from '../shared/status';
+import { RowOpener } from '../shared/row.opener';
 import { BandEditor, type BandTarget } from './band.editor';
 import { FormatClockDial } from './format.clock.dial';
 import { i18n } from '../../i18n/i18n.setup';
@@ -159,10 +160,12 @@ export function ClockPanel() {
                                                     )}
                                                 </Table.Td>
                                                 <Table.Td>
-                                                    <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
-                                                        {band.kind}
-                                                        {band.topicLabel === undefined ? '' : ` · ${band.topicLabel}`}
-                                                    </Text>
+                                                    <RowOpener>
+                                                        <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
+                                                            {band.kind}
+                                                            {band.topicLabel === undefined ? '' : ` · ${band.topicLabel}`}
+                                                        </Text>
+                                                    </RowOpener>
                                                 </Table.Td>
                                                 <Table.Td w={170}>
                                                     {/* A rule switched off says nothing about whether the

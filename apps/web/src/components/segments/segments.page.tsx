@@ -15,6 +15,7 @@ import { formatDuration } from '../shared/format.duration';
 import { notifyDone } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
 import { useVoicePreview } from '../voices/voice.preview';
@@ -113,8 +114,6 @@ export function SegmentsPage() {
                 }
             />
 
-            {segments.error ? <ErrorAlert title={t('error.list')} error={segments.error} fallback={t('error.listFallback')} /> : undefined}
-
             {scan.error ? <ErrorAlert title={t('error.scan')} error={scan.error} fallback={t('error.scanFallback')} /> : undefined}
 
             {uploading ? <SegmentUploadCard kinds={kinds} onDone={() => setUploading(false)} /> : undefined}
@@ -127,29 +126,42 @@ export function SegmentsPage() {
                 />
             ) : undefined}
 
-            {segments.isPending ? <PageSkeleton variant="table" /> : undefined}
-
-            {segments.data && rows.length === 0 ? <EmptyState title={t('empty.title')}>{t('empty.body')}</EmptyState> : undefined}
-
             {/* Grouped by kind rather than listed flat, because the kinds are what an operator
                 arrives looking for: an ident and a talk break are different jobs, and a library with
                 forty of one and two of the other reads as a wall otherwise. */}
-            {kinds.map(kind => (
-                <Stack key={kind} gap="xs">
-                    <Eyebrow>{kind}</Eyebrow>
-                    <SegmentTable segments={rows.filter(segment => segment.kind === kind)} onDelete={setDeleting} />
-                </Stack>
-            ))}
+            <QueryView
+                query={segments}
+                skeleton={<PageSkeleton variant="table" />}
+                errorTitle={t('error.list')}
+                errorFallback={t('error.listFallback')}
+                isEmpty={data => data.segments.length === 0}
+                empty={<EmptyState title={t('empty.title')}>{t('empty.body')}</EmptyState>}
+            >
+                {() =>
+                    kinds.map(kind => (
+                        <Stack key={kind} gap="xs">
+                            <Eyebrow>{kind}</Eyebrow>
+                            <SegmentTable segments={rows.filter(segment => segment.kind === kind)} onDelete={setDeleting} />
+                        </Stack>
+                    ))
+                }
+            </QueryView>
 
             <ConfirmModal
                 opened={deleting !== undefined}
                 title={t('delete.title', { label: deleting?.label ?? '' })}
                 confirmLabel={t('delete.confirm')}
-                onConfirm={async () => {
-                    if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle={t('delete.failed')}
+                errorFallback={t('delete.failedFallback')}
+                onConfirm={() => {
+                    if (deleting !== undefined) remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                }}
+                onClose={() => {
+                    remove.reset();
                     setDeleting(undefined);
                 }}
-                onClose={() => setDeleting(undefined)}
             >
                 {t('delete.body')}
             </ConfirmModal>
@@ -293,7 +305,7 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
     const ready = label.trim().length > 0 && script.trim().length > 0;
 
     return (
-        <Card padding="md">
+        <Card>
             <Stack gap="sm">
                 <TextInput
                     label={t('compose.label.label')}

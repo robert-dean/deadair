@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Code, Group, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Code, Group, SegmentedControl, Select, Stack, Table, Text, TextInput } from '@mantine/core';
 import { DateTime } from 'luxon';
 import { Trans, useTranslation } from 'react-i18next';
 import type { ApiKey, ApiKeyIssued, ApiKeyScope } from '@deadair/sdk';
@@ -15,6 +15,7 @@ import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
@@ -67,14 +68,7 @@ export function ApiKeysCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('apiKeys.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('apiKeys.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('apiKeys.title')} description={t('apiKeys.intro')} />
 
                 {issued ? <IssuedPanel issued={issued.issued} verb={issued.verb} onDone={() => setIssued(undefined)} /> : undefined}
 

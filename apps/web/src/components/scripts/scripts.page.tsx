@@ -8,6 +8,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useRateScript, useScriptHistory } from '../../api/scripts.queries';
+import { ErrorAlert } from '../shared/error.alert';
 import { AuthoredBadge } from '../shared/authored.badge';
 import { FeedMoment } from '../shared/dated.feed';
 import { notifyDone } from '../shared/notify';
@@ -238,6 +239,7 @@ function AttemptRow({ attempt, latest }: AttemptRowProps) {
 
     return (
         <Stack gap={0}>
+            {rate.error ? <ErrorAlert title={t('rateFailed')} error={rate.error} /> : undefined}
             {/* The row's button and the rating sit SIDE BY SIDE rather than nested. A control inside
                 the button would be a button inside a button, which is invalid and would open the
                 detail on every click of a thumb. */}

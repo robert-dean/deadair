@@ -1,6 +1,12 @@
 /** The Voice destination: its heading and the tabs under it, which the shell's rail and palette also read. */
 export const voice = {
     title: 'Voice',
+    group: {
+        who: 'Who',
+        sound: 'How it sounds',
+        words: 'What it says',
+        made: 'What it made',
+    },
     tab: {
         characters: { label: 'Characters', hint: 'Who the station is when it talks' },
         auditions: { label: 'Auditions', hint: 'A character over an hour of records, before it goes on air' },

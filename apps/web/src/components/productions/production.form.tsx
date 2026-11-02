@@ -192,7 +192,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                             </Text>
                         </div>
                         {form.values.sources.map((_, index) => (
-                            <Card key={index} withBorder padding="sm">
+                            <Card key={index} padding="sm">
                                 <Stack gap="xs">
                                     <Group gap="xs" wrap="nowrap" align="flex-end">
                                         <TextInput

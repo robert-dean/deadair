@@ -391,7 +391,6 @@ export const queryKeys = {
             ['catalog', 'artist', id, 'albums', page, search ?? '', order ?? ''] as const,
         /** What every enrichment provider stored about one row. Read only; the walk is the writer. */
         artistEnrichment: (id: string) => ['catalog', 'artist', id, 'enrichment'] as const,
-        albums: (page: number, search?: string, order?: string) => ['catalog', 'albums', page, search ?? '', order ?? ''] as const,
         album: (id: string) => ['catalog', 'album', id] as const,
         albumTracks: (id: string, page: number, search?: string, order?: string) =>
             ['catalog', 'album', id, 'tracks', page, search ?? '', order ?? ''] as const,

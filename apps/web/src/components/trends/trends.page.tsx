@@ -195,7 +195,7 @@ function Section({ title, query, children }: { title: string; query: SectionQuer
     return (
         <Stack gap="xs">
             <Eyebrow>{title}</Eyebrow>
-            <Card padding="md">
+            <Card>
                 {query.isError ? (
                     <Text size="sm" c="red.4">
                         {t('section.failed')}

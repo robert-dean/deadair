@@ -40,11 +40,6 @@ export function availableLanguages(): readonly ConsoleLanguage[] {
     return languages;
 }
 
-/** The languages, for a component that redraws when one is installed or removed. */
-export function useAvailableLanguages(): readonly ConsoleLanguage[] {
-    return useSyncExternalStore(subscribe, availableLanguages);
-}
-
 /** The language on screen, falling back to English for a tag nothing installed. */
 export function currentLanguage(): ConsoleLanguage {
     const locale = i18n.resolvedLanguage ?? ENGLISH.locale;

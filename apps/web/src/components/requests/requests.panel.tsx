@@ -13,6 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 
@@ -45,20 +46,34 @@ type Filter = 'open' | 'all';
 export function RequestsPanel() {
     const { t } = useTranslation('requests');
     const requests = useRequests();
-    const [filter, setFilter] = useState<Filter>('open');
 
     if (isForbidden(requests.error)) {
         return <EmptyState>{t('forbidden')}</EmptyState>;
     }
-    if (requests.isPending) return <PageSkeleton variant="rows" count={4} />;
-
-    const all = requests.data?.requests ?? [];
-    const shown = filter === 'open' ? all.filter(request => OPEN.includes(request.status)) : all;
 
     return (
         <Stack gap="md">
-            <PartyCard />
-            {requests.error ? <ErrorAlert title={t('error.title')} error={requests.error} fallback={t('error.fallback')} /> : undefined}
+            {requests.isPending ? undefined : <PartyCard />}
+            <QueryView
+                query={requests}
+                skeleton={<PageSkeleton variant="rows" count={4} />}
+                errorTitle={t('error.title')}
+                errorFallback={t('error.fallback')}
+            >
+                {data => <RequestList all={data.requests} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** The list and its filter. Under `QueryView`, so a read that fails on the first try no longer passes for an empty list. */
+function RequestList({ all }: { all: ListenerRequest[] }) {
+    const { t } = useTranslation('requests');
+    const [filter, setFilter] = useState<Filter>('open');
+    const shown = filter === 'open' ? all.filter(request => OPEN.includes(request.status)) : all;
+
+    return (
+        <>
             <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                     {t('description')}
@@ -92,7 +107,7 @@ export function RequestsPanel() {
                     </Table.Tbody>
                 </Table>
             )}
-        </Stack>
+        </>
     );
 }
 

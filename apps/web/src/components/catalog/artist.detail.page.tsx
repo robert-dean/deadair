@@ -47,6 +47,9 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange, onOpenAr
 
     return (
         <Stack gap="lg">
+            {rateArtist.error ? <ErrorAlert title={t('writes.rateFailed')} error={rateArtist.error} /> : undefined}
+            {rateAlbum.error ? <ErrorAlert title={t('writes.rateFailed')} error={rateAlbum.error} /> : undefined}
+            {suspend.error ? <ErrorAlert title={t('suspend.failed')} error={suspend.error} /> : undefined}
             <Group align="flex-start" gap="md" wrap="nowrap">
                 {/* Not rendered while the artist is loading: a placeholder initial for a name
                     nobody knows yet is a letter chosen at random. */}

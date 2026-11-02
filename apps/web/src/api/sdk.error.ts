@@ -169,11 +169,6 @@ export function isStepUpRequired(error: unknown): boolean {
     return isForbidden(error) && authChallenge(error)?.error === 'mfa_required';
 }
 
-/** Whether the caller is authenticated but lacks the permission this route wants. */
-export function isInsufficientScope(error: unknown): boolean {
-    return isForbidden(error) && authChallenge(error)?.error === 'insufficient_scope';
-}
-
 /** What a step-up denial asks for, as the policy package spells it. */
 export interface StepUpRequirement {
     /** ISO-8601 duration, e.g. `PT5M`. */

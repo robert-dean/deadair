@@ -13,6 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { RowOpener } from '../shared/row.opener';
 import { TopicEditor, type TopicTarget } from './topic.editor';
 
 /**
@@ -81,6 +82,9 @@ export function TopicsPage() {
             />
 
             {kinds.error ? <ErrorAlert title={t('page.loadFailedTitle')} error={kinds.error} fallback={t('page.loadFailedFallback')} /> : undefined}
+            {topics.error ? (
+                <ErrorAlert title={t('page.topicsFailedTitle')} error={topics.error} fallback={t('page.loadFailedFallback')} />
+            ) : undefined}
 
             {remove.error ? <ErrorAlert title={t('page.deleteFailedTitle')} error={remove.error} fallback={t('page.nothingRemoved')} /> : undefined}
 
@@ -136,7 +140,9 @@ export function TopicsPage() {
                                                     onClick={() => setEditing({ kind, target: { kind: 'edit', topic } })}
                                                 >
                                                     <Table.Td w={220}>
-                                                        <Text size="sm">{topic.label}</Text>
+                                                        <RowOpener>
+                                                            <Text size="sm">{topic.label}</Text>
+                                                        </RowOpener>
                                                     </Table.Td>
                                                     <Table.Td>
                                                         <Text size="xs" c="dimmed">

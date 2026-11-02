@@ -20,7 +20,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
     const toggle = usePluginEnableToggle(plugin);
 
     return (
-        <Card padding="md" style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
+        <Card style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
             <Stack gap="xs" h="100%">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap="xxxs">

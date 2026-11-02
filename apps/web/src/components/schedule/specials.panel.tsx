@@ -4,6 +4,7 @@ import type { ScheduleSlot } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { Eyebrow } from '../shared/eyebrow';
+import { RowOpener } from '../shared/row.opener';
 import { formatWallTime } from '../../i18n/format.locale';
 import { formatDates, inOrder, isSpecial, nextRun, stateOf, type Special, type SpecialState } from './schedule.specials';
 
@@ -90,9 +91,11 @@ function SpecialRow({ special, today, airing, onEdit }: { special: Special; toda
                 </Text>
             </Table.Td>
             <Table.Td>
-                <Text size="sm" fw={500} c={state === 'over' ? 'dimmed' : undefined}>
-                    {name}
-                </Text>
+                <RowOpener>
+                    <Text size="sm" fw={500} c={state === 'over' ? 'dimmed' : undefined}>
+                        {name}
+                    </Text>
+                </RowOpener>
             </Table.Td>
             <Table.Td w={200}>
                 <Group gap={4} justify="flex-end" wrap="nowrap">

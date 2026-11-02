@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Card, Code, Group, SegmentedControl, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Alert, Card, Code, Group, SegmentedControl, Stack, Tabs, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { useInvitationPreview, useSettings } from '../../api/settings.queries';
 import { isForbidden } from '../../api/sdk.error';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 import { StatusLamp } from '../shared/status.lamp';
 
 /** The settings the preview is about. Named here rather than imported, as the form names every key it draws. */
@@ -45,14 +46,7 @@ export function InvitationPreviewCard() {
         <Card padding="lg">
             <Stack gap="md">
                 <Group justify="space-between" align="flex-start">
-                    <Stack gap="xxs" maw={480}>
-                        <Title order={2} size="h4">
-                            {t('invitationPreview.title')}
-                        </Title>
-                        <Text size="sm" c="dimmed">
-                            {t('invitationPreview.intro')}
-                        </Text>
-                    </Stack>
+                    <SectionHeading title={t('invitationPreview.title')} description={t('invitationPreview.intro')} maw={480} />
                     <SegmentedControl
                         size="xs"
                         value={role}

@@ -214,7 +214,14 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
     const offersApply = slot !== undefined && airing === true && onApply !== undefined && !live;
 
     return (
-        <Modal opened={opened} onClose={onClose} title={titleOf(t, slot !== undefined, special)} size="lg">
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            title={titleOf(t, slot !== undefined, special)}
+            size="lg"
+            closeOnClickOutside={false}
+            closeOnEscape={!form.isDirty()}
+        >
             <form onSubmit={submit}>
                 <Stack gap="md">
                     {error ? <ErrorAlert title={t('slot.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}

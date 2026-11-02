@@ -58,6 +58,7 @@ export function ProviderPick({ state }: { state: ProviderCapabilityState }) {
 
     return (
         <Stack gap="sm">
+            {update.error ? <ErrorAlert title={t('providerPick.saveFailed')} error={update.error} /> : undefined}
             {state.unanswered && (
                 <ErrorAlert title={t('providerPick.unanswered.title')} fallback={t('providerPick.unanswered.body', { name: named })} />
             )}

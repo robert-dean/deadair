@@ -13,6 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { notifyQueued } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { SectionHeading } from '../shared/section.heading';
 import { PlaylistCard } from './playlist.card';
 import { PlaylistImportModal } from './playlist.import.modal';
 import { StationPlaylistCard } from './station.playlist.card';
@@ -156,9 +157,7 @@ export function PlaylistsPage() {
                 empty section would be a second empty state above the one that matters. */}
             {station.data && station.data.playlists.length > 0 ? (
                 <Stack gap="sm">
-                    <Title order={2} size="h4">
-                        {t('page.stationOwn')}
-                    </Title>
+                    <SectionHeading title={t('page.stationOwn')} />
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                         {station.data.playlists.map(playlist => (
                             <StationPlaylistCard key={playlist.id} playlist={playlist} />

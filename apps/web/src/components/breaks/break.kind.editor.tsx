@@ -70,6 +70,8 @@ export function BreakKindEditor({ target, onClose, onSubmit, pending, error }: P
             title={breakKind ? t('editor.editTitle', { name: breakKind.name }) : t('editor.newTitle')}
             size="lg"
             fullScreen={phone}
+            closeOnClickOutside={false}
+            closeOnEscape={!form.isDirty()}
         >
             <form onSubmit={submit}>
                 <Stack gap="md">

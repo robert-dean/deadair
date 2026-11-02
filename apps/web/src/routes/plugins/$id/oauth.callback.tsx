@@ -1,10 +1,11 @@
-import { Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Card, Group, Loader, Stack, Text } from '@mantine/core';
 import { createFileRoute } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { PluginOAuthCallbackQuery } from '@deadair/sdk';
 
 import { completePluginOAuth } from '../../../api/plugins.queries';
 import { PluginOAuthCallbackPage } from '../../../components/plugins/plugin.oauth.callback.page';
+import { SectionHeading } from '../../../components/shared/section.heading';
 
 /** Only the three parameters the API's callback accepts survive; anything else the provider adds is dropped. */
 function validateSearch(search: Record<string, unknown>): PluginOAuthCallbackQuery {
@@ -31,11 +32,9 @@ function PluginOAuthCallbackRoute() {
 function PluginOAuthCallbackPending() {
     const { t } = useTranslation('routes');
     return (
-        <Card withBorder padding="xl" radius="sm" maw={560}>
+        <Card padding="xl" radius="sm" maw={560}>
             <Stack gap="md">
-                <Title order={2} size="h4">
-                    {t('pluginOAuth.title')}
-                </Title>
+                <SectionHeading title={t('pluginOAuth.title')} />
                 <Group gap="sm">
                     <Loader size="sm" />
                     <Text c="dimmed">{t('pluginOAuth.completing')}</Text>

@@ -60,7 +60,7 @@ export function AttentionList({ items, here }: AttentionListProps) {
     }
 
     return (
-        <Card withBorder padding={0}>
+        <Card padding={0}>
             <Stack gap={0}>
                 {items.map((item, index) => (
                     <Box key={`${item.code}:${item.route}`}>

@@ -8,13 +8,13 @@ import { useTrace, useTraces } from '../../api/station.queries';
 import { describeDecision } from './decision.words';
 import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { severityColor } from '../shared/status';
 import { formatSpent } from '../shared/format.spent';
+import { RowOpener } from '../shared/row.opener';
 
 /**
  * What the station did, decision by decision, and what each one cost.
@@ -51,42 +51,52 @@ export function TracesPage() {
 
     const traces = useTraces({ ...(failedOnly ? { failedOnly: true } : {}) });
 
-    if (traces.isPending) return <PageSkeleton variant="table" />;
-    if (traces.isError) return <ErrorAlert title={t('traces.loadFailedTitle')} error={traces.error} fallback={t('traces.loadFailedFallback')} />;
-
-    const { decisions, total, spans } = traces.data;
-
     return (
         <Stack gap="md">
-            <Group justify="space-between" align="flex-end">
-                <Text size="sm" c="dimmed" maw={640}>
-                    {t('traces.description')}
-                </Text>
-                <SegmentedControl
-                    size="xs"
-                    value={failedOnly ? 'failed' : 'all'}
-                    onChange={value => setFailedOnly(value === 'failed')}
-                    data={[
-                        { value: 'all', label: t('traces.filter.all') },
-                        { value: 'failed', label: t('traces.filter.failed') },
-                    ]}
-                />
-            </Group>
+            <QueryView
+                query={traces}
+                skeleton={<PageSkeleton variant="table" />}
+                errorTitle={t('traces.loadFailedTitle')}
+                errorFallback={t('traces.loadFailedFallback')}
+            >
+                {({ decisions, total, spans }) => (
+                    <>
+                        <Group justify="space-between" align="flex-end">
+                            <Text size="sm" c="dimmed" maw={640}>
+                                {t('traces.description')}
+                            </Text>
+                            <SegmentedControl
+                                size="xs"
+                                value={failedOnly ? 'failed' : 'all'}
+                                onChange={value => setFailedOnly(value === 'failed')}
+                                data={[
+                                    { value: 'all', label: t('traces.filter.all') },
+                                    { value: 'failed', label: t('traces.filter.failed') },
+                                ]}
+                            />
+                        </Group>
 
-            {decisions.length === 0 ? (
-                <EmptyState title={failedOnly ? t('traces.noFailuresTitle') : t('traces.emptyTitle')}>
-                    {failedOnly ? t('traces.noFailures') : t('traces.empty')}
-                </EmptyState>
-            ) : (
-                <>
-                    <DecisionTable decisions={decisions} phone={phone} onOpen={setOpen} />
-                    <Text size="xs" c="dimmed">
-                        {t('traces.showing', { shown: decisions.length, count: total, calls: t('traces.recordedCalls', { count: spans }) })}
-                    </Text>
-                </>
-            )}
+                        {decisions.length === 0 ? (
+                            <EmptyState title={failedOnly ? t('traces.noFailuresTitle') : t('traces.emptyTitle')}>
+                                {failedOnly ? t('traces.noFailures') : t('traces.empty')}
+                            </EmptyState>
+                        ) : (
+                            <>
+                                <DecisionTable decisions={decisions} phone={phone} onOpen={setOpen} />
+                                <Text size="xs" c="dimmed">
+                                    {t('traces.showing', {
+                                        shown: decisions.length,
+                                        count: total,
+                                        calls: t('traces.recordedCalls', { count: spans }),
+                                    })}
+                                </Text>
+                            </>
+                        )}
 
-            <TraceDrawer id={open} onClose={() => setOpen(undefined)} />
+                        <TraceDrawer id={open} onClose={() => setOpen(undefined)} />
+                    </>
+                )}
+            </QueryView>
         </Stack>
     );
 }
@@ -187,8 +197,8 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                 </Table.Td>
                                 <Table.Td>
                                     {/* The indent is the causal edge and nothing else carries it, so a child
-                                also says so in words: an operator scanning a column of names should
-                                not have to measure whitespace to know one thing caused another. */}
+                                        also says so in words: an operator scanning a column of names should
+                                        not have to measure whitespace to know one thing caused another. */}
                                     <Group gap="xs" wrap="nowrap" style={{ paddingLeft: depth * 20 }}>
                                         {depth > 0 ? (
                                             <Tooltip label={t('traces.enqueuedBy')}>
@@ -196,10 +206,12 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                             </Tooltip>
                                         ) : undefined}
                                         <Stack gap={0}>
-                                            <Text size="sm">{reading.sentence}</Text>
+                                            <RowOpener>
+                                                <Text size="sm">{reading.sentence}</Text>
+                                            </RowOpener>
                                             {/* The raw kind stays, dimmed, EXCEPT for a request — which
-                                            already reads as `GET /voices` in the sentence itself, so
-                                            repeating it underneath would be the same fact twice. */}
+                                                already reads as `GET /voices` in the sentence itself, so
+                                                repeating it underneath would be the same fact twice. */}
                                             {reading.source === 'request' ? undefined : (
                                                 <Text size="xs" c="dimmed" ff="monospace">
                                                     {decision.kind}
@@ -210,8 +222,8 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                 </Table.Td>
                                 <Table.Td>
                                     {/* Zero is a decision recorded before the station wrote a span for the
-                                job itself, not a decision that took no time. Saying so beats a `0ms`
-                                that reads as a measurement. */}
+                                        job itself, not a decision that took no time. Saying so beats a `0ms`
+                                        that reads as a measurement. */}
                                     <Text size="sm" className="da-num" c={decision.ms === 0 ? 'dimmed' : undefined}>
                                         {decision.ms === 0 ? '—' : formatSpent(decision.ms)}
                                     </Text>

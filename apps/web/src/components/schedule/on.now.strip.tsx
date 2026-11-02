@@ -57,7 +57,7 @@ export function OnNowStrip({ current, slots, personas, onEdit }: Props) {
     const takenOver = current.slotId !== undefined && current.slotId !== current.airingSlotId;
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
                 {live === undefined ? (
                     <Sustaining next={blocks[0]} now={current.now} />

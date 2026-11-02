@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, Pagination, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, Pagination, SegmentedControl, Select, Stack, Table, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { formatDate } from '../shared/format.date';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
 import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 import { PersonDrawer } from './person.drawer';
@@ -58,14 +59,7 @@ export function PeopleCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('people.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('people.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('people.title')} description={t('people.intro')} />
 
                 <Group align="flex-end" gap="sm">
                     <TextInput

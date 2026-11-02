@@ -38,6 +38,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 
 /**
  * The soundboard: the short sounds a presenter reaches for.
@@ -68,6 +69,24 @@ import { PageSkeleton } from '../shared/page.skeleton';
 export function PadsPage() {
     const { t } = useTranslation('pads');
     const rack = usePads();
+
+    return (
+        <Stack gap="lg">
+            <QueryView
+                query={rack}
+                skeleton={<PageSkeleton variant="rows" count={6} />}
+                errorTitle={t('page.loadFailed')}
+                errorFallback={t('page.loadFailedFallback')}
+            >
+                {({ pads, sets }) => <PadRack pads={pads} sets={sets} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** The page, with a rack to draw. Its own component so a failed refetch keeps the rack on screen under the alert, a half-typed set name with it. */
+function PadRack({ pads, sets }: { pads: Pad[]; sets: PadSet[] }) {
+    const { t } = useTranslation('pads');
     const scan = useScanPads();
     const setState = useSetPadState();
     const setUse = useSetPadUse();
@@ -83,24 +102,18 @@ export function PadsPage() {
     const [deleting, setDeleting] = useState<Pad | undefined>(undefined);
     const [using, setUsing] = useState<Pad | undefined>(undefined);
 
-    if (rack.isPending) return <PageSkeleton variant="rows" count={6} />;
-    if (rack.isError) return <ErrorAlert title={t('page.loadFailed')} error={rack.error} />;
-
-    const pads = rack.data?.pads ?? [];
-    const sets = rack.data?.sets ?? [];
     const active = pads.filter(pad => pad.state === 'active');
     const rejected = pads.filter(pad => pad.state === 'rejected');
 
-    const addSet = async () => {
+    const addSet = () => {
         const key = newSet.trim();
         if (key.length === 0) return;
 
-        await createSet.mutateAsync({ key, label: key });
-        setNewSet('');
+        createSet.mutate({ key, label: key }, { onSuccess: () => setNewSet('') });
     };
 
     return (
-        <Stack gap="lg">
+        <>
             <PageHeader
                 eyebrow={t('page.eyebrow')}
                 title={t('page.title')}
@@ -119,6 +132,8 @@ export function PadsPage() {
 
             {scan.isError ? <ErrorAlert title={t('page.scanFailed')} error={scan.error} /> : undefined}
             {membership.isError ? <ErrorAlert title={t('page.membershipFailed')} error={membership.error} /> : undefined}
+            {setState.isError ? <ErrorAlert title={t('page.stateFailed')} error={setState.error} /> : undefined}
+            {createSet.isError ? <ErrorAlert title={t('sets.addFailed')} error={createSet.error} /> : undefined}
             {scan.isSuccess ? <ScanResult result={scan.data} /> : undefined}
 
             <PadUploadCard sets={sets} />
@@ -130,7 +145,7 @@ export function PadsPage() {
                     <Trans t={t} i18nKey="page.empty" components={{ code: <code /> }} />
                 </EmptyState>
             ) : (
-                <Card withBorder padding="md">
+                <Card>
                     <Stack gap="sm">
                         <Eyebrow>{t('page.library')}</Eyebrow>
                         <PadTable
@@ -147,7 +162,7 @@ export function PadsPage() {
             )}
 
             {rejected.length > 0 ? (
-                <Card withBorder padding="md">
+                <Card>
                     <Stack gap="sm">
                         <Eyebrow>{t('page.turnedDown')}</Eyebrow>
                         <Text size="xs" c="dimmed">
@@ -177,15 +192,21 @@ export function PadsPage() {
                 opened={deleting !== undefined}
                 title={t('page.deleteTitle', { label: deleting?.label ?? '' })}
                 confirmLabel={t('page.deleteConfirm')}
-                onConfirm={async () => {
-                    if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle={t('page.deleteFailed')}
+                errorFallback={t('page.deleteFailedFallback')}
+                onConfirm={() => {
+                    if (deleting !== undefined) remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                }}
+                onClose={() => {
+                    remove.reset();
                     setDeleting(undefined);
                 }}
-                onClose={() => setDeleting(undefined)}
             >
                 <Trans t={t} i18nKey="page.deleteBody" values={{ name: deleting?.name ?? '' }} components={{ code: <code /> }} />
             </ConfirmModal>
-        </Stack>
+        </>
     );
 }
 
@@ -216,20 +237,21 @@ function SetList({
     const [editing, setEditing] = useState<{ id: string; key: string } | undefined>(undefined);
     const [deleting, setDeleting] = useState<PadSet | undefined>(undefined);
 
-    const save = async () => {
+    const save = () => {
         if (editing === undefined || editing.key.trim().length === 0) return;
 
-        await update.mutateAsync({ id: editing.id, body: { key: editing.key.trim(), label: editing.key.trim() } });
-        setEditing(undefined);
+        update.mutate({ id: editing.id, body: { key: editing.key.trim(), label: editing.key.trim() } }, { onSuccess: () => setEditing(undefined) });
     };
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <Stack gap="sm">
                 <Eyebrow>{t('sets.eyebrow')}</Eyebrow>
                 <Text size="xs" c="dimmed">
                     {t('sets.hint')}
                 </Text>
+
+                {update.isError ? <ErrorAlert title={t('sets.renameFailed')} error={update.error} /> : undefined}
 
                 {sets.length === 0 ? undefined : (
                     <Table.ScrollContainer minWidth={520}>
@@ -241,9 +263,10 @@ function SetList({
                                             {editing?.id === set.id ? (
                                                 <TextInput
                                                     size="xs"
+                                                    aria-label={t('sets.renameLabel', { key: set.key })}
                                                     value={editing.key}
                                                     onChange={event => setEditing({ id: set.id, key: event.currentTarget.value })}
-                                                    onKeyDown={event => (event.key === 'Enter' ? void save() : undefined)}
+                                                    onKeyDown={event => (event.key === 'Enter' ? save() : undefined)}
                                                 />
                                             ) : (
                                                 <Badge variant="light" styles={{ label: { textTransform: 'none' } }}>
@@ -317,6 +340,7 @@ function SetList({
                 <Group gap="xs">
                     <TextInput
                         size="xs"
+                        aria-label={t('sets.newPlaceholder')}
                         placeholder={t('sets.newPlaceholder')}
                         value={value}
                         onChange={event => onChange(event.currentTarget.value)}
@@ -331,11 +355,17 @@ function SetList({
                     opened={deleting !== undefined}
                     title={t('sets.deleteTitle', { key: deleting?.key ?? '' })}
                     confirmLabel={t('sets.deleteConfirm')}
-                    onConfirm={async () => {
-                        if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                    confirming={remove.isPending}
+                    error={remove.error}
+                    errorTitle={t('sets.deleteFailed')}
+                    errorFallback={t('sets.deleteFailedFallback')}
+                    onConfirm={() => {
+                        if (deleting !== undefined) remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                    }}
+                    onClose={() => {
+                        remove.reset();
                         setDeleting(undefined);
                     }}
-                    onClose={() => setDeleting(undefined)}
                 >
                     {t('sets.deleteBody')}{' '}
                     {deleting !== undefined && deleting.personas.length > 0
@@ -560,7 +590,7 @@ async function download(pad: Pad): Promise<void> {
 function ScanResult({ result }: { result: { scanned: number; imported: number; replaced: number; contested: number; skipped: number } }) {
     const { t } = useTranslation('pads');
     return (
-        <Card withBorder padding="sm">
+        <Card padding="sm">
             <Text size="sm">
                 {/* The replaced count is bold only when something was, so the tag is drawn as nothing at 0. */}
                 <Trans

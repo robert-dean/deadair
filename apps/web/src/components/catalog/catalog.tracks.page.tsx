@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
+import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
 import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
@@ -133,6 +134,7 @@ export function CatalogTracksPage({
 
     return (
         <Stack gap="lg">
+            {rate.error ? <ErrorAlert title={t('writes.rateFailed')} error={rate.error} /> : undefined}
             {/* No "back to catalog" link here: the Library's tab strip is the navigation between
                 Tracks and Artists, and a hand-written link beside it duplicated the strip under
                 the wrong name — `/catalog` is the Artists tab, not "catalog". */}

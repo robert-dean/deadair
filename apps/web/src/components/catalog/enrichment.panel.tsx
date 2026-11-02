@@ -5,8 +5,8 @@ import type { TFunction } from 'i18next';
 
 import { formatDate } from '../shared/format.date';
 import type { Moment } from '../shared/feed.moment';
-import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 
 /**
  * The union of the three payload shapes the API reports.
@@ -205,28 +205,36 @@ function Claims({ claims }: { claims: EnrichmentClaim[] }) {
 
 export function EnrichmentPanel({ merged, sources, claims, isPending, error, emptyMessage }: EnrichmentPanelProps) {
     const { t } = useTranslation('catalog');
-    if (isPending) return <PageSkeleton variant="card" />;
-
-    if (error) {
-        return <ErrorAlert title={t('enrichment.loadFailedTitle')} error={error} fallback={t('tracks.loadFailedFallback')} />;
-    }
-
-    const facts = merged ?? {};
-    const rows = sources ?? [];
     const beliefs = claims ?? [];
+
+    return (
+        <Stack gap="md">
+            <QueryView
+                query={{ data: sources, error, isPending }}
+                skeleton={<PageSkeleton variant="card" />}
+                errorTitle={t('enrichment.loadFailedTitle')}
+                errorFallback={t('tracks.loadFailedFallback')}
+                isEmpty={rows => rows.length === 0 && beliefs.length === 0}
+                empty={
+                    <Card padding="lg">
+                        <Text size="sm" c="dimmed">
+                            {emptyMessage}
+                        </Text>
+                    </Card>
+                }
+            >
+                {rows => <EnrichmentCard facts={merged ?? {}} rows={rows} beliefs={beliefs} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** The answer, for a row the walk has stored something about. */
+function EnrichmentCard({ facts, rows, beliefs }: { facts: EnrichmentFacts; rows: EnrichmentProvenance[]; beliefs: EnrichmentClaim[] }) {
+    const { t } = useTranslation('catalog');
     const pairs = detailPairs(facts, t);
     const tags = [...(facts.genres ?? []), ...(facts.moods ?? [])];
     const extraKeys = Object.keys(facts.extra ?? {});
-
-    if (rows.length === 0 && beliefs.length === 0) {
-        return (
-            <Card padding="lg">
-                <Text size="sm" c="dimmed">
-                    {emptyMessage}
-                </Text>
-            </Card>
-        );
-    }
 
     return (
         <Card padding="lg">

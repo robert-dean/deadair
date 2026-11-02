@@ -89,7 +89,15 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
     });
 
     return (
-        <Modal opened={opened} onClose={onClose} title={band ? t('band.editTitle') : t('band.newTitle')} size="lg" fullScreen={phone}>
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            title={band ? t('band.editTitle') : t('band.newTitle')}
+            size="lg"
+            fullScreen={phone}
+            closeOnClickOutside={false}
+            closeOnEscape={!form.isDirty()}
+        >
             <form onSubmit={submit}>
                 <Stack gap="md">
                     {error ? <ErrorAlert title={t('band.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}

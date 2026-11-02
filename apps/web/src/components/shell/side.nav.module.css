@@ -76,6 +76,7 @@
     white-space: normal;
 }
 
+/** A heading among a destination's rows, indented to sit with them rather than with the destination. */
 .groupLabel {
     padding-inline: var(--mantine-spacing-md);
     padding-block: var(--mantine-spacing-xs) 4px;

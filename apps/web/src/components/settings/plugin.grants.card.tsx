@@ -1,4 +1,4 @@
-import { Card, Stack, Table, Text, Title } from '@mantine/core';
+import { Card, Stack, Table, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { PluginGrant } from '@deadair/sdk';
 
@@ -6,6 +6,7 @@ import { usePluginGrants } from '../../api/plugins.queries';
 import { GRANT_TONES, GRANT_WORDS, GrantAnswer, GrantDescription } from '../plugins/plugin.grants';
 import { ErrorAlert } from '../shared/error.alert';
 import { PhoneCard } from '../shared/phone.card';
+import { SectionHeading } from '../shared/section.heading';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
 
@@ -43,14 +44,7 @@ export function PluginGrantsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('pluginGrants.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('pluginGrants.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('pluginGrants.title')} description={t('pluginGrants.intro')} />
 
                 {grants.error ? (
                     <ErrorAlert title={t('pluginGrants.unavailable.title')} error={grants.error} fallback={t('pluginGrants.unavailable.fallback')} />

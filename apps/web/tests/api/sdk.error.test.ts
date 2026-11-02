@@ -8,7 +8,6 @@ import {
     isClientError,
     isRefreshRefused,
     isForbidden,
-    isInsufficientScope,
     isInvalidToken,
     isStepUpRequired,
     sdkError,
@@ -137,11 +136,6 @@ describe('challenge predicates', () => {
         // Same challenge on a 401 is a sign-in problem, not a step-up.
         expect(isStepUpRequired(invalidToken())).toBe(false);
         expect(isStepUpRequired(failure(403))).toBe(false);
-    });
-
-    it('detects insufficient scope', () => {
-        expect(isInsufficientScope(failure(403, { 'WWW-Authenticate': 'Bearer error="insufficient_scope"' }))).toBe(true);
-        expect(isInsufficientScope(failure(403, { 'WWW-Authenticate': 'Bearer error="mfa_required"' }))).toBe(false);
     });
 });
 

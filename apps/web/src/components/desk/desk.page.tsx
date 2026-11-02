@@ -193,6 +193,8 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
                     {...(air.data?.holdUntil === undefined ? {} : { holdUntil: air.data.holdUntil })}
                     {...(air.data?.quietRecords === undefined ? {} : { quietRecords: air.data.quietRecords })}
                 />
+            ) : playout.error ? (
+                <ErrorAlert title={t('page.playoutFailed')} error={playout.error} fallback={t('page.playoutFailedFallback')} />
             ) : (
                 <PageSkeleton variant="card" />
             )}

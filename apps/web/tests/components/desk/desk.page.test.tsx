@@ -26,6 +26,8 @@ const skipTheCurrentItem = vi.fn();
 const stopPlayout = vi.fn();
 const keepTheStationQuiet = vi.fn();
 const endTheQuietSpell = vi.fn();
+const holdTheStationAgainstTheSchedule = vi.fn();
+const setTheAirMode = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -39,6 +41,8 @@ vi.mock('../../../src/api/client', () => ({
             recastTheBroadcast: () => Promise.resolve(order()),
             keepTheStationQuiet: (body: unknown) => keepTheStationQuiet(body),
             endTheQuietSpell: () => endTheQuietSpell(),
+            holdTheStationAgainstTheSchedule: (body: unknown) => holdTheStationAgainstTheSchedule(body),
+            setTheAirMode: (body: unknown) => setTheAirMode(body),
         },
         playout: {
             getPlayoutStatus: () => getPlayoutStatus(),
@@ -362,6 +366,42 @@ describe('DeskPage', () => {
 
         expect(await screen.findByRole('button', { name: 'Keep it on past the next block' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Keep it on for two hours' })).toBeInTheDocument();
+    });
+
+    // Both writes sit on the landing page, and a failure of either used to leave the control exactly
+    // as it was with nothing said: the operator walks away believing the schedule will not take the
+    // broadcast back.
+    it('says so when the hold could not be changed', async () => {
+        arrange();
+        getStationAir.mockResolvedValue(stationAir({ airSource: 'operator' }));
+        holdTheStationAgainstTheSchedule.mockRejectedValue(new Error('offline'));
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'Keep it on past the next block' }));
+
+        expect(await screen.findByText('The hold on this broadcast could not be changed.')).toBeInTheDocument();
+    });
+
+    it('says so when the air mode could not be changed', async () => {
+        arrange();
+        setTheAirMode.mockRejectedValue(new Error('offline'));
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByText('always'));
+
+        expect(await screen.findByText('What puts the station on air could not be changed.')).toBeInTheDocument();
+    });
+
+    // A skeleton promises an answer. A read that has failed for good has none coming, and on this page
+    // the skeleton stood where the transport goes, so the desk looked as if it was still loading.
+    it('reports a failed playout read rather than loading for ever', async () => {
+        arrange();
+        getPlayoutStatus.mockRejectedValue(new Error('offline'));
+        render(<DeskPage />);
+
+        expect(await screen.findByText('What the station is playing could not be read')).toBeInTheDocument();
     });
 
     // A station quiet on purpose and one that has silently stopped talking sound the same, so the

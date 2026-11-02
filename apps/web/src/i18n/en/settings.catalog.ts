@@ -4,6 +4,15 @@
  * come from the API in its descriptor, and stay there.
  */
 export const settings = {
+    railGroup: {
+        station: 'Station',
+        access: 'Sign-in and people',
+        outbound: 'Sending out',
+        onAir: 'What goes out',
+        production: 'How it is made',
+        plugins: 'Plugins',
+        console: 'This console',
+    },
     apiKeys: {
         title: 'API keys',
         intro: 'For a script or an integration that should reach the station as you without your password. A key never does more than this account can, and it cannot sign in, change how you sign in, or make other keys.',
@@ -162,6 +171,7 @@ export const settings = {
         title: 'Break artwork',
         intro: 'What a listener’s player shows while the station is talking. A kind with no picture of its own shows the station’s logo, as the bed and off air do.',
         readFailed: 'Could not read what the station shows',
+        readFailedFallback: 'The list of pictures is unavailable.',
         replaceFailed: 'That picture did not go up',
         revertFailed: 'That did not go back',
         empty: {
@@ -573,6 +583,7 @@ export const settings = {
         },
     },
     providerPick: {
+        saveFailed: 'That choice could not be saved',
         label: 'Doing this job',
         automatic: 'Automatic',
         automaticCurrently: 'Automatic (currently {{name}})',
@@ -589,6 +600,7 @@ export const settings = {
         },
     },
     providerRanking: {
+        saveFailed: 'That order could not be saved',
         saved: 'The order',
         theirs: 'Your order',
         default: 'Default order',
@@ -810,7 +822,7 @@ export const settings = {
         },
         save: {
             label: 'Save {{name}}',
-            failureTitle: 'Save failed',
+            failureTitle: 'That could not be saved',
             failureMessage: 'The settings could not be saved.',
         },
     },

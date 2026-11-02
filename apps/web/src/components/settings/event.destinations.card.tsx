@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Code, Drawer, Group, Modal, MultiSelect, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Code, Drawer, Group, Modal, MultiSelect, Stack, Switch, Table, Text, TextInput } from '@mantine/core';
 import { Trans, useTranslation } from 'react-i18next';
 import type { EventDelivery, EventDestination, EventTestResult } from '@deadair/sdk';
 
@@ -22,6 +22,7 @@ import { notifyDone, notifySaved } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
+import { SectionHeading } from '../shared/section.heading';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
@@ -82,14 +83,7 @@ export function EventDestinationsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('eventDestinations.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('eventDestinations.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('eventDestinations.title')} description={t('eventDestinations.intro')} />
 
                 {minted ? <SecretPanel minted={minted} onDone={() => setMinted(undefined)} /> : undefined}
                 {tested ? <TestPanel name={tested.name} result={tested.result} onDone={() => setTested(undefined)} /> : undefined}
@@ -551,7 +545,6 @@ function DeliveriesDrawer({ destination, onClose }: { destination: EventDestinat
     const { t } = useTranslation('settings');
     const phone = usePhone();
     const deliveries = useEventDeliveries(destination?.id);
-    const list = deliveries.data?.deliveries ?? [];
 
     return (
         <Drawer
@@ -565,43 +558,49 @@ function DeliveriesDrawer({ destination, onClose }: { destination: EventDestinat
                 <Text size="sm" c="dimmed">
                     {t('eventDestinations.log.intro')}
                 </Text>
-                {deliveries.isPending && destination ? <PageSkeleton variant="rows" count={3} /> : undefined}
-                {deliveries.error ? (
-                    <ErrorAlert
-                        title={t('eventDestinations.log.unavailable')}
-                        error={deliveries.error}
-                        fallback={t('eventDestinations.log.unavailable')}
-                    />
-                ) : undefined}
-                {deliveries.data && list.length === 0 ? (
-                    <Text size="sm" c="dimmed">
-                        {t('eventDestinations.log.empty')}
-                    </Text>
-                ) : undefined}
-                {list.map(delivery => (
-                    <Stack key={delivery.id} gap="xxxs">
-                        <Group justify="space-between" wrap="nowrap">
-                            <Group gap="xs" wrap="nowrap">
-                                <StatusLamp tone={OUTCOME_TONES[delivery.outcome]} label={t(`eventDestinations.log.outcome.${delivery.outcome}`)} />
-                                <Code>{delivery.eventType}</Code>
-                            </Group>
-                            <Text size="xs" c="dimmed" className="da-num">
-                                {formatMomentStamp(delivery.createdAt)}
-                            </Text>
-                        </Group>
-                        <Text size="xs" c="dimmed" className="da-num">
-                            {t('eventDestinations.log.detail', {
-                                attempt: delivery.attempt,
-                                answered:
-                                    delivery.httpStatus === undefined
-                                        ? t('eventDestinations.test.noAnswer')
-                                        : t('eventDestinations.test.answered', { status: delivery.httpStatus }),
-                                ms: delivery.durationMs,
-                            })}
+                <QueryView
+                    query={deliveries}
+                    // A closed log asks nothing, and a query that asks nothing is pending for as long as it stays closed.
+                    skeleton={destination ? <PageSkeleton variant="rows" count={3} /> : undefined}
+                    errorTitle={t('eventDestinations.log.unavailable')}
+                    errorFallback={t('eventDestinations.log.unavailable')}
+                    isEmpty={data => data.deliveries.length === 0}
+                    empty={
+                        <Text size="sm" c="dimmed">
+                            {t('eventDestinations.log.empty')}
                         </Text>
-                        {delivery.error ? <Text size="xs">{delivery.error}</Text> : undefined}
-                    </Stack>
-                ))}
+                    }
+                >
+                    {data =>
+                        data.deliveries.map(delivery => (
+                            <Stack key={delivery.id} gap="xxxs">
+                                <Group justify="space-between" wrap="nowrap">
+                                    <Group gap="xs" wrap="nowrap">
+                                        <StatusLamp
+                                            tone={OUTCOME_TONES[delivery.outcome]}
+                                            label={t(`eventDestinations.log.outcome.${delivery.outcome}`)}
+                                        />
+                                        <Code>{delivery.eventType}</Code>
+                                    </Group>
+                                    <Text size="xs" c="dimmed" className="da-num">
+                                        {formatMomentStamp(delivery.createdAt)}
+                                    </Text>
+                                </Group>
+                                <Text size="xs" c="dimmed" className="da-num">
+                                    {t('eventDestinations.log.detail', {
+                                        attempt: delivery.attempt,
+                                        answered:
+                                            delivery.httpStatus === undefined
+                                                ? t('eventDestinations.test.noAnswer')
+                                                : t('eventDestinations.test.answered', { status: delivery.httpStatus }),
+                                        ms: delivery.durationMs,
+                                    })}
+                                </Text>
+                                {delivery.error ? <Text size="xs">{delivery.error}</Text> : undefined}
+                            </Stack>
+                        ))
+                    }
+                </QueryView>
             </Stack>
         </Drawer>
     );

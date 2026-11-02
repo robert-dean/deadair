@@ -58,8 +58,6 @@ export function LiveInput({ live }: LiveInputProps) {
     return (
         <Stack gap="sm">
             <Card
-                withBorder
-                padding="md"
                 // The tally rule again, and for the same reason as On air now's: red means a person is
                 // on the air, so it is drawn only then.
                 style={{ borderTop: `2px solid ${onAir ? 'var(--mantine-color-red-6)' : 'var(--da-border)'}` }}

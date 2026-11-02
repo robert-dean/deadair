@@ -7,6 +7,7 @@ import type { AttentionItem } from '@deadair/sdk';
 import { attentionCounts, attentionForDestination } from './attention.destination';
 import { isInsideDestination, NAV_FOOTER_DESTINATIONS } from './destinations';
 import { NavItem } from './nav.item';
+import { NavSections } from './nav.sections';
 import classes from './side.nav.module.css';
 
 /**
@@ -91,19 +92,7 @@ export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterPro
                             {/* Drawn only while the operator is inside it, the same rule the rail above
                                 follows. Check-up's four are here for the first time: they were a tab
                                 strip, and the console navigates one way now. */}
-                            {expanded
-                                ? destination.sections.map((section, index) => (
-                                      <NavItem
-                                          key={section.label}
-                                          to={section.to}
-                                          search={section.search}
-                                          label={section.label}
-                                          hintText={section.hintText}
-                                          nested
-                                          attention={attention.sections[index]}
-                                      />
-                                  ))
-                                : undefined}
+                            {expanded ? <NavSections sections={destination.sections} attention={attention.sections} /> : undefined}
                         </Fragment>
                     );
                 })}

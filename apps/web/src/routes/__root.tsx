@@ -1,22 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActionIcon, Anchor, AppShell, Box, Button, Center, Group, Kbd, Loader, ScrollArea, Text } from '@mantine/core';
+import { useEffect, useRef } from 'react';
+import { Anchor, AppShell, Box, Center, Loader } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
-import { IconSearch } from '@tabler/icons-react';
-import { spotlight } from '@mantine/spotlight';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
-import { useLogoutMutation } from '../api/auth.mutations';
 import { onboardingRequirementsOptions } from '../api/onboarding.queries';
 import { resolveOnboardingRedirect } from '../api/onboarding.gate';
 import { resolveAuthRedirect } from '../auth/auth.gate';
 import { restoreSession } from '../auth/session.bootstrap';
-import { apiErrorMessage, isForbidden } from '../api/sdk.error';
-import { useCurrentSession } from '../api/users.queries';
-import { queryKeys } from '../api/query.keys';
-import { useQueryClient } from '@tanstack/react-query';
 import { AccountView } from '../components/account/account.view';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { usePlayoutStatus } from '../api/playout.queries';
@@ -25,15 +18,12 @@ import { ApiStatusBanner } from '../components/shared/api.status.banner';
 import { ErrorAlert } from '../components/shared/error.alert';
 import { usePhone } from '../components/shared/use.phone';
 import { JumpTo } from '../components/shell/jump.to';
-import { NavFooter } from '../components/shell/nav.footer';
-import { PhoneMenu } from '../components/shell/phone.menu';
 import { PhoneTabs } from '../components/shell/phone.tabs';
 import { DESTINATION_KEYS } from '../components/shell/destinations';
-import { SideNav } from '../components/shell/side.nav';
-import { StationMark } from '../components/shell/station.mark';
-import { StationClock } from '../components/shell/station.clock';
-import { StationTally } from '../components/shell/station.tally';
-import { UpdateNotice } from '../components/shell/update.notice';
+import { ShellHeader } from '../components/shell/shell.header';
+import { ShellRail } from '../components/shell/shell.rail';
+import { useLogoutFlow } from '../components/shell/use.logout.flow';
+import { useShellAccount } from '../components/shell/use.shell.account';
 import { useAccountLanguage } from '../api/languages.queries';
 
 /** Everything the router's gates need. Supplied once in `main.tsx`. */
@@ -91,27 +81,10 @@ export function RootLayout() {
     // The console in the language this account chose, once there is an account to ask.
     useAccountLanguage(signedIn);
     const navigate = useNavigate();
-    const logout = useLogoutMutation();
-    const [logoutError, setLogoutError] = useState<string | undefined>(undefined);
+    const { logout, logoutError, setLogoutError, handleLogout } = useLogoutFlow();
+    const { account, isAdmin, noRole, roleKnown, desk } = useShellAccount(signedIn);
     // Polled here rather than on each page: the header's tally draws from it on every screen, and
     // the desk reads the same key from the same cache rather than issuing its own request.
-    // Which roles the signed-in person holds. The desk is drawn only for an admin; anybody else gets
-    // their own account, and nothing of the station's controls is fetched for them at all.
-    const account = useCurrentSession(signedIn);
-    // Forgotten the moment nobody is signed in, so the next person to sign in on this browser is
-    // asked about afresh rather than drawn with the last one's roles. Logout clears the whole cache
-    // already; a session that simply runs out does not go through it.
-    const queryClient = useQueryClient();
-    useEffect(() => {
-        if (!signedIn) queryClient.removeQueries({ queryKey: queryKeys.auth.session() });
-    }, [queryClient, signedIn]);
-    const isAdmin = account.data?.roles.includes('admin') ?? false;
-    // A 403 is the answer for an account holding no role whatever, which is no admin either. Any
-    // other failure is the API being unwell, which the banner reports, and is not a reason to take
-    // an admin's desk away from them.
-    const noRole = isForbidden(account.error);
-    const roleKnown = account.data !== undefined || account.isError;
-    const desk = signedIn && isAdmin;
     const playout = usePlayoutStatus(desk);
     // The nav's badges, from the same answer the desk draws as a list — one query, one cache, so a
     // badge saying two and a list showing three is not a state this console can reach.
@@ -147,21 +120,6 @@ export function RootLayout() {
               ])
             : [],
     );
-
-    async function handleLogout(): Promise<void> {
-        let failure: string | undefined;
-        try {
-            await logout.mutateAsync();
-        } catch (caught) {
-            // A failed revoke must not strand the user in a signed-in shell, but it is not a
-            // completed sign-out either: the mutation drops local state regardless, and the
-            // shortfall is said out loud.
-            const detail = apiErrorMessage(caught, '');
-            failure = detail ? t('root.revokeFailedWithDetail', { detail }) : t('root.revokeFailed');
-        }
-        setLogoutError(failure);
-        await navigate({ to: '/login' });
-    }
 
     // A page that is the whole screen, drawn without the shell: the party's poster, on a TV across
     // the room, where a header and a rail would only be things for a guest to read instead of the code.
@@ -206,112 +164,22 @@ export function RootLayout() {
                 {t('root.skipToContent')}
             </Anchor>
 
-            <AppShell.Header className="da-scanlines">
-                <Group h="100%" px="md" gap="md" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
-                        <StationMark />
-                        <Text ff="heading" fw={700} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-wordmark)' }}>
-                            {t('root.wordmark')}
-                        </Text>
-                    </Group>
-                    {/* Beside the wordmark rather than out at the right edge: this is what the
-                        station IS at this moment, so it reads as part of the identity rather than
-                        as one more control. The clock stays right, where a clock belongs. */}
-                    {signedIn ? <StationTally status={playout.data} /> : undefined}
-                    <Box style={{ flex: 1, minWidth: 0 }} />
-                    {/* The way to anywhere, and the clock. Logout was in this corner and is in the
-                        rail's footer now: the header's right edge is where an operator looks for
-                        the state of the station and the way to move around it, and a control for
-                        ending your session is neither. */}
-                    {signedIn ? (
-                        <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
-                            {/* Only when a newer release is out. See the component for why it is
-                                here rather than in the attention list. */}
-                            <UpdateNotice enabled={signedIn} />
-                            <Button
-                                variant="default"
-                                size="compact-sm"
-                                fw={400}
-                                c="dimmed"
-                                onClick={spotlight.open}
-                                rightSection={<Kbd size="xs">⌘K</Kbd>}
-                                visibleFrom="sm"
-                            >
-                                {t('root.jumpTo')}
-                            </Button>
-                            {/* The same door with no keycap on it: a phone has no ⌘K, and a button
-                                reading "Jump to anything" is wider than the header can spare. */}
-                            <ActionIcon variant="default" size="lg" aria-label={t('root.jumpTo')} onClick={spotlight.open} hiddenFrom="sm">
-                                <IconSearch size={18} stroke={1.8} />
-                            </ActionIcon>
-                            {/* Not on a phone: the phone's own status bar is already a clock an
-                                inch away, and the 70px this frees is what keeps the corner's two
-                                controls on the right side of the bezel. */}
-                            <Box visibleFrom="sm">
-                                <StationClock />
-                            </Box>
-                            {/* The rail's footer, for a viewport that has no rail — see the
-                                component for why this is not the drawer coming back. */}
-                            <PhoneMenu
-                                loggingOut={logout.isPending}
-                                onLogout={() => {
-                                    void handleLogout();
-                                }}
-                            />
-                        </Group>
-                    ) : undefined}
-                </Group>
-            </AppShell.Header>
+            <ShellHeader
+                signedIn={signedIn}
+                status={playout.data}
+                loggingOut={logout.isPending}
+                onLogout={() => {
+                    void handleLogout();
+                }}
+            />
             {signedIn ? (
-                <AppShell.Navbar>
-                    {/* The nav SCROLLS inside whatever height the shell leaves it, rather than
-                        being tall enough for its links.
-
-                        The shell sizes the navbar as the viewport minus the header and minus the
-                        footer, and the footer is the transport — which is 280px expanded against
-                        96 shut. On a 647px window that leaves the nav 311px for twelve links and
-                        four headings, about 520px of content, and nothing was clipping it: the
-                        links painted straight over the player. The boxes always tiled correctly,
-                        so this was never a positioning bug, only content with nowhere to go.
-
-                        Here rather than in `SideNav` because `AppShell.Section` reads the shell's
-                        context and throws without it, and the nav is rendered bare in its own
-                        test. Layout that depends on the shell belongs to the shell. */}
-                    {/* Both sections shrink, and this one no longer pins `flexShrink: 0`.
-
-                        It did, and the reason was measured: Settings opened out into ten sections
-                        with a LINE OF PROSE under each, about 500px of footer, and with both
-                        shrinkable the flex column took that height out of this section instead — on
-                        a 950px window the destinations were squeezed to 53px of scroller showing
-                        Desk and nothing else.
-
-                        Two things have changed and both matter. This is now the section that grows,
-                        because the rail draws every destination's sections: pinned, Voice's eight
-                        would take the whole column and leave Check-up, Settings and Logout in a
-                        footer scrolled to nothing with no sign they were there. And the 500px that
-                        caused the original squeeze is gone — a nested row carries its sentence as a
-                        tooltip rather than a second line, so Settings' ten are ten single rows.
-                        Only one destination is ever expanded, so the two sections cannot both be
-                        long at once, which is what makes shrinking either of them safe. */}
-                    <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
-                        <SideNav attention={attention.data?.items} />
-                    </AppShell.Section>
-                    {/* Its own section, below the growing one, which is what pins it to the bottom
-                        of the rail — see `nav.footer.tsx` for why it cannot do that itself.
-
-                        `minHeight: 0` is what lets it shrink rather than overflow the rail, and the
-                        scroll is its own: it is the section that grows by ten rows when the operator
-                        is in Settings, so it is the one that has to give. */}
-                    <AppShell.Section component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
-                        <NavFooter
-                            attention={attention.data?.items}
-                            loggingOut={logout.isPending}
-                            onLogout={() => {
-                                void handleLogout();
-                            }}
-                        />
-                    </AppShell.Section>
-                </AppShell.Navbar>
+                <ShellRail
+                    attention={attention.data?.items}
+                    loggingOut={logout.isPending}
+                    onLogout={() => {
+                        void handleLogout();
+                    }}
+                />
             ) : undefined}
             <AppShell.Main id="main" tabIndex={-1}>
                 {/* Above everything, including the page's own failures, and drawn whether or not

@@ -142,13 +142,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // codes and sign-in links this station sends go out through whatever is set here, and until
     // something is, they do not go.
     blurbed('mail', { group: 'mail' }),
-    // Second, and the only one on this page that changes nothing about the station. It is here
-    // because "how do I make this readable in daylight" is a question an operator brings to
-    // Settings, and the card itself says plainly that it is remembered on this browser alone.
-    section('appearance'),
-    // Beside Appearance, being the other question about the console rather than the station: what
-    // language it is in. Never beside `stream.language`, which is what the station broadcasts in.
-    section('languages'),
     // One section with two halves: how YOU sign in, then what the sign-in page offers everybody and
     // who may join through it. They were two sections, Security and "Sign-in and connections", and
     // every feature in them was split across both: a provider is set up on one and linked on the
@@ -185,7 +178,45 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     blurbed('providers'),
     section('grants'),
     section('plugins', { route: '/plugins' }),
+    // Last, and the only one on this page that changes nothing about the station. It is here at all
+    // because "how do I make this readable in daylight" is a question an operator brings to
+    // Settings, and the card itself says plainly that it is remembered on this browser alone.
+    section('appearance'),
+    // Beside Appearance, being the other question about the console rather than the station: what
+    // language it is in. Never beside `stream.language`, which is what the station broadcasts in.
+    section('languages'),
 ];
+
+/**
+ * Which heading each section sits under in the rail, where 22 rows in one run had nothing to scan by.
+ *
+ * Only the rail reads this. `SETTINGS_SECTIONS` must keep a group's sections together, because the rail
+ * draws a heading wherever this changes from one row to the next.
+ */
+export const SETTINGS_RAIL_GROUPS = {
+    station: 'station',
+    stream: 'station',
+    housekeeping: 'station',
+    mail: 'access',
+    security: 'access',
+    people: 'access',
+    events: 'outbound',
+    telemetry: 'outbound',
+    rotation: 'onAir',
+    breaks: 'onAir',
+    bulletins: 'onAir',
+    playout: 'onAir',
+    render: 'production',
+    llm: 'production',
+    analysis: 'production',
+    artwork: 'production',
+    storage: 'production',
+    providers: 'plugins',
+    grants: 'plugins',
+    plugins: 'plugins',
+    appearance: 'console',
+    languages: 'console',
+} as const satisfies Record<SettingsSectionId, string>;
 
 /**
  * Where each section goes. Separate from the list above so the labels stay free of route strings.

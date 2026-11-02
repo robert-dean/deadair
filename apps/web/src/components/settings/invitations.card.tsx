@@ -16,6 +16,7 @@ import { notifyDone } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
+import { SectionHeading } from '../shared/section.heading';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
@@ -49,14 +50,7 @@ export function InvitationsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('people.invitations.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('people.invitations.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('people.invitations.title')} description={t('people.invitations.intro')} />
 
                 <InviteForm gate={gate} onCreated={setShowing} />
 

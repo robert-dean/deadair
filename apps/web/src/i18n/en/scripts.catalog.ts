@@ -12,6 +12,7 @@ export const scripts = {
         all: 'Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out instead are both here.',
     },
     failure: 'The script history could not be read.',
+    rateFailed: 'That rating could not be saved',
     empty: {
         segment: 'Nothing has been written for this break yet. The station asks for the words as the slot comes near, not when the break is planted.',
         persona: 'This character has not written anything yet. A row lands here on every attempt it makes, including the ones it declines.',

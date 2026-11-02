@@ -12,6 +12,8 @@ export const pronunciations = {
         saveFallback: 'Nothing was changed.',
         remove: 'That could not be removed',
         removeFallback: 'Nothing was removed.',
+        state: 'That pronunciation could not be changed',
+        stateFallback: 'It is as it was.',
     },
     proposed: {
         title: 'Proposed',

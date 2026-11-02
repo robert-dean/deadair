@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { ActionIcon, Autocomplete, Badge, Button, Card, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
-import { Dropzone } from '@mantine/dropzone';
-import { IconTrash, IconUpload, IconVolume, IconWorldDownload, IconX } from '@tabler/icons-react';
+import { IconTrash, IconUpload, IconVolume, IconWorldDownload } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { PadSet } from '@deadair/sdk';
 
 import { useFetchPad, useUploadPad } from '../../api/pads.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { UploadDropzone } from '../shared/upload.dropzone';
 
 /**
  * The other door onto the rack: audio dragged into the browser.
@@ -63,7 +63,7 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
     };
 
     return (
-        <Card withBorder padding="md">
+        <Card>
             <Stack gap="sm">
                 <Eyebrow>{t('upload.eyebrow')}</Eyebrow>
 
@@ -81,32 +81,17 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                     />
                 </Group>
 
-                <Dropzone
+                <UploadDropzone
+                    icon={IconVolume}
+                    prompt={t('upload.drop')}
+                    hint={t('upload.dropHint')}
                     onDrop={stage}
                     accept={ACCEPTED}
                     maxSize={MAX_BYTES}
                     // The server refuses the same things and says why; this only keeps an obvious
                     // mistake from becoming a round trip.
                     loading={upload.isPending}
-                >
-                    <Group justify="center" gap="md" mih={90} style={{ pointerEvents: 'none' }}>
-                        <Dropzone.Accept>
-                            <IconUpload size={32} />
-                        </Dropzone.Accept>
-                        <Dropzone.Reject>
-                            <IconX size={32} />
-                        </Dropzone.Reject>
-                        <Dropzone.Idle>
-                            <IconVolume size={32} />
-                        </Dropzone.Idle>
-                        <Stack gap={2}>
-                            <Text size="sm">{t('upload.drop')}</Text>
-                            <Text size="xs" c="dimmed">
-                                {t('upload.dropHint')}
-                            </Text>
-                        </Stack>
-                    </Group>
-                </Dropzone>
+                />
 
                 {staged.length === 0 ? undefined : (
                     <>

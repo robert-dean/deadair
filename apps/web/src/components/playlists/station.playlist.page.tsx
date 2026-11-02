@@ -21,6 +21,7 @@ import { formatDuration } from '../shared/format.duration';
 import { notifyQueued } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { holdingLine, usePluginName } from './station.playlist.card';
@@ -116,76 +117,81 @@ export function StationPlaylistPage({ id }: { id: string }) {
 
             {fill.error ? <ErrorAlert title={t('station.fillFailed')} error={fill.error} /> : undefined}
 
-            {playlist.error ? (
-                <ErrorAlert title={t('station.loadFailed')} error={playlist.error} fallback={t('station.loadFailedFallback')} />
-            ) : undefined}
+            <QueryView
+                query={playlist}
+                skeleton={<PageSkeleton variant="table" />}
+                errorTitle={t('station.loadFailed')}
+                errorFallback={t('station.loadFailedFallback')}
+            >
+                {({ prompt }) => (
+                    <>
+                        {prompt ? (
+                            <Text size="sm" c="dimmed">
+                                {prompt}
+                            </Text>
+                        ) : undefined}
 
-            {playlist.isPending ? <PageSkeleton variant="table" /> : undefined}
+                        {tracks.length === 0 ? <EmptyState>{t('station.empty')}</EmptyState> : undefined}
 
-            {data?.prompt ? (
-                <Text size="sm" c="dimmed">
-                    {data.prompt}
-                </Text>
-            ) : undefined}
+                        {phone && tracks.length > 0 ? (
+                            <Stack gap="xxs">
+                                {tracks.map(track => (
+                                    <PhoneCard
+                                        key={track.id}
+                                        title={
+                                            <TrackLink id={track.trackId} size="sm" truncate c={held(track) ? undefined : 'dimmed'}>
+                                                {track.title}
+                                            </TrackLink>
+                                        }
+                                        subtitle={
+                                            <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
+                                                {track.artists.join(', ')}
+                                            </ArtistLink>
+                                        }
+                                        figure={held(track) ? formatDuration(track.durationMs) : <Waiting />}
+                                    />
+                                ))}
+                            </Stack>
+                        ) : undefined}
 
-            {data && tracks.length === 0 ? <EmptyState>{t('station.empty')}</EmptyState> : undefined}
-
-            {phone && tracks.length > 0 ? (
-                <Stack gap="xxs">
-                    {tracks.map(track => (
-                        <PhoneCard
-                            key={track.id}
-                            title={
-                                <TrackLink id={track.trackId} size="sm" truncate c={held(track) ? undefined : 'dimmed'}>
-                                    {track.title}
-                                </TrackLink>
-                            }
-                            subtitle={
-                                <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
-                                    {track.artists.join(', ')}
-                                </ArtistLink>
-                            }
-                            figure={held(track) ? formatDuration(track.durationMs) : <Waiting />}
-                        />
-                    ))}
-                </Stack>
-            ) : undefined}
-
-            {!phone && tracks.length > 0 ? (
-                <Table.ScrollContainer minWidth={600}>
-                    <Table>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th w={48}>#</Table.Th>
-                                <Table.Th>{t('column.title')}</Table.Th>
-                                <Table.Th>{t('column.artists')}</Table.Th>
-                                <Table.Th>{t('column.album')}</Table.Th>
-                                <Table.Th>{t('column.duration')}</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {tracks.map(track => (
-                                <Table.Tr key={track.id} c={held(track) ? undefined : 'dimmed'}>
-                                    <Table.Td className="da-num">{track.position + 1}</Table.Td>
-                                    <Table.Td>
-                                        <Group gap="xs" wrap="nowrap">
-                                            <TrackLink id={track.trackId}>{track.title}</TrackLink>
-                                            {held(track) ? undefined : <Waiting />}
-                                        </Group>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <ArtistLink id={track.artistId}>{track.artists.join(', ')}</ArtistLink>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
-                                    </Table.Td>
-                                    <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                                </Table.Tr>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
-                </Table.ScrollContainer>
-            ) : undefined}
+                        {!phone && tracks.length > 0 ? (
+                            <Table.ScrollContainer minWidth={600}>
+                                <Table>
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th w={48}>#</Table.Th>
+                                            <Table.Th>{t('column.title')}</Table.Th>
+                                            <Table.Th>{t('column.artists')}</Table.Th>
+                                            <Table.Th>{t('column.album')}</Table.Th>
+                                            <Table.Th>{t('column.duration')}</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {tracks.map(track => (
+                                            <Table.Tr key={track.id} c={held(track) ? undefined : 'dimmed'}>
+                                                <Table.Td className="da-num">{track.position + 1}</Table.Td>
+                                                <Table.Td>
+                                                    <Group gap="xs" wrap="nowrap">
+                                                        <TrackLink id={track.trackId}>{track.title}</TrackLink>
+                                                        {held(track) ? undefined : <Waiting />}
+                                                    </Group>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <ArtistLink id={track.artistId}>{track.artists.join(', ')}</ArtistLink>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
+                                                </Table.Td>
+                                                <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            </Table.ScrollContainer>
+                        ) : undefined}
+                    </>
+                )}
+            </QueryView>
 
             {data ? <RenameModal playlist={data} opened={editing} onClose={() => setEditing(false)} /> : undefined}
 

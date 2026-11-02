@@ -12,6 +12,7 @@ import { render, screen, setupUser, waitFor } from '../../utils/render';
 const listPronunciations = vi.fn();
 const listVoices = vi.fn();
 const samplePronunciation = vi.fn();
+const setPronunciationState = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -19,6 +20,7 @@ vi.mock('../../../src/api/client', () => ({
             listPronunciations: (...args: unknown[]) => listPronunciations(...args),
             listVoices: (...args: unknown[]) => listVoices(...args),
             samplePronunciation: (...args: unknown[]) => samplePronunciation(...args),
+            setPronunciationState: (...args: unknown[]) => setPronunciationState(...args),
         },
     },
 }));
@@ -100,5 +102,36 @@ describe('PronunciationsPage samples', () => {
         await user.click(await screen.findByRole('button', { name: 'Hear how Röyksopp is said' }));
 
         expect(await screen.findByText(/engine refused|could not be spoken/)).toBeInTheDocument();
+    });
+});
+
+describe('PronunciationsPage proposals', () => {
+    const proposals = [
+        entry({ state: 'suggested', origin: 'gloss' }),
+        entry({ id: '22222222-2222-4222-8222-222222222222', written: 'Sigur Rós', spoken: 'see-gur rohss', state: 'suggested', origin: 'gloss' }),
+    ];
+
+    // A failed accept used to redraw nothing at all: the proposal simply stayed where it was.
+    it('says so when a proposal could not be accepted', async () => {
+        listPronunciations.mockResolvedValue({ pronunciations: proposals });
+        setPronunciationState.mockRejectedValue(new Error('offline'));
+        const user = setupUser();
+
+        render(<PronunciationsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Say Röyksopp this way' }));
+
+        expect(await screen.findByText('That pronunciation could not be changed')).toBeInTheDocument();
+    });
+
+    it('shows only the row being accepted as busy', async () => {
+        listPronunciations.mockResolvedValue({ pronunciations: proposals });
+        setPronunciationState.mockReturnValue(new Promise(() => undefined));
+        const user = setupUser();
+
+        render(<PronunciationsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Say Röyksopp this way' }));
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Say Röyksopp this way' })).toHaveAttribute('data-loading'));
+        expect(screen.getByRole('button', { name: 'Say Sigur Rós this way' })).not.toHaveAttribute('data-loading');
     });
 });

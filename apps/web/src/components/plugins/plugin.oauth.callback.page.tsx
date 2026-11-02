@@ -1,9 +1,10 @@
-import { Anchor, Card, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Card, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
 import type { PluginOAuthOutcome } from '../../api/plugins.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { SectionHeading } from '../shared/section.heading';
 
 export interface PluginOAuthCallbackPageProps {
     id: string;
@@ -25,9 +26,7 @@ export function PluginOAuthCallbackPage({ id, outcome }: PluginOAuthCallbackPage
     return (
         <Card padding="xl" maw={560}>
             <Stack gap="md">
-                <Title order={2} size="h4">
-                    {t('oauthCallback.title')}
-                </Title>
+                <SectionHeading title={t('oauthCallback.title')} />
 
                 {message === undefined ? (
                     <Text c="teal">{t('oauthCallback.connected')}</Text>

@@ -1,7 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
     RoutePreviewInput,
-    AddStationSegmentInput,
     AddStationTrackInput,
     ExtendStationInput,
     HoldStationInput,
@@ -189,11 +188,6 @@ export function useSkipToOrderItem() {
 export function useRecastStation() {
     const queryClient = useQueryClient();
     return useMutation(orderMutation<SetStationHostInput>(queryClient, body => sdk.director.recastTheBroadcast(body)));
-}
-
-export function useAddOrderSegment() {
-    const queryClient = useQueryClient();
-    return useMutation(orderMutation<AddStationSegmentInput>(queryClient, body => sdk.director.addASegmentToTheRunningOrder(body)));
 }
 
 /**

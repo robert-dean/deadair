@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core';
-import { Dropzone } from '@mantine/dropzone';
-import { IconPackage, IconUpload, IconX } from '@tabler/icons-react';
+import { IconPackage, IconUpload } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { PluginImportResult } from '@deadair/sdk';
@@ -10,6 +9,7 @@ import { useImportPlugin } from '../../api/plugins.queries';
 import { apiErrorMessage, isForbidden } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone } from '../shared/notify';
+import { UploadDropzone } from '../shared/upload.dropzone';
 
 export interface PluginImportModalProps {
     opened: boolean;
@@ -75,7 +75,10 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                     </ErrorAlert>
                 )}
 
-                <Dropzone
+                <UploadDropzone
+                    icon={IconPackage}
+                    prompt={file === undefined ? t('import.dropzonePrompt') : file.name}
+                    hint={t('import.dropzoneHint')}
                     onDrop={files => {
                         setNeedsRestart(undefined);
                         setFile(files[0]);
@@ -86,25 +89,7 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                     maxSize={MAX_BYTES}
                     loading={importPlugin.isPending}
                     inputProps={{ 'aria-label': t('import.dropzoneLabel') }}
-                >
-                    <Group justify="center" gap="md" mih={90} style={{ pointerEvents: 'none' }}>
-                        <Dropzone.Accept>
-                            <IconUpload size={32} />
-                        </Dropzone.Accept>
-                        <Dropzone.Reject>
-                            <IconX size={32} />
-                        </Dropzone.Reject>
-                        <Dropzone.Idle>
-                            <IconPackage size={32} />
-                        </Dropzone.Idle>
-                        <Stack gap={2}>
-                            <Text size="sm">{file === undefined ? t('import.dropzonePrompt') : file.name}</Text>
-                            <Text size="xs" c="dimmed">
-                                {t('import.dropzoneHint')}
-                            </Text>
-                        </Stack>
-                    </Group>
-                </Dropzone>
+                />
 
                 <Checkbox
                     label={t('import.confirm')}

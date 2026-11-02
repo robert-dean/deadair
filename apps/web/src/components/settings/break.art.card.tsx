@@ -1,6 +1,5 @@
-import { Badge, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
-import { Dropzone } from '@mantine/dropzone';
-import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
+import { Badge, Button, Card, Group, Stack } from '@mantine/core';
+import { IconPhoto } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { BreakArtwork } from '@deadair/sdk';
 
@@ -10,6 +9,9 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { QueryView } from '../shared/query.view';
+import { SectionHeading } from '../shared/section.heading';
+import { UploadDropzone } from '../shared/upload.dropzone';
 
 /** What the station will take in. The server decides by the BYTES; this only saves an obvious mistake a round trip. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -38,25 +40,31 @@ const MAX_BYTES = 4 * 1024 * 1024;
 export function BreakArtCard() {
     const { t } = useTranslation('settings');
     const artwork = useBreakArtwork();
+
+    return (
+        <Stack gap="lg">
+            <QueryView
+                query={artwork}
+                skeleton={<PageSkeleton variant="rows" count={2} />}
+                errorTitle={t('breakArt.readFailed')}
+                errorFallback={t('breakArt.readFailedFallback')}
+            >
+                {({ breaks }) => <BreakArtList breaks={breaks} />}
+            </QueryView>
+        </Stack>
+    );
+}
+
+/** The card itself, with a list to draw. Holds the two writes, so a failed refetch leaves a reply to either on screen. */
+function BreakArtList({ breaks }: { breaks: BreakArtwork[] }) {
+    const { t } = useTranslation('settings');
     const replace = useReplaceBreakArtwork();
     const revert = useRevertBreakArtwork();
-
-    if (artwork.isPending) return <PageSkeleton variant="rows" count={2} />;
-    if (artwork.isError) return <ErrorAlert title={t('breakArt.readFailed')} error={artwork.error} />;
-
-    const breaks = artwork.data?.breaks ?? [];
 
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('breakArt.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('breakArt.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('breakArt.title')} description={t('breakArt.intro')} />
 
                 {replace.isError ? <ErrorAlert title={t('breakArt.replaceFailed')} error={replace.error} /> : undefined}
                 {revert.isError ? <ErrorAlert title={t('breakArt.revertFailed')} error={revert.error} /> : undefined}
@@ -135,7 +143,12 @@ function BreakRow({
                 </Button>
             </Group>
 
-            <Dropzone
+            <UploadDropzone
+                icon={IconPhoto}
+                iconSize={28}
+                minHeight={72}
+                prompt={t('breakArt.drop.title')}
+                hint={t('breakArt.drop.hint')}
                 onDrop={files => {
                     const file = files[0];
                     if (file !== undefined) onReplace(file);
@@ -144,25 +157,7 @@ function BreakRow({
                 maxSize={MAX_BYTES}
                 maxFiles={1}
                 loading={busy}
-            >
-                <Group justify="center" gap="md" mih={72} style={{ pointerEvents: 'none' }}>
-                    <Dropzone.Accept>
-                        <IconUpload size={28} />
-                    </Dropzone.Accept>
-                    <Dropzone.Reject>
-                        <IconX size={28} />
-                    </Dropzone.Reject>
-                    <Dropzone.Idle>
-                        <IconPhoto size={28} />
-                    </Dropzone.Idle>
-                    <Stack gap={2}>
-                        <Text size="sm">{t('breakArt.drop.title')}</Text>
-                        <Text size="xs" c="dimmed">
-                            {t('breakArt.drop.hint')}
-                        </Text>
-                    </Stack>
-                </Group>
-            </Dropzone>
+            />
         </Stack>
     );
 }

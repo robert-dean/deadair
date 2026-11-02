@@ -13,11 +13,12 @@ export interface UnsavedGuardProps {
  *
  * ## Why this is the first one in the console
  *
- * Every other form here is either a modal, which already confirms on the way out, or a page whose
- * work is one button away from being finished. Settings is neither: a section is its own route,
- * every section saves on its own, and the thing that moves you between them is the same tab strip
- * that moves you anywhere else. Typing a new mount into Station and clicking Rotation used to be
- * scrolling and is now a navigation, so what was impossible to lose is one click from gone.
+ * Every other form here is either a modal, which a stray click or Escape cannot close once it holds
+ * an edit, or a page whose work is one button away from being finished. Settings is neither: a
+ * section is its own route, every section saves on its own, and the thing that moves you between
+ * them is the same tab strip that moves you anywhere else. Typing a new mount into Station and
+ * clicking Rotation used to be scrolling and is now a navigation, so what was impossible to lose is
+ * one click from gone.
  *
  * It is deliberately not a general facility. It takes a bit and asks a question; what counts as an
  * unsaved edit is `ConfigFieldsForm`'s question, answered there, because clearing a secret is an

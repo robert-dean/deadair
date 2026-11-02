@@ -23,6 +23,8 @@ export const segments = {
     delete: {
         title: 'Delete {{label}}?',
         confirm: 'Delete the recording',
+        failed: 'The recording could not be deleted',
+        failedFallback: 'It is still there.',
         body: 'The inbox file goes too, so the next scan does not read it back in. Anything the station has already aired stays in the activity feed either way.',
     },
     column: {
@@ -36,7 +38,7 @@ export const segments = {
         play: 'Play {{label}}',
         playFailed: 'That segment would not play.',
         defaultVoice: 'default',
-        deleteTooltip: 'Remove it, and the inbox file behind it',
+        deleteTooltip: 'Delete it, and the inbox file behind it',
         delete: 'Delete {{label}}',
     },
     compose: {

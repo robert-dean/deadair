@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import { Box, Card, Group, Input, SegmentedControl, SimpleGrid, Stack, Text, Title, UnstyledButton } from '@mantine/core';
+import { Box, Card, Group, Input, SegmentedControl, SimpleGrid, Stack, Text, UnstyledButton } from '@mantine/core';
 
 import { CLOCK_CHOICES, setClock, useClock, type ClockChoice } from '../../clock.store';
 import { setTheme, useThemeId } from '../../theme.store';
 import { THEME_ORDER, THEMES, type ThemeDefinition } from '../../themes';
 import { Eyebrow } from '../shared/eyebrow';
+import { SectionHeading } from '../shared/section.heading';
 
 /**
  * Three ways to read the same console.
@@ -37,14 +38,7 @@ export function AppearanceCard() {
         // the sticky header, which would otherwise land on top of the heading it just scrolled to.
         <Card padding="lg" id="appearance" style={{ scrollMarginTop: 76 }}>
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {t('appearance.title')}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {t('appearance.intro')}
-                    </Text>
-                </Stack>
+                <SectionHeading title={t('appearance.title')} description={t('appearance.intro')} />
 
                 <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                     {THEME_ORDER.map(id => (

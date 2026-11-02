@@ -141,15 +141,6 @@ export function catalogArtistAlbumsOptions(id: string, input: CatalogPageInput) 
     });
 }
 
-export function catalogAlbumsOptions(input: CatalogPageInput) {
-    return queryOptions({
-        queryKey: queryKeys.catalog.albums(input.page, input.search, order(input)),
-        queryFn: () => sdk.catalog.listAlbums(pageQuery(input)),
-        staleTime: CATALOG_STALE_TIME,
-        placeholderData: keepPreviousData,
-    });
-}
-
 export function catalogAlbumOptions(id: string) {
     return queryOptions({
         queryKey: queryKeys.catalog.album(id),

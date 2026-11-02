@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Anchor, Button, Card, Code, Group, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Button, Card, Code, Group, Stack } from '@mantine/core';
 import { IconArrowLeft, IconRefresh } from '@tabler/icons-react';
 import { Link, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { isConnectivityError } from '../../api/api.status';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useDisclosureIds } from './disclosure';
+import { SectionHeading } from './section.heading';
 
 /**
  * The router's default error boundary: what a page shows when its loader threw.
@@ -41,14 +42,10 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
     return (
         <Card padding="xl" maw={560}>
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {offline ? t('routeError.offlineTitle') : t('routeError.title')}
-                    </Title>
-                    <Text c="dimmed" size="sm">
-                        {offline ? t('routeError.offline') : apiErrorMessage(error, t('routeError.fallback'))}
-                    </Text>
-                </Stack>
+                <SectionHeading
+                    title={offline ? t('routeError.offlineTitle') : t('routeError.title')}
+                    description={offline ? t('routeError.offline') : apiErrorMessage(error, t('routeError.fallback'))}
+                />
 
                 <Group gap="sm">
                     <Button leftSection={<IconRefresh size={16} />} onClick={retry}>

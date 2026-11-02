@@ -101,7 +101,6 @@
        and it says so for itself below. Declared here so `theme.ts`'s Card default can name it
        unconditionally rather than every theme having to remember to switch it off. */
     --da-glow-panel: none;
-    --da-glow-edge: none;
 
     /* One tracking value per idea, which is the whole point: the console had three different
        letter-spacings for the same uppercase label. */
@@ -245,7 +244,6 @@
     --da-chrome-blur: blur(12px);
 
     --da-glow-panel: 0 0 0 1px rgb(5 222 255 / 6%), 0 0 18px -8px rgb(5 222 255 / 32%), inset 0 0 22px -16px rgb(255 31 208 / 40%);
-    --da-glow-edge: 0 0 12px -4px rgb(5 222 255 / 30%);
 
     /* Wider than the desk's 0.08em, which is the whole difference between a label printed on a
        panel and one projected onto glass. Every `Eyebrow`, every status word and every table kicker

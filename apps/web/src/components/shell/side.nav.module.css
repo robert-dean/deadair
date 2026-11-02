@@ -75,8 +75,3 @@
     color: var(--da-text-dimmed);
     white-space: normal;
 }
-
-.groupLabel {
-    padding-inline: var(--mantine-spacing-md);
-    padding-block: var(--mantine-spacing-xs) 4px;
-}

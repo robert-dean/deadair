@@ -89,6 +89,8 @@ export function mapTrack(song: SubsonicChild, artworkUrl?: string): ProviderTrac
         // Off the file's tags as well, which is what makes an album playable in its own order.
         ...(position(song.track) === undefined ? {} : { trackNumber: position(song.track) }),
         ...(position(song.discNumber) === undefined ? {} : { discNumber: position(song.discNumber) }),
+        // A positive `clean` counts here, since `clean-only` plays nothing from a source that never says.
+        ...(song.explicitStatus === 'explicit' || song.explicitStatus === 'clean' ? { advisory: song.explicitStatus } : {}),
     };
 }
 

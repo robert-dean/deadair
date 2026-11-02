@@ -71,9 +71,9 @@ export function advisoryPolicy(config: AppConfig): AdvisoryPolicy {
  * Whether a policy demands a positively `clean` copy.
  *
  * The one place the "silence is not consent" rule is spelled, so the two queries that enforce it
- * cannot drift apart. An unknown advisory is NOT clean: most providers never say — Subsonic has no
- * such field at all — so a library from one is entirely unmarked, and a station under `clean-only`
- * there plays nothing. That is the honest answer and it is paid for in the setting's help text
+ * cannot drift apart. An unknown advisory is NOT clean: most providers never say, and a local library
+ * says only for files tagged with it, so one can be mostly unmarked, and a station under `clean-only`
+ * there plays little or nothing. That is the honest answer and it is paid for in the setting's help text
  * rather than by weakening the promise, because the alternative is a station that says it is clean
  * and is not.
  */

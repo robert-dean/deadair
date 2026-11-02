@@ -26,6 +26,13 @@ describe('mapTrack', () => {
         expect(mapped).not.toHaveProperty('discNumber');
     });
 
+    it('carries the explicit marking OpenSubsonic reads off the file, and nothing for an unmarked one', () => {
+        expect(mapTrack({ ...song, explicitStatus: 'explicit' })).toMatchObject({ advisory: 'explicit' });
+        expect(mapTrack({ ...song, explicitStatus: 'clean' })).toMatchObject({ advisory: 'clean' });
+        expect(mapTrack({ ...song, explicitStatus: '' })).not.toHaveProperty('advisory');
+        expect(mapTrack(song)).not.toHaveProperty('advisory');
+    });
+
     it('refuses a song with no id, since nothing could ever be fetched by it', () => {
         expect(mapTrack({ title: 'Nameless' })).toBeUndefined();
     });

@@ -1,6 +1,5 @@
-import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
-import { Dropzone } from '@mantine/dropzone';
-import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
+import { Badge, Button, Card, Group, Stack } from '@mantine/core';
+import { IconPhoto } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { BreakArtwork } from '@deadair/sdk';
 
@@ -12,6 +11,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { SectionHeading } from '../shared/section.heading';
+import { UploadDropzone } from '../shared/upload.dropzone';
 
 /** What the station will take in. The server decides by the BYTES; this only saves an obvious mistake a round trip. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -143,7 +143,12 @@ function BreakRow({
                 </Button>
             </Group>
 
-            <Dropzone
+            <UploadDropzone
+                icon={IconPhoto}
+                iconSize={28}
+                minHeight={72}
+                prompt={t('breakArt.drop.title')}
+                hint={t('breakArt.drop.hint')}
                 onDrop={files => {
                     const file = files[0];
                     if (file !== undefined) onReplace(file);
@@ -152,25 +157,7 @@ function BreakRow({
                 maxSize={MAX_BYTES}
                 maxFiles={1}
                 loading={busy}
-            >
-                <Group justify="center" gap="md" mih={72} style={{ pointerEvents: 'none' }}>
-                    <Dropzone.Accept>
-                        <IconUpload size={28} />
-                    </Dropzone.Accept>
-                    <Dropzone.Reject>
-                        <IconX size={28} />
-                    </Dropzone.Reject>
-                    <Dropzone.Idle>
-                        <IconPhoto size={28} />
-                    </Dropzone.Idle>
-                    <Stack gap={2}>
-                        <Text size="sm">{t('breakArt.drop.title')}</Text>
-                        <Text size="xs" c="dimmed">
-                            {t('breakArt.drop.hint')}
-                        </Text>
-                    </Stack>
-                </Group>
-            </Dropzone>
+            />
         </Stack>
     );
 }

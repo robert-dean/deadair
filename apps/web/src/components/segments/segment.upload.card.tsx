@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { ActionIcon, Alert, Autocomplete, Button, Card, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
-import { Dropzone } from '@mantine/dropzone';
-import { IconInfoCircle, IconTrash, IconUpload, IconVolume, IconX } from '@tabler/icons-react';
+import { IconInfoCircle, IconTrash, IconUpload, IconVolume } from '@tabler/icons-react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { useUploadSegment } from '../../api/segments.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { UploadDropzone } from '../shared/upload.dropzone';
 
 /**
  * The other door into the library: audio dragged into the browser.
@@ -79,25 +79,15 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                     ) : undefined}
                 </Group>
 
-                <Dropzone onDrop={stage} accept={ACCEPTED} maxSize={MAX_BYTES} loading={upload.isPending}>
-                    <Group justify="center" gap="md" mih={90} style={{ pointerEvents: 'none' }}>
-                        <Dropzone.Accept>
-                            <IconUpload size={32} />
-                        </Dropzone.Accept>
-                        <Dropzone.Reject>
-                            <IconX size={32} />
-                        </Dropzone.Reject>
-                        <Dropzone.Idle>
-                            <IconVolume size={32} />
-                        </Dropzone.Idle>
-                        <Stack gap={2}>
-                            <Text size="sm">{t('uploadCard.drop')}</Text>
-                            <Text size="xs" c="dimmed">
-                                {t('uploadCard.dropHint')}
-                            </Text>
-                        </Stack>
-                    </Group>
-                </Dropzone>
+                <UploadDropzone
+                    icon={IconVolume}
+                    prompt={t('uploadCard.drop')}
+                    hint={t('uploadCard.dropHint')}
+                    onDrop={stage}
+                    accept={ACCEPTED}
+                    maxSize={MAX_BYTES}
+                    loading={upload.isPending}
+                />
 
                 {staged.length === 0 ? undefined : (
                     <>

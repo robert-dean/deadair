@@ -573,6 +573,7 @@ export const settings = {
         },
     },
     providerPick: {
+        saveFailed: 'That choice could not be saved',
         label: 'Doing this job',
         automatic: 'Automatic',
         automaticCurrently: 'Automatic (currently {{name}})',
@@ -589,6 +590,7 @@ export const settings = {
         },
     },
     providerRanking: {
+        saveFailed: 'That order could not be saved',
         saved: 'The order',
         theirs: 'Your order',
         default: 'Default order',

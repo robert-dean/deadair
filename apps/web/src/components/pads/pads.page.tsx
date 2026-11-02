@@ -91,12 +91,11 @@ export function PadsPage() {
     const active = pads.filter(pad => pad.state === 'active');
     const rejected = pads.filter(pad => pad.state === 'rejected');
 
-    const addSet = async () => {
+    const addSet = () => {
         const key = newSet.trim();
         if (key.length === 0) return;
 
-        await createSet.mutateAsync({ key, label: key });
-        setNewSet('');
+        createSet.mutate({ key, label: key }, { onSuccess: () => setNewSet('') });
     };
 
     return (
@@ -119,6 +118,8 @@ export function PadsPage() {
 
             {scan.isError ? <ErrorAlert title={t('page.scanFailed')} error={scan.error} /> : undefined}
             {membership.isError ? <ErrorAlert title={t('page.membershipFailed')} error={membership.error} /> : undefined}
+            {setState.isError ? <ErrorAlert title={t('page.stateFailed')} error={setState.error} /> : undefined}
+            {createSet.isError ? <ErrorAlert title={t('sets.addFailed')} error={createSet.error} /> : undefined}
             {scan.isSuccess ? <ScanResult result={scan.data} /> : undefined}
 
             <PadUploadCard sets={sets} />
@@ -222,11 +223,10 @@ function SetList({
     const [editing, setEditing] = useState<{ id: string; key: string } | undefined>(undefined);
     const [deleting, setDeleting] = useState<PadSet | undefined>(undefined);
 
-    const save = async () => {
+    const save = () => {
         if (editing === undefined || editing.key.trim().length === 0) return;
 
-        await update.mutateAsync({ id: editing.id, body: { key: editing.key.trim(), label: editing.key.trim() } });
-        setEditing(undefined);
+        update.mutate({ id: editing.id, body: { key: editing.key.trim(), label: editing.key.trim() } }, { onSuccess: () => setEditing(undefined) });
     };
 
     return (
@@ -236,6 +236,8 @@ function SetList({
                 <Text size="xs" c="dimmed">
                     {t('sets.hint')}
                 </Text>
+
+                {update.isError ? <ErrorAlert title={t('sets.renameFailed')} error={update.error} /> : undefined}
 
                 {sets.length === 0 ? undefined : (
                     <Table.ScrollContainer minWidth={520}>
@@ -249,7 +251,7 @@ function SetList({
                                                     size="xs"
                                                     value={editing.key}
                                                     onChange={event => setEditing({ id: set.id, key: event.currentTarget.value })}
-                                                    onKeyDown={event => (event.key === 'Enter' ? void save() : undefined)}
+                                                    onKeyDown={event => (event.key === 'Enter' ? save() : undefined)}
                                                 />
                                             ) : (
                                                 <Badge variant="light" styles={{ label: { textTransform: 'none' } }}>

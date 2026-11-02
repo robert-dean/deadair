@@ -119,6 +119,7 @@ export function PronunciationsPage() {
             {create.error ? <ErrorAlert title={t('error.add')} error={create.error} fallback={t('error.addFallback')} /> : undefined}
             {update.error ? <ErrorAlert title={t('error.save')} error={update.error} fallback={t('error.saveFallback')} /> : undefined}
             {remove.error ? <ErrorAlert title={t('error.remove')} error={remove.error} fallback={t('error.removeFallback')} /> : undefined}
+            {setState.error ? <ErrorAlert title={t('error.state')} error={setState.error} fallback={t('error.stateFallback')} /> : undefined}
 
             {lexicon.isPending ? <PageSkeleton variant="card" /> : undefined}
 
@@ -157,7 +158,7 @@ export function PronunciationsPage() {
                                                         variant="subtle"
                                                         color="teal"
                                                         aria-label={t('proposed.accept', { written: entry.written })}
-                                                        loading={setState.isPending}
+                                                        loading={setState.isPending && setState.variables?.id === entry.id}
                                                         onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
                                                     >
                                                         <IconCheck size={14} />
@@ -167,7 +168,7 @@ export function PronunciationsPage() {
                                                         variant="subtle"
                                                         color="gray"
                                                         aria-label={t('proposed.reject', { written: entry.written })}
-                                                        loading={setState.isPending}
+                                                        loading={setState.isPending && setState.variables?.id === entry.id}
                                                         onClick={() => setState.mutate({ id: entry.id, body: { state: 'rejected' } })}
                                                     >
                                                         <IconX size={14} />
@@ -342,7 +343,7 @@ export function PronunciationsPage() {
                                                     <Button
                                                         size="compact-xs"
                                                         variant="subtle"
-                                                        loading={setState.isPending}
+                                                        loading={setState.isPending && setState.variables?.id === entry.id}
                                                         onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
                                                     >
                                                         {t('rejected.restore')}

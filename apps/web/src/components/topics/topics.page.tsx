@@ -81,6 +81,9 @@ export function TopicsPage() {
             />
 
             {kinds.error ? <ErrorAlert title={t('page.loadFailedTitle')} error={kinds.error} fallback={t('page.loadFailedFallback')} /> : undefined}
+            {topics.error ? (
+                <ErrorAlert title={t('page.topicsFailedTitle')} error={topics.error} fallback={t('page.loadFailedFallback')} />
+            ) : undefined}
 
             {remove.error ? <ErrorAlert title={t('page.deleteFailedTitle')} error={remove.error} fallback={t('page.nothingRemoved')} /> : undefined}
 

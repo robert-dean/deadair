@@ -108,6 +108,8 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
 
     return (
         <Stack gap="lg">
+            {rate.error ? <ErrorAlert title={t('writes.rateFailed')} error={rate.error} /> : undefined}
+            {suspend.error ? <ErrorAlert title={t('suspend.failed')} error={suspend.error} /> : undefined}
             {/* Wraps on a phone rather than holding its intrinsic width: at 500px a 160px artwork
                 beside the title block left no room for the title, which is why the artwork also
                 shrinks. */}

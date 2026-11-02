@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
+import { ErrorAlert } from '../shared/error.alert';
 import { Artwork } from '../shared/artwork';
 import { EmptyState } from '../shared/empty.state';
 import { PageHeader } from '../shared/page.header';
@@ -42,6 +43,7 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
 
     return (
         <Stack gap="lg">
+            {rate.error ? <ErrorAlert title={t('writes.rateFailed')} error={rate.error} /> : undefined}
             <PageHeader
                 title={t('artists.title')}
                 description={

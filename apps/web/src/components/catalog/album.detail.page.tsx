@@ -48,6 +48,9 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
 
     return (
         <Stack gap="lg">
+            {rateAlbum.error ? <ErrorAlert title={t('writes.rateFailed')} error={rateAlbum.error} /> : undefined}
+            {rateTrack.error ? <ErrorAlert title={t('writes.rateFailed')} error={rateTrack.error} /> : undefined}
+            {suspend.error ? <ErrorAlert title={t('suspend.failed')} error={suspend.error} /> : undefined}
             <Group align="flex-start" gap="md" wrap="nowrap">
                 {album.data ? <Artwork src={album.data.imageUrl} alt={album.data.name} size={160} /> : undefined}
                 <Stack gap="xxs">

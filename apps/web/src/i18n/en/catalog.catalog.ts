@@ -1,5 +1,8 @@
 /** The catalog pages: tracks, artists, releases and one record, and the controls they share. Provider text and enrichment values come from the API. */
 export const catalog = {
+    writes: {
+        rateFailed: 'That rating could not be saved',
+    },
     columns: {
         title: 'Title',
         artist: 'Artist',

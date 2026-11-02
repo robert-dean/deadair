@@ -5,6 +5,7 @@ export const topics = {
         description:
             'What a break can be about. Put one on a band in the format clock and that break covers only its subject — a technology bulletin at half past, the local news at six. Leave a band without one and the station spreads what it has.',
         loadFailedTitle: 'The subjects could not be loaded',
+        topicsFailedTitle: 'The subjects this station holds could not be loaded',
         loadFailedFallback: "This station's vocabulary is unavailable.",
         deleteFailedTitle: 'That could not be deleted',
         nothingRemoved: 'Nothing was removed.',

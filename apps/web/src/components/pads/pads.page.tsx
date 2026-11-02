@@ -249,6 +249,7 @@ function SetList({
                                             {editing?.id === set.id ? (
                                                 <TextInput
                                                     size="xs"
+                                                    aria-label={t('sets.renameLabel', { key: set.key })}
                                                     value={editing.key}
                                                     onChange={event => setEditing({ id: set.id, key: event.currentTarget.value })}
                                                     onKeyDown={event => (event.key === 'Enter' ? save() : undefined)}
@@ -325,6 +326,7 @@ function SetList({
                 <Group gap="xs">
                     <TextInput
                         size="xs"
+                        aria-label={t('sets.newPlaceholder')}
                         placeholder={t('sets.newPlaceholder')}
                         value={value}
                         onChange={event => onChange(event.currentTarget.value)}

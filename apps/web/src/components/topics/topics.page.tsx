@@ -13,6 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { RowOpener } from '../shared/row.opener';
 import { TopicEditor, type TopicTarget } from './topic.editor';
 
 /**
@@ -139,7 +140,9 @@ export function TopicsPage() {
                                                     onClick={() => setEditing({ kind, target: { kind: 'edit', topic } })}
                                                 >
                                                     <Table.Td w={220}>
-                                                        <Text size="sm">{topic.label}</Text>
+                                                        <RowOpener>
+                                                            <Text size="sm">{topic.label}</Text>
+                                                        </RowOpener>
                                                     </Table.Td>
                                                     <Table.Td>
                                                         <Text size="xs" c="dimmed">

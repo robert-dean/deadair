@@ -14,6 +14,7 @@ import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { StatusLamp } from '../shared/status.lamp';
+import { RowOpener } from '../shared/row.opener';
 import { BreakKindEditor, type BreakKindTarget } from './break.kind.editor';
 import { BreakKindImportModal } from './break.kind.import';
 
@@ -139,7 +140,9 @@ export function BreakKindsPage() {
                                         onClick={() => setEditing({ kind: 'edit', breakKind })}
                                     >
                                         <Table.Td>
-                                            <Text size="sm">{breakKind.name}</Text>
+                                            <RowOpener>
+                                                <Text size="sm">{breakKind.name}</Text>
+                                            </RowOpener>
                                         </Table.Td>
                                         <Table.Td>
                                             <Code>{breakKind.key}</Code>

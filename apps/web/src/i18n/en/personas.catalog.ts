@@ -550,6 +550,7 @@ export const personas = {
         },
     },
     notes: {
+        editLabel: 'The note',
         deleteTitle: 'Delete this note?',
         deleteBody: 'The station stops drawing on it, and it cannot be brought back.',
         deleteFailed: 'That note could not be deleted',

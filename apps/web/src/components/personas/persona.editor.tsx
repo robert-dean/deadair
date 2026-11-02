@@ -225,6 +225,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             <Stack gap="xs">
                                 <Eyebrow>{t('editor.generate.eyebrow')}</Eyebrow>
                                 <Textarea
+                                    aria-label={t('editor.generate.eyebrow')}
                                     placeholder={
                                         hosting
                                             ? t('editor.generate.placeholderHost')

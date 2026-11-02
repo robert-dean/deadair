@@ -235,7 +235,13 @@ function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: 
             </Group>
 
             {editing ? (
-                <TextInput value={draft} onChange={event => setDraft(event.currentTarget.value)} size="xs" maxLength={500} />
+                <TextInput
+                    aria-label={t('notes.editLabel')}
+                    value={draft}
+                    onChange={event => setDraft(event.currentTarget.value)}
+                    size="xs"
+                    maxLength={500}
+                />
             ) : (
                 <Text size="sm">{note.note}</Text>
             )}

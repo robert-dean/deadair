@@ -15,6 +15,7 @@ import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { severityColor } from '../shared/status';
 import { formatSpent } from '../shared/format.spent';
+import { RowOpener } from '../shared/row.opener';
 
 /**
  * What the station did, decision by decision, and what each one cost.
@@ -196,7 +197,9 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                             </Tooltip>
                                         ) : undefined}
                                         <Stack gap={0}>
-                                            <Text size="sm">{reading.sentence}</Text>
+                                            <RowOpener>
+                                                <Text size="sm">{reading.sentence}</Text>
+                                            </RowOpener>
                                             {/* The raw kind stays, dimmed, EXCEPT for a request — which
                                             already reads as `GET /voices` in the sentence itself, so
                                             repeating it underneath would be the same fact twice. */}

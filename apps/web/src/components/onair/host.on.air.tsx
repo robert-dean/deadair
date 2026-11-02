@@ -59,12 +59,13 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
         <Menu position="bottom-start" withinPortal>
             <Menu.Target>
                 <Badge
+                    component="button"
+                    type="button"
                     size="sm"
                     variant="light"
                     color={failure ? 'red' : 'teal'}
                     tt="none"
                     style={{ cursor: 'pointer' }}
-                    role="button"
                     opacity={recast.isPending ? 0.6 : 1}
                 >
                     {/* A phrase rather than a field. "hosted by:" is a label with a value stuck on

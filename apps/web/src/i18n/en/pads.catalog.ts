@@ -39,6 +39,7 @@ export const pads = {
         removeHint: 'Remove the set. Every sound on it stays in the library.',
         deleteSet: 'Delete {{key}}',
         newPlaceholder: 'a name a persona can point at',
+        renameLabel: 'New name for {{key}}',
         add: 'Add a set',
         deleteTitle: 'Delete the {{key}} set?',
         deleteConfirm: 'Delete the set',

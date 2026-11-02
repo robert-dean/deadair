@@ -6,6 +6,7 @@ import type { AttentionItem } from '@deadair/sdk';
 import { attentionCounts, attentionForDestination } from './attention.destination';
 import { isInsideDestination, NAV_DESTINATIONS } from './destinations';
 import { NavItem } from './nav.item';
+import { NavSections } from './nav.sections';
 
 /**
  * The console's destinations, in the order an operator meets them.
@@ -90,20 +91,7 @@ export function SideNav({ attention = [] }: SideNavProps) {
                             with every section permanently listed is 24 rows of standing furniture, and
                             the rail's own argument for being flat was that a nav should be the places
                             you are choosing between rather than everywhere the console has. */}
-                        {expanded
-                            ? destination.sections.map((section, index) => (
-                                  <NavItem
-                                      key={section.label}
-                                      to={section.to}
-                                      search={section.search}
-                                      label={section.label}
-                                      hintText={section.hintText}
-                                      exact={section.exact}
-                                      nested
-                                      attention={attention.sections[index]}
-                                  />
-                              ))
-                            : undefined}
+                        {expanded ? <NavSections sections={destination.sections} attention={attention.sections} /> : undefined}
                     </Fragment>
                 );
             })}

@@ -7,6 +7,8 @@ import classes from './destination.tabs.module.css';
 export interface DestinationTab<TKey extends string> {
     key: TKey;
     label: string;
+    /** The heading it sits under in the rail, for a destination with too many rows to scan. Tabs sharing one are neighbours. */
+    group?: string;
     /**
      * What is behind this tab, in a sentence.
      *

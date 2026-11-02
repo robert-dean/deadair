@@ -5,7 +5,7 @@ import { i18n } from '../../i18n/i18n.setup';
 import { CHECKUP_ROUTES, CHECKUP_TABS } from '../station/checkup.shell';
 import { LIBRARY_ROUTES, LIBRARY_TABS } from '../library/library.shell';
 import { DEFAULT_PROGRAMME_TAB, PROGRAMME_TABS } from '../schedule/schedule.page';
-import { SETTINGS_ROUTES, SETTINGS_SECTIONS } from '../settings/settings.shell';
+import { SETTINGS_RAIL_GROUPS, SETTINGS_ROUTES, SETTINGS_SECTIONS } from '../settings/settings.shell';
 import { DEFAULT_VOICE_TAB, VOICE_TABS } from '../voice/voice.page';
 
 /**
@@ -51,6 +51,8 @@ export type NavLink = Pick<LinkProps, 'to' | 'search'>;
 
 export interface NavSection extends NavLink {
     label: string;
+    /** The heading the rail draws above the first row of a run sharing it. */
+    group?: string;
     /** What is behind it, drawn as the row's tooltip. Straight off the tab table. */
     hintText?: string;
     /**
@@ -150,6 +152,9 @@ export const NAV_DESTINATIONS: NavDestination[] = [
             to: '/voice',
             search: { tab: tab.key, segment: '', persona: '' },
             exact: tab.key === DEFAULT_VOICE_TAB,
+            get group() {
+                return tab.group;
+            },
             get label() {
                 return tab.label;
             },
@@ -190,6 +195,9 @@ export const NAV_FOOTER_DESTINATIONS: NavDestination[] = [
         },
         sections: SETTINGS_SECTIONS.map(section => ({
             to: SETTINGS_ROUTES[section.id],
+            get group() {
+                return i18n.t(`settings:railGroup.${SETTINGS_RAIL_GROUPS[section.id]}`);
+            },
             get label() {
                 return section.label;
             },

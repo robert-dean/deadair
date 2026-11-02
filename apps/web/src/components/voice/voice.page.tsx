@@ -23,10 +23,13 @@ import { EmbeddedPage } from '../shared/page.header';
  * module loads: the shell's rail and the palette import this table, and a language change should
  * reach them as it reaches the strip.
  */
-function voiceTab<TKey extends keyof typeof voice.tab>(key: TKey) {
+function voiceTab<TKey extends keyof typeof voice.tab>(key: TKey, group: keyof typeof voice.group) {
     const at: keyof typeof voice.tab = key;
     return {
         key,
+        get group(): string {
+            return i18n.t(`voice:group.${group}`);
+        },
         get label(): string {
             return i18n.t(`voice:tab.${at}.label`);
         },
@@ -38,17 +41,17 @@ function voiceTab<TKey extends keyof typeof voice.tab>(key: TKey) {
 
 /** The tabs, in the order an operator meets them: who is talking, then everything they need to talk. */
 export const VOICE_TABS = [
-    voiceTab('characters'),
-    voiceTab('auditions'),
-    voiceTab('voices'),
-    voiceTab('segments'),
-    voiceTab('pronunciations'),
-    voiceTab('soundboard'),
-    voiceTab('phrasings'),
-    voiceTab('kinds'),
-    voiceTab('subjects'),
-    voiceTab('productions'),
-    voiceTab('said'),
+    voiceTab('characters', 'who'),
+    voiceTab('auditions', 'who'),
+    voiceTab('voices', 'who'),
+    voiceTab('segments', 'sound'),
+    voiceTab('pronunciations', 'sound'),
+    voiceTab('soundboard', 'sound'),
+    voiceTab('phrasings', 'words'),
+    voiceTab('kinds', 'words'),
+    voiceTab('subjects', 'words'),
+    voiceTab('productions', 'made'),
+    voiceTab('said', 'made'),
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type VoiceTab = (typeof VOICE_TABS)[number]['key'];

@@ -4,6 +4,15 @@
  * come from the API in its descriptor, and stay there.
  */
 export const settings = {
+    railGroup: {
+        station: 'Station',
+        access: 'Sign-in and people',
+        outbound: 'Sending out',
+        onAir: 'What goes out',
+        production: 'How it is made',
+        plugins: 'Plugins',
+        console: 'This console',
+    },
     apiKeys: {
         title: 'API keys',
         intro: 'For a script or an integration that should reach the station as you without your password. A key never does more than this account can, and it cannot sign in, change how you sign in, or make other keys.',

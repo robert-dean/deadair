@@ -1531,6 +1531,16 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // What the day is, as something the presenter knows rather than something to report. Most breaks
+    // on Christmas Day have no business saying so, and a station that says it every ten minutes is the
+    // failure, so the line asks for restraint in the same breath. Not for a bulletin, on the mood's reason.
+    if (request.occasion && shape.voice !== 'lean') {
+        parts.push(
+            `Today is ${request.occasion.words} where your listener is. Most breaks should not mention it. If this one does, say it lightly ` +
+                'and in passing, and do not build the break around it.',
+        );
+    }
+
     // The mood the show is leaning into for this stretch, as context for the register and nothing
     // more. Said as a lean because it is one: the draw only makes a fitting record more likely, so
     // the record either side may be in another mood entirely, and a presenter calling it a sad song

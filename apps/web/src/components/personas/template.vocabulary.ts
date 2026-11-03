@@ -57,6 +57,7 @@ export const TEMPLATE_VOCABULARY: readonly string[] = [
     'clock.rough',
     'clock.daypart',
     'clock.weekday',
+    'occasion',
     'news.headlines',
     'news.topic',
     'weather.report',

@@ -84,6 +84,8 @@ function harness(
         subject?: { key: string; label: string };
         /** What it is like outside, for the one test about handing a reading over. */
         weather?: SpokenWeather;
+        /** What the day is where the station is, for the tests about telling a presenter and holding the break to it. */
+        occasion?: { words: string; validFrom: number; validUntil: number; mood?: string };
         /** What happened on the date, for the one test about handing the day over. */
         almanac?: StationAlmanac;
         /** The programmes either side of a changeover, for the one test about handing them over. */
@@ -257,6 +259,7 @@ function harness(
     const lyricLabels = { subjectsForTracks: vi.fn(async () => options.subjects ?? new Map<string, string>()) };
     const lyricTexts = { textForDerivation: vi.fn(async () => options.lyricTexts ?? new Map<string, string>()) };
     const schedule = { inForce: vi.fn(async () => undefined) };
+    const occasions = { on: vi.fn(async (_at: number) => options.occasion) };
     const vocalMarkers = {
         forTracks: vi.fn(
             async (ids: readonly string[]) =>
@@ -292,6 +295,7 @@ function harness(
         lyricLabels as never,
         lyricTexts as never,
         schedule as never,
+        occasions as never,
         identity as never,
         speech as never,
         config as never,
@@ -413,6 +417,69 @@ describe('WriteBreakJob', () => {
         await bare.job.run({ segmentId: 'seg-1' });
 
         expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }), 'model');
+    });
+
+    describe('what the day is', () => {
+        const AIRS = 1_700_000_000_000;
+        const halloween = { words: 'Halloween', validFrom: AIRS - 1_000, validUntil: AIRS + 1_000 };
+
+        it('tells the writers the day the break airs on, and not the mood, which is for the stretch to resolve', async () => {
+            const { job, writers } = harness({
+                lineup: await lineupWithBreak(),
+                segment: planned({ airsAt: AIRS }),
+                occasion: { ...halloween, mood: 'fear' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ occasion: halloween }), 'model');
+        });
+
+        it('tells them nothing on an ordinary day', async () => {
+            const { job, writers } = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: AIRS }) });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ occasion: expect.anything() }), 'model');
+        });
+
+        it('tells them nothing when the break does not yet know when it airs', async () => {
+            const { job, writers } = harness({ lineup: await lineupWithBreak(), occasion: halloween });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ occasion: expect.anything() }), 'model');
+        });
+
+        it('holds a model break to the day, whatever its words said', async () => {
+            const { job, segments } = harness({
+                lineup: await lineupWithBreak(),
+                segment: planned({ airsAt: AIRS }),
+                occasion: halloween,
+                writer: 'model',
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalledWith(
+                'seg-1',
+                expect.objectContaining({ claimsTime: { from: halloween.validFrom, until: halloween.validUntil } }),
+            );
+        });
+
+        it("leaves a break from the station's own words to say what it said", async () => {
+            const { job, segments, writers } = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: AIRS }), occasion: halloween });
+            const written = { script: 'That one still holds up.', label: 'Talk' };
+            writers.write.mockResolvedValueOnce({
+                written,
+                writer: 'deterministic',
+                attempts: [{ writer: 'deterministic', outcome: 'written', written, durationMs: 1 }],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect((segments.writeScript.mock.calls as unknown as unknown[][])[0]![1]).not.toHaveProperty('claimsTime');
+        });
     });
 
     it('hands the writers what a requested break is about, and asks nothing for a planted one', async () => {

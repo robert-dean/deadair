@@ -1336,6 +1336,27 @@ describe('breakPrompt', () => {
         });
     });
 
+    describe('what the day is', () => {
+        const occasion = { words: 'Halloween', validFrom: 0, validUntil: 1 };
+
+        it('tells the presenter, and asks them to leave it alone most of the time', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, occasion }));
+
+            expect(said).toContain('Today is Halloween where your listener is');
+            expect(said).toMatch(/most breaks should not mention it/i);
+        });
+
+        it('says nothing on an ordinary day', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/Today is/);
+        });
+
+        it('leaves it out of a bulletin', () => {
+            const said = user(breakPrompt({ kind: 'news', occasion, stories: [{ headline: 'Bridge reopens.' }] }, {}, NEWS_SHAPE));
+
+            expect(said).not.toContain('Halloween');
+        });
+    });
+
     describe('a station that has to stay clean', () => {
         it('says nothing about language when the station has no such policy', () => {
             expect(system(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/broadcast-clean/i);

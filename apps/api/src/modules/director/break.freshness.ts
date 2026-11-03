@@ -165,6 +165,7 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     greeting: 'claims-time',
     dayPart: 'claims-time',
     weekday: 'claims-time',
+    occasion: 'claims-time',
 
     // The mood stage of the stretch the break airs in, resolved by `stretchMood` for `airs_at` rather
     // than for now, so a break written in a slot's first stage for a slot in its second is told the

@@ -758,6 +758,26 @@ that perform NO reactions read, so a station is offered one rule or the other. T
 the model that performs reactions, so there the rule is never shown until the operator swaps it. See
 `docs/internals/render.md` § "Speech, voices and cues".
 
+**A presenter knows what day it is, and is told to leave it alone most of the time.** `OccasionService.on`
+(`schedule/occasion.service.ts`) answers from `deadair.occasions` for the instant the break will be HEARD, first
+match in the operator's order, and `BreakRequestBuilder` puts it on the request as `occasion`. It is told to every
+model shape but a bulletin, with the instruction that most breaks should not mention it, because the failure here
+is not a presenter missing Christmas but one who says so every ten minutes. **A model break told the day is held to
+that day whatever its script says** (`heldToOccasion`, stamped in `WriteBreakJob` rather than in each binding): the
+search `timeClaimIn` does cannot work here, since "Merry Christmas" contains none of the words "Christmas Day". The
+floor fills `{{occasion}}`, and that does go through `timeClaimIn`, since a phrasing says exactly what it was given.
+It is the operator's own text, so unlike the clock's English it stays filled on a station in any language. The price
+of holding every model break to the day: a link with a `claimsTime` is never moved over the end of a record
+(`talkOutCues`), so with `breaks.talkOut` on, a model's links air in the gap on an occasion.
+
+**When an occasion falls is a rule, and the rule uses nothing but the platform** (`schedule/occasion.rule.ts`). Five
+kinds: a fixed date, the nth of a weekday in a month, days from Easter, a date in the Hebrew or Islamic calendar read
+through `Intl`, and a list of dates. No holiday library, because every one brings a dependency tree and share-alike
+data for a station that only ever asks one question. **The Chinese calendar is deliberately missing:** `Intl` put
+Lunar New Year a day out in 2027 and 2030, two of the ten years measured, so that date and anything else nothing here
+can work out is listed with the `dates` kind instead. The seeded rows carry no mood, and the ones belonging to a
+country or a faith (Thanksgiving, Rosh Hashanah) start switched off, because the station has no way to know where it is.
+
 ## Bulletins
 
 **Which feeds a bulletin reads is a LIST the station orders, and it used to be one id typed by

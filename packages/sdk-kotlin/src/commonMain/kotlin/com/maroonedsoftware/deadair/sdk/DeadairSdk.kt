@@ -37,6 +37,7 @@ import com.maroonedsoftware.deadair.sdk.clients.ProductionsClient
 import com.maroonedsoftware.deadair.sdk.clients.RenderClient
 import com.maroonedsoftware.deadair.sdk.clients.RequestsClient
 import com.maroonedsoftware.deadair.sdk.clients.RequestsPartyClient
+import com.maroonedsoftware.deadair.sdk.clients.OccasionsClient
 import com.maroonedsoftware.deadair.sdk.clients.ScheduleClient
 import com.maroonedsoftware.deadair.sdk.clients.SettingsClient
 import com.maroonedsoftware.deadair.sdk.clients.LogsClient
@@ -96,6 +97,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val render: RenderClient = RenderClient(http)
     val requests: RequestsClient = RequestsClient(http)
     val requestsParty: RequestsPartyClient = RequestsPartyClient(http)
+    val occasions: OccasionsClient = OccasionsClient(http)
     val schedule: ScheduleClient = ScheduleClient(http)
     val settings: SettingsClient = SettingsClient(http)
     val logs: LogsClient = LogsClient(http)

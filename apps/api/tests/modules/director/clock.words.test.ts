@@ -18,6 +18,7 @@ import {
     saysTime,
     stationZone,
     timeClaimFor,
+    heldToOccasion,
     timeClaimIn,
     weekday,
 } from '../../../src/modules/director/clock.words.js';
@@ -395,6 +396,24 @@ describe('contradictsDayPart', () => {
         it('leaves tonight matching bare, which is the word with no determiner to take', () => {
             expect(contradictsDayPart('Tonight we are back to back.', morning)).toBe('tonight');
         });
+    });
+});
+
+describe('heldToOccasion', () => {
+    const day = { words: 'Christmas Day', validFrom: 1_000, validUntil: 2_000 };
+
+    it('leaves the claim alone on an ordinary day', () => {
+        expect(heldToOccasion(undefined, undefined)).toBeUndefined();
+        expect(heldToOccasion({ from: 5, until: 6 }, undefined)).toEqual({ from: 5, until: 6 });
+    });
+
+    it('claims the day for a break that claimed nothing, since "Merry Christmas" names none of its words', () => {
+        expect(heldToOccasion(undefined, day)).toEqual({ from: 1_000, until: 2_000 });
+    });
+
+    it('narrows to where both hold', () => {
+        expect(heldToOccasion({ from: 500, until: 1_500 }, day)).toEqual({ from: 1_000, until: 1_500 });
+        expect(heldToOccasion({ from: 1_500, until: 3_000 }, day)).toEqual({ from: 1_500, until: 2_000 });
     });
 });
 

@@ -4,6 +4,7 @@
 // asked for, and must decline politely for every lineup that is not a rotation
 // rather than generating into a Christmas setlist.
 
+import type { OccasionService } from '../../../src/modules/schedule/occasion.service.js';
 import type { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import type { LyricMood } from '../../../src/modules/lyrics/lyric.moods.js';
@@ -143,6 +144,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
             activity,
             station.config,
             schedule,
+            { on: vi.fn(async () => undefined) } as unknown as OccasionService,
             contextFor(options.expiresIn),
             container,
             logger,

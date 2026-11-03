@@ -691,6 +691,16 @@ export interface BreakWriteRequest {
      */
     weekday?: RoughTime;
     /**
+     * What this day is where the station is, when it is anything: "Halloween", and the day that stays
+     * true for. Absent on an ordinary day. See `schedule/occasion.service.ts`.
+     *
+     * Told to the model bindings, unlike {@link weekday}, because knowing it is Christmas is something
+     * a presenter cannot work out. A model break told it is held to its window whether or not the script
+     * says these words, since "Merry Christmas" does not contain "Christmas Day": see
+     * `heldToOccasion`. The floor fills `{{occasion}}` from it and stamps the window when a phrasing says it.
+     */
+    occasion?: RoughTime;
+    /**
      * The mood stage of the stretch this break airs in, off the running order's stages. Absent for a
      * broadcast that leans into none.
      *

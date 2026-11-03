@@ -71,6 +71,8 @@ export interface TemplateInputs {
     dayPart?: string;
     /** The day of the week, "Friday", wherever {@link dayPart} is filled and for the same reason. */
     weekday?: string;
+    /** What the day is, "Halloween", on a day that is anything. The operator's own words, so a station in any language gets it. */
+    occasion?: string;
     /**
      * The stories of a bulletin, already assembled into sentences.
      *
@@ -268,6 +270,8 @@ const VALUES: Record<string, Resolver> = {
     // Out of `SPOKEN_VALUES` for the same reason: "this morning" is the station's own phrase.
     'clock.daypart': inputs => inputs.dayPart,
     'clock.weekday': inputs => inputs.weekday,
+    // Out of `SPOKEN_VALUES` with the two above: an operator's own label for the day, not a title.
+    occasion: inputs => inputs.occasion,
     // Out of `SPOKEN_VALUES` for the same reason as the two around it: the stories arrive already
     // speakable (see `BreakStory.headline`), and `spoken` strips catalogue furniture off a TITLE,
     // which would be the wrong operation entirely on a sentence.

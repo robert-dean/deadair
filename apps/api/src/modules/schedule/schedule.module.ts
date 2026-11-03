@@ -1,5 +1,7 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { OccasionRepository } from './occasion.repository.js';
+import { OccasionService } from './occasion.service.js';
 import { PlaylistPositionRepository } from './playlist.position.repository.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { LiveArmRepository } from './live.arm.repository.js';
@@ -38,6 +40,8 @@ export const ScheduleModule: ServerKitModule = {
         registry.register(PreparedSetRepository).useClass(PreparedSetRepository).asScoped();
         registry.register(PlaylistPositionRepository).useClass(PlaylistPositionRepository).asScoped();
         registry.register(ScheduleService).useClass(ScheduleService).asScoped();
+        registry.register(OccasionRepository).useClass(OccasionRepository).asScoped();
+        registry.register(OccasionService).useClass(OccasionService).asScoped();
         registry.register(LiveArmRepository).useClass(LiveArmRepository).asScoped();
         // Scoped, though it reaches the live input through playout, which registers after this module:
         // it is resolved inside the tick's run, long after boot. See `modules.ts`.

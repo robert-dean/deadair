@@ -382,6 +382,23 @@ describe('TalkBreakWriter and the time', () => {
         expect(written?.claimsTime).toEqual({ from: 80_000_000, until: 86_400_000 });
     });
 
+    it('fills the occasion, and holds the line to that day', async () => {
+        const occasion = { words: 'Halloween', validFrom: 0, validUntil: 86_400_000 };
+        const named = speaking('Happy {{occasion}}. That was {{previous.title}}.');
+        const written = await named.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', occasion });
+
+        expect(written?.script).toBe('Happy Halloween. That was Solid Air.');
+        expect(written?.claimsTime).toEqual({ from: 0, until: 86_400_000 });
+    });
+
+    it('does not use a line naming the occasion on an ordinary day', async () => {
+        const named = speaking('Happy {{occasion}}. That was {{previous.title}}.\nThat was {{previous.title}}.');
+        const written = await named.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair' });
+
+        expect(written?.script).toBe('That was Solid Air.');
+        expect(written?.claimsTime).toBeUndefined();
+    });
+
     it('claims nothing when the phrasing it picked left the time out', async () => {
         // Two phrasings fit and only one names the hour. Whichever is chosen, the claim has to
         // describe what was actually said — the same rule `claimsNext` follows.

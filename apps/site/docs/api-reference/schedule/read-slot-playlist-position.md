@@ -1,7 +1,7 @@
 ---
 title: 'Read slot playlist position'
 sidebar_label: 'Read slot playlist position'
-sidebar_position: 8
+sidebar_position: 16
 mdx:
     format: 'md'
 ---

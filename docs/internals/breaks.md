@@ -736,8 +736,11 @@ name different stages, and puts it on the request as `mood`. The prompt says it 
 STRETCH and tells the presenter not to say any record is in it: the draw only makes a fitting record
 more likely, so the record beside the break may be in another mood entirely. A bulletin is not told
 (its shape is `voice: 'lean'`), and the floor never reads it, because a phrasing an operator typed has
-no mood of its own. The occasions calendar that would give the mood a second source on days the slot
-names none is still [station-moment](https://github.com/robert-dean/deadair/discussions/38)'s.
+no mood of its own. **On a broadcast with no stages the mood comes from the occasion the stretch airs on**, when
+an operator gave that occasion one, and never one the broadcast steers away from. It lives inside `stretchMood`
+rather than in a resolver above it, because that function is already the one reading the draw and the writers
+share, and that sharing was the only thing a `StationMoment` module was going to buy
+([station-moment](https://github.com/robert-dean/deadair/discussions/38)).
 
 **A talk break may choose how the whole of it is read, and the choice is a word at the front of the answer.**
 `[hushed]` or `[frantic]`, the whole of `SPEECH_DELIVERIES`, offered on the two conditions a reaction is: the
@@ -757,6 +760,33 @@ On the engine this was built for, the reading is carried by the expressiveness d
 that perform NO reactions read, so a station is offered one rule or the other. The live station's server holds
 the model that performs reactions, so there the rule is never shown until the operator swaps it. See
 `docs/internals/render.md` § "Speech, voices and cues".
+
+**A presenter knows what day it is, and is told to leave it alone most of the time.** `OccasionService.on`
+(`schedule/occasion.service.ts`) answers from `deadair.occasions` for the instant the break will be HEARD, first
+match in the operator's order, and `BreakRequestBuilder` puts it on the request as `occasion`. It is told to every
+model shape but a bulletin, with the instruction that most breaks should not mention it, because the failure here
+is not a presenter missing Christmas but one who says so every ten minutes. **A model break told the day is held to
+that day whatever its script says** (`heldToOccasion`, stamped in `WriteBreakJob` rather than in each binding): the
+search `timeClaimIn` does cannot work here, since "Merry Christmas" contains none of the words "Christmas Day". The
+floor fills `{{occasion}}`, and that does go through `timeClaimIn`, since a phrasing says exactly what it was given.
+It is the operator's own text, so unlike the clock's English it stays filled on a station in any language. The price
+of holding every model break to the day: a link with a `claimsTime` is never moved over the end of a record
+(`talkOutCues`), so with `breaks.talkOut` on, a model's links air in the gap on an occasion.
+
+**When an occasion falls is a rule, and the rule uses nothing but the platform** (`schedule/occasion.rule.ts`). Five
+kinds: a fixed date, the nth of a weekday in a month, days from Easter, a date in the Hebrew or Islamic calendar read
+through `Intl`, and a list of dates. No holiday library, because every one brings a dependency tree and share-alike
+data for a station that only ever asks one question. **The Chinese calendar is deliberately missing:** `Intl` put
+Lunar New Year a day out in 2027 and 2030, two of the ten years measured, so that date and anything else nothing here
+can work out is listed with the `dates` kind instead. The seeded rows carry no mood, and the ones belonging to a
+country or a faith (Thanksgiving, Rosh Hashanah) start switched off, because the station has no way to know where it is.
+
+**Anything the starter list leaves out arrives as a file** (`schedule/occasion.pack.ts`), on the language pack's rules:
+a wrong header refuses the file, and inside it a row the station cannot use is reported and left out. So the document's
+rows are records in the contract and are read as `OccasionPackRow` one at a time, because a typed array would answer one
+bad month with a 400 for the whole file. An import only adds: a row with the same words and the same rule is skipped, and
+what it adds starts switched off, since a file from somebody else should not change what the station says until an
+operator says so. No `id` and no `position` in the file, so it cannot collide with a row it did not mean.
 
 ## Bulletins
 

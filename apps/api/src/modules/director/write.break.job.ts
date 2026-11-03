@@ -22,6 +22,7 @@ import type { BreakTrack, WrittenBreak } from './break.writer.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
 import { resolveWriterOrder } from './writer.order.js';
+import { MODEL_WRITER } from './model.talk.break.writer.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { isTrackItem, type StationLineup, type StationLineupItem } from './station.lineup.js';
 import { songKey } from './rotation.keys.js';
@@ -34,7 +35,7 @@ import { BreakRequestBuilder, type ChosenStory, type HandedClaim, type Neighbour
 import { mentionsFact } from './fact.mentions.js';
 import { nonEmptyText } from '#modules/shared/text.value.js';
 import { concertWindow, spokenConcertDate } from './break.concert.js';
-import { stationZone } from './clock.words.js';
+import { heldToOccasion, stationZone } from './clock.words.js';
 
 export interface WriteBreakPayload {
     /**
@@ -233,6 +234,13 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // the station does not take, and the reason is on the row for whoever asks why.
             await this.fail(segmentId, result.reason ?? `nothing wrote this ${segment.kind}`);
             return;
+        }
+
+        // Here rather than in each model binding, since every one of them is told the day by the same
+        // prompt. `heldToOccasion` says why this does not look at the words.
+        if (result.writer === MODEL_WRITER) {
+            const claimsTime = heldToOccasion(result.written.claimsTime, built.occasion);
+            if (claimsTime !== undefined) result.written = { ...result.written, claimsTime };
         }
 
         // `result.writer` rather than a constant: which writer produced this is the registry's

@@ -17,6 +17,7 @@ import { PodcastsRouter } from './podcasts.router.js';
 import { HealthRouter } from './health.router.js';
 import { ClockRouter } from './clock.router.js';
 import { BreakKindsRouter } from './break.kinds.router.js';
+import { OccasionsRouter } from './occasions.router.js';
 import { RulesRouter } from './rules.router.js';
 import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
@@ -91,6 +92,7 @@ export const routers = [
     DirectorRouter,
     ClockRouter,
     BreakKindsRouter,
+    OccasionsRouter,
     RulesRouter,
     RenderRouter,
     PersonasRouter,

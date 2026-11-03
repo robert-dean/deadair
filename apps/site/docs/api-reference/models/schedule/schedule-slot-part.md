@@ -1,6 +1,6 @@
 ---
 title: 'ScheduleSlotPart'
-sidebar_position: 8
+sidebar_position: 16
 mdx:
     format: 'md'
 ---

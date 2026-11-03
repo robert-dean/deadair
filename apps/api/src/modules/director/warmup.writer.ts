@@ -104,6 +104,7 @@ export class WarmUpWriter extends BreakWriter {
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
             ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
+            ...(request.occasion === undefined ? {} : { occasion: request.occasion.words }),
         };
 
         const language = stationLanguage(this.config);
@@ -121,7 +122,7 @@ export class WarmUpWriter extends BreakWriter {
 
         // No `claimsNext`: it promises no record. "In a moment" is not a claim about the clock either,
         // but a phrasing that greets or names the part of the day is, and is stamped as one.
-        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart, request.weekday);
+        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart, request.weekday, request.occasion);
         return { script: chosen.script, label: 'Warming up', ...(claimsTime === undefined ? {} : { claimsTime }) };
     }
 

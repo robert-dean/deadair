@@ -1,5 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type { OccasionImportPlan, OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from './types/occasions.types.js';
 import type {
     ScheduleNow,
     ScheduleSlotApplied,
@@ -12,6 +13,98 @@ import type {
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List occasions
+     * @description Every occasion on this station, in the order a date is matched against them, each saying when it next falls
+     */
+    async listOccasions(): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions`, { method: 'GET' });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Add an occasion
+     * @description Adds an occasion at the end of the list. Presenters hear of it from the next break written for its day
+     */
+    async addAnOccasion(body: OccasionInput): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Reorder occasions
+     * @description Puts the list in a new order, which decides who wins when two fall on one date
+     */
+    async reorderOccasions(body: OccasionOrder): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions/order`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Export occasions
+     * @description Every occasion on this station as one file, to hand to another station
+     */
+    async exportOccasions(): Promise<OccasionPack> {
+        const result = await this.fetch(`/occasions/export`, { method: 'GET' });
+        return await parseJson<OccasionPack>(result);
+    }
+
+    /**
+     * @name Preview occasion import
+     * @description Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+     */
+    async previewOccasionImport(body: OccasionPack): Promise<OccasionImportPlan> {
+        const result = await this.fetch(`/occasions/import/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionImportPlan>(result);
+    }
+
+    /**
+     * @name Import occasions
+     * @description Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+     */
+    async importOccasions(body: OccasionPack): Promise<OccasionImportResult> {
+        const result = await this.fetch(`/occasions/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionImportResult>(result);
+    }
+
+    /**
+     * @name Change an occasion
+     * @description Replaces an occasion, keeping its place in the list
+     */
+    async changeAnOccasion(id: string, body: OccasionInput): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Remove an occasion
+     * @description Removes an occasion
+     */
+    async removeAnOccasion(id: string): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<OccasionList>(result);
+    }
 
     /**
      * @name List schedule

@@ -1,6 +1,6 @@
 ---
 title: 'ScheduleSlot'
-sidebar_position: 1
+sidebar_position: 9
 mdx:
     format: 'md'
 ---

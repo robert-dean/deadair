@@ -83,7 +83,10 @@
             "deadair.metric_samples.resolution": "'minute' | 'hour'",
             "deadair.as_run.kind": "'record' | 'break' | 'programme'",
             "deadair.schedule_slots.writer_order": "'model' | 'station' | null",
-            "deadair.similarity_asks.kind": "'artists' | 'records'"
+            "deadair.similarity_asks.kind": "'artists' | 'records'",
+            "deadair.occasions.rule_kind": "'fixed' | 'weekday' | 'easter' | 'calendar' | 'dates'",
+            "deadair.occasions.calendar": "'hebrew' | 'islamic-umalqura' | null",
+            "deadair.occasions.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null"
         }
     },
     "partitions": false,

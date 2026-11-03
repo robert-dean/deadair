@@ -90,6 +90,26 @@ export function timeClaimIn(script: string, ...offered: readonly (RoughTime | un
 }
 
 /**
+ * A claim narrowed to the day a model break was told it is, or that day alone when the break claimed nothing.
+ *
+ * Unconditional where {@link timeClaimIn} searches the script, because there is nothing to search for:
+ * told it is Christmas Day, a model says "Merry Christmas", which contains none of the words it was
+ * given, and that line is untrue the moment the break slides past midnight. Stamping a break that never
+ * mentioned the day is the safe direction, for {@link timeClaimFor}'s reason: it is rewritten rather than
+ * aired wrong, and only if it runs late across midnight.
+ */
+export function heldToOccasion(
+    claim: { from: number; until: number } | undefined,
+    occasion: RoughTime | undefined,
+): { from: number; until: number } | undefined {
+    if (occasion === undefined) return claim;
+    return {
+        from: Math.max(claim?.from ?? occasion.validFrom, occasion.validFrom),
+        until: Math.min(claim?.until ?? occasion.validUntil, occasion.validUntil),
+    };
+}
+
+/**
  * {@link timeClaimIn} for a station in any language: the same answer in English, and outside it
  * every phrasing the break was offered, as though it had used them all.
  *

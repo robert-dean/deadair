@@ -108,6 +108,27 @@ export function weekdayShort(day: number): string {
     return WEEKDAY().format(new Date(Date.UTC(1970, 0, 4 + day)));
 }
 
+const WEEKDAY_LONG = perLocale(locale => new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }));
+
+/** A day of the week in full, Sunday `0`, the way a sentence says it. */
+export function weekdayLong(day: number): string {
+    return WEEKDAY_LONG().format(new Date(Date.UTC(1970, 0, 4 + day)));
+}
+
+const MONTH_LONG = perLocale(locale => new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }));
+
+/** A month by name, January `1`. */
+export function monthLong(month: number): string {
+    return MONTH_LONG().format(new Date(Date.UTC(2001, month - 1, 1)));
+}
+
+const CIVIL_DATE = perLocale(locale => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }));
+
+/** A `YYYY-MM-DD` on the station's calendar, read in UTC because it is a date and has no zone left to apply. */
+export function formatCivilDate(date: string): string {
+    return CIVIL_DATE().format(new Date(`${date}T12:00:00Z`));
+}
+
 const CLOCK = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', ...hourCycle('h23') }));
 const CLOCK_SECONDS = perLocale(
     locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', ...hourCycle('h23') }),

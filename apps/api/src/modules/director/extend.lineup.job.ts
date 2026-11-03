@@ -1,4 +1,5 @@
 import { Container, Injectable } from 'injectkit';
+import { OccasionService } from '#modules/schedule/occasion.service.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { refillMood } from './mood.stage.js';
 import { JobContext } from '@maroonedsoftware/jobbroker';
@@ -70,6 +71,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         private readonly config: AppConfig,
         // Which slot is in force, for the mood stage a batch will air in. See `mood.stage.ts`.
         private readonly schedule: ScheduleService,
+        private readonly occasions: OccasionService,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -127,7 +129,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         const seed = tailTracks.at(-1);
 
         // The stage of the slot's mood this batch will mostly air in, measured from where it starts.
-        const mood = await refillMood(lineup, lineup.upcoming(), count, this.schedule, this.config);
+        const mood = await refillMood(lineup, lineup.upcoming(), count, this.schedule, this.occasions, this.config);
 
         const planned = await planRecords(
             this.generator,

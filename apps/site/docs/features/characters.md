@@ -76,6 +76,7 @@ That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}
 | `{{dj.name}}` | the character's "On-air name", else the station's presenter name | neither is set |
 | `{{clock.daypart}}` | the part of the day: "this morning", "this afternoon", "this evening" or "tonight" | a break that does not yet know when it airs |
 | `{{clock.weekday}}` | the day of the week, such as "Friday" | as above |
+| `{{occasion}}` | what the day is, such as "Halloween", from the Occasions tab on the Programme page | an ordinary day |
 | `{{clock.rough}}` | the time in words, such as "just after nine" | every break while **Let the station say the hour**, under Settings, Station, is off, as it is to begin with |
 
 `{{previous.name}}` and `{{next.name}}` are the same as `.title`, and `{{previous.artist.name}}` and `{{next.artist.name}}` the same as `.artist`, so a line can read either way.

@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import { refillMood, stageAt, stretchMood } from '../../../src/modules/director/mood.stage.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import { NOMINAL_TRACK_MS } from '../../../src/modules/director/air.estimate.js';
+import type { LyricMood } from '../../../src/modules/lyrics/lyric.moods.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const ZONE = 'UTC';
@@ -75,12 +76,22 @@ describe('stageAt', () => {
     });
 });
 
+const noOccasion = { on: vi.fn(async () => undefined) };
+
 describe('refillMood', () => {
     const config = settingsConfig({ 'station.timezone': ZONE }).config;
     const schedule = (slot?: ScheduleSlot) => ({ inForce: vi.fn(async () => slot) });
 
     it('measures the stage against the slot the broadcast was put on for', async () => {
-        const moods = await refillMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, [], 4, schedule(evening), config, at(21, 30));
+        const moods = await refillMood(
+            { moods: ['comfort', 'loneliness'], slotId: 'evening' },
+            [],
+            4,
+            schedule(evening),
+            noOccasion,
+            config,
+            at(21, 30),
+        );
 
         // Half past nine, and a four-record batch mostly airs nine minutes on: still the first half.
         expect((4 * NOMINAL_TRACK_MS) / 2).toBeLessThan(HOUR / 2);
@@ -88,22 +99,26 @@ describe('refillMood', () => {
     });
 
     it('leans into the first stage for a broadcast that is not the slot in force, or with no slot at all', async () => {
-        expect(await refillMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, [], 4, schedule(late), config, at(23, 30))).toBe('comfort');
-        expect(await refillMood({ moods: ['comfort', 'loneliness'] }, [], 4, schedule(evening), config, at(23, 30))).toBe('comfort');
+        expect(await refillMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, [], 4, schedule(late), noOccasion, config, at(23, 30))).toBe(
+            'comfort',
+        );
+        expect(await refillMood({ moods: ['comfort', 'loneliness'] }, [], 4, schedule(evening), noOccasion, config, at(23, 30))).toBe('comfort');
     });
 
     it('reads no schedule for a single stage, and leans into nothing for no stages', async () => {
         const read = schedule(evening);
 
-        expect(await refillMood({ moods: ['sadness'], slotId: 'evening' }, [], 4, read, config, at(23, 30))).toBe('sadness');
-        expect(await refillMood({ slotId: 'evening' }, [], 4, read, config, at(23, 30))).toBeUndefined();
+        expect(await refillMood({ moods: ['sadness'], slotId: 'evening' }, [], 4, read, noOccasion, config, at(23, 30))).toBe('sadness');
+        expect(await refillMood({ slotId: 'evening' }, [], 4, read, noOccasion, config, at(23, 30))).toBeUndefined();
         expect(read.inForce).not.toHaveBeenCalled();
     });
 
     it('costs the stage and never the refill when the schedule cannot be read', async () => {
         const broken = { inForce: vi.fn(async () => Promise.reject(new Error('the schedule is gone'))) };
 
-        expect(await refillMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, [], 4, broken, config, at(23, 30))).toBe('comfort');
+        expect(await refillMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, [], 4, broken, noOccasion, config, at(23, 30))).toBe(
+            'comfort',
+        );
     });
 });
 
@@ -113,18 +128,67 @@ describe('stretchMood', () => {
 
     it('answers the stage the moment lands in, measured ahead from now', async () => {
         // Half past nine in an eight-to-midnight slot with two stages: the second stage starts at ten.
-        expect(await stretchMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, 0, schedule(evening), config, at(21, 30))).toBe('comfort');
-        expect(await stretchMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, HOUR, schedule(evening), config, at(21, 30))).toBe(
-            'loneliness',
+        expect(await stretchMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, 0, schedule(evening), noOccasion, config, at(21, 30))).toBe(
+            'comfort',
         );
+        expect(
+            await stretchMood({ moods: ['comfort', 'loneliness'], slotId: 'evening' }, HOUR, schedule(evening), noOccasion, config, at(21, 30)),
+        ).toBe('loneliness');
     });
 
     it('agrees with the draw: a refill is the same reading at its own midpoint', async () => {
         const lineup = { moods: ['comfort', 'loneliness'] as const, slotId: 'evening' };
         const now = at(21, 55);
 
-        expect(await refillMood(lineup, [], 4, schedule(evening), config, now)).toBe(
-            await stretchMood(lineup, (4 * NOMINAL_TRACK_MS) / 2, schedule(evening), config, now),
+        expect(await refillMood(lineup, [], 4, schedule(evening), noOccasion, config, now)).toBe(
+            await stretchMood(lineup, (4 * NOMINAL_TRACK_MS) / 2, schedule(evening), noOccasion, config, now),
         );
+    });
+});
+
+describe('the mood of an occasion', () => {
+    const config = settingsConfig({ 'station.timezone': ZONE }).config;
+    const schedule = { inForce: vi.fn(async () => undefined) };
+    const today = (mood?: LyricMood) => ({
+        on: vi.fn(async () => ({ words: 'Halloween', validFrom: 0, validUntil: 1, ...(mood === undefined ? {} : { mood }) })),
+    });
+
+    it('leans a broadcast with no stages', async () => {
+        expect(await stretchMood({ slotId: 'evening' }, 0, schedule, today('fear'), config, at(21, 0))).toBe('fear');
+        expect(await stretchMood({ moods: [] }, 0, schedule, today('fear'), config, at(21, 0))).toBe('fear');
+    });
+
+    it('never leans over stages the broadcast names, and does not even ask', async () => {
+        const occasions = today('fear');
+        expect(await stretchMood({ moods: ['comfort'] }, 0, schedule, occasions, config, at(21, 0))).toBe('comfort');
+        expect(occasions.on).not.toHaveBeenCalled();
+    });
+
+    it('leans into nothing when the day names no mood, or on an ordinary day', async () => {
+        expect(await stretchMood({}, 0, schedule, today(), config, at(21, 0))).toBeUndefined();
+        expect(await stretchMood({}, 0, schedule, noOccasion, config, at(21, 0))).toBeUndefined();
+    });
+
+    it('never leans into a mood the broadcast steers away from', async () => {
+        expect(await stretchMood({ avoidMoods: ['fear'] }, 0, schedule, today('fear'), config, at(21, 0))).toBeUndefined();
+        expect(await stretchMood({ avoidMoods: ['sadness'] }, 0, schedule, today('fear'), config, at(21, 0))).toBe('fear');
+    });
+
+    it('asks about the instant the stretch airs, so a batch that will air after midnight leans into tomorrow', async () => {
+        const occasions = today('love');
+        const now = at(23, 50);
+
+        await stretchMood({}, HOUR, schedule, occasions, config, now);
+
+        expect(occasions.on).toHaveBeenCalledWith(now + HOUR);
+    });
+
+    it('measures a refill from where most of its batch will air', async () => {
+        const occasions = today('love');
+        const now = at(23, 50);
+
+        await refillMood({}, [], 4, schedule, occasions, config, now);
+
+        expect(occasions.on).toHaveBeenCalledWith(now + (4 * NOMINAL_TRACK_MS) / 2);
     });
 });

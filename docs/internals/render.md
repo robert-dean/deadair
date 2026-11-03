@@ -46,7 +46,8 @@ that is where the voice suggestions come from there. A 400, 404 or 422 from `/au
 sentence in the error, because Ollama answers 400 to every format but `wav` and `pcm` and "for voice" would
 otherwise blame the voice. Run against Ollama 0.40.14 on an Apple Silicon Mac, the only platform its announcement
 named for speech then. Its WAV holds maximum sizes in the header because it streams; `ffprobe` and Liquidsoap 2.4.5
-both measured and played that correctly, though neither Linux nor a full break on a running station was tried.
+both measured and played that correctly, though a full break on a running station was not tried. The same version's
+Linux container (ARM) refuses the model at the pull, with `this model requires MLX support`.
 
 **`plugins/rhapsode` ships NO map, because it could not write one.** Its server holds several engines at once
 and addresses a voice as the pair `(engine, voice)` — the server's own protocol says cross-engine namespacing

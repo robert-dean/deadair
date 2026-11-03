@@ -581,6 +581,26 @@ export interface DeadairOauthGrants {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairOccasions {
+  calendar: "hebrew" | "islamic-umalqura" | null;
+  calendarMonth: string | null;
+  createdAt: Generated<DateTime>;
+  dates: string[] | null;
+  day: number | null;
+  enabled: Generated<boolean>;
+  id: Generated<string>;
+  month: number | null;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  offsetDays: number | null;
+  ordinal: number | null;
+  position: number;
+  ruleKind: "fixed" | "weekday" | "easter" | "calendar" | "dates";
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  weekday: number | null;
+  words: string;
+}
+
 export interface DeadairOutputCasts {
   deviceId: string;
   deviceName: string;
@@ -1440,6 +1460,7 @@ export interface DB {
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;
+  "deadair.occasions": DeadairOccasions;
   "deadair.outputCasts": DeadairOutputCasts;
   "deadair.ownShows": DeadairOwnShows;
   "deadair.pads": DeadairPads;

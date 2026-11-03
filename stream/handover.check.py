@@ -1,11 +1,11 @@
-"""Measures the filtered handover in `handover.check.liq`, against the plain fade. See stream/README.md.
+"""Measures the filtered handover in `playout_transition`, against the plain fade. See stream/README.md.
 
 Renders both transitions in the pinned Liquidsoap image (Docker, no dev stack needed) over the same
 synthetic records, then reads every record's bass, mid and top tone off its own frequency. Given a
 directory holding a plain.wav and a filtered.wav, it measures those instead of rendering.
 
   bass fight     how long two basslines are both audible and within 6 dB of each other
-  top and mid    what the sweep and the duck took off the outgoing record, against the plain fade
+  top and mid    what the sweep took off the outgoing record, against the plain fade
   outside        whether the audio outside the overlaps is the same audio, sample for sample
   clicks         the energy above every tone, which is where a step in the signal shows up
 
@@ -36,7 +36,8 @@ RECORDS = {
     "e": ((73.0, 1530.0, 4700.0), 0.02),
 }
 # (outgoing, incoming, stamped seconds, when the overlap starts). Each record is twelve seconds, and
-# every overlap takes its own length off the timeline. c into d is the hard join.
+# every overlap takes its own length off the timeline. c into d is the hard join. e is quiet, so a
+# blend into a record much quieter than the one before it is measured too.
 BOUNDARIES = [("a", "b", 4.0, 8.0), ("b", "c", 8.0, 12.0), ("d", "e", 6.0, 30.0)]
 HOP = 441
 WIN = 8192

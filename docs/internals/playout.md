@@ -354,6 +354,16 @@ under a voice that was not in the mix when the blend was decided. This is a mixe
 rather than something `blendFor` could catch, because at the time it runs for the outgoing item the
 break that will follow does not exist yet.
 
+**A record stamped `deadair_handover="1"` thins out and hands its bass over rather than only fading**,
+from a blend of three seconds up (`playout_handover` in `radio.liq`, and the constraints it was built
+against are in the comment there). Nothing stamps it yet. Outside the overlap it is the same audio as
+the plain fade, sample for sample, which is what makes it safe to switch per record. Measured on
+2026-11-03 at 4, 6 and 8 seconds, two basses are level for 0.07s instead of 2 to 4s, and the blend
+dips about 3 dB for a second at the swap. On real records the gain could be heard at 8 seconds on two
+basslines that clash, and could not at 4 seconds on two that sit together. `stream/handover.check.py`
+is the measurement, and [crossfades](https://github.com/robert-dean/deadair/discussions/11) has the
+rungs above it.
+
 **A link talked up to the post is a talk-over, and the mixer cannot tell the difference.** It arrives
 as a `voice` cue on the record it rides, armed with `X-Voice-At-Ms` like an interrupting one, so the
 bed ducks under it and nothing is faded into speech. Where the cue lands and why is

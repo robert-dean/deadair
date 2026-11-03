@@ -10,7 +10,7 @@
 // and it says nothing about a dislike.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { CatalogPlaylistPage, PersonaList, ScheduleSlot } from '@deadair/sdk';
+import type { CatalogPlaylistPage, PersonaList, ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
 
 import { SlotEditor } from '../../../src/components/schedule/slot.editor';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
@@ -30,6 +30,7 @@ vi.mock('../../../src/api/client', () => ({
         schedule: {
             readSlotPlaylistPosition: (id: string) => readSlotPlaylistPosition(id),
             restartSlotPlaylist: (id: string) => restartSlotPlaylist(id),
+            listOccasions: () => Promise.resolve({ occasions: [], calendars: [{ calendar: 'hebrew', months: ['Tishri', 'Kislev'] }] }),
         },
     },
 }));
@@ -383,6 +384,124 @@ describe('SlotEditor', () => {
             await user.click(screen.getByRole('button', { name: 'Save' }));
 
             expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ startsOn: '2026-10-31', endsOn: '2026-10-31', yearly: true });
+        });
+
+        describe('on a rule', () => {
+            const edit = async (target: ScheduleSlot | undefined, onSubmit: (input: ScheduleSlotInput) => void) => {
+                listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+                listPersonas.mockResolvedValue(PERSONAS);
+                render(
+                    <SlotEditor
+                        target={target === undefined ? { kind: 'new', special: true } : { kind: 'edit', slot: target }}
+                        onClose={noop}
+                        onSubmit={onSubmit}
+                        onDelete={noop}
+                        saving={false}
+                        deleting={false}
+                    />,
+                );
+                await screen.findByRole('combobox', { name: 'Mode' });
+            };
+
+            const onARule: ScheduleSlot = {
+                ...halloween,
+                startsOn: undefined,
+                endsOn: undefined,
+                yearly: undefined,
+                recurrence: { ruleKind: 'weekday', month: 11, ordinal: 4, weekday: 4 },
+                nextDate: '2026-11-26',
+            };
+
+            it('opens on its rule, as a special, with the dates and days out of the way', async () => {
+                await edit(onARule, noop);
+
+                expect(screen.getByText('Edit special')).toBeInTheDocument();
+                expect(screen.getByRole('radio', { name: 'By a rule' })).toBeChecked();
+                expect(screen.getByRole('combobox', { name: 'Which' })).toHaveValue('fourth');
+                expect(screen.queryByRole('textbox', { name: 'Dates' })).toBeNull();
+                expect(screen.queryByRole('checkbox', { name: 'Thu' })).toBeNull();
+                expect(screen.queryByRole('switch', { name: /Repeats every year/ })).toBeNull();
+            });
+
+            it('sends its rule back, with no dates and no weekdays', async () => {
+                const onSubmit = vi.fn();
+                const user = setupUser();
+                await edit(onARule, onSubmit);
+
+                await user.click(screen.getByRole('button', { name: 'Save' }));
+
+                await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+                const sent = onSubmit.mock.calls[0]![0] as ScheduleSlotInput;
+                expect(sent.recurrence).toEqual({ ruleKind: 'weekday', month: 11, ordinal: 4, weekday: 4 });
+                expect(sent.days).toEqual([]);
+                expect(sent.startsOn).toBeUndefined();
+            });
+
+            it('turns a special on dates into one on a rule', async () => {
+                const onSubmit = vi.fn();
+                const user = setupUser();
+                await edit(halloween, onSubmit);
+
+                await user.click(screen.getByRole('radio', { name: 'By a rule' }));
+                await user.click(screen.getByRole('button', { name: 'Save' }));
+
+                await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+                const sent = onSubmit.mock.calls[0]![0] as ScheduleSlotInput;
+                expect(sent.recurrence?.ruleKind).toBe('fixed');
+                expect(sent.startsOn).toBeUndefined();
+                expect(sent.yearly).toBeUndefined();
+            });
+
+            it('goes back to dates when asked, and sends no rule', async () => {
+                const onSubmit = vi.fn();
+                const user = setupUser();
+                await edit(halloween, onSubmit);
+
+                await user.click(screen.getByRole('radio', { name: 'By a rule' }));
+                await user.click(screen.getByRole('radio', { name: 'On dates' }));
+                await user.click(screen.getByRole('button', { name: 'Save' }));
+
+                await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+                const sent = onSubmit.mock.calls[0]![0] as ScheduleSlotInput;
+                expect(sent.recurrence).toBeUndefined();
+                expect(sent.startsOn).toBe(halloween.startsOn);
+            });
+
+            it('saves a new special on a rule without asking for dates', async () => {
+                const onSubmit = vi.fn();
+                const user = setupUser();
+                await edit(undefined, onSubmit);
+
+                await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Halloween');
+                await user.click(screen.getByRole('radio', { name: 'By a rule' }));
+                await user.click(screen.getByRole('button', { name: 'Save' }));
+
+                await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+                expect((onSubmit.mock.calls[0]![0] as ScheduleSlotInput).recurrence?.ruleKind).toBe('fixed');
+            });
+
+            it('will not save a calendar rule with no month', async () => {
+                const onSubmit = vi.fn();
+                const user = setupUser();
+                await edit({ ...onARule, recurrence: { ruleKind: 'calendar', calendar: 'hebrew', calendarMonth: '', day: 25 } }, onSubmit);
+
+                await user.click(screen.getByRole('button', { name: 'Save' }));
+
+                expect(await screen.findByText('This rule needs the rest of its date')).toBeInTheDocument();
+                expect(onSubmit).not.toHaveBeenCalled();
+            });
+
+            it('can be a live show, which still sends its rule', async () => {
+                const onSubmit = vi.fn();
+                const user = setupUser();
+                await edit(onARule, onSubmit);
+
+                await user.click(screen.getByRole('switch', { name: /A live show/ }));
+                await user.click(screen.getByRole('button', { name: 'Save' }));
+
+                await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+                expect(onSubmit.mock.calls[0]![0]).toMatchObject({ live: true, recurrence: { ruleKind: 'weekday' }, days: [] });
+            });
         });
 
         it('refuses a new special with no dates rather than saving a weekly slot', async () => {

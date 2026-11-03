@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button, Chip, Divider, Group, Modal, Stack, Switch, Text, TextInput } from '@mantine/core';
+import { Button, Chip, Divider, Group, Modal, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
@@ -39,8 +39,12 @@ import {
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
+import { BLANK_RULE, datesIn, inputOfRule, ruleDraftOf, type RuleDraft } from './occasions.edits';
 import { ResumePlaylistField } from './playlist.resume.field';
+import { RuleFields, RuleKindField } from './rule.fields';
 import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
+import { isSpecial } from './schedule.specials';
+import { useOccasions } from '../../api/occasions.queries';
 import { weekdayShort } from '../../i18n/format.locale';
 
 /**
@@ -101,7 +105,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             label: value => (value.trim().length === 0 ? t('slot.nameRequired') : undefined),
             startsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
             endsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
-            dates: value => (special && (!value[0] || !value[1]) ? t('slot.special.datesRequired') : undefined),
+            dates: (value, values) => (special && !values.byRule && (!value[0] || !value[1]) ? t('slot.special.datesRequired') : undefined),
+            rule: (value, values) => (special && values.byRule && !ruleIsFinished(value) ? t('slot.special.ruleUnfinished') : undefined),
             // The rows draw their own problems; this only stops the save and says one is there.
             guestHosts: rows => (rows.some(row => guestRowProblem(row) !== undefined) ? t('slot.guests.unfinished') : undefined),
             coHosts: rows => (rows.some(row => guestRowProblem(row) !== undefined) ? t('slot.guests.unfinished') : undefined),
@@ -115,19 +120,17 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
         if (startsAtMinutes === undefined || endsAtMinutes === undefined) return undefined;
 
         const source = splitSource(values.source);
+        const when = whenOf(values, special);
 
         // A live show is only its when-half and the mark: nothing of the slot's own airs, so the
         // programme fields are not drawn and nothing from them is sent. `mode` and `onEnd` are required
         // by the contract and mean nothing here, so they go as the slot already had them.
-        if (special && values.live && values.dates[0] && values.dates[1]) {
+        if (special && values.live && (values.byRule || (values.dates[0] && values.dates[1]))) {
             return {
                 label: values.label.trim(),
                 startsAtMinutes,
                 endsAtMinutes,
-                days: values.days.map(Number),
-                startsOn: values.dates[0],
-                endsOn: values.dates[1],
-                ...(values.yearly ? { yearly: true } : {}),
+                ...when,
                 live: true,
                 mode: values.mode,
                 onEnd: values.onEnd,
@@ -138,7 +141,7 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             label: values.label.trim(),
             startsAtMinutes,
             endsAtMinutes,
-            days: values.days.map(Number),
+            ...when,
             ...(source === undefined
                 ? {}
                 : source.kind === 'chart'
@@ -171,11 +174,6 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             // Sent only when it is ON, and only beside a playlist: absent is no, and nothing else has a
             // place to pick up from.
             ...(values.resumePlaylist && mixesInto(source) ? { resumePlaylist: true } : {}),
-            // Both ends or neither; the validator above has already refused one without the other.
-            // `yearly` only when it is on, since absent is a one-off.
-            ...(special && values.dates[0] && values.dates[1]
-                ? { startsOn: values.dates[0], endsOn: values.dates[1], ...(values.yearly ? { yearly: true } : {}) }
-                : {}),
             // Sent as `true` only for a setlist, the one mode it changes. A rotation slot that was
             // told to stay silent through the API keeps saying so, since no box here can say it.
             ...(values.mode === 'setlist' && values.breaks ? { breaks: true } : {}),
@@ -269,29 +267,54 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                             />
                         </Group>
 
+                        {/* Asked before the days, because a rule takes them away: it says which day already. */}
+                        {special ? (
+                            <SegmentedControl
+                                aria-label={t('slot.special.whenLabel')}
+                                size="xs"
+                                w="fit-content"
+                                data={[
+                                    { value: 'dates', label: t('slot.special.onDates') },
+                                    { value: 'rule', label: t('slot.special.byRule') },
+                                ]}
+                                value={form.values.byRule ? 'rule' : 'dates'}
+                                onChange={value => form.setFieldValue('byRule', value === 'rule')}
+                            />
+                        ) : undefined}
+
                         {/* Broken here on purpose rather than left to wrap. The days are the one part
                             that cannot shrink, so a single row would fold at whatever width the modal
                             happened to be and the sentence would read as fragments. */}
-                        <Group gap="xs" align="center" wrap="wrap">
-                            <Word>{t('slot.sentence.on')}</Word>
-                            {/* Chips rather than checkboxes: seven boxes in a row is a form control
-                                that happens to be about days, and seven toggles is the week. Nothing
-                                selected is every day, which the line below says because an empty row
-                                cannot. */}
-                            <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
-                                <Group gap={4} wrap="wrap">
-                                    {DAYS.map(day => (
-                                        <Chip key={day} value={String(day)} size="sm" radius="sm">
-                                            {weekdayShort(day)}
-                                        </Chip>
-                                    ))}
-                                </Group>
-                            </Chip.Group>
-                        </Group>
+                        {special && form.values.byRule ? undefined : (
+                            <Group gap="xs" align="center" wrap="wrap">
+                                <Word>{t('slot.sentence.on')}</Word>
+                                {/* Chips rather than checkboxes: seven boxes in a row is a form control
+                                    that happens to be about days, and seven toggles is the week. Nothing
+                                    selected is every day, which the line below says because an empty row
+                                    cannot. */}
+                                <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
+                                    <Group gap={4} wrap="wrap">
+                                        {DAYS.map(day => (
+                                            <Chip key={day} value={String(day)} size="sm" radius="sm">
+                                                {weekdayShort(day)}
+                                            </Chip>
+                                        ))}
+                                    </Group>
+                                </Chip.Group>
+                            </Group>
+                        )}
 
                         {/* A special's dates finish the same sentence: "put Halloween from eight
                             until eleven, between the 31st of October and the 31st of October". */}
-                        {special ? (
+                        {special && form.values.byRule ? (
+                            <SpecialRuleField
+                                draft={form.values.rule}
+                                error={form.errors.rule}
+                                onChange={part => form.setFieldValue('rule', { ...form.values.rule, ...part })}
+                            />
+                        ) : undefined}
+
+                        {special && !form.values.byRule ? (
                             <Group gap="xs" align="flex-start" wrap="wrap">
                                 <Word>{t('slot.special.between')}</Word>
                                 <DatePickerInput
@@ -313,7 +336,7 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                         ) : undefined}
                     </Stack>
 
-                    {special ? (
+                    {special && !form.values.byRule ? (
                         <Switch
                             label={t('slot.special.yearlyLabel')}
                             description={t('slot.special.yearlyDescription')}
@@ -333,8 +356,16 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                     ) : undefined}
 
                     <Text size="xs" c="dimmed">
-                        {form.values.days.length === 0 ? `${special ? t('slot.special.everyDay') : t('slot.everyDay')} ` : ''}
-                        {live ? t('slot.special.liveNote') : special ? t('slot.special.note') : t('slot.times')}
+                        {form.values.days.length === 0 && !(special && form.values.byRule)
+                            ? `${special ? t('slot.special.everyDay') : t('slot.everyDay')} `
+                            : ''}
+                        {live
+                            ? t('slot.special.liveNote')
+                            : !special
+                              ? t('slot.times')
+                              : form.values.byRule
+                                ? t('slot.special.ruleNote')
+                                : t('slot.special.note')}
                     </Text>
 
                     {live ? undefined : (
@@ -497,8 +528,53 @@ function Word({ children }: { children: ReactNode }) {
 export type EditorTarget = { kind: 'edit'; slot: ScheduleSlot } | { kind: 'new'; startsAtMinutes?: number; days?: number[]; special?: boolean };
 
 /** Whether the editor is open on a special: an existing one, or a new one asked for from the Specials tab. */
+/**
+ * The rule half of the sentence. Its own component so the calendars are only asked for once somebody
+ * chooses a rule: the months of each are read off the station, as the Occasions tab reads them.
+ */
+function SpecialRuleField({ draft, error, onChange }: { draft: RuleDraft; error: ReactNode; onChange: (part: Partial<RuleDraft>) => void }) {
+    const occasions = useOccasions();
+
+    return (
+        <Stack gap="xs">
+            <RuleKindField draft={draft} set={onChange} />
+            <RuleFields draft={draft} calendars={occasions.data?.calendars ?? []} set={onChange} />
+            {error === undefined || error === null ? undefined : (
+                <Text size="xs" c="red">
+                    {error}
+                </Text>
+            )}
+        </Stack>
+    );
+}
+
+/**
+ * When the slot runs, as the wire says it: its weekdays, and on a special its dates or its rule.
+ *
+ * A rule sends no weekdays, because the station refuses them beside one. Dates are both ends or
+ * neither, the validator having refused one without the other, and `yearly` goes only when it is on,
+ * since absent is a one-off.
+ */
+function whenOf(values: FormValues, special: boolean): Pick<ScheduleSlotInput, 'days' | 'startsOn' | 'endsOn' | 'yearly' | 'recurrence'> {
+    if (special && values.byRule) return { days: [], recurrence: inputOfRule(values.rule) };
+
+    return {
+        days: values.days.map(Number),
+        ...(special && values.dates[0] && values.dates[1]
+            ? { startsOn: values.dates[0], endsOn: values.dates[1], ...(values.yearly ? { yearly: true } : {}) }
+            : {}),
+    };
+}
+
+/** Whether a rule has what it needs to be sent. The station says what is wrong with the rest, such as the 31st of June. */
+function ruleIsFinished(rule: RuleDraft): boolean {
+    if (rule.ruleKind === 'calendar') return rule.calendarMonth !== '';
+    if (rule.ruleKind === 'dates') return datesIn(rule.dates).length > 0;
+    return true;
+}
+
 function isSpecialTarget(target: EditorTarget | undefined): boolean {
-    return target?.kind === 'edit' ? target.slot.startsOn !== undefined : target?.special === true;
+    return target?.kind === 'edit' ? isSpecial(target.slot) : target?.special === true;
 }
 
 function titleOf(t: TFunction<['schedule', 'common']>, editing: boolean, special: boolean): string {
@@ -559,6 +635,10 @@ interface FormValues {
     dates: [string | null, string | null];
     /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
     yearly: boolean;
+    /** Whether a special runs by a rule rather than on its dates. Unused on a weekly slot. */
+    byRule: boolean;
+    /** The rule it runs by, kept while the choice is on dates so switching back loses nothing typed. */
+    rule: RuleDraft;
     /** Ticked makes a special a booked live show, which sends only the when-half. Unused on a weekly slot. */
     live: boolean;
     /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
@@ -616,6 +696,8 @@ function valuesOf(target?: EditorTarget): FormValues {
         resumePlaylist: slot?.resumePlaylist === true,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
+        byRule: slot?.recurrence !== undefined,
+        rule: slot?.recurrence === undefined ? BLANK_RULE : ruleDraftOf(slot.recurrence),
         live: slot?.live === true,
         breaks: slot?.breaks === true,
         requestShow: slot?.requestShow === true,

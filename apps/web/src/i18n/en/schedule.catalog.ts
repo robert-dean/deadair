@@ -49,7 +49,7 @@ export const schedule = {
     specials: {
         title: 'Specials',
         description:
-            'A show on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials cannot be on at once. Mark one as a live show to book yourself on the air: the station arms the live input at its start.',
+            'A show on dates, or on the day a rule works out, rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. On its days a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials cannot be on at once. Mark one as a live show to book yourself on the air: the station arms the live input at its start.',
         add: 'New special',
         empty: 'No specials. The station plays its weekly schedule every day.',
         state: {
@@ -186,6 +186,12 @@ export const schedule = {
             datesLabel: 'Dates',
             datesPlaceholder: 'First and last date',
             datesRequired: 'A special needs its first and last date',
+            whenLabel: 'When this special runs',
+            onDates: 'On dates',
+            byRule: 'By a rule',
+            ruleUnfinished: 'This rule needs the rest of its date',
+            ruleNote:
+                "On each day this rule falls, on the station's calendar, this special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. It cannot be on at the same time as another special in any year, and the station will say which year if it would be.",
             yearlyLabel: 'Repeats every year',
             yearlyDescription:
                 'On the same dates every year, like Halloween. The year you pick is ignored. A yearly range may run past New Year, and has to be shorter than a year.',
@@ -196,7 +202,7 @@ export const schedule = {
                 'Somebody presents it through the live input. At its start the station arms the input, as Go live on the Desk does, with this name as the show’s title.',
             liveNote:
                 'The weekly show keeps playing until your encoder is heard, then the countdown runs and you are on. If nobody has come by the end, the input is disarmed; once you are on, the end never cuts you off. Times are 24-hour, on the station’s own clock.',
-            liveSavingNote: 'Cancel on the Desk stops the input waiting for that night only; the next date in the range arms again.',
+            liveSavingNote: 'Cancel on the Desk stops the input waiting for that night only; the next date it runs arms again.',
         },
     },
     sustaining: {

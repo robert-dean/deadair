@@ -498,7 +498,7 @@ export class ScheduleService {
         // Two rules can be years from meeting, and "already on then" says nothing about 2037.
         if (isSpecial(candidate) && isSpecial(clash) && (isRecurrence(candidate.dates) || isRecurrence(clash.dates))) {
             throw httpError(409).withDetails({
-                message: `that overlaps the special "${clash.label || 'another special'}": both are on on ${firstClash(candidate, clash, today)}, the first date they meet. Two specials cannot be on at once, so change the rule or the hours of one of them.`,
+                message: `that overlaps the special "${clash.label || 'another special'}": they would both run on ${firstClash(candidate, clash, today)}, the first date they meet. Two specials cannot be on at once, so change the rule or the hours of one of them.`,
             });
         }
 

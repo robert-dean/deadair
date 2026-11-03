@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-jellyfin",
-    "version": "0.89.3",
+    "version": "0.89.4",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

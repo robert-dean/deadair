@@ -91,8 +91,26 @@ const config: Config = {
                 // The generated API reference is most of the site by page count, one short page per
                 // route. Its index stays in, so a search for the API still lands somewhere, and that is
                 // why this is two patterns: `/docs/api-reference/**` matches the index as well.
-                sitemap: { ignorePatterns: ['/docs/api-reference/*', '/docs/api-reference/*/**'] },
+                // `/search` is the results page, which says nothing until somebody has typed something.
+                sitemap: { ignorePatterns: ['/docs/api-reference/*', '/docs/api-reference/*/**', '/search'] },
             } satisfies Preset.Options,
+        ],
+    ],
+
+    // Search with nothing behind it: the index is written at build and the reader's browser runs the
+    // query, because this site is static files on GitHub Pages. The generated API reference is an
+    // index of its own, for the same reason the sitemap leaves it out: at one short page per route it
+    // would outnumber the guides in every result. A search from an API page looks in the API, and a
+    // search from anywhere else looks in the rest. An index exists only after a build, so search
+    // finds nothing under `start`.
+    themes: [
+        [
+            '@easyops-cn/docusaurus-search-local',
+            {
+                hashed: true,
+                indexBlog: false,
+                searchContextByPaths: [{ label: 'API reference', path: 'docs/api-reference' }],
+            },
         ],
     ],
 
@@ -121,6 +139,7 @@ const config: Config = {
                 { type: 'docSidebar', sidebarId: 'build', label: 'Develop', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'api', label: 'API', position: 'left' },
                 { to: '/community', label: 'Community', position: 'left' },
+                { type: 'search', position: 'right' },
                 { href: repository, label: 'GitHub', position: 'right', className: 'da-navbar-pill' },
             ],
         },

@@ -134,3 +134,11 @@ is not installed.
 
 **The sitemap leaves out every generated API page but the index.** They were 86% of its URLs, one
 short page per route. They are still crawlable through their links, just not put forward.
+
+**Search runs in the reader's browser, and only on a build.** `@easyops-cn/docusaurus-search-local`
+writes the indexes after `docusaurus build`, so under `start` the box is there and finds nothing;
+try it with `build`, then `serve`. The generated API reference is an index of its own, through
+`searchContextByPaths`, because at one short page per route it would outnumber the guides in every
+result. A search from an API page therefore finds routes and a search from anywhere else finds
+everything but them. The plugin's results page draws a box to switch context, with no entry for the
+main index, so it reads "API reference" over a search of the guides; `custom.css` hides it.

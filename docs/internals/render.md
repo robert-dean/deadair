@@ -44,8 +44,9 @@ asks `/models` instead, reporting a model it cannot find rather than failing on 
 it does not list. Ollama lists voices per model on its native `/api/show`, beside `/v1` rather than under it, and
 that is where the voice suggestions come from there. A 400, 404 or 422 from `/audio/speech` puts the server's own
 sentence in the error, because Ollama answers 400 to every format but `wav` and `pcm` and "for voice" would
-otherwise blame the voice. Written against Ollama's documentation and source, not a running server, because its
-speech models were Apple Silicon only when this was written.
+otherwise blame the voice. Run against Ollama 0.40.14 on an Apple Silicon Mac, the only platform its announcement
+named for speech then. Its WAV holds maximum sizes in the header because it streams; `ffprobe` and Liquidsoap 2.4.5
+both measured and played that correctly, though neither Linux nor a full break on a running station was tried.
 
 **`plugins/rhapsode` ships NO map, because it could not write one.** Its server holds several engines at once
 and addresses a voice as the pair `(engine, voice)` — the server's own protocol says cross-engine namespacing

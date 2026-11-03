@@ -1,5 +1,6 @@
 ---
-title: On Unraid
+title: 'Run an AI radio station on Unraid'
+sidebar_label: On Unraid
 sidebar_position: 2
 description: Every field in the Unraid template, what to put in it, and the three that decide whether the station works.
 ---

@@ -1,5 +1,6 @@
 ---
-title: What it does
+title: 'What deadair does: a self-hosted AI radio station'
+sidebar_label: What it does
 sidebar_position: 0
 description: The seven things a deadair station does, why each is built the way it is, and where each is explained.
 ---

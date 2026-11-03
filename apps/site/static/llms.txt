@@ -1,6 +1,6 @@
 # deadair
 
-> deadair is an AI radio station you run yourself. It picks the records from a music source you already have, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result as one broadcast that every listener hears at the same moment. It is open source (MIT), self-hosted in Docker, and has no hosted service.
+> deadair is an AI radio station you run yourself: personal internet radio with an AI DJ, which these docs call the presenter. It picks the records from a music source you already have, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result as one broadcast that every listener hears at the same moment. It is open source (MIT), self-hosted in Docker, and has no hosted service.
 
 Things that are easy to get wrong about it:
 

@@ -123,8 +123,8 @@ export default function Home() {
                     <div className={styles.heroFoot}>
                         <div>
                             <p className={styles.lede}>
-                                It picks the records, writes what the presenter says between them, speaks it in that presenter’s voice, and streams
-                                the result.
+                                Personal internet radio with an AI DJ. It picks the records, writes what the presenter says between them, speaks it in
+                                that presenter’s voice, and streams the result.
                             </p>
                             <div className={styles.actions}>
                                 <Link className="da-button" to="/docs/quick-start">

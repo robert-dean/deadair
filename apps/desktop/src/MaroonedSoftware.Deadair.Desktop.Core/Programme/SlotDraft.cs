@@ -103,6 +103,7 @@ public sealed record SlotDraft
                 StartsOn = slot.StartsOn,
                 EndsOn = slot.EndsOn,
                 Yearly = slot.Yearly,
+                Recurrence = slot.Recurrence,
                 GuestHosts = slot.GuestHosts,
                 CoHosts = slot.CoHosts,
                 ResumePlaylist = slot.ResumePlaylist,
@@ -219,6 +220,7 @@ public sealed record SlotDraft
             StartsOn = Kept.StartsOn,
             EndsOn = Kept.EndsOn,
             Yearly = Kept.Yearly,
+            Recurrence = Kept.Recurrence,
             GuestHosts = Kept.GuestHosts,
             CoHosts = Kept.CoHosts,
             ResumePlaylist = Kept.ResumePlaylist,
@@ -288,6 +290,12 @@ public static class SlotText
     {
         ArgumentNullException.ThrowIfNull(slot);
 
+        // A rule's next date comes from the station, which is the only thing that can work it out.
+        if (slot.Recurrence is not null)
+        {
+            return slot.NextDate is { } next ? $"Special, by a rule: next on {next}" : "Special, by a rule: no more dates";
+        }
+
         if (slot.StartsOn is not { } from || slot.EndsOn is not { } to)
         {
             return Days(slot.Days);
@@ -318,6 +326,9 @@ public sealed record SlotPassthrough
     public string? EndsOn { get; init; }
 
     public bool? Yearly { get; init; }
+
+    /// <summary>The rule a special comes round by, in place of its dates; null on any other slot. Set on the web console.</summary>
+    public SpecialRecurrence? Recurrence { get; init; }
 
     /// <summary>Who sits in for the slot's host, and when; set on the web console.</summary>
     public List<SlotGuestHost>? GuestHosts { get; init; }

@@ -36,7 +36,11 @@ interface FakeHostOptions {
     speakStatus?: number;
     /** Where the `/audio/speech` call says it landed, as the host reports a followed redirect. */
     speakRedirectedTo?: string;
+    /** What a refused `/audio/speech` says. */
+    speakBody?: string;
     fetchResponse?: Partial<{ status: number; body: string }>;
+    /** Answers by the end of the URL, for a server whose endpoints do not all answer alike. */
+    routes?: Record<string, { status?: number; body?: string }>;
 }
 
 function fakeHost(options: FakeHostOptions = {}) {
@@ -50,9 +54,12 @@ function fakeHost(options: FakeHostOptions = {}) {
         if (url.endsWith('/audio/speech')) {
             const status = options.speakStatus ?? 200;
             const ok = status >= 200 && status < 300;
-            const response = new Response(ok ? streamOf(options.chunks ?? [audioChunk()]) : streamOf([Buffer.from('{"detail":"nope"}')]), {
-                status,
-            });
+            const response = new Response(
+                ok ? streamOf(options.chunks ?? [audioChunk()]) : streamOf([Buffer.from(options.speakBody ?? '{"detail":"nope"}')]),
+                {
+                    status,
+                },
+            );
 
             if (options.speakRedirectedTo !== undefined) {
                 Object.defineProperty(response, 'url', { value: options.speakRedirectedTo });
@@ -69,6 +76,9 @@ function fakeHost(options: FakeHostOptions = {}) {
 
             return response;
         }
+
+        const route = Object.entries(options.routes ?? {}).find(([suffix]) => url.endsWith(suffix))?.[1];
+        if (route !== undefined) return new Response(route.body ?? '', { status: route.status ?? 200 });
 
         return new Response(options.fetchResponse?.body ?? JSON.stringify({ voices: [{ id: 'af_heart' }] }), {
             status: options.fetchResponse?.status ?? 200,
@@ -263,6 +273,39 @@ describe('KokoroPlugin.speak', () => {
     });
 });
 
+describe('KokoroPlugin.speak refusals', () => {
+    it('says what the server said was wrong, so a refused format is not blamed on the voice', async () => {
+        const { plugin } = await started({
+            speakStatus: 400,
+            speakBody: JSON.stringify({ error: { message: 'unsupported response_format "flac"' } }),
+        });
+
+        await expect(plugin.speak({ text: 'hello' })).rejects.toHaveProperty(
+            'message',
+            `kokoro answered HTTP 400 for voice "af_heart" at ${BASE_URL}/audio/speech: unsupported response_format "flac"`,
+        );
+    });
+
+    it.each([
+        ['a bare error string', { error: 'voice not found' }],
+        ['a bare detail string', { detail: 'voice not found' }],
+        ['a detail object', { detail: { message: 'voice not found' } }],
+    ])('reads %s', async (_shape, body) => {
+        const { plugin } = await started({ speakStatus: 422, speakBody: JSON.stringify(body) });
+
+        await expect(plugin.speak({ text: 'hello' })).rejects.toThrow(/: voice not found$/);
+    });
+
+    it('keeps the plain message when the refusal is not a sentence it can read', async () => {
+        const { plugin } = await started({ speakStatus: 404, speakBody: '<html>not found</html>' });
+
+        await expect(plugin.speak({ text: 'hello' })).rejects.toHaveProperty(
+            'message',
+            `kokoro answered HTTP 404 for voice "af_heart" at ${BASE_URL}/audio/speech`,
+        );
+    });
+});
+
 describe('KokoroPlugin audio stream', () => {
     it('forwards the body a piece at a time rather than buffering it', async () => {
         const { plugin } = await started({ chunks: [audioChunk(2048), audioChunk(2048)] });
@@ -312,6 +355,87 @@ describe('KokoroPlugin.testConnection', () => {
         const { plugin } = await started({ fetchResponse: { body: 'not json at all' } });
 
         await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected.' });
+    });
+
+    describe('against a server with no voice list', () => {
+        const OLLAMA = 'http://ollama.test:11434/v1';
+        const noVoices = { '/audio/voices': { status: 404 } };
+
+        it('asks /models instead, because this same call is what lifts a quarantine', async () => {
+            const { plugin } = await started({
+                config: { model: 'tts-1' },
+                routes: { ...noVoices, '/models': { body: JSON.stringify({ data: [{ id: 'tts-1' }] }) }, '/api/show': { status: 404 } },
+            });
+
+            await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected.' });
+        });
+
+        it("reports Ollama's voices for the configured model", async () => {
+            const { plugin, calls } = await started({
+                config: { baseUrl: OLLAMA, model: 'phonon:40m-de' },
+                routes: {
+                    ...noVoices,
+                    '/models': { body: JSON.stringify({ data: [{ id: 'phonon:40m-de' }] }) },
+                    '/api/show': { body: JSON.stringify({ voices: ['Greta', 'Lukas'] }) },
+                },
+            });
+
+            await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected. 2 voices available.' });
+
+            const show = calls.find(call => call.url === 'http://ollama.test:11434/api/show');
+            expect(show?.method).toBe('POST');
+            expect(JSON.parse(show?.body ?? '{}')).toEqual({ model: 'phonon:40m-de' });
+        });
+
+        it('matches a model Ollama lists under its :latest tag', async () => {
+            const { plugin } = await started({
+                config: { baseUrl: OLLAMA, model: 'phonon' },
+                routes: {
+                    ...noVoices,
+                    '/models': { body: JSON.stringify({ data: [{ id: 'phonon:latest' }] }) },
+                    '/api/show': { status: 200, body: '{}' },
+                },
+            });
+
+            await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected.' });
+        });
+
+        it('says when the model is not listed, without failing a server that may still take it', async () => {
+            const { plugin } = await started({
+                config: { model: 'phonon' },
+                routes: { ...noVoices, '/models': { body: JSON.stringify({ data: [{ id: 'gemma4:latest' }] }) } },
+            });
+
+            await expect(plugin.testConnection()).resolves.toEqual({
+                ok: true,
+                message: 'Connected, but this server does not list the model "phonon".',
+            });
+        });
+
+        it('still connects when the voices cannot be read', async () => {
+            const { plugin } = await started({
+                config: { baseUrl: OLLAMA },
+                routes: { ...noVoices, '/models': { body: JSON.stringify({ data: [{ id: 'kokoro' }] }) }, '/api/show': { status: 500 } },
+            });
+
+            await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected.' });
+        });
+
+        it.each([
+            ['also answers 404', { status: 404 }],
+            ['answers something other than a model list', { body: '<html>a web page</html>' }],
+        ])('keeps the 404 when /models %s', async (_case, models) => {
+            const { plugin } = await started({ routes: { ...noVoices, '/models': models } });
+
+            await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'Server answered HTTP 404.' });
+        });
+
+        it('does not fall back on any other failure', async () => {
+            const { plugin, calls } = await started({ routes: { '/audio/voices': { status: 401 }, '/models': { body: '{"data":[]}' } } });
+
+            await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'Server answered HTTP 401.' });
+            expect(calls.some(call => call.url.endsWith('/models'))).toBe(false);
+        });
     });
 
     it('answers rather than throws when the server is not there, so the test button cannot quarantine it', async () => {
@@ -397,6 +521,28 @@ describe('KokoroPlugin.suggestConfigOptions', () => {
         const { plugin } = await started({ fetchResponse: { body: JSON.stringify({ voices: ['af_heart', 'bm_george'] }) } });
 
         expect((await plugin.suggestConfigOptions())['voices.engine']?.map(option => option.value)).toEqual(['af_heart', 'bm_george']);
+    });
+
+    it("offers the configured model's voices on Ollama, which lists them on /api/show", async () => {
+        const { plugin } = await started({
+            config: { baseUrl: 'http://ollama.test:11434/v1', model: 'phonon:40m-de' },
+            routes: { '/audio/voices': { status: 404 }, '/api/show': { body: JSON.stringify({ voices: ['Greta', 'Lukas'] }) } },
+        });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested['voices.engine']?.map(option => option.value)).toEqual(['Greta', 'Lukas']);
+        expect(suggested.defaultVoice).toEqual(suggested['voices.engine']);
+    });
+
+    it('does not guess at /api/show when the address has no /v1 to sit beside', async () => {
+        const { plugin, calls } = await started({
+            routes: { '/audio/voices': { status: 404 } },
+            config: { baseUrl: 'http://elsewhere.test/speech' },
+        });
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+        expect(calls.some(call => call.url.endsWith('/api/show'))).toBe(false);
     });
 
     it('answers nothing rather than throwing when the server cannot be reached', async () => {

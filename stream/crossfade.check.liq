@@ -12,8 +12,8 @@
 # an overlap both are present and each one's amplitude envelope can be recovered
 # independently. That turns "does it sound right" into numbers.
 #
-# Everything between the BEGIN/END markers is COPIED VERBATIM from radio.liq, apart
-# from the clearly marked instrumentation.
+# Everything between the BEGIN/END markers is COPIED VERBATIM from radio.liq, apart from the
+# clearly marked instrumentation and the stamped handover's branch, which handover.check.liq covers.
 
 # `docker compose exec` lands as root and liquidsoap refuses to run as root. Fine for a
 # throwaway render in a container; deliberately nowhere near radio.liq.

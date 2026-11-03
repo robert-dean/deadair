@@ -60,6 +60,16 @@ export const MIN_BLEND_MS = 500;
  */
 export const MAX_BLEND_MS = 12_000;
 
+/**
+ * Whether a blend thins the outgoing record and hands its bass over, rather than only fading.
+ *
+ * A setting and not a rule of the broadcast, because it changes how a blend sounds and not whether
+ * there is one: an album still has none, so `resolveRules` has nothing to add. Read through
+ * `settingIsOn`, per hand-over. `playout_handover` in `stream/radio.liq` is what it turns on.
+ */
+export const HANDOVER_SETTING_KEY = 'rotation.handover';
+export const DEFAULT_HANDOVER = false;
+
 /** What the boundary depends on beyond the two records. */
 export interface BlendRules {
     /**

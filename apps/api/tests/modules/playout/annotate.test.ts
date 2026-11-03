@@ -33,6 +33,7 @@ const context = (levelingEnabled: boolean): AnnotationContext => ({
     speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
     levelingEnabled,
     crossfade: false,
+    handover: false,
     stationName: STATION_NAME,
     publicUrl: '',
 });

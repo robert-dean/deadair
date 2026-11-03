@@ -42,6 +42,13 @@ export const ITEM_KEY = 'deadair_item';
 export const SPEECH_KEY = 'deadair_speech';
 
 /**
+ * The metadata key asking for the filtered handover out of this record, `"1"` or absent as
+ * {@link SPEECH_KEY} is. Must match `radio.liq`, which keeps a blend under three seconds plain whatever
+ * this says, and a record going into speech cold.
+ */
+export const HANDOVER_KEY = 'deadair_handover';
+
+/**
  * The metadata key carrying where a voice is aimed, in LUFS. Must match `radio.liq`.
  *
  * On every spoken item, by both routes and for somebody else's programme too, because all of them go
@@ -123,6 +130,8 @@ export interface AnnotationContext {
     levelingEnabled: boolean;
     /** Whether this broadcast blends one record into the next. See `crossfade.ts`. */
     crossfade: boolean;
+    /** Whether a blend hands the bass over, read per hand-over. See `HANDOVER_SETTING_KEY` in `crossfade.ts`. */
+    handover: boolean;
     /**
      * What the station calls itself, as the setting currently stands. See
      * {@link listenerTitle}, which is the only thing that reads it.
@@ -546,6 +555,7 @@ function crossAnnotations(item: RundownItem, context: AnnotationContext): Record
     return {
         liq_cross_end_duration: seconds(out === 0 ? HARD_JOIN_MS : out),
         liq_cross_start_duration: seconds(into === 0 ? HARD_JOIN_MS : into),
+        ...(context.handover && out > 0 ? { [HANDOVER_KEY]: '1' } : {}),
     };
 }
 

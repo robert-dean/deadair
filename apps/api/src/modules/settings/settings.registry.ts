@@ -21,6 +21,7 @@ import {
     SPEECH_TRIM_KEY,
     TARGET_LUFS_KEY,
 } from '#modules/playout/gain.js';
+import { DEFAULT_HANDOVER, HANDOVER_SETTING_KEY } from '#modules/playout/crossfade.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
 import {
     DEFAULT_ORPHAN_GRACE_HOURS,
@@ -1498,6 +1499,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: DEFAULT_RULES.crossfade,
         help: "How long each blend lasts is measured from both records rather than set here, so a record that ends cold is barely ridden and one that fades is ridden as far as the next record can absorb it. An album or a sequenced setlist ignores this and stays cold by default, because its gaps are somebody else's decision.",
+    },
+    {
+        group: 'rotation',
+        key: HANDOVER_SETTING_KEY,
+        label: 'Hand the bass over in a blend',
+        type: 'boolean',
+        default: DEFAULT_HANDOVER,
+        help: 'In a blend of three seconds or more, the record that is ending thins out, and the two basslines swap rather than play on top of each other. It is heard most on a long blend between two records that clash, and the blend sits a little quieter for about a second at the swap. Shorter blends, and everything outside a blend, are not changed.',
     },
 
     // ── playout ────────────────────────────────────────────────────────────────

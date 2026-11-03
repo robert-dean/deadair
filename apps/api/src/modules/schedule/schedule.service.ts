@@ -14,6 +14,7 @@ import {
     dateKey,
     isChartSource,
     isLiveShow,
+    isRecurrence,
     occurrenceOf,
     isSpecial,
     isStationPlaylistSource,
@@ -725,7 +726,9 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
         ...(slot.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
         ...(slot.writerOrder === undefined ? {} : { writerOrder: slot.writerOrder }),
-        ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
+        ...(slot.dates === undefined || isRecurrence(slot.dates)
+            ? {}
+            : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
         ...(slot.coHosts === undefined || slot.coHosts.length === 0
             ? {}
             : {

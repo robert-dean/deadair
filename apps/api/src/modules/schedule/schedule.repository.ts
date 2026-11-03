@@ -8,6 +8,7 @@ import type { WriterOrder } from '#modules/director/writer.order.js';
 import {
     isChartSource,
     isPlaylistSource,
+    isRecurrence,
     isStationPlaylistSource,
     type ScheduleSlot,
     type ScheduleSlotSource,
@@ -183,6 +184,8 @@ export class ScheduleRepository extends DataRepository {
 export type ScheduleSlotDraft = Omit<ScheduleSlot, 'id'>;
 
 function columnsOf(draft: ScheduleSlotDraft) {
+    const range = draft.dates === undefined || isRecurrence(draft.dates) ? undefined : draft.dates;
+
     return {
         label: draft.label,
         startsAtMinutes: draft.startsAtMinutes,
@@ -215,9 +218,9 @@ function columnsOf(draft: ScheduleSlotDraft) {
         // Cast in SQL rather than handed over as a `DateTime`, because a date is a reading of the
         // station's calendar and not an instant: building one in JS would mean choosing a zone for a
         // value that has none.
-        startsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.from}::date`,
-        endsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.to}::date`,
-        yearly: draft.dates?.yearly ?? false,
+        startsOn: range === undefined ? null : sql<DateTime>`${range.from}::date`,
+        endsOn: range === undefined ? null : sql<DateTime>`${range.to}::date`,
+        yearly: range?.yearly ?? false,
         // Only on a playlist, so a slot whose source moves to a chart does not carry a choice that means
         // nothing there back to the console as though it still applied.
         resumePlaylist: draft.resumePlaylist === true && isPlaylistSource(draft.source),

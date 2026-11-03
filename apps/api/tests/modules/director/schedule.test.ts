@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    firstClash,
     minutesIntoSlot,
     minutesLeftInSlot,
     occurrenceOf,
@@ -342,6 +343,132 @@ describe('specials', () => {
 
             expect(overlap(turn, newYear)).toBe(true);
             expect(overlap(turn, july)).toBe(false);
+        });
+    });
+});
+
+describe('a special on a rule', () => {
+    const HALLOWEEN = { rule: { kind: 'fixed', month: 10, day: 31 } } as const;
+    const NEW_YORK = 'America/New_York';
+    const TODAY = { year: 2026, month: 11, day: 3, weekday: 2 };
+
+    const night = special('halloween', at(20), at(2), HALLOWEEN);
+
+    it('comes round every year by itself, and on no other night', () => {
+        for (const instant of ['2026-10-31T21:00:00Z', '2027-10-31T21:00:00Z', '2041-10-31T21:00:00Z']) {
+            expect(resolveSlot(new Date(instant), 'UTC', [night])?.id).toBe('halloween');
+        }
+        expect(resolveSlot(new Date('2026-10-30T21:00:00Z'), 'UTC', [night])).toBeUndefined();
+    });
+
+    it("reads the rule on the station's calendar rather than UTC's", () => {
+        // 23:30 on the 31st in New York is already the 1st of November in UTC.
+        expect(resolveSlot(new Date('2026-11-01T03:30:00Z'), NEW_YORK, [night])?.id).toBe('halloween');
+        // 20:30 on the 30th in Los Angeles is 03:30 on the 31st in UTC, and it is not Halloween there yet.
+        expect(resolveSlot(new Date('2026-10-31T03:30:00Z'), 'America/Los_Angeles', [special('late', at(20), at(23), HALLOWEEN)])).toBeUndefined();
+        // Tokyo reaches the 31st nine hours before UTC does.
+        expect(resolveSlot(new Date('2026-10-31T12:00:00Z'), 'Asia/Tokyo', [night])?.id).toBe('halloween');
+    });
+
+    it('keeps its tail past midnight on the morning after, as the night that began it', () => {
+        const tail = new Date('2026-11-01T04:30:00Z'); // 00:30 on the 1st in New York.
+
+        expect(resolveSlot(tail, NEW_YORK, [night])?.id).toBe('halloween');
+        expect(occurrenceOf(night, tail, NEW_YORK)).toEqual({ year: 2026, month: 10, day: 31, weekday: 6 });
+    });
+
+    it('answers both readings of the hour the clocks go back, then ends', () => {
+        // 2026-11-01 is the morning New York falls back, so 01:30 happens twice inside this show.
+        expect(resolveSlot(new Date('2026-11-01T05:30:00Z'), NEW_YORK, [night])?.id).toBe('halloween');
+        expect(resolveSlot(new Date('2026-11-01T06:30:00Z'), NEW_YORK, [night])?.id).toBe('halloween');
+        expect(resolveSlot(new Date('2026-11-01T07:30:00Z'), NEW_YORK, [night])).toBeUndefined();
+    });
+
+    it('moves with a rule that moves', () => {
+        const thanksgiving = special('turkey', at(18), at(22), { rule: { kind: 'weekday', month: 11, ordinal: 4, weekday: 4 } });
+
+        expect(resolveSlot(new Date('2026-11-26T19:00:00Z'), 'UTC', [thanksgiving])?.id).toBe('turkey');
+        expect(resolveSlot(new Date('2027-11-25T19:00:00Z'), 'UTC', [thanksgiving])?.id).toBe('turkey');
+        expect(resolveSlot(new Date('2027-11-26T19:00:00Z'), 'UTC', [thanksgiving])).toBeUndefined();
+    });
+
+    it('wins over the weekly schedule for its hours, like any special', () => {
+        const usual = slot('usual', at(18), at(23));
+
+        expect(slotOn({ year: 2026, month: 10, day: 31, weekday: 6 }, at(21), [usual, night])?.id).toBe('halloween');
+        expect(slotOn({ year: 2026, month: 10, day: 30, weekday: 5 }, at(21), [usual, night])?.id).toBe('usual');
+    });
+
+    describe('overlap', () => {
+        it('never clashes with a weekly block', () => {
+            expect(overlap(slot('usual', at(18), at(23)), night, TODAY)).toBe(false);
+        });
+
+        it('refuses another rule that falls on the same day at the same time', () => {
+            expect(overlap(night, special('again', at(21), at(22), HALLOWEEN), TODAY)).toBe(true);
+        });
+
+        it('lets another rule share the day at other hours', () => {
+            expect(overlap(special('early', at(8), at(10), HALLOWEEN), special('later', at(14), at(16), HALLOWEEN), TODAY)).toBe(false);
+        });
+
+        it('names the first year two rules that drift actually meet', () => {
+            const lastSaturday = special('saturday', at(21), at(22), { rule: { kind: 'weekday', month: 10, ordinal: -1, weekday: 6 } });
+
+            // 31 October 2026 was a Saturday, but that was last week. The next is 2037.
+            expect(firstClash(night, lastSaturday, TODAY)).toBe('2037-10-31');
+            expect(firstClash(night, lastSaturday, { year: 2026, month: 10, day: 1, weekday: 4 })).toBe('2026-10-31');
+        });
+
+        it('catches a rule against another calendar, however long they take to meet', () => {
+            const eid = special('eid', at(21), at(22), {
+                rule: { kind: 'calendar', calendar: 'islamic-umalqura', calendarMonth: 'Shawwal', day: 1 },
+            });
+            const fixed = special('fixed', at(21), at(22), { rule: { kind: 'fixed', month: 10, day: 29 } });
+
+            expect(firstClash(eid, fixed, TODAY)).toBe('2038-10-29');
+        });
+
+        it('does not claim a clash a calendar steps over', () => {
+            // Shawwal comes through October in 2038 and 2039 on the 29th and the 19th, and never the 31st.
+            const eid = special('eid', at(21), at(22), {
+                rule: { kind: 'calendar', calendar: 'islamic-umalqura', calendarMonth: 'Shawwal', day: 1 },
+            });
+
+            expect(firstClash(night, eid, TODAY)).toBeUndefined();
+        });
+
+        it("catches a rule's tail running into the next morning's special", () => {
+            const morning = special('morning', at(1), at(3), { rule: { kind: 'fixed', month: 11, day: 1 } });
+
+            expect(overlap(night, morning, TODAY)).toBe(true);
+        });
+
+        it('compares a rule against a yearly range', () => {
+            const week = special('week', at(21), at(22), { from: '2026-10-28', to: '2026-11-02', yearly: true });
+
+            expect(overlap(night, week, TODAY)).toBe(true);
+        });
+
+        it('compares a rule against a one-off only on the dates the one-off runs', () => {
+            const coming = special('coming', at(21), at(22), { from: '2030-10-31', to: '2030-10-31', yearly: false });
+            const missed = special('missed', at(21), at(22), { from: '2030-10-30', to: '2030-10-30', yearly: false });
+
+            expect(firstClash(night, coming, TODAY)).toBe('2030-10-31');
+            expect(overlap(night, missed, TODAY)).toBe(false);
+        });
+
+        it('lets a rule fall where an old one-off ran, since that night is over', () => {
+            const past = special('past', at(21), at(22), { from: '2025-10-31', to: '2025-10-31', yearly: false });
+
+            expect(overlap(night, past, TODAY)).toBe(false);
+        });
+
+        it('bounds a list of dates by its own first and last', () => {
+            const listed = special('listed', at(21), at(22), { rule: { kind: 'dates', dates: ['2031-10-31', '2032-01-01'] } });
+
+            expect(firstClash(night, listed, TODAY)).toBe('2031-10-31');
+            expect(overlap(listed, special('next', at(21), at(22), { rule: { kind: 'fixed', month: 2, day: 1 } }), TODAY)).toBe(false);
         });
     });
 });

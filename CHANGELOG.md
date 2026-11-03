@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.5] — 2026-11-03
+
+- **Blend one record into the next** works again. For some time the station decided each blend before it knew what followed, so every boundary was a hard join with the setting on. A station that has blending on, which is the default, will start blending after this update. Turn it off under Settings to keep hard joins.
+
 ## [0.89.4] — 2026-11-03
 
 - A new setting, **Hand the bass over in a blend**, makes a blend of three seconds or more thin out the record that is ending and swap the two basslines rather than playing them on top of each other. It is off by default.
@@ -1840,7 +1844,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.5...HEAD
+[0.89.5]: https://github.com/robert-dean/deadair/compare/v0.89.4...v0.89.5
 [0.89.4]: https://github.com/robert-dean/deadair/compare/v0.89.3...v0.89.4
 [0.89.3]: https://github.com/robert-dean/deadair/compare/v0.89.2...v0.89.3
 [0.89.2]: https://github.com/robert-dean/deadair/compare/v0.89.1...v0.89.2

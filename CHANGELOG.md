@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.4] — 2026-11-03
+
+- A new setting, **Hand the bass over in a blend**, makes a blend of three seconds or more thin out the record that is ending and swap the two basslines rather than playing them on top of each other. It is off by default.
+
 ## [0.89.3] — 2026-11-03
 
 - The Kokoro plugin now works with OpenAI-compatible speech servers that have no voice list, such as Ollama: Test connection and quarantine recovery ask `/models` instead of failing, Ollama's voices appear in the settings form, and a refused request says what the server objected to.
@@ -1836,7 +1840,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.4...HEAD
+[0.89.4]: https://github.com/robert-dean/deadair/compare/v0.89.3...v0.89.4
 [0.89.3]: https://github.com/robert-dean/deadair/compare/v0.89.2...v0.89.3
 [0.89.2]: https://github.com/robert-dean/deadair/compare/v0.89.1...v0.89.2
 [0.89.1]: https://github.com/robert-dean/deadair/compare/v0.89.0...v0.89.1

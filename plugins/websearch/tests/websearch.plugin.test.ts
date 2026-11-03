@@ -19,9 +19,10 @@ let plugin: WebSearchPlugin;
  * the wrong place and every keyed engine was called without one.
  */
 const initialize = async (config: Record<string, unknown>): Promise<void> => {
-    const { apiKey, ...plain } = config;
+    const { braveApiKey, tavilyApiKey, ...plain } = config;
     host.seedConfig(plain);
-    if (typeof apiKey === 'string') host.seedSecret('apiKey', apiKey);
+    if (typeof braveApiKey === 'string') host.seedSecret('braveApiKey', braveApiKey);
+    if (typeof tavilyApiKey === 'string') host.seedSecret('tavilyApiKey', tavilyApiKey);
     await plugin.init(host);
 };
 
@@ -73,19 +74,27 @@ describe('manifest', () => {
     });
 
     it('refuses to save SearXNG with no address, where there is somebody to tell', () => {
-        const answer = websearchManifest.configSchema.safeParse({ provider: 'searxng', apiKey: 'irrelevant' });
+        const answer = websearchManifest.configSchema.safeParse({ provider: 'searxng', braveApiKey: 'irrelevant' });
 
         expect(answer.success).toBe(false);
     });
 
     it('refuses to save a keyed engine with no key', () => {
         expect(websearchManifest.configSchema.safeParse({ provider: 'brave' }).success).toBe(false);
-        expect(websearchManifest.configSchema.safeParse({ provider: 'tavily', apiKey: '   ' }).success).toBe(false);
+        expect(websearchManifest.configSchema.safeParse({ provider: 'tavily', tavilyApiKey: '   ' }).success).toBe(false);
+    });
+
+    it("refuses a keyed engine that holds only the other engine's key", () => {
+        const toTavily = websearchManifest.configSchema.safeParse({ provider: 'tavily', braveApiKey: 'a-token' });
+        const toBrave = websearchManifest.configSchema.safeParse({ provider: 'brave', tavilyApiKey: 'a-key' });
+
+        expect(toTavily.error?.issues[0]?.path).toEqual(['tavilyApiKey']);
+        expect(toBrave.error?.issues[0]?.path).toEqual(['braveApiKey']);
     });
 
     it('accepts a complete form', () => {
         expect(websearchManifest.configSchema.safeParse({ provider: 'searxng', baseUrl: 'http://searxng:8080' }).success).toBe(true);
-        expect(websearchManifest.configSchema.safeParse({ provider: 'brave', apiKey: 'token' }).success).toBe(true);
+        expect(websearchManifest.configSchema.safeParse({ provider: 'brave', braveApiKey: 'token' }).success).toBe(true);
     });
 });
 
@@ -141,7 +150,17 @@ describe('searxng', () => {
 });
 
 describe('brave', () => {
-    const config = { provider: 'brave', apiKey: 'a-token' };
+    it("sends its own token and never Tavily's, with both stored", async () => {
+        await initialize({ provider: 'brave', braveApiKey: 'a-token', tavilyApiKey: 'a-key' });
+        queueJson({ web: { results: [] } });
+
+        await plugin.search({ query: 'portishead', limit: 5 });
+
+        expect(host.calls[0]?.headers).toMatchObject({ 'X-Subscription-Token': 'a-token' });
+        expect(JSON.stringify(host.calls[0])).not.toContain('a-key');
+    });
+
+    const config = { provider: 'brave', braveApiKey: 'a-token' };
 
     it('sends the subscription token and asks for undecorated snippets', async () => {
         await initialize(config);
@@ -171,7 +190,17 @@ describe('brave', () => {
 });
 
 describe('tavily', () => {
-    const config = { provider: 'tavily', apiKey: 'a-key' };
+    it("sends its own key and never Brave's, with both stored", async () => {
+        await initialize({ provider: 'tavily', braveApiKey: 'a-token', tavilyApiKey: 'a-key' });
+        queueJson({ results: [] });
+
+        await plugin.search({ query: 'portishead', limit: 5 });
+
+        expect(host.calls[0]?.headers).toMatchObject({ Authorization: 'Bearer a-key' });
+        expect(JSON.stringify(host.calls[0])).not.toContain('a-token');
+    });
+
+    const config = { provider: 'tavily', tavilyApiKey: 'a-key' };
 
     it('posts the query with the answer turned off', async () => {
         await initialize(config);
@@ -196,7 +225,7 @@ describe('tavily', () => {
 
 describe('bounds', () => {
     it('never asks for more than the operator allowed', async () => {
-        await initialize({ provider: 'brave', apiKey: 'a-token', maxResults: 3 });
+        await initialize({ provider: 'brave', braveApiKey: 'a-token', maxResults: 3 });
         queueJson({ web: { results: [] } });
 
         await plugin.search({ query: 'portishead', limit: 25 });
@@ -232,7 +261,7 @@ describe('bounds', () => {
     });
 
     it('forgets the credentials when it is unloaded', async () => {
-        await initialize({ provider: 'brave', apiKey: 'a-token' });
+        await initialize({ provider: 'brave', braveApiKey: 'a-token' });
         await plugin.dispose();
 
         await expect(plugin.search({ query: 'portishead', limit: 5 })).resolves.toEqual([]);
@@ -257,7 +286,7 @@ describe('testConnection', () => {
     });
 
     it('reports the refusal rather than throwing it at the operator', async () => {
-        await initialize({ provider: 'brave', apiKey: 'wrong' });
+        await initialize({ provider: 'brave', braveApiKey: 'wrong' });
         queueJson({ error: 'unauthorized' }, 401);
 
         const answer = await plugin.testConnection();

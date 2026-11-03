@@ -3,6 +3,7 @@
 // taking the tail away before there is anything to put back, because an empty running order is how
 // the station loses its mount lease and goes quiet.
 
+import type { OccasionService } from '../../../src/modules/schedule/occasion.service.js';
 import type { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
 import { describe, expect, it, vi } from 'vitest';
 import { Duration } from 'luxon';
@@ -117,6 +118,7 @@ function build(options: Options = {}) {
             activity,
             station.config,
             { inForce: vi.fn(async () => undefined) } as unknown as ScheduleService,
+            { on: vi.fn(async () => undefined) } as unknown as OccasionService,
             { ...context, ...(options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn }) },
             container,
             logger,

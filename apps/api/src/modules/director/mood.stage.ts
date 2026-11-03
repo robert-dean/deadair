@@ -1,5 +1,6 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
+import type { OccasionService } from '#modules/schedule/occasion.service.js';
 import type { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { batchMidpointMs } from './air.estimate.js';
 import { stationZone } from './clock.words.js';
@@ -47,10 +48,11 @@ export async function refillMood(
     ahead: readonly StationLineupItem[],
     count: number,
     schedule: Pick<ScheduleService, 'inForce'>,
+    occasions: Pick<OccasionService, 'on'>,
     config: AppConfig,
     now = Date.now(),
 ): Promise<LyricMood | undefined> {
-    return await stretchMood(lineup, batchMidpointMs(ahead, count), schedule, config, now);
+    return await stretchMood(lineup, batchMidpointMs(ahead, count), schedule, occasions, config, now);
 }
 
 /**
@@ -61,6 +63,11 @@ export async function refillMood(
  * one that is still airing after a changeover moved on, leans into its first stage. A schedule that
  * cannot be read costs the stage and never the caller.
  *
+ * A broadcast with no stages leans into the mood of the occasion the stretch airs on, if that names one,
+ * and never one the broadcast steers away from. Never over stages of its own, because the operator who
+ * wrote a slot's stages wrote them for that slot, and asked of the instant the stretch AIRS, so a batch
+ * that will mostly air after midnight leans into tomorrow.
+ *
  * The draw reads it for a refill and the break writers for the stretch a break airs in, and both
  * read it here so the two can never disagree about which stage the station is in.
  */
@@ -68,11 +75,15 @@ export async function stretchMood(
     lineup: MoodLineup,
     aheadMs: number,
     schedule: Pick<ScheduleService, 'inForce'>,
+    occasions: Pick<OccasionService, 'on'>,
     config: AppConfig,
     now = Date.now(),
 ): Promise<LyricMood | undefined> {
     const moods = lineup.moods;
-    if (moods === undefined || moods.length === 0) return undefined;
+    if (moods === undefined || moods.length === 0) {
+        const mood = (await occasions.on(now + Math.max(0, aheadMs)))?.mood;
+        return mood === undefined || lineup.avoidMoods?.includes(mood) ? undefined : mood;
+    }
     if (moods.length === 1 || lineup.slotId === undefined) return moods[0];
 
     const slot = await schedule.inForce(new Date(now)).catch(() => undefined);
@@ -80,8 +91,9 @@ export async function stretchMood(
     return stageAt(moods, slot, now, aheadMs, stationZone(config));
 }
 
-/** What {@link stretchMood} reads of a broadcast: its stages and the slot it was put on for. */
+/** What {@link stretchMood} reads of a broadcast: its stages, the slot it was put on for, and what it steers away from. */
 export interface MoodLineup {
     readonly moods?: readonly LyricMood[] | undefined;
     readonly slotId?: string | undefined;
+    readonly avoidMoods?: readonly LyricMood[] | undefined;
 }

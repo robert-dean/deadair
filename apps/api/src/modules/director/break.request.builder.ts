@@ -299,7 +299,7 @@ export class BreakRequestBuilder {
         // reading the draw leans on, so a presenter is never told one mood while the records lean
         // into another. A break with no slot is measured as airing now.
         const now = Date.now();
-        const mood = await stretchMood(lineup, Math.max(0, (airsAt ?? now) - now), this.schedule, this.config, now);
+        const mood = await stretchMood(lineup, Math.max(0, (airsAt ?? now) - now), this.schedule, this.occasions, this.config, now);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a

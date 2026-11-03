@@ -1,4 +1,5 @@
 import { Container, Injectable } from 'injectkit';
+import { OccasionService } from '#modules/schedule/occasion.service.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { refillMood } from './mood.stage.js';
 import { JobContext } from '@maroonedsoftware/jobbroker';
@@ -71,6 +72,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         private readonly config: AppConfig,
         // Which slot is in force, for the mood stage a batch will air in. See `mood.stage.ts`.
         private readonly schedule: ScheduleService,
+        private readonly occasions: OccasionService,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -147,6 +149,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
             lineup.all().filter(item => item.state === 'handed'),
             count,
             this.schedule,
+            this.occasions,
             this.config,
         );
 

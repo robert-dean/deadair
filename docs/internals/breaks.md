@@ -736,8 +736,11 @@ name different stages, and puts it on the request as `mood`. The prompt says it 
 STRETCH and tells the presenter not to say any record is in it: the draw only makes a fitting record
 more likely, so the record beside the break may be in another mood entirely. A bulletin is not told
 (its shape is `voice: 'lean'`), and the floor never reads it, because a phrasing an operator typed has
-no mood of its own. The occasions calendar that would give the mood a second source on days the slot
-names none is still [station-moment](https://github.com/robert-dean/deadair/discussions/38)'s.
+no mood of its own. **On a broadcast with no stages the mood comes from the occasion the stretch airs on**, when
+an operator gave that occasion one, and never one the broadcast steers away from. It lives inside `stretchMood`
+rather than in a resolver above it, because that function is already the one reading the draw and the writers
+share, and that sharing was the only thing a `StationMoment` module was going to buy
+([station-moment](https://github.com/robert-dean/deadair/discussions/38)).
 
 **A talk break may choose how the whole of it is read, and the choice is a word at the front of the answer.**
 `[hushed]` or `[frantic]`, the whole of `SPEECH_DELIVERIES`, offered on the two conditions a reaction is: the

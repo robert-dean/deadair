@@ -346,6 +346,15 @@ it lands behind a record whose blend was already decided against a different suc
 record ends up carrying an overlap that was never measured against the voice now waiting on the
 other side of it.
 
+**The successor is usually not prepared yet, so the director names it.** A record is prepared one at
+a time (`COMMIT_LEAD`), so at hand-over the record behind it is still only planned. `Rundown.setFollowing`
+carries that record's cue points, on every commit pass, for sizing the blend and nothing else: it
+commits nothing and fetches nothing. From 2026-08-14 to 2026-11-03 nothing did this, so every boundary
+read as the end of the order and was a hard join, with the setting on and the console silent about it.
+It was found by logging which path a blend took. A record that is named and then replaced still gets
+the blend sized for the one it replaced, because the pusher carries the number to both ends of the
+boundary: one slightly wrong overlap, as `blendFor` says, and a break in its place is still a cold cut.
+
 **`playout_transition` in `radio.liq` refuses that pairing outright: the mixer never fades a record
 into speech**, whatever blend the outgoing item was stamped with. If the INCOMING item is speech the
 boundary is a plain `sequence`, full stop. Measured on 2026-09-10: 65% of adjacent record-then-speech

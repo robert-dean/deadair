@@ -13,7 +13,7 @@ import { Epoch } from '#modules/shared/epoch.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { Rundown, type FollowingRecord, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { isStationArt } from '#modules/playout/annotate.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
@@ -2600,12 +2600,33 @@ export class DirectorService {
             }
         }
 
+        // Every pass rather than only one that prepared something, as `setCrossfade` is: an operator's
+        // edit moves what follows without preparing anything. After the epoch check when one ran, and
+        // checked again for the pass that skipped it, because this names a record out of this order.
+        if (this.epoch.isCurrent(token)) this.rundown.setFollowing(this.followingRecord(lineup));
+
         if (lineup.isExhausted()) {
             await this.finish(lineup, rules);
             return;
         }
 
         await this.topUpIfShort(lineup, rules);
+    }
+
+    /**
+     * The first thing behind what is prepared, if it is a record, for sizing the blend into it.
+     *
+     * From the track's own snapshot, so it needs no await and no bytes: a blend into a record whose
+     * audio has not landed is decided now and only happens once it has. Nothing here is prepared or
+     * marked. A break next is left unnamed, since nothing is faded into speech, and if that break is
+     * then skipped the cost is one hard join.
+     */
+    private followingRecord(lineup: StationLineup): FollowingRecord | undefined {
+        const next = lineup.nextPlanned(COMMIT_LEAD + SEGMENT_SLACK + 1).find(item => !this.rundown.isPrepared(item.id));
+        if (next === undefined || !isTrackItem(next)) return undefined;
+
+        const { cueInMs, introEndMs, outroStartMs, cueOutMs } = next.track;
+        return { id: next.id, cueInMs, introEndMs, outroStartMs, cueOutMs };
     }
 
     /**

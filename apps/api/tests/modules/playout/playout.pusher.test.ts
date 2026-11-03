@@ -1205,6 +1205,36 @@ describe('PlayoutPusher: the blend', () => {
         return { rundown, pusher: new PlayoutPusher(rundown, control, stubAudience().audience, config, new Heartbeat(), logger), pushed };
     }
 
+    it('blends into a record the director has named but not prepared', async () => {
+        // The station's ordinary boundary: one record prepared and the next only named. Going by
+        // prepared items alone this was a hard join every time.
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000)]);
+        rundown.setFollowing({ id: 'named', cueInMs: 0, introEndMs: 6_000, outroStartMs: 200_000, cueOutMs: 230_000 });
+
+        await boundaries(pusher, rundown, 1);
+
+        expect(blend(pushed[0]!)).toBe('6');
+    });
+
+    it('takes a prepared successor over a named one', async () => {
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 9_000, 30_000)]);
+        rundown.setFollowing({ id: 'named', cueInMs: 0, introEndMs: 6_000, outroStartMs: 200_000, cueOutMs: 230_000 });
+
+        await boundaries(pusher, rundown, 1);
+
+        expect(blend(pushed[0]!)).toBe('9');
+    });
+
+    it('never blends a record into itself when the name has not caught up', async () => {
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 8_000, 30_000)]);
+        const prepared = rundown.upcoming()[0]!;
+        rundown.setFollowing({ id: prepared.id, cueInMs: 0, introEndMs: 8_000, outroStartMs: 200_000, cueOutMs: 230_000 });
+
+        await boundaries(pusher, rundown, 1);
+
+        expect(blend(pushed[0]!)).toBe(HARD_JOIN);
+    });
+
     describe('the handover setting', () => {
         afterEach(() => {
             vi.mocked(config.get).mockImplementation(() => '');

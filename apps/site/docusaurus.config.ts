@@ -107,7 +107,7 @@ const config: Config = {
         // The console's carbon in the dark and its Studio White in the light, following the reader's
         // system setting, with a switch in the navbar. Dark is the default where the system says nothing.
         colorMode: { defaultMode: 'dark', disableSwitch: false, respectPrefersColorScheme: true },
-        image: 'logo.png',
+        image: 'img/social.card.png',
         navbar: {
             title: 'deadair',
             logo: { alt: 'deadair', src: 'logo-mark.png' },

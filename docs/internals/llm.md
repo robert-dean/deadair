@@ -128,6 +128,15 @@ different models. Its effort was a literal `low` until 2026-10-26, and unlike th
 old constant as its default: handed a screened shortlist, gemma4 at `low` spent 8,000 to 20,000 characters
 reasoning per refill and finished one run in seven inside the three-minute budget, so the default is `none`.
 
+**An answer that reaches the ceiling is not read as if it had ended.** Only the empty ones were ever noticed.
+A model that ran out with words in hand had them judged like any others, and on 2026-09-30 a weather script
+reading "The" was written and rendered at exactly its 800 tokens; about a dozen more stopped mid-sentence that
+week. So a `length` finish keeps the whole sentences and has to keep half the word ceiling to count as the break,
+in `tidyAnswer` so the decline and the trim judge the same words, and anything less declines as `cut-off`. A beat
+keeps its whole sentences with no such floor, because a one-line turn is an ordinary turn. The finish reason is
+the only evidence: "Holy Diver by Dio" with no full stop is how a presenter hands over, and it only gets cut when
+the model did not stop on its own.
+
 **A production's beats got the same setting two weeks later, for the same reason.** Every beat and every
 re-draft in `produce.production.job.ts` still sent `low` as a literal, and on the same model a thirty-word turn
 spent 2,666 to 7,295 output tokens, nearly all of it reasoning. The turns that were not written either hit

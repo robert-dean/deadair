@@ -8,7 +8,15 @@
  */
 import { inventedConcertSentence } from './break.concert.js';
 import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
-import { isSpeechDelivery, sentencesOf, sentencesWithin, withoutCues, type LlmMessage, type SpeechDelivery } from '@deadair/plugin-sdk';
+import {
+    isSpeechDelivery,
+    sentencesOf,
+    sentencesWithin,
+    wholeSentencesOf,
+    withoutCues,
+    type LlmMessage,
+    type SpeechDelivery,
+} from '@deadair/plugin-sdk';
 import { withoutPads } from '#modules/render/pad.cues.js';
 import { afterThinking, speakableScript } from '#modules/render/speakable.script.js';
 import {
@@ -440,6 +448,16 @@ export function swappedCreditIn(script: string, records: readonly (BreakTrack | 
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {
     /**
+     * The model reached its token ceiling before it stopped, so the end of this answer is wherever
+     * the room ran out.
+     *
+     * Measured: a weather script reading "The" was written, rendered and given an air slot on
+     * 2026-09-30, at exactly the 800 tokens it was allowed. Nothing the words could show refused it,
+     * and about a dozen more ended mid-sentence that week. See {@link finishedPart}.
+     */
+    stoppedShort?: boolean;
+
+    /**
      * The ceiling this answer is refused past, defaulting to {@link DEFAULT_MAX_WORDS}.
      *
      * **Build it with {@link maxWordsFor}, from the same settings the prompt was built from.** A
@@ -754,13 +772,33 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
  * Split out so {@link writeDecline} can tell an answer that was empty from one that was too long
  * without re-running the checks in a different order and reporting something that did not happen.
  */
-const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined =>
+const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined => {
+    const tidied = tidiedWhole(text, guard);
+    return tidied === undefined || guard.stoppedShort !== true ? tidied : finishedPart(tidied, guard);
+};
+
+/** {@link tidyAnswer} before anything is taken off for stopping short. */
+const tidiedWhole = (text: string, guard: AnswerGuard): string | undefined =>
     speakableScript(text, {
         perform: PRESENTER_CUES,
         pads: guard.pads ?? [],
         ...(guard.language === undefined ? {} : { language: guard.language }),
         ...(guard.speakers === undefined ? {} : { speakers: guard.speakers }),
     });
+
+/**
+ * What a model finished saying before it ran out of room, or nothing worth keeping.
+ *
+ * Read after the tidying rather than before it, because an answer that stops short can stop inside
+ * its own reasoning, and the tidying is what knows where that ends. An answer that happens to end a
+ * sentence keeps every word. One that does not has to keep {@link MIN_KEPT_SHARE} of the ceiling,
+ * for {@link fitToCeiling}'s reason: an opening "Okay." is not the break the model was writing.
+ */
+function finishedPart(script: string, guard: AnswerGuard): string | undefined {
+    const kept = wholeSentencesOf(script);
+    if (kept === undefined || kept === script) return kept;
+    return wordsIn(kept) < (guard.maxWords ?? DEFAULT_MAX_WORDS) * MIN_KEPT_SHARE ? undefined : kept;
+}
 
 /**
  * How much of a run-long script is worth keeping before it stops being one.
@@ -1436,6 +1474,7 @@ export function faultIn(script: string, guard: AnswerGuard, cued?: string): Char
  */
 const FAULT_REASONS: Record<WriteFault, string> = {
     'nothing-said': 'the model answered with nothing the station could say',
+    'cut-off': 'the model ran out of room before it finished enough to say, so raise the token ceiling or how little it is asked to think',
     'ran-long':
         'the model wrote past the word ceiling with nothing whole to keep short of it, and a script cut mid-sentence is worse than the phrasing underneath it',
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
@@ -1492,6 +1531,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
 export type WriteFault =
     | CharacterFault
     | 'nothing-said'
+    | 'cut-off'
     | 'ran-long'
     | 'named-nothing'
     | 'cued-wrong'
@@ -1557,7 +1597,7 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     });
 
     const tidied = tidyAnswer(text, guard);
-    if (tidied === undefined) return reasoned('nothing-said');
+    if (tidied === undefined) return reasoned(guard.stoppedShort === true ? 'cut-off' : 'nothing-said');
 
     // The same cut in the same position, and everything below reads what came back from it. A trim
     // is not a decline, so a script this shortens goes on to be judged like any other — which is the
@@ -1646,7 +1686,20 @@ export function writeTrim(text: string, guard: AnswerGuard): { kept: number; dro
     if (tidied === undefined) return undefined;
 
     const fitted = fitToCeiling(tidied, guard);
-    if (fitted === undefined || fitted === tidied) return undefined;
+    if (fitted === undefined) return undefined;
+
+    // Ahead of the ceiling's own cut, which an answer this short has rarely reached.
+    const whole = tidiedWhole(text, guard) ?? tidied;
+    if (whole !== tidied) {
+        const kept = wordsIn(fitted);
+        return {
+            kept,
+            dropped: wordsIn(whole) - kept,
+            reason: 'the model ran out of room mid-sentence, so the break was cut back to its last whole sentence',
+        };
+    }
+
+    if (fitted === tidied) return undefined;
 
     const kept = wordsIn(fitted);
     const dropped = wordsIn(tidied) - kept;

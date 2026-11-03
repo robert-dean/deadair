@@ -110,6 +110,9 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     // fix is to drop it: the rest of the break was fine.
     'station-sign-off',
     'nothing-said',
+    // The same empty hand as `nothing-said`, and worth the same second ask: most of what stops short
+    // is a model that thought too long, and that varies from one answer to the next.
+    'cut-off',
 ]);
 
 /** Whether a refusal is worth putting back to the model. */
@@ -161,6 +164,7 @@ const NUDGES: Record<string, string> = {
     'station-sign-off':
         'That said a line to the station by name, as though the station were listening. Say the same break again without that line. Name the station only as the station you are on, or not at all.',
     'nothing-said': 'That answered with nothing the station could read aloud. Write the break.',
+    'cut-off': 'That ran out of room before it finished. Write the break again, straight away and shorter.',
 };
 
 /**

@@ -128,6 +128,51 @@ describe('writeWithModel', () => {
         expect(vi.mocked(logger.info).mock.calls[0]?.[0]).toContain('thinking');
     });
 
+    describe('an answer that reached its token ceiling', () => {
+        const opening = 'Pink Moon by Nick Drake is a quiet one, and it has been on my mind all morning long.';
+        const guard = () => ({ maxWords: 30 });
+
+        it('refuses one that never finished a sentence, and says why', async () => {
+            const { host } = build({ answer: 'The', finish: 'length' });
+
+            const outcome = await writeWithModel(host, ask({ guard, retryable: true }));
+
+            expect(outcome.written).toBeUndefined();
+            expect(outcome.detail?.fault).toBe('cut-off');
+            expect(outcome.detail?.reason).toContain('ran out of room');
+        });
+
+        it('keeps the sentences it finished, and records the cut', async () => {
+            const { host } = build({ answer: `${opening} And after that we have got the`, finish: 'length' });
+
+            const outcome = await writeWithModel(host, ask({ guard }));
+
+            expect(outcome.written?.script).toBe(opening);
+            expect(outcome.detail?.reason).toContain('mid-sentence');
+        });
+
+        it('refuses a finished part too short to be the break', async () => {
+            const { host } = build({ answer: 'Okay. And after that we have got the', finish: 'length' });
+
+            expect((await writeWithModel(host, ask({ guard }))).written).toBeUndefined();
+        });
+
+        it('leaves one that happened to end a sentence as it was', async () => {
+            const { host } = build({ answer: 'Pink Moon, then.', finish: 'length' });
+
+            const outcome = await writeWithModel(host, ask({ guard }));
+
+            expect(outcome.written?.script).toBe('Pink Moon, then.');
+            expect(outcome.detail?.reason).toBeUndefined();
+        });
+
+        it('takes nothing off an answer that stopped on its own, whatever it ends on', async () => {
+            const { host } = build({ answer: 'Coming up, Pink Moon by Nick Drake' });
+
+            expect((await writeWithModel(host, ask({ guard }))).written?.script).toBe('Coming up, Pink Moon by Nick Drake');
+        });
+    });
+
     it('records a cut on the detail of a break that was written', async () => {
         const long = Array.from({ length: 12 }, (_, i) => `Pink Moon by Nick Drake is lovely, part ${i + 1}.`).join(' ');
         const { host } = build({ answer: long });

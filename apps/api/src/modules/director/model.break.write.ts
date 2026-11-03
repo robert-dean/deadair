@@ -145,6 +145,8 @@ export async function writeWithModel(host: ModelWriteHost, ask: ModelWriteAsk): 
         ...stationGuard(config),
         ...speakerGuard(config, request),
         ...ask.guard(messages),
+        // Off the answer rather than the words: nothing in a sentence cut off at the ceiling says so.
+        ...(result.finishReason === 'length' ? { stoppedShort: true } : {}),
     };
 
     // A reading the model chose, lifted off the front before anything judges the answer. From here

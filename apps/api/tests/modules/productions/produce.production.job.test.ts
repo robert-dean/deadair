@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { ProduceProductionJob } from '../../../src/modules/productions/produce.production.job.js';
+import { ProduceProductionJob, speakableAnswer } from '../../../src/modules/productions/produce.production.job.js';
 import type { Production } from '../../../src/modules/productions/production.js';
 import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 import { LlmService } from '../../../src/modules/llm/llm.service.js';
@@ -1033,5 +1033,21 @@ describe('the draft pass and a record nobody handed the programme', () => {
     it('keeps the first attempt when the re-draft comes back empty or throws', async () => {
         expect((await draftWith([INVENTED, ''])).written).toEqual([INVENTED]);
         expect((await draftWith([INVENTED, new Error('the provider fell over')])).written).toEqual([INVENTED]);
+    });
+});
+
+describe('speakableAnswer', () => {
+    it('keeps the finished sentences of a turn that reached its token ceiling', () => {
+        expect(speakableAnswer({ text: 'I rang about the record. And what I wanted to', finishReason: 'length' }, [])).toBe(
+            'I rang about the record.',
+        );
+    });
+
+    it('reads a turn that finished nothing as empty, so the beat is asked again', () => {
+        expect(speakableAnswer({ text: 'And what I wanted to', finishReason: 'length' }, [])).toBe('');
+    });
+
+    it('leaves a turn that stopped on its own alone, whatever it ends on', () => {
+        expect(speakableAnswer({ text: 'Thanks for having me', finishReason: 'stop' }, [])).toBe('Thanks for having me');
     });
 });

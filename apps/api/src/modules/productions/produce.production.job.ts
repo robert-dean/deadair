@@ -3,7 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
-import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
+import { wholeSentencesOf, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { advisoryPolicy, speaksClean } from '#modules/director/advisory.policy.js';
 import { dayPart, stationZone, type RoughTime } from '#modules/director/clock.words.js';
@@ -671,7 +671,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // stage direction is a word in the audio — the first live call-in aired an album
                         // title with the asterisks still round it. The strip spares exactly the cues this
                         // speaker was offered.
-                        answer => speakable(answer.text, reactions, board.names, this.language().language, casting),
+                        answer => speakableAnswer(answer, reactions, board.names, this.language().language, casting),
                         {
                             onEmpty: (_empties, outOfTime) =>
                                 this.logger.info(
@@ -737,7 +737,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 const messages = beatPrompt({ ...request, correction: correctionNote(faults) });
                 try {
                     const answer = await askWith(messages);
-                    const rewritten = speakable(answer.text, reactions, board.names, this.language().language, casting);
+                    const rewritten = speakableAnswer(answer, reactions, board.names, this.language().language, casting);
                     attempts.push(this.attemptOf(claimed, { label, script: rewritten, speaker, answer, messages }));
                     if (rewritten.length > 0) script = rewritten;
                 } catch (error) {
@@ -910,8 +910,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 { models: this.models, budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );
 
-            const rewritten = speakable(
-                answer.text,
+            const rewritten = speakableAnswer(
+                answer,
                 reactions,
                 beat.pads.map(hit => hit.name),
                 this.language().language,
@@ -1420,6 +1420,23 @@ const speakable = (
         // voices' lines as readily as its own, and any name in front of a turn is not something to say.
         speakers: cast.flatMap(member => (member.name === undefined ? [] : [member.name])),
     }) ?? '';
+
+/**
+ * {@link speakable} over a whole answer, which keeps only the finished sentences of one that reached
+ * its token ceiling. A turn that ends mid-sentence would otherwise air that way, since the words
+ * cannot show it. Nothing finished reads as empty, which is what asks a beat again and what leaves a
+ * re-draft's original standing.
+ */
+export const speakableAnswer = (
+    answer: { text: string; finishReason: string },
+    reactions: readonly SpeechCue[],
+    pads: readonly string[] = [],
+    language?: string,
+    cast: readonly CastMember[] = [],
+): string => {
+    const script = speakable(answer.text, reactions, pads, language, cast);
+    return answer.finishReason === 'length' ? (wholeSentencesOf(script) ?? '') : script;
+};
 
 /**
  * Which of this character's signatures the rest of the programme has already used.

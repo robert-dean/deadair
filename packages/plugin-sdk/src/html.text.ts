@@ -207,6 +207,31 @@ export function sentencesWithin(value: string, maxWords: number): string | undef
 }
 
 /**
+ * A passage up to the end of its last WHOLE sentence, or nothing when it never finished one.
+ *
+ * For text that stopped rather than ended, such as a model's answer cut off at its token ceiling. On
+ * the same boundary {@link sentencesWithin} cuts at, and for the same reason it has no fallback: half
+ * a sentence read aloud is worse than anything a caller has instead. A passage that ends a sentence
+ * comes back trimmed and otherwise untouched.
+ */
+export function wholeSentencesOf(value: string): string | undefined {
+    const text = value.trim();
+
+    // The boundary needs a capital after it, so the very end of the passage is its own question.
+    const last = /[.!?]["'”’»)\]]*$/u.exec(text);
+    if (last !== null && endsSentence(text, last.index)) return text;
+
+    let whole: string | undefined;
+
+    SENTENCE_END.lastIndex = 0;
+    for (let match = SENTENCE_END.exec(text); match !== null; match = SENTENCE_END.exec(text)) {
+        if (endsSentence(text, match.index)) whole = text.slice(0, match.index + 1 + closersIn(match[0]).length);
+    }
+
+    return whole;
+}
+
+/**
  * A passage as its whole sentences, in order, each with its closing quotes kept.
  *
  * On the same boundary {@link sentencesWithin} cuts at, so a caller choosing

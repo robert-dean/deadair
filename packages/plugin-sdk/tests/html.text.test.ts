@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { decodeEntities, firstSentence, plainText, sentencesOf, sentencesWithin, truncateSentences, truncateWords } from '../src/html.text.js';
+import {
+    decodeEntities,
+    firstSentence,
+    plainText,
+    sentencesOf,
+    sentencesWithin,
+    truncateSentences,
+    truncateWords,
+    wholeSentencesOf,
+} from '../src/html.text.js';
 
 describe('plainText', () => {
     it('takes the tags out and the entities down', () => {
@@ -144,6 +153,24 @@ describe('sentencesWithin', () => {
 describe('truncateWords', () => {
     it('cuts on a word boundary and marks it', () => {
         expect(truncateWords('The council voted to reopen the crossing this morning', 20)).toBe('The council voted…');
+    });
+});
+
+describe('wholeSentencesOf', () => {
+    it('stops at the last sentence the passage finished', () => {
+        expect(wholeSentencesOf('The rain has stopped. It will be a high of eighty six, low')).toBe('The rain has stopped.');
+        expect(wholeSentencesOf('"Is that it?" She said so. And then the')).toBe('"Is that it?" She said so.');
+    });
+
+    it('keeps a passage that ends a sentence, closing quote and all', () => {
+        expect(wholeSentencesOf('  One. Two!  ')).toBe('One. Two!');
+        expect(wholeSentencesOf('He called it "the end."')).toBe('He called it "the end."');
+    });
+
+    it('answers nothing for a passage that never finished one', () => {
+        expect(wholeSentencesOf('The')).toBeUndefined();
+        expect(wholeSentencesOf('')).toBeUndefined();
+        expect(wholeSentencesOf('A song by Dr.')).toBeUndefined();
     });
 });
 

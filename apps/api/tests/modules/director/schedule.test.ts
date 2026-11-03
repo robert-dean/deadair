@@ -35,7 +35,13 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
 });
 
 /** A special: the same block, on dates. */
-const special = (id: string, startsAtMinutes: number, endsAtMinutes: number, dates: SpecialDates, days: readonly number[] = []): ScheduleSlot => ({
+const special = (
+    id: string,
+    startsAtMinutes: number,
+    endsAtMinutes: number,
+    dates: SpecialDates,
+    days: readonly number[] = [],
+): ScheduleSlot & { dates: SpecialDates } => ({
     ...slot(id, startsAtMinutes, endsAtMinutes, days),
     dates,
 });

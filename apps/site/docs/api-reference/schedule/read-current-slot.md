@@ -1,7 +1,7 @@
 ---
 title: 'Read current slot'
 sidebar_label: 'Read current slot'
-sidebar_position: 3
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

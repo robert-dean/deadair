@@ -6297,6 +6297,100 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PartyGuestSession'
+    '/occasions':
+        get:
+            operationId: listOccasions
+            summary: 'List occasions'
+            description: 'Every occasion on this station, in the order a date is matched against them, each saying when it next falls'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionList'
+        post:
+            operationId: addAnOccasion
+            summary: 'Add an occasion'
+            description: 'Adds an occasion at the end of the list. Presenters hear of it from the next break written for its day'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/Occasion'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionList'
+    '/occasions/order':
+        put:
+            operationId: reorder
+            summary: 'Reorder occasions'
+            description: 'Puts the list in a new order, which decides who wins when two fall on one date'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OccasionOrder'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionList'
+    '/occasions/{id}':
+        put:
+            operationId: changeAnOccasion
+            summary: 'Change an occasion'
+            description: 'Replaces an occasion, keeping its place in the list'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/Occasion'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionList'
+                '404':
+                    description: 'Not found'
+        delete:
+            operationId: removeAnOccasion
+            summary: 'Remove an occasion'
+            description: 'Removes an occasion'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionList'
+                '404':
+                    description: 'Not found'
     '/schedule':
         get:
             operationId: listSchedule
@@ -16606,6 +16700,120 @@ components:
                     description: "When it stops working, which is when the party's pass does"
             required: [accessToken, expiresAt]
             description: "A guest's way in: send it as a bearer token on the request routes"
+        Occasion:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                words:
+                    type: string
+                    minLength: 1
+                    maxLength: 80
+                    description: 'Said on air as written: `Halloween`, `the first day of Hanukkah`'
+                ruleKind:
+                    type: string
+                    enum: [fixed, weekday, easter, calendar, dates]
+                    description: '`fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is a number of days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in the Hebrew or Islamic calendar, from `calendar`, `calendarMonth` and `day`. `dates` is the dates themselves, from `dates`, for what no rule can work out'
+                month:
+                    type: integer
+                    minimum: 1
+                    maximum: 12
+                day:
+                    type: integer
+                    minimum: 1
+                    maximum: 31
+                    description: "The day of the month, in the rule's own calendar"
+                ordinal:
+                    type: integer
+                    minimum: -1
+                    maximum: 5
+                    description: 'Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4`'
+                weekday:
+                    type: integer
+                    minimum: 0
+                    maximum: 6
+                    description: '0 is Sunday'
+                offsetDays:
+                    type: integer
+                    minimum: -60
+                    maximum: 60
+                    description: 'Days from Easter Sunday: 0 is the day itself and -2 is Good Friday'
+                calendar:
+                    type: string
+                    enum: [hebrew, islamic-umalqura]
+                    description: '`islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it'
+                calendarMonth:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'The month in that calendar, as `calendars` lists it'
+                dates:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 10
+                        maxLength: 10
+                    maxItems: 200
+                    description: 'As `YYYY-MM-DD`. These run out, so a list needs refreshing'
+                mood:
+                    type: string
+                    enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    description: 'What this day leans into, when the show on air names no mood of its own. Records a model has judged to be in it are a little more likely to be picked, and nothing is ever kept off the air for it. Absent leans nothing'
+                enabled:
+                    type: boolean
+                    description: 'Whether the station knows about it. Off, it is never said and never leans anything'
+                position:
+                    type: integer
+                    readOnly: true
+                    description: 'Where it comes in the list. When two fall on one date the first wins'
+                nextDate:
+                    type: string
+                    minLength: 10
+                    maxLength: 10
+                    readOnly: true
+                    description: "When it next falls, as `YYYY-MM-DD` on the station's calendar, counting today. Absent when it does not fall again, as a list of dates that has run out"
+            required: [id, words, ruleKind, enabled, position]
+            description: "What a date means where this station is: a name the presenters can say, and a mood to lean into on a\nday the show on air names none. `ruleKind` says when it falls, and which of the fields beside it count"
+        OccasionCalendarMonths:
+            type: object
+            properties:
+                calendar:
+                    type: string
+                    enum: [hebrew, islamic-umalqura]
+                months:
+                    type: array
+                    items:
+                        type: string
+            required: [calendar, months]
+            description: 'The months of a calendar an occasion can be set in, in the order they come'
+        OccasionList:
+            type: object
+            properties:
+                occasions:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/Occasion'
+                calendars:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OccasionCalendarMonths'
+            required: [occasions, calendars]
+            description: 'Every occasion on the station, in the order a date is matched against them'
+        OccasionOrder:
+            type: object
+            properties:
+                ids:
+                    type: array
+                    items:
+                        type: string
+                        format: uuid
+                    minItems: 1
+                    maxItems: 500
+                    description: 'Occasions in the order they should be matched. Any left out stay behind these, in their current order'
+            required: [ids]
+            description: 'A new order for the list'
         ScheduleSlot:
             type: object
             properties:

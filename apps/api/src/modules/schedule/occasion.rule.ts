@@ -1,5 +1,5 @@
 import { readClock } from '#modules/director/clock.bands.js';
-import { addDays, dateKey, type StationDate } from '#modules/director/schedule.js';
+import { addDays, dateKey, stationDateOf, type StationDate } from '#modules/director/schedule.js';
 
 /**
  * When an occasion falls, as a rule rather than as a date, because most of them move.
@@ -55,6 +55,96 @@ export function occasionFalls(rule: OccasionRule, date: StationDate): boolean {
 export function occasionFallsAt(rule: OccasionRule, at: number, zone: string): boolean {
     const { year, month, day, weekday } = readClock(at, zone);
     return occasionFalls(rule, { year, month, day, weekday });
+}
+
+/** How far ahead {@link nextOccasionDate} looks: far enough for a 29th of February, across a century that skips one. */
+const LOOKAHEAD_DAYS = 366 * 8;
+
+/** The first date on or after `from` an occasion with this rule falls on, or `undefined` when it never falls again. */
+export function nextOccasionDate(rule: OccasionRule, from: StationDate): StationDate | undefined {
+    if (rule.kind === 'dates') {
+        const next = [...rule.dates].sort().find(date => date >= dateKey(from));
+        return next === undefined ? undefined : stationDateOf(next);
+    }
+    for (let ahead = 0; ahead < LOOKAHEAD_DAYS; ahead++) {
+        const date = addDays(from, ahead);
+        if (occasionFalls(rule, date)) return date;
+    }
+    return undefined;
+}
+
+/** A rule's fields as they arrive from somewhere that is not the table: the console, or somebody's file. */
+export interface OccasionRuleFields {
+    ruleKind: OccasionRule['kind'];
+    month?: number | undefined;
+    day?: number | undefined;
+    ordinal?: number | undefined;
+    weekday?: number | undefined;
+    offsetDays?: number | undefined;
+    calendar?: OccasionCalendar | undefined;
+    calendarMonth?: string | undefined;
+    dates?: readonly string[] | undefined;
+}
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/**
+ * The rule these fields describe, or a sentence saying why they describe none.
+ *
+ * A sentence rather than a throw because its two callers answer differently: a route refuses the request
+ * with it, and an import reports it and carries on with the rest of the file. It refuses what the table
+ * would store happily and never act on as well as what the table would refuse: the 31st of June, and a
+ * month no calendar has, are both rules that silently never fall.
+ */
+export function occasionRuleOf(fields: OccasionRuleFields): OccasionRule | string {
+    const { month, day, ordinal, weekday, offsetDays, calendar, calendarMonth, dates } = fields;
+    switch (fields.ruleKind) {
+        case 'fixed':
+            if (month === undefined || day === undefined) return 'a fixed date needs a month and a day';
+            if (day > (DAYS_IN_MONTH[month - 1] ?? 0)) return `month ${month} has no day ${day}`;
+            return { kind: 'fixed', month, day };
+        case 'weekday':
+            if (month === undefined || ordinal === undefined || weekday === undefined)
+                return 'a weekday of a month needs a month, which one, and a weekday';
+            if (ordinal === 0) return 'which of the weekday is 1 to 5, or -1 for the last';
+            return { kind: 'weekday', month, ordinal, weekday };
+        case 'easter':
+            if (offsetDays === undefined) return 'a day around Easter needs a number of days from Easter Sunday';
+            return { kind: 'easter', offsetDays };
+        case 'calendar':
+            if (calendar === undefined || calendarMonth === undefined || day === undefined)
+                return 'a date in another calendar needs the calendar, a month and a day';
+            if (!calendarMonths(calendar).includes(calendarMonth)) return `the ${calendar} calendar has no month "${calendarMonth}"`;
+            if (day > 30) return `no month in the ${calendar} calendar has a day ${day}`;
+            return { kind: 'calendar', calendar, calendarMonth, day };
+        case 'dates': {
+            if (dates === undefined || dates.length === 0) return 'a list of dates needs at least one date';
+            const bad = dates.find(date => stationDateOf(date) === undefined);
+            if (bad !== undefined) return `"${bad}" is not a date written as YYYY-MM-DD`;
+            return { kind: 'dates', dates: [...new Set(dates)].sort() };
+        }
+    }
+}
+
+const MONTHS = new Map<OccasionCalendar, readonly string[]>();
+
+/**
+ * The months of a calendar, as {@link inCalendar} names them, in the order they come.
+ *
+ * Read off the calendar rather than written down, so this cannot disagree with what a rule is matched
+ * against. Four years, for the Hebrew leap month that only some years have; once per process.
+ */
+export function calendarMonths(calendar: OccasionCalendar): readonly string[] {
+    const known = MONTHS.get(calendar);
+    if (known !== undefined) return known;
+
+    const months = new Set<string>();
+    const start: StationDate = { year: 2024, month: 1, day: 1, weekday: 1 };
+    for (let ahead = 0; ahead < 366 * 4; ahead++) months.add(inCalendar(addDays(start, ahead), calendar).month);
+
+    const answer = [...months];
+    MONTHS.set(calendar, answer);
+    return answer;
 }
 
 /** Whether this date is the nth of its weekday in its month, or the last of them for `-1`. */

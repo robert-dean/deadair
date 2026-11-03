@@ -1,7 +1,7 @@
 ---
 title: 'Read timetable'
 sidebar_label: 'Read timetable'
-sidebar_position: 4
+sidebar_position: 9
 mdx:
     format: 'md'
 ---

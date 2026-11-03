@@ -1,5 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type { OccasionInput, OccasionList, OccasionOrder } from './types/occasions.types.js';
 import type {
     ScheduleNow,
     ScheduleSlotApplied,
@@ -12,6 +13,63 @@ import type {
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List occasions
+     * @description Every occasion on this station, in the order a date is matched against them, each saying when it next falls
+     */
+    async listOccasions(): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions`, { method: 'GET' });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Add an occasion
+     * @description Adds an occasion at the end of the list. Presenters hear of it from the next break written for its day
+     */
+    async addAnOccasion(body: OccasionInput): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Reorder occasions
+     * @description Puts the list in a new order, which decides who wins when two fall on one date
+     */
+    async reorderOccasions(body: OccasionOrder): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions/order`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Change an occasion
+     * @description Replaces an occasion, keeping its place in the list
+     */
+    async changeAnOccasion(id: string, body: OccasionInput): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Remove an occasion
+     * @description Removes an occasion
+     */
+    async removeAnOccasion(id: string): Promise<OccasionList> {
+        const result = await this.fetch(`/occasions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<OccasionList>(result);
+    }
 
     /**
      * @name List schedule

@@ -155,6 +155,20 @@ describe('project', () => {
             expect(shapeOf(blocks)).toEqual(['late 00:00-02:00', 'dawn 02:00-06:00', 'late 22:00-00:00']);
         });
 
+        it('draws a special on a rule on the day it falls, cut into the weekly block', () => {
+            const slots = [slot('evening', at(18), at(23)), special('halloween', at(20), at(22), { rule: { kind: 'fixed', month: 10, day: 31 } })];
+            const halloween: StationDate = { year: 2026, month: 10, day: 30, weekday: 5 };
+
+            const blocks = project(halloween, 2, slots);
+
+            expect(blocks.map(block => `${block.start.slice(5, 10)} ${block.slotId} ${block.start.slice(11, 16)}`)).toEqual([
+                '10-30 evening 18:00',
+                '10-31 evening 18:00',
+                '10-31 halloween 20:00',
+                '10-31 evening 22:00',
+            ]);
+        });
+
         it('agrees with the resolver at every minute, specials included', () => {
             const slots = [
                 slot('breakfast', at(6), at(10)),
@@ -162,8 +176,9 @@ describe('project', () => {
                 slot('late', at(22, 30), at(2)),
                 special('gig', at(18), at(1), { from: '2026-08-21', to: '2026-08-22', yearly: false }),
                 special('anniversary', at(9), at(11), { from: '2020-08-25', to: '2020-08-25', yearly: true }),
+                special('bank holiday', at(13), at(15), { rule: { kind: 'weekday', month: 8, ordinal: -1, weekday: 1 } }),
             ];
-            const days = 10;
+            const days = 15;
             const blocks = project(WEDNESDAY, days, slots);
 
             for (let minute = 0; minute < days * 24 * 60; minute += 10) {

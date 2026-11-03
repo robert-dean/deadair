@@ -8,7 +8,7 @@ import { dateKey, type StationDate } from '#modules/director/schedule.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { OccasionRepository, type Occasion as StoredOccasion, type OccasionDraft } from './occasion.repository.js';
 import { OCCASION_PACK_VERSION, packOfOccasions, planOccasionPack, type OccasionPackReading } from './occasion.pack.js';
-import { calendarMonths, nextOccasionDate, OCCASION_CALENDARS, occasionFallsAt, occasionRuleOf, type OccasionRule } from './occasion.rule.js';
+import { calendarMonths, nextOccasionDate, OCCASION_CALENDARS, occasionFallsAt, occasionRuleFields, occasionRuleOf } from './occasion.rule.js';
 import type {
     Occasion,
     OccasionImportPlan,
@@ -144,13 +144,6 @@ function draftOf(body: OccasionInput): OccasionDraft {
     return { words, rule, enabled: body.enabled, ...(body.mood === undefined ? {} : { mood: body.mood }) };
 }
 
-/** A rule's own fields, as the contract lays them out flat. */
-function ruleFieldsOf(rule: OccasionRule) {
-    if (rule.kind === 'dates') return { dates: [...rule.dates] };
-    const { kind: _kind, ...fields } = rule;
-    return fields;
-}
-
 /** A stored occasion as the routes answer it: the rule's fields side by side, and when it next falls. */
 function toContract(occasion: StoredOccasion, today: StationDate): Occasion {
     const { rule } = occasion;
@@ -159,8 +152,7 @@ function toContract(occasion: StoredOccasion, today: StationDate): Occasion {
     return {
         id: occasion.id,
         words: occasion.words,
-        ruleKind: rule.kind,
-        ...ruleFieldsOf(rule),
+        ...occasionRuleFields(rule),
         ...(occasion.mood === undefined ? {} : { mood: occasion.mood }),
         enabled: occasion.enabled,
         position: occasion.position,

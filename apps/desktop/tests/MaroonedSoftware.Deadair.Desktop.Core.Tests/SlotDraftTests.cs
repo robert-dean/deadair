@@ -269,6 +269,26 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void ASpecialOnARuleReadsAsWhenItNextFalls()
+    {
+        var rule = new SpecialRecurrence { RuleKind = SpecialRecurrenceRuleKind.Fixed, Month = 10, Day = 31 };
+
+        Assert.Equal("Special, by a rule: next on 2027-10-31", SlotText.When(Slot() with { Recurrence = rule, NextDate = "2027-10-31" }));
+        Assert.Equal("Special, by a rule: no more dates", SlotText.When(Slot() with { Recurrence = rule }));
+    }
+
+    [Fact]
+    public void ASpecialsRuleSurvivesASave_ThoughTheEditorDrawsNoRule()
+    {
+        var rule = new SpecialRecurrence { RuleKind = SpecialRecurrenceRuleKind.Weekday, Month = 11, Ordinal = 4, Weekday = 4 };
+
+        var input = SlotDraft.From(Slot() with { Recurrence = rule, NextDate = "2026-11-26" }).ToInput()!;
+
+        Assert.Equal(rule, input.Recurrence);
+        Assert.Null(input.StartsOn);
+    }
+
+    [Fact]
     public void NoDaysOrAllSevenIsEveryDay()
     {
         Assert.Equal("Every day", SlotText.Days(null));

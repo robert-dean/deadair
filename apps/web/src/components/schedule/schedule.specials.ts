@@ -1,4 +1,4 @@
-import type { ScheduleSlot } from '@deadair/sdk';
+import type { ScheduleSlot, SpecialRecurrence } from '@deadair/sdk';
 
 import { perLocale } from '../../i18n/format.locale';
 import { addDays } from './schedule.day';
@@ -6,18 +6,20 @@ import { addDays } from './schedule.day';
 /**
  * Reading the station's specials, for the console alone.
  *
- * A special is a slot with a first and last date. Whether it is coming up, on now or over is a
+ * A special is a slot with a first and last date, or with a rule that says which day it comes round
+ * on, and only the station can work a rule out, so it hands over when one next falls. Whether it is coming up, on now or over is a
  * question about the STATION's calendar, so every function here takes the station's today as a
  * `YYYY-MM-DD` string (the date half of `GET /schedule/current`'s `now`) rather than reading the
  * browser's clock, which is a day out for anybody whose midnight falls on the other side of the
  * station's.
  */
 
-/** A slot that runs on dates rather than every week. */
-export type Special = ScheduleSlot & { startsOn: string; endsOn: string };
+/** A slot that runs on dates or by a rule rather than every week. */
+export type Special = ScheduleSlot & ({ startsOn: string; endsOn: string } | { recurrence: SpecialRecurrence });
 
 /** Whether a slot is a special. */
-export const isSpecial = (slot: ScheduleSlot): slot is Special => slot.startsOn !== undefined && slot.endsOn !== undefined;
+export const isSpecial = (slot: ScheduleSlot): slot is Special =>
+    slot.recurrence !== undefined || (slot.startsOn !== undefined && slot.endsOn !== undefined);
 
 /** Where a special stands against the station's today. */
 export type SpecialState = 'now' | 'upcoming' | 'over';
@@ -26,9 +28,14 @@ export type SpecialState = 'now' | 'upcoming' | 'over';
  * The next run of a special that is not over, as its first and last date, or `undefined` once a
  * one-off has ended. A yearly special always has one: this year's if it has not ended yet, else
  * next year's. A run already under way is the current one, so "now" is a run whose first date has
- * passed and whose last has not.
+ * passed and whose last has not. A rule's run is the one day the station says it next falls, and a
+ * list of dates that has run out has none.
  */
 export function nextRun(special: Special, today: string): { from: string; to: string } | undefined {
+    if (special.startsOn === undefined || special.endsOn === undefined) {
+        return special.nextDate === undefined ? undefined : { from: special.nextDate, to: special.nextDate };
+    }
+
     if (!special.yearly) return special.endsOn < today ? undefined : { from: special.startsOn, to: special.endsOn };
 
     // The span in days is kept, so a range across New Year lands on the right second year.
@@ -47,6 +54,17 @@ export function nextRun(special: Special, today: string): { from: string; to: st
     return undefined;
 }
 
+/**
+ * The run to show for a special that has none coming, which is how it ended: a one-off's own dates, or
+ * the last date on a list that has run out.
+ */
+export function lastRun(special: Special): { from: string; to: string } {
+    if (special.startsOn !== undefined && special.endsOn !== undefined) return { from: special.startsOn, to: special.endsOn };
+
+    const last = [...(special.recurrence?.dates ?? [])].sort().at(-1) ?? '';
+    return { from: last, to: last };
+}
+
 /** Whether a special is on today, coming up, or over for good. */
 export function stateOf(special: Special, today: string): SpecialState {
     const run = nextRun(special, today);
@@ -63,7 +81,7 @@ export function inOrder(specials: readonly Special[], today: string): Special[] 
     const keyOf = (special: Special): string => {
         const run = nextRun(special, today);
         // Over sorts last; among those, the most recent end first, hence the inverted date.
-        return run === undefined ? `9${invert(special.endsOn)}` : `${run.from <= today ? '0' : '1'}${run.from}`;
+        return run === undefined ? `9${invert(lastRun(special).to)}` : `${run.from <= today ? '0' : '1'}${run.from}`;
     };
 
     return [...specials].sort((left, right) => keyOf(left).localeCompare(keyOf(right)) || left.label.localeCompare(right.label));

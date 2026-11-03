@@ -43,13 +43,24 @@
  * above does not forbid it, because it is not a fact only the code knows: the timetable is projected
  * per date, so the special and the weekly blocks trimmed around it are both on the grid. Two specials
  * still may not overlap each other, for the original reason.
+ *
+ * ## A special can come round by itself
+ *
+ * Its dates can be a rule rather than a range: the same rules an occasion falls by, asked the same way,
+ * and nothing else about the two is shared. An occasion is a fact about a date that a presenter knows,
+ * and a special is a show. A rule names one day and the slot's hours are read on it like any other
+ * block's, so everything below asks {@link startsOn} and none of it needs to know which kind it has.
  */
 
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
+import { occasionFalls, type OccasionRule } from '#modules/schedule/occasion.rule.js';
 import type { ChartOrder } from './chart.picks.js';
 import { readClock } from './clock.bands.js';
+import { addDays, dateKey, stationDateOf, type StationDate } from './station.date.js';
 import type { StationLineupMode, StationLineupOnEnd } from './station.lineup.js';
 import type { WriterOrder } from './writer.order.js';
+
+export { addDays, dateKey, stationDateOf, type StationDate };
 
 /** Minutes in a day, which is the space {@link ScheduleSlot.startsAtMinutes} lives in. */
 export const MINUTES_IN_DAY = 24 * 60;
@@ -58,18 +69,9 @@ export const MINUTES_IN_DAY = 24 * 60;
 const DAYS_IN_WEEK = 7;
 
 /**
- * A date on the station's own calendar, with the weekday it falls on. Sunday is `0`.
- *
- * Wall-clock throughout: a date here is a reading of the station's clock rather than an instant, which
- * is what keeps everything that walks over dates free of daylight-saving arithmetic.
+ * The days a special runs on: a range of dates, or a rule that says which day it comes round on.
  */
-export interface StationDate {
-    year: number;
-    /** 1-12, matching {@link StationClock}. */
-    month: number;
-    day: number;
-    weekday: number;
-}
+export type SpecialDates = SpecialRange | SpecialRecurrence;
 
 /**
  * The dates a special runs on, inclusive at both ends, as `YYYY-MM-DD`.
@@ -78,10 +80,18 @@ export interface StationDate {
  * New Year, which is why it is still two real dates in order (`2026-12-31` to `2027-01-01`) rather
  * than two month-days that would have to be compared the other way round.
  */
-export interface SpecialDates {
+export interface SpecialRange {
     from: string;
     to: string;
     yearly: boolean;
+}
+
+/**
+ * A special that runs on the one day a rule falls on, whenever that is: Halloween, Thanksgiving, the
+ * first night of Hanukkah. Which is the point of it, since the last two are not a month and a day.
+ */
+export interface SpecialRecurrence {
+    rule: OccasionRule;
 }
 
 /**
@@ -251,9 +261,9 @@ export interface ScheduleSlot {
     /** Whether the host may mention an artist's next local show. Absent is no; see `StationLineupRules.concerts`. */
     concerts?: boolean;
     /**
-     * The dates this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
+     * The days this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *
-     * {@link days} still applies inside the range, so "the Fridays in December" is a range and a mask.
+     * {@link days} still applies inside a range, so "the Fridays in December" is a range and a mask.
      * On its dates a special wins over the weekly schedule for its hours; see the module note.
      */
     dates?: SpecialDates;
@@ -300,54 +310,26 @@ export const isPlaylistSource = (
 /** Whether this slot runs on a given weekday. Empty `days` is every day. */
 const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.length === 0 || slot.days.includes(weekday);
 
-/** Whether a slot is a special, running on dates rather than every week. */
+/** Whether a slot is a special, running on dates or by a rule rather than every week. */
 export const isSpecial = (slot: ScheduleSlot): slot is ScheduleSlot & { dates: SpecialDates } => slot.dates !== undefined;
 
 /** Whether a slot is a booked live show. See {@link ScheduleSlot.live}. */
 export const isLiveShow = (slot: ScheduleSlot): boolean => slot.live === true;
 
-const pad = (value: number, width = 2) => String(value).padStart(width, '0');
-
-/** A station date as `YYYY-MM-DD`, the shape {@link SpecialDates} holds and compares as strings. */
-export const dateKey = (date: Pick<StationDate, 'year' | 'month' | 'day'>): string => `${pad(date.year, 4)}-${pad(date.month)}-${pad(date.day)}`;
+/** Whether a special's days are a rule rather than a range. */
+export const isRecurrence = (dates: SpecialDates): dates is SpecialRecurrence => 'rule' in dates;
 
 /**
- * A `YYYY-MM-DD` string as a station date, or `undefined` when it is not one.
- *
- * Through UTC, which is safe because this is civil arithmetic on a date rather than a claim about a
- * moment: UTC has no daylight saving, so it is the calendar with no opinions. The weekday is DERIVED
- * here rather than taken from anybody, since it is the one field a caller could get wrong in a way
- * that silently resolves the wrong show.
- */
-export function stationDateOf(key: string): StationDate | undefined {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
-    if (!match) return undefined;
-
-    const asUtc = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-    if (dateKey({ year: asUtc.getUTCFullYear(), month: asUtc.getUTCMonth() + 1, day: asUtc.getUTCDate() }) !== key) return undefined;
-
-    return { year: asUtc.getUTCFullYear(), month: asUtc.getUTCMonth() + 1, day: asUtc.getUTCDate(), weekday: asUtc.getUTCDay() };
-}
-
-/** The day `offset` days from `date` on the station's calendar. Plain civil arithmetic; see {@link stationDateOf}. */
-export function addDays(date: StationDate, offset: number): StationDate {
-    const asUtc = new Date(Date.UTC(date.year, date.month - 1, date.day + offset));
-
-    return {
-        year: asUtc.getUTCFullYear(),
-        month: asUtc.getUTCMonth() + 1,
-        day: asUtc.getUTCDate(),
-        weekday: (((date.weekday + offset) % DAYS_IN_WEEK) + DAYS_IN_WEEK) % DAYS_IN_WEEK,
-    };
-}
-
-/**
- * Whether a date falls inside a special's range.
+ * Whether a date is one a special runs on.
  *
  * A yearly range compares month and day only, and one whose end comes before its start in the year
- * runs past New Year: from the start to the end of December, then from January to the end.
+ * runs past New Year: from the start to the end of December, then from January to the end. A rule is
+ * asked of the date as it stands on the station's calendar, which is what makes it the station's
+ * Halloween rather than UTC's.
  */
-function inRange(dates: SpecialDates, date: StationDate): boolean {
+function fallsOn(dates: SpecialDates, date: StationDate): boolean {
+    if (isRecurrence(dates)) return occasionFalls(dates.rule, date);
+
     if (!dates.yearly) {
         const key = dateKey(date);
         return key >= dates.from && key <= dates.to;
@@ -360,12 +342,12 @@ function inRange(dates: SpecialDates, date: StationDate): boolean {
 }
 
 /**
- * Whether a slot STARTS an occurrence on this date: on one of its weekdays and, for a special, inside
- * its range. A block that runs past midnight is still "on" the following morning without starting
+ * Whether a slot STARTS an occurrence on this date: on one of its weekdays and, for a special, on one
+ * of its days. A block that runs past midnight is still "on" the following morning without starting
  * there, which is what {@link piecesOn} adds.
  */
 export function startsOn(slot: ScheduleSlot, date: StationDate): boolean {
-    return runsOn(slot, date.weekday) && (slot.dates === undefined || inRange(slot.dates, date));
+    return runsOn(slot, date.weekday) && (slot.dates === undefined || fallsOn(slot.dates, date));
 }
 
 /**
@@ -556,10 +538,12 @@ function occupies(slot: ScheduleSlot): Occupied[] {
  * A special against a weekly block is never a clash: cutting into the weekly schedule is what a
  * special is FOR, and the module note says why that precedence is allowed. Two specials are compared
  * date by date, since two ranges that share no date cannot collide whatever their hours.
+ *
+ * `today` is the station's, and matters only to a special on a rule; see {@link firstClash}.
  */
-export function overlap(left: ScheduleSlot, right: ScheduleSlot): boolean {
+export function overlap(left: ScheduleSlot, right: ScheduleSlot, today?: StationDate): boolean {
     if (isSpecial(left) !== isSpecial(right)) return false;
-    if (isSpecial(left) && isSpecial(right)) return specialsClash(left, right);
+    if (isSpecial(left) && isSpecial(right)) return firstClash(left, right, today) !== undefined;
 
     const theirs = occupies(right);
 
@@ -570,28 +554,77 @@ export function overlap(left: ScheduleSlot, right: ScheduleSlot): boolean {
 const YEARLY_WINDOW = { from: '2027-12-31', to: '2029-01-01' };
 
 /**
- * Whether two specials are ever on at the same time.
+ * How far ahead a rule is compared with anything that repeats, in years.
+ *
+ * Two rules that clash may do so rarely, because they drift against each other: a fixed date and a
+ * weekday of a month meet every 28 years at the outside, and the Islamic calendar comes back round the
+ * solar year in about 33. Forty is that with some to spare and not a proof of anything: Easter's
+ * rarest dates are centuries apart, and a calendar stepping 11 days a year can step over a date for
+ * a whole lap. A clash past the horizon is not a broken station, since {@link slotOn} still answers
+ * with one of the two; it is a refusal nobody needed in this lifetime.
+ */
+const RECURRENCE_YEARS = 40;
+
+/** The first and last date a special's days can fall on, or `undefined` when they keep repeating. */
+function boundsOf(dates: SpecialDates): { from: string; to: string } | undefined {
+    if (!isRecurrence(dates)) return dates.yearly ? undefined : { from: dates.from, to: dates.to };
+    if (dates.rule.kind !== 'dates') return undefined;
+
+    const listed = [...dates.rule.dates].sort();
+    return { from: listed[0]!, to: listed[listed.length - 1]! };
+}
+
+/**
+ * The only dates two specials could share, as the keys to walk between.
+ *
+ * Anything with an end bounds the walk. A rule has only the future to answer for, so an old one-off
+ * kept to copy from does not stop a rule falling on the date it ran. `today` is that future's start,
+ * and absent falls back on {@link YEARLY_WINDOW}'s, which is a date rather than a claim about now.
+ */
+function clashWindow(left: SpecialDates, right: SpecialDates, today: StationDate | undefined): { from: string; to: string } {
+    const bounds = [left, right].map(boundsOf).filter(bound => bound !== undefined);
+    const rule = isRecurrence(left) || isRecurrence(right);
+    const start = today === undefined ? YEARLY_WINDOW.from : dateKey(today);
+
+    if (bounds.length === 0) {
+        if (!rule) return YEARLY_WINDOW;
+        const year = Number(start.slice(0, 4));
+        return { from: start, to: `${String(year + RECURRENCE_YEARS).padStart(4, '0')}${start.slice(4)}` };
+    }
+
+    const from = bounds.map(bound => bound.from).reduce((a, b) => (a > b ? a : b));
+    const to = bounds.map(bound => bound.to).reduce((a, b) => (a < b ? a : b));
+
+    return { from: rule && today !== undefined && from < start ? start : from, to };
+}
+
+/**
+ * The first date two specials are on at the same time, as `YYYY-MM-DD`, or `undefined` when they never are.
  *
  * Walked date by date over the only dates they could share, asking {@link piecesOn} of each: the
  * same function the resolver and the timetable use, so the check cannot disagree with either about
- * where a block is. A fixed range bounds the walk (plus the day after, for a tail past its last
- * midnight); two yearly ones are walked over {@link YEARLY_WINDOW}, which holds every month-day once
- * including the 29th of February.
+ * where a block is. The walk runs to the day after {@link clashWindow}'s last, for a tail past its
+ * last midnight. Two yearly ones are walked over {@link YEARLY_WINDOW}, which holds every month-day
+ * once including the 29th of February.
+ *
+ * A date rather than a yes, because two rules can be years from meeting. Being told Halloween clashes
+ * with the last Saturday in October means nothing to anybody until they are told it is in 2037.
  */
-function specialsClash(left: ScheduleSlot & { dates: SpecialDates }, right: ScheduleSlot & { dates: SpecialDates }): boolean {
-    const fixed = [left.dates, right.dates].filter(dates => !dates.yearly);
-    const from = fixed.length === 0 ? YEARLY_WINDOW.from : fixed.map(dates => dates.from).reduce((a, b) => (a > b ? a : b));
-    const last = fixed.length === 0 ? YEARLY_WINDOW.to : fixed.map(dates => dates.to).reduce((a, b) => (a < b ? a : b));
-
-    const start = stationDateOf(from);
-    const end = stationDateOf(last);
-    if (start === undefined || end === undefined) return false;
+export function firstClash(
+    left: ScheduleSlot & { dates: SpecialDates },
+    right: ScheduleSlot & { dates: SpecialDates },
+    today?: StationDate,
+): string | undefined {
+    const window = clashWindow(left.dates, right.dates, today);
+    const start = stationDateOf(window.from);
+    const end = stationDateOf(window.to);
+    if (start === undefined || end === undefined) return undefined;
 
     const until = dateKey(addDays(end, 1));
     for (let date = start; dateKey(date) <= until; date = addDays(date, 1)) {
         const theirs = piecesOn(right, date);
-        if (piecesOn(left, date).some(ours => theirs.some(other => ours.from < other.to && other.from < ours.to))) return true;
+        if (piecesOn(left, date).some(ours => theirs.some(other => ours.from < other.to && other.from < ours.to))) return dateKey(date);
     }
 
-    return false;
+    return undefined;
 }

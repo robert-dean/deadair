@@ -8,11 +8,13 @@ import type { WriterOrder } from '#modules/director/writer.order.js';
 import {
     isChartSource,
     isPlaylistSource,
+    isRecurrence,
     isStationPlaylistSource,
     type ScheduleSlot,
     type ScheduleSlotSource,
     type SlotPerson,
 } from '#modules/director/schedule.js';
+import type { OccasionRule } from './occasion.rule.js';
 
 /**
  * The slots an operator has written.
@@ -183,6 +185,8 @@ export class ScheduleRepository extends DataRepository {
 export type ScheduleSlotDraft = Omit<ScheduleSlot, 'id'>;
 
 function columnsOf(draft: ScheduleSlotDraft) {
+    const range = draft.dates === undefined || isRecurrence(draft.dates) ? undefined : draft.dates;
+
     return {
         label: draft.label,
         startsAtMinutes: draft.startsAtMinutes,
@@ -215,9 +219,10 @@ function columnsOf(draft: ScheduleSlotDraft) {
         // Cast in SQL rather than handed over as a `DateTime`, because a date is a reading of the
         // station's calendar and not an instant: building one in JS would mean choosing a zone for a
         // value that has none.
-        startsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.from}::date`,
-        endsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.to}::date`,
-        yearly: draft.dates?.yearly ?? false,
+        startsOn: range === undefined ? null : sql<DateTime>`${range.from}::date`,
+        endsOn: range === undefined ? null : sql<DateTime>`${range.to}::date`,
+        yearly: range?.yearly ?? false,
+        recurrence: draft.dates !== undefined && isRecurrence(draft.dates) ? sql<string>`${JSON.stringify(draft.dates.rule)}::jsonb` : null,
         // Only on a playlist, so a slot whose source moves to a chart does not carry a choice that means
         // nothing there back to the console as though it still applied.
         resumePlaylist: draft.resumePlaylist === true && isPlaylistSource(draft.source),
@@ -302,6 +307,7 @@ function toSlot(row: {
     startsOn: DateTime | null;
     endsOn: DateTime | null;
     yearly: boolean;
+    recurrence: unknown;
     resumePlaylist: boolean;
     live: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
@@ -357,6 +363,8 @@ function toSlot(row: {
         ...(row.startsOn == null || row.endsOn == null
             ? {}
             : { dates: { from: row.startsOn.toISODate() ?? '', to: row.endsOn.toISODate() ?? '', yearly: row.yearly } }),
+        // The shape check in `0128` is what makes this cast true.
+        ...(row.recurrence == null ? {} : { dates: { rule: row.recurrence as OccasionRule } }),
         ...(row.resumePlaylist ? { resumePlaylist: true } : {}),
         ...(row.live ? { live: true } : {}),
         mode: row.mode,

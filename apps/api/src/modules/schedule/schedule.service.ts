@@ -12,8 +12,10 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { coHostsFor, hostFor, type NightHost } from '#modules/director/slot.visits.js';
 import {
     dateKey,
+    firstClash,
     isChartSource,
     isLiveShow,
+    isRecurrence,
     occurrenceOf,
     isSpecial,
     isStationPlaylistSource,
@@ -36,6 +38,7 @@ import {
     resolveOverrunMinutes,
 } from './changeover.overrun.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
+import { nextOccasionDate, occasionRuleFields, occasionRuleOf, type OccasionRule, type OccasionRuleFields } from './occasion.rule.js';
 import { project, stamp, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
 
@@ -434,7 +437,12 @@ export class ScheduleService {
     }
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
-        const draft = draftOf(body);
+        const draft = draftOf(
+            keepingRecurrence(
+                body,
+                (await this.slots.list()).find(slot => slot.id === id),
+            ),
+        );
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
 
@@ -474,10 +482,25 @@ export class ScheduleService {
      *
      * `except` is the row being edited, which must not be compared against itself.
      */
+    /** The date it is now on the station's calendar. */
+    private today(): StationDate {
+        const { year, month, day, weekday } = readClock(Date.now(), stationZone(this.config));
+
+        return { year, month, day, weekday };
+    }
+
     private async refuseOverlap(draft: ScheduleSlotDraft, except?: string): Promise<void> {
         const candidate = { ...draft, id: except ?? '' } as ScheduleSlot;
-        const clash = (await this.slots.list()).find(slot => slot.id !== except && overlap(candidate, slot));
+        const today = this.today();
+        const clash = (await this.slots.list()).find(slot => slot.id !== except && overlap(candidate, slot, today));
         if (clash === undefined) return;
+
+        // Two rules can be years from meeting, and "already on then" says nothing about 2037.
+        if (isSpecial(candidate) && isSpecial(clash) && (isRecurrence(candidate.dates) || isRecurrence(clash.dates))) {
+            throw httpError(409).withDetails({
+                message: `that overlaps the special "${clash.label || 'another special'}": they would both run on ${firstClash(candidate, clash, today)}, the first date they meet. Two specials cannot be on at once, so change the rule or the hours of one of them.`,
+            });
+        }
 
         throw httpError(409).withDetails({
             message: isSpecial(candidate)
@@ -526,7 +549,9 @@ export class ScheduleService {
     }
 
     private async answer(): Promise<ScheduleSlotList> {
-        return { slots: (await this.slots.list()).map(forTheWire) };
+        const today = this.today();
+
+        return { slots: (await this.slots.list()).map(slot => forTheWire(slot, today)) };
     }
 }
 
@@ -593,7 +618,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
  */
 function liveOf(body: ScheduleSlotInput): { live?: true } {
     if (body.live !== true) return {};
-    if (body.startsOn === undefined || body.endsOn === undefined) {
+    if (body.recurrence === undefined && (body.startsOn === undefined || body.endsOn === undefined)) {
         throw httpError(400).withDetails({ message: 'a live show is booked on dates, so it has to be a special' });
     }
     if (body.sourceChartId !== undefined || body.sourceStationPlaylistId !== undefined || body.sourcePlaylistId !== undefined) {
@@ -612,6 +637,8 @@ function liveOf(body: ScheduleSlotInput): { live?: true } {
  * be every day, which is a weekly slot.
  */
 function specialDatesOf(body: ScheduleSlotInput): { dates?: SpecialDates } {
+    if (body.recurrence !== undefined) return { dates: { rule: recurrenceOf(body, body.recurrence) } };
+
     if (body.startsOn === undefined && body.endsOn === undefined) return {};
     if (body.startsOn === undefined || body.endsOn === undefined) {
         throw httpError(400).withDetails({ message: 'a special needs both a first and a last date' });
@@ -628,6 +655,41 @@ function specialDatesOf(body: ScheduleSlotInput): { dates?: SpecialDates } {
     }
 
     return { dates: { from: body.startsOn, to: body.endsOn, yearly } };
+}
+
+/**
+ * A body's rule, refusing what could only ever be a show that quietly never airs.
+ *
+ * A rule and a weekday mask are two answers to one question, and they would have to coincide: a
+ * mask leaving out the Thursday that Thanksgiving is on is a special nobody hears from again.
+ */
+function recurrenceOf(body: ScheduleSlotInput, recurrence: OccasionRuleFields): OccasionRule {
+    if (body.startsOn !== undefined || body.endsOn !== undefined || body.yearly === true) {
+        throw httpError(400).withDetails({ message: 'a special runs on dates or by a rule, not both' });
+    }
+    if ((body.days ?? []).length > 0) {
+        throw httpError(400).withDetails({ message: 'a special on a rule runs on the day the rule names, so it cannot name weekdays as well' });
+    }
+
+    const rule = occasionRuleOf(recurrence);
+    if (typeof rule === 'string') throw httpError(400).withDetails({ message: rule });
+
+    return rule;
+}
+
+/**
+ * A body with the slot's stored rule put back, when it names neither dates nor a rule.
+ *
+ * A rewrite is the whole row, and a client built before rules existed reads a special on one as having
+ * no dates and writes it back the same way, which would turn Halloween night into every night. So a
+ * slot on a rule stays on one until a body says otherwise, and the cost is that one cannot be made
+ * weekly by editing it: nothing offers that, and deleting it and adding a weekly block still does.
+ */
+function keepingRecurrence(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
+    if (body.recurrence !== undefined || body.startsOn !== undefined || body.endsOn !== undefined) return body;
+    if (stored?.dates === undefined || !isRecurrence(stored.dates)) return body;
+
+    return { ...body, recurrence: occasionRuleFields(stored.dates.rule) };
 }
 
 /**
@@ -693,8 +755,18 @@ function coHostsOf(body: ScheduleSlotInput): { coHosts?: SlotPerson[] } {
 /** A persona id is a uuid, and anything else would reach Postgres as a type error rather than a 400. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** A special's days as the wire lays them out, with when a rule next falls, which only the station can work out. */
+function datesForTheWire(dates: SpecialDates | undefined, today: StationDate) {
+    if (dates === undefined) return {};
+    if (!isRecurrence(dates)) return { startsOn: dates.from, endsOn: dates.to, yearly: dates.yearly };
+
+    const next = nextOccasionDate(dates.rule, today);
+
+    return { recurrence: occasionRuleFields(dates.rule), ...(next === undefined ? {} : { nextDate: dateKey(next) }) };
+}
+
 /** The stored shape flattened back to the wire's, where a source is optional fields rather than one object. */
-function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
+function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['slots'][number] {
     return {
         id: slot.id,
         label: slot.label,
@@ -725,7 +797,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.artistCooldownMinutes === undefined ? {} : { artistCooldownMinutes: slot.artistCooldownMinutes }),
         ...(slot.maxPerArtist === undefined ? {} : { maxPerArtist: slot.maxPerArtist }),
         ...(slot.writerOrder === undefined ? {} : { writerOrder: slot.writerOrder }),
-        ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
+        ...datesForTheWire(slot.dates, today),
         ...(slot.coHosts === undefined || slot.coHosts.length === 0
             ? {}
             : {

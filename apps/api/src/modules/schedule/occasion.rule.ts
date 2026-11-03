@@ -1,5 +1,5 @@
 import { readClock } from '#modules/director/clock.bands.js';
-import { addDays, dateKey, stationDateOf, type StationDate } from '#modules/director/schedule.js';
+import { addDays, dateKey, stationDateOf, type StationDate } from '#modules/director/station.date.js';
 
 /**
  * When an occasion falls, as a rule rather than as a date, because most of them move.
@@ -71,6 +71,13 @@ export function nextOccasionDate(rule: OccasionRule, from: StationDate): Station
         if (occasionFalls(rule, date)) return date;
     }
     return undefined;
+}
+
+/** A rule's fields as a contract lays them out flat, the reverse of {@link occasionRuleOf}. */
+export function occasionRuleFields(rule: OccasionRule) {
+    if (rule.kind === 'dates') return { ruleKind: rule.kind, dates: [...rule.dates] };
+    const { kind, ...fields } = rule;
+    return { ruleKind: kind, ...fields };
 }
 
 /** A rule's fields as they arrive from somewhere that is not the table: the console, or somebody's file. */

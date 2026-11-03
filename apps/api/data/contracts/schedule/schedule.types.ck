@@ -35,6 +35,8 @@ contract ScheduleSlot: {
     writerOrder?: enum(model, station) # Which writer is asked first for this stretch of the day's breaks, in place of the station's `llm.breakWriterOrder`: `model`, with the station's own words underneath, or `station`, the phrasings, headlines and stories as written with the model underneath. Absent keeps the station's setting. Changes nothing while the model is switched off
     startsOn?: string(regex=/^\d{4}-\d{2}-\d{2}$/) # The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     endsOn?: string(regex=/^\d{4}-\d{2}-\d{2}$/) # The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
+    recurrence?: SpecialRecurrence # The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule
+    nextDate?: readonly string(min=10, max=10) # When a slot with a `recurrence` next runs, as `YYYY-MM-DD` on the station's calendar, counting today. Absent on any other slot, and when a list of dates has run out
     coHosts?: array(SlotCoHost, max=8) # Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out
     guestHosts?: array(SlotGuestHost, max=8) # Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
     yearly?: boolean # Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
@@ -58,6 +60,19 @@ contract SlotCoHost: {
     days?: array(int(min=0, max=6)) # The nights they co-present, by the weekday the night begins on, Sunday 0. Absent with no `everyN` is every night. Send this or `everyN`, not both
     everyN?: int(min=2, max=366) # Or as a visitor: about one of this slot's nights in this many, on nights nobody can predict
     cooldownDays?: int(min=0, max=366) # With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`
+}
+
+# Which day a special comes round on. `ruleKind` says how, and which of the fields beside it count
+contract SpecialRecurrence: {
+    ruleKind: enum(fixed, weekday, easter, calendar, dates) # `fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out
+    month?: int(min=1, max=12)
+    day?: int(min=1, max=31) # The day of the month, in the rule's own calendar
+    ordinal?: int(min=-1, max=5) # Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4`
+    weekday?: int(min=0, max=6) # 0 is Sunday
+    offsetDays?: int(min=-60, max=60) # Days from Easter Sunday: 0 is the day itself and -2 is Good Friday
+    calendar?: enum(hebrew, islamic-umalqura) # `islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it
+    calendarMonth?: string(min=1, max=40) # The month in that calendar, as `GET /schedule/occasions` lists them
+    dates?: array(string(min=10, max=10), max=100) # As `YYYY-MM-DD`. These run out, so a list needs refreshing
 }
 
 contract ScheduleSlotList: {

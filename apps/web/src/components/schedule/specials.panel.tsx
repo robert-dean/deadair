@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Eyebrow } from '../shared/eyebrow';
 import { RowOpener } from '../shared/row.opener';
 import { formatWallTime } from '../../i18n/format.locale';
-import { formatDates, inOrder, isSpecial, nextRun, stateOf, type Special, type SpecialState } from './schedule.specials';
+import { describeRule } from './occasions.edits';
+import { formatDates, inOrder, isSpecial, lastRun, nextRun, stateOf, type Special, type SpecialState } from './schedule.specials';
 
 /**
  * The station's specials: the shows that run on dates rather than every week.
@@ -73,9 +74,9 @@ export function SpecialsPanel({ slots, today, airingId, onEdit, onNew }: Props) 
 function SpecialRow({ special, today, airing, onEdit }: { special: Special; today: string; airing: boolean; onEdit: () => void }) {
     const { t } = useTranslation('schedule');
     const state = stateOf(special, today);
-    // The run an operator is asking about: this year's for a yearly special, and the special's own
-    // dates for a one-off, over or not.
-    const run = nextRun(special, today) ?? { from: special.startsOn, to: special.endsOn };
+    // The run an operator is asking about: this year's for a yearly special, the day a rule next falls,
+    // and the special's own dates for a one-off, over or not.
+    const run = nextRun(special, today) ?? lastRun(special);
     const name = special.label || t('untitled');
 
     return (
@@ -96,6 +97,12 @@ function SpecialRow({ special, today, airing, onEdit }: { special: Special; toda
                         {name}
                     </Text>
                 </RowOpener>
+                {/* The rule as well as its next date, because the date alone does not say why it is that one. */}
+                {special.recurrence === undefined ? undefined : (
+                    <Text size="xs" c="dimmed">
+                        {describeRule(special.recurrence, t)}
+                    </Text>
+                )}
             </Table.Td>
             <Table.Td w={200}>
                 <Group gap={4} justify="flex-end" wrap="nowrap">

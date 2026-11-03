@@ -45,6 +45,14 @@ describe('blockEdit', () => {
 
             expect(edit).toMatchObject({ kind: 'move', startsAtMinutes: at(21), endsAtMinutes: at(23, 30) });
         });
+
+        it('refuses a drag to another day on a rule too, which has no dates to tell it apart', () => {
+            const rule: ScheduleSlot = { ...slot('halloween', at(20), at(23)), recurrence: { ruleKind: 'fixed', month: 10, day: 31 } };
+
+            const edit = blockEdit(block('halloween', '20:00', '23:00'), '2026-08-20 20:00:00', '2026-08-20 23:00:00', [rule]);
+
+            expect(edit.kind).toBe('refused');
+        });
     });
 
     it('moves the block to where it was dropped', () => {
@@ -201,11 +209,19 @@ describe('resizeEdit', () => {
     });
 
     it('refuses to swallow the neighbour, which would turn it into a full day', () => {
-        expect(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 16:00:00', '2026-08-19 22:00:00', TOUCHING)).toMatchObject({ kind: 'refused' });
+        expect(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 16:00:00', '2026-08-19 22:00:00', TOUCHING)).toMatchObject({
+            kind: 'refused',
+        });
     });
 
     it('never takes a special along', () => {
         const slots = [{ ...BLUES, startsOn: '2026-10-31', endsOn: '2026-10-31' }, GLAM];
+
+        expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 18:00:00', '2026-08-19 22:00:00', slots))).toHaveLength(1);
+    });
+
+    it('never takes a special on a rule along', () => {
+        const slots = [{ ...BLUES, recurrence: { ruleKind: 'fixed' as const, month: 10, day: 31 } }, GLAM];
 
         expect(moved(resizeEdit(block('glam', '19:00', '22:00'), '2026-08-19 18:00:00', '2026-08-19 22:00:00', slots))).toHaveLength(1);
     });

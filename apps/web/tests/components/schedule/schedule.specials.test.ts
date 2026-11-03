@@ -30,6 +30,21 @@ describe('isSpecial', () => {
 });
 
 describe('nextRun', () => {
+    it("takes a rule's next run from what the station said, and it is on the day it falls", () => {
+        const rule: Special = {
+            ...special('h', '', ''),
+            startsOn: undefined,
+            endsOn: undefined,
+            recurrence: { ruleKind: 'fixed', month: 10, day: 31 },
+            nextDate: '2026-10-31',
+        };
+
+        expect(isSpecial(rule)).toBe(true);
+        expect(nextRun(rule, '2026-10-09')).toEqual({ from: '2026-10-31', to: '2026-10-31' });
+        expect(stateOf(rule, '2026-10-31')).toBe('now');
+        expect(stateOf({ ...rule, nextDate: undefined }, '2026-10-31')).toBe('over');
+    });
+
     it('is the one-off itself until it has ended, and nothing after', () => {
         const gig = special('gig', '2026-10-31', '2026-11-01');
 

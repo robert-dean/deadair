@@ -435,6 +435,135 @@ describe('ScheduleService.update', () => {
             await expect(service.update('h', halloween())).rejects.toMatchObject({ statusCode: 409 });
         });
 
+        describe('on a rule', () => {
+            afterEach(() => {
+                vi.useRealTimers();
+            });
+
+            const FIXED = { ruleKind: 'fixed', month: 10, day: 31 } as const;
+            const ruled = (over: Partial<ScheduleSlotInput> = {}) =>
+                halloween({ startsOn: undefined, endsOn: undefined, yearly: undefined, recurrence: FIXED, ...over });
+            const stored = (id: string, startsAt = 20 * 60, endsAt = 23 * 60): ScheduleSlot => ({
+                ...slot(id, startsAt, endsAt),
+                dates: { rule: { kind: 'fixed', month: 10, day: 31 } },
+            });
+
+            it('stores its rule and hands it back with when it next falls', async () => {
+                vi.setSystemTime(new Date('2026-11-03T12:00:00Z'));
+                const service = build({ slots: [slot('h', 20 * 60, 23 * 60)] });
+
+                const { slots } = await service.update('h', ruled());
+
+                expect(slots[0]).toMatchObject({ recurrence: FIXED, nextDate: '2027-10-31' });
+                expect(slots[0]?.startsOn).toBeUndefined();
+            });
+
+            it("counts today as its next date, read on the station's calendar", async () => {
+                // 00:30 on the 1st in London, where Halloween is over, and 20:30 on the 31st in New York, where it is on.
+                vi.setSystemTime(new Date('2026-11-01T00:30:00Z'));
+
+                const { slots } = await build({ slots: [stored('h')] }).list();
+                expect(slots[0]?.nextDate).toBe('2027-10-31');
+
+                const elsewhere = await build({ slots: [stored('h')], settings: { 'station.timezone': 'America/New_York' } }).list();
+                expect(elsewhere.slots[0]?.nextDate).toBe('2026-10-31');
+            });
+
+            it('has no next date once a list has run out', async () => {
+                vi.setSystemTime(new Date('2026-11-03T12:00:00Z'));
+                const service = build({ slots: [slot('h', 20 * 60, 23 * 60)] });
+
+                const { slots } = await service.update('h', ruled({ recurrence: { ruleKind: 'dates', dates: ['2025-10-31'] } }));
+
+                expect(slots[0]?.nextDate).toBeUndefined();
+            });
+
+            it('refuses a rule that cannot fall', async () => {
+                const service = build({ slots: [slot('h', 1, 2)] });
+
+                await expect(service.update('h', ruled({ recurrence: { ruleKind: 'fixed', month: 6, day: 31 } }))).rejects.toMatchObject({
+                    statusCode: 400,
+                });
+            });
+
+            it('refuses dates and a rule together', async () => {
+                const service = build({ slots: [slot('h', 1, 2)] });
+
+                await expect(service.update('h', ruled({ startsOn: '2026-10-31', endsOn: '2026-10-31' }))).rejects.toMatchObject({ statusCode: 400 });
+                await expect(service.update('h', ruled({ yearly: true }))).rejects.toMatchObject({ statusCode: 400 });
+            });
+
+            it('refuses weekdays beside a rule, which could only keep it off the air', async () => {
+                const service = build({ slots: [slot('h', 1, 2)] });
+
+                await expect(service.update('h', ruled({ days: [4] }))).rejects.toMatchObject({ statusCode: 400 });
+            });
+
+            it('may cut into a weekly block', async () => {
+                const service = build({ slots: [slot('weekly', 18 * 60, 23 * 60), slot('h', 1, 2)] });
+
+                await expect(service.update('h', ruled())).resolves.toBeDefined();
+            });
+
+            it('may not overlap another special on a rule, and says when', async () => {
+                vi.setSystemTime(new Date('2026-11-03T12:00:00Z'));
+                const saturday: ScheduleSlot = {
+                    ...slot('saturday', 21 * 60, 22 * 60),
+                    label: 'Saturday',
+                    dates: { rule: { kind: 'weekday', month: 10, ordinal: -1, weekday: 6 } },
+                };
+                const service = build({ slots: [saturday, slot('h', 1, 2)] });
+
+                await expect(service.update('h', ruled())).rejects.toMatchObject({
+                    statusCode: 409,
+                    details: { message: expect.stringContaining('2037-10-31') },
+                });
+            });
+
+            it('may not overlap a dated special either', async () => {
+                vi.setSystemTime(new Date('2026-11-03T12:00:00Z'));
+                const party: ScheduleSlot = { ...slot('party', 21 * 60, 22 * 60), dates: { from: '2027-10-25', to: '2027-11-01', yearly: false } };
+                const service = build({ slots: [party, slot('h', 1, 2)] });
+
+                await expect(service.update('h', ruled())).rejects.toMatchObject({ statusCode: 409 });
+            });
+
+            it('is not compared with itself', async () => {
+                const service = build({ slots: [stored('h')] });
+
+                await expect(service.update('h', ruled())).resolves.toBeDefined();
+            });
+
+            it('keeps its rule when a client that has never heard of rules writes it back', async () => {
+                vi.setSystemTime(new Date('2026-11-03T12:00:00Z'));
+                const service = build({ slots: [stored('h')] });
+
+                const { slots } = await service.update(
+                    'h',
+                    halloween({ startsOn: undefined, endsOn: undefined, yearly: undefined, label: 'Renamed' }),
+                );
+
+                expect(slots[0]).toMatchObject({ label: 'Renamed', recurrence: FIXED, nextDate: '2027-10-31' });
+            });
+
+            it('gives way to dates when a body names some', async () => {
+                const service = build({ slots: [stored('h')] });
+
+                const { slots } = await service.update('h', halloween());
+
+                expect(slots[0]).toMatchObject({ startsOn: '2026-10-31' });
+                expect(slots[0]?.recurrence).toBeUndefined();
+            });
+
+            it('can be a booked live show', async () => {
+                const service = build({ slots: [slot('h', 1, 2)] });
+
+                const { slots } = await service.update('h', ruled({ live: true }));
+
+                expect(slots[0]).toMatchObject({ live: true, recurrence: FIXED });
+            });
+        });
+
         it('needs both ends of its range', async () => {
             const service = build({ slots: [slot('h', 1, 2)] });
 

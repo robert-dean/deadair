@@ -43,6 +43,8 @@ A block can have **co-hosts** who present beside its host: every night, on fixed
 
 A special is a block on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. It has everything a block has, plus a first and a last date, and it can repeat every year on the same dates (a yearly range may run past New Year). Inside its dates it still runs only on the days you tick, so "the Fridays in December" is a range and a day. On its dates a special takes over from the weekly schedule for its hours, and whatever usually airs then resumes when it ends, part-way through if it was still on. Two specials may not overlap each other.
 
+A special can also come round by a rule instead of on dates, so it only needs setting up once. Choose **By a rule** in its editor and pick the same kinds of rule the Occasions tab uses: the same date every year, a weekday of a month (the fourth Thursday of November), a day around Easter, a date in the Hebrew or Islamic calendar, or a list of dates. It runs for its hours on each day the rule falls, on the station's calendar, and the Specials tab shows when it is next on. Because rules move against each other, two that would ever be on at once are refused even if that is years away, and the station says which date.
+
 ![Programme, Specials: shows on dates rather than every week](/img/console/schedule.specials.webp)
 *Fig. 2. Specials.*
 

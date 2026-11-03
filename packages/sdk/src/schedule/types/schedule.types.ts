@@ -29,6 +29,30 @@ export interface SlotCoHost {
 }
 
 /**
+ * Which day a special comes round on. `ruleKind` says how, and which of the fields beside it count
+ * generated from [SpecialRecurrence](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface SpecialRecurrence {
+    /** `fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out */
+    ruleKind: 'fixed' | 'weekday' | 'easter' | 'calendar' | 'dates';
+    month?: number;
+    /** The day of the month, in the rule's own calendar */
+    day?: number;
+    /** Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4` */
+    ordinal?: number;
+    /** 0 is Sunday */
+    weekday?: number;
+    /** Days from Easter Sunday: 0 is the day itself and -2 is Good Friday */
+    offsetDays?: number;
+    /** `islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it */
+    calendar?: 'hebrew' | 'islamic-umalqura';
+    /** The month in that calendar, as `GET /schedule/occasions` lists them */
+    calendarMonth?: string;
+    /** As `YYYY-MM-DD`. These run out, so a list needs refreshing */
+    dates?: string[];
+}
+
+/**
  * A window of the station's day to draw
  * generated from [ScheduleTimetableQuery](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
  */
@@ -132,6 +156,10 @@ export interface ScheduleSlot {
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     endsOn?: string;
+    /** The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule */
+    recurrence?: SpecialRecurrence;
+    /** When a slot with a `recurrence` next runs, as `YYYY-MM-DD` on the station's calendar, counting today. Absent on any other slot, and when a list of dates has run out */
+    nextDate?: string;
     /** Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out */
     coHosts?: SlotCoHost[];
     /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
@@ -202,6 +230,8 @@ export interface ScheduleSlotInput {
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     endsOn?: string;
+    /** The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule */
+    recurrence?: SpecialRecurrence;
     /** Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out */
     coHosts?: SlotCoHost[];
     /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */

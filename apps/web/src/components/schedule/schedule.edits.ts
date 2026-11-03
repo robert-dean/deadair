@@ -3,6 +3,7 @@ import type { ScheduleSlot } from '@deadair/sdk';
 import { i18n } from '../../i18n/i18n.setup';
 
 import { addDays, DAYS, minutesBetween, weekdayOf } from './schedule.day';
+import { isSpecial } from './schedule.specials';
 
 /**
  * Turning a drag on the grid into a change to the schedule.
@@ -107,7 +108,7 @@ export function blockEdit(block: DraggedBlock, newStart: string, newEnd: string,
     const nowOn = weekdayOf(dateOf(newStart));
     // A special is on its DATES, and a drag into another column would change its weekdays instead,
     // which is never what dragging Halloween to the 1st of November means. Its times still drag.
-    if (slot.startsOn !== undefined && dateOf(newStart) !== dateOf(block.start)) {
+    if (isSpecial(slot) && dateOf(newStart) !== dateOf(block.start)) {
         return { kind: 'refused', reason: i18n.t('schedule:edits.specialDates') };
     }
     // A block pinned to one day can be moved to another, because there is only one thing that could
@@ -162,10 +163,10 @@ function sharesEveryDay(earlier: ScheduleSlot, later: ScheduleSlot): boolean {
 
 /** The weekly slot sharing this edge of `slot`, if there is one. */
 function neighbourAt(edge: 'top' | 'bottom', slot: ScheduleSlot, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
-    if (slot.startsOn !== undefined) return undefined;
+    if (isSpecial(slot)) return undefined;
 
     return slots.find(other => {
-        if (other.id === slot.id || other.startsOn !== undefined) return false;
+        if (other.id === slot.id || isSpecial(other)) return false;
         return edge === 'top'
             ? other.endsAtMinutes === slot.startsAtMinutes && sharesEveryDay(other, slot)
             : other.startsAtMinutes === slot.endsAtMinutes && sharesEveryDay(slot, other);

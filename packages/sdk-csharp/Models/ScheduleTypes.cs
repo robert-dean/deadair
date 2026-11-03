@@ -57,6 +57,53 @@ public sealed record SlotCoHost
     public long? CooldownDays { get; init; }
 }
 
+/// <summary>Which day a special comes round on. `ruleKind` says how, and which of the fields beside it count</summary>
+public sealed record SpecialRecurrence
+{
+    /// <summary>`fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out</summary>
+    [JsonPropertyName("ruleKind")]
+    public required SpecialRecurrenceRuleKind RuleKind { get; init; }
+
+    [JsonPropertyName("month")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Month { get; init; }
+
+    /// <summary>The day of the month, in the rule's own calendar</summary>
+    [JsonPropertyName("day")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Day { get; init; }
+
+    /// <summary>Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4`</summary>
+    [JsonPropertyName("ordinal")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Ordinal { get; init; }
+
+    /// <summary>0 is Sunday</summary>
+    [JsonPropertyName("weekday")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Weekday { get; init; }
+
+    /// <summary>Days from Easter Sunday: 0 is the day itself and -2 is Good Friday</summary>
+    [JsonPropertyName("offsetDays")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? OffsetDays { get; init; }
+
+    /// <summary>`islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it</summary>
+    [JsonPropertyName("calendar")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SpecialRecurrenceCalendar? Calendar { get; init; }
+
+    /// <summary>The month in that calendar, as `GET /schedule/occasions` lists them</summary>
+    [JsonPropertyName("calendarMonth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CalendarMonth { get; init; }
+
+    /// <summary>As `YYYY-MM-DD`. These run out, so a list needs refreshing</summary>
+    [JsonPropertyName("dates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Dates { get; init; }
+}
+
 /// <summary>A window of the station's day to draw</summary>
 public sealed record ScheduleTimetableQuery
 {
@@ -354,6 +401,16 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EndsOn { get; init; }
 
+    /// <summary>The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule</summary>
+    [JsonPropertyName("recurrence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SpecialRecurrence? Recurrence { get; init; }
+
+    /// <summary>When a slot with a `recurrence` next runs, as `YYYY-MM-DD` on the station's calendar, counting today. Absent on any other slot, and when a list of dates has run out</summary>
+    [JsonPropertyName("nextDate")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NextDate { get; init; }
+
     /// <summary>Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out</summary>
     [JsonPropertyName("coHosts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -524,6 +581,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("endsOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EndsOn { get; init; }
+
+    /// <summary>The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule</summary>
+    [JsonPropertyName("recurrence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SpecialRecurrence? Recurrence { get; init; }
 
     /// <summary>Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out</summary>
     [JsonPropertyName("coHosts")]
@@ -1041,5 +1103,134 @@ public sealed class ScheduleSlotOnEndConverter : JsonConverter<ScheduleSlotOnEnd
         ScheduleSlotOnEnd.Repeat => "repeat",
         ScheduleSlotOnEnd.Stop => "stop",
         _ => throw new JsonException($"ScheduleSlotOnEnd.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>`fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out</summary>
+[JsonConverter(typeof(SpecialRecurrenceRuleKindConverter))]
+public enum SpecialRecurrenceRuleKind
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("fixed")]
+    Fixed,
+
+    [JsonStringEnumMemberName("weekday")]
+    Weekday,
+
+    [JsonStringEnumMemberName("easter")]
+    Easter,
+
+    [JsonStringEnumMemberName("calendar")]
+    Calendar,
+
+    [JsonStringEnumMemberName("dates")]
+    Dates,
+}
+
+/// <summary>
+/// Reads and writes <see cref="SpecialRecurrenceRuleKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SpecialRecurrenceRuleKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SpecialRecurrenceRuleKindConverter : JsonConverter<SpecialRecurrenceRuleKind>
+{
+    public override SpecialRecurrenceRuleKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SpecialRecurrenceRuleKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SpecialRecurrenceRuleKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SpecialRecurrenceRuleKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SpecialRecurrenceRuleKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SpecialRecurrenceRuleKind FromWire(string? text) => text switch
+    {
+        "fixed" => SpecialRecurrenceRuleKind.Fixed,
+        "weekday" => SpecialRecurrenceRuleKind.Weekday,
+        "easter" => SpecialRecurrenceRuleKind.Easter,
+        "calendar" => SpecialRecurrenceRuleKind.Calendar,
+        "dates" => SpecialRecurrenceRuleKind.Dates,
+        _ => SpecialRecurrenceRuleKind.Unknown,
+    };
+
+    private static string ToWire(SpecialRecurrenceRuleKind value) => value switch
+    {
+        SpecialRecurrenceRuleKind.Fixed => "fixed",
+        SpecialRecurrenceRuleKind.Weekday => "weekday",
+        SpecialRecurrenceRuleKind.Easter => "easter",
+        SpecialRecurrenceRuleKind.Calendar => "calendar",
+        SpecialRecurrenceRuleKind.Dates => "dates",
+        _ => throw new JsonException($"SpecialRecurrenceRuleKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>`islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it</summary>
+[JsonConverter(typeof(SpecialRecurrenceCalendarConverter))]
+public enum SpecialRecurrenceCalendar
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("hebrew")]
+    Hebrew,
+
+    [JsonStringEnumMemberName("islamic-umalqura")]
+    IslamicUmalqura,
+}
+
+/// <summary>
+/// Reads and writes <see cref="SpecialRecurrenceCalendar"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SpecialRecurrenceCalendar.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SpecialRecurrenceCalendarConverter : JsonConverter<SpecialRecurrenceCalendar>
+{
+    public override SpecialRecurrenceCalendar Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SpecialRecurrenceCalendar, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SpecialRecurrenceCalendar value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SpecialRecurrenceCalendar ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SpecialRecurrenceCalendar value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SpecialRecurrenceCalendar FromWire(string? text) => text switch
+    {
+        "hebrew" => SpecialRecurrenceCalendar.Hebrew,
+        "islamic-umalqura" => SpecialRecurrenceCalendar.IslamicUmalqura,
+        _ => SpecialRecurrenceCalendar.Unknown,
+    };
+
+    private static string ToWire(SpecialRecurrenceCalendar value) => value switch
+    {
+        SpecialRecurrenceCalendar.Hebrew => "hebrew",
+        SpecialRecurrenceCalendar.IslamicUmalqura => "islamic-umalqura",
+        _ => throw new JsonException($"SpecialRecurrenceCalendar.{value} has no wire spelling, so it cannot be sent."),
     };
 }

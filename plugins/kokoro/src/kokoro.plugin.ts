@@ -5,9 +5,12 @@ import {
     plausibleAudio,
     Plugin,
     PluginError,
+    truncateUpstreamMessage,
     tryJsonBody,
+    upstreamField,
     type ConfigFieldOption,
     type PluginConnectionResult,
+    type PluginHost,
     type SpeechHandle,
     type SpeechPluginInstance,
     type SpeechRequest,
@@ -90,18 +93,29 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
      * the host's own error does not carry: it names the HOSTNAME, and the mistake this engine
      * actually invites is a port or a scope — `http://kokoro:8880/v1` from inside compose against
      * `http://localhost:8880/v1` from a `pnpm dev` on the host.
+     *
+     * A 404 is not yet an answer, because `/audio/voices` is Kokoro's own addition and neither
+     * OpenAI nor Ollama has it. This same call is what lifts a quarantine, so reading that 404 as a
+     * dead server would leave a plugin that speaks perfectly well quarantined until somebody
+     * reinitialized it. `/models` is the question every such server can answer.
      */
     async testConnection(): Promise<PluginConnectionResult> {
+        const host = this.host;
+
         if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
 
         let response: Response;
         try {
-            response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            response = await host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
         } catch (error) {
             return { ok: false, message: `Could not reach ${this.baseUrl}: ${errorText(error)}` };
         }
 
-        if (!response.ok) return { ok: false, message: `Server answered HTTP ${response.status}.` };
+        if (!response.ok) {
+            await response.body?.cancel().catch(() => {});
+            const fromModels = response.status === 404 ? await this.connectionFromModels(host) : undefined;
+            return fromModels ?? { ok: false, message: `Server answered HTTP ${response.status}.` };
+        }
 
         // Reported rather than validated against: the operator's own mappings are
         // what matter, and a server whose voice list is shaped differently is
@@ -109,6 +123,38 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         const body = await tryJsonBody<{ voices?: unknown[] }>(response);
         const count = Array.isArray(body?.voices) ? body.voices.length : undefined;
         return { ok: true, message: count === undefined ? 'Connected.' : `Connected. ${count} voices available.` };
+    }
+
+    /**
+     * The same answer from a server with no voice list, or `undefined` when `/models` is no help.
+     *
+     * A list in the OpenAI shape is what makes this a speech server rather than any web page that
+     * answers 200. A model it does not list is reported rather than refused, on the rule
+     * `testConnection` already follows: the server may take a name it does not list (Kokoro's `tts-1`
+     * is one), and an `ok: false` here would keep a working plugin in quarantine. The `:latest` is
+     * Ollama's: it lists `phonon:latest` for a model the operator pulled as `phonon`.
+     */
+    private async connectionFromModels(host: PluginHost): Promise<PluginConnectionResult | undefined> {
+        let models: string[] | undefined;
+        try {
+            const response = await host.fetch(`${this.baseUrl}/models`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            if (!response.ok) {
+                await response.body?.cancel().catch(() => {});
+                return undefined;
+            }
+            const body = await tryJsonBody<{ data?: unknown }>(response);
+            models = Array.isArray(body?.data) ? entryIds(body.data) : undefined;
+        } catch {
+            return undefined;
+        }
+
+        if (models === undefined) return undefined;
+        if (!models.includes(this.model) && !models.includes(`${this.model}:latest`)) {
+            return { ok: true, message: `Connected, but this server does not list the model "${this.model}".` };
+        }
+
+        const voices = await this.fetchOllamaVoices(host).catch(() => []);
+        return { ok: true, message: voices.length === 0 ? 'Connected.' : `Connected. ${voices.length} voices available.` };
     }
 
     /**
@@ -182,22 +228,41 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
      * goes in the request.
      */
     private async fetchEngineVoices(): Promise<string[]> {
-        const response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        const host = this.host;
+
+        const response = await host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        if (!response.ok) {
+            await response.body?.cancel().catch(() => {});
+            return response.status === 404 ? await this.fetchOllamaVoices(host) : [];
+        }
+
+        const body = await tryJsonBody<{ voices?: unknown }>(response);
+        return Array.isArray(body?.voices) ? entryIds(body.voices) : [];
+    }
+
+    /**
+     * The voices of the configured model, as Ollama reports them.
+     *
+     * Ollama lists voices per MODEL, and only on its native `/api/show`, which sits beside `/v1`
+     * rather than under it. An address that does not end in `/v1` has nowhere to look, and any other
+     * server answers this with a failure, which is no voices.
+     */
+    private async fetchOllamaVoices(host: PluginHost): Promise<string[]> {
+        if (!this.baseUrl.endsWith('/v1')) return [];
+
+        const response = await host.fetch(`${this.baseUrl.slice(0, -'/v1'.length)}/api/show`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', ...this.authHeaders() },
+            body: JSON.stringify({ model: this.model }),
+            timeoutMs: PROBE_TIMEOUT_MS,
+        });
         if (!response.ok) {
             await response.body?.cancel().catch(() => {});
             return [];
         }
 
         const body = await tryJsonBody<{ voices?: unknown }>(response);
-        const listed = Array.isArray(body?.voices) ? body.voices : [];
-
-        return listed.flatMap(entry => {
-            if (typeof entry === 'string') return entry.trim().length > 0 ? [entry.trim()] : [];
-            if (typeof entry !== 'object' || entry === null) return [];
-
-            const id = (entry as { id?: unknown }).id;
-            return typeof id === 'string' && id.trim().length > 0 ? [id.trim()] : [];
-        });
+        return Array.isArray(body?.voices) ? entryIds(body.voices) : [];
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
@@ -232,10 +297,14 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         });
 
         if (!response.ok || response.body === null) {
-            // Nobody else is going to read this, and an error body is small
+            // A refused request is the one error body worth reading, since it says which field was
+            // refused. Anything else: nobody is going to read this, and an error body is small
             // enough that letting the socket go is the whole of the cleanup.
-            await response.body?.cancel().catch(() => {});
-            throw new PluginError(`kokoro answered HTTP ${response.status} for voice "${voice}" at ${endpoint}${redirectNote(response)}`)
+            const reason = REASON_STATUSES.has(response.status) ? await refusalReason(response) : undefined;
+            if (reason === undefined) await response.body?.cancel().catch(() => {});
+            throw new PluginError(
+                `kokoro answered HTTP ${response.status} for voice "${voice}" at ${endpoint}${redirectNote(response)}${reason === undefined ? '' : `: ${reason}`}`,
+            )
                 .withCode(response.status === 401 || response.status === 403 ? 'auth' : 'upstream')
                 .withUpstreamStatus(response.status);
         }
@@ -290,6 +359,35 @@ const redirectNote = (response: Response): string =>
     response.redirected && response.url.length > 0
         ? `, after a redirect to ${response.url} (a redirect can turn the POST into a GET; set the server URL to the address that answers without one)`
         : '';
+
+/**
+ * The statuses a server answers when it understood the request and refused one of its fields.
+ *
+ * Ollama takes only `wav` and `pcm` and answers 400 to any other format, and to an unknown voice
+ * with a list of the ones it has, so "for voice" alone would blame the voice for a wrong format.
+ */
+const REASON_STATUSES: ReadonlySet<number> = new Set([400, 404, 422]);
+
+/** What the server said was wrong, in any of the shapes these servers use, or `undefined`. */
+const refusalReason = async (response: Response): Promise<string | undefined> => {
+    const body = await response.text().catch(() => undefined);
+    const reason = upstreamField(body, parsed => {
+        const { error, detail } = parsed as { error?: unknown; detail?: unknown };
+        const found = error ?? detail;
+        return typeof found === 'string' ? found : (found as { message?: unknown } | undefined)?.message;
+    });
+    return reason === undefined ? undefined : truncateUpstreamMessage(reason);
+};
+
+/** The ids out of a list of bare strings or `{ id }` objects. Anything else is skipped. */
+const entryIds = (listed: readonly unknown[]): string[] =>
+    listed.flatMap(entry => {
+        if (typeof entry === 'string') return entry.trim().length > 0 ? [entry.trim()] : [];
+        if (typeof entry !== 'object' || entry === null) return [];
+
+        const id = (entry as { id?: unknown }).id;
+        return typeof id === 'string' && id.trim().length > 0 ? [id.trim()] : [];
+    });
 
 const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);
 

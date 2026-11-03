@@ -37,6 +37,16 @@ can see rather than an empty box that means something. `render.speechPluginId` p
 can talk and takes the first in id order when nobody has, saying which — see plugin selection in
 `apps/api/CLAUDE.md`.
 
+**`plugins/kokoro` is the OpenAI-compatible plugin, and `/audio/voices` is not part of that.** It is Kokoro's own
+addition, and neither OpenAI nor Ollama has it. `testConnection` is also what lifts a quarantine, so a 404 there
+read as a dead server would have kept a plugin that speaks perfectly well quarantined until a reinit. On a 404 it
+asks `/models` instead, reporting a model it cannot find rather than failing on it, since a server may take a name
+it does not list. Ollama lists voices per model on its native `/api/show`, beside `/v1` rather than under it, and
+that is where the voice suggestions come from there. A 400, 404 or 422 from `/audio/speech` puts the server's own
+sentence in the error, because Ollama answers 400 to every format but `wav` and `pcm` and "for voice" would
+otherwise blame the voice. Written against Ollama's documentation and source, not a running server, because its
+speech models were Apple Silicon only when this was written.
+
 **`plugins/rhapsode` ships NO map, because it could not write one.** Its server holds several engines at once
 and addresses a voice as the pair `(engine, voice)` — the server's own protocol says cross-engine namespacing
 is the client's job and that the client keeps the table of pairs, which is what that plugin's `voices` field

@@ -193,7 +193,7 @@ export const kokoroManifest: PluginManifest = {
             type: 'url',
             required: true,
             default: DEFAULT_BASE_URL,
-            help: 'An OpenAI-compatible speech server. The bundled container answers on http://kokoro:8880/v1, or http://localhost:8880/v1 when the API runs on the host.',
+            help: 'An OpenAI-compatible speech server. The bundled container answers on http://kokoro:8880/v1, or http://localhost:8880/v1 when the API runs on the host. Ollama answers on port 11434, also under /v1.',
         },
         {
             key: 'apiKey',
@@ -215,7 +215,7 @@ export const kokoroManifest: PluginManifest = {
             type: 'select',
             default: DEFAULT_FORMAT,
             options: (Object.keys(RESPONSE_FORMATS) as ResponseFormat[]).map(value => ({ value, label: value })),
-            help: 'flac unless you have a reason. A break is re-encoded for the stream anyway, so a lossless one reaches the listener with one lossy generation rather than two, and at a few seconds it costs almost nothing to keep.',
+            help: 'flac unless you have a reason. A break is re-encoded for the stream anyway, so a lossless one reaches the listener with one lossy generation rather than two, and at a few seconds it costs almost nothing to keep. Ollama only produces wav.',
         },
         {
             key: 'defaultVoice',

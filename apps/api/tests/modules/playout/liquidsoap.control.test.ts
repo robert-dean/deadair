@@ -505,6 +505,7 @@ const CONTEXT = {
     speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
     levelingEnabled: true,
     crossfade: false,
+    handover: false,
     stationName: 'Deadair',
     publicUrl: '',
 };
@@ -710,6 +711,22 @@ describe('itemAnnotations: the blend', () => {
 
         // min(outro 10s, intro 8s).
         expect(stamped.liq_cross_end_duration).toBe('8');
+    });
+
+    it('asks for the handover only on a boundary that blends', () => {
+        const blending = { ...CONTEXT, crossfade: true, handover: true };
+
+        expect(itemAnnotations(measured('item-1'), { ...blending, next: measured('item-2') }).deadair_handover).toBe('1');
+        // Nothing follows, so this boundary is a hard join with nothing to hand over.
+        expect(itemAnnotations(measured('item-1'), blending).deadair_handover).toBeUndefined();
+        // An album: the setting changes how a blend sounds and never adds one.
+        expect(itemAnnotations(measured('item-1'), { ...blending, crossfade: false, next: measured('item-2') }).deadair_handover).toBeUndefined();
+    });
+
+    it('leaves the key off altogether with the handover off', () => {
+        const stamped = itemAnnotations(measured('item-1'), { ...CONTEXT, crossfade: true, next: measured('item-2') });
+
+        expect(stamped).not.toHaveProperty('deadair_handover');
     });
 
     it('always stamps, because the override persists', () => {

@@ -52,6 +52,8 @@ It is a separate program because the station's own server decodes no audio, and 
 
 An unmeasured record still plays, untrimmed, left to the stream's live leveller. And one rule about blends has no exception: a record is never faded into speech.
 
+**Hand the bass over in a blend**, under Settings, is off by default. With it on, in a blend of three seconds or more, the record that is ending thins out and the two basslines swap rather than play on top of each other. You will hear it most on a long blend between two records that clash, and the blend sits a little quieter for about a second at the swap.
+
 ## Nothing airs until its audio is here
 
 A record is committed to the running order only once its audio is on this machine. Fetching from a provider at the moment the player needed the record once put two seconds of silence on air, so the station fetches several records ahead. A record whose audio has not arrived is held rather than skipped, so your sequence is never reordered by whichever download finished first. A copy that fails four times in a row is benched, a record with no copy left comes out of the order before its slot, and the next walk of the library gives a benched copy another chance if the provider still lists it. See [the running order](./running-order.md).

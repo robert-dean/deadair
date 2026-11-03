@@ -24,6 +24,7 @@ import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { StationBus } from '../../../src/modules/shared/station.bus.js';
+import { HANDOVER_SETTING_KEY } from '../../../src/modules/playout/crossfade.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
@@ -1203,6 +1204,26 @@ describe('PlayoutPusher: the blend', () => {
         const { control, pushed } = stubControl({ queued: 0, ready: false });
         return { rundown, pusher: new PlayoutPusher(rundown, control, stubAudience().audience, config, new Heartbeat(), logger), pushed };
     }
+
+    describe('the handover setting', () => {
+        afterEach(() => {
+            vi.mocked(config.get).mockImplementation(() => '');
+        });
+
+        it.each([
+            ['true', true],
+            // The string a setting holds, which is truthy if it is ever read as a boolean.
+            ['false', false],
+            ['', false],
+        ])('reads %j at each hand-over', async (stored, stamped) => {
+            vi.mocked(config.get).mockImplementation((key: string) => (key === HANDOVER_SETTING_KEY ? stored : ''));
+            const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000)]);
+
+            await boundaries(pusher, rundown, 1);
+
+            expect(pushed[0]!.includes('deadair_handover="1"')).toBe(stamped);
+        });
+    });
 
     it('sizes each stamp from the record that actually follows', async () => {
         // Three records handed over in one pass, so every stamp but the last has a

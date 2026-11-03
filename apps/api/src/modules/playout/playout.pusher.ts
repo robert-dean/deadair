@@ -28,6 +28,7 @@ import {
     resolveTargetLufs,
     type DuckSettings,
 } from './gain.js';
+import { DEFAULT_HANDOVER, HANDOVER_SETTING_KEY } from './crossfade.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { heldBy, PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
@@ -514,6 +515,7 @@ export class PlayoutPusher {
                     speechTrimDb: this.speechTrimDb(),
                     levelingEnabled: this.levelingEnabled(),
                     crossfade: this.rundown.crossfade(),
+                    handover: settingIsOn(this.config, HANDOVER_SETTING_KEY, DEFAULT_HANDOVER),
                     stationName: this.stationName(),
                     publicUrl: this.publicUrl(),
                     ...(this.covers === undefined ? {} : { covers: this.covers }),

@@ -1,5 +1,6 @@
 ---
-title: Quick start
+title: 'Quick start: run your own AI radio station in ten minutes'
+sidebar_label: Quick start
 sidebar_position: 0
 description: One station, on one machine, in about ten minutes. Every choice is made for you.
 ---

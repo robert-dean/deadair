@@ -88,6 +88,10 @@ const config: Config = {
                 docs: { editUrl, sidebarPath: './sidebars.ts' },
                 blog: false,
                 theme: { customCss: './src/css/custom.css' },
+                // The generated API reference is most of the site by page count, one short page per
+                // route. Its index stays in, so a search for the API still lands somewhere, and that is
+                // why this is two patterns: `/docs/api-reference/**` matches the index as well.
+                sitemap: { ignorePatterns: ['/docs/api-reference/*', '/docs/api-reference/*/**'] },
             } satisfies Preset.Options,
         ],
     ],
@@ -103,7 +107,7 @@ const config: Config = {
         // The console's carbon in the dark and its Studio White in the light, following the reader's
         // system setting, with a switch in the navbar. Dark is the default where the system says nothing.
         colorMode: { defaultMode: 'dark', disableSwitch: false, respectPrefersColorScheme: true },
-        image: 'logo.png',
+        image: 'img/social.card.png',
         navbar: {
             title: 'deadair',
             logo: { alt: 'deadair', src: 'logo-mark.png' },

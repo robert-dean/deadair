@@ -4,9 +4,9 @@
 
 # deadair
 
-**An AI radio station you run yourself.** It picks the records, writes what the presenter says
-between them, speaks it in that presenter's voice, and streams the result. One mount, one running
-order, everybody hears the same thing at the same moment.
+**An AI radio station you run yourself.** Personal internet radio with an AI DJ: it picks the
+records, writes what the presenter says between them, speaks it in that presenter's voice, and
+streams the result. One mount, one running order, everybody hears the same thing at the same moment.
 
 It is a radio station rather than a playlist. There is no per-listener shuffle and no skip button:
 what is on is what is on, and the station decides.

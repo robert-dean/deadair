@@ -1,5 +1,6 @@
 ---
-title: Help
+title: 'Help: fixing a silent or locked-out AI radio station'
+sidebar_label: Help
 sidebar_position: 4
 description: The usual ways a station ends up silent, locked out or unable to send mail, and what the console says about each.
 ---

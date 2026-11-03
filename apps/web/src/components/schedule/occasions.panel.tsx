@@ -4,13 +4,21 @@ import { IconArrowDown, IconArrowUp, IconPencil, IconTrash } from '@tabler/icons
 import type { Occasion, OccasionCalendarMonths } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
-import { useAddOccasion, useChangeOccasion, useOccasions, useRemoveOccasion, useReorderOccasions } from '../../api/occasions.queries';
+import {
+    exportOccasions,
+    useAddOccasion,
+    useChangeOccasion,
+    useOccasions,
+    useRemoveOccasion,
+    useReorderOccasions,
+} from '../../api/occasions.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatCivilDate, monthLong, weekdayLong } from '../../i18n/format.locale';
 import { MOODS, type Mood } from '../programme/programme.fields';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { OccasionsImportModal } from './occasions.import';
 import { BLANK_OCCASION, describeRule, draftOfOccasion, inputOfDraft, inputOfOccasion, movedOccasion, type OccasionDraft } from './occasions.edits';
 
 const RULE_KINDS: readonly Occasion['ruleKind'][] = ['fixed', 'weekday', 'easter', 'calendar', 'dates'];
@@ -40,6 +48,17 @@ export function OccasionsPanel() {
     const remove = useRemoveOccasion();
     const reorder = useReorderOccasions();
     const [editing, setEditing] = useState<Occasion | undefined>();
+    const [importing, setImporting] = useState(false);
+    const [exportFailed, setExportFailed] = useState<string | undefined>();
+
+    const saveExport = async () => {
+        setExportFailed(undefined);
+        try {
+            await exportOccasions();
+        } catch (error) {
+            setExportFailed(apiErrorMessage(error, t('occasions.failedFallback')));
+        }
+    };
 
     const rows = occasions.data?.occasions ?? [];
     const ids = rows.map(occasion => occasion.id);
@@ -49,7 +68,18 @@ export function OccasionsPanel() {
         <Stack gap="lg">
             <Card padding="lg">
                 <Stack gap="sm">
-                    <Eyebrow>{t('occasions.title')}</Eyebrow>
+                    <Group justify="space-between" wrap="wrap">
+                        <Eyebrow>{t('occasions.title')}</Eyebrow>
+                        <Group gap="xs">
+                            <Button size="xs" variant="default" onClick={() => void saveExport()}>
+                                {t('occasions.export')}
+                            </Button>
+                            <Button size="xs" variant="default" onClick={() => setImporting(true)}>
+                                {t('occasions.importOpen')}
+                            </Button>
+                        </Group>
+                    </Group>
+                    {exportFailed ? <ErrorAlert title={t('occasions.exportFailed')}>{exportFailed}</ErrorAlert> : undefined}
                     <Text size="sm" c="dimmed">
                         {t('occasions.description')}
                     </Text>
@@ -96,6 +126,8 @@ export function OccasionsPanel() {
                 calendars={occasions.data?.calendars ?? []}
                 onDone={() => setEditing(undefined)}
             />
+
+            <OccasionsImportModal opened={importing} onClose={() => setImporting(false)} />
         </Stack>
     );
 }

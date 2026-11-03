@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { OccasionService } from '#src/modules/schedule/occasion.service.js';
-import { OccasionInput, OccasionList, OccasionOrder } from '../modules/schedule/types/occasions.types.js';
+import {
+    OccasionImportPlan,
+    OccasionImportResult,
+    OccasionInput,
+    OccasionList,
+    OccasionOrder,
+    OccasionPack,
+} from '../modules/schedule/types/occasions.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -46,6 +53,49 @@ OccasionsRouter.put('/occasions/order', requirePolicy({ policy: 'platform.manage
 
     const service = ctx.container.get(OccasionService);
     const result: OccasionList = await service.reorder(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Every occasion on this station as one file, to hand to another station
+ * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `GET /occasions/export`
+ */
+OccasionsRouter.get('/occasions/export', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(OccasionService);
+    const result: OccasionPack = await service.exportPack();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+ * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `POST /occasions/import/preview`
+ */
+OccasionsRouter.post('/occasions/import/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, OccasionPack);
+
+    const service = ctx.container.get(OccasionService);
+    const result: OccasionImportPlan = await service.previewImport(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+ * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `POST /occasions/import`
+ */
+OccasionsRouter.post('/occasions/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, OccasionPack);
+
+    const service = ctx.container.get(OccasionService);
+    const result: OccasionImportResult = await service.importPack(body);
 
     ctx.status = 200;
     ctx.type = 'application/json';

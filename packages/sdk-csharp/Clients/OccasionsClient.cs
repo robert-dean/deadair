@@ -62,6 +62,47 @@ public sealed class OccasionsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Export occasions
+    /// Every occasion on this station as one file, to hand to another station
+    /// </summary>
+    public async Task<OccasionPack> ExportOccasionsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("occasions", "export"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<OccasionPack>(response);
+    }
+
+    /// <summary>
+    /// Preview occasion import
+    /// Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+    /// </summary>
+    public async Task<OccasionImportPlan> PreviewOccasionImportAsync(OccasionPack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("occasions", "import", "preview"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<OccasionImportPlan>(response);
+    }
+
+    /// <summary>
+    /// Import occasions
+    /// Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+    /// </summary>
+    public async Task<OccasionImportResult> ImportOccasionsAsync(OccasionPack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("occasions", "import"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<OccasionImportResult>(response);
+    }
+
+    /// <summary>
     /// Change an occasion
     /// Replaces an occasion, keeping its place in the list
     /// </summary>

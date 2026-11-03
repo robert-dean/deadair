@@ -35,6 +35,32 @@ public final class OccasionsClient: Sendable {
         return try http.decodeJSON(OccasionList.self, from: response)
     }
 
+    /// Export occasions
+    /// Every occasion on this station as one file, to hand to another station
+    public func exportOccasions() async throws -> OccasionPack {
+        let request = SdkRequest(method: "GET", path: ["occasions", "export"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(OccasionPack.self, from: response)
+    }
+
+    /// Preview occasion import
+    /// Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+    public func previewOccasionImport(body: OccasionPack) async throws -> OccasionImportPlan {
+        var request = SdkRequest(method: "POST", path: ["occasions", "import", "preview"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(OccasionImportPlan.self, from: response)
+    }
+
+    /// Import occasions
+    /// Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+    public func importOccasions(body: OccasionPack) async throws -> OccasionImportResult {
+        var request = SdkRequest(method: "POST", path: ["occasions", "import"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(OccasionImportResult.self, from: response)
+    }
+
     /// Change an occasion
     /// Replaces an occasion, keeping its place in the list
     /// - Throws: `SdkError` on 404

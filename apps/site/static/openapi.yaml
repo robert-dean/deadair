@@ -6344,6 +6344,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/OccasionList'
+    '/occasions/export':
+        get:
+            operationId: exportPack
+            summary: 'Export occasions'
+            description: 'Every occasion on this station as one file, to hand to another station'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionPack'
+    '/occasions/import/preview':
+        post:
+            operationId: previewImport
+            summary: 'Preview occasion import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OccasionPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionImportPlan'
+    '/occasions/import':
+        post:
+            operationId: importPack
+            summary: 'Import occasions'
+            description: 'Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OccasionPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OccasionImportResult'
     '/occasions/{id}':
         put:
             operationId: changeAnOccasion
@@ -16814,6 +16862,85 @@ components:
                     description: 'Occasions in the order they should be matched. Any left out stay behind these, in their current order'
             required: [ids]
             description: 'A new order for the list'
+        OccasionPack:
+            type: object
+            properties:
+                format:
+                    const: deadair.occasions
+                    description: 'Says the file is an occasion pack'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the pack is, as whoever made it would describe it: `Canadian holidays`'
+                occasions:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 500
+            required: [format, version, name, occasions]
+            description: "A set of occasions as one file, to hand to another station. Each entry is read as an `OccasionPackRow`\nwhen it is imported, so one a station cannot use is reported rather than refusing the file"
+        OccasionPackDropped:
+            type: object
+            properties:
+                entry:
+                    type: integer
+                    minimum: 1
+                    readOnly: true
+                    description: 'Which entry in the file, counting from 1'
+                words:
+                    type: string
+                    readOnly: true
+                    description: 'What it says, when it says'
+                reason:
+                    type: string
+                    readOnly: true
+                    description: 'Why the station cannot use it'
+            required: [entry, reason]
+            description: 'An entry in a file that importing it would leave out, and why'
+        OccasionImportPlan:
+            type: object
+            properties:
+                name:
+                    type: string
+                    readOnly: true
+                    description: 'What the file says it is'
+                adding:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                    description: 'The occasions it would add, by their words'
+                skipped:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                    description: 'The ones this station already has, with the same words and the same rule, which it would leave alone'
+                dropped:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OccasionPackDropped'
+                    readOnly: true
+                    description: 'The ones it cannot use'
+            required: [name, adding, skipped, dropped]
+            description: 'What importing a file would do. Everything it adds starts switched off'
+        OccasionImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/OccasionImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/OccasionList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the list as it now stands'
         ScheduleSlot:
             type: object
             properties:

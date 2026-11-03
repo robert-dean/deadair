@@ -3,9 +3,12 @@
 
 package com.maroonedsoftware.deadair.sdk.clients
 
+import com.maroonedsoftware.deadair.sdk.models.OccasionImportPlan
+import com.maroonedsoftware.deadair.sdk.models.OccasionImportResult
 import com.maroonedsoftware.deadair.sdk.models.OccasionInput
 import com.maroonedsoftware.deadair.sdk.models.OccasionList
 import com.maroonedsoftware.deadair.sdk.models.OccasionOrder
+import com.maroonedsoftware.deadair.sdk.models.OccasionPack
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 import kotlin.uuid.ExperimentalUuidApi
@@ -43,6 +46,41 @@ class OccasionsClient(private val http: SdkHttp) {
     suspend fun reorderOccasions(body: OccasionOrder): OccasionList {
         val response = http.execute(HttpMethod.Put) {
             path("occasions", "order")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Export occasions
+     * Every occasion on this station as one file, to hand to another station
+     */
+    suspend fun exportOccasions(): OccasionPack {
+        val response = http.execute(HttpMethod.Get) {
+            path("occasions", "export")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Preview occasion import
+     * Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+     */
+    suspend fun previewOccasionImport(body: OccasionPack): OccasionImportPlan {
+        val response = http.execute(HttpMethod.Post) {
+            path("occasions", "import", "preview")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Import occasions
+     * Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+     */
+    suspend fun importOccasions(body: OccasionPack): OccasionImportResult {
+        val response = http.execute(HttpMethod.Post) {
+            path("occasions", "import")
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)

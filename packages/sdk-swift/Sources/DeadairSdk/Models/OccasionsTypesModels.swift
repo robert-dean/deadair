@@ -250,6 +250,176 @@ public struct OccasionOrder: Codable, Equatable, Sendable {
     }
 }
 
+/// One occasion in a file: what it says, when it falls and what it leans into, and nothing that belongs
+/// to the station it came from
+public struct OccasionPackRow: Codable, Equatable, Sendable {
+    /// Said on air as written
+    public var words: String
+    /// When it falls, and which of the fields beside it count, as on an occasion
+    public var ruleKind: OccasionPackRowRuleKind
+    public var month: Int?
+    public var day: Int?
+    public var ordinal: Int?
+    public var weekday: Int?
+    public var offsetDays: Int?
+    public var calendar: OccasionPackRowCalendar?
+    public var calendarMonth: String?
+    public var dates: [String]?
+    public var mood: OccasionPackRowMood?
+
+    public init(words: String, ruleKind: OccasionPackRowRuleKind, month: Int? = nil, day: Int? = nil, ordinal: Int? = nil, weekday: Int? = nil, offsetDays: Int? = nil, calendar: OccasionPackRowCalendar? = nil, calendarMonth: String? = nil, dates: [String]? = nil, mood: OccasionPackRowMood? = nil) {
+        self.words = words
+        self.ruleKind = ruleKind
+        self.month = month
+        self.day = day
+        self.ordinal = ordinal
+        self.weekday = weekday
+        self.offsetDays = offsetDays
+        self.calendar = calendar
+        self.calendarMonth = calendarMonth
+        self.dates = dates
+        self.mood = mood
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case words = "words"
+        case ruleKind = "ruleKind"
+        case month = "month"
+        case day = "day"
+        case ordinal = "ordinal"
+        case weekday = "weekday"
+        case offsetDays = "offsetDays"
+        case calendar = "calendar"
+        case calendarMonth = "calendarMonth"
+        case dates = "dates"
+        case mood = "mood"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.words = try container.decode(String.self, forKey: .words)
+        self.ruleKind = try container.decode(OccasionPackRowRuleKind.self, forKey: .ruleKind)
+        self.month = try container.decodeIfPresent(Int.self, forKey: .month)
+        self.day = try container.decodeIfPresent(Int.self, forKey: .day)
+        self.ordinal = try container.decodeIfPresent(Int.self, forKey: .ordinal)
+        self.weekday = try container.decodeIfPresent(Int.self, forKey: .weekday)
+        self.offsetDays = try container.decodeIfPresent(Int.self, forKey: .offsetDays)
+        self.calendar = try container.decodeIfPresent(OccasionPackRowCalendar.self, forKey: .calendar)
+        self.calendarMonth = try container.decodeIfPresent(String.self, forKey: .calendarMonth)
+        self.dates = try container.decodeIfPresent([String].self, forKey: .dates)
+        self.mood = try container.decodeIfPresent(OccasionPackRowMood.self, forKey: .mood)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.words, forKey: .words)
+        try container.encode(self.ruleKind, forKey: .ruleKind)
+        try container.encodeIfPresent(self.month, forKey: .month)
+        try container.encodeIfPresent(self.day, forKey: .day)
+        try container.encodeIfPresent(self.ordinal, forKey: .ordinal)
+        try container.encodeIfPresent(self.weekday, forKey: .weekday)
+        try container.encodeIfPresent(self.offsetDays, forKey: .offsetDays)
+        try container.encodeIfPresent(self.calendar, forKey: .calendar)
+        try container.encodeIfPresent(self.calendarMonth, forKey: .calendarMonth)
+        try container.encodeIfPresent(self.dates, forKey: .dates)
+        try container.encodeIfPresent(self.mood, forKey: .mood)
+    }
+}
+
+/// A set of occasions as one file, to hand to another station. Each entry is read as an `OccasionPackRow`
+/// when it is imported, so one a station cannot use is reported rather than refusing the file
+public struct OccasionPack: Codable, Equatable, Sendable {
+    /// Says the file is an occasion pack
+    public var format: String
+    /// The version of the document's shape. This station reads version 1
+    public var version: Int
+    /// What the pack is, as whoever made it would describe it: `Canadian holidays`
+    public var name: String
+    public var occasions: [[String: JSONValue]]
+
+    public init(format: String = "deadair.occasions", version: Int, name: String, occasions: [[String: JSONValue]]) {
+        self.format = format
+        self.version = version
+        self.name = name
+        self.occasions = occasions
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case version = "version"
+        case name = "name"
+        case occasions = "occasions"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.format = try container.decode(String.self, forKey: .format)
+        guard self.format == "deadair.occasions" else {
+            throw DecodingError.dataCorruptedError(forKey: .format, in: container, debugDescription: "Expected \"deadair.occasions\"")
+        }
+        self.version = try container.decode(Int.self, forKey: .version)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.occasions = try container.decode([[String: JSONValue]].self, forKey: .occasions)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.format, forKey: .format)
+        try container.encode(self.version, forKey: .version)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.occasions, forKey: .occasions)
+    }
+}
+
+/// An entry in a file that importing it would leave out, and why
+public struct OccasionPackDropped: Codable, Equatable, Sendable {
+    /// Which entry in the file, counting from 1
+    public var entry: Int
+    /// What it says, when it says
+    public var words: String?
+    /// Why the station cannot use it
+    public var reason: String
+
+    public init(entry: Int, words: String? = nil, reason: String) {
+        self.entry = entry
+        self.words = words
+        self.reason = reason
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+        case words = "words"
+        case reason = "reason"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.entry = try container.decode(Int.self, forKey: .entry)
+        self.words = try container.decodeIfPresent(String.self, forKey: .words)
+        self.reason = try container.decode(String.self, forKey: .reason)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.entry, forKey: .entry)
+        try container.encodeIfPresent(self.words, forKey: .words)
+        try container.encode(self.reason, forKey: .reason)
+    }
+}
+
+/// An entry in a file that importing it would leave out, and why
+public struct OccasionPackDroppedInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// Every occasion on the station, in the order a date is matched against them
 public struct OccasionList: Codable, Equatable, Sendable {
     public var occasions: [Occasion]
@@ -303,6 +473,102 @@ public struct OccasionListInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.occasions, forKey: .occasions)
         try container.encode(self.calendars, forKey: .calendars)
+    }
+}
+
+/// What importing a file would do. Everything it adds starts switched off
+public struct OccasionImportPlan: Codable, Equatable, Sendable {
+    /// What the file says it is
+    public var name: String
+    /// The occasions it would add, by their words
+    public var adding: [String]
+    /// The ones this station already has, with the same words and the same rule, which it would leave alone
+    public var skipped: [String]
+    /// The ones it cannot use
+    public var dropped: [OccasionPackDropped]
+
+    public init(name: String, adding: [String], skipped: [String], dropped: [OccasionPackDropped]) {
+        self.name = name
+        self.adding = adding
+        self.skipped = skipped
+        self.dropped = dropped
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case adding = "adding"
+        case skipped = "skipped"
+        case dropped = "dropped"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.adding = try container.decode([String].self, forKey: .adding)
+        self.skipped = try container.decode([String].self, forKey: .skipped)
+        self.dropped = try container.decode([OccasionPackDropped].self, forKey: .dropped)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.adding, forKey: .adding)
+        try container.encode(self.skipped, forKey: .skipped)
+        try container.encode(self.dropped, forKey: .dropped)
+    }
+}
+
+/// What importing a file would do. Everything it adds starts switched off
+public struct OccasionImportPlanInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// What an import did, and the list as it now stands
+public struct OccasionImportResult: Codable, Equatable, Sendable {
+    public var plan: OccasionImportPlan
+    public var list: OccasionList
+
+    public init(plan: OccasionImportPlan, list: OccasionList) {
+        self.plan = plan
+        self.list = list
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case plan = "plan"
+        case list = "list"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.plan = try container.decode(OccasionImportPlan.self, forKey: .plan)
+        self.list = try container.decode(OccasionList.self, forKey: .list)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.plan, forKey: .plan)
+        try container.encode(self.list, forKey: .list)
+    }
+}
+
+/// What an import did, and the list as it now stands
+public struct OccasionImportResultInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
     }
 }
 
@@ -510,6 +776,169 @@ public enum OccasionCalendarMonthsCalendar: Codable, CaseIterable, Hashable, Sen
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OccasionCalendarMonthsCalendar.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// When it falls, and which of the fields beside it count, as on an occasion
+public enum OccasionPackRowRuleKind: Codable, CaseIterable, Hashable, Sendable {
+    case fixed
+    case weekday
+    case easter
+    case calendar
+    case dates
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OccasionPackRowRuleKind] = [.fixed, .weekday, .easter, .calendar, .dates]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .fixed: return "fixed"
+        case .weekday: return "weekday"
+        case .easter: return "easter"
+        case .calendar: return "calendar"
+        case .dates: return "dates"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "fixed": self = .fixed
+        case "weekday": self = .weekday
+        case "easter": self = .easter
+        case "calendar": self = .calendar
+        case "dates": self = .dates
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OccasionPackRowRuleKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum OccasionPackRowCalendar: Codable, CaseIterable, Hashable, Sendable {
+    case hebrew
+    case islamicUmalqura
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OccasionPackRowCalendar] = [.hebrew, .islamicUmalqura]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .hebrew: return "hebrew"
+        case .islamicUmalqura: return "islamic-umalqura"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "hebrew": self = .hebrew
+        case "islamic-umalqura": self = .islamicUmalqura
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OccasionPackRowCalendar.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum OccasionPackRowMood: Codable, CaseIterable, Hashable, Sendable {
+    case love
+    case happiness
+    case comfort
+    case sadness
+    case loneliness
+    case anger
+    case fear
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OccasionPackRowMood] = [.love, .happiness, .comfort, .sadness, .loneliness, .anger, .fear]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .love: return "love"
+        case .happiness: return "happiness"
+        case .comfort: return "comfort"
+        case .sadness: return "sadness"
+        case .loneliness: return "loneliness"
+        case .anger: return "anger"
+        case .fear: return "fear"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "love": self = .love
+        case "happiness": self = .happiness
+        case "comfort": self = .comfort
+        case "sadness": self = .sadness
+        case "loneliness": self = .loneliness
+        case "anger": self = .anger
+        case "fear": self = .fear
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OccasionPackRowMood.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

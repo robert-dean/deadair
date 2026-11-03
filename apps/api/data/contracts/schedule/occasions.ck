@@ -60,6 +60,51 @@ operation /occasions/order: {
     }
 }
 
+# These three before `/occasions/{id}` for the reason above. An export is `platform.manage` by the floor,
+# since a file leaves the station.
+
+operation /occasions/export: {
+    get: { # Every occasion on this station as one file, to hand to another station
+        name: Export occasions
+        service: OccasionService.exportPack
+        response: {
+            200: {
+                application/json: OccasionPack
+            }
+        }
+    }
+}
+
+operation /occasions/import/preview: {
+    post: { # Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+        name: Preview occasion import
+        service: OccasionService.previewImport
+        request: {
+            application/json: OccasionPack
+        }
+        response: {
+            200: {
+                application/json: OccasionImportPlan
+            }
+        }
+    }
+}
+
+operation /occasions/import: {
+    post: { # Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+        name: Import occasions
+        service: OccasionService.importPack
+        request: {
+            application/json: OccasionPack
+        }
+        response: {
+            200: {
+                application/json: OccasionImportResult
+            }
+        }
+    }
+}
+
 operation /occasions/{id}: {
     params: {
         id: uuid

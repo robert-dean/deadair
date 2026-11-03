@@ -7,7 +7,14 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { OccasionService } from '#src/modules/schedule/occasion.service.js';
-import { OccasionInput, OccasionList, OccasionOrder } from '../modules/schedule/types/occasions.types.js';
+import {
+    OccasionImportPlan,
+    OccasionImportResult,
+    OccasionInput,
+    OccasionList,
+    OccasionOrder,
+    OccasionPack,
+} from '../modules/schedule/types/occasions.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -20,6 +27,9 @@ function requireMcpContainer(context: McpToolContext): Container {
 const ListOccasionsArgs = z.object({});
 const AddAnOccasionArgs = z.object({ body: OccasionInput });
 const ReorderOccasionsArgs = z.object({ body: OccasionOrder });
+const ExportOccasionsArgs = z.object({});
+const PreviewOccasionImportArgs = z.object({ body: OccasionPack });
+const ImportOccasionsArgs = z.object({ body: OccasionPack });
 const ChangeAnOccasionArgs = z.object({ id: z.uuid(), body: OccasionInput });
 const RemoveAnOccasionArgs = z.object({ id: z.uuid() });
 
@@ -92,6 +102,74 @@ export class ReorderOccasionsMcpTool implements McpToolHandler {
 }
 
 /**
+ * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `GET /occasions/export`
+ */
+@Injectable()
+export class ExportOccasionsMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'export_occasions',
+        description: 'Every occasion on this station as one file, to hand to another station',
+        inputSchema: z.toJSONSchema(ExportOccasionsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(OccasionPack, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const result = await container.get(OccasionService).exportPack();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `POST /occasions/import/preview`
+ */
+@Injectable()
+export class PreviewOccasionImportMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'preview_occasion_import',
+        description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing',
+        inputSchema: z.toJSONSchema(PreviewOccasionImportArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(OccasionImportPlan, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, PreviewOccasionImportArgs);
+        const result = await container.get(OccasionService).previewImport(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `POST /occasions/import`
+ */
+@Injectable()
+export class ImportOccasionsMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'import_occasions',
+        description: 'Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has',
+        inputSchema: z.toJSONSchema(ImportOccasionsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(OccasionImportResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, ImportOccasionsArgs);
+        const result = await container.get(OccasionService).importPack(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
  * from [occasions.ck](../../data/contracts/schedule/occasions.ck) `PUT /occasions/{id}`
  */
 @Injectable()
@@ -142,6 +220,9 @@ export function registerOccasionsMcpCatalog(map: McpToolHandlerMap, container: C
     map.set('list_occasions', container.get(ListOccasionsMcpTool));
     map.set('add_an_occasion', container.get(AddAnOccasionMcpTool));
     map.set('reorder_occasions', container.get(ReorderOccasionsMcpTool));
+    map.set('export_occasions', container.get(ExportOccasionsMcpTool));
+    map.set('preview_occasion_import', container.get(PreviewOccasionImportMcpTool));
+    map.set('import_occasions', container.get(ImportOccasionsMcpTool));
     map.set('change_an_occasion', container.get(ChangeAnOccasionMcpTool));
     map.set('remove_an_occasion', container.get(RemoveAnOccasionMcpTool));
 }
@@ -151,6 +232,9 @@ export function registerOccasionsMcpToolClasses(registry: Registry): void {
     registry.register(ListOccasionsMcpTool).useClass(ListOccasionsMcpTool).asSingleton();
     registry.register(AddAnOccasionMcpTool).useClass(AddAnOccasionMcpTool).asSingleton();
     registry.register(ReorderOccasionsMcpTool).useClass(ReorderOccasionsMcpTool).asSingleton();
+    registry.register(ExportOccasionsMcpTool).useClass(ExportOccasionsMcpTool).asSingleton();
+    registry.register(PreviewOccasionImportMcpTool).useClass(PreviewOccasionImportMcpTool).asSingleton();
+    registry.register(ImportOccasionsMcpTool).useClass(ImportOccasionsMcpTool).asSingleton();
     registry.register(ChangeAnOccasionMcpTool).useClass(ChangeAnOccasionMcpTool).asSingleton();
     registry.register(RemoveAnOccasionMcpTool).useClass(RemoveAnOccasionMcpTool).asSingleton();
 }

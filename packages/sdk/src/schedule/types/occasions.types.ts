@@ -79,6 +79,57 @@ export interface OccasionOrder {
 }
 
 /**
+ * One occasion in a file: what it says, when it falls and what it leans into, and nothing that belongs
+ * to the station it came from
+ * generated from [OccasionPackRow](../../../../../apps/api/data/contracts/schedule/occasions.types.ck)
+ */
+export interface OccasionPackRow {
+    /** Said on air as written */
+    words: string;
+    /** When it falls, and which of the fields beside it count, as on an occasion */
+    ruleKind: 'fixed' | 'weekday' | 'easter' | 'calendar' | 'dates';
+    month?: number;
+    day?: number;
+    ordinal?: number;
+    weekday?: number;
+    offsetDays?: number;
+    calendar?: 'hebrew' | 'islamic-umalqura';
+    calendarMonth?: string;
+    dates?: string[];
+    mood?: 'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear';
+}
+
+/**
+ * A set of occasions as one file, to hand to another station. Each entry is read as an `OccasionPackRow`
+ * when it is imported, so one a station cannot use is reported rather than refusing the file
+ * generated from [OccasionPack](../../../../../apps/api/data/contracts/schedule/occasions.types.ck)
+ */
+export interface OccasionPack {
+    /** Says the file is an occasion pack */
+    format: 'deadair.occasions';
+    /** The version of the document's shape. This station reads version 1 */
+    version: number;
+    /** What the pack is, as whoever made it would describe it: `Canadian holidays` */
+    name: string;
+    occasions: Record<string, unknown>[];
+}
+
+/**
+ * An entry in a file that importing it would leave out, and why
+ * generated from [OccasionPackDropped](../../../../../apps/api/data/contracts/schedule/occasions.types.ck)
+ */
+export interface OccasionPackDropped {
+    /** Which entry in the file, counting from 1 */
+    entry: number;
+    /** What it says, when it says */
+    words?: string;
+    /** Why the station cannot use it */
+    reason: string;
+}
+
+export interface OccasionPackDroppedInput {}
+
+/**
  * Every occasion on the station, in the order a date is matched against them
  * generated from [OccasionList](../../../../../apps/api/data/contracts/schedule/occasions.types.ck)
  */
@@ -91,3 +142,31 @@ export interface OccasionListInput {
     occasions: OccasionInput[];
     calendars: OccasionCalendarMonths[];
 }
+
+/**
+ * What importing a file would do. Everything it adds starts switched off
+ * generated from [OccasionImportPlan](../../../../../apps/api/data/contracts/schedule/occasions.types.ck)
+ */
+export interface OccasionImportPlan {
+    /** What the file says it is */
+    name: string;
+    /** The occasions it would add, by their words */
+    adding: string[];
+    /** The ones this station already has, with the same words and the same rule, which it would leave alone */
+    skipped: string[];
+    /** The ones it cannot use */
+    dropped: OccasionPackDropped[];
+}
+
+export interface OccasionImportPlanInput {}
+
+/**
+ * What an import did, and the list as it now stands
+ * generated from [OccasionImportResult](../../../../../apps/api/data/contracts/schedule/occasions.types.ck)
+ */
+export interface OccasionImportResult {
+    plan: OccasionImportPlan;
+    list: OccasionList;
+}
+
+export interface OccasionImportResultInput {}

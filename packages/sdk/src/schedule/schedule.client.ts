@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
-import type { OccasionInput, OccasionList, OccasionOrder } from './types/occasions.types.js';
+import type { OccasionImportPlan, OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from './types/occasions.types.js';
 import type {
     ScheduleNow,
     ScheduleSlotApplied,
@@ -47,6 +47,41 @@ export class ScheduleClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<OccasionList>(result);
+    }
+
+    /**
+     * @name Export occasions
+     * @description Every occasion on this station as one file, to hand to another station
+     */
+    async exportOccasions(): Promise<OccasionPack> {
+        const result = await this.fetch(`/occasions/export`, { method: 'GET' });
+        return await parseJson<OccasionPack>(result);
+    }
+
+    /**
+     * @name Preview occasion import
+     * @description Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+     */
+    async previewOccasionImport(body: OccasionPack): Promise<OccasionImportPlan> {
+        const result = await this.fetch(`/occasions/import/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionImportPlan>(result);
+    }
+
+    /**
+     * @name Import occasions
+     * @description Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has
+     */
+    async importOccasions(body: OccasionPack): Promise<OccasionImportResult> {
+        const result = await this.fetch(`/occasions/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<OccasionImportResult>(result);
     }
 
     /**

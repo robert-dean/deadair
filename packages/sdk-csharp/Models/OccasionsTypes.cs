@@ -167,6 +167,99 @@ public sealed record OccasionOrder
     public required List<Guid> Ids { get; init; }
 }
 
+/// <summary>
+/// One occasion in a file: what it says, when it falls and what it leans into, and nothing that belongs
+/// to the station it came from
+/// </summary>
+public sealed record OccasionPackRow
+{
+    /// <summary>Said on air as written</summary>
+    [JsonPropertyName("words")]
+    public required string Words { get; init; }
+
+    /// <summary>When it falls, and which of the fields beside it count, as on an occasion</summary>
+    [JsonPropertyName("ruleKind")]
+    public required OccasionPackRowRuleKind RuleKind { get; init; }
+
+    [JsonPropertyName("month")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Month { get; init; }
+
+    [JsonPropertyName("day")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Day { get; init; }
+
+    [JsonPropertyName("ordinal")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Ordinal { get; init; }
+
+    [JsonPropertyName("weekday")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Weekday { get; init; }
+
+    [JsonPropertyName("offsetDays")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? OffsetDays { get; init; }
+
+    [JsonPropertyName("calendar")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OccasionPackRowCalendar? Calendar { get; init; }
+
+    [JsonPropertyName("calendarMonth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CalendarMonth { get; init; }
+
+    [JsonPropertyName("dates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Dates { get; init; }
+
+    [JsonPropertyName("mood")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OccasionPackRowMood? Mood { get; init; }
+}
+
+/// <summary>
+/// A set of occasions as one file, to hand to another station. Each entry is read as an `OccasionPackRow`
+/// when it is imported, so one a station cannot use is reported rather than refusing the file
+/// </summary>
+public sealed record OccasionPack
+{
+    /// <summary>Says the file is an occasion pack</summary>
+    [JsonPropertyName("format")]
+    public string Format { get; init; } = "deadair.occasions";
+
+    /// <summary>The version of the document's shape. This station reads version 1</summary>
+    [JsonPropertyName("version")]
+    public required long Version { get; init; }
+
+    /// <summary>What the pack is, as whoever made it would describe it: `Canadian holidays`</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("occasions")]
+    public required List<Dictionary<string, JsonElement>> Occasions { get; init; }
+}
+
+/// <summary>An entry in a file that importing it would leave out, and why</summary>
+public sealed record OccasionPackDropped
+{
+    /// <summary>Which entry in the file, counting from 1</summary>
+    [JsonPropertyName("entry")]
+    public required long Entry { get; init; }
+
+    /// <summary>What it says, when it says</summary>
+    [JsonPropertyName("words")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Words { get; init; }
+
+    /// <summary>Why the station cannot use it</summary>
+    [JsonPropertyName("reason")]
+    public required string Reason { get; init; }
+}
+
+/// <summary>An entry in a file that importing it would leave out, and why</summary>
+public sealed record OccasionPackDroppedInput;
+
 /// <summary>Every occasion on the station, in the order a date is matched against them</summary>
 public sealed record OccasionList
 {
@@ -186,6 +279,42 @@ public sealed record OccasionListInput
     [JsonPropertyName("calendars")]
     public required List<OccasionCalendarMonths> Calendars { get; init; }
 }
+
+/// <summary>What importing a file would do. Everything it adds starts switched off</summary>
+public sealed record OccasionImportPlan
+{
+    /// <summary>What the file says it is</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>The occasions it would add, by their words</summary>
+    [JsonPropertyName("adding")]
+    public required List<string> Adding { get; init; }
+
+    /// <summary>The ones this station already has, with the same words and the same rule, which it would leave alone</summary>
+    [JsonPropertyName("skipped")]
+    public required List<string> Skipped { get; init; }
+
+    /// <summary>The ones it cannot use</summary>
+    [JsonPropertyName("dropped")]
+    public required List<OccasionPackDropped> Dropped { get; init; }
+}
+
+/// <summary>What importing a file would do. Everything it adds starts switched off</summary>
+public sealed record OccasionImportPlanInput;
+
+/// <summary>What an import did, and the list as it now stands</summary>
+public sealed record OccasionImportResult
+{
+    [JsonPropertyName("plan")]
+    public required OccasionImportPlan Plan { get; init; }
+
+    [JsonPropertyName("list")]
+    public required OccasionList List { get; init; }
+}
+
+/// <summary>What an import did, and the list as it now stands</summary>
+public sealed record OccasionImportResultInput;
 
 /// <summary>`fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is a number of days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in the Hebrew or Islamic calendar, from `calendar`, `calendarMonth` and `day`. `dates` is the dates themselves, from `dates`, for what no rule can work out</summary>
 [JsonConverter(typeof(OccasionRuleKindConverter))]
@@ -451,5 +580,214 @@ public sealed class OccasionCalendarMonthsCalendarConverter : JsonConverter<Occa
         OccasionCalendarMonthsCalendar.Hebrew => "hebrew",
         OccasionCalendarMonthsCalendar.IslamicUmalqura => "islamic-umalqura",
         _ => throw new JsonException($"OccasionCalendarMonthsCalendar.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>When it falls, and which of the fields beside it count, as on an occasion</summary>
+[JsonConverter(typeof(OccasionPackRowRuleKindConverter))]
+public enum OccasionPackRowRuleKind
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("fixed")]
+    Fixed,
+
+    [JsonStringEnumMemberName("weekday")]
+    Weekday,
+
+    [JsonStringEnumMemberName("easter")]
+    Easter,
+
+    [JsonStringEnumMemberName("calendar")]
+    Calendar,
+
+    [JsonStringEnumMemberName("dates")]
+    Dates,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OccasionPackRowRuleKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OccasionPackRowRuleKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OccasionPackRowRuleKindConverter : JsonConverter<OccasionPackRowRuleKind>
+{
+    public override OccasionPackRowRuleKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OccasionPackRowRuleKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OccasionPackRowRuleKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OccasionPackRowRuleKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OccasionPackRowRuleKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OccasionPackRowRuleKind FromWire(string? text) => text switch
+    {
+        "fixed" => OccasionPackRowRuleKind.Fixed,
+        "weekday" => OccasionPackRowRuleKind.Weekday,
+        "easter" => OccasionPackRowRuleKind.Easter,
+        "calendar" => OccasionPackRowRuleKind.Calendar,
+        "dates" => OccasionPackRowRuleKind.Dates,
+        _ => OccasionPackRowRuleKind.Unknown,
+    };
+
+    private static string ToWire(OccasionPackRowRuleKind value) => value switch
+    {
+        OccasionPackRowRuleKind.Fixed => "fixed",
+        OccasionPackRowRuleKind.Weekday => "weekday",
+        OccasionPackRowRuleKind.Easter => "easter",
+        OccasionPackRowRuleKind.Calendar => "calendar",
+        OccasionPackRowRuleKind.Dates => "dates",
+        _ => throw new JsonException($"OccasionPackRowRuleKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(OccasionPackRowCalendarConverter))]
+public enum OccasionPackRowCalendar
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("hebrew")]
+    Hebrew,
+
+    [JsonStringEnumMemberName("islamic-umalqura")]
+    IslamicUmalqura,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OccasionPackRowCalendar"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OccasionPackRowCalendar.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OccasionPackRowCalendarConverter : JsonConverter<OccasionPackRowCalendar>
+{
+    public override OccasionPackRowCalendar Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OccasionPackRowCalendar, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OccasionPackRowCalendar value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OccasionPackRowCalendar ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OccasionPackRowCalendar value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OccasionPackRowCalendar FromWire(string? text) => text switch
+    {
+        "hebrew" => OccasionPackRowCalendar.Hebrew,
+        "islamic-umalqura" => OccasionPackRowCalendar.IslamicUmalqura,
+        _ => OccasionPackRowCalendar.Unknown,
+    };
+
+    private static string ToWire(OccasionPackRowCalendar value) => value switch
+    {
+        OccasionPackRowCalendar.Hebrew => "hebrew",
+        OccasionPackRowCalendar.IslamicUmalqura => "islamic-umalqura",
+        _ => throw new JsonException($"OccasionPackRowCalendar.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(OccasionPackRowMoodConverter))]
+public enum OccasionPackRowMood
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("love")]
+    Love,
+
+    [JsonStringEnumMemberName("happiness")]
+    Happiness,
+
+    [JsonStringEnumMemberName("comfort")]
+    Comfort,
+
+    [JsonStringEnumMemberName("sadness")]
+    Sadness,
+
+    [JsonStringEnumMemberName("loneliness")]
+    Loneliness,
+
+    [JsonStringEnumMemberName("anger")]
+    Anger,
+
+    [JsonStringEnumMemberName("fear")]
+    Fear,
+}
+
+/// <summary>
+/// Reads and writes <see cref="OccasionPackRowMood"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="OccasionPackRowMood.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class OccasionPackRowMoodConverter : JsonConverter<OccasionPackRowMood>
+{
+    public override OccasionPackRowMood Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for OccasionPackRowMood, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, OccasionPackRowMood value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override OccasionPackRowMood ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, OccasionPackRowMood value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static OccasionPackRowMood FromWire(string? text) => text switch
+    {
+        "love" => OccasionPackRowMood.Love,
+        "happiness" => OccasionPackRowMood.Happiness,
+        "comfort" => OccasionPackRowMood.Comfort,
+        "sadness" => OccasionPackRowMood.Sadness,
+        "loneliness" => OccasionPackRowMood.Loneliness,
+        "anger" => OccasionPackRowMood.Anger,
+        "fear" => OccasionPackRowMood.Fear,
+        _ => OccasionPackRowMood.Unknown,
+    };
+
+    private static string ToWire(OccasionPackRowMood value) => value switch
+    {
+        OccasionPackRowMood.Love => "love",
+        OccasionPackRowMood.Happiness => "happiness",
+        OccasionPackRowMood.Comfort => "comfort",
+        OccasionPackRowMood.Sadness => "sadness",
+        OccasionPackRowMood.Loneliness => "loneliness",
+        OccasionPackRowMood.Anger => "anger",
+        OccasionPackRowMood.Fear => "fear",
+        _ => throw new JsonException($"OccasionPackRowMood.{value} has no wire spelling, so it cannot be sent."),
     };
 }

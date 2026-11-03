@@ -7,6 +7,7 @@ import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
  * What a date means where this station is: a name the presenters can say, and a mood to lean into on a
@@ -89,6 +90,57 @@ data class OccasionOrder(
     val ids: List<Uuid>,
 )
 
+/**
+ * One occasion in a file: what it says, when it falls and what it leans into, and nothing that belongs
+ * to the station it came from
+ */
+@Serializable
+data class OccasionPackRow(
+    /** Said on air as written */
+    val words: String,
+    /** When it falls, and which of the fields beside it count, as on an occasion */
+    val ruleKind: OccasionPackRowRuleKind,
+    val month: Long? = null,
+    val day: Long? = null,
+    val ordinal: Long? = null,
+    val weekday: Long? = null,
+    val offsetDays: Long? = null,
+    val calendar: OccasionPackRowCalendar? = null,
+    val calendarMonth: String? = null,
+    val dates: List<String>? = null,
+    val mood: OccasionPackRowMood? = null,
+)
+
+/**
+ * A set of occasions as one file, to hand to another station. Each entry is read as an `OccasionPackRow`
+ * when it is imported, so one a station cannot use is reported rather than refusing the file
+ */
+@Serializable
+data class OccasionPack(
+    /** Says the file is an occasion pack */
+    val format: String = "deadair.occasions",
+    /** The version of the document's shape. This station reads version 1 */
+    val version: Long,
+    /** What the pack is, as whoever made it would describe it: `Canadian holidays` */
+    val name: String,
+    val occasions: List<Map<String, JsonElement>>,
+)
+
+/** An entry in a file that importing it would leave out, and why */
+@Serializable
+data class OccasionPackDropped(
+    /** Which entry in the file, counting from 1 */
+    val entry: Long,
+    /** What it says, when it says */
+    val words: String? = null,
+    /** Why the station cannot use it */
+    val reason: String,
+)
+
+/** An entry in a file that importing it would leave out, and why */
+@Serializable
+class OccasionPackDroppedInput
+
 /** Every occasion on the station, in the order a date is matched against them */
 @Serializable
 data class OccasionList(
@@ -102,6 +154,34 @@ data class OccasionListInput(
     val occasions: List<OccasionInput>,
     val calendars: List<OccasionCalendarMonths>,
 )
+
+/** What importing a file would do. Everything it adds starts switched off */
+@Serializable
+data class OccasionImportPlan(
+    /** What the file says it is */
+    val name: String,
+    /** The occasions it would add, by their words */
+    val adding: List<String>,
+    /** The ones this station already has, with the same words and the same rule, which it would leave alone */
+    val skipped: List<String>,
+    /** The ones it cannot use */
+    val dropped: List<OccasionPackDropped>,
+)
+
+/** What importing a file would do. Everything it adds starts switched off */
+@Serializable
+class OccasionImportPlanInput
+
+/** What an import did, and the list as it now stands */
+@Serializable
+data class OccasionImportResult(
+    val plan: OccasionImportPlan,
+    val list: OccasionList,
+)
+
+/** What an import did, and the list as it now stands */
+@Serializable
+class OccasionImportResultInput
 
 /** `fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is a number of days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in the Hebrew or Islamic calendar, from `calendar`, `calendarMonth` and `day`. `dates` is the dates themselves, from `dates`, for what no rule can work out */
 @Serializable(with = OccasionRuleKindSerializer::class)
@@ -200,4 +280,81 @@ object OccasionCalendarMonthsCalendarSerializer : SdkEnumSerializer<OccasionCale
     OccasionCalendarMonthsCalendar.UNKNOWN,
     OccasionCalendarMonthsCalendar.HEBREW to "hebrew",
     OccasionCalendarMonthsCalendar.ISLAMIC_UMALQURA to "islamic-umalqura",
+)
+
+/** When it falls, and which of the fields beside it count, as on an occasion */
+@Serializable(with = OccasionPackRowRuleKindSerializer::class)
+enum class OccasionPackRowRuleKind {
+    FIXED,
+    WEEKDAY,
+    EASTER,
+    CALENDAR,
+    DATES,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [OccasionPackRowRuleKind] by its wire spelling. A spelling it does not know reads as [OccasionPackRowRuleKind.UNKNOWN]. */
+object OccasionPackRowRuleKindSerializer : SdkEnumSerializer<OccasionPackRowRuleKind>(
+    "OccasionPackRowRuleKind",
+    OccasionPackRowRuleKind.UNKNOWN,
+    OccasionPackRowRuleKind.FIXED to "fixed",
+    OccasionPackRowRuleKind.WEEKDAY to "weekday",
+    OccasionPackRowRuleKind.EASTER to "easter",
+    OccasionPackRowRuleKind.CALENDAR to "calendar",
+    OccasionPackRowRuleKind.DATES to "dates",
+)
+
+@Serializable(with = OccasionPackRowCalendarSerializer::class)
+enum class OccasionPackRowCalendar {
+    HEBREW,
+    ISLAMIC_UMALQURA,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [OccasionPackRowCalendar] by its wire spelling. A spelling it does not know reads as [OccasionPackRowCalendar.UNKNOWN]. */
+object OccasionPackRowCalendarSerializer : SdkEnumSerializer<OccasionPackRowCalendar>(
+    "OccasionPackRowCalendar",
+    OccasionPackRowCalendar.UNKNOWN,
+    OccasionPackRowCalendar.HEBREW to "hebrew",
+    OccasionPackRowCalendar.ISLAMIC_UMALQURA to "islamic-umalqura",
+)
+
+@Serializable(with = OccasionPackRowMoodSerializer::class)
+enum class OccasionPackRowMood {
+    LOVE,
+    HAPPINESS,
+    COMFORT,
+    SADNESS,
+    LONELINESS,
+    ANGER,
+    FEAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [OccasionPackRowMood] by its wire spelling. A spelling it does not know reads as [OccasionPackRowMood.UNKNOWN]. */
+object OccasionPackRowMoodSerializer : SdkEnumSerializer<OccasionPackRowMood>(
+    "OccasionPackRowMood",
+    OccasionPackRowMood.UNKNOWN,
+    OccasionPackRowMood.LOVE to "love",
+    OccasionPackRowMood.HAPPINESS to "happiness",
+    OccasionPackRowMood.COMFORT to "comfort",
+    OccasionPackRowMood.SADNESS to "sadness",
+    OccasionPackRowMood.LONELINESS to "loneliness",
+    OccasionPackRowMood.ANGER to "anger",
+    OccasionPackRowMood.FEAR to "fear",
 )

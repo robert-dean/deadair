@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import type { OccasionInput, OccasionList, OccasionOrder } from '@deadair/sdk';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from '@deadair/sdk';
 
+import { saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
 import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
@@ -32,4 +33,24 @@ export function useRemoveOccasion() {
 
 export function useReorderOccasions() {
     return useOccasionWrite((order: OccasionOrder) => sdk.schedule.reorderOccasions(order));
+}
+
+/** Saves every occasion as a file. A download is not state this console holds, so this is no query. */
+export async function exportOccasions(): Promise<void> {
+    saveJsonDownload(await sdk.schedule.exportOccasions(), 'deadair-occasions.json');
+}
+
+export function usePreviewOccasionImport() {
+    return useMutation({ mutationFn: (pack: OccasionPack) => sdk.schedule.previewOccasionImport(pack) });
+}
+
+/** An import answers the list as it now stands, beside what it did. */
+export function useImportOccasions() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (pack: OccasionPack) => sdk.schedule.importOccasions(pack),
+        onSuccess: (answer: OccasionImportResult) => {
+            queryClient.setQueryData(queryKeys.schedule.occasions(), answer.list);
+        },
+    });
 }

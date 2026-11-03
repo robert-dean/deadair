@@ -7,8 +7,17 @@ import { stationZone, weekday, type RoughTime } from '#modules/director/clock.wo
 import { dateKey, type StationDate } from '#modules/director/schedule.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { OccasionRepository, type Occasion as StoredOccasion, type OccasionDraft } from './occasion.repository.js';
+import { OCCASION_PACK_VERSION, packOfOccasions, planOccasionPack, type OccasionPackReading } from './occasion.pack.js';
 import { calendarMonths, nextOccasionDate, OCCASION_CALENDARS, occasionFallsAt, occasionRuleOf, type OccasionRule } from './occasion.rule.js';
-import type { Occasion, OccasionInput, OccasionList, OccasionOrder } from './types/occasions.types.js';
+import type {
+    Occasion,
+    OccasionImportPlan,
+    OccasionImportResult,
+    OccasionInput,
+    OccasionList,
+    OccasionOrder,
+    OccasionPack,
+} from './types/occasions.types.js';
 
 /**
  * What a day is to this station, for one instant: the words, and how long they stay true.
@@ -87,6 +96,41 @@ export class OccasionService {
         await this.occasions.reorder(body.ids);
         return await this.list();
     }
+
+    /** `GET /occasions/export`. */
+    async exportPack(): Promise<OccasionPack> {
+        return packOfOccasions(await this.occasions.list());
+    }
+
+    /** `POST /occasions/import/preview`. Writes nothing. */
+    async previewImport(body: OccasionPack): Promise<OccasionImportPlan> {
+        return planOf(body, planOccasionPack(body, await this.occasions.list()));
+    }
+
+    /**
+     * `POST /occasions/import`. Only ever adds, and everything it adds starts switched off, since a file
+     * from somebody else should not change what the station says until an operator says so.
+     *
+     * All or nothing, by the request's own transaction: the preview is what stands between an operator
+     * and a surprise, so a file that landed halfway would be the one outcome nothing had described.
+     */
+    async importPack(body: OccasionPack): Promise<OccasionImportResult> {
+        const reading = planOccasionPack(body, await this.occasions.list());
+        // Before anything is written, since this is also what refuses a version it cannot read.
+        const plan = planOf(body, reading);
+        for (const draft of reading.adding) await this.occasions.add(draft);
+        return { plan, list: await this.list() };
+    }
+}
+
+/** What a file would do, in the words the console shows. Refuses a version this station cannot read. */
+function planOf(pack: OccasionPack, reading: OccasionPackReading): OccasionImportPlan {
+    if (pack.version > OCCASION_PACK_VERSION) {
+        throw httpError(400).withDetails({
+            message: `this station reads version ${OCCASION_PACK_VERSION} of an occasion pack, and this file is version ${pack.version}`,
+        });
+    }
+    return { name: pack.name, adding: reading.adding.map(draft => draft.words), skipped: reading.skipped, dropped: reading.dropped };
 }
 
 /** A submitted occasion as a draft, refused with a sentence where the table would refuse it with a code. */

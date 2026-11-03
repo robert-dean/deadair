@@ -13,6 +13,8 @@ const addAnOccasion = vi.fn();
 const changeAnOccasion = vi.fn();
 const removeAnOccasion = vi.fn();
 const reorderOccasions = vi.fn();
+const previewOccasionImport = vi.fn();
+const importOccasions = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -22,6 +24,8 @@ vi.mock('../../../src/api/client', () => ({
             changeAnOccasion: (id: string, body: unknown) => changeAnOccasion(id, body),
             removeAnOccasion: (id: string) => removeAnOccasion(id),
             reorderOccasions: (body: unknown) => reorderOccasions(body),
+            previewOccasionImport: (body: unknown) => previewOccasionImport(body),
+            importOccasions: (body: unknown) => importOccasions(body),
         },
     },
 }));
@@ -148,6 +152,81 @@ describe('OccasionsPanel', () => {
                 enabled: false,
             }),
         );
+    });
+});
+
+describe('importing a file', () => {
+    const file = {
+        format: 'deadair.occasions',
+        version: 1,
+        name: 'Canadian holidays',
+        occasions: [{ words: 'Canada Day', ruleKind: 'fixed', month: 7, day: 1 }],
+    };
+    const plan = {
+        name: 'Canadian holidays',
+        adding: ['Canada Day'],
+        skipped: ['Halloween'],
+        dropped: [{ entry: 3, words: 'Bad', reason: 'June has no day 31' }],
+    };
+    const fileOf = (text: string) => new File([text], 'pack.json', { type: 'application/json' });
+
+    async function open(user: ReturnType<typeof setupUser>) {
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        return (await screen.findByRole('dialog')).ownerDocument.querySelector('input[type="file"]') as HTMLInputElement;
+    }
+
+    it('shows what the station makes of it, writes nothing until asked, then adds it', async () => {
+        const user = setupUser();
+        listOccasions.mockResolvedValue(answer);
+        previewOccasionImport.mockResolvedValue(plan);
+        importOccasions.mockResolvedValue({ plan, list: { ...answer, occasions: [{ ...halloween, words: 'Canada Day' }] } });
+        render(<OccasionsPanel />);
+
+        await user.upload(await open(user), fileOf(JSON.stringify(file)));
+
+        expect(await screen.findByText('Canada Day')).toBeInTheDocument();
+        expect(screen.getByText('Leaves out 1 you already have.')).toBeInTheDocument();
+        expect(screen.getByText('Entry 3, Bad: June has no day 31')).toBeInTheDocument();
+        expect(importOccasions).not.toHaveBeenCalled();
+
+        await user.click(screen.getByRole('button', { name: 'Add them' }));
+
+        await waitFor(() => expect(importOccasions).toHaveBeenCalledWith(file));
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it("sends only the file's own fields, since the contract refuses a key it does not know", async () => {
+        const user = setupUser();
+        listOccasions.mockResolvedValue(answer);
+        previewOccasionImport.mockResolvedValue(plan);
+        render(<OccasionsPanel />);
+
+        await user.upload(await open(user), fileOf(JSON.stringify({ ...file, madeBy: 'a spreadsheet' })));
+
+        await waitFor(() => expect(previewOccasionImport).toHaveBeenCalledWith(file));
+    });
+
+    it('says so when a file is not one it can read, and asks the station nothing', async () => {
+        const user = setupUser();
+        listOccasions.mockResolvedValue(answer);
+        render(<OccasionsPanel />);
+
+        await user.upload(await open(user), fileOf('not json'));
+
+        expect(await screen.findByText('pack.json is not a file this can read.')).toBeInTheDocument();
+        expect(previewOccasionImport).not.toHaveBeenCalled();
+    });
+
+    it('offers nothing to add when the station refuses the file', async () => {
+        const user = setupUser();
+        listOccasions.mockResolvedValue(answer);
+        previewOccasionImport.mockRejectedValue(new Error('no'));
+        render(<OccasionsPanel />);
+
+        await user.upload(await open(user), fileOf(JSON.stringify({ format: 'something else' })));
+
+        expect(await screen.findByText('That file could not be used')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Add them' })).toBeDisabled();
     });
 });
 

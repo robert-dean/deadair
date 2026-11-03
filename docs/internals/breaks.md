@@ -781,6 +781,13 @@ Lunar New Year a day out in 2027 and 2030, two of the ten years measured, so tha
 can work out is listed with the `dates` kind instead. The seeded rows carry no mood, and the ones belonging to a
 country or a faith (Thanksgiving, Rosh Hashanah) start switched off, because the station has no way to know where it is.
 
+**Anything the starter list leaves out arrives as a file** (`schedule/occasion.pack.ts`), on the language pack's rules:
+a wrong header refuses the file, and inside it a row the station cannot use is reported and left out. So the document's
+rows are records in the contract and are read as `OccasionPackRow` one at a time, because a typed array would answer one
+bad month with a 400 for the whole file. An import only adds: a row with the same words and the same rule is skipped, and
+what it adds starts switched off, since a file from somebody else should not change what the station says until an
+operator says so. No `id` and no `position` in the file, so it cannot collide with a row it did not mean.
+
 ## Bulletins
 
 **Which feeds a bulletin reads is a LIST the station orders, and it used to be one id typed by

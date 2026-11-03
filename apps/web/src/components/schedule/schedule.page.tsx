@@ -15,6 +15,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
+import { OccasionsPanel } from './occasions.panel';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, stationClockAt, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, resizeEdit, writesOf, type DraggedBlock, type SlotEdit, type SlotTimes } from './schedule.edits';
@@ -100,9 +101,10 @@ export const PROGRAMME_TABS = [
     programmeTab('sustaining'),
     programmeTab('requests'),
     programmeTab('rules'),
+    programmeTab('occasions'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function programmeTab<TKey extends 'today' | 'week' | 'specials' | 'sustaining' | 'requests' | 'rules'>(key: TKey) {
+function programmeTab<TKey extends 'today' | 'week' | 'specials' | 'sustaining' | 'requests' | 'rules' | 'occasions'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -384,6 +386,9 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
             {/* Leaning the station toward some genres, and never playing others. See the panel. */}
             {tab === 'rules' ? <RulesPanel /> : undefined}
+
+            {/* What a date means here, and what a presenter knows about it. See the panel. */}
+            {tab === 'occasions' ? <OccasionsPanel /> : undefined}
 
             {/* The other half of "what happens when", and the reason Today is a tab rather than the
                 day grid: a band is a rule about every hour and has no place on a week. */}

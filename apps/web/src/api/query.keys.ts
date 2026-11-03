@@ -199,6 +199,8 @@ export const queryKeys = {
     schedule: {
         /** The station's day. One key: every write answers with the whole grid, since a slot's span is its neighbour's start. */
         list: () => ['schedule', 'list'] as const,
+        /** The days a presenter knows about. Every write answers the whole list. */
+        occasions: () => ['schedule', 'occasions'] as const,
         /** Which slot is in force and which one is airing. Its own key because it moves with the clock rather than with the grid. */
         current: () => ['schedule', 'current'] as const,
         /** The day drawn as blocks. Keyed on the window, since a different range is a different page rather than a stale one. */

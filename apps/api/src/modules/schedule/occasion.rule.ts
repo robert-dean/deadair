@@ -87,6 +87,7 @@ export interface OccasionRuleFields {
 }
 
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /**
  * The rule these fields describe, or a sentence saying why they describe none.
@@ -101,7 +102,7 @@ export function occasionRuleOf(fields: OccasionRuleFields): OccasionRule | strin
     switch (fields.ruleKind) {
         case 'fixed':
             if (month === undefined || day === undefined) return 'a fixed date needs a month and a day';
-            if (day > (DAYS_IN_MONTH[month - 1] ?? 0)) return `month ${month} has no day ${day}`;
+            if (day > (DAYS_IN_MONTH[month - 1] ?? 0)) return `${MONTH_NAMES[month - 1] ?? `month ${month}`} has no day ${day}`;
             return { kind: 'fixed', month, day };
         case 'weekday':
             if (month === undefined || ordinal === undefined || weekday === undefined)

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.3] — 2026-11-03
+
+- The Kokoro plugin now works with OpenAI-compatible speech servers that have no voice list, such as Ollama: Test connection and quarantine recovery ask `/models` instead of failing, Ollama's voices appear in the settings form, and a refused request says what the server objected to.
+
 ## [0.89.2] — 2026-11-02
 
 - Deleting a persona's note or story, or removing its picture, now asks first, because none of them can be brought back.
@@ -1832,7 +1836,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.3...HEAD
+[0.89.3]: https://github.com/robert-dean/deadair/compare/v0.89.2...v0.89.3
 [0.89.2]: https://github.com/robert-dean/deadair/compare/v0.89.1...v0.89.2
 [0.89.1]: https://github.com/robert-dean/deadair/compare/v0.89.0...v0.89.1
 [0.89.0]: https://github.com/robert-dean/deadair/compare/v0.88.2...v0.89.0

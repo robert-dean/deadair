@@ -48,28 +48,17 @@
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ChartOrder } from './chart.picks.js';
 import { readClock } from './clock.bands.js';
+import { addDays, dateKey, stationDateOf, type StationDate } from './station.date.js';
 import type { StationLineupMode, StationLineupOnEnd } from './station.lineup.js';
 import type { WriterOrder } from './writer.order.js';
+
+export { addDays, dateKey, stationDateOf, type StationDate };
 
 /** Minutes in a day, which is the space {@link ScheduleSlot.startsAtMinutes} lives in. */
 export const MINUTES_IN_DAY = 24 * 60;
 
 /** Days in a week, walked back over when nothing has started today. */
 const DAYS_IN_WEEK = 7;
-
-/**
- * A date on the station's own calendar, with the weekday it falls on. Sunday is `0`.
- *
- * Wall-clock throughout: a date here is a reading of the station's clock rather than an instant, which
- * is what keeps everything that walks over dates free of daylight-saving arithmetic.
- */
-export interface StationDate {
-    year: number;
-    /** 1-12, matching {@link StationClock}. */
-    month: number;
-    day: number;
-    weekday: number;
-}
 
 /**
  * The dates a special runs on, inclusive at both ends, as `YYYY-MM-DD`.
@@ -305,41 +294,6 @@ export const isSpecial = (slot: ScheduleSlot): slot is ScheduleSlot & { dates: S
 
 /** Whether a slot is a booked live show. See {@link ScheduleSlot.live}. */
 export const isLiveShow = (slot: ScheduleSlot): boolean => slot.live === true;
-
-const pad = (value: number, width = 2) => String(value).padStart(width, '0');
-
-/** A station date as `YYYY-MM-DD`, the shape {@link SpecialDates} holds and compares as strings. */
-export const dateKey = (date: Pick<StationDate, 'year' | 'month' | 'day'>): string => `${pad(date.year, 4)}-${pad(date.month)}-${pad(date.day)}`;
-
-/**
- * A `YYYY-MM-DD` string as a station date, or `undefined` when it is not one.
- *
- * Through UTC, which is safe because this is civil arithmetic on a date rather than a claim about a
- * moment: UTC has no daylight saving, so it is the calendar with no opinions. The weekday is DERIVED
- * here rather than taken from anybody, since it is the one field a caller could get wrong in a way
- * that silently resolves the wrong show.
- */
-export function stationDateOf(key: string): StationDate | undefined {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
-    if (!match) return undefined;
-
-    const asUtc = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-    if (dateKey({ year: asUtc.getUTCFullYear(), month: asUtc.getUTCMonth() + 1, day: asUtc.getUTCDate() }) !== key) return undefined;
-
-    return { year: asUtc.getUTCFullYear(), month: asUtc.getUTCMonth() + 1, day: asUtc.getUTCDate(), weekday: asUtc.getUTCDay() };
-}
-
-/** The day `offset` days from `date` on the station's calendar. Plain civil arithmetic; see {@link stationDateOf}. */
-export function addDays(date: StationDate, offset: number): StationDate {
-    const asUtc = new Date(Date.UTC(date.year, date.month - 1, date.day + offset));
-
-    return {
-        year: asUtc.getUTCFullYear(),
-        month: asUtc.getUTCMonth() + 1,
-        day: asUtc.getUTCDate(),
-        weekday: (((date.weekday + offset) % DAYS_IN_WEEK) + DAYS_IN_WEEK) % DAYS_IN_WEEK,
-    };
-}
 
 /**
  * Whether a date falls inside a special's range.

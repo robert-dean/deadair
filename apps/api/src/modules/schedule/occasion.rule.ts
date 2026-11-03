@@ -1,5 +1,5 @@
 import { readClock } from '#modules/director/clock.bands.js';
-import { addDays, dateKey, stationDateOf, type StationDate } from '#modules/director/schedule.js';
+import { addDays, dateKey, stationDateOf, type StationDate } from '#modules/director/station.date.js';
 
 /**
  * When an occasion falls, as a rule rather than as a date, because most of them move.

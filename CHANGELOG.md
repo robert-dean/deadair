@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.89.6] — 2026-11-03
+
+- **Web search keeps a key per engine.** Brave and Tavily shared one stored API key, so saving the form with only the engine changed sent one company's key to the other. Each engine now has its own box and is only ever sent its own key. Choosing a keyed engine with no key of its own is refused on save, and switching away and back needs nothing retyped. An existing key moves to the engine the station is on when it updates. A key left over on a station running SearXNG is deleted, because nothing says whose it is, so enter it again if you go back to a keyed engine.
+- A presenter never says half a sentence because the model ran out of room. An answer that reaches its token ceiling now keeps only the sentences it finished, and one that finished too little is refused so the station says something whole instead. `wholeSentencesOf` joins the plugin SDK's text helpers.
+
 ## [0.89.5] — 2026-11-03
 
 - **Blend one record into the next** works again. For some time the station decided each blend before it knew what followed, so every boundary was a hard join with the setting on. A station that has blending on, which is the default, will start blending after this update. Turn it off under Settings to keep hard joins.
@@ -1844,7 +1849,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.6...HEAD
+[0.89.6]: https://github.com/robert-dean/deadair/compare/v0.89.5...v0.89.6
 [0.89.5]: https://github.com/robert-dean/deadair/compare/v0.89.4...v0.89.5
 [0.89.4]: https://github.com/robert-dean/deadair/compare/v0.89.3...v0.89.4
 [0.89.3]: https://github.com/robert-dean/deadair/compare/v0.89.2...v0.89.3

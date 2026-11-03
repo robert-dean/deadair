@@ -74,6 +74,36 @@ show when it ends. `slotOn` answers specials first and then the weekly clock, `p
 answer to "where is this block on this date" that the resolver, `project` and the overlap check all
 share, and `slotAt` is weekly-only, since a special on the weekly clock would air every week.
 
+**A special can name a rule instead of dates, and that is all it shares with an occasion** (migration
+0128). `schedule_slots.recurrence` holds an `OccasionRule` (`schedule/occasion.rule.ts`), so Halloween
+night comes round by itself and Thanksgiving lands on its Thursday. The two stayed separate on purpose:
+an occasion is a fact about a date that a presenter knows and a special is a show, and merging them
+would put things on the timetable that are not shows. A row has a range or a rule, never both, and
+`SpecialDates` is that union, so `startsOn` is the only line that asks which it has and everything above
+it (`piecesOn`, the resolver, `project`, the visits, live bookings) needed no change. A rule names one
+day, and the hours are read on it like any block's, on the date `readClock` gives in the station's zone,
+with the existing tail covering a show past midnight. Five things here are not obvious:
+
+- **A rule refuses `days`.** A range and a mask mean "the Fridays in December", but a rule and a mask are
+  two answers to one question, and a mask leaving out Thanksgiving's Thursday is a special that silently
+  never airs.
+- **The column is in `schedule_slots_start_unique`.** A rule special has null dates, so under
+  `NULLS NOT DISTINCT` it would otherwise collide with the weekly slot it interrupts at the same minute.
+  That is also why a rule's list of dates is capped at 100 where an occasion's is 200: the key has to fit
+  a B-tree entry.
+- **Overlap walks the future, and names the first clash.** `firstClash` walks what bounds it has, and 40
+  years from the station's today when nothing does, because rules drift against each other: the 31st of
+  October and the last Saturday of October last met in 2026 and next meet in 2037. They are refused now,
+  with that date in the sentence, since "already on then" means nothing about 2037. Forty is not a proof
+  (Easter's rarest dates are centuries apart), and `slotOn` still answers with one of the two past it.
+  A rule ignores a one-off that is already over, so last year's kept copy does not block this year's.
+- **A rewrite naming neither dates nor a rule keeps the stored rule** (`keepingRecurrence`). PUT replaces
+  the row, and a client built before rules, or a save that does not carry them, would otherwise turn
+  Halloween night into every night. The cost is that a rule special cannot be edited into a weekly slot,
+  which nothing offers. Leave this in for as long as an older desktop build can be running.
+- **The browser cannot evaluate a rule** without copying Easter and two calendars, so a slot answers
+  `nextDate` as an occasion does, and the console reads the list and its state from that.
+
 **A guest host sits in on some nights of a slot, and which nights is a pure function of the date**
 (migration 0077, `director/slot.visits.ts`). `schedule_slot_hosts` holds the people on a slot besides
 its host, as rows with foreign keys on `caller_hosts`' argument: a guest on fixed weekdays, or at

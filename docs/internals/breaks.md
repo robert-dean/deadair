@@ -773,7 +773,8 @@ It is the operator's own text, so unlike the clock's English it stays filled on 
 of holding every model break to the day: a link with a `claimsTime` is never moved over the end of a record
 (`talkOutCues`), so with `breaks.talkOut` on, a model's links air in the gap on an occasion.
 
-**When an occasion falls is a rule, and the rule uses nothing but the platform** (`schedule/occasion.rule.ts`). Five
+**When an occasion falls is a rule, and the rule uses nothing but the platform** (`schedule/occasion.rule.ts`), which a
+special on the schedule can name too (`director.md`, and nothing else about the two is shared). Five
 kinds: a fixed date, the nth of a weekday in a month, days from Easter, a date in the Hebrew or Islamic calendar read
 through `Intl`, and a list of dates. No holiday library, because every one brings a dependency tree and share-alike
 data for a station that only ever asks one question. **The Chinese calendar is deliberately missing:** `Intl` put

@@ -253,6 +253,17 @@ docker compose exec -T liquidsoap sh -c 'cat > /tmp/x.liq; timeout 90 liquidsoap
 python3 stream/crossfade.check.py stream/crossfade.check.wav
 ```
 
+`handover.check.liq` is a spike for the rung above the plain fade (Ideas #11): the low-pass sweep, the
+mid-band duck and the bass handover, in a `cross` transition, in a harness and not yet in `radio.liq`.
+`handover.check.py` renders it beside the plain fade and measures what each move did to each band
+(`numpy`, `ffmpeg`, Docker). `--listen` renders both over two real records, to hear, with the length
+of the blend last:
+
+```
+python3 stream/handover.check.py
+python3 stream/handover.check.py --listen outgoing.flac incoming.flac /tmp/handover 8
+```
+
 **A boundary whose two stamps disagree is a hard join, and the transition is not what makes it
 one.** The outgoing record can say 8 seconds and the incoming one 0.1 when something resets between
 the two pushes, and `playout_transition` sizes its fades off the outgoing stamp alone. It was

@@ -85,6 +85,77 @@ public struct SlotCoHost: Codable, Equatable, Sendable {
     }
 }
 
+/// Which day a special comes round on. `ruleKind` says how, and which of the fields beside it count
+public struct SpecialRecurrence: Codable, Equatable, Sendable {
+    /// `fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out
+    public var ruleKind: SpecialRecurrenceRuleKind
+    public var month: Int?
+    /// The day of the month, in the rule's own calendar
+    public var day: Int?
+    /// Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4`
+    public var ordinal: Int?
+    /// 0 is Sunday
+    public var weekday: Int?
+    /// Days from Easter Sunday: 0 is the day itself and -2 is Good Friday
+    public var offsetDays: Int?
+    /// `islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it
+    public var calendar: SpecialRecurrenceCalendar?
+    /// The month in that calendar, as `GET /schedule/occasions` lists them
+    public var calendarMonth: String?
+    /// As `YYYY-MM-DD`. These run out, so a list needs refreshing
+    public var dates: [String]?
+
+    public init(ruleKind: SpecialRecurrenceRuleKind, month: Int? = nil, day: Int? = nil, ordinal: Int? = nil, weekday: Int? = nil, offsetDays: Int? = nil, calendar: SpecialRecurrenceCalendar? = nil, calendarMonth: String? = nil, dates: [String]? = nil) {
+        self.ruleKind = ruleKind
+        self.month = month
+        self.day = day
+        self.ordinal = ordinal
+        self.weekday = weekday
+        self.offsetDays = offsetDays
+        self.calendar = calendar
+        self.calendarMonth = calendarMonth
+        self.dates = dates
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ruleKind = "ruleKind"
+        case month = "month"
+        case day = "day"
+        case ordinal = "ordinal"
+        case weekday = "weekday"
+        case offsetDays = "offsetDays"
+        case calendar = "calendar"
+        case calendarMonth = "calendarMonth"
+        case dates = "dates"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.ruleKind = try container.decode(SpecialRecurrenceRuleKind.self, forKey: .ruleKind)
+        self.month = try container.decodeIfPresent(Int.self, forKey: .month)
+        self.day = try container.decodeIfPresent(Int.self, forKey: .day)
+        self.ordinal = try container.decodeIfPresent(Int.self, forKey: .ordinal)
+        self.weekday = try container.decodeIfPresent(Int.self, forKey: .weekday)
+        self.offsetDays = try container.decodeIfPresent(Int.self, forKey: .offsetDays)
+        self.calendar = try container.decodeIfPresent(SpecialRecurrenceCalendar.self, forKey: .calendar)
+        self.calendarMonth = try container.decodeIfPresent(String.self, forKey: .calendarMonth)
+        self.dates = try container.decodeIfPresent([String].self, forKey: .dates)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.ruleKind, forKey: .ruleKind)
+        try container.encodeIfPresent(self.month, forKey: .month)
+        try container.encodeIfPresent(self.day, forKey: .day)
+        try container.encodeIfPresent(self.ordinal, forKey: .ordinal)
+        try container.encodeIfPresent(self.weekday, forKey: .weekday)
+        try container.encodeIfPresent(self.offsetDays, forKey: .offsetDays)
+        try container.encodeIfPresent(self.calendar, forKey: .calendar)
+        try container.encodeIfPresent(self.calendarMonth, forKey: .calendarMonth)
+        try container.encodeIfPresent(self.dates, forKey: .dates)
+    }
+}
+
 /// A window of the station's day to draw
 public struct ScheduleTimetableQuery: Codable, Equatable, Sendable {
     /// The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor
@@ -323,6 +394,10 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
     public var endsOn: String?
+    /// The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule
+    public var recurrence: SpecialRecurrence?
+    /// When a slot with a `recurrence` next runs, as `YYYY-MM-DD` on the station's calendar, counting today. Absent on any other slot, and when a list of dates has run out
+    public var nextDate: String?
     /// Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out
     public var coHosts: [SlotCoHost]?
     /// Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
@@ -336,7 +411,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, concerts: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, concerts: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, nextDate: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -366,6 +441,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.writerOrder = writerOrder
         self.startsOn = startsOn
         self.endsOn = endsOn
+        self.recurrence = recurrence
+        self.nextDate = nextDate
         self.coHosts = coHosts
         self.guestHosts = guestHosts
         self.yearly = yearly
@@ -405,6 +482,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case writerOrder = "writerOrder"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
+        case recurrence = "recurrence"
+        case nextDate = "nextDate"
         case coHosts = "coHosts"
         case guestHosts = "guestHosts"
         case yearly = "yearly"
@@ -445,6 +524,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.writerOrder = try container.decodeIfPresent(ScheduleSlotWriterOrder.self, forKey: .writerOrder)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
+        self.recurrence = try container.decodeIfPresent(SpecialRecurrence.self, forKey: .recurrence)
+        self.nextDate = try container.decodeIfPresent(String.self, forKey: .nextDate)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
         self.guestHosts = try container.decodeIfPresent([SlotGuestHost].self, forKey: .guestHosts)
         self.yearly = try container.decodeIfPresent(Bool.self, forKey: .yearly)
@@ -485,6 +566,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.writerOrder, forKey: .writerOrder)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
+        try container.encodeIfPresent(self.recurrence, forKey: .recurrence)
+        try container.encodeIfPresent(self.nextDate, forKey: .nextDate)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
         try container.encodeIfPresent(self.guestHosts, forKey: .guestHosts)
         try container.encodeIfPresent(self.yearly, forKey: .yearly)
@@ -552,6 +635,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
     public var endsOn: String?
+    /// The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule
+    public var recurrence: SpecialRecurrence?
     /// Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out
     public var coHosts: [SlotCoHost]?
     /// Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
@@ -565,7 +650,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, concerts: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, concerts: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -594,6 +679,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.writerOrder = writerOrder
         self.startsOn = startsOn
         self.endsOn = endsOn
+        self.recurrence = recurrence
         self.coHosts = coHosts
         self.guestHosts = guestHosts
         self.yearly = yearly
@@ -632,6 +718,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case writerOrder = "writerOrder"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
+        case recurrence = "recurrence"
         case coHosts = "coHosts"
         case guestHosts = "guestHosts"
         case yearly = "yearly"
@@ -671,6 +758,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.writerOrder = try container.decodeIfPresent(ScheduleSlotWriterOrder.self, forKey: .writerOrder)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
+        self.recurrence = try container.decodeIfPresent(SpecialRecurrence.self, forKey: .recurrence)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
         self.guestHosts = try container.decodeIfPresent([SlotGuestHost].self, forKey: .guestHosts)
         self.yearly = try container.decodeIfPresent(Bool.self, forKey: .yearly)
@@ -710,6 +798,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.writerOrder, forKey: .writerOrder)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
+        try container.encodeIfPresent(self.recurrence, forKey: .recurrence)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
         try container.encodeIfPresent(self.guestHosts, forKey: .guestHosts)
         try container.encodeIfPresent(self.yearly, forKey: .yearly)
@@ -1210,6 +1299,109 @@ public enum ScheduleSlotOnEnd: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotOnEnd.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// `fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out
+public enum SpecialRecurrenceRuleKind: Codable, CaseIterable, Hashable, Sendable {
+    case fixed
+    case weekday
+    case easter
+    case calendar
+    case dates
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [SpecialRecurrenceRuleKind] = [.fixed, .weekday, .easter, .calendar, .dates]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .fixed: return "fixed"
+        case .weekday: return "weekday"
+        case .easter: return "easter"
+        case .calendar: return "calendar"
+        case .dates: return "dates"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "fixed": self = .fixed
+        case "weekday": self = .weekday
+        case "easter": self = .easter
+        case "calendar": self = .calendar
+        case "dates": self = .dates
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "SpecialRecurrenceRuleKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// `islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it
+public enum SpecialRecurrenceCalendar: Codable, CaseIterable, Hashable, Sendable {
+    case hebrew
+    case islamicUmalqura
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [SpecialRecurrenceCalendar] = [.hebrew, .islamicUmalqura]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .hebrew: return "hebrew"
+        case .islamicUmalqura: return "islamic-umalqura"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "hebrew": self = .hebrew
+        case "islamic-umalqura": self = .islamicUmalqura
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "SpecialRecurrenceCalendar.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

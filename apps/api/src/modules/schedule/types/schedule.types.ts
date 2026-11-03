@@ -47,6 +47,42 @@ export const SlotCoHost = z.strictObject({
 export type SlotCoHost = z.infer<typeof SlotCoHost>;
 
 /**
+ * Which day a special comes round on. `ruleKind` says how, and which of the fields beside it count
+ * generated from [SpecialRecurrence](../../../../data/contracts/schedule/schedule.types.ck)
+ */
+export const SpecialRecurrence = z.strictObject({
+    ruleKind: z
+        .enum(['fixed', 'weekday', 'easter', 'calendar', 'dates'])
+        .describe(
+            '`fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out',
+        ),
+    month: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(12)).optional(),
+    day: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(31))
+        .optional()
+        .describe("The day of the month, in the rule's own calendar"),
+    ordinal: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(-1).max(5))
+        .optional()
+        .describe('Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4`'),
+    weekday: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6))
+        .optional()
+        .describe('0 is Sunday'),
+    offsetDays: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(-60).max(60))
+        .optional()
+        .describe('Days from Easter Sunday: 0 is the day itself and -2 is Good Friday'),
+    calendar: z
+        .enum(['hebrew', 'islamic-umalqura'])
+        .optional()
+        .describe('`islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it'),
+    calendarMonth: z.string().min(1).max(40).optional().describe('The month in that calendar, as `GET /schedule/occasions` lists them'),
+    dates: z.array(z.string().min(10).max(10)).max(100).optional().describe('As `YYYY-MM-DD`. These run out, so a list needs refreshing'),
+});
+export type SpecialRecurrence = z.infer<typeof SpecialRecurrence>;
+
+/**
  * A window of the station's day to draw
  * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck)
  */
@@ -261,6 +297,17 @@ export const ScheduleSlot = z.strictObject({
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional()
         .describe('The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'),
+    recurrence: SpecialRecurrence.optional().describe(
+        "The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule",
+    ),
+    nextDate: z
+        .string()
+        .min(10)
+        .max(10)
+        .optional()
+        .describe(
+            "When a slot with a `recurrence` next runs, as `YYYY-MM-DD` on the station's calendar, counting today. Absent on any other slot, and when a list of dates has run out",
+        ),
     coHosts: z
         .array(SlotCoHost)
         .max(8)
@@ -443,6 +490,9 @@ export const ScheduleSlotInput = z.strictObject({
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional()
         .describe('The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'),
+    recurrence: SpecialRecurrence.optional().describe(
+        "The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule",
+    ),
     coHosts: z
         .array(SlotCoHost)
         .max(8)

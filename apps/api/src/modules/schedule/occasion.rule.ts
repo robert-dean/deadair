@@ -73,6 +73,13 @@ export function nextOccasionDate(rule: OccasionRule, from: StationDate): Station
     return undefined;
 }
 
+/** A rule's fields as a contract lays them out flat, the reverse of {@link occasionRuleOf}. */
+export function occasionRuleFields(rule: OccasionRule) {
+    if (rule.kind === 'dates') return { ruleKind: rule.kind, dates: [...rule.dates] };
+    const { kind, ...fields } = rule;
+    return { ruleKind: kind, ...fields };
+}
+
 /** A rule's fields as they arrive from somewhere that is not the table: the console, or somebody's file. */
 export interface OccasionRuleFields {
     ruleKind: OccasionRule['kind'];

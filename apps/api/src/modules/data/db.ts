@@ -1044,6 +1044,7 @@ export interface DeadairScheduleSlots {
   moods: string[] | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
+  recurrence: Json | null;
   repeatWindowDays: number | null;
   requestFollowOn: number | null;
   requestShow: boolean | null;

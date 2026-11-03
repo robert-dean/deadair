@@ -17071,6 +17071,15 @@ components:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'
                     description: 'The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'
+                recurrence:
+                    '$ref': '#/components/schemas/SpecialRecurrence'
+                    description: "The rule that says which day this slot runs on, which makes it a SPECIAL that comes round by itself, in place of `startsOn` and `endsOn`. It runs for its hours on each day the rule falls on the station's calendar, and takes over from the weekly schedule as any special does. Sent with no `days`, since the rule says which day. Rewriting a slot that has a rule without naming its dates or a rule keeps the rule"
+                nextDate:
+                    type: string
+                    minLength: 10
+                    maxLength: 10
+                    readOnly: true
+                    description: "When a slot with a `recurrence` next runs, as `YYYY-MM-DD` on the station's calendar, counting today. Absent on any other slot, and when a list of dates has run out"
                 coHosts:
                     type: array
                     items:
@@ -17154,6 +17163,56 @@ components:
                     description: 'With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`'
             required: [personaId]
             description: "Somebody who presents beside a slot's host, every night or some of them"
+        SpecialRecurrence:
+            type: object
+            properties:
+                ruleKind:
+                    type: string
+                    enum: [fixed, weekday, easter, calendar, dates]
+                    description: '`fixed` is the same date every year, from `month` and `day`. `weekday` is the nth of a weekday in a month, from `month`, `ordinal` and `weekday`. `easter` is so many days from Western Easter Sunday, from `offsetDays`. `calendar` is a date in another calendar, from `calendar`, `calendarMonth` and `day`. `dates` is a list of dates, for what none of those can work out'
+                month:
+                    type: integer
+                    minimum: 1
+                    maximum: 12
+                day:
+                    type: integer
+                    minimum: 1
+                    maximum: 31
+                    description: "The day of the month, in the rule's own calendar"
+                ordinal:
+                    type: integer
+                    minimum: -1
+                    maximum: 5
+                    description: 'Which of that weekday in the month: 1 to 5, or -1 for the last. The fourth Thursday of November is `4`'
+                weekday:
+                    type: integer
+                    minimum: 0
+                    maximum: 6
+                    description: '0 is Sunday'
+                offsetDays:
+                    type: integer
+                    minimum: -60
+                    maximum: 60
+                    description: 'Days from Easter Sunday: 0 is the day itself and -2 is Good Friday'
+                calendar:
+                    type: string
+                    enum: [hebrew, islamic-umalqura]
+                    description: '`islamic-umalqura` is calculated, so a community going by the sighted moon may keep the day a day either side of it'
+                calendarMonth:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'The month in that calendar, as `GET /schedule/occasions` lists them'
+                dates:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 10
+                        maxLength: 10
+                    maxItems: 100
+                    description: 'As `YYYY-MM-DD`. These run out, so a list needs refreshing'
+            required: [ruleKind]
+            description: 'Which day a special comes round on. `ruleKind` says how, and which of the fields beside it count'
         ScheduleSlotList:
             type: object
             properties:

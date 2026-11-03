@@ -521,11 +521,15 @@ jobs:
     # two jobs above do: a .NET solution shares no task graph, no `dist` and no test runner with the
     # TypeScript tree. No `pnpm install`, no Node.
     #
-    # It runs on macOS rather than Ubuntu because the app's player is the platform's own — the first
-    # release targets Apple Silicon and the player project builds against AVFoundation, which exists
-    # on no other runner. That costs roughly ten times an Ubuntu minute, which is why this job builds
-    # and tests and does nothing else, and why it runs only when the app or its SDK changed: it ran
-    # for every push, and in sixty commits sixteen had anything for it to check.
+    # It runs on Ubuntu although the app ships for macOS alone, because nothing here needs a Mac. Every
+    # project is plain `net10.0`, the player reaches AVFoundation through a native shim this job never
+    # compiles, and no test takes a branch on the platform: on 2026-11-03 the same 1239 tests passed on
+    # both. It was on macOS at roughly ten times an Ubuntu minute until runs 41669060311 and 41684665661,
+    # where no hosted Mac took the job within fifteen minutes and that alone held the release back. The
+    # shim is compiled where it is needed, by `desktop-release.yml`, which does have to run on a Mac.
+    #
+    # This job builds and tests and does nothing else, and it runs only when the app or its SDK
+    # changed: it ran for every push, and in sixty commits sixteen had anything for it to check.
     #
     # Like `android`, it is also the only thing that COMPILES its generated SDK. The `generated` job
     # below regenerates `packages/sdk-csharp` from the contracts and checks it did not move; this
@@ -533,7 +537,7 @@ jobs:
     # the SDK changes a file under `packages/sdk-csharp`, which is what brings this job back.
     desktop:
         if: inputs.desktop
-        runs-on: macos-latest
+        runs-on: ubuntu-latest
         timeout-minutes: 20
 
         steps:

@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { RENDER_PLUGIN_ID } from '#modules/render/segment.source.js';
 import { Epoch } from '#modules/shared/epoch.js';
+import type { MeasuredCuePoints } from './crossfade.js';
 import type { LiveOrder } from './live.order.js';
 import { heldBy, type QueueStatus } from './liquidsoap.control.js';
 import { TrackResolver } from './playout.capability.js';
@@ -288,6 +289,9 @@ export interface ChartPlacing {
 }
 
 /** An item handed over, with the URL the player was told to fetch. */
+/** A record the director has named but not prepared. See {@link Rundown.setFollowing}. */
+export type FollowingRecord = MeasuredCuePoints & { id: string };
+
 export interface PulledItem {
     item: RundownItem;
     url: string;
@@ -312,12 +316,12 @@ export interface PulledItem {
      *
      * A promise rather than a fact, and the two ways it comes apart are both
      * ordinary. The successor can be skipped after this (nothing could resolve
-     * its audio), and it can be one the director has not prepared yet, in which
-     * case this is absent even though the order has more to come. Everything
-     * reading it has to have a defined answer for absent; see `crossfade.ts`,
-     * which is the only reader today and treats it as a hard join.
+     * its audio), and it can change before it airs. It is usually one the director
+     * has not prepared yet, which is why it comes through {@link Rundown.setFollowing}
+     * as well. Everything reading it has to have a defined answer for absent; see
+     * `crossfade.ts`, which is the only reader today and treats it as a hard join.
      */
-    next?: RundownItem;
+    next?: MeasuredCuePoints;
 }
 
 /**
@@ -499,6 +503,8 @@ export class Rundown {
     private armedVoice?: { carrierId: string; itemId: string };
     /** What the director last said about blending this broadcast's boundaries. See {@link crossfade}. */
     private crossfadeEnabled = false;
+    /** What the director last said follows what it has prepared. See {@link setFollowing}. */
+    private following?: FollowingRecord;
     /** What the director last said is on, and who presents it. See {@link broadcast}. */
     private broadcastOn?: RundownBroadcast;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
@@ -551,6 +557,7 @@ export class Rundown {
         // order to arrive may be an album, and inheriting a rotation's setting would blend
         // its first boundary before anything got round to saying otherwise.
         this.crossfadeEnabled = false;
+        this.following = undefined;
         this.broadcastOn = undefined;
     }
 
@@ -578,6 +585,20 @@ export class Rundown {
     /** Tell the transport how this broadcast wants its boundaries handled. */
     setCrossfade(enabled: boolean): void {
         this.crossfadeEnabled = enabled;
+    }
+
+    /**
+     * Tell the transport which record follows what has been prepared, for sizing a blend and nothing else.
+     *
+     * **A record is prepared one at a time (`COMMIT_LEAD` in the director), so when one is handed
+     * over the record behind it is not prepared yet**, and {@link nextPlanned} cannot see it. A blend is
+     * decided at that moment, so going by prepared items alone every boundary was a hard join. Naming it
+     * commits nothing: it can still change, and then that one blend is sized for the record it replaced.
+     *
+     * Absent when what follows is not a record, which is a hard join anyway: nothing is faded into speech.
+     */
+    setFollowing(following: FollowingRecord | undefined): void {
+        this.following = following;
     }
 
     /**
@@ -859,7 +880,7 @@ export class Rundown {
             // and the same question answers with the one behind it. Read after the resolve
             // too, which is the point: the order can have changed while it was in flight and
             // the successor that matters is the one it has now.
-            const next = this.nextPlanned();
+            const next = this.nextPlanned() ?? (this.following?.id === item.id ? undefined : this.following);
 
             this.emit();
             return { item, url, ...(voice === undefined ? {} : { voice }), ...(next === undefined ? {} : { next }) };
@@ -1300,8 +1321,7 @@ export class Rundown {
      * Prepared items only, because `upcoming` is. An item the director has planned
      * but not resolved yet is invisible here, and so is everything behind it. For the
      * hand-over that is correct, since there is nothing to give the player. For the
-     * successor peek it means a boundary occasionally reads as the end of the order
-     * when it is not, which costs one cold join and nothing else.
+     * successor peek it is usually nothing at all, which is what {@link setFollowing} is for.
      */
     private nextPlanned(): RundownItem | undefined {
         return this.ahead().find(entry => entry.state === 'planned')?.item;

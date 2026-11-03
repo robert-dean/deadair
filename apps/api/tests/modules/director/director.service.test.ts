@@ -629,6 +629,40 @@ const airNext = async (rundown: Rundown) => {
     return pulled;
 };
 
+describe('DirectorService telling the transport what follows', () => {
+    // A blend is sized from a record and the one behind it, at the moment the first is handed over.
+    // With a `COMMIT_LEAD` of 1 the one behind it is never prepared by then, so asking only the
+    // prepared items answered "nothing" at every boundary and the station never blended at all.
+    const measured = async () => {
+        const built = build({ items: ['a', 'b', 'c'], analysed: ['a', 'b', 'c'] });
+        await built.seedCatalogued();
+        await built.director.start();
+        await settle();
+        return built;
+    };
+
+    it('names the record behind the one it just prepared', async () => {
+        const { rundown } = await measured();
+
+        const pulled = await rundown.next();
+
+        expect(pulled?.item.title).toBe('Track a');
+        expect(pulled?.next?.introEndMs).toBeDefined();
+        // Still only named: telling the transport about it is not committing it.
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
+    });
+
+    it('moves on with the boundary', async () => {
+        const { rundown } = await measured();
+
+        await airNext(rundown);
+        const pulled = await rundown.next();
+
+        expect(pulled?.item.title).toBe('Track b');
+        expect(pulled?.next?.introEndMs).toBeDefined();
+    });
+});
+
 describe('DirectorService taking the measurement again', () => {
     // A measurement is a SNAPSHOT copied onto the item when the pick was resolved, and analysis
     // runs on an hourly cron -- so a record ingested into a long order is routinely resolved

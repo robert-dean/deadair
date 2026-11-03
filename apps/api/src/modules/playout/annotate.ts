@@ -18,7 +18,7 @@
 import type { CoverLookup } from '#modules/art/cover.resolver.js';
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
-import { blendFor } from './crossfade.js';
+import { blendFor, type MeasuredCuePoints } from './crossfade.js';
 import { duckBedLufsFor, gainFor, type DuckSettings, programmeGainFor, speechAimLufs, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
@@ -147,7 +147,7 @@ export interface AnnotationContext {
      * has to be: a blend is a property of the boundary, so the length cannot be
      * decided from either record alone.
      */
-    next?: RundownItem;
+    next?: MeasuredCuePoints;
     /**
      * The blend the PREVIOUS boundary was stamped with, in milliseconds.
      *

@@ -4,10 +4,9 @@ import type { Occasion, OccasionInput, SpecialRecurrence } from '@deadair/sdk';
 import { monthLong, weekdayLong } from '../../i18n/format.locale';
 import type { Mood } from '../programme/programme.fields';
 
-/** What the occasion form holds. Every kind's fields at once, so switching kind back loses nothing typed. */
-export interface OccasionDraft {
-    words: string;
-    ruleKind: Occasion['ruleKind'];
+/** A rule as a form holds it. Every kind's fields at once, so switching kind back loses nothing typed. */
+export interface RuleDraft {
+    ruleKind: SpecialRecurrence['ruleKind'];
     month: number;
     day: number;
     ordinal: number;
@@ -17,12 +16,16 @@ export interface OccasionDraft {
     calendarMonth: string;
     /** One date per line or comma-separated, as somebody pastes them. */
     dates: string;
+}
+
+/** What the occasion form holds: a rule, and what the occasion says and does on the day. */
+export interface OccasionDraft extends RuleDraft {
+    words: string;
     mood: Mood | undefined;
     enabled: boolean;
 }
 
-export const BLANK_OCCASION: OccasionDraft = {
-    words: '',
+export const BLANK_RULE: RuleDraft = {
     ruleKind: 'fixed',
     month: 1,
     day: 1,
@@ -32,24 +35,32 @@ export const BLANK_OCCASION: OccasionDraft = {
     calendar: 'hebrew',
     calendarMonth: '',
     dates: '',
-    mood: undefined,
-    enabled: true,
 };
+
+export const BLANK_OCCASION: OccasionDraft = { ...BLANK_RULE, words: '', mood: undefined, enabled: true };
+
+/** A saved rule as a form holds it, with the other kinds' fields left at their blanks. */
+export function ruleDraftOf(rule: SpecialRecurrence): RuleDraft {
+    return {
+        ...BLANK_RULE,
+        ruleKind: rule.ruleKind,
+        ...(rule.month === undefined ? {} : { month: rule.month }),
+        ...(rule.day === undefined ? {} : { day: rule.day }),
+        ...(rule.ordinal === undefined ? {} : { ordinal: rule.ordinal }),
+        ...(rule.weekday === undefined ? {} : { weekday: rule.weekday }),
+        ...(rule.offsetDays === undefined ? {} : { offsetDays: rule.offsetDays }),
+        ...(rule.calendar === undefined ? {} : { calendar: rule.calendar }),
+        ...(rule.calendarMonth === undefined ? {} : { calendarMonth: rule.calendarMonth }),
+        dates: (rule.dates ?? []).join('\n'),
+    };
+}
 
 /** A saved occasion as the form holds it, with the other kinds' fields left at their blanks. */
 export function draftOfOccasion(occasion: Occasion): OccasionDraft {
     return {
         ...BLANK_OCCASION,
+        ...ruleDraftOf(occasion),
         words: occasion.words,
-        ruleKind: occasion.ruleKind,
-        ...(occasion.month === undefined ? {} : { month: occasion.month }),
-        ...(occasion.day === undefined ? {} : { day: occasion.day }),
-        ...(occasion.ordinal === undefined ? {} : { ordinal: occasion.ordinal }),
-        ...(occasion.weekday === undefined ? {} : { weekday: occasion.weekday }),
-        ...(occasion.offsetDays === undefined ? {} : { offsetDays: occasion.offsetDays }),
-        ...(occasion.calendar === undefined ? {} : { calendar: occasion.calendar }),
-        ...(occasion.calendarMonth === undefined ? {} : { calendarMonth: occasion.calendarMonth }),
-        dates: (occasion.dates ?? []).join('\n'),
         mood: occasion.mood,
         enabled: occasion.enabled,
     };
@@ -57,22 +68,27 @@ export function draftOfOccasion(occasion: Occasion): OccasionDraft {
 
 /** What the form sends: its words and only the fields its kind reads. */
 export function inputOfDraft(draft: OccasionDraft): OccasionInput {
-    const shared = {
+    return {
         words: draft.words.trim(),
         enabled: draft.enabled,
         ...(draft.mood === undefined ? {} : { mood: draft.mood }),
+        ...inputOfRule(draft),
     };
+}
+
+/** A rule as a write sends it: only the fields its kind reads. */
+export function inputOfRule(draft: RuleDraft): SpecialRecurrence {
     switch (draft.ruleKind) {
         case 'fixed':
-            return { ...shared, ruleKind: 'fixed', month: draft.month, day: draft.day };
+            return { ruleKind: 'fixed', month: draft.month, day: draft.day };
         case 'weekday':
-            return { ...shared, ruleKind: 'weekday', month: draft.month, ordinal: draft.ordinal, weekday: draft.weekday };
+            return { ruleKind: 'weekday', month: draft.month, ordinal: draft.ordinal, weekday: draft.weekday };
         case 'easter':
-            return { ...shared, ruleKind: 'easter', offsetDays: draft.offsetDays };
+            return { ruleKind: 'easter', offsetDays: draft.offsetDays };
         case 'calendar':
-            return { ...shared, ruleKind: 'calendar', calendar: draft.calendar, calendarMonth: draft.calendarMonth, day: draft.day };
+            return { ruleKind: 'calendar', calendar: draft.calendar, calendarMonth: draft.calendarMonth, day: draft.day };
         case 'dates':
-            return { ...shared, ruleKind: 'dates', dates: datesIn(draft.dates) };
+            return { ruleKind: 'dates', dates: datesIn(draft.dates) };
     }
 }
 

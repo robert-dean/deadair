@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-11-03
+
+- The programme shows a special that comes round by a rule, with the date it next runs, and saving one in the desktop editor keeps its rule.
+
 ## [0.17.5] — 2026-10-31
 
 - A connection that goes quiet is now noticed. When the stream stops arriving without the player reporting a failure, as can happen when wifi drops, the app used to go on saying Listening over silence. It now retries after 10 seconds without audio, unless playback is still moving, and a retry that hangs is retried in turn until the app says it cannot reach the station.
@@ -196,7 +200,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.0...HEAD
+[0.18.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.5...desktop-v0.18.0
 [0.17.5]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.4...desktop-v0.17.5
 [0.17.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.3...desktop-v0.17.4
 [0.17.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.2...desktop-v0.17.3

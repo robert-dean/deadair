@@ -9,6 +9,20 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.90.0] — 2026-11-03
+
+- **A special can come round by a rule instead of on dates.** `recurrence` on a schedule slot takes the same rules an occasion does (a fixed date, the nth weekday of a month, days from Easter, a date in the Hebrew or Islamic calendar, or a list), runs the show on each day the rule falls on the station's calendar, and answers `nextDate`. Two specials are refused if they would ever be on at once in the next forty years, and the refusal says when. A client that does not know about rules cannot wipe one by saving the slot, since a rewrite naming neither dates nor a rule keeps it.
+- **A special can be set to come round by itself.** The special's editor now asks whether it runs on dates or by a rule, with the same rules as the Occasions tab, so a Halloween night or a Thanksgiving show needs setting up once.
+- The Specials tab lists a special that comes round by a rule, with the date it next runs and what the rule is, and the timetable treats it as the special it is when a block is dragged.
+- **An occasion can lean the station into a mood.** On a day an operator gives a mood to, the records lean that way and the presenter hears of it, whenever the show on air names no mood of its own. A show's own moods always win, and a mood the show steers away from is never leaned into. The occasions the station starts with name no mood, so nothing changes until one is given.
+- **Occasions can move between stations as a file.** Export on the Occasions tab saves the list, and Import adds one, showing first what it holds, what you already have and anything the station can't use. What it adds starts switched off, and nothing you already have is changed. This is how a country's holidays, or dates no rule can work out such as Lunar New Year, reach a station without a release.
+- **The station can work out when a holiday falls.** A rule can name a fixed date, a weekday of a month such as the fourth Thursday of November, a number of days from Easter, a date in the Hebrew or Islamic calendar, or a list of dates. Nothing reads these yet, so nothing changes on air.
+- **Occasions can be read and written through the API.** `GET` and `POST /occasions`, `PUT /occasions/order`, and `PUT` and `DELETE /occasions/{id}`. Each one says when it next falls, and a rule that could never fall, such as the 31st of June, is refused with the reason.
+- **Occasions has its own tab on the Programme page.** Switch a day on or off, give it a mood, put the list in order, and add your own by date, by weekday, by days from Easter, in the Hebrew or Islamic calendar, or as a list of dates. Each one says when it next falls.
+- **The station keeps a list of occasions.** It starts with New Year, Valentine's Day, St Patrick's Day, Easter, Halloween and Christmas switched on, and others that belong to a country or a faith, such as Thanksgiving and Rosh Hashanah, switched off. Nothing reads the list yet, so nothing changes on air.
+- **Presenters know what day it is.** On New Year's Day, Valentine's Day, St Patrick's Day, Easter Sunday, Halloween, Christmas Eve, Christmas Day and New Year's Eve, a presenter is told what the day is and asked not to go on about it. A phrasing can say it with `{{occasion}}`. A break told the day is rewritten rather than aired if it slides past midnight. With the setting that talks over the end of a record on, a model's links air in the gap on these days, because a link held to the day is never moved earlier.
+- The schedule's resolver and its overlap check can read a special whose day comes from a rule rather than a range of dates. Nothing can store one yet, so nothing changes on the air.
+
 ## [0.89.6] — 2026-11-03
 
 - **Web search keeps a key per engine.** Brave and Tavily shared one stored API key, so saving the form with only the engine changed sent one company's key to the other. Each engine now has its own box and is only ever sent its own key. Choosing a keyed engine with no key of its own is refused on save, and switching away and back needs nothing retyped. An existing key moves to the engine the station is on when it updates. A key left over on a station running SearXNG is deleted, because nothing says whose it is, so enter it again if you go back to a keyed engine.
@@ -1849,7 +1863,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.89.6...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.0...HEAD
+[0.90.0]: https://github.com/robert-dean/deadair/compare/v0.89.6...v0.90.0
 [0.89.6]: https://github.com/robert-dean/deadair/compare/v0.89.5...v0.89.6
 [0.89.5]: https://github.com/robert-dean/deadair/compare/v0.89.4...v0.89.5
 [0.89.4]: https://github.com/robert-dean/deadair/compare/v0.89.3...v0.89.4

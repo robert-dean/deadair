@@ -113,6 +113,7 @@ end
 # any of this existed.
 def playout_transition(a, b) =
   blend = playout_cross_duration(a.metadata)
+  stamped = a.metadata[playout_handover_key] == "1"
   # Never fade a record into speech, whatever blend the OUTGOING item was stamped with. That
   # stamp is decided before a break can be injected behind it: the app stamps `a`'s blend at
   # commit time, off what was next at that moment, and a break landed later at `committedThrough`
@@ -128,10 +129,12 @@ def playout_transition(a, b) =
   then
     sequence([a.source, b.source])
   elsif
-    a.metadata[playout_handover_key] == "1" and blend >= playout_handover_shortest_s
+    stamped and blend >= playout_handover_shortest_s
   then
+    log(label="deadair", "blend: handover, #{blend}s")
     playout_handover(blend, a.source, b.source)
   else
+    log(label="deadair", "blend: plain, #{blend}s, stamped for the handover: #{stamped}")
     add(
       normalize=false,
       [

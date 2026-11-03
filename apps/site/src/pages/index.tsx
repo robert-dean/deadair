@@ -1,3 +1,4 @@
+import Head from '@docusaurus/Head';
 import Link from '@docusaurus/Link';
 import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
@@ -13,6 +14,21 @@ const repository = 'https://github.com/robert-dean/deadair';
 const playStore = 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair';
 /** The Stream Deck plugin's listing on the Elgato Marketplace, which installs it and keeps it updated. */
 const streamDeckMarketplace = 'https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656';
+
+/** What a search engine is told this is, which it cannot work out from a page about one station's running order. */
+const softwareApplication = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'deadair',
+    description:
+        'A personal AI radio station you run yourself, with an AI DJ that picks from your own music, talks between records and streams one broadcast.',
+    url: 'https://deadair.radio',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Docker',
+    license: 'https://opensource.org/licenses/MIT',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    sameAs: [repository, playStore, streamDeckMarketplace],
+};
 
 /** The four facts worth reading before anything else, as a strip under the hero's buttons. */
 const facts = ['Self-hosted', 'Your music', 'Any model, or none', 'MIT licensed'];
@@ -94,7 +110,13 @@ function Section({ label, title, lede, children }: SectionProps) {
 
 export default function Home() {
     return (
-        <Layout description="deadair picks the records, writes what the presenter says between them, speaks it, and streams the result. Self-hosted and MIT licensed.">
+        <Layout
+            title="Self-hosted AI radio station with an AI DJ"
+            description="A personal AI radio station you run yourself. An AI DJ picks from your own music, talks between records and streams one broadcast. Self-hosted and MIT licensed."
+        >
+            <Head>
+                <script type="application/ld+json">{JSON.stringify(softwareApplication)}</script>
+            </Head>
             <main className={styles.page}>
                 <header className={styles.hero}>
                     <h1 className={styles.headline}>An AI radio station you run yourself.</h1>

@@ -124,3 +124,6 @@ address, so an unmasked shot of that page publishes a scannable link to somebody
 (`--mask '#main svg[role="img"]'`). `--hide <text>` drops a row whose text you would rather not
 publish, which the productions page needs whenever a caller's subject is somebody's idea of a joke. `unraid/deadair.xml` links five of them by raw GitHub URL as its
 `<Screenshot>`s, so renaming or deleting one breaks the Unraid listing with nothing here failing.
+
+**The sitemap leaves out every generated API page but the index.** They were 86% of its URLs, one
+short page per route. They are still crawlable through their links, just not put forward.

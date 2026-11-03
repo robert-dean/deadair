@@ -88,6 +88,10 @@ const config: Config = {
                 docs: { editUrl, sidebarPath: './sidebars.ts' },
                 blog: false,
                 theme: { customCss: './src/css/custom.css' },
+                // The generated API reference is most of the site by page count, one short page per
+                // route. Its index stays in, so a search for the API still lands somewhere, and that is
+                // why this is two patterns: `/docs/api-reference/**` matches the index as well.
+                sitemap: { ignorePatterns: ['/docs/api-reference/*', '/docs/api-reference/*/**'] },
             } satisfies Preset.Options,
         ],
     ],

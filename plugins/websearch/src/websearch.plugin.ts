@@ -22,7 +22,7 @@ import { searxngSearch } from './searxng.provider.js';
 import { tavilySearch } from './tavily.provider.js';
 import { albumQuery, artistQuery, documentsFor, parseTrustedSites, type TrustedSite } from './websearch.enrichment.js';
 import { hasBudget } from './websearch.http.js';
-import { DEFAULT_MAX_DOCUMENTS, DEFAULT_MAX_RESULTS, MAX_DOCUMENTS, QUERY_BUDGET_MS, type ProviderId } from './websearch.manifest.js';
+import { API_KEY_FIELDS, DEFAULT_MAX_DOCUMENTS, DEFAULT_MAX_RESULTS, MAX_DOCUMENTS, QUERY_BUDGET_MS, type ProviderId } from './websearch.manifest.js';
 
 export { websearchManifest } from './websearch.manifest.js';
 
@@ -97,13 +97,15 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
 
         this.provider = readProvider(config.provider);
         this.baseUrl = configString(config.baseUrl) ?? '';
-        // From the secrets store, not from `config`. `apiKey` is declared `type: 'secret'`, which
+        // From the secrets store, not from `config`. A key is declared `type: 'secret'`, which
         // means `saveConfig` encrypts it into `secrets` and `host.config.get()` can never contain
         // it — so reading it here answered `''` for every operator who had one, and Brave and
         // Tavily were called with no credential at all. Every other plugin in the tree reads its
         // key this way; this one was the exception, and its tests seeded the key into config, which
         // is exactly why nothing noticed.
-        this.apiKey = (await this.host.secrets.get('apiKey')) ?? '';
+        //
+        // Only the chosen engine's, so the other company's key is never in hand to be sent.
+        this.apiKey = (await this.readKey(this.provider)) ?? '';
         this.maxResults = positive(config.maxResults) ?? DEFAULT_MAX_RESULTS;
         this.trustedSites = parseTrustedSites(config.trustedSites);
         this.maxDocuments = Math.min(positive(config.maxDocuments) ?? DEFAULT_MAX_DOCUMENTS, MAX_DOCUMENTS);
@@ -115,6 +117,12 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
             results: this.maxResults,
             trustedSites: this.trustedSites.length,
         });
+    }
+
+    /** The credential one engine issued, and nothing for an engine that issues none. */
+    private async readKey(provider: ProviderId | undefined): Promise<string | undefined> {
+        if (provider === undefined || provider === 'searxng') return undefined;
+        return await this.host.secrets.get(API_KEY_FIELDS[provider]);
     }
 
     protected async onUnload(): Promise<void> {

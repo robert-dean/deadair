@@ -164,8 +164,8 @@ tools a way to search.
 Open **Settings → Plugins** and open **Web search**. Switch it on, then:
 
 - **Engine**: **SearXNG (self-hosted)** needs no account but needs your own instance, with its JSON
-  format switched on, at **SearXNG address**. **Brave Search** and **Tavily** are paid and need an
-  **API key**.
+  format switched on, at **SearXNG address**. **Brave Search** and **Tavily** are paid and each
+  needs its own key, in **Brave Search subscription token** or **Tavily API key**.
 - **Sites worth quoting**: add a row with a **Name** and an **Address** for each site you would be
   happy to be quoted from. Left empty, the plugin only searches. Only these sites are ever opened.
 

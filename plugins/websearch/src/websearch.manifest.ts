@@ -31,8 +31,20 @@ export type ProviderId = keyof typeof PROVIDERS;
 
 const PROVIDER_IDS = Object.keys(PROVIDERS) as [ProviderId, ...ProviderId[]];
 
-/** Which providers need a key, as opposed to an address the operator runs. */
-export const KEYED_PROVIDERS: readonly ProviderId[] = ['brave', 'tavily'];
+/**
+ * Where each keyed engine's credential is stored. SearXNG has none, because what it needs is an address.
+ *
+ * One secret per engine, because a key belongs to the company that issued it. The two engines used
+ * to share a single `apiKey`, and since a save that leaves a secret out keeps what is stored,
+ * changing only the engine sent Brave's token to Tavily, or Tavily's key to Brave. `sentTo` is no
+ * answer to that: it asks for the key again on every move, including the move back to the engine
+ * that issued it, and it has nothing to say about SearXNG using no key at all. With a key per engine
+ * there is nothing to refuse: an engine reads its own or has none, and the schema below says so.
+ */
+export const API_KEY_FIELDS = {
+    brave: 'braveApiKey',
+    tavily: 'tavilyApiKey',
+} as const satisfies Partial<Record<ProviderId, string>>;
 
 /** Where a SearXNG instance usually answers inside a compose network. A placeholder in the form only. */
 export const DEFAULT_SEARXNG_BASE_URL = 'http://searxng:8080';
@@ -120,7 +132,8 @@ export const configSchema = z
     .object({
         provider: z.enum(PROVIDER_IDS),
         baseUrl: z.string().optional(),
-        apiKey: z.string().optional(),
+        braveApiKey: z.string().optional(),
+        tavilyApiKey: z.string().optional(),
         maxResults: z.coerce.number().int().min(1).max(25).default(DEFAULT_MAX_RESULTS),
         /**
          * The rows, as the JSON array a `list` field is stored as.
@@ -146,9 +159,13 @@ export const configSchema = z
         path: ['baseUrl'],
         message: 'SearXNG needs the address of your instance, e.g. http://searxng:8080',
     })
-    .refine(config => !KEYED_PROVIDERS.includes(config.provider) || hasText(config.apiKey), {
-        path: ['apiKey'],
-        message: 'This engine needs an API key',
+    .refine(config => config.provider !== 'brave' || hasText(config.braveApiKey), {
+        path: [API_KEY_FIELDS.brave],
+        message: 'Brave Search needs its own subscription token',
+    })
+    .refine(config => config.provider !== 'tavily' || hasText(config.tavilyApiKey), {
+        path: [API_KEY_FIELDS.tavily],
+        message: 'Tavily needs its own API key',
     });
 
 export type WebSearchConfig = z.infer<typeof configSchema>;
@@ -234,7 +251,7 @@ export const websearchManifest: PluginManifest = {
             options: Object.entries(PROVIDERS).map(([value, label]) => ({ value, label })),
             help:
                 'SearXNG is self-hosted and needs no account, so it is the one to reach for if you already run an instance (it must have the ' +
-                'JSON format enabled in its settings, which is off by default). Brave and Tavily are paid services and need a key below.',
+                'JSON format enabled in its settings, which is off by default). Brave and Tavily are paid services and each needs its own key below.',
         },
         {
             key: 'baseUrl',
@@ -244,10 +261,16 @@ export const websearchManifest: PluginManifest = {
             help: 'Where your own instance answers. Ignored by the other engines. This is also the only address this plugin is allowed to reach for them.',
         },
         {
-            key: 'apiKey',
-            label: 'API key',
+            key: API_KEY_FIELDS.brave,
+            label: 'Brave Search subscription token',
             type: 'secret',
-            help: 'Brave calls this a subscription token and Tavily an API key. Not needed for SearXNG, which has no account to hold one.',
+            help: 'Only ever sent to Brave. Not needed for the other engines, and kept if you switch away and back.',
+        },
+        {
+            key: API_KEY_FIELDS.tavily,
+            label: 'Tavily API key',
+            type: 'secret',
+            help: 'Only ever sent to Tavily. Not needed for the other engines, and kept if you switch away and back.',
         },
         {
             key: 'maxResults',

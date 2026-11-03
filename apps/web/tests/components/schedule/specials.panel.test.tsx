@@ -37,6 +37,30 @@ describe('SpecialsPanel', () => {
         expect(screen.queryByText('The Boneyard')).toBeNull();
     });
 
+    it('lists a special on a rule by when it next falls, and says what the rule is', () => {
+        const thanksgiving = slot('Thanksgiving', {
+            recurrence: { ruleKind: 'weekday', month: 11, ordinal: 4, weekday: 4 },
+            nextDate: '2026-11-26',
+        });
+
+        render(<SpecialsPanel slots={[thanksgiving, ...SLOTS]} today="2026-10-09" onEdit={vi.fn()} onNew={vi.fn()} />);
+
+        const row = screen.getByRole('row', { name: 'Edit Thanksgiving' });
+        expect(within(row).getByText('Nov 26, 2026')).toBeInTheDocument();
+        expect(within(row).getByText('The fourth Thursday of November')).toBeInTheDocument();
+        expect(within(row).getByText('Coming up')).toBeInTheDocument();
+    });
+
+    it('shows a list of dates that has run out as over, on its last date', () => {
+        const listed = slot('Eclipse', { recurrence: { ruleKind: 'dates', dates: ['2024-04-08', '2025-03-29'] } });
+
+        render(<SpecialsPanel slots={[listed]} today="2026-10-09" onEdit={vi.fn()} onNew={vi.fn()} />);
+
+        const row = screen.getByRole('row', { name: 'Edit Eclipse' });
+        expect(within(row).getByText('Mar 29, 2025')).toBeInTheDocument();
+        expect(within(row).getByText('Over')).toBeInTheDocument();
+    });
+
     it('marks a booked live show as live', () => {
         render(
             <SpecialsPanel

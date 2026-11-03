@@ -554,6 +554,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.startsOn === undefined ? {} : { startsOn: slot.startsOn }),
         ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
         ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),
+        ...(slot.recurrence === undefined ? {} : { recurrence: slot.recurrence }),
         // And a live show's mark, or a drag would turn a booking into a special that plays its own brief.
         ...(slot.live === true ? { live: true } : {}),
         ...(slot.guestHosts === undefined ? {} : { guestHosts: slot.guestHosts.map(guest => ({ ...guest })) }),

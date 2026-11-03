@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { Occasion, OccasionInput } from '@deadair/sdk';
+import type { Occasion, OccasionInput, SpecialRecurrence } from '@deadair/sdk';
 
 import { monthLong, weekdayLong } from '../../i18n/format.locale';
 import type { Mood } from '../programme/programme.fields';
@@ -87,10 +87,10 @@ export function inputOfOccasion(occasion: Occasion): OccasionInput {
     return input;
 }
 
-/** When an occasion falls, in a sentence an operator can check at a glance. */
-export function describeRule(occasion: Occasion, t: TFunction<'schedule'>): string {
-    const { month, day, ordinal, weekday, offsetDays, calendar, calendarMonth, dates } = occasion;
-    switch (occasion.ruleKind) {
+/** When an occasion or a special on a rule falls, in a sentence an operator can check at a glance. */
+export function describeRule(rule: SpecialRecurrence, t: TFunction<'schedule'>): string {
+    const { month, day, ordinal, weekday, offsetDays, calendar, calendarMonth, dates } = rule;
+    switch (rule.ruleKind) {
         case 'fixed':
             return t('occasions.rule.fixed', { month: monthLong(month ?? 1), day: day ?? 1 });
         case 'weekday':

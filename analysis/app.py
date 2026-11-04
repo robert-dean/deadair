@@ -513,12 +513,18 @@ def _decode(path: str, channels: int) -> Decoded:
         "-",
     ]
 
-    try:
-        finished = subprocess.run(command, capture_output=True, check=False)
-    except FileNotFoundError as error:  # pragma: no cover - a broken image, not a bad track
-        raise AnalysisError("internal", "ffmpeg is not installed in this image", status=500) from error
+    # stderr to a file rather than a second pipe, and that is about memory. With two
+    # pipes `subprocess` has to watch both, so it gathers stdout in small pieces and joins
+    # them at the end, holding the whole decode twice for that moment: the highest point
+    # of a decode, 840 MB resident on a sixteen-minute record. With one it just reads.
+    with tempfile.TemporaryFile() as errors:
+        try:
+            finished = subprocess.run(command, stdout=subprocess.PIPE, stderr=errors, check=False)
+        except FileNotFoundError as error:  # pragma: no cover - a broken image, not a bad track
+            raise AnalysisError("internal", "ffmpeg is not installed in this image", status=500) from error
 
-    stderr = finished.stderr.decode("utf-8", errors="replace").strip()
+        errors.seek(0)
+        stderr = errors.read().decode("utf-8", errors="replace").strip()
 
     if finished.returncode != 0:
         code = "unfetchable" if _UNFETCHABLE.search(stderr) else "undecodable"

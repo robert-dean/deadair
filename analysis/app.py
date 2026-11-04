@@ -87,12 +87,14 @@ def _trim() -> None:
 # exactly like a setting that does not work.
 #
 # Four rather than the core count, and the reason is memory rather than CPU: a
-# decode holds the whole record as float32 at the reference rate -- ~115 MB on
-# its own for a five-minute track -- but loudness and the cue points work on top
-# of that buffer, so one worker peaks around ~800 MB resident measuring a
-# five-minute track, plus the downloaded file and ffmpeg's own buffer. On a
-# sixteen-core box that would be several gigabytes of a machine that is usually
-# also running Postgres, the app and the station.
+# decode holds the whole record as float32 at the reference rate, ~110 MB for
+# five minutes of stereo, and the folded copy the cue points read adds half that
+# again. Everything else works a pass at a time on top of those two, so a process
+# measuring one record peaks at about 350 MB resident on five minutes, 730 MB on
+# sixteen and 1.2 GB at the ANALYSIS_MAX_SECONDS limit of thirty (the idle process
+# is 116 MB of that), plus the downloaded file on disk. The figure is set by
+# the record's length, so several workers on long records is still several gigabytes
+# of a machine that is usually also running Postgres, the app and the station.
 WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", str(min(4, os.cpu_count() or 1)))))
 
 PORT = int(os.environ.get("ANALYSIS_PORT", "9321"))
@@ -513,12 +515,18 @@ def _decode(path: str, channels: int) -> Decoded:
         "-",
     ]
 
-    try:
-        finished = subprocess.run(command, capture_output=True, check=False)
-    except FileNotFoundError as error:  # pragma: no cover - a broken image, not a bad track
-        raise AnalysisError("internal", "ffmpeg is not installed in this image", status=500) from error
+    # stderr to a file rather than a second pipe, and that is about memory. With two
+    # pipes `subprocess` has to watch both, so it gathers stdout in small pieces and joins
+    # them at the end, holding the whole decode twice for that moment: the highest point
+    # of a decode, 840 MB resident on a sixteen-minute record. With one it just reads.
+    with tempfile.TemporaryFile() as errors:
+        try:
+            finished = subprocess.run(command, stdout=subprocess.PIPE, stderr=errors, check=False)
+        except FileNotFoundError as error:  # pragma: no cover - a broken image, not a bad track
+            raise AnalysisError("internal", "ffmpeg is not installed in this image", status=500) from error
 
-    stderr = finished.stderr.decode("utf-8", errors="replace").strip()
+        errors.seek(0)
+        stderr = errors.read().decode("utf-8", errors="replace").strip()
 
     if finished.returncode != 0:
         code = "unfetchable" if _UNFETCHABLE.search(stderr) else "undecodable"

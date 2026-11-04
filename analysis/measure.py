@@ -73,6 +73,18 @@ SUSTAIN_MS = 500
 # down.
 REFERENCE_PERCENTILE = 75
 
+# How much of a record the level and band envelopes read at once. Both keep one value
+# per frame, so this rather than the record's length is what they cost in memory: the
+# band pass over a whole sixteen-minute record held 1.4 GB on top of the decode.
+_ENVELOPE_PASS_MS = 30_000
+
+# What the band filter is given on each side of a pass and then discarded. Its slowest
+# pole dies away to nothing a double can represent well inside this (a test pins it),
+# so a sample filtered with this much context either side matches the whole-record
+# filter. Far longer than it needs to be, because being short is the only way to change
+# a cue point here, and one second costs under a tenth of a pass.
+_ENVELOPE_CONTEXT_MS = 1_000
+
 
 @dataclass(frozen=True)
 class CuePoints:
@@ -105,7 +117,10 @@ def _rms_db(frames: np.ndarray) -> np.ndarray:
     """Per-frame RMS in dBFS, with true silence floored rather than -inf."""
     if frames.shape[0] == 0:
         return np.zeros(0, dtype=np.float32)
-    rms = np.sqrt(np.mean(np.square(frames, dtype=np.float64), axis=1))
+    rms = np.empty(frames.shape[0], dtype=np.float64)
+    per_pass = max(1, int(SAMPLE_RATE * _ENVELOPE_PASS_MS / 1000) // frames.shape[1])
+    for start in range(0, rms.size, per_pass):
+        rms[start : start + per_pass] = np.sqrt(np.mean(np.square(frames[start : start + per_pass], dtype=np.float64), axis=1))
     # Clamp before the log: an all-zero frame is legitimate (digital silence at
     # the head of a file) and log(0) would poison every comparison downstream.
     return 20.0 * np.log10(np.maximum(rms, 1e-10))
@@ -123,11 +138,15 @@ def _band_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
     delays what it passes, and the delay is frequency-dependent -- so the
     envelope would lag the audio by a few milliseconds that vary across the
     band, which is exactly the kind of smearing that moves an onset. Filtering
-    forwards and backwards cancels it, and the price (double the effective
-    order, and no ability to stream) costs nothing here because the whole track
-    is already in memory.
+    forwards and backwards cancels it.
+
+    The price is that a backward pass cannot run as a stream, so this filters
+    overlapping passes instead and keeps the middle of each. The ends of the record
+    are still the ends of a pass, so `sosfiltfilt` pads them as it would pad the whole
+    record; every other pass edge is `_ENVELOPE_CONTEXT_MS` from anything kept.
     """
-    if samples.size == 0:
+    usable_frames = samples.size // hop
+    if usable_frames == 0:
         return np.zeros(0, dtype=np.float32)
 
     sos = signal.butter(4, BAND_HZ, btype="bandpass", fs=SAMPLE_RATE, output="sos")
@@ -136,13 +155,25 @@ def _band_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
     # is left unfiltered rather than raising, since the caller's own degenerate
     # cases already cover what to do with the answer.
     padlen = 3 * (2 * 4 + 1)
-    banded = signal.sosfiltfilt(sos, samples.astype(np.float64)) if samples.size > padlen else samples.astype(np.float64)
 
-    frames = _frame(banded, hop)
-    if frames.shape[0] == 0:
-        return np.zeros(0, dtype=np.float32)
+    frames_per_pass = max(1, int(SAMPLE_RATE * _ENVELOPE_PASS_MS / 1000) // hop)
+    context = int(SAMPLE_RATE * _ENVELOPE_CONTEXT_MS / 1000)
 
-    return np.sqrt(np.mean(np.square(frames), axis=1)).astype(np.float32)
+    envelope = np.empty(usable_frames, dtype=np.float32)
+    for first in range(0, usable_frames, frames_per_pass):
+        last = min(first + frames_per_pass, usable_frames)
+        begin = max(0, first * hop - context)
+        # To the file's real end on the last pass, short final frame included, so the
+        # backward filter starts from the same place it would on the whole record.
+        end = samples.size if last == usable_frames else last * hop + context
+
+        piece = samples[begin:end].astype(np.float64)
+        banded = signal.sosfiltfilt(sos, piece) if piece.size > padlen else piece
+
+        kept = banded[first * hop - begin : last * hop - begin].reshape(-1, hop)
+        envelope[first:last] = np.sqrt(np.mean(np.square(kept), axis=1))
+
+    return envelope
 
 
 def _smooth(values: np.ndarray, window: int) -> np.ndarray:

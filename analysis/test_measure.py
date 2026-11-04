@@ -14,9 +14,12 @@ envelope gets wrong.
 
 from __future__ import annotations
 
-import numpy as np
+import tracemalloc
 
-from measure import SAMPLE_RATE, measure
+import numpy as np
+from scipy import signal
+
+from measure import _ENVELOPE_CONTEXT_MS, _ENVELOPE_PASS_MS, BAND_HZ, SAMPLE_RATE, _band_envelope, _frame, _rms_db, measure
 
 RNG = np.random.default_rng(1234)
 
@@ -128,3 +131,62 @@ def test_noise_does_not_break_the_ordering():
 
     points = measure(signal)
     assert points.cue_in <= points.intro_end <= points.outro_start <= points.cue_out
+
+
+def _whole_record_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
+    """One filter over the whole record, which is what the passes have to reproduce."""
+    sos = signal.butter(4, BAND_HZ, btype="bandpass", fs=SAMPLE_RATE, output="sos")
+    banded = signal.sosfiltfilt(sos, samples.astype(np.float64))
+    usable = (samples.size // hop) * hop
+    return np.sqrt(np.mean(np.square(banded[:usable].reshape(-1, hop)), axis=1)).astype(np.float32)
+
+
+def test_band_filter_dies_away_inside_the_context():
+    """What makes a second of context enough, read off the filter rather than assumed."""
+    sos = signal.butter(4, BAND_HZ, btype="bandpass", fs=SAMPLE_RATE, output="sos")
+    _, poles, _ = signal.sos2zpk(sos)
+    context = int(SAMPLE_RATE * _ENVELOPE_CONTEXT_MS / 1000)
+    assert float(np.max(np.abs(poles))) ** context < 1e-20
+
+
+def test_band_envelope_in_passes_matches_the_whole_record_filter():
+    """Across pass boundaries, with a short final frame, on noise whose level moves."""
+    hop = 480
+    pass_frames = int(SAMPLE_RATE * _ENVELOPE_PASS_MS / 1000)
+    n = pass_frames * 2 + SAMPLE_RATE * 5 + 123
+    rng = np.random.default_rng(5)
+    swell = 0.05 + 0.4 * np.abs(np.sin(np.arange(n) * 2 * np.pi / (SAMPLE_RATE * 7)))
+    samples = (rng.standard_normal(n) * swell).astype(np.float32)
+
+    actual = _band_envelope(samples, hop)
+    expected = _whole_record_envelope(samples, hop)
+
+    assert actual.shape == expected.shape
+    # In float32 linear amplitude, where the largest values are around 0.3: agreement
+    # to rounding, and far below the 10 ms and 50% decisions made from this envelope.
+    assert float(np.max(np.abs(actual - expected))) < 1e-6
+
+
+def test_band_envelope_of_a_record_shorter_than_a_pass_is_the_whole_record_filter():
+    samples = tone(3.0)
+    assert np.array_equal(_band_envelope(samples, 480), _whole_record_envelope(samples, 480))
+
+
+def test_level_in_passes_is_the_same_as_over_the_whole_record():
+    samples = np.tile(tone(1.0), 70)
+    frames = _frame(samples, 480)
+    expected = 20.0 * np.log10(np.maximum(np.sqrt(np.mean(np.square(frames, dtype=np.float64), axis=1)), 1e-10))
+    assert np.array_equal(_rms_db(frames), expected)
+
+
+def test_measure_holds_passes_rather_than_the_record():
+    """Five minutes of mono is 54 MB of float32, and the band filter over all of it
+    held four float64 copies, 430 MB. The ceiling is what a pass plus the answer costs."""
+    samples = np.tile(tone(1.0), 300)
+    tracemalloc.start()
+    try:
+        measure(samples)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert peak < 90 * 1024 * 1024

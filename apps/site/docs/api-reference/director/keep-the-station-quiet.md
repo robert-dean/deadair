@@ -1,7 +1,7 @@
 ---
 title: 'Keep the station quiet'
 sidebar_label: 'Keep the station quiet'
-sidebar_position: 24
+sidebar_position: 27
 mdx:
     format: 'md'
 ---

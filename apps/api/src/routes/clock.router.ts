@@ -1,13 +1,57 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { ClockService } from '#src/modules/director/clock.service.js';
-import { ClockBandInput, ClockBandList } from '../modules/director/types/clock.types.js';
+import { ClockBandInput, ClockBandList, ClockImportResult, ClockPack } from '../modules/director/types/clock.types.js';
+import { PackImportPlan } from '../modules/topics/types/topics.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
  * generated from [clock.ck](../../data/contracts/director/clock.ck)
  */
 export const ClockRouter = ServerKitRouter();
+
+/**
+ * This station's format clock as one file, to hand to another station
+ * from [clock.ck](../../data/contracts/director/clock.ck) `GET /clock/export`
+ */
+ClockRouter.get('/clock/export', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(ClockService);
+    const result: ClockPack = await service.exportPack();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+ * from [clock.ck](../../data/contracts/director/clock.ck) `POST /clock/import/preview`
+ */
+ClockRouter.post('/clock/import/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, ClockPack);
+
+    const service = ctx.container.get(ClockService);
+    const result: PackImportPlan = await service.previewImport(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has
+ * from [clock.ck](../../data/contracts/director/clock.ck) `POST /clock/import`
+ */
+ClockRouter.post('/clock/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, ClockPack);
+
+    const service = ctx.container.get(ClockService);
+    const result: ClockImportResult = await service.importPack(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
 
 /**
  * Every band on this station's clock, including the ones switched off, in the operator's own order

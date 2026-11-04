@@ -1,7 +1,7 @@
 ---
 title: 'List clock bands'
 sidebar_label: 'List clock bands'
-sidebar_position: 9
+sidebar_position: 12
 mdx:
     format: 'md'
 ---

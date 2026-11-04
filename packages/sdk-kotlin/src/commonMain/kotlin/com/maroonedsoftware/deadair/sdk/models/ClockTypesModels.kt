@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.sdk.models
 
 import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /** One rule on the station's format clock: a sort of break, and when it happens */
 @Serializable
@@ -53,6 +54,32 @@ data class ClockBandInput(
     val topicId: String? = null,
 )
 
+/** What a band in a file is about, carried whole so the file works on a station that has never heard of it */
+@Serializable
+data class ClockPackTopic(
+    /** What identifies it within the band's kind */
+    val key: String,
+    /** What a break calls it out loud */
+    val label: String,
+    /** This sort of break's own settings for this subject */
+    val config: Map<String, JsonElement>? = null,
+)
+
+/**
+ * A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it
+ * is imported, so one a station cannot use is reported rather than refusing the file
+ */
+@Serializable
+data class ClockPack(
+    /** Says the file is a clock file */
+    val format: String = "deadair.clock",
+    /** The version of the document's shape. This station reads version 1 */
+    val version: Long,
+    /** What the file is, as whoever made it would describe it */
+    val name: String,
+    val bands: List<Map<String, JsonElement>>,
+)
+
 @Serializable
 data class ClockBandList(
     val bands: List<ClockBand>,
@@ -66,6 +93,30 @@ data class ClockBandListInput(
     /** Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it */
     val producibleKinds: List<String>,
 )
+
+/** One rule in a file. Nothing about the station it came from: no id, no place in its order, and no switch */
+@Serializable
+data class ClockPackRow(
+    /** Which sort of break it wants, as `segments.kind` spells it */
+    val kind: String,
+    val at: ClockPackRowAt,
+    val hour: Long? = null,
+    val minute: Long? = null,
+    val days: List<Long>? = null,
+    val everyMs: Long? = null,
+    val topic: ClockPackTopic? = null,
+)
+
+/** What an import did, and the clock as it now stands */
+@Serializable
+data class ClockImportResult(
+    val plan: PackImportPlan,
+    val list: ClockBandList,
+)
+
+/** What an import did, and the clock as it now stands */
+@Serializable
+class ClockImportResultInput
 
 /** `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover */
 @Serializable(with = ClockBandAtSerializer::class)
@@ -86,4 +137,24 @@ object ClockBandAtSerializer : SdkEnumSerializer<ClockBandAt>(
     ClockBandAt.UNKNOWN,
     ClockBandAt.CLOCK to "clock",
     ClockBandAt.INTERVAL to "interval",
+)
+
+@Serializable(with = ClockPackRowAtSerializer::class)
+enum class ClockPackRowAt {
+    CLOCK,
+    INTERVAL,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [ClockPackRowAt] by its wire spelling. A spelling it does not know reads as [ClockPackRowAt.UNKNOWN]. */
+object ClockPackRowAtSerializer : SdkEnumSerializer<ClockPackRowAt>(
+    "ClockPackRowAt",
+    ClockPackRowAt.UNKNOWN,
+    ClockPackRowAt.CLOCK to "clock",
+    ClockPackRowAt.INTERVAL to "interval",
 )

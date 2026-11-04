@@ -1,6 +1,6 @@
 ---
 title: 'ArtistRoute'
-sidebar_position: 35
+sidebar_position: 37
 mdx:
     format: 'md'
 ---

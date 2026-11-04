@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { httpError } from '@maroonedsoftware/errors';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { productionKinds } from '#modules/productions/production.scheduler.js';
@@ -10,8 +11,10 @@ import { PodcastsService } from '#modules/podcasts/podcasts.service.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
+import type { PackImportPlan } from '#modules/topics/types/topics.types.js';
 import type { ClockBand as StoredBand, ClockBandDraft, ClockBandRecord } from './clock.bands.js';
-import type { ClockBand, ClockBandInput, ClockBandList } from './types/clock.types.js';
+import { CLOCK_PACK_VERSION, packOfClock, planClockPack, type ClockPackReading } from './clock.pack.js';
+import type { ClockBand, ClockBandInput, ClockBandList, ClockImportResult, ClockPack } from './types/clock.types.js';
 
 /**
  * The format clock, as an operator edits it.
@@ -96,6 +99,50 @@ export class ClockService {
         return await this.list();
     }
 
+    /** `GET /clock/export`. */
+    async exportPack(): Promise<ClockPack> {
+        return packOfClock(await this.bands.list(), await this.topics.list());
+    }
+
+    /** `POST /clock/import/preview`. Writes nothing. */
+    async previewImport(body: ClockPack): Promise<PackImportPlan> {
+        return planOf(body, await this.readPack(body), (await this.list()).producibleKinds);
+    }
+
+    /**
+     * `POST /clock/import`. Adds the file's bands after this station's own, switched off, along with the
+     * subjects they need. Changes nothing the station already has, and the planner reads bands on each pass,
+     * so there is nothing else to tell.
+     *
+     * All or nothing, by the request's own transaction: the preview is what stands between an operator and
+     * a surprise, so a file that landed halfway would be the one outcome nothing had described.
+     */
+    async importPack(body: ClockPack): Promise<ClockImportResult> {
+        const reading = await this.readPack(body);
+        // Before anything is written, since this is also what refuses a version it cannot read.
+        const plan = planOf(body, reading, (await this.list()).producibleKinds);
+
+        for (const draft of reading.addingTopics) await this.topics.create(draft);
+
+        const subjects = await this.topics.list();
+        for (const band of reading.adding) {
+            const subject =
+                band.subjectKey === undefined ? undefined : subjects.find(topic => topic.kind === band.shape.kind && topic.key === band.subjectKey);
+            await this.bands.create({
+                ...band.shape,
+                ...(subject === undefined ? {} : { topic: { id: subject.id, key: subject.key, label: subject.label } }),
+                position: band.position,
+                enabled: false,
+            });
+        }
+
+        return { plan, list: await this.list() };
+    }
+
+    private async readPack(body: ClockPack): Promise<ClockPackReading> {
+        return planClockPack(body, await this.bands.list(), await this.topics.list());
+    }
+
     /**
      * A band as the form sent it.
      *
@@ -118,6 +165,35 @@ export class ClockService {
 
         return { ...shape, ...(await subjectFor(this.topics, input)), position: input.position, enabled: input.enabled };
     }
+}
+
+/** What a file would do, in the words the console shows. Refuses a version this station cannot read. */
+function planOf(pack: ClockPack, reading: ClockPackReading, producible: readonly string[]): PackImportPlan {
+    if (pack.version > CLOCK_PACK_VERSION) {
+        throw httpError(400).withDetails({
+            message: `this station reads version ${CLOCK_PACK_VERSION} of a clock file, and this file is version ${pack.version}`,
+        });
+    }
+
+    const kinds = [...new Set(reading.adding.map(band => band.shape.kind))];
+    return {
+        name: pack.name,
+        adding: reading.adding.map(band => band.words),
+        skipped: reading.skipped,
+        dropped: reading.dropped,
+        notices: [
+            ...reading.addingTopics.map(topic => ({
+                kind: 'new-subject',
+                message: `Also adds the subject "${topic.label}" to ${topic.kind}, which a band here asks for.`,
+            })),
+            ...kinds
+                .filter(kind => !producible.includes(kind))
+                .map(kind => ({
+                    kind: 'cannot-produce',
+                    message: `Nothing on this station can make a "${kind}" break yet, so a band for it would pass over its slots.`,
+                })),
+        ],
+    };
 }
 
 /**
@@ -190,7 +266,11 @@ const forTheWire = (band: ClockBandRecord): ClockBand => ({
     position: band.position,
     enabled: band.enabled,
     ...(band.at === 'clock'
-        ? { minute: band.minute, ...(band.hour === undefined ? {} : { hour: band.hour }), ...(band.days === undefined ? {} : { days: [...band.days] }) }
+        ? {
+              minute: band.minute,
+              ...(band.hour === undefined ? {} : { hour: band.hour }),
+              ...(band.days === undefined ? {} : { days: [...band.days] }),
+          }
         : { everyMs: band.everyMs }),
     ...(band.topic === undefined ? {} : { topicId: band.topic.id, topicLabel: band.topic.label }),
 });

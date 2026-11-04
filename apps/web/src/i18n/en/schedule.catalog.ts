@@ -394,6 +394,16 @@ export const schedule = {
         description:
             'What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so nothing is ever cut off mid-record. Where two rules want one boundary, the higher one takes it. The clock belongs to the station rather than to a broadcast, so every show follows it and an edit here changes all of them.',
         addBand: 'New band',
+        export: 'Export',
+        exportFailedTitle: 'The format clock could not be exported',
+        exportFailedFallback: 'Nothing was saved.',
+        importOpen: 'Import',
+        import: {
+            title: 'Import a format clock',
+            intro: 'Add bands from a file another station exported. They go after your own, switched off, so your clock stays as it is until you turn one on.',
+            adding_one: 'Adds {{count}} band, switched off:',
+            adding_other: 'Adds {{count}} bands, switched off:',
+        },
         loadFailedTitle: 'The format clock could not be loaded',
         loadFailedFallback: "The station's bands are unavailable.",
         changeFailedTitle: 'That band could not be changed',

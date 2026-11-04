@@ -3,11 +3,49 @@ package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.ClockBandInput
 import com.maroonedsoftware.deadair.sdk.models.ClockBandList
+import com.maroonedsoftware.deadair.sdk.models.ClockImportResult
+import com.maroonedsoftware.deadair.sdk.models.ClockPack
+import com.maroonedsoftware.deadair.sdk.models.PackImportPlan
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 
 /** Operations declared in `clock.ck`. */
 class ClockClient(private val http: SdkHttp) {
+    /**
+     * Export clock
+     * This station's format clock as one file, to hand to another station
+     */
+    suspend fun exportClock(): ClockPack {
+        val response = http.execute(HttpMethod.Get) {
+            path("clock", "export")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Preview clock import
+     * Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+     */
+    suspend fun previewClockImport(body: ClockPack): PackImportPlan {
+        val response = http.execute(HttpMethod.Post) {
+            path("clock", "import", "preview")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Import clock
+     * Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has
+     */
+    suspend fun importClock(body: ClockPack): ClockImportResult {
+        val response = http.execute(HttpMethod.Post) {
+            path("clock", "import")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
     /**
      * List clock bands
      * Every band on this station's clock, including the ones switched off, in the operator's own order

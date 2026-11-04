@@ -7,7 +7,8 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { ClockService } from '#src/modules/director/clock.service.js';
-import { ClockBandInput, ClockBandList } from '../modules/director/types/clock.types.js';
+import { ClockBandInput, ClockBandList, ClockImportResult, ClockPack } from '../modules/director/types/clock.types.js';
+import { PackImportPlan } from '../modules/topics/types/topics.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -17,10 +18,82 @@ function requireMcpContainer(context: McpToolContext): Container {
     return context.container;
 }
 
+const ExportClockArgs = z.object({});
+const PreviewClockImportArgs = z.object({ body: ClockPack });
+const ImportClockArgs = z.object({ body: ClockPack });
 const ListClockBandsArgs = z.object({});
 const CreateClockBandArgs = z.object({ body: ClockBandInput });
 const UpdateClockBandArgs = z.object({ id: z.string().min(1).max(100), body: ClockBandInput });
 const DeleteClockBandArgs = z.object({ id: z.string().min(1).max(100) });
+
+/**
+ * from [clock.ck](../../data/contracts/director/clock.ck) `GET /clock/export`
+ */
+@Injectable()
+export class ExportClockMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'export_clock',
+        description: "This station's format clock as one file, to hand to another station",
+        inputSchema: z.toJSONSchema(ExportClockArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ClockPack, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const result = await container.get(ClockService).exportPack();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [clock.ck](../../data/contracts/director/clock.ck) `POST /clock/import/preview`
+ */
+@Injectable()
+export class PreviewClockImportMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'preview_clock_import',
+        description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing',
+        inputSchema: z.toJSONSchema(PreviewClockImportArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PackImportPlan, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, PreviewClockImportArgs);
+        const result = await container.get(ClockService).previewImport(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [clock.ck](../../data/contracts/director/clock.ck) `POST /clock/import`
+ */
+@Injectable()
+export class ImportClockMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'import_clock',
+        description:
+            "Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has",
+        inputSchema: z.toJSONSchema(ImportClockArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ClockImportResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, ImportClockArgs);
+        const result = await container.get(ClockService).importPack(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
 
 /**
  * from [clock.ck](../../data/contracts/director/clock.ck) `GET /clock/bands`
@@ -115,6 +188,9 @@ export class DeleteClockBandMcpTool implements McpToolHandler {
 
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
 export function registerClockMcpCatalog(map: McpToolHandlerMap, container: Container): void {
+    map.set('export_clock', container.get(ExportClockMcpTool));
+    map.set('preview_clock_import', container.get(PreviewClockImportMcpTool));
+    map.set('import_clock', container.get(ImportClockMcpTool));
     map.set('list_clock_bands', container.get(ListClockBandsMcpTool));
     map.set('create_clock_band', container.get(CreateClockBandMcpTool));
     map.set('update_clock_band', container.get(UpdateClockBandMcpTool));
@@ -123,6 +199,9 @@ export function registerClockMcpCatalog(map: McpToolHandlerMap, container: Conta
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
 export function registerClockMcpToolClasses(registry: Registry): void {
+    registry.register(ExportClockMcpTool).useClass(ExportClockMcpTool).asSingleton();
+    registry.register(PreviewClockImportMcpTool).useClass(PreviewClockImportMcpTool).asSingleton();
+    registry.register(ImportClockMcpTool).useClass(ImportClockMcpTool).asSingleton();
     registry.register(ListClockBandsMcpTool).useClass(ListClockBandsMcpTool).asSingleton();
     registry.register(CreateClockBandMcpTool).useClass(CreateClockBandMcpTool).asSingleton();
     registry.register(UpdateClockBandMcpTool).useClass(UpdateClockBandMcpTool).asSingleton();

@@ -1807,6 +1807,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/BreakKindImportResult'
+    '/clock/export':
+        get:
+            operationId: exportPack
+            summary: 'Export clock'
+            description: "This station's format clock as one file, to hand to another station"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ClockPack'
+    '/clock/import/preview':
+        post:
+            operationId: previewImport
+            summary: 'Preview clock import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ClockPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PackImportPlan'
+    '/clock/import':
+        post:
+            operationId: importPack
+            summary: 'Import clock'
+            description: "Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ClockPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ClockImportResult'
     '/clock/bands':
         get:
             operationId: listClockBands
@@ -6346,7 +6394,7 @@ paths:
                                 '$ref': '#/components/schemas/OccasionList'
     '/occasions/export':
         get:
-            operationId: exportPack
+            operationId: exportOccasions
             summary: 'Export occasions'
             description: 'Every occasion on this station as one file, to hand to another station'
             responses:
@@ -6358,7 +6406,7 @@ paths:
                                 '$ref': '#/components/schemas/OccasionPack'
     '/occasions/import/preview':
         post:
-            operationId: previewImport
+            operationId: previewOccasionImport
             summary: 'Preview occasion import'
             description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
             requestBody:
@@ -6376,7 +6424,7 @@ paths:
                                 '$ref': '#/components/schemas/OccasionImportPlan'
     '/occasions/import':
         post:
-            operationId: importPack
+            operationId: importOccasions
             summary: 'Import occasions'
             description: 'Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has'
             requestBody:
@@ -10605,6 +10653,40 @@ components:
                         maxLength: 100
                     description: 'Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it'
             required: [bands, producibleKinds]
+        ClockPack:
+            type: object
+            properties:
+                format:
+                    const: deadair.clock
+                    description: 'Says the file is a clock file'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the file is, as whoever made it would describe it'
+                bands:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 500
+            required: [format, version, name, bands]
+            description: "A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it\nis imported, so one a station cannot use is reported rather than refusing the file"
+        ClockImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PackImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/ClockBandList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the clock as it now stands'
         StationMode:
             type: string
             enum: [rotation, setlist, feature]

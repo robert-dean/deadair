@@ -21,6 +21,47 @@ namespace MaroonedSoftware.Deadair.Sdk.Clients;
 public sealed class ClockClient(SdkHttp http)
 {
     /// <summary>
+    /// Export clock
+    /// This station's format clock as one file, to hand to another station
+    /// </summary>
+    public async Task<ClockPack> ExportClockAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("clock", "export"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ClockPack>(response);
+    }
+
+    /// <summary>
+    /// Preview clock import
+    /// Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+    /// </summary>
+    public async Task<PackImportPlan> PreviewClockImportAsync(ClockPack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("clock", "import", "preview"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PackImportPlan>(response);
+    }
+
+    /// <summary>
+    /// Import clock
+    /// Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has
+    /// </summary>
+    public async Task<ClockImportResult> ImportClockAsync(ClockPack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("clock", "import"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ClockImportResult>(response);
+    }
+
+    /// <summary>
     /// List clock bands
     /// Every band on this station's clock, including the ones switched off, in the operator's own order
     /// </summary>

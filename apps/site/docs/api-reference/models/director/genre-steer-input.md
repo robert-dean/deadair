@@ -1,6 +1,6 @@
 ---
 title: 'GenreSteerInput'
-sidebar_position: 40
+sidebar_position: 42
 mdx:
     format: 'md'
 ---

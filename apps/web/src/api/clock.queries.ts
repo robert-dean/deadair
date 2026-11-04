@@ -1,6 +1,7 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import type { ClockBandInput, ClockBandList } from '@deadair/sdk';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ClockBandInput, ClockBandList, ClockImportResult, ClockPack } from '@deadair/sdk';
 
+import { saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
 import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
@@ -41,3 +42,24 @@ export const useCreateClockBand = () => useClockWrite((body: ClockBandInput) => 
 export const useUpdateClockBand = () => useClockWrite(({ id, body }: { id: string; body: ClockBandInput }) => sdk.director.updateClockBand(id, body));
 
 export const useDeleteClockBand = () => useClockWrite((id: string) => sdk.director.deleteClockBand(id));
+
+/** Saves the clock as a file. A download is not state this console holds, so this is no query. */
+export async function exportClock(): Promise<void> {
+    saveJsonDownload(await sdk.director.exportClock(), 'deadair-clock.json');
+}
+
+export function usePreviewClockImport() {
+    return useMutation({ mutationFn: (pack: ClockPack) => sdk.director.previewClockImport(pack) });
+}
+
+/** An import answers the clock as it now stands. It can add subjects too, which this answer says nothing about. */
+export function useImportClock() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (pack: ClockPack) => sdk.director.importClock(pack),
+        onSuccess: (answer: ClockImportResult) => {
+            queryClient.setQueryData(queryKeys.director.clock(), answer.list);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.topics.list() });
+        },
+    });
+}

@@ -1,3 +1,5 @@
+import type { PackImportPlan } from '../../topics/types/topics.types.js';
+
 /**
  * One rule on the station's format clock: a sort of break, and when it happens
  * generated from [ClockBand](../../../../../apps/api/data/contracts/director/clock.types.ck)
@@ -48,6 +50,34 @@ export interface ClockBandInput {
 }
 
 /**
+ * What a band in a file is about, carried whole so the file works on a station that has never heard of it
+ * generated from [ClockPackTopic](../../../../../apps/api/data/contracts/director/clock.types.ck)
+ */
+export interface ClockPackTopic {
+    /** What identifies it within the band's kind */
+    key: string;
+    /** What a break calls it out loud */
+    label: string;
+    /** This sort of break's own settings for this subject */
+    config?: Record<string, unknown>;
+}
+
+/**
+ * A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it
+ * is imported, so one a station cannot use is reported rather than refusing the file
+ * generated from [ClockPack](../../../../../apps/api/data/contracts/director/clock.types.ck)
+ */
+export interface ClockPack {
+    /** Says the file is a clock file */
+    format: 'deadair.clock';
+    /** The version of the document's shape. This station reads version 1 */
+    version: number;
+    /** What the file is, as whoever made it would describe it */
+    name: string;
+    bands: Record<string, unknown>[];
+}
+
+/**
  * generated from [ClockBandList](../../../../../apps/api/data/contracts/director/clock.types.ck)
  */
 export interface ClockBandList {
@@ -61,3 +91,29 @@ export interface ClockBandListInput {
     /** Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it */
     producibleKinds: string[];
 }
+
+/**
+ * One rule in a file. Nothing about the station it came from: no id, no place in its order, and no switch
+ * generated from [ClockPackRow](../../../../../apps/api/data/contracts/director/clock.types.ck)
+ */
+export interface ClockPackRow {
+    /** Which sort of break it wants, as `segments.kind` spells it */
+    kind: string;
+    at: 'clock' | 'interval';
+    hour?: number;
+    minute?: number;
+    days?: number[];
+    everyMs?: number;
+    topic?: ClockPackTopic;
+}
+
+/**
+ * What an import did, and the clock as it now stands
+ * generated from [ClockImportResult](../../../../../apps/api/data/contracts/director/clock.types.ck)
+ */
+export interface ClockImportResult {
+    plan: PackImportPlan;
+    list: ClockBandList;
+}
+
+export interface ClockImportResultInput {}

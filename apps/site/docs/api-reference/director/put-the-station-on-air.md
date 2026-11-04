@@ -1,7 +1,7 @@
 ---
 title: 'Put the station on air'
 sidebar_label: 'Put the station on air'
-sidebar_position: 14
+sidebar_position: 17
 mdx:
     format: 'md'
 ---

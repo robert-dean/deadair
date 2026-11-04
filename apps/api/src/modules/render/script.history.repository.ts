@@ -510,6 +510,41 @@ export class ScriptHistoryRepository extends DataRepository {
     }
 
     /**
+     * The attempt each of these segments would air, and what the operator thought of it.
+     *
+     * The newest written attempt, by the same predicate {@link writtenBy} and the stories reader use,
+     * so a rating taken from the running order lands on the attempt those two readers judge. An
+     * earlier attempt's rating does not carry over: an operator who disliked it has said nothing
+     * about the rewrite.
+     *
+     * A segment with no such attempt has no entry, which is every recording and every break not
+     * written yet. No query at all for an order with no segments in it.
+     */
+    async newestWrittenFor(segmentIds: readonly string[]): Promise<Map<string, { id: string; rating?: number }>> {
+        if (segmentIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.scriptHistory')
+            .leftJoin('deadair.scriptRatings', join =>
+                join
+                    .onRef('deadair.scriptRatings.scriptId', '=', 'deadair.scriptHistory.id')
+                    .on('deadair.scriptRatings.stationKey', '=', this.identity.stationKey),
+            )
+            .distinctOn('deadair.scriptHistory.segmentId')
+            .select(['deadair.scriptHistory.id as id', 'deadair.scriptHistory.segmentId as segmentId', 'deadair.scriptRatings.rating as rating'])
+            .where('deadair.scriptHistory.stationKey', '=', this.identity.stationKey)
+            .where('deadair.scriptHistory.segmentId', 'in', [...segmentIds])
+            .where('deadair.scriptHistory.outcome', '=', 'written')
+            .where('deadair.scriptHistory.script', 'is not', null)
+            .orderBy('deadair.scriptHistory.segmentId')
+            .orderBy('deadair.scriptHistory.createdAt', 'desc')
+            .orderBy('deadair.scriptHistory.id', 'desc')
+            .execute();
+
+        return new Map(rows.map(row => [row.segmentId!, { id: row.id, ...(row.rating == null ? {} : { rating: row.rating }) }]));
+    }
+
+    /**
      * One page of what the station has written, newest first.
      *
      * A keyset over `(created_at, id)` rather than an offset, for the reason `ActivityRepository`

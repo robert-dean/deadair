@@ -951,6 +951,16 @@ public sealed record StationOrderItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SegmentWriter { get; init; }
 
+    /// <summary>The newest written attempt behind this segment, which is the words that air and the attempt a rating of this break lands on. Absent on a record, on a recording nobody wrote, and on a break not written yet</summary>
+    [JsonPropertyName("scriptId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? ScriptId { get; init; }
+
+    /// <summary>What the operator thought of that attempt. Absent means nobody has said, which `neutral` does not, and a rewrite starts unrated</summary>
+    [JsonPropertyName("scriptRating")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScriptRating? ScriptRating { get; init; }
+
     /// <summary>Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right</summary>
     [JsonPropertyName("overAtMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

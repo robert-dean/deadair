@@ -243,6 +243,7 @@ function build(options: Options = {}) {
 
     // Read-only from the console's side: a lineup names a segment and the library owns it.
     const library = new Map<string, Segment>((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));
+    const scripts = { newestWrittenFor: vi.fn(async () => new Map<string, { id: string; rating?: number }>()) };
     const segments = {
         findById: vi.fn(async (id: string) => library.get(id)),
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
@@ -440,9 +441,11 @@ function build(options: Options = {}) {
             } as never,
             routes as never,
             positions,
+            scripts as never,
         ),
         routes,
         positions,
+        scripts,
         pusher,
         art,
         cutAgainst,
@@ -1937,6 +1940,36 @@ describe('DirectorConsoleService editing the running order', () => {
 
         expect(drawn.items[1]).toMatchObject({ kind: 'segment', artworkUrl: 'art/art-weather/cover.png' });
         expect(drawn.items[2]!.artworkUrl).toBeUndefined();
+    });
+
+    it('carries the attempt a break would air and its rating, and neither on a break with none', async () => {
+        const order = onAirWith(1);
+        order.insertSegment('seg-rated', 1);
+        order.insertSegment('seg-unrated', 2);
+        order.insertSegment('seg-recording', 3);
+        const { service, scripts } = build({
+            order,
+            segments: [
+                { id: 'seg-rated', kind: 'talk', state: 'ready', label: 'Rated', source: 'library' },
+                { id: 'seg-unrated', kind: 'talk', state: 'ready', label: 'Unrated', source: 'library' },
+                { id: 'seg-recording', kind: 'ident', state: 'ready', label: 'Recording', source: 'library' },
+            ],
+        });
+        scripts.newestWrittenFor.mockResolvedValue(
+            new Map<string, { id: string; rating?: number }>([
+                ['seg-rated', { id: 'script-1', rating: -1 }],
+                ['seg-unrated', { id: 'script-2' }],
+            ]),
+        );
+
+        const drawn = await service.getOrder();
+
+        expect(scripts.newestWrittenFor).toHaveBeenCalledWith(['seg-rated', 'seg-unrated', 'seg-recording']);
+        expect(drawn.items[1]).toMatchObject({ scriptId: 'script-1', scriptRating: 'disliked' });
+        expect(drawn.items[2]).toMatchObject({ scriptId: 'script-2' });
+        expect(drawn.items[2]!.scriptRating).toBeUndefined();
+        expect(drawn.items[3]!.scriptId).toBeUndefined();
+        expect(drawn.items[0]!.scriptId).toBeUndefined();
     });
 
     it("draws a break whose kind has no picture wearing the host's portrait, and the kind's own picture over it", async () => {

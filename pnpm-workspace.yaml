@@ -49,6 +49,13 @@ overrides:
     # zod ^3.25 and the fix is only in 4.6.6, but every import it makes is `zod/v4-mini`, which zod 4
     # still exports. Never in the image.
     '@elgato/utils>zod': ^4.6.6
+    # The contract compiler and the linters, all dev-only and all reading this repository's own patterns.
+    # @contractkit/cli and eslint's three packages ask for glob 13 and minimatch 10 and the fixes are only in
+    # the next majors, which keep the `glob()` and `new Minimatch().match()` these call. Never in the image.
+    '@contractkit/cli>glob': ^14.0.3
+    '@eslint/config-array>minimatch': ^11.0.4
+    '@typescript-eslint/typescript-estree>minimatch': ^11.0.4
+    'eslint>minimatch': ^11.0.4
 
 confirmModulesPurge: false
 

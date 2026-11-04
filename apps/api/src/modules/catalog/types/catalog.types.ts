@@ -489,6 +489,16 @@ export const TrackAnalysis = z.strictObject({
     analyzedAt: _ZodDatetime.optional(),
     failedAt: _ZodDatetime.optional(),
     failureReason: z.string().max(2000).optional(),
+    bpm: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0))
+        .optional()
+        .describe(
+            "The record's tempo in beats a minute, as measured from its audio. Absent where it has no pulse to report, or has not been measured for one yet",
+        ),
+    beatConfidence: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(1))
+        .optional()
+        .describe('How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel'),
     failureCode: MeasureFailure.optional().describe(
         'Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is',
     ),

@@ -106,6 +106,8 @@ contract TrackAnalysis: {
     analyzedAt?: readonly datetime
     failedAt?: readonly datetime
     failureReason?: readonly string(max=2000)
+    bpm?: readonly number(min=0) # The record's tempo in beats a minute, as measured from its audio. Absent where it has no pulse to report, or has not been measured for one yet
+    beatConfidence?: readonly number(min=0, max=1) # How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel
     failureCode?: readonly MeasureFailure # Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is
 }
 

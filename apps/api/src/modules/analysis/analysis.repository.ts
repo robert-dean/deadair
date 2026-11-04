@@ -325,11 +325,17 @@ export class AnalysisRepository extends DataRepository {
         const row = await this.db
             .selectFrom('deadair.trackAnalysis')
             .select(['schemaVersion', 'complete', 'analyzer', 'analyzerPluginId', 'analyzedAt', 'failedAt', 'failureReason', 'failureCode'])
+            // The two figures rather than `data`, which carries a bar line for every bar of the record.
+            .select([
+                sql<number | null>`(data ->> 'bpm')::double precision`.as('bpm'),
+                sql<number | null>`(data ->> 'beatConfidence')::double precision`.as('beatConfidence'),
+            ])
             .where('trackId', '=', trackId)
             .executeTakeFirst();
         if (row === undefined) return undefined;
 
-        const { failureCode, ...rest } = row;
+        const { failureCode, bpm, beatConfidence, ...measured } = row;
+        const rest = { ...measured, ...(bpm == null ? {} : { bpm }), ...(beatConfidence == null ? {} : { beatConfidence }) };
         // A failure written before 0086 has no code and is retried as `undecodable` is, so it is
         // reported as one. A row that did not fail carries none at all.
         if (row.failedAt == null) return rest;

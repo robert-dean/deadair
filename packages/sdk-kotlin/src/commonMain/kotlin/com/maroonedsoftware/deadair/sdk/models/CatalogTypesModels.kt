@@ -607,6 +607,10 @@ data class TrackAnalysis(
     val analyzedAt: Instant? = null,
     val failedAt: Instant? = null,
     val failureReason: String? = null,
+    /** The record's tempo in beats a minute, as measured from its audio. Absent where it has no pulse to report, or has not been measured for one yet */
+    val bpm: Double? = null,
+    /** How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel */
+    val beatConfidence: Double? = null,
     /** Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is */
     val failureCode: MeasureFailure? = null,
 )

@@ -10,6 +10,7 @@ import { AuthoredBadge } from '../shared/authored.badge';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { formatCount } from '../../i18n/format.locale';
 import { formatMomentMinute, type Moment } from '../shared/feed.moment';
 import { formatBytes } from '../shared/format.bytes';
 import { formatDuration } from '../shared/format.duration';
@@ -383,6 +384,16 @@ function MeasurementCard({ detail }: { detail: TrackDetail }) {
                         <Figure label={t('track.measurement.lastMeasured')}>{moment(analysis.analyzedAt)}</Figure>
                         <Figure label={t('track.measurement.by')}>{analysis.analyzer ?? analysis.analyzerPluginId ?? '—'}</Figure>
                         <Figure label={t('track.measurement.schema')}>{analysis.schemaVersion}</Figure>
+                        {analysis.bpm === undefined ? undefined : (
+                            <Figure label={t('track.measurement.tempo')}>
+                                <span className="da-num">{t('track.measurement.tempoValue', { bpm: formatCount(Math.round(analysis.bpm)) })}</span>
+                            </Figure>
+                        )}
+                        {analysis.beatConfidence === undefined ? undefined : (
+                            <Figure label={t('track.measurement.tempoTrust')}>
+                                <span className="da-num">{t('track.measurement.tempoTrustValue', { percent: Math.round(analysis.beatConfidence * 100) })}</span>
+                            </Figure>
+                        )}
                         {/* The kind before the sentence: it is what decides when the walk tries again. */}
                         {analysis.failureCode === undefined ? undefined : (
                             <Figure label={t('track.measurement.kind')}>{t(`track.measurement.kinds.${analysis.failureCode}`)}</Figure>

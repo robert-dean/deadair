@@ -146,6 +146,15 @@ describe('a re-measure', () => {
 describe('AnalysisRepository.stateFor', () => {
     const stateFor = (row: Record<string, unknown>) => new AnalysisRepository(fakeDb({ statements: [] }, [row])).stateFor('t-1');
 
+    it('carries the tempo where the row has one, and leaves it out where it has not', async () => {
+        const measured = await stateFor({ schemaVersion: 1, complete: true, analyzedAt: new Date(), bpm: 117.1, beatConfidence: 0.99 });
+        const older = await stateFor({ schemaVersion: 1, complete: true, analyzedAt: new Date(), bpm: null, beatConfidence: null });
+
+        expect(measured).toMatchObject({ bpm: 117.1, beatConfidence: 0.99 });
+        expect(older).not.toHaveProperty('bpm');
+        expect(older).not.toHaveProperty('beatConfidence');
+    });
+
     it('reports the kind of a failure the walk stored', async () => {
         const state = await stateFor({ schemaVersion: 1, complete: false, failedAt: '2026-10-23T03:12:00Z', failureCode: 'unfetchable' });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Rating } from '../../catalog/types/catalog.types.js';
+import { ScriptRating } from '../../render/types/render.types.js';
 
 /**
  * What kind of programming the station is running, which decides the rules it runs under
@@ -507,6 +508,15 @@ export const StationOrderItem = z.strictObject({
         .max(200)
         .optional()
         .describe("What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made"),
+    scriptId: z
+        .uuid()
+        .optional()
+        .describe(
+            'The newest written attempt behind this segment, which is the words that air and the attempt a rating of this break lands on. Absent on a record, on a recording nobody wrote, and on a break not written yet',
+        ),
+    scriptRating: ScriptRating.optional().describe(
+        'What the operator thought of that attempt. Absent means nobody has said, which `neutral` does not, and a rewrite starts unrated',
+    ),
     overAtMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()

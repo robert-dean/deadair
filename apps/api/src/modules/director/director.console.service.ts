@@ -23,7 +23,9 @@ import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
 import { cannotPresent } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
+import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { ratingFromColumn } from '#modules/catalog/rating.js';
 import { isPlaylistSource, isStationPlaylistSource, minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
 import { resumeAfter, resumeIndex } from './playlist.resume.js';
 import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
@@ -190,6 +192,9 @@ export class DirectorConsoleService {
         // Read-only here: where a slot that resumes its playlist got to in it. Written on the aired edge
         // by the director, never from the console. See {@link nextOnSlotPlaylist}.
         private readonly positions: PlaylistPositionRepository,
+        // Read-only: which attempt a break on the order would air and what the operator thought of
+        // it, so it can be rated from the desk. The rating itself is written through the render routes.
+        private readonly scripts: ScriptHistoryRepository,
     ) {}
 
     /**
@@ -1848,7 +1853,9 @@ export class DirectorConsoleService {
      * One query for the whole order, not one per item.
      */
     private async toOrder(order: StationLineupSnapshot): Promise<StationOrder> {
-        const segments = await this.segments.findByIds(order.items.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])));
+        const segmentIds = order.items.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
+        const segments = await this.segments.findByIds(segmentIds);
+        const written = await this.scripts.newestWrittenFor(segmentIds);
         // Only when this broadcast named one. A show running on the station's own host draws no
         // name here, because the personas page is where that is already answered and repeating it
         // would read as an override that was never set.
@@ -1890,7 +1897,12 @@ export class DirectorConsoleService {
             items: order.items.map(item => {
                 if (item.kind === 'segment') {
                     const segment = segments.get(item.segmentId);
-                    return toOrderSegment(item, segment, segment === undefined ? undefined : breakPicture(segment, pictures, hostArtwork));
+                    return toOrderSegment(
+                        item,
+                        segment,
+                        segment === undefined ? undefined : breakPicture(segment, pictures, hostArtwork),
+                        written.get(item.segmentId),
+                    );
                 }
 
                 // One lookup for the opinion and both links: absent means the catalog has never
@@ -1938,7 +1950,12 @@ export class DirectorConsoleService {
  * they have none either, and nothing for a segment the library has lost, which has no kind left
  * to look one up by.
  */
-const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undefined, artworkUrl: string | undefined): StationOrderItem => ({
+const toOrderSegment = (
+    item: StationLineupSegmentItem,
+    segment: Segment | undefined,
+    artworkUrl: string | undefined,
+    written: { id: string; rating?: number } | undefined,
+): StationOrderItem => ({
     id: item.id,
     kind: 'segment' as const,
     state: item.state,
@@ -1955,6 +1972,8 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
     // sentence the row has been carrying all along.
     ...(segment?.error === undefined ? {} : { segmentError: segment.error }),
     ...(segment?.writer === undefined ? {} : { segmentWriter: segment.writer }),
+    ...(written === undefined ? {} : { scriptId: written.id }),
+    ...(written?.rating === undefined ? {} : { scriptRating: ratingFromColumn(written.rating) }),
     ...(item.over === undefined ? {} : { overAtMs: item.over.atMs, ...(item.over.endOf === true ? { overEndOf: true } : {}) }),
     ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
 });

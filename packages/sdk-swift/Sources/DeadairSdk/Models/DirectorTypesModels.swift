@@ -1055,12 +1055,16 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     public var segmentError: String?
     /// What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made
     public var segmentWriter: String?
+    /// The newest written attempt behind this segment, which is the words that air and the attempt a rating of this break lands on. Absent on a record, on a recording nobody wrote, and on a break not written yet
+    public var scriptId: UUID?
+    /// What the operator thought of that attempt. Absent means nobody has said, which `neutral` does not, and a rewrite starts unrated
+    public var scriptRating: ScriptRating?
     /// Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
     public var overAtMs: Int?
     /// Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over
     public var overEndOf: Bool?
 
-    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil, overEndOf: Bool? = nil) {
+    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, scriptId: UUID? = nil, scriptRating: ScriptRating? = nil, overAtMs: Int? = nil, overEndOf: Bool? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -1083,6 +1087,8 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.playable = playable
         self.segmentError = segmentError
         self.segmentWriter = segmentWriter
+        self.scriptId = scriptId
+        self.scriptRating = scriptRating
         self.overAtMs = overAtMs
         self.overEndOf = overEndOf
     }
@@ -1110,6 +1116,8 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         case playable = "playable"
         case segmentError = "segmentError"
         case segmentWriter = "segmentWriter"
+        case scriptId = "scriptId"
+        case scriptRating = "scriptRating"
         case overAtMs = "overAtMs"
         case overEndOf = "overEndOf"
     }
@@ -1138,6 +1146,8 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.playable = try container.decodeIfPresent(Bool.self, forKey: .playable)
         self.segmentError = try container.decodeIfPresent(String.self, forKey: .segmentError)
         self.segmentWriter = try container.decodeIfPresent(String.self, forKey: .segmentWriter)
+        self.scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
+        self.scriptRating = try container.decodeIfPresent(ScriptRating.self, forKey: .scriptRating)
         self.overAtMs = try container.decodeIfPresent(Int.self, forKey: .overAtMs)
         self.overEndOf = try container.decodeIfPresent(Bool.self, forKey: .overEndOf)
     }
@@ -1166,6 +1176,8 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.playable, forKey: .playable)
         try container.encodeIfPresent(self.segmentError, forKey: .segmentError)
         try container.encodeIfPresent(self.segmentWriter, forKey: .segmentWriter)
+        try container.encodeIfPresent(self.scriptId, forKey: .scriptId)
+        try container.encodeIfPresent(self.scriptRating, forKey: .scriptRating)
         try container.encodeIfPresent(self.overAtMs, forKey: .overAtMs)
         try container.encodeIfPresent(self.overEndOf, forKey: .overEndOf)
     }

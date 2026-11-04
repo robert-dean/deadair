@@ -124,6 +124,8 @@ export function useRateScript() {
                           })),
                       },
             );
+            // The running order carries a break's rating too, and it is rated from there as well.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
         },
     });
 }

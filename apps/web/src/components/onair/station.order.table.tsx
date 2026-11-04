@@ -3,7 +3,7 @@ import { Box, Button, Stack, Table } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown } from '@tabler/icons-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
-import type { Rating, StationOrderItem } from '@deadair/sdk';
+import type { Rating, ScriptRating, StationOrderItem } from '@deadair/sdk';
 
 import { usePhone } from '../shared/use.phone';
 import { OrderRow, PhoneRow } from './station.order.rows';
@@ -54,6 +54,13 @@ export interface StationOrderTableProps {
     onRate?: (trackId: string, rating: Rating) => void;
     /** Which record's rating is being written, so its row can say so rather than looking ignored. */
     ratingTrackId?: string;
+    /**
+     * What the operator thought of the words on a break's row, in the same column as a record's
+     * rating. Absent draws no controls on a break. Offered on a spent row for the same reason.
+     */
+    onRateScript?: (scriptId: string, rating: ScriptRating) => void;
+    /** Which attempt's rating is being written, on the same terms as {@link ratingTrackId}. */
+    ratingScriptId?: string;
     /**
      * Whether the history behind the item on air starts folded away behind a count.
      *
@@ -107,6 +114,8 @@ export function StationOrderTable({
     rewritingItemId,
     onRate,
     ratingTrackId,
+    onRateScript,
+    ratingScriptId,
     collapseHistory = false,
 }: StationOrderTableProps) {
     const { t } = useTranslation('onair');
@@ -289,6 +298,8 @@ export function StationOrderTable({
                                     rewriting={rewritingItemId === item.id}
                                     onRate={onRate}
                                     writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
+                                    onRateScript={onRateScript}
+                                    writingScriptRating={item.kind === 'segment' && ratingScriptId !== undefined && ratingScriptId === item.scriptId}
                                 />
                             );
                         })}

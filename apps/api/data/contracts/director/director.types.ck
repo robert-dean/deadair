@@ -66,6 +66,8 @@ contract StationOrderItem: { # One item of the live running order, and where it 
     playable?: boolean # Whether the station can actually air this segment. One that cannot is SKIPPED when it comes round, rather than held open
     segmentError?: string(max=2000) # Why this segment will not air, in a sentence. Present only on a failed one
     segmentWriter?: string(max=200) # What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made
+    scriptId?: uuid # The newest written attempt behind this segment, which is the words that air and the attempt a rating of this break lands on. Absent on a record, on a recording nobody wrote, and on a break not written yet
+    scriptRating?: ScriptRating # What the operator thought of that attempt. Absent means nobody has said, which `neutral` does not, and a rewrite starts unrated
     overAtMs?: int(min=0) # Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
     overEndOf?: boolean # Present with `overAtMs` when the item is heard over the END of the record BEFORE it instead, that far into that record, ending as it ends. Absent for every other talk-over
 }

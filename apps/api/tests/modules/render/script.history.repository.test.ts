@@ -345,3 +345,34 @@ describe('ScriptHistoryRepository and a delivery', () => {
         expect(unknown).not.toHaveProperty('delivery');
     });
 });
+
+describe('ScriptHistoryRepository.newestWrittenFor', () => {
+    it('asks nothing for an order with no segments', async () => {
+        const repository = new ScriptHistoryRepository(untouchableDb(), identity());
+
+        expect(await repository.newestWrittenFor([])).toEqual(new Map());
+    });
+
+    it('takes the newest written attempt per segment on this station, and leaves an unrated one without a rating', async () => {
+        const captured: Captured = {};
+        const repository = new ScriptHistoryRepository(
+            fakeDb(
+                [
+                    { id: 'script-1', segmentId: 'seg-1', rating: -1 },
+                    { id: 'script-2', segmentId: 'seg-2', rating: null },
+                ],
+                captured,
+            ),
+            identity(),
+        );
+
+        const written = await repository.newestWrittenFor(['seg-1', 'seg-2']);
+
+        expect(written.get('seg-1')).toEqual({ id: 'script-1', rating: -1 });
+        expect(written.get('seg-2')).toEqual({ id: 'script-2' });
+        expect(captured.sql).toContain('distinct on ("deadair"."script_history"."segment_id")');
+        expect(captured.sql).toContain('"deadair"."script_history"."outcome" = $');
+        expect(captured.sql).toMatch(/order by .*"segment_id".*"created_at" desc/);
+        expect(captured.parameters).toEqual(expect.arrayContaining([STATION, 'seg-1', 'seg-2', 'written']));
+    });
+});

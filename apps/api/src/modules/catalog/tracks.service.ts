@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import { httpError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
@@ -338,7 +338,7 @@ export class TracksService {
             sortBy,
             analyzer,
             measureFailure,
-            schemaVersion: ANALYSIS_SCHEMA_VERSION,
+            schemaVersion: ANALYSIS_READABLE_SINCE_VERSION,
         };
 
         const [{ total, data }, states] = await Promise.all([

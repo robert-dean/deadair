@@ -137,6 +137,15 @@ export class AnalysisRepository extends DataRepository {
      * Oldest-catalogued first within each half, so a run makes predictable
      * progress through a library rather than revisiting whatever Postgres felt
      * like returning.
+     *
+     * **REMEASURE. A record that already holds a whole measurement goes last, and
+     * waits a day after a failed try.** Last, because a schema bump makes the whole
+     * library stale, nearly all of it local and older than anything new, and every
+     * one of those rows would otherwise sort ahead of a record added today. That
+     * record would air with no level for days, to improve records that already have
+     * one. The wait is {@link ANALYSIS_RETRY_AFTER_MS} whatever went wrong, because
+     * nothing is urgent about improving a row that works, and without it one bad
+     * file would sit at the head of the queue on every pass.
      */
     async listTracksNeedingAnalysis(schemaVersion: number, limit: number): Promise<AnalysableTrack[]> {
         const rows = await sql<{
@@ -173,7 +182,11 @@ export class AnalysisRepository extends DataRepository {
              where t.merged_into_id is null
                and (
                    a.track_id is null
-                   or (a.analyzed_at is not null and a.schema_version < ${schemaVersion})
+                   -- Stale, unless re-measuring it just went wrong: see REMEASURE above.
+                   or (a.analyzed_at is not null
+                       and a.schema_version < ${schemaVersion}
+                       and (a.remeasure_failed_at is null
+                            or a.remeasure_failed_at < now() - make_interval(secs => ${ANALYSIS_RETRY_AFTER_MS / 1000}::double precision)))
                    or (a.failed_at is not null
                        and a.failed_at < now() - make_interval(secs => case when a.failure_code in ('unfetchable', 'truncated')
                                                                              then ${ANALYSIS_REFETCH_AFTER_MS / 1000}::double precision
@@ -185,7 +198,7 @@ export class AnalysisRepository extends DataRepository {
                                                                   a.analyzed_at - a.created_at),
                                                          make_interval(secs => ${ANALYSIS_RETRY_AFTER_MS / 1000}::double precision)))
                )
-             order by src.is_local desc, t.created_at asc
+             order by coalesce(a.analyzed_at is not null and a.complete, false) asc, src.is_local desc, t.created_at asc
              limit ${limit}
         `.execute(this.db);
 
@@ -208,8 +221,14 @@ export class AnalysisRepository extends DataRepository {
      * succeeds today would otherwise violate it on write, which is the
      * constraint doing its job — the point of clearing them here is that the
      * success is what the row now says.
+     *
+     * **An incomplete answer does not replace a whole measurement.** Part of a file
+     * is confident and wrong, and no reader uses it, so writing it would swap
+     * figures that are in use for figures that are not.
      */
     async recordAnalysis(trackId: string, analyzerPluginId: string, result: TrackAnalysis): Promise<void> {
+        if (!result.complete && (await this.noteFailedRemeasure(trackId))) return;
+
         const row = {
             trackId,
             analyzerPluginId,
@@ -221,6 +240,7 @@ export class AnalysisRepository extends DataRepository {
             failedAt: null,
             failureReason: null,
             failureCode: null,
+            remeasureFailedAt: null,
         };
 
         await this.db
@@ -231,26 +251,45 @@ export class AnalysisRepository extends DataRepository {
     }
 
     /**
+     * Keep a whole measurement through a re-measure that went wrong, noting when it did. Answers
+     * whether there was one, since a record with none has nothing to keep and records its failure.
+     */
+    private async noteFailedRemeasure(trackId: string): Promise<boolean> {
+        const updated = await this.db
+            .updateTable('deadair.trackAnalysis')
+            .set({ remeasureFailedAt: sql<never>`now()` })
+            .where('trackId', '=', trackId)
+            .where('analyzedAt', 'is not', null)
+            .where('complete', '=', true)
+            .executeTakeFirst();
+
+        return Number(updated.numUpdatedRows ?? 0n) > 0;
+    }
+
+    /**
      * Remember that this track could not be measured, and why.
      *
-     * The measurement is dropped rather than kept alongside the failure, for the
-     * same reason the constraint forbids holding both: a row that carries stale
-     * numbers AND a failure has to be interpreted by every reader, and one of
-     * them eventually reads the numbers. A track that once measured and now
-     * fails is a track whose audio changed, which makes the old figures wrong
-     * rather than merely old.
+     * **A record that already holds a whole measurement keeps it**, since the only
+     * way the walk reaches one is a re-measure, and the figures are still true
+     * whatever went wrong this time. Most failures are a moment's fetch problem, and
+     * dropping the figures would cost a record its level until the walk came back.
+     * An operator who wants the figures gone clears them ({@link clearFor}).
+     *
+     * Otherwise there is no measurement to keep, and this is what the row says.
      *
      * `code` is the analyzer's own name for the failure, which decides how soon
      * the walk tries again (see {@link ANALYSIS_REFETCH_AFTER_MS}); absent, the
      * failure waits the long way.
      */
     async recordFailure(trackId: string, analyzerPluginId: string, reason: string, code?: AnalysisFailureCode): Promise<void> {
+        if (await this.noteFailedRemeasure(trackId)) return;
+
         const row = {
             trackId,
             analyzerPluginId,
             analyzer: null,
-            // Not the previous measurement: see above. `{}` also cannot be mistaken
-            // for cue points by a reader that skipped the `complete` check.
+            // No measurement to carry, or the guard above would have kept it. `{}` also
+            // cannot be mistaken for cue points by a reader that skipped the `complete` check.
             data: toJsonb({}),
             schemaVersion: 0,
             complete: false,
@@ -259,6 +298,7 @@ export class AnalysisRepository extends DataRepository {
             // Bounded, because this is an upstream's error text and ends up on a console.
             failureReason: reason.slice(0, 500),
             failureCode: code ?? null,
+            remeasureFailedAt: null,
         };
 
         await this.db
@@ -285,11 +325,17 @@ export class AnalysisRepository extends DataRepository {
         const row = await this.db
             .selectFrom('deadair.trackAnalysis')
             .select(['schemaVersion', 'complete', 'analyzer', 'analyzerPluginId', 'analyzedAt', 'failedAt', 'failureReason', 'failureCode'])
+            // The two figures rather than `data`, which carries a bar line for every bar of the record.
+            .select([
+                sql<number | null>`(data ->> 'bpm')::double precision`.as('bpm'),
+                sql<number | null>`(data ->> 'beatConfidence')::double precision`.as('beatConfidence'),
+            ])
             .where('trackId', '=', trackId)
             .executeTakeFirst();
         if (row === undefined) return undefined;
 
-        const { failureCode, ...rest } = row;
+        const { failureCode, bpm, beatConfidence, ...measured } = row;
+        const rest = { ...measured, ...(bpm == null ? {} : { bpm }), ...(beatConfidence == null ? {} : { beatConfidence }) };
         // A failure written before 0086 has no code and is retried as `undecodable` is, so it is
         // reported as one. A row that did not fail carries none at all.
         if (row.failedAt == null) return rest;
@@ -325,7 +371,8 @@ export class AnalysisRepository extends DataRepository {
      * - a failure, which carries no measurements at all;
      * - `complete = false`, where the analyzer saw part of a file and its outro
      *   is a description of where the download stopped;
-     * - a row below `schemaVersion`, whose fields may have changed meaning.
+     * - a row below `schemaVersion`, whose fields may have changed meaning. Callers pass
+     *   `ANALYSIS_READABLE_SINCE_VERSION` here, and not the current version, which is the walk's question.
      *
      * The absence of a row and the presence of an untrustworthy one are the same
      * answer to every consumer — no opinion, degrade to the defined behaviour —

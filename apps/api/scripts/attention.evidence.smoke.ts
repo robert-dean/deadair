@@ -28,7 +28,7 @@ function env(key: string, fallback: string): string {
 import { readFileSync } from 'node:fs';
 import { Kysely } from 'kysely';
 import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { DB } from '../src/modules/data/db.js';
@@ -58,13 +58,13 @@ const check = (label: string, actual: unknown, expected: unknown) => {
 /** A station with nothing else wrong with it, so the printed list is the two rows under test. */
 const airing: QuotedSilence = { audible: true, cause: 'airing', detail: '', checks: [] };
 
-const base = { limit: 200, offset: 0, sort: 'asc' as const, schemaVersion: ANALYSIS_SCHEMA_VERSION };
+const base = { limit: 200, offset: 0, sort: 'asc' as const, schemaVersion: ANALYSIS_READABLE_SINCE_VERSION };
 
 try {
     const counts = await tracks.trackStateCounts(base);
     const [benchedExamples, failingExamples] = await Promise.all([
-        tracks.faultingTracks('benched', EVIDENCE_LIMIT, ANALYSIS_SCHEMA_VERSION),
-        tracks.faultingTracks('failing', EVIDENCE_LIMIT, ANALYSIS_SCHEMA_VERSION),
+        tracks.faultingTracks('benched', EVIDENCE_LIMIT, ANALYSIS_READABLE_SINCE_VERSION),
+        tracks.faultingTracks('failing', EVIDENCE_LIMIT, ANALYSIS_READABLE_SINCE_VERSION),
     ]);
 
     say(`${counts.total} records: ${counts.benched} benched, ${counts.failing} failing`);

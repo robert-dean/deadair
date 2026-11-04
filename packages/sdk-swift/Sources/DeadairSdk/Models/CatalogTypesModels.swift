@@ -1523,10 +1523,14 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
     public var analyzedAt: Date?
     public var failedAt: Date?
     public var failureReason: String?
+    /// The record's tempo in beats a minute, as measured from its audio. Absent where it has no pulse to report, or has not been measured for one yet
+    public var bpm: Double?
+    /// How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel
+    public var beatConfidence: Double?
     /// Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is
     public var failureCode: MeasureFailure?
 
-    public init(schemaVersion: Int, complete: Bool, analyzer: String? = nil, analyzerPluginId: String? = nil, analyzedAt: Date? = nil, failedAt: Date? = nil, failureReason: String? = nil, failureCode: MeasureFailure? = nil) {
+    public init(schemaVersion: Int, complete: Bool, analyzer: String? = nil, analyzerPluginId: String? = nil, analyzedAt: Date? = nil, failedAt: Date? = nil, failureReason: String? = nil, bpm: Double? = nil, beatConfidence: Double? = nil, failureCode: MeasureFailure? = nil) {
         self.schemaVersion = schemaVersion
         self.complete = complete
         self.analyzer = analyzer
@@ -1534,6 +1538,8 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         self.analyzedAt = analyzedAt
         self.failedAt = failedAt
         self.failureReason = failureReason
+        self.bpm = bpm
+        self.beatConfidence = beatConfidence
         self.failureCode = failureCode
     }
 
@@ -1545,6 +1551,8 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         case analyzedAt = "analyzedAt"
         case failedAt = "failedAt"
         case failureReason = "failureReason"
+        case bpm = "bpm"
+        case beatConfidence = "beatConfidence"
         case failureCode = "failureCode"
     }
 
@@ -1557,6 +1565,8 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         self.analyzedAt = try container.decodeIfPresent(Date.self, forKey: .analyzedAt)
         self.failedAt = try container.decodeIfPresent(Date.self, forKey: .failedAt)
         self.failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
+        self.bpm = try container.decodeIfPresent(Double.self, forKey: .bpm)
+        self.beatConfidence = try container.decodeIfPresent(Double.self, forKey: .beatConfidence)
         self.failureCode = try container.decodeIfPresent(MeasureFailure.self, forKey: .failureCode)
     }
 
@@ -1569,6 +1579,8 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.analyzedAt, forKey: .analyzedAt)
         try container.encodeIfPresent(self.failedAt, forKey: .failedAt)
         try container.encodeIfPresent(self.failureReason, forKey: .failureReason)
+        try container.encodeIfPresent(self.bpm, forKey: .bpm)
+        try container.encodeIfPresent(self.beatConfidence, forKey: .beatConfidence)
         try container.encodeIfPresent(self.failureCode, forKey: .failureCode)
     }
 }

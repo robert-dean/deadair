@@ -512,6 +512,10 @@ export interface TrackAnalysis {
     analyzedAt?: DateTime;
     failedAt?: DateTime;
     failureReason?: string;
+    /** The record's tempo in beats a minute, as measured from its audio. Absent where it has no pulse to report, or has not been measured for one yet */
+    bpm?: number;
+    /** How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel */
+    beatConfidence?: number;
     /** Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is */
     failureCode?: MeasureFailure;
 }

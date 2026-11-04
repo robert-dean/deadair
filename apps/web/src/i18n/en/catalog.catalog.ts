@@ -178,6 +178,10 @@ export const catalog = {
             lastMeasured: 'Last measured',
             by: 'By',
             schema: 'Schema',
+            tempo: 'Tempo',
+            tempoValue: '{{bpm}} BPM',
+            tempoTrust: 'How sure',
+            tempoTrustValue: '{{percent}}%',
             whyFailed: 'Why it failed',
             kind: 'What went wrong',
             kinds: {

@@ -1,5 +1,5 @@
 import { Container, Injectable } from 'injectkit';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -2775,7 +2775,7 @@ export class DirectorService {
 
         try {
             const trackIds = [...new Set(waiting.map(item => item.track.trackId!))];
-            const found = await inScope(this.container, scope => scope.get(AnalysisRepository).trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION));
+            const found = await inScope(this.container, scope => scope.get(AnalysisRepository).trustedAnalysisFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION));
 
             let taken = 0;
             for (const item of waiting) {

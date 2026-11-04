@@ -24,7 +24,7 @@ function env(key: string, fallback: string): string {
 import { readFileSync } from 'node:fs';
 import { Kysely } from 'kysely';
 import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { DB } from '../src/modules/data/db.js';
@@ -50,7 +50,7 @@ const check = (label: string, actual: unknown, expected: unknown) => {
     if (!ok) process.exitCode = 1;
 };
 
-const base = { limit: 5, offset: 0, sort: 'asc' as const, schemaVersion: ANALYSIS_SCHEMA_VERSION };
+const base = { limit: 5, offset: 0, sort: 'asc' as const, schemaVersion: ANALYSIS_READABLE_SINCE_VERSION };
 
 try {
     const counts = await tracks.trackStateCounts(base);

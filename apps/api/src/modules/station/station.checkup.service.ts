@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { DateTime } from 'luxon';
 import { Logger } from '@maroonedsoftware/logger';
 
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { BuildRevision } from '#modules/shared/build.revision.js';
@@ -140,7 +140,7 @@ export class StationCheckupService {
             // The paging fields are inert here and are what the query type asks for: this reads the
             // aggregate over the whole filtered set rather than a page of it, exactly as
             // `StationAttentionService` asks the same question.
-            const counts = await this.tracks.trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_SCHEMA_VERSION });
+            const counts = await this.tracks.trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_READABLE_SINCE_VERSION });
             return { total: counts.total, cached: counts.cached, measured: counts.measured };
         } catch (error) {
             this.logger.warn(`station: the analysis backlog could not be counted (${errorText(error)})`);

@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
@@ -306,7 +306,7 @@ export class PickResolver {
             // existing "nothing can play this" path rather than a second mechanism.
             this.candidates.bindingsFor(trackIds, preference, policy, streamCapableIds(this.plugins.list())),
             this.tracks.findByIds(trackIds),
-            this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION),
+            this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION),
         ]);
 
         const bounds = trackLengthBounds(this.config);

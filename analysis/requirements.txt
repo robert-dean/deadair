@@ -36,6 +36,15 @@ pydantic==2.13.1
 # licence: no downbeats, and no calibrated confidence, which is the one field
 # [track-analysis](https://github.com/robert-dean/deadair/discussions/45) calls load-bearing.
 #
+# **The one caveat the project itself states**, read 2026-11-04: its README releases "the code and the
+# published model weights" under MIT, and adds that some of the training files are copyrighted or under
+# limited Creative Commons licences, leaving it to the user to judge whether that matters. The rule at
+# the top of this file is about the licence on what we ship, and that is MIT. Nothing here ships or
+# reproduces the training data.
+#
+# The checkpoint is `final0`, chosen over `small0` on real records (discussion 45), and both Dockerfiles
+# fetch it at build against a pinned SHA-256. `test_images.py` holds the two to the same file.
+#
 # **beat_this's own dependency list is NOT all permissive, and that is why it is
 # installed with `--no-deps` in the Dockerfile rather than named here.** It
 # requires `soxr`, which is LGPL-2.1-or-later -- copyleft, and refused by the

@@ -80,6 +80,20 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
 export const ANALYSIS_SCHEMA_VERSION = 1;
 
 /**
+ * The oldest {@link ANALYSIS_SCHEMA_VERSION} whose measurements a READER still uses.
+ *
+ * Stale and untrusted are two questions. A row below the current version is due a re-measure, which
+ * only the walk asks. Whether its cue points and loudness are still right is what this answers, and a
+ * version that only adds fields leaves them right. With one constant answering both, a bump would
+ * take every record's cue points and levelling away at once, and report the whole library unmeasured
+ * while the walk spent days bringing them back.
+ *
+ * Raise this only when a version changes what an EXISTING field means. A reader of a field a later
+ * version added checks for the field, since absent is already an answer it has to have.
+ */
+export const ANALYSIS_READABLE_SINCE_VERSION = 1;
+
+/**
  * Why a measurement failed, finer than the `upstream` code all three share, carried as a
  * `PluginError`'s `upstreamCode`.
  *
@@ -272,6 +286,28 @@ export interface TrackTaggedLoudness {
 }
 
 /**
+ * A record's pulse, as measured from its audio.
+ *
+ * All absent together where a record has no pulse to report or the tracker failed, and absent is an
+ * answer: a blend degrades to its plain fade. Never filled from a provider's or a tag's tempo, which is
+ * a different claim, and the rule that metadata alone cannot authorise a beat match is only statable
+ * if a measured tempo stays a measured one.
+ */
+export interface TrackBeats {
+    /** Beats a minute, as measured. Octave-ambiguous: a 63 and a 126 can be the same pulse. */
+    bpm?: number;
+
+    /**
+     * How far to trust {@link bpm}, from 0 to 1. Low on a record that changes tempo or feel, or whose
+     * pulse comes and goes. A consumer that would act on the tempo reads this first.
+     */
+    beatConfidence?: number;
+
+    /** Where each bar starts, in integer milliseconds, absolute into the file as the cue points are. */
+    downbeats?: number[];
+}
+
+/**
  * What one analysis produced.
  *
  * `data` is deliberately the only place measurements live, and the host stores
@@ -321,7 +357,7 @@ export interface TrackAnalysis {
      * happened, where loudness needs a filter chain an analyzer may reasonably
      * not implement.
      */
-    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & Record<string, unknown>;
+    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & TrackBeats & Record<string, unknown>;
 
     /**
      * How long the audio turned out to be once decoded.

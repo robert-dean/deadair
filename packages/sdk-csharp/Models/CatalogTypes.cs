@@ -1079,6 +1079,16 @@ public sealed record TrackAnalysis
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FailureReason { get; init; }
 
+    /// <summary>The record's tempo in beats a minute, as measured from its audio. Absent where it has no pulse to report, or has not been measured for one yet</summary>
+    [JsonPropertyName("bpm")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Bpm { get; init; }
+
+    /// <summary>How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel</summary>
+    [JsonPropertyName("beatConfidence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? BeatConfidence { get; init; }
+
     /// <summary>Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is</summary>
     [JsonPropertyName("failureCode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

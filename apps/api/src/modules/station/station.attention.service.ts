@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { httpError } from '@maroonedsoftware/errors';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import { readForwardedHop } from '#modules/shared/forwarded.reading.js';
 import { TracksRepository, type FaultingTrack, type FaultState } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
@@ -147,7 +147,7 @@ export class StationAttentionService {
             // No search, no album, no state: this is the whole library, which is what a station-wide
             // answer is about. The schema version is the analysis module's rule about what still
             // counts as measured, passed in the same way the catalog page passes it.
-            return await this.tracks.trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_SCHEMA_VERSION });
+            return await this.tracks.trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_READABLE_SINCE_VERSION });
         } catch (error) {
             this.logger.warn(`station: the catalog counts could not be read (${errorText(error)})`);
             return { total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0 };
@@ -174,7 +174,7 @@ export class StationAttentionService {
      */
     private async faulting(state: FaultState): Promise<FaultingTrack[]> {
         try {
-            return await this.tracks.faultingTracks(state, EVIDENCE_LIMIT, ANALYSIS_SCHEMA_VERSION);
+            return await this.tracks.faultingTracks(state, EVIDENCE_LIMIT, ANALYSIS_READABLE_SINCE_VERSION);
         } catch (error) {
             this.logger.warn(`station: the ${state} records could not be read (${errorText(error)})`);
             return [];

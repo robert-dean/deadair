@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # The analysis sidecar. See analysis/README.md for the contract this serves and
 # for why it is a separate program rather than app code.
 #
@@ -48,7 +49,17 @@ RUN pip install --no-cache-dir --no-deps -r requirements.nodeps.txt
 # [comparable-stations](https://github.com/robert-dean/deadair/discussions/10) recorded. `requirements.nodeps.txt` above is the one place
 # it is named now, read by both Dockerfiles, so there is nothing left to forget for that
 # package. Only this module list still is.
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py ./
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/beats.py analysis/beat_model.py analysis/app.py ./
+
+# The beat tracker's weights, in the image rather than fetched on first use. `beat_this` would download
+# them to a home directory this image's non-root user has not got, from a university's server, in the
+# middle of a measurement. The hash is what makes a build from that server safe. `--chmod` because a
+# file ADD fetches lands readable by root alone. `test_images.py` holds this to the root Dockerfile's.
+ADD --checksum=sha256:8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331 --chmod=644 https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt /srv/beat_this-final0.ckpt
+ENV ANALYSIS_BEAT_CHECKPOINT=/srv/beat_this-final0.ckpt
+
+# Proves the pins and the weights work together, which nothing `app` imports reaches.
+RUN PYTHONDONTWRITEBYTECODE=1 python3 -c "import beat_model; beat_model.load()"
 
 # Non-root: this service fetches URLs it was handed and runs a decoder over what
 # comes back, which is the one process here that touches bytes from outside.

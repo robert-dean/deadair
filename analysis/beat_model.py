@@ -34,6 +34,10 @@ BORDER_FRAMES = 6
 
 THREADS = max(1, int(os.environ.get("ANALYSIS_BEAT_THREADS", "2")))
 
+# Both images put the weights here at build, checked against a pinned hash. A path and never a name,
+# because a name is what makes `beat_this` go looking on the network.
+CHECKPOINT = os.environ.get("ANALYSIS_BEAT_CHECKPOINT", "/srv/beat_this-final0.ckpt")
+
 _lock = threading.Lock()
 _loaded: dict[str, "_Tracker"] = {}
 
@@ -118,11 +122,22 @@ def model_signal(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> np.n
     return dsp.resample_poly(mono, MODEL_RATE // divisor, sample_rate // divisor).astype(np.float32)
 
 
-def track(samples: np.ndarray, checkpoint_path: str, sample_rate: int = REFERENCE_RATE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _tracker(checkpoint_path: str) -> _Tracker:
+    # Under `_lock`, or two workers arriving together would each load a copy.
+    tracker = _loaded.get(checkpoint_path)
+    if tracker is None:
+        tracker = _loaded[checkpoint_path] = _Tracker(checkpoint_path)
+    return tracker
+
+
+def load(checkpoint_path: str = CHECKPOINT) -> None:
+    """Read the checkpoint now. Both images call this at build, since nothing else proves it loads."""
+    with _lock:
+        _tracker(checkpoint_path)
+
+
+def track(samples: np.ndarray, checkpoint_path: str = CHECKPOINT, sample_rate: int = REFERENCE_RATE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Beat times and downbeat times in seconds, and the framewise beat logits."""
     mono = model_signal(samples, sample_rate)
     with _lock:
-        tracker = _loaded.get(checkpoint_path)
-        if tracker is None:
-            tracker = _loaded[checkpoint_path] = _Tracker(checkpoint_path)
-        return tracker(mono)
+        return _tracker(checkpoint_path)(mono)

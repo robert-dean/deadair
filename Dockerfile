@@ -408,7 +408,12 @@ RUN python3 -m venv /opt/analysis/venv \
 # than repeating here.
 COPY analysis/requirements.nodeps.txt /opt/analysis/requirements.nodeps.txt
 RUN /opt/analysis/venv/bin/pip install --no-cache-dir --no-deps -r /opt/analysis/requirements.nodeps.txt
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/beats.py analysis/beat_model.py analysis/app.py /opt/analysis/
+
+# The beat tracker's weights, for the reason `analysis/Dockerfile` gives, where `test_images.py` holds
+# this line to its twin.
+ADD --checksum=sha256:8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331 --chmod=644 https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt /opt/analysis/beat_this-final0.ckpt
+ENV ANALYSIS_BEAT_CHECKPOINT=/opt/analysis/beat_this-final0.ckpt
 
 # Proves the environment above can import the service it exists for, HERE, inside the build. It
 # was a `docker run … -c "import app"` in `images.yml` after the build, which meant loading the
@@ -418,10 +423,10 @@ COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py 
 #
 # What it catches is a module or a pin the service imports and this image does not carry: a file
 # missed from the list above, as `tags.py` once was in the sidecar's own image, builds clean and
-# crash-loops at start. What it does NOT catch is the beat tracker, which nothing `app` imports
-# reaches, so `requirements.nodeps.txt` being installed is still proved only by reading this file.
+# crash-loops at start. `app` does not reach the beat tracker, which is why the second half loads the
+# model: that proves `requirements.nodeps.txt` was installed and the weights above fit it.
 # `PYTHONDONTWRITEBYTECODE` so the import leaves no `__pycache__` behind and the layer stays empty.
-RUN cd /opt/analysis && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app"
+RUN cd /opt/analysis && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app; import beat_model; beat_model.load()"
 
 # The audio-url resolver: its own interpreter environment, its own pinned requirements, for the same
 # reason the measurement sidecar has them. Far smaller than that one -- yt-dlp and an HTTP stack --

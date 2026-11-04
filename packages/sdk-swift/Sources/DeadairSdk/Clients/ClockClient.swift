@@ -9,6 +9,32 @@ public final class ClockClient: Sendable {
         self.http = http
     }
 
+    /// Export clock
+    /// This station's format clock as one file, to hand to another station
+    public func exportClock() async throws -> ClockPack {
+        let request = SdkRequest(method: "GET", path: ["clock", "export"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ClockPack.self, from: response)
+    }
+
+    /// Preview clock import
+    /// Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+    public func previewClockImport(body: ClockPack) async throws -> PackImportPlan {
+        var request = SdkRequest(method: "POST", path: ["clock", "import", "preview"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PackImportPlan.self, from: response)
+    }
+
+    /// Import clock
+    /// Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has
+    public func importClock(body: ClockPack) async throws -> ClockImportResult {
+        var request = SdkRequest(method: "POST", path: ["clock", "import"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ClockImportResult.self, from: response)
+    }
+
     /// List clock bands
     /// Every band on this station's clock, including the ones switched off, in the operator's own order
     public func listClockBands() async throws -> ClockBandList {

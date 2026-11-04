@@ -213,7 +213,7 @@ export class ScheduleService {
         return resolveSlot(
             at,
             stationZone(this.config),
-            (await this.slots.list()).filter(slot => !isLiveShow(slot)),
+            (await this.onAirable()).filter(slot => !isLiveShow(slot)),
         );
     }
 
@@ -226,7 +226,7 @@ export class ScheduleService {
      */
     async liveInForce(at: Date = new Date()): Promise<{ slot: ScheduleSlot; night: string } | undefined> {
         const zone = stationZone(this.config);
-        const slot = resolveSlot(at, zone, (await this.slots.list()).filter(isLiveShow));
+        const slot = resolveSlot(at, zone, (await this.onAirable()).filter(isLiveShow));
 
         return slot === undefined ? undefined : { slot, night: dateKey(occurrenceOf(slot, at, zone)) };
     }
@@ -354,7 +354,7 @@ export class ScheduleService {
         // Anything still to come, which for the block on now means the one it is part-way through:
         // a block is over when it ENDS, and its end is exclusive. String comparison is the whole
         // check because both stamps are fixed-width and zero-padded readings of one clock.
-        const upcoming = project(today, UPCOMING_DAYS, await this.slots.list())
+        const upcoming = project(today, UPCOMING_DAYS, await this.onAirable())
             .filter(occurrence => occurrence.end > now)
             .slice(0, UPCOMING_BLOCKS);
 
@@ -395,7 +395,7 @@ export class ScheduleService {
     async timetable(query: ScheduleTimetableQuery): Promise<ScheduleTimetable> {
         const days = query.days ?? DEFAULT_TIMETABLE_DAYS;
         const from = this.anchor(query.from);
-        const slots = await this.slots.list();
+        const slots = await this.onAirable();
 
         return {
             from: `${pad(from.year, 4)}-${pad(from.month)}-${pad(from.day)}`,
@@ -437,12 +437,8 @@ export class ScheduleService {
     }
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
-        const draft = draftOf(
-            keepingRecurrence(
-                body,
-                (await this.slots.list()).find(slot => slot.id === id),
-            ),
-        );
+        const stored = (await this.slots.list()).find(slot => slot.id === id);
+        const draft = draftOf(keepingSwitch(keepingRecurrence(body, stored), stored));
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
 
@@ -490,9 +486,13 @@ export class ScheduleService {
     }
 
     private async refuseOverlap(draft: ScheduleSlotDraft, except?: string): Promise<void> {
+        // A slot that is off is on at no time at all, on either side of the comparison. Turning one on is an
+        // edit, and it is that edit which meets this.
+        if (draft.off === true) return;
+
         const candidate = { ...draft, id: except ?? '' } as ScheduleSlot;
         const today = this.today();
-        const clash = (await this.slots.list()).find(slot => slot.id !== except && overlap(candidate, slot, today));
+        const clash = (await this.onAirable()).find(slot => slot.id !== except && overlap(candidate, slot, today));
         if (clash === undefined) return;
 
         // Two rules can be years from meeting, and "already on then" says nothing about 2037.
@@ -548,10 +548,21 @@ export class ScheduleService {
         }
     }
 
+    /** Every slot that can be on at some time: the ones that are not switched off. */
+    private async onAirable(): Promise<ScheduleSlot[]> {
+        return (await this.slots.list()).filter(slot => slot.off !== true);
+    }
+
+    /**
+     * Slots that are off go in a list of their own, so a client that reads `slots` as what the station runs
+     * goes on being right. The apps draw `slots` as the week, and an older build knows nothing of a switch.
+     */
     private async answer(): Promise<ScheduleSlotList> {
         const today = this.today();
+        const every = (await this.slots.list()).map(slot => ({ slot, wire: forTheWire(slot, today) }));
+        const off = every.filter(({ slot }) => slot.off === true).map(({ wire }) => wire);
 
-        return { slots: (await this.slots.list()).map(slot => forTheWire(slot, today)) };
+        return { slots: every.filter(({ slot }) => slot.off !== true).map(({ wire }) => wire), ...(off.length === 0 ? {} : { switchedOff: off }) };
     }
 }
 
@@ -562,7 +573,7 @@ export class ScheduleService {
  * playlist reader could be asked for. Sending one alone is treated as sending none rather than refused: what it
  * produces is a slot the station fills itself, which is a coherent slot.
  */
-function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
+export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
     return {
         label: body.label,
         startsAtMinutes: body.startsAtMinutes,
@@ -604,6 +615,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...coHostsOf(body),
         ...(body.resumePlaylist === true ? { resumePlaylist: true } : {}),
         ...liveOf(body),
+        ...(body.enabled === false ? { off: true } : {}),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -693,6 +705,16 @@ function keepingRecurrence(body: ScheduleSlotInput, stored: ScheduleSlot | undef
 }
 
 /**
+ * A body that says nothing about the switch leaves it where it is.
+ *
+ * A rewrite is the whole row, and a client built before the switch existed sends no `enabled`, so reading
+ * that as on would put a switched-off show on the air because somebody corrected its name.
+ */
+function keepingSwitch(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
+    return body.enabled === undefined && stored?.off === true ? { ...body, enabled: false } : body;
+}
+
+/**
  * A body's guest hosts, each saying WHEN in exactly one way.
  *
  * Fixed nights or odds, never both and never neither: a guest host on every night is the slot's
@@ -773,6 +795,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
         startsAtMinutes: slot.startsAtMinutes,
         endsAtMinutes: slot.endsAtMinutes,
         days: [...slot.days],
+        ...(slot.off === true ? { enabled: false } : {}),
         ...(slot.source === undefined
             ? {}
             : isChartSource(slot.source)

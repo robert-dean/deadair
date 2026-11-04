@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PackImportPlan } from '../../topics/types/topics.types.js';
 
 /**
  * A host who sits in on a slot on some nights, saying whose show it usually is
@@ -146,6 +147,23 @@ export const SlotPlaylistPosition = z.strictObject({
     artist: z.string().max(500).optional().describe('Its lead artist'),
 });
 export type SlotPlaylistPosition = z.infer<typeof SlotPlaylistPosition>;
+
+/**
+ * A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+ * `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+ * co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+ * station cannot use is reported rather than refusing the file
+ * generated from [SchedulePack](../../../../data/contracts/schedule/schedule.types.ck)
+ */
+export const SchedulePack = z.strictObject({
+    format: z.literal('deadair.schedule').describe('Says the file is a schedule file'),
+    version: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1))
+        .describe("The version of the document's shape. This station reads version 1"),
+    name: z.string().min(1).max(100).describe('What the file is, as whoever made it would describe it'),
+    slots: z.array(z.record(z.string(), z.unknown())).max(500),
+});
+export type SchedulePack = z.infer<typeof SchedulePack>;
 
 /**
  * One stretch of the station's day: from this time, on these days, the station plays this
@@ -340,6 +358,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist",
         ),
+    enabled: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot',
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -525,6 +549,12 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist",
         ),
+    enabled: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot',
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -627,11 +657,26 @@ export type ScheduleSlotApplied = z.infer<typeof ScheduleSlotApplied>;
  * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleSlotList = z.strictObject({
-    slots: z.array(ScheduleSlot),
+    slots: z.array(ScheduleSlot).describe('What the station runs: every slot that is not switched off'),
+    switchedOff: z.array(ScheduleSlot).optional().describe('Slots kept but not running, in the same order. Absent when there are none'),
 });
 export type ScheduleSlotList = z.infer<typeof ScheduleSlotList>;
 
 export const ScheduleSlotListInput = z.strictObject({
-    slots: z.array(ScheduleSlotInput),
+    slots: z.array(ScheduleSlotInput).describe('What the station runs: every slot that is not switched off'),
+    switchedOff: z.array(ScheduleSlotInput).optional().describe('Slots kept but not running, in the same order. Absent when there are none'),
 });
 export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
+
+/**
+ * What an import did, and the schedule as it now stands
+ * generated from [ScheduleImportResult](../../../../data/contracts/schedule/schedule.types.ck)
+ */
+export const ScheduleImportResult = z.strictObject({
+    plan: PackImportPlan,
+    list: ScheduleSlotList,
+});
+export type ScheduleImportResult = z.infer<typeof ScheduleImportResult>;
+
+export const ScheduleImportResultInput = z.strictObject({});
+export type ScheduleImportResultInput = z.infer<typeof ScheduleImportResultInput>;

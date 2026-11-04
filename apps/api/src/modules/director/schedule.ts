@@ -298,6 +298,12 @@ export interface ScheduleSlot {
      * is ever stored on a slot read back.
      */
     live?: boolean;
+    /**
+     * Whether this slot is switched off: kept, editable, and out of every question about what is on, overlap
+     * included. Set only when true, so every slot that has never been switched off reads as it always did.
+     * What an import adds starts here. See `ScheduleService`.
+     */
+    off?: boolean;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }

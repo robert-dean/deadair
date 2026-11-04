@@ -174,6 +174,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             // Sent only when it is ON, and only beside a playlist: absent is no, and nothing else has a
             // place to pick up from.
             ...(values.resumePlaylist && mixesInto(source) ? { resumePlaylist: true } : {}),
+            // Absent leaves the switch where it is, so it is sent only when somebody moved it or it is off.
+            ...(values.enabled ? (slot?.enabled === false ? { enabled: true } : {}) : { enabled: false }),
             // Sent as `true` only for a setlist, the one mode it changes. A rotation slot that was
             // told to stay silent through the API keeps saying so, since no box here can say it.
             ...(values.mode === 'setlist' && values.breaks ? { breaks: true } : {}),
@@ -335,6 +337,12 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                             </Group>
                         ) : undefined}
                     </Stack>
+
+                    <Switch
+                        label={t('slot.enabledLabel')}
+                        description={t('slot.enabledDescription')}
+                        {...form.getInputProps('enabled', { type: 'checkbox' })}
+                    />
 
                     {special && !form.values.byRule ? (
                         <Switch
@@ -631,6 +639,8 @@ interface FormValues {
     mixInSimilar: boolean;
     /** Ticked sends `resumePlaylist: true`; unticked sends nothing, which is no. Drawn only for a playlist. See `ResumePlaylistField`. */
     resumePlaylist: boolean;
+    /** Off keeps the slot without it ever going on air. */
+    enabled: boolean;
     /** A special's first and last date as `YYYY-MM-DD`, null until picked. Unused on a weekly slot. */
     dates: [string | null, string | null];
     /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
@@ -694,6 +704,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         resumePlaylist: slot?.resumePlaylist === true,
+        enabled: slot?.enabled !== false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
         byRule: slot?.recurrence !== undefined,

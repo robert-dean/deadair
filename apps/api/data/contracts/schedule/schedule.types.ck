@@ -42,6 +42,7 @@ contract ScheduleSlot: {
     yearly?: boolean # Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
     live?: boolean # Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no
     resumePlaylist?: boolean # Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist
+    enabled?: boolean # Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
 }
@@ -76,7 +77,8 @@ contract SpecialRecurrence: {
 }
 
 contract ScheduleSlotList: {
-    slots: array(ScheduleSlot)
+    slots: array(ScheduleSlot) # What the station runs: every slot that is not switched off
+    switchedOff?: array(ScheduleSlot) # Slots kept but not running, in the same order. Absent when there are none
 }
 
 # A window of the station's day to draw
@@ -127,3 +129,21 @@ contract ScheduleNow: {
     airingSlotId?: string(max=100) # The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
     upcoming: array(ScheduleOccurrence) # The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block
 }
+
+# A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+# `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+# co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+# station cannot use is reported rather than refusing the file
+contract SchedulePack: {
+    format: literal("deadair.schedule") # Says the file is a schedule file
+    version: int(min=1) # The version of the document's shape. This station reads version 1
+    name: string(min=1, max=100) # What the file is, as whoever made it would describe it
+    slots: array(record(string, unknown), max=500)
+}
+
+# What an import did, and the schedule as it now stands
+contract ScheduleImportResult: {
+    plan: readonly PackImportPlan
+    list: readonly ScheduleSlotList
+}
+

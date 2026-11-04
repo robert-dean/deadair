@@ -62,6 +62,47 @@ public sealed class TopicsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Export topics
+    /// Every subject this station has named as one file, to hand to another station
+    /// </summary>
+    public async Task<TopicPack> ExportTopicsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("topics", "export"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<TopicPack>(response);
+    }
+
+    /// <summary>
+    /// Preview topic import
+    /// Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+    /// </summary>
+    public async Task<PackImportPlan> PreviewTopicImportAsync(TopicPack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("topics", "import", "preview"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PackImportPlan>(response);
+    }
+
+    /// <summary>
+    /// Import topics
+    /// Adds what is new in a file. A subject this station already has, by kind and key, is left as it is
+    /// </summary>
+    public async Task<TopicImportResult> ImportTopicsAsync(TopicPack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("topics", "import"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<TopicImportResult>(response);
+    }
+
+    /// <summary>
     /// Update topic
     /// Rewrites one subject. A break already written keeps the words it was given
     /// </summary>

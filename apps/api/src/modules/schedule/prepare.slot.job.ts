@@ -78,7 +78,7 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
         // Read now rather than carried in the payload, so an edit made since the tick sent this is what
         // the set is chosen against.
         const slot = (await this.slots.list()).find(candidate => candidate.id === slotId);
-        if (slot === undefined || slot.source !== undefined) return;
+        if (slot === undefined || slot.off === true || slot.source !== undefined) return;
 
         // The tick sends this every minute until a set is there, and the queue runs one at a time, so
         // a run behind the one that prepared it finds it here and stops.

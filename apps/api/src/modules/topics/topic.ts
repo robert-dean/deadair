@@ -37,6 +37,25 @@ export interface Topic {
 export type TopicDraft = Omit<Topic, 'id'>;
 
 /**
+ * The key a topic is stored under, made referable from what was written.
+ *
+ * Slugged for `parseFeedRows`' reason: a key is what something else has to name exactly, and
+ * `Pop culture` written back as `Pop Culture` is a subject nothing can reach. Falls back to the label,
+ * and then to a word, so a key made entirely of punctuation still names something.
+ */
+export function topicKeyOf(key: string, label: string): string {
+    return slug(key) || slug(label) || 'topic';
+}
+
+const slug = (value: string): string =>
+    value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+/**
  * A sort of break declaring that it HAS subjects, and how one is edited.
  *
  * Registered by the module that owns the kind (`news` from `NewsModule`), which is what keeps the

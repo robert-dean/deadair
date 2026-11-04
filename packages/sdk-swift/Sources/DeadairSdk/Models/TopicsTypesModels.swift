@@ -169,6 +169,184 @@ public struct TopicQuery: Codable, Equatable, Sendable {
     }
 }
 
+/// One subject in a file. Nothing about the station it came from: no id, and no place in a list
+public struct TopicPackRow: Codable, Equatable, Sendable {
+    /// Which sort of break this is a subject for
+    public var kind: String
+    /// What identifies it within its kind, here and on the station it came from
+    public var key: String
+    /// What a break calls it out loud
+    public var label: String
+    /// This sort of break's own settings for this subject
+    public var config: [String: JSONValue]?
+
+    public init(kind: String, key: String, label: String, config: [String: JSONValue]? = nil) {
+        self.kind = kind
+        self.key = key
+        self.label = label
+        self.config = config
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case key = "key"
+        case label = "label"
+        case config = "config"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(String.self, forKey: .kind)
+        self.key = try container.decode(String.self, forKey: .key)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.config = try container.decodeIfPresent([String: JSONValue].self, forKey: .config)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.key, forKey: .key)
+        try container.encode(self.label, forKey: .label)
+        try container.encodeIfPresent(self.config, forKey: .config)
+    }
+}
+
+/// A station's subjects as one file, to hand to another station. Each entry is read as a `TopicPackRow`
+/// when it is imported, so one a station cannot use is reported rather than refusing the file
+public struct TopicPack: Codable, Equatable, Sendable {
+    /// Says the file is a topics file
+    public var format: String
+    /// The version of the document's shape. This station reads version 1
+    public var version: Int
+    /// What the file is, as whoever made it would describe it
+    public var name: String
+    public var topics: [[String: JSONValue]]
+
+    public init(format: String = "deadair.topics", version: Int, name: String, topics: [[String: JSONValue]]) {
+        self.format = format
+        self.version = version
+        self.name = name
+        self.topics = topics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case version = "version"
+        case name = "name"
+        case topics = "topics"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.format = try container.decode(String.self, forKey: .format)
+        guard self.format == "deadair.topics" else {
+            throw DecodingError.dataCorruptedError(forKey: .format, in: container, debugDescription: "Expected \"deadair.topics\"")
+        }
+        self.version = try container.decode(Int.self, forKey: .version)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.topics = try container.decode([[String: JSONValue]].self, forKey: .topics)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.format, forKey: .format)
+        try container.encode(self.version, forKey: .version)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.topics, forKey: .topics)
+    }
+}
+
+/// An entry in a file that importing it would leave out, and why
+public struct PackImportDropped: Codable, Equatable, Sendable {
+    /// Which entry in the file, counting from 1
+    public var entry: Int
+    /// What the entry calls itself, when it does
+    public var words: String?
+    /// Why the station cannot use it
+    public var reason: String
+
+    public init(entry: Int, words: String? = nil, reason: String) {
+        self.entry = entry
+        self.words = words
+        self.reason = reason
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+        case words = "words"
+        case reason = "reason"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.entry = try container.decode(Int.self, forKey: .entry)
+        self.words = try container.decodeIfPresent(String.self, forKey: .words)
+        self.reason = try container.decode(String.self, forKey: .reason)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.entry, forKey: .entry)
+        try container.encodeIfPresent(self.words, forKey: .words)
+        try container.encode(self.reason, forKey: .reason)
+    }
+}
+
+/// An entry in a file that importing it would leave out, and why
+public struct PackImportDroppedInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// Something to know about a file that does not stop it being imported, in the station's own sentence
+public struct PackImportNotice: Codable, Equatable, Sendable {
+    /// What sort of notice, for a caller that treats one differently
+    public var kind: String
+    public var message: String
+
+    public init(kind: String, message: String) {
+        self.kind = kind
+        self.message = message
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case message = "message"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(String.self, forKey: .kind)
+        self.message = try container.decode(String.self, forKey: .message)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.message, forKey: .message)
+    }
+}
+
+/// Something to know about a file that does not stop it being imported, in the station's own sentence
+public struct PackImportNoticeInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 public struct TopicList: Codable, Equatable, Sendable {
     public var topics: [Topic]
 
@@ -232,5 +410,106 @@ public struct TopicKindList: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.kinds, forKey: .kinds)
+    }
+}
+
+/// What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens
+public struct PackImportPlan: Codable, Equatable, Sendable {
+    /// What the file says it is
+    public var name: String
+    /// What it would add, in the words a list would show
+    public var adding: [String]
+    /// What this station already has, which it would leave alone
+    public var skipped: [String]
+    /// What it cannot use
+    public var dropped: [PackImportDropped]
+    public var notices: [PackImportNotice]
+
+    public init(name: String, adding: [String], skipped: [String], dropped: [PackImportDropped], notices: [PackImportNotice]) {
+        self.name = name
+        self.adding = adding
+        self.skipped = skipped
+        self.dropped = dropped
+        self.notices = notices
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case adding = "adding"
+        case skipped = "skipped"
+        case dropped = "dropped"
+        case notices = "notices"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.adding = try container.decode([String].self, forKey: .adding)
+        self.skipped = try container.decode([String].self, forKey: .skipped)
+        self.dropped = try container.decode([PackImportDropped].self, forKey: .dropped)
+        self.notices = try container.decode([PackImportNotice].self, forKey: .notices)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.adding, forKey: .adding)
+        try container.encode(self.skipped, forKey: .skipped)
+        try container.encode(self.dropped, forKey: .dropped)
+        try container.encode(self.notices, forKey: .notices)
+    }
+}
+
+/// What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens
+public struct PackImportPlanInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// What an import did, and the subjects as they now stand
+public struct TopicImportResult: Codable, Equatable, Sendable {
+    public var plan: PackImportPlan
+    public var list: TopicList
+
+    public init(plan: PackImportPlan, list: TopicList) {
+        self.plan = plan
+        self.list = list
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case plan = "plan"
+        case list = "list"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.plan = try container.decode(PackImportPlan.self, forKey: .plan)
+        self.list = try container.decode(TopicList.self, forKey: .list)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.plan, forKey: .plan)
+        try container.encode(self.list, forKey: .list)
+    }
+}
+
+/// What an import did, and the subjects as they now stand
+public struct TopicImportResultInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
     }
 }

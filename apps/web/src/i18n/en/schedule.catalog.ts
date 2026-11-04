@@ -46,6 +46,24 @@ export const schedule = {
             airing: 'The block the station is airing now is filled in.',
         },
     },
+    file: {
+        export: 'Export schedule',
+        exportFailedTitle: 'The schedule could not be exported',
+        exportFailedFallback: 'Nothing was saved.',
+        importOpen: 'Import schedule',
+        import: {
+            title: 'Import a schedule',
+            intro: 'Add shows from a file another station exported. They arrive switched off, so your schedule stays as it is until you turn one on.',
+            adding_one: 'Adds {{count}} show, switched off:',
+            adding_other: 'Adds {{count}} shows, switched off:',
+        },
+    },
+    switchedOff: {
+        title: 'Switched off',
+        description:
+            'Kept, but not on the air and not on the timetable. Open one to turn it on. It is checked against what else is on at that point.',
+        edit: 'Edit {{name}}',
+    },
     specials: {
         title: 'Specials',
         description:
@@ -103,6 +121,8 @@ export const schedule = {
         withCoHosts: '{{host}} with {{coHosts}}',
     },
     slot: {
+        enabledLabel: 'On the schedule',
+        enabledDescription: 'Turn this off to keep the slot without it going on the air.',
         editTitle: 'Edit slot',
         newTitle: 'New slot',
         saveFailedTitle: 'That slot could not be saved',
@@ -394,6 +414,16 @@ export const schedule = {
         description:
             'What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so nothing is ever cut off mid-record. Where two rules want one boundary, the higher one takes it. The clock belongs to the station rather than to a broadcast, so every show follows it and an edit here changes all of them.',
         addBand: 'New band',
+        export: 'Export',
+        exportFailedTitle: 'The format clock could not be exported',
+        exportFailedFallback: 'Nothing was saved.',
+        importOpen: 'Import',
+        import: {
+            title: 'Import a format clock',
+            intro: 'Add bands from a file another station exported. They go after your own, switched off, so your clock stays as it is until you turn one on.',
+            adding_one: 'Adds {{count}} band, switched off:',
+            adding_other: 'Adds {{count}} bands, switched off:',
+        },
         loadFailedTitle: 'The format clock could not be loaded',
         loadFailedFallback: "The station's bands are unavailable.",
         changeFailedTitle: 'That band could not be changed',

@@ -1,7 +1,8 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type { PackImportPlan } from '../topics/types/topics.types.js';
 import type { BreakKindFile, BreakKindImportPlan, BreakKindImportResult, BreakKindInput, BreakKindList } from './types/break.kinds.types.js';
-import type { ClockBandInput, ClockBandList } from './types/clock.types.js';
+import type { ClockBandInput, ClockBandList, ClockImportResult, ClockPack } from './types/clock.types.js';
 import type {
     AddStationSegmentInput,
     AddStationTrackInput,
@@ -116,6 +117,41 @@ export class DirectorClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<BreakKindImportResult>(result);
+    }
+
+    /**
+     * @name Export clock
+     * @description This station's format clock as one file, to hand to another station
+     */
+    async exportClock(): Promise<ClockPack> {
+        const result = await this.fetch(`/clock/export`, { method: 'GET' });
+        return await parseJson<ClockPack>(result);
+    }
+
+    /**
+     * @name Preview clock import
+     * @description Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+     */
+    async previewClockImport(body: ClockPack): Promise<PackImportPlan> {
+        const result = await this.fetch(`/clock/import/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PackImportPlan>(result);
+    }
+
+    /**
+     * @name Import clock
+     * @description Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has
+     */
+    async importClock(body: ClockPack): Promise<ClockImportResult> {
+        const result = await this.fetch(`/clock/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ClockImportResult>(result);
     }
 
     /**

@@ -62,6 +62,58 @@ const slot = (over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
 const noop = () => {};
 
 describe('SlotEditor', () => {
+    it('sends nothing about the switch on an ordinary save, and sends it once it is moved', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({}) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        await user.click(await screen.findByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('enabled');
+
+        await user.click(screen.getByRole('switch', { name: /On the schedule/ }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+        expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ enabled: false });
+    });
+
+    it('opens a slot that is off with the switch off, and sends it on when it is turned on', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ enabled: false }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        const toggle = await screen.findByRole('switch', { name: /On the schedule/ });
+        expect(toggle).not.toBeChecked();
+        await user.click(toggle);
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+        expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ enabled: true });
+    });
+
     it('opens a new slot on rotation, keep-going — the ordinary case', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

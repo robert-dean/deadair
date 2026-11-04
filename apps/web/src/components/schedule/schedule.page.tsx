@@ -25,6 +25,8 @@ import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
 import { SpecialsPanel } from './specials.panel';
+import { ScheduleFileButtons } from './schedule.file.buttons';
+import { SwitchedOffPanel } from './switched.off.panel';
 import { isSpecial } from './schedule.specials';
 import { i18n } from '../../i18n/i18n.setup';
 
@@ -159,6 +161,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     const [refusal, setRefusal] = useState<string | undefined>(undefined);
 
     const slots = schedule.data?.slots ?? [];
+    const switchedOff = schedule.data?.switchedOff ?? [];
     const from = timetable.data?.from;
 
     const airingId = current.data?.airingSlotId;
@@ -360,6 +363,10 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
                     {/* A fact about every boundary drawn above, so it sits under the grid. */}
                     <OverrunPanel />
+
+                    <SwitchedOffPanel slots={switchedOff} onEdit={slot => setEditing({ kind: 'edit', slot })} />
+
+                    <ScheduleFileButtons />
                 </Stack>
             )}
 

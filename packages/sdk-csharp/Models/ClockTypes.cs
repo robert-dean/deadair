@@ -109,6 +109,45 @@ public sealed record ClockBandInput
     public string? TopicId { get; init; }
 }
 
+/// <summary>What a band in a file is about, carried whole so the file works on a station that has never heard of it</summary>
+public sealed record ClockPackTopic
+{
+    /// <summary>What identifies it within the band's kind</summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    /// <summary>What a break calls it out loud</summary>
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>This sort of break's own settings for this subject</summary>
+    [JsonPropertyName("config")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, JsonElement>? Config { get; init; }
+}
+
+/// <summary>
+/// A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it
+/// is imported, so one a station cannot use is reported rather than refusing the file
+/// </summary>
+public sealed record ClockPack
+{
+    /// <summary>Says the file is a clock file</summary>
+    [JsonPropertyName("format")]
+    public string Format { get; init; } = "deadair.clock";
+
+    /// <summary>The version of the document's shape. This station reads version 1</summary>
+    [JsonPropertyName("version")]
+    public required long Version { get; init; }
+
+    /// <summary>What the file is, as whoever made it would describe it</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("bands")]
+    public required List<Dictionary<string, JsonElement>> Bands { get; init; }
+}
+
 public sealed record ClockBandList
 {
     [JsonPropertyName("bands")]
@@ -128,6 +167,50 @@ public sealed record ClockBandListInput
     [JsonPropertyName("producibleKinds")]
     public required List<string> ProducibleKinds { get; init; }
 }
+
+/// <summary>One rule in a file. Nothing about the station it came from: no id, no place in its order, and no switch</summary>
+public sealed record ClockPackRow
+{
+    /// <summary>Which sort of break it wants, as `segments.kind` spells it</summary>
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("at")]
+    public required ClockPackRowAt At { get; init; }
+
+    [JsonPropertyName("hour")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Hour { get; init; }
+
+    [JsonPropertyName("minute")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Minute { get; init; }
+
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<long>? Days { get; init; }
+
+    [JsonPropertyName("everyMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? EveryMs { get; init; }
+
+    [JsonPropertyName("topic")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ClockPackTopic? Topic { get; init; }
+}
+
+/// <summary>What an import did, and the clock as it now stands</summary>
+public sealed record ClockImportResult
+{
+    [JsonPropertyName("plan")]
+    public required PackImportPlan Plan { get; init; }
+
+    [JsonPropertyName("list")]
+    public required ClockBandList List { get; init; }
+}
+
+/// <summary>What an import did, and the clock as it now stands</summary>
+public sealed record ClockImportResultInput;
 
 /// <summary>`clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover</summary>
 [JsonConverter(typeof(ClockBandAtConverter))]
@@ -183,5 +266,61 @@ public sealed class ClockBandAtConverter : JsonConverter<ClockBandAt>
         ClockBandAt.Clock => "clock",
         ClockBandAt.Interval => "interval",
         _ => throw new JsonException($"ClockBandAt.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ClockPackRowAtConverter))]
+public enum ClockPackRowAt
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("clock")]
+    Clock,
+
+    [JsonStringEnumMemberName("interval")]
+    Interval,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ClockPackRowAt"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ClockPackRowAt.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ClockPackRowAtConverter : JsonConverter<ClockPackRowAt>
+{
+    public override ClockPackRowAt Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ClockPackRowAt, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ClockPackRowAt value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ClockPackRowAt ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ClockPackRowAt value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ClockPackRowAt FromWire(string? text) => text switch
+    {
+        "clock" => ClockPackRowAt.Clock,
+        "interval" => ClockPackRowAt.Interval,
+        _ => ClockPackRowAt.Unknown,
+    };
+
+    private static string ToWire(ClockPackRowAt value) => value switch
+    {
+        ClockPackRowAt.Clock => "clock",
+        ClockPackRowAt.Interval => "interval",
+        _ => throw new JsonException($"ClockPackRowAt.{value} has no wire spelling, so it cannot be sent."),
     };
 }

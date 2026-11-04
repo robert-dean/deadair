@@ -9,6 +9,7 @@ import { LiveBookings, LiveNotices } from './live.bookings.js';
 import { ScheduleRepository } from './schedule.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
 import { OpeningWait } from './opening.wait.js';
+import { ScheduleFileService } from './schedule.file.service.js';
 import { ScheduleService } from './schedule.service.js';
 
 /**
@@ -40,6 +41,7 @@ export const ScheduleModule: ServerKitModule = {
         registry.register(PreparedSetRepository).useClass(PreparedSetRepository).asScoped();
         registry.register(PlaylistPositionRepository).useClass(PlaylistPositionRepository).asScoped();
         registry.register(ScheduleService).useClass(ScheduleService).asScoped();
+        registry.register(ScheduleFileService).useClass(ScheduleFileService).asScoped();
         registry.register(OccasionRepository).useClass(OccasionRepository).asScoped();
         registry.register(OccasionService).useClass(OccasionService).asScoped();
         registry.register(LiveArmRepository).useClass(LiveArmRepository).asScoped();

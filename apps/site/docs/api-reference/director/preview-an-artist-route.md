@@ -1,7 +1,7 @@
 ---
 title: 'Preview an artist route'
 sidebar_label: 'Preview an artist route'
-sidebar_position: 21
+sidebar_position: 24
 mdx:
     format: 'md'
 ---

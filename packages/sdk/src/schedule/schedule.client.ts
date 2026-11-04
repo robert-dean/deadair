@@ -1,8 +1,11 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type { PackImportPlan } from '../topics/types/topics.types.js';
 import type { OccasionImportPlan, OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from './types/occasions.types.js';
 import type {
+    ScheduleImportResult,
     ScheduleNow,
+    SchedulePack,
     ScheduleSlotApplied,
     ScheduleSlotInput,
     ScheduleSlotList,
@@ -147,6 +150,41 @@ export class ScheduleClient {
             method: 'GET',
         });
         return await parseJson<ScheduleTimetable>(result);
+    }
+
+    /**
+     * @name Export schedule
+     * @description This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name
+     */
+    async exportSchedule(): Promise<SchedulePack> {
+        const result = await this.fetch(`/schedule/export`, { method: 'GET' });
+        return await parseJson<SchedulePack>(result);
+    }
+
+    /**
+     * @name Preview schedule import
+     * @description Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing
+     */
+    async previewScheduleImport(body: SchedulePack): Promise<PackImportPlan> {
+        const result = await this.fetch(`/schedule/import/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PackImportPlan>(result);
+    }
+
+    /**
+     * @name Import schedule
+     * @description Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has
+     */
+    async importSchedule(body: SchedulePack): Promise<ScheduleImportResult> {
+        const result = await this.fetch(`/schedule/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ScheduleImportResult>(result);
     }
 
     /**

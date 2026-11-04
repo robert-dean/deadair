@@ -47,6 +47,7 @@ const storedRow = (source: Record<string, string | number | boolean | null>) => 
     yearly: false,
     resumePlaylist: true,
     live: false,
+    enabled: true,
     mode: 'setlist',
     onEnd: 'extend',
     ...source,
@@ -141,9 +142,32 @@ describe('ScheduleRepository.update', () => {
         await new ScheduleRepository(db, new StationIdentity()).update(SLOT, draft({ chartId: 'deadair.lastfm:top' }));
 
         const at = statements.findIndex(sql => sql.startsWith('update'));
-        expect(statements[at]).toContain('"resume_playlist" = $');
-        expect(parameters[at]).toContain(false);
-        expect(parameters[at]).not.toContain(true);
+        const placeholder = Number(/"resume_playlist" = \$(\d+)/.exec(statements[at] ?? '')?.[1]);
+        expect(parameters[at]?.[placeholder - 1]).toBe(false);
+    });
+});
+
+describe('the switch on a slot', () => {
+    const write = async (over: Record<string, unknown>, stored: Record<string, string | number | boolean | null>) => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const db = fakeDb(storedRow({}), storedRow(stored), statements, parameters);
+        const slot = await new ScheduleRepository(db, new StationIdentity()).update(SLOT, { ...draft(undefined), ...over });
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        const placeholder = Number(/"enabled" = \$(\d+)/.exec(statements[at] ?? '')?.[1]);
+        return { slot, written: parameters[at]?.[placeholder - 1] };
+    };
+
+    it('writes on for a slot that says nothing, and reads it back with no mark on it', async () => {
+        const { slot, written } = await write({}, {});
+        expect(written).toBe(true);
+        expect(slot?.off).toBeUndefined();
+    });
+
+    it('writes off for a slot that is off, and reads it back as off', async () => {
+        const { slot, written } = await write({ off: true }, { enabled: false });
+        expect(written).toBe(false);
+        expect(slot?.off).toBe(true);
     });
 });
 

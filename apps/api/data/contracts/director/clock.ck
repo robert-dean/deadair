@@ -23,6 +23,51 @@ options {
 # ones around it are read and a caller handed back only its own row is holding a list it has to
 # refetch anyway.
 
+# A clock as a file, on the `platform.manage` floor, since a file leaves the station. A band brings the
+# subject it needs along with it, and everything a file adds starts switched off.
+
+operation /clock/export: {
+    get: { # This station's format clock as one file, to hand to another station
+        name: Export clock
+        service: ClockService.exportPack
+        response: {
+            200: {
+                application/json: ClockPack
+            }
+        }
+    }
+}
+
+operation /clock/import/preview: {
+    post: { # Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+        name: Preview clock import
+        service: ClockService.previewImport
+        request: {
+            application/json: ClockPack
+        }
+        response: {
+            200: {
+                application/json: PackImportPlan
+            }
+        }
+    }
+}
+
+operation /clock/import: {
+    post: { # Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has
+        name: Import clock
+        service: ClockService.importPack
+        request: {
+            application/json: ClockPack
+        }
+        response: {
+            200: {
+                application/json: ClockImportResult
+            }
+        }
+    }
+}
+
 operation /clock/bands: {
     get: { # Every band on this station's clock, including the ones switched off, in the operator's own order
         name: List clock bands

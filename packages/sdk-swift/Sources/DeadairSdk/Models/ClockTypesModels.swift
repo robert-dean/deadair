@@ -156,6 +156,87 @@ public struct ClockBandInput: Codable, Equatable, Sendable {
     }
 }
 
+/// What a band in a file is about, carried whole so the file works on a station that has never heard of it
+public struct ClockPackTopic: Codable, Equatable, Sendable {
+    /// What identifies it within the band's kind
+    public var key: String
+    /// What a break calls it out loud
+    public var label: String
+    /// This sort of break's own settings for this subject
+    public var config: [String: JSONValue]?
+
+    public init(key: String, label: String, config: [String: JSONValue]? = nil) {
+        self.key = key
+        self.label = label
+        self.config = config
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case label = "label"
+        case config = "config"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.key = try container.decode(String.self, forKey: .key)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.config = try container.decodeIfPresent([String: JSONValue].self, forKey: .config)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.key, forKey: .key)
+        try container.encode(self.label, forKey: .label)
+        try container.encodeIfPresent(self.config, forKey: .config)
+    }
+}
+
+/// A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it
+/// is imported, so one a station cannot use is reported rather than refusing the file
+public struct ClockPack: Codable, Equatable, Sendable {
+    /// Says the file is a clock file
+    public var format: String
+    /// The version of the document's shape. This station reads version 1
+    public var version: Int
+    /// What the file is, as whoever made it would describe it
+    public var name: String
+    public var bands: [[String: JSONValue]]
+
+    public init(format: String = "deadair.clock", version: Int, name: String, bands: [[String: JSONValue]]) {
+        self.format = format
+        self.version = version
+        self.name = name
+        self.bands = bands
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case version = "version"
+        case name = "name"
+        case bands = "bands"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.format = try container.decode(String.self, forKey: .format)
+        guard self.format == "deadair.clock" else {
+            throw DecodingError.dataCorruptedError(forKey: .format, in: container, debugDescription: "Expected \"deadair.clock\"")
+        }
+        self.version = try container.decode(Int.self, forKey: .version)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.bands = try container.decode([[String: JSONValue]].self, forKey: .bands)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.format, forKey: .format)
+        try container.encode(self.version, forKey: .version)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.bands, forKey: .bands)
+    }
+}
+
 public struct ClockBandList: Codable, Equatable, Sendable {
     public var bands: [ClockBand]
     /// Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it
@@ -212,6 +293,101 @@ public struct ClockBandListInput: Codable, Equatable, Sendable {
     }
 }
 
+/// One rule in a file. Nothing about the station it came from: no id, no place in its order, and no switch
+public struct ClockPackRow: Codable, Equatable, Sendable {
+    /// Which sort of break it wants, as `segments.kind` spells it
+    public var kind: String
+    public var at: ClockPackRowAt
+    public var hour: Int?
+    public var minute: Int?
+    public var days: [Int]?
+    public var everyMs: Int?
+    public var topic: ClockPackTopic?
+
+    public init(kind: String, at: ClockPackRowAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, everyMs: Int? = nil, topic: ClockPackTopic? = nil) {
+        self.kind = kind
+        self.at = at
+        self.hour = hour
+        self.minute = minute
+        self.days = days
+        self.everyMs = everyMs
+        self.topic = topic
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case at = "at"
+        case hour = "hour"
+        case minute = "minute"
+        case days = "days"
+        case everyMs = "everyMs"
+        case topic = "topic"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(String.self, forKey: .kind)
+        self.at = try container.decode(ClockPackRowAt.self, forKey: .at)
+        self.hour = try container.decodeIfPresent(Int.self, forKey: .hour)
+        self.minute = try container.decodeIfPresent(Int.self, forKey: .minute)
+        self.days = try container.decodeIfPresent([Int].self, forKey: .days)
+        self.everyMs = try container.decodeIfPresent(Int.self, forKey: .everyMs)
+        self.topic = try container.decodeIfPresent(ClockPackTopic.self, forKey: .topic)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.at, forKey: .at)
+        try container.encodeIfPresent(self.hour, forKey: .hour)
+        try container.encodeIfPresent(self.minute, forKey: .minute)
+        try container.encodeIfPresent(self.days, forKey: .days)
+        try container.encodeIfPresent(self.everyMs, forKey: .everyMs)
+        try container.encodeIfPresent(self.topic, forKey: .topic)
+    }
+}
+
+/// What an import did, and the clock as it now stands
+public struct ClockImportResult: Codable, Equatable, Sendable {
+    public var plan: PackImportPlan
+    public var list: ClockBandList
+
+    public init(plan: PackImportPlan, list: ClockBandList) {
+        self.plan = plan
+        self.list = list
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case plan = "plan"
+        case list = "list"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.plan = try container.decode(PackImportPlan.self, forKey: .plan)
+        self.list = try container.decode(ClockBandList.self, forKey: .list)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.plan, forKey: .plan)
+        try container.encode(self.list, forKey: .list)
+    }
+}
+
+/// What an import did, and the clock as it now stands
+public struct ClockImportResultInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover
 public enum ClockBandAt: Codable, CaseIterable, Hashable, Sendable {
     case clock
@@ -252,6 +428,52 @@ public enum ClockBandAt: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ClockBandAt.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum ClockPackRowAt: Codable, CaseIterable, Hashable, Sendable {
+    case clock
+    case interval
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ClockPackRowAt] = [.clock, .interval]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .clock: return "clock"
+        case .interval: return "interval"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "clock": self = .clock
+        case "interval": self = .interval
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ClockPackRowAt.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

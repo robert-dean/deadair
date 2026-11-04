@@ -75,6 +75,47 @@ public sealed class ScheduleClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Export schedule
+    /// This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name
+    /// </summary>
+    public async Task<SchedulePack> ExportScheduleAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("schedule", "export"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<SchedulePack>(response);
+    }
+
+    /// <summary>
+    /// Preview schedule import
+    /// Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing
+    /// </summary>
+    public async Task<PackImportPlan> PreviewScheduleImportAsync(SchedulePack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("schedule", "import", "preview"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PackImportPlan>(response);
+    }
+
+    /// <summary>
+    /// Import schedule
+    /// Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has
+    /// </summary>
+    public async Task<ScheduleImportResult> ImportScheduleAsync(SchedulePack body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("schedule", "import"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ScheduleImportResult>(response);
+    }
+
+    /// <summary>
     /// Update schedule slot
     /// Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
     /// </summary>

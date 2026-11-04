@@ -23,3 +23,36 @@ contract ClockBandList: {
     bands: array(ClockBand)
     producibleKinds: array(string(min=1, max=100)) # Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it
 }
+
+# What a band in a file is about, carried whole so the file works on a station that has never heard of it
+contract ClockPackTopic: {
+    key: string(min=1, max=100) # What identifies it within the band's kind
+    label: string(min=1, max=200) # What a break calls it out loud
+    config?: record(string, unknown) # This sort of break's own settings for this subject
+}
+
+# One rule in a file. Nothing about the station it came from: no id, no place in its order, and no switch
+contract ClockPackRow: {
+    kind: string(min=1, max=100) # Which sort of break it wants, as `segments.kind` spells it
+    at: enum(clock, interval)
+    hour?: int(min=0, max=23)
+    minute?: int(min=0, max=59)
+    days?: array(int(min=0, max=6))
+    everyMs?: int(min=60000)
+    topic?: ClockPackTopic
+}
+
+# A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it
+# is imported, so one a station cannot use is reported rather than refusing the file
+contract ClockPack: {
+    format: literal("deadair.clock") # Says the file is a clock file
+    version: int(min=1) # The version of the document's shape. This station reads version 1
+    name: string(min=1, max=100) # What the file is, as whoever made it would describe it
+    bands: array(record(string, unknown), max=500)
+}
+
+# What an import did, and the clock as it now stands
+contract ClockImportResult: {
+    plan: readonly PackImportPlan
+    list: readonly ClockBandList
+}

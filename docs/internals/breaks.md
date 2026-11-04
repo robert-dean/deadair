@@ -1340,6 +1340,10 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
+**A clock moves between stations as a file too** (`director/clock.pack.ts`, `deadair.clock`), and a band carries its subject whole, so the file works on a station that has never heard of the category. An import appends after the last band here and everything arrives switched off. Position is precedence, so anything else would change which of this station's own rules wins a boundary, and a switched-off band cannot contest one until an operator turns it on knowing where it sits. A band whose subject is not carried whole is dropped rather than added without one, on the cascade's own argument.
+
+**Topics move between stations as a file** (`topics/topic.pack.ts`, `deadair.topics`). A row is its kind, key, label and config, identified by kind and key. An import only adds: a key this station holds is left exactly as it is, and a label never overwrites one an operator here chose. A topic has no switch and needs none, because it does nothing until a band points at it. A kind this station has not registered is added and flagged in the preview, on `TopicsService`'s own rule that such a row is inert.
+
 ## Kinds an operator writes
 
 **A kind of break can be a ROW, and what it costs is that it has no floor.** `deadair.break_kinds`

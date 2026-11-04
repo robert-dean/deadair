@@ -3,6 +3,26 @@
  * framing the console puts around a failure it did not write.
  */
 export const common = {
+    packImport: {
+        choose: 'Choose a file',
+        chooseAnother: 'Choose another file',
+        unreadable: '{{name}} is not a file this can read.',
+        refused: 'That file could not be used',
+        refusedFallback: 'It is not a file this station can read.',
+        failed: 'The file could not be imported',
+        failedFallback: 'Nothing was added.',
+        nothingToAdd: 'There is nothing in this file to add.',
+        andMore_one: 'and {{count}} more',
+        andMore_other: 'and {{count}} more',
+        skipped_one: 'Leaves out {{count}} you already have.',
+        skipped_other: 'Leaves out {{count}} you already have.',
+        dropped_one: "Leaves out {{count}} the station can't use:",
+        dropped_other: "Leaves out {{count}} the station can't use:",
+        droppedEntry: 'Entry {{entry}}, {{words}}: {{reason}}',
+        unnamed: 'with no name',
+        cancel: 'Cancel',
+        add: 'Add them',
+    },
     action: {
         cancel: 'Cancel',
         save: 'Save',

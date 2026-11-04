@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowDown, IconArrowUp, IconPlus } from '@tabler/icons-react';
-import type { ClockBand, ClockBandInput } from '@deadair/sdk';
+import type { ClockBand, ClockBandInput, ClockPack } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
-import { useClockBands, useCreateClockBand, useDeleteClockBand, useUpdateClockBand } from '../../api/clock.queries';
+import {
+    exportClock,
+    useClockBands,
+    useCreateClockBand,
+    useDeleteClockBand,
+    useImportClock,
+    usePreviewClockImport,
+    useUpdateClockBand,
+} from '../../api/clock.queries';
+import { apiErrorMessage } from '../../api/sdk.error';
+import { PackImportModal, packFieldsIn } from '../shared/pack.import.modal';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { severityColor } from '../shared/status';
@@ -56,6 +66,20 @@ export function ClockPanel() {
     // The complement, for the dial: it marks what will be passed over rather than what will run.
     const unproducible = new Set(bands.filter(band => !canProduce(band.kind)).map(band => band.kind));
 
+    const previewImport = usePreviewClockImport();
+    const writeImport = useImportClock();
+    const [importing, setImporting] = useState(false);
+    const [exportFailed, setExportFailed] = useState<string | undefined>();
+
+    const saveExport = async () => {
+        setExportFailed(undefined);
+        try {
+            await exportClock();
+        } catch (error) {
+            setExportFailed(apiErrorMessage(error, t('clock.exportFailedFallback')));
+        }
+    };
+
     const close = () => {
         setEditing(undefined);
         create.reset();
@@ -105,15 +129,36 @@ export function ClockPanel() {
                             {t('clock.description')}
                         </Text>
                     </Stack>
-                    <Button
-                        size="xs"
-                        variant="light"
-                        leftSection={<IconPlus size={14} />}
-                        onClick={() => setEditing({ kind: 'new', position: (bands.at(-1)?.position ?? -1) + 1 })}
-                    >
-                        {t('clock.addBand')}
-                    </Button>
+                    <Group gap="xs">
+                        <Button size="xs" variant="default" onClick={() => void saveExport()}>
+                            {t('clock.export')}
+                        </Button>
+                        <Button size="xs" variant="default" onClick={() => setImporting(true)}>
+                            {t('clock.importOpen')}
+                        </Button>
+                        <Button
+                            size="xs"
+                            variant="light"
+                            leftSection={<IconPlus size={14} />}
+                            onClick={() => setEditing({ kind: 'new', position: (bands.at(-1)?.position ?? -1) + 1 })}
+                        >
+                            {t('clock.addBand')}
+                        </Button>
+                    </Group>
                 </Group>
+
+                {exportFailed ? <ErrorAlert title={t('clock.exportFailedTitle')}>{exportFailed}</ErrorAlert> : undefined}
+
+                <PackImportModal
+                    opened={importing}
+                    onClose={() => setImporting(false)}
+                    title={t('clock.import.title')}
+                    intro={t('clock.import.intro')}
+                    addingLine={count => t('clock.import.adding', { count })}
+                    read={text => packFieldsIn<ClockPack>(text, ['format', 'version', 'name', 'bands'])}
+                    preview={previewImport}
+                    write={writeImport}
+                />
 
                 {clock.error ? (
                     <ErrorAlert title={t('clock.loadFailedTitle')} error={clock.error} fallback={t('clock.loadFailedFallback')} />

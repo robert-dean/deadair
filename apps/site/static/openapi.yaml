@@ -1807,6 +1807,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/BreakKindImportResult'
+    '/clock/export':
+        get:
+            operationId: exportPack
+            summary: 'Export clock'
+            description: "This station's format clock as one file, to hand to another station"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ClockPack'
+    '/clock/import/preview':
+        post:
+            operationId: previewImport
+            summary: 'Preview clock import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ClockPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PackImportPlan'
+    '/clock/import':
+        post:
+            operationId: importPack
+            summary: 'Import clock'
+            description: "Adds the bands in a file after this station's own, switched off, with any subject they need. Changes nothing the station already has"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ClockPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ClockImportResult'
     '/clock/bands':
         get:
             operationId: listClockBands
@@ -6346,7 +6394,7 @@ paths:
                                 '$ref': '#/components/schemas/OccasionList'
     '/occasions/export':
         get:
-            operationId: exportPack
+            operationId: exportOccasions
             summary: 'Export occasions'
             description: 'Every occasion on this station as one file, to hand to another station'
             responses:
@@ -6358,7 +6406,7 @@ paths:
                                 '$ref': '#/components/schemas/OccasionPack'
     '/occasions/import/preview':
         post:
-            operationId: previewImport
+            operationId: previewOccasionImport
             summary: 'Preview occasion import'
             description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
             requestBody:
@@ -6376,7 +6424,7 @@ paths:
                                 '$ref': '#/components/schemas/OccasionImportPlan'
     '/occasions/import':
         post:
-            operationId: importPack
+            operationId: importOccasions
             summary: 'Import occasions'
             description: 'Adds what is new in a file to the end of the list, switched off. Changes nothing the station already has'
             requestBody:
@@ -6511,6 +6559,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ScheduleTimetable'
+    '/schedule/export':
+        get:
+            operationId: exportSchedule
+            summary: 'Export schedule'
+            description: "This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/SchedulePack'
+    '/schedule/import/preview':
+        post:
+            operationId: previewScheduleImport
+            summary: 'Preview schedule import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SchedulePack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PackImportPlan'
+    '/schedule/import':
+        post:
+            operationId: importSchedule
+            summary: 'Import schedule'
+            description: 'Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SchedulePack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ScheduleImportResult'
     '/schedule/{id}':
         put:
             operationId: updateScheduleSlot
@@ -7121,6 +7217,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TopicKindList'
+    '/topics/export':
+        get:
+            operationId: exportTopics
+            summary: 'Export topics'
+            description: 'Every subject this station has named as one file, to hand to another station'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TopicPack'
+    '/topics/import/preview':
+        post:
+            operationId: previewTopicImport
+            summary: 'Preview topic import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/TopicPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PackImportPlan'
+    '/topics/import':
+        post:
+            operationId: importTopics
+            summary: 'Import topics'
+            description: 'Adds what is new in a file. A subject this station already has, by kind and key, is left as it is'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/TopicPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TopicImportResult'
     '/topics/{id}':
         put:
             operationId: updateTopic
@@ -10557,6 +10701,40 @@ components:
                         maxLength: 100
                     description: 'Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it'
             required: [bands, producibleKinds]
+        ClockPack:
+            type: object
+            properties:
+                format:
+                    const: deadair.clock
+                    description: 'Says the file is a clock file'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the file is, as whoever made it would describe it'
+                bands:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 500
+            required: [format, version, name, bands]
+            description: "A format clock as one file, to hand to another station. Each entry is read as a `ClockPackRow` when it\nis imported, so one a station cannot use is reported rather than refusing the file"
+        ClockImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PackImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/ClockBandList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the clock as it now stands'
         StationMode:
             type: string
             enum: [rotation, setlist, feature]
@@ -17112,6 +17290,9 @@ components:
                 resumePlaylist:
                     type: boolean
                     description: "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist"
+                enabled:
+                    type: boolean
+                    description: 'Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot'
                 mode:
                     type: string
                     enum: [rotation, setlist, feature]
@@ -17231,6 +17412,12 @@ components:
                     type: array
                     items:
                         '$ref': '#/components/schemas/ScheduleSlot'
+                    description: 'What the station runs: every slot that is not switched off'
+                switchedOff:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ScheduleSlot'
+                    description: 'Slots kept but not running, in the same order. Absent when there are none'
             required: [slots]
         ScheduleTimetableQuery:
             type: object
@@ -17376,6 +17563,40 @@ components:
                     description: 'The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block'
             required: [now, upcoming]
             description: 'Which slot the clock says should be on right now, and what follows it'
+        SchedulePack:
+            type: object
+            properties:
+                format:
+                    const: deadair.schedule
+                    description: 'Says the file is a schedule file'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the file is, as whoever made it would describe it'
+                slots:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 500
+            required: [format, version, name, slots]
+            description: "A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with\n`personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each\nco-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a\nstation cannot use is reported rather than refusing the file"
+        ScheduleImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PackImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/ScheduleSlotList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the schedule as it now stands'
         SettingGroup:
             type: string
             enum:
@@ -18351,6 +18572,102 @@ components:
                     type: string
                     maxLength: 100
                     description: 'One sort of break, or absent for every subject this station has named'
+        TopicPack:
+            type: object
+            properties:
+                format:
+                    const: deadair.topics
+                    description: 'Says the file is a topics file'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the file is, as whoever made it would describe it'
+                topics:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 1000
+            required: [format, version, name, topics]
+            description: "A station's subjects as one file, to hand to another station. Each entry is read as a `TopicPackRow`\nwhen it is imported, so one a station cannot use is reported rather than refusing the file"
+        PackImportDropped:
+            type: object
+            properties:
+                entry:
+                    type: integer
+                    minimum: 1
+                    readOnly: true
+                    description: 'Which entry in the file, counting from 1'
+                words:
+                    type: string
+                    readOnly: true
+                    description: 'What the entry calls itself, when it does'
+                reason:
+                    type: string
+                    readOnly: true
+                    description: 'Why the station cannot use it'
+            required: [entry, reason]
+            description: 'An entry in a file that importing it would leave out, and why'
+        PackImportNotice:
+            type: object
+            properties:
+                kind:
+                    type: string
+                    readOnly: true
+                    description: 'What sort of notice, for a caller that treats one differently'
+                message:
+                    type: string
+                    readOnly: true
+            required: [kind, message]
+            description: "Something to know about a file that does not stop it being imported, in the station's own sentence"
+        PackImportPlan:
+            type: object
+            properties:
+                name:
+                    type: string
+                    readOnly: true
+                    description: 'What the file says it is'
+                adding:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                    description: 'What it would add, in the words a list would show'
+                skipped:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                    description: 'What this station already has, which it would leave alone'
+                dropped:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PackImportDropped'
+                    readOnly: true
+                    description: 'What it cannot use'
+                notices:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PackImportNotice'
+                    readOnly: true
+            required: [name, adding, skipped, dropped, notices]
+            description: 'What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens'
+        TopicImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PackImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/TopicList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the subjects as they now stand'
         InvitationState:
             type: string
             enum: [pending, accepted, revoked, expired]

@@ -1,3 +1,5 @@
+import type { PackImportPlan } from '../../topics/types/topics.types.js';
+
 /**
  * A host who sits in on a slot on some nights, saying whose show it usually is
  * generated from [SlotGuestHost](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
@@ -96,6 +98,23 @@ export interface SlotPlaylistPosition {
 }
 
 /**
+ * A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+ * `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+ * co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+ * station cannot use is reported rather than refusing the file
+ * generated from [SchedulePack](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface SchedulePack {
+    /** Says the file is a schedule file */
+    format: 'deadair.schedule';
+    /** The version of the document's shape. This station reads version 1 */
+    version: number;
+    /** What the file is, as whoever made it would describe it */
+    name: string;
+    slots: Record<string, unknown>[];
+}
+
+/**
  * One stretch of the station's day: from this time, on these days, the station plays this
  * generated from [ScheduleSlot](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
  */
@@ -170,6 +189,8 @@ export interface ScheduleSlot {
     live?: boolean;
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     resumePlaylist?: boolean;
+    /** Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot */
+    enabled?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
@@ -242,6 +263,8 @@ export interface ScheduleSlotInput {
     live?: boolean;
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     resumePlaylist?: boolean;
+    /** Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot */
+    enabled?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
@@ -297,9 +320,26 @@ export interface ScheduleSlotApplied {
  * generated from [ScheduleSlotList](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
  */
 export interface ScheduleSlotList {
+    /** What the station runs: every slot that is not switched off */
     slots: ScheduleSlot[];
+    /** Slots kept but not running, in the same order. Absent when there are none */
+    switchedOff?: ScheduleSlot[];
 }
 
 export interface ScheduleSlotListInput {
+    /** What the station runs: every slot that is not switched off */
     slots: ScheduleSlotInput[];
+    /** Slots kept but not running, in the same order. Absent when there are none */
+    switchedOff?: ScheduleSlotInput[];
 }
+
+/**
+ * What an import did, and the schedule as it now stands
+ * generated from [ScheduleImportResult](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface ScheduleImportResult {
+    plan: PackImportPlan;
+    list: ScheduleSlotList;
+}
+
+export interface ScheduleImportResultInput {}

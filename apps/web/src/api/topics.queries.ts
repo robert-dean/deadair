@@ -1,6 +1,7 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import type { TopicInput, TopicList } from '@deadair/sdk';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TopicImportResult, TopicInput, TopicList, TopicPack } from '@deadair/sdk';
 
+import { saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
 import { useListWrite } from './mutation.kit';
 import { queryKeys } from './query.keys';
@@ -54,3 +55,23 @@ export const useCreateTopic = () => useTopicWrite((body: TopicInput) => sdk.topi
 export const useUpdateTopic = () => useTopicWrite(({ id, body }: { id: string; body: TopicInput }) => sdk.topics.updateTopic(id, body));
 
 export const useDeleteTopic = () => useTopicWrite((id: string) => sdk.topics.deleteTopic(id));
+
+/** Saves every subject as a file. A download is not state this console holds, so this is no query. */
+export async function exportTopics(): Promise<void> {
+    saveJsonDownload(await sdk.topics.exportTopics(), 'deadair-topics.json');
+}
+
+export function usePreviewTopicImport() {
+    return useMutation({ mutationFn: (pack: TopicPack) => sdk.topics.previewTopicImport(pack) });
+}
+
+/** An import answers the list as it now stands, beside what it did. */
+export function useImportTopics() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (pack: TopicPack) => sdk.topics.importTopics(pack),
+        onSuccess: (answer: TopicImportResult) => {
+            queryClient.setQueryData(queryKeys.topics.list(), answer.list);
+        },
+    });
+}

@@ -4,6 +4,7 @@ options {
     }
     services: {
         ScheduleService: "#src/modules/schedule/schedule.service.js"
+        ScheduleFileService: "#src/modules/schedule/schedule.file.service.js"
         SlotPlaylistService: "#src/modules/director/slot.playlist.service.js"
         SlotAirService: "#src/modules/director/slot.air.service.js"
     }
@@ -97,6 +98,51 @@ operation /schedule/timetable: {
         response: {
             200: {
                 application/json: ScheduleTimetable
+            }
+        }
+    }
+}
+
+# These three before `/schedule/{id}`, which would otherwise take `export` for an id. An export stays on the
+# `platform.manage` floor, since a file leaves the station, and everything a file adds starts switched off.
+
+operation /schedule/export: {
+    get: { # This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name
+        name: Export schedule
+        service: ScheduleFileService.exportPack
+        response: {
+            200: {
+                application/json: SchedulePack
+            }
+        }
+    }
+}
+
+operation /schedule/import/preview: {
+    post: { # Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing
+        name: Preview schedule import
+        service: ScheduleFileService.previewImport
+        request: {
+            application/json: SchedulePack
+        }
+        response: {
+            200: {
+                application/json: PackImportPlan
+            }
+        }
+    }
+}
+
+operation /schedule/import: {
+    post: { # Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has
+        name: Import schedule
+        service: ScheduleFileService.importPack
+        request: {
+            application/json: SchedulePack
+        }
+        response: {
+            200: {
+                application/json: ScheduleImportResult
             }
         }
     }

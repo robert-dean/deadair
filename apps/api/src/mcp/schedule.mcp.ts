@@ -6,11 +6,14 @@ import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type McpToolContext } from '@maroonedsoftware/mcp';
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
+import { ScheduleFileService } from '#src/modules/schedule/schedule.file.service.js';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
 import { SlotAirService } from '#src/modules/director/slot.air.service.js';
 import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
 import {
+    ScheduleImportResult,
     ScheduleNow,
+    SchedulePack,
     ScheduleSlotApplied,
     ScheduleSlotInput,
     ScheduleSlotList,
@@ -18,6 +21,7 @@ import {
     ScheduleTimetableQuery,
     SlotPlaylistPosition,
 } from '../modules/schedule/types/schedule.types.js';
+import { PackImportPlan } from '../modules/topics/types/topics.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -31,6 +35,9 @@ const ListScheduleArgs = z.object({});
 const CreateScheduleSlotArgs = z.object({ body: ScheduleSlotInput });
 const ReadCurrentSlotArgs = z.object({});
 const ReadTimetableArgs = z.object({ query: ScheduleTimetableQuery.optional() });
+const ExportScheduleArgs = z.object({});
+const PreviewScheduleImportArgs = z.object({ body: SchedulePack });
+const ImportScheduleArgs = z.object({ body: SchedulePack });
 const UpdateScheduleSlotArgs = z.object({ id: z.string().min(1).max(100), body: ScheduleSlotInput });
 const DeleteScheduleSlotArgs = z.object({ id: z.string().min(1).max(100) });
 const ApplyScheduleSlotToAirArgs = z.object({ id: z.string().min(1).max(100) });
@@ -124,6 +131,75 @@ export class ReadTimetableMcpTool implements McpToolHandler {
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
         const { query = await parseAndValidate({}, ReadTimetableArgs.shape.query.unwrap()) } = await parseAndValidate(args, ReadTimetableArgs);
         const result = await container.get(ScheduleService).timetable(query);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule/export`
+ */
+@Injectable()
+export class ExportScheduleMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'export_schedule',
+        description: "This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name",
+        inputSchema: z.toJSONSchema(ExportScheduleArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(SchedulePack, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const result = await container.get(ScheduleFileService).exportPack();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/import/preview`
+ */
+@Injectable()
+export class PreviewScheduleImportMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'preview_schedule_import',
+        description: 'Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing',
+        inputSchema: z.toJSONSchema(PreviewScheduleImportArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PackImportPlan, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, PreviewScheduleImportArgs);
+        const result = await container.get(ScheduleFileService).previewImport(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/import`
+ */
+@Injectable()
+export class ImportScheduleMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'import_schedule',
+        description:
+            'Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has',
+        inputSchema: z.toJSONSchema(ImportScheduleArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ScheduleImportResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, ImportScheduleArgs);
+        const result = await container.get(ScheduleFileService).importPack(body);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -256,6 +332,9 @@ export function registerScheduleMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('create_schedule_slot', container.get(CreateScheduleSlotMcpTool));
     map.set('read_current_slot', container.get(ReadCurrentSlotMcpTool));
     map.set('read_timetable', container.get(ReadTimetableMcpTool));
+    map.set('export_schedule', container.get(ExportScheduleMcpTool));
+    map.set('preview_schedule_import', container.get(PreviewScheduleImportMcpTool));
+    map.set('import_schedule', container.get(ImportScheduleMcpTool));
     map.set('update_schedule_slot', container.get(UpdateScheduleSlotMcpTool));
     map.set('delete_schedule_slot', container.get(DeleteScheduleSlotMcpTool));
     map.set('apply_schedule_slot_to_air', container.get(ApplyScheduleSlotToAirMcpTool));
@@ -269,6 +348,9 @@ export function registerScheduleMcpToolClasses(registry: Registry): void {
     registry.register(CreateScheduleSlotMcpTool).useClass(CreateScheduleSlotMcpTool).asSingleton();
     registry.register(ReadCurrentSlotMcpTool).useClass(ReadCurrentSlotMcpTool).asSingleton();
     registry.register(ReadTimetableMcpTool).useClass(ReadTimetableMcpTool).asSingleton();
+    registry.register(ExportScheduleMcpTool).useClass(ExportScheduleMcpTool).asSingleton();
+    registry.register(PreviewScheduleImportMcpTool).useClass(PreviewScheduleImportMcpTool).asSingleton();
+    registry.register(ImportScheduleMcpTool).useClass(ImportScheduleMcpTool).asSingleton();
     registry.register(UpdateScheduleSlotMcpTool).useClass(UpdateScheduleSlotMcpTool).asSingleton();
     registry.register(DeleteScheduleSlotMcpTool).useClass(DeleteScheduleSlotMcpTool).asSingleton();
     registry.register(ApplyScheduleSlotToAirMcpTool).useClass(ApplyScheduleSlotToAirMcpTool).asSingleton();

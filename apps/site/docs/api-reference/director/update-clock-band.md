@@ -1,7 +1,7 @@
 ---
 title: 'Update clock band'
 sidebar_label: 'Update clock band'
-sidebar_position: 11
+sidebar_position: 14
 mdx:
     format: 'md'
 ---

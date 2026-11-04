@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.90.4] — 2026-11-04
+
+- The analysis sidecar moves to torch and torchaudio 2.10.0 for a security advisory on loading checkpoint files. The beat tracker's beats and downbeats came out the same as on 2.9.1.
+- Stop refusing true weather figures: a range such as "3-5 degrees" is no longer read as -5, and "minus 5" or "5 below" now matches a reading of -5. An English break also has its sign held to the reading when it says it in words, so "minus 5" on a reading of 5 is refused. Outside English the word for minus is not read, so a figure with no sign in its digits matches either side of zero.
+
 ## [0.90.3] — 2026-11-04
 
 - **A character's card can say how its breaks are doing.** "How it is doing" in a persona's menu shows the last thirty days per kind of break: written, refused and failed, what you liked and disliked, and why answers were refused, most common first. It is for tuning a sheet by hand, and nothing acts on it. The figures come from `GET /scripts/performance`.
@@ -1887,7 +1892,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.4...HEAD
+[0.90.4]: https://github.com/robert-dean/deadair/compare/v0.90.3...v0.90.4
 [0.90.3]: https://github.com/robert-dean/deadair/compare/v0.90.2...v0.90.3
 [0.90.2]: https://github.com/robert-dean/deadair/compare/v0.90.1...v0.90.2
 [0.90.1]: https://github.com/robert-dean/deadair/compare/v0.90.0...v0.90.1

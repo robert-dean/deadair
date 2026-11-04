@@ -53,21 +53,28 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
  * ordinary speech about the weather and none of them is a measurement, so a number attached to a
  * colon or a date-shaped run is left alone. The station's other guards already own what a script may
  * claim about the time.
+ *
+ * **A hyphen after a digit or a letter is not a minus.** "3-5 degrees" is a range and "mid-30s" is a
+ * figure of 30, and both ends are still checked.
+ *
+ * **A minus is as often a word as a mark, and only English has its words read.** "minus 5", "negative
+ * 5" and "5 below" are -5 here, and a bare 5 is a 5, so a reading of -5 refuses "5 degrees" and a reading
+ * of 5 refuses "minus 5". "5 below average" reads as -5 too, which costs nothing: a weather break may
+ * not compare, and either answer refuses or passes a comparison nobody measured.
+ *
+ * Outside English the word for minus is not read, on the same bargain as the spelled-out number above,
+ * so a figure with no sign in its digits stands for a reading of 5 or of -5, and only "-5" has to be
+ * exactly that. What it costs is the wrong sign said in words or not said at all. The other way refused
+ * every true figure below freezing on a station whose only fallback is to drop the break (discussion 868).
  */
 export function inventedFigure(script: string, weather: SpokenWeather, language?: string): string | undefined {
     const measured = measuredFigures(weather);
 
     // A clock time, a date and a year are removed before anything is read as a measurement. The
     // station's other guards own what a script may claim about the time; this one owns the figures.
-    const figures = withoutTimes(script, language);
-
-    // Outside English a decimal is as likely to be written with a comma as a point: "17,5 Grad" is
-    // one figure, and read as two it is a 5 nobody measured.
-    const number = language === undefined ? /-?\d+(?:\.\d+)?/g : /-?\d+(?:[.,]\d+)?/g;
-    for (const match of figures.matchAll(number)) {
-        const said = Math.round(Number(match[0].replace(',', '.')));
-        if (!Number.isFinite(said) || measured.has(said)) continue;
-        return match[0];
+    for (const said of statedFigures(withoutTimes(script, language), language)) {
+        if (!Number.isFinite(said.value) || isMeasured(said, measured, language)) continue;
+        return said.text;
     }
 
     return undefined;
@@ -132,13 +139,45 @@ export function mentionsWeather(script: string, weather: SpokenWeather, language
 
     // Read against the SAME text `inventedFigure` judged, so a year or a clock time cannot be read as
     // a measurement here having been excluded there.
-    for (const match of withoutTimes(script).matchAll(/-?\d+(?:\.\d+)?/g)) {
-        const figure = Math.round(Number(match[0]));
-        if (Number.isFinite(figure) && measuredFigures(weather).has(figure)) return true;
+    const measured = measuredFigures(weather);
+    for (const said of statedFigures(withoutTimes(script))) {
+        if (Number.isFinite(said.value) && isMeasured(said, measured)) return true;
     }
 
     return false;
 }
+
+/** A number as a script wrote it, and as the station compares it. */
+interface StatedFigure {
+    text: string;
+    value: number;
+    /** Whether it says which side of zero it is on, in its digits or, in English, in words. */
+    signed: boolean;
+}
+
+/**
+ * Every number in a script, rounded as {@link measuredFigures} rounds them.
+ *
+ * Shared by both questions for the same reason as {@link withoutTimes}. Outside English a decimal is
+ * as likely to be written with a comma as a point: "17,5 Grad" is one figure, and read as two it is a
+ * 5 nobody measured. U+2212 is the minus a model writes when it is being careful about typography.
+ */
+function statedFigures(script: string, language?: string): StatedFigure[] {
+    return [...script.matchAll(language === undefined ? ENGLISH_FIGURE : OTHER_FIGURE)].map(([text]) => {
+        const digits = /\d+(?:[.,]\d+)?/.exec(text)?.[0] ?? '';
+        const negative = !/^\d/.test(text) || /below$/i.test(text);
+        return { text, signed: negative, value: Math.round(Number(digits.replace(',', '.')) * (negative ? -1 : 1)) };
+    });
+}
+
+/** A minus sign, which a hyphen straight after a letter or a digit is not. */
+const MINUS_SIGN = '(?<![\\p{L}\\p{N}])[-\\u2212]';
+const ENGLISH_FIGURE = new RegExp(`(?:${MINUS_SIGN}|\\b(?:minus|negative)\\s+)?\\d+(?:\\.\\d+)?(?:\\s+(?:degrees?\\s+)?below\\b)?`, 'giu');
+const OTHER_FIGURE = new RegExp(`(?:${MINUS_SIGN})?\\d+(?:[.,]\\d+)?`, 'gu');
+
+/** Whether the reading carried this figure. See {@link inventedFigure} on what a missing sign means. */
+const isMeasured = ({ value, signed }: StatedFigure, measured: ReadonlySet<number>, language?: string): boolean =>
+    measured.has(value) || (language !== undefined && !signed && measured.has(-value));
 
 /**
  * Every figure the service actually reported, rounded as the station says them.

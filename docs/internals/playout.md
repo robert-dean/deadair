@@ -89,6 +89,15 @@ that costs is the segments, which nginx serves and the app never sees — a refu
 last playlist gave it and stalls within one window, because a live playlist is the only way to learn the next
 ones. `hls.refusal.ts` carries the whole argument.
 
+**The same list covers the mounts, and the order is the point.** `MountRefusal` reads Icecast's client list,
+drops what matches through `/admin/killclient.json` and answers how many matched, and `AudienceWatch.offer`
+takes that off the reading BEFORE accepting it. Accepting is what opens the gate and starts the five-minute
+linger, so a robot dropped only afterwards would reconnect and hold an `audience` station on air anyway. An
+arrival on a station with a list therefore waits for one list read, and a station with no list never reads it.
+An unreadable mount fails open: everybody on it counts. A 2.4 server has no `listclients.json`, so it is
+always that case and the list does nothing to its mounts. Measured on 2.5.0: only the matching connection
+closes, within a second, and the mount's count falls by one.
+
 **How many segments the playlist lists is slack, not latency, and the floor is ten for that reason.** A
 live player starts three target durations back from the newest segment whatever the playlist holds: RFC 8216
 6.3.3 says a client should not start nearer, ExoPlayer's `HlsMediaSource` falls back to exactly

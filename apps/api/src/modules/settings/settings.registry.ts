@@ -481,7 +481,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Players the station will not serve',
         type: 'string',
         default: HLS_REFUSE_DEFAULT,
-        help: 'Names from a player\'s "user agent", separated by spaces — anything matching is answered with a refusal and is not counted as a listener. Leave empty unless something is streaming that should not be: with the station set to air only while somebody is listening, one program fetching the stream around the clock keeps it broadcasting to nobody. Use the short product name, such as `Lavf/` or `Go-http-client`, so it keeps matching when that thing updates.',
+        help: 'Names from a player\'s "user agent", separated by spaces — anything matching is refused or dropped, on the HLS playlists and on the mounts alike, and is not counted as a listener. Leave empty unless something is streaming that should not be: with the station set to air only while somebody is listening, one program fetching the stream around the clock keeps it broadcasting to nobody. Use the short product name, such as `Lavf/` or `Go-http-client`, so it keeps matching when that thing updates.',
     },
     {
         group: 'stream',

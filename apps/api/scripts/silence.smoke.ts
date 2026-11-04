@@ -47,6 +47,8 @@ import { MOUNT_PATHS, resolveStreamSettings, streamMounts } from '../src/modules
 import { IcecastEventFeed } from '../src/modules/stream/icecast.eventfeed.client.js';
 import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
 import { HlsAudience } from '../src/modules/stream/hls.audience.js';
+import { IcecastClientsClient } from '../src/modules/stream/icecast.clients.client.js';
+import { MountRefusal } from '../src/modules/stream/mount.refusal.js';
 import { StreamConfigWatch } from '../src/modules/stream/stream.staleness.js';
 import { StationAirRepository } from '../src/modules/director/station.air.repository.js';
 import { StationLineupRepository } from '../src/modules/director/station.lineup.repository.js';
@@ -140,7 +142,16 @@ const heartbeat = new Heartbeat();
 // The HLS half of the audience is an empty register here and stays one: it is fed by the
 // playlist requests the API serves, and this process serves none. So what is reported is
 // Icecast's count alone, which is the half every gate below is about.
-const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), new HlsAudience(), config, heartbeat, new StationBus(quiet), quiet);
+const audience = new AudienceWatch(
+    stats,
+    new IcecastEventFeed(stats, quiet),
+    new HlsAudience(),
+    config,
+    heartbeat,
+    new StationBus(quiet),
+    quiet,
+    new MountRefusal(new IcecastClientsClient(stats), config, quiet),
+);
 
 /**
  * A control endpoint pinned to an address nothing answers, for `--deaf`.

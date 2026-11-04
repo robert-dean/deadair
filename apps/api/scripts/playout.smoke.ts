@@ -31,6 +31,8 @@ import { MOUNT_PATHS, resolveStreamSettings, streamMounts } from '../src/modules
 import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '../src/modules/stream/icecast.eventfeed.client.js';
 import { HlsAudience } from '../src/modules/stream/hls.audience.js';
+import { IcecastClientsClient } from '../src/modules/stream/icecast.clients.client.js';
+import { MountRefusal } from '../src/modules/stream/mount.refusal.js';
 import { StreamConfigWatch } from '../src/modules/stream/stream.staleness.js';
 import { StationLineup, isTrackItem } from '../src/modules/director/station.lineup.js';
 import { AudienceWatch } from '../src/modules/playout/audience.watch.js';
@@ -153,6 +155,7 @@ const audience = new AudienceWatch(
     new Heartbeat(),
     new StationBus(quiet),
     quiet,
+    new MountRefusal(new IcecastClientsClient(stats), config, quiet),
 );
 const pusher = new PlayoutPusher(rundown, control, audience, config, new Heartbeat(), logger);
 

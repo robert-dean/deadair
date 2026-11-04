@@ -4,7 +4,7 @@
 // eagerly cuts a broadcast somebody is listening to; reporting one too readily airs a
 // station to an empty room.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { AUDIENCE_POLL_MS, AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
@@ -14,6 +14,7 @@ import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import type { IcecastStatsClient } from '../../../src/modules/stream/icecast.stats.client.js';
 import type { IcecastEventFeed } from '../../../src/modules/stream/icecast.eventfeed.client.js';
+import type { MountRefusal } from '../../../src/modules/stream/mount.refusal.js';
 import type { Logger } from '@maroonedsoftware/logger';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -64,6 +65,9 @@ const feed = () => ({ watch: vi.fn(), stop: vi.fn(), attached: () => false }) as
  */
 const hls = () => new HlsAudience();
 
+/** A station with nobody on its refusal list, which is the default. */
+const noRefusal = { refusing: () => false, sweep: async () => 0 } as unknown as MountRefusal;
+
 /** A real bus over the stub logger: publishing is what half of these cases are checking. */
 const bus = () => new StationBus(logger);
 
@@ -90,7 +94,7 @@ describe('AudienceWatch', () => {
 
     it('reads zero, and no audience, before anything has answered', () => {
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
         expect(watch.listenerCount()).toBe(0);
         expect(watch.hasAudience()).toBe(false);
@@ -98,7 +102,7 @@ describe('AudienceWatch', () => {
 
     it('has an audience as soon as somebody is listening', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -117,7 +121,7 @@ describe('AudienceWatch', () => {
 
     it('keeps the audience through the linger window after the last listener leaves', async () => {
         const { stats, answer } = stubStats(1);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -143,7 +147,7 @@ describe('AudienceWatch', () => {
 
     it('gives up the audience once the linger window has passed', async () => {
         const { stats, answer } = stubStats(2);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -161,7 +165,7 @@ describe('AudienceWatch', () => {
 
     it('holds the last reading when Icecast stops answering', async () => {
         const { stats, answer } = stubStats(3);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
         watch.start();
         await tick(0);
@@ -185,14 +189,14 @@ describe('AudienceWatch', () => {
 
         it('has never been read before Icecast answers', () => {
             const { stats } = stubStats(undefined);
-            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
             expect(watch.reading().readAt).toBeUndefined();
         });
 
         it('records when Icecast answered, including with nobody listening', async () => {
             const { stats } = stubStats(0);
-            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
             watch.start();
             await tick(0);
@@ -205,7 +209,7 @@ describe('AudienceWatch', () => {
 
         it('stops moving when Icecast stops answering, while the count stands', async () => {
             const { stats, answer } = stubStats(2);
-            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
             watch.start();
             await tick(0);
@@ -223,7 +227,7 @@ describe('AudienceWatch', () => {
             // An event feed message, or a hook call Icecast is holding a listener's
             // connection open for, is proof it is up whether or not a poll landed.
             const { stats } = stubStats(undefined);
-            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
             watch.start();
             await tick(0);
@@ -239,7 +243,7 @@ describe('AudienceWatch', () => {
             // The poll is a failsafe now, so on a healthy station this is usually the only
             // thing proving Icecast is there.
             const { stats } = stubStats(undefined);
-            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
             watch.start();
             await tick(0);
@@ -254,7 +258,7 @@ describe('AudienceWatch', () => {
     it('holds the gate open in `always` mode, with nobody listening', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();
-        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger, noRefusal);
 
         expect(watch.gateOpen()).toBe(false);
 
@@ -271,7 +275,7 @@ describe('AudienceWatch', () => {
     it('announces a mode change on the next poll, having had no event to announce it on', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();
-        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger, noRefusal);
         const edges: boolean[] = [];
         watch.onChange(open => edges.push(open));
 
@@ -296,7 +300,7 @@ describe('AudienceWatch', () => {
     it('does not close the gate on an empty room in `always` mode', async () => {
         const { stats, answer } = stubStats(2);
         const station = settingsConfig({ [AIR_MODE_KEY]: 'always' });
-        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger, noRefusal);
         const edges: boolean[] = [];
         watch.onChange(open => edges.push(open));
 
@@ -314,7 +318,7 @@ describe('AudienceWatch', () => {
 
     it('takes a pushed count without waiting for the poll', () => {
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -329,7 +333,7 @@ describe('AudienceWatch', () => {
         // What the listener hooks used to be for. `source-listeners-changed` arrives within
         // milliseconds of the connection, so the minute-long poll is never in the path.
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         watch.start();
         await tick(0);
 
@@ -347,7 +351,7 @@ describe('AudienceWatch', () => {
         const mounts = ['/live.mp3', '/live.opus', '/live.aac'];
         const { stats } = stubStats(0, mounts);
         const pushed = feed();
-        const watch = new AudienceWatch(stats, pushed, hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, pushed, hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
         watch.start();
         await tick(0);
@@ -360,7 +364,7 @@ describe('AudienceWatch', () => {
         // The feed hands over a TOTAL, already reconciled across the mounts, so this
         // class treats a message about Opus exactly as it treats one about MP3.
         const { stats } = stubStats(0, ['/live.mp3', '/live.opus']);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         watch.start();
         await tick(0);
         expect(watch.gateOpen()).toBe(false);
@@ -379,7 +383,7 @@ describe('AudienceWatch', () => {
         it('counts towards the audience alongside the Icecast ones', async () => {
             const { stats } = stubStats(2);
             const register = hls();
-            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger, noRefusal);
             watch.start();
             await tick(0);
             expect(watch.listenerCount()).toBe(2);
@@ -393,7 +397,7 @@ describe('AudienceWatch', () => {
         it('opens the gate on their own, with nobody on any Icecast mount', async () => {
             const { stats } = stubStats(0);
             const register = hls();
-            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger, noRefusal);
             watch.start();
             await tick(0);
             expect(watch.gateOpen()).toBe(false);
@@ -410,7 +414,7 @@ describe('AudienceWatch', () => {
             // tuned in is the thing this avoids.
             const { stats } = stubStats(0);
             const register = hls();
-            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger, noRefusal);
             const edges: boolean[] = [];
             watch.onChange(present => edges.push(present));
             watch.start();
@@ -430,7 +434,7 @@ describe('AudienceWatch', () => {
             // as long as one person was streaming.
             const { stats } = stubStats(undefined);
             const register = hls();
-            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger, noRefusal);
             watch.start();
             await tick(0);
 
@@ -446,7 +450,7 @@ describe('AudienceWatch', () => {
         // A negative from anything that reports one: the count is clamped rather than
         // trusted, since a linger window measured against a negative never expires.
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
         watch.report(-2);
 
@@ -455,7 +459,7 @@ describe('AudienceWatch', () => {
 
     it('keeps announcing to the other subscribers when one of them throws', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
         const seen: boolean[] = [];
         watch.onChange(() => {
             throw new Error('a subscriber that cannot cope');
@@ -479,7 +483,7 @@ describe('AudienceWatch', () => {
         const station = new StationBus(logger);
         const arrivals: number[] = [];
         station.subscribe('audience.arrived', event => arrivals.push(event.count));
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger, noRefusal);
 
         watch.start();
         await tick(0);
@@ -501,7 +505,7 @@ describe('AudienceWatch', () => {
         const station = new StationBus(logger);
         const arrivals: number[] = [];
         station.subscribe('audience.arrived', event => arrivals.push(event.count));
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger, noRefusal);
 
         watch.start();
         await tick(0);
@@ -521,7 +525,7 @@ describe('AudienceWatch', () => {
         station.subscribe('audience.arrived', () => {
             throw new Error('the director is gone');
         });
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger, noRefusal);
 
         watch.start();
         await tick(0);
@@ -538,7 +542,7 @@ describe('AudienceWatch', () => {
 
     it('stops reading once stopped', async () => {
         const { stats, spy } = stubStats(1);
-        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, noRefusal);
 
         watch.start();
         await tick(0);
@@ -548,5 +552,98 @@ describe('AudienceWatch', () => {
         await tick(20_000);
 
         expect(spy.listeners.mock.calls.length).toBe(reads);
+    });
+
+    describe('with players refused', () => {
+        const refusing = (sweep: () => Promise<number>) =>
+            ({ refusing: () => true, sweep: vi.fn(sweep) }) as unknown as MountRefusal & { sweep: Mock };
+
+        it('never opens the gate for a robot, so it cannot start the linger', async () => {
+            const { stats } = stubStats(0);
+            const refusal = refusing(async () => 1);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, refusal);
+
+            watch.report(1);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(refusal.sweep).toHaveBeenCalledTimes(1);
+            expect(watch.listenerCount()).toBe(0);
+            expect(watch.hasAudience()).toBe(false);
+        });
+
+        it('counts the person beside the robot', async () => {
+            const { stats } = stubStats(0);
+            const watch = new AudienceWatch(
+                stats,
+                feed(),
+                hls(),
+                config,
+                new Heartbeat(),
+                bus(),
+                logger,
+                refusing(async () => 1),
+            );
+
+            watch.report(2);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(watch.listenerCount()).toBe(1);
+            expect(watch.hasAudience()).toBe(true);
+        });
+
+        it('counts everybody when the list could not be read', async () => {
+            const { stats } = stubStats(0);
+            const watch = new AudienceWatch(
+                stats,
+                feed(),
+                hls(),
+                config,
+                new Heartbeat(),
+                bus(),
+                logger,
+                refusing(async () => 0),
+            );
+
+            watch.report(1);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(watch.listenerCount()).toBe(1);
+        });
+
+        it('acts on the newest reading when one arrives during a sweep, and holds one sweep at a time', async () => {
+            const { stats } = stubStats(0);
+            const answers: ((refused: number) => void)[] = [];
+            const refusal = refusing(() => new Promise<number>(resolve => answers.push(resolve)));
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, refusal);
+
+            watch.report(1);
+            watch.report(3);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(refusal.sweep).toHaveBeenCalledTimes(1);
+
+            answers[0]!(1);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(refusal.sweep).toHaveBeenCalledTimes(2);
+            expect(watch.listenerCount()).toBe(0);
+
+            answers[1]!(1);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(watch.listenerCount()).toBe(2);
+        });
+
+        it('lets a reading of zero overrule a sweep still out, with no sweep of its own', async () => {
+            const { stats } = stubStats(0);
+            let answer: (refused: number) => void = () => undefined;
+            const refusal = refusing(() => new Promise<number>(resolve => (answer = resolve)));
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger, refusal);
+
+            watch.report(2);
+            watch.report(0);
+            answer(0);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(refusal.sweep).toHaveBeenCalledTimes(1);
+            expect(watch.listenerCount()).toBe(0);
+        });
     });
 });

@@ -66,11 +66,25 @@ RELATIVE_GATE_LU = -10.0
 # Oversampling factor for true peak. 4x is what BS.1770-4 requires at 48 kHz.
 TRUE_PEAK_OVERSAMPLE = 4
 
+# How many frames one array operation here may cover: ten seconds at the reference
+# rate, and a whole number of gating steps so a filter pass ends on a step boundary.
+#
+# Everything these functions keep is far smaller than what they read: a figure per
+# 100 ms, or a running maximum. Done over the whole array, each float64 intermediate
+# is twice the float32 decode, and they stack: `integrated_lufs` held five times the
+# decode on top of the decode itself, 2.3 GB resident on a sixteen-minute record, which
+# is most of a container this runs inside.
+_PASS_FRAMES = REFERENCE_RATE * 10
+
+
+def _require_reference_rate(sample_rate: int) -> None:
+    if sample_rate != REFERENCE_RATE:
+        raise ValueError(f"K-weighting coefficients are the published 48 kHz ones; got {sample_rate}")
+
 
 def k_weight(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> np.ndarray:
     """The two-stage K-weighting filter, applied in order."""
-    if sample_rate != REFERENCE_RATE:
-        raise ValueError(f"K-weighting coefficients are the published 48 kHz ones; got {sample_rate}")
+    _require_reference_rate(sample_rate)
 
     shelved = signal.lfilter(_SHELF_B, _SHELF_A, samples)
     return signal.lfilter(_RLB_B, _RLB_A, shelved)
@@ -79,6 +93,31 @@ def k_weight(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> np.ndarr
 def _as_channels(samples: np.ndarray) -> np.ndarray:
     """`(frames, channels)`, accepting a 1-D mono array as one channel."""
     return samples.reshape(-1, 1) if samples.ndim == 1 else samples
+
+
+def _step_energies(column: np.ndarray, step: int, steps: int) -> np.ndarray:
+    """The summed K-weighted power of each of the first `steps` gating steps.
+
+    One channel, a pass at a time. The filters are causal, so carrying their state
+    across a pass boundary gives the same samples a single pass over the whole
+    channel gives, and nothing of a pass but its per-step sums outlives it.
+    """
+    steps_per_pass = _PASS_FRAMES // step
+    energies = np.empty(steps, dtype=np.float64)
+    shelf_state = np.zeros(2, dtype=np.float64)
+    rlb_state = np.zeros(2, dtype=np.float64)
+
+    for first in range(0, steps, steps_per_pass):
+        last = min(first + steps_per_pass, steps)
+        piece = np.ascontiguousarray(column[first * step : last * step], dtype=np.float64)
+        shelved, shelf_state = signal.lfilter(_SHELF_B, _SHELF_A, piece, zi=shelf_state)
+        weighted, rlb_state = signal.lfilter(_RLB_B, _RLB_A, shelved, zi=rlb_state)
+
+        # lfilter allocated `weighted`, so squaring it in place touches nobody's data.
+        np.square(weighted, out=weighted)
+        energies[first:last] = weighted.reshape(-1, step).sum(axis=1)
+
+    return energies
 
 
 def integrated_lufs(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> float | None:
@@ -115,25 +154,23 @@ def integrated_lufs(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> f
         # guessing from a partial block would report a number that looks real.
         return None
 
+    _require_reference_rate(sample_rate)
+
     count = 1 + (channels.shape[0] - block) // step
+
+    # A gating block is a whole number of steps (BLOCK_MS over BLOCK_STEP_MS), so
+    # each block's energy is the sum of the steps inside it and the signal itself
+    # never has to be held to compute one.
+    steps_per_block = block // step
+    steps = count + steps_per_block - 1
 
     # Σ G_i · z_i, per block. G is 1.0 for left, right and centre; a surround
     # channel would be 1.41, which nothing here produces because anything wider
     # than stereo is folded down before it arrives. See `app.py`.
-    starts = np.arange(count) * step
-    mean_square = np.zeros(count, dtype=np.float64)
+    energies = np.zeros(steps, dtype=np.float64)
     for index in range(channels.shape[1]):
-        # k_weight allocates its own output (two lfilter passes), so this is a
-        # private copy and squaring it in place is safe.
-        weighted = k_weight(np.ascontiguousarray(channels[:, index], dtype=np.float64), sample_rate)
-
-        # A running sum turns each block's mean square into two lookups and a
-        # subtraction instead of a strided copy over the whole signal.
-        np.square(weighted, out=weighted)
-        csum = np.empty(weighted.size + 1, dtype=np.float64)
-        csum[0] = 0.0
-        np.cumsum(weighted, out=csum[1:])
-        mean_square += (csum[starts + block] - csum[starts]) / block
+        energies += _step_energies(channels[:, index], step, steps)
+    mean_square = np.convolve(energies, np.ones(steps_per_block), mode="valid") / block
 
     # log10(0) for a wholly silent block; floored so it gates out rather than
     # poisoning the comparison.
@@ -222,7 +259,8 @@ def sample_peak_db(samples: np.ndarray) -> float | None:
     if samples.size == 0:
         return None
 
-    peak = float(np.max(np.abs(samples)))
+    # Both ends rather than `np.abs`, which would copy the whole record to read one number.
+    peak = max(float(np.max(samples)), -float(np.min(samples)))
     if peak <= 0.0:
         return None
     return float(20.0 * np.log10(peak))
@@ -257,15 +295,10 @@ def to_mono(samples: np.ndarray) -> np.ndarray:
     if channels.shape[1] == 1:
         return np.ascontiguousarray(channels[:, 0])
 
-    frames, channel_count = channels.shape
-    # One scratch buffer, reused per channel, instead of astype/square/mean each
-    # allocating a full (frames, channels) copy of their own.
-    accum = np.zeros(frames, dtype=np.float64)
-    scratch = np.empty(frames, dtype=np.float64)
-    for index in range(channel_count):
-        scratch[:] = channels[:, index]
-        np.square(scratch, out=scratch)
-        accum += scratch
-    accum /= channel_count
-    np.sqrt(accum, out=accum)
-    return accum.astype(np.float32)
+    # A pass at a time, into the one array that is kept. Each sample's answer depends
+    # on nothing around it, so this is the same result as folding the whole record.
+    folded = np.empty(channels.shape[0], dtype=np.float32)
+    for start in range(0, folded.size, _PASS_FRAMES):
+        piece = channels[start : start + _PASS_FRAMES]
+        folded[start : start + piece.shape[0]] = np.sqrt(np.mean(np.square(piece, dtype=np.float64), axis=1))
+    return folded

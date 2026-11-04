@@ -18,6 +18,8 @@ import type {
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
+    ScriptPerformance,
+    ScriptPerformanceQuery,
     ScriptRatingInput,
     Segment,
     SegmentAudioQuery,
@@ -111,6 +113,18 @@ export class RenderClient {
             method: 'GET',
         });
         return await parseJson<ScriptHistorySummary>(result);
+    }
+
+    /**
+     * @name Read script performance
+     * @description Outcomes, decline reasons and ratings, per presenter and kind of break
+     */
+    async readScriptPerformance(query?: ScriptPerformanceQuery): Promise<ScriptPerformance> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/scripts/performance${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<ScriptPerformance>(result);
     }
 
     /**

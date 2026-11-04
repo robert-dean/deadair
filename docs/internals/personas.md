@@ -646,3 +646,12 @@ a run that airs nothing, and dropped exactly the records an operator auditioning
 recall out of `script_history`, which means a sheet change is judged an evening after it ships; the tally on
 an audition card is the same ratio over material an operator chose, before anything goes out. Neither
 replaces the other — the report reads what a real broadcast did, and only the live table can say that.
+
+## How a character's breaks are doing
+
+**`GET /scripts/performance` and the "How it is doing" panel are for tuning a sheet by hand, and nothing
+acts on them.** They put decline reasons beside the operator's ratings, per presenter and kind of break,
+over thirty days by default. Reasons alone would steer a sheet toward passing the checks; the ratings are
+what say whether the breaks that passed were any good. A reason groups without the wording it quoted
+(`DECLINE_QUOTE_MARK`). Ratings are swept with the attempts they rate, so nothing here looks further back
+than `render.scriptHistoryDays`.

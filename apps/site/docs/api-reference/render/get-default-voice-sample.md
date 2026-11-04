@@ -1,7 +1,7 @@
 ---
 title: 'Get default voice sample'
 sidebar_label: 'Get default voice sample'
-sidebar_position: 9
+sidebar_position: 10
 mdx:
     format: 'md'
 ---

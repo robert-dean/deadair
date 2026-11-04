@@ -24,6 +24,8 @@ import {
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
+    ScriptPerformance,
+    ScriptPerformanceQuery,
     ScriptRatingInput,
     Segment,
     SegmentCreate,
@@ -47,6 +49,7 @@ const ScanTheSegmentInboxArgs = z.object({});
 const ReadScriptHistoryArgs = z.object({ query: ScriptHistoryQuery.optional() });
 const RateScriptArgs = z.object({ id: z.uuid(), body: ScriptRatingInput });
 const ReadScriptSummaryArgs = z.object({ query: ScriptHistorySummaryQuery.optional() });
+const ReadScriptPerformanceArgs = z.object({ query: ScriptPerformanceQuery.optional() });
 const ListVoicesArgs = z.object({});
 const DeleteSegmentArgs = z.object({ id: z.uuid() });
 const ReadSegmentSourcesArgs = z.object({ id: z.uuid() });
@@ -205,6 +208,32 @@ export class ReadScriptSummaryMcpTool implements McpToolHandler {
             ReadScriptSummaryArgs,
         );
         const result = await container.get(RenderService).readScriptSummary(query);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [render.ck](../../data/contracts/render/render.ck) `GET /scripts/performance`
+ */
+@Injectable()
+export class ReadScriptPerformanceMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'read_script_performance',
+        description: 'Outcomes, decline reasons and ratings, per presenter and kind of break',
+        inputSchema: z.toJSONSchema(ReadScriptPerformanceArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ScriptPerformance, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        const { query = await parseAndValidate({}, ReadScriptPerformanceArgs.shape.query.unwrap()) } = await parseAndValidate(
+            args,
+            ReadScriptPerformanceArgs,
+        );
+        const result = await container.get(RenderService).readScriptPerformance(query);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -635,6 +664,7 @@ export function registerRenderMcpCatalog(map: McpToolHandlerMap, container: Cont
     map.set('read_script_history', container.get(ReadScriptHistoryMcpTool));
     map.set('rate_script', container.get(RateScriptMcpTool));
     map.set('read_script_summary', container.get(ReadScriptSummaryMcpTool));
+    map.set('read_script_performance', container.get(ReadScriptPerformanceMcpTool));
     map.set('list_voices', container.get(ListVoicesMcpTool));
     map.set('delete_segment', container.get(DeleteSegmentMcpTool));
     map.set('read_segment_sources', container.get(ReadSegmentSourcesMcpTool));
@@ -663,6 +693,7 @@ export function registerRenderMcpToolClasses(registry: Registry): void {
     registry.register(ReadScriptHistoryMcpTool).useClass(ReadScriptHistoryMcpTool).asSingleton();
     registry.register(RateScriptMcpTool).useClass(RateScriptMcpTool).asSingleton();
     registry.register(ReadScriptSummaryMcpTool).useClass(ReadScriptSummaryMcpTool).asSingleton();
+    registry.register(ReadScriptPerformanceMcpTool).useClass(ReadScriptPerformanceMcpTool).asSingleton();
     registry.register(ListVoicesMcpTool).useClass(ListVoicesMcpTool).asSingleton();
     registry.register(DeleteSegmentMcpTool).useClass(DeleteSegmentMcpTool).asSingleton();
     registry.register(ReadSegmentSourcesMcpTool).useClass(ReadSegmentSourcesMcpTool).asSingleton();

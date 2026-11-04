@@ -1,7 +1,7 @@
 ---
 title: 'Create pronunciation'
 sidebar_label: 'Create pronunciation'
-sidebar_position: 17
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

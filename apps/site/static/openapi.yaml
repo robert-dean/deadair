@@ -5446,6 +5446,28 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ScriptHistorySummary'
+    '/scripts/performance':
+        get:
+            operationId: readScriptPerformance
+            summary: 'Read script performance'
+            description: 'Outcomes, decline reasons and ratings, per presenter and kind of break'
+            parameters:
+                - name: days
+                  in: query
+                  required: false
+                  description: 'How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 365
+                      description: 'How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ScriptPerformance'
     '/voices':
         get:
             operationId: listVoices
@@ -16358,6 +16380,76 @@ components:
                         '$ref': '#/components/schemas/ScriptHistorySummaryRow'
             required: [hours, rows]
             description: 'What each presenter has written lately, and over how long'
+        ScriptPerformanceQuery:
+            type: object
+            properties:
+                days:
+                    type: integer
+                    minimum: 1
+                    maximum: 365
+                    description: 'How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate'
+            description: 'The window the figures cover'
+        ScriptDeclineReason:
+            type: object
+            properties:
+                reason:
+                    type: string
+                    maxLength: 2000
+                    description: "The station's own sentence for the fault, without any wording it quoted"
+                count:
+                    type: integer
+                    minimum: 0
+            required: [reason, count]
+            description: "One reason a writer's answer was refused"
+        ScriptPerformanceRow:
+            type: object
+            properties:
+                personaKey:
+                    type: string
+                    maxLength: 100
+                    description: 'Absent means nobody was presenting, which is an ordinary state rather than a gap in the data'
+                kind:
+                    type: string
+                    maxLength: 100
+                written:
+                    type: integer
+                    minimum: 0
+                declined:
+                    type: integer
+                    minimum: 0
+                failed:
+                    type: integer
+                    minimum: 0
+                liked:
+                    type: integer
+                    minimum: 0
+                neutral:
+                    type: integer
+                    minimum: 0
+                disliked:
+                    type: integer
+                    minimum: 0
+                declineReasons:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ScriptDeclineReason'
+                    description: 'Most common first'
+            required: [kind, written, declined, failed, liked, neutral, disliked, declineReasons]
+            description: "One presenter's writing of one kind of break, and what the operator thought of it"
+        ScriptPerformance:
+            type: object
+            properties:
+                days:
+                    type: integer
+                    minimum: 1
+                    maximum: 365
+                    description: 'The window actually read, echoed so a console can label what it draws'
+                rows:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ScriptPerformanceRow'
+            required: [days, rows]
+            description: "How each presenter's breaks are doing, by the checks and by the operator"
         SegmentScanResult:
             type: object
             properties:

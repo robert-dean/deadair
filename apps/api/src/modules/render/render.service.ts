@@ -21,6 +21,8 @@ import type {
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
+    ScriptPerformance,
+    ScriptPerformanceQuery,
     SpeechPreviewRequest,
     ScriptPromptMessage,
     SegmentAudioQuery,
@@ -47,6 +49,7 @@ import { padMixKey } from './pad.settings.js';
 import type { Pronunciation } from './pronunciation.lexicon.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
+import { foldPerformance } from './script.performance.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { DEFAULT_KIND as DEFAULT_SEGMENT_KIND, labelFor, MAX_SEGMENT_BYTES, SegmentLibrary } from './segment.library.js';
@@ -87,6 +90,9 @@ const DEFAULT_HISTORY_LIMIT = 50;
  * break after midnight looks healthy on any window that stops before it.
  */
 const DEFAULT_SUMMARY_HOURS = 24;
+
+/** A month: long enough for a rating habit to show, inside the nightly sweep's default of ninety days. */
+const DEFAULT_PERFORMANCE_DAYS = 30;
 
 /**
  * How long a voice preview waits for the speech engine before saying the station is busy.
@@ -254,6 +260,18 @@ export class RenderService {
         const hours = query.hours ?? DEFAULT_SUMMARY_HOURS;
 
         return { hours, rows: await this.history.outcomeCountsSince(hours) };
+    }
+
+    /**
+     * How each presenter's breaks are doing, by the checks and by the operator.
+     *
+     * Where a sheet gets tuned by hand. Decline reasons alone would steer toward a character that
+     * passes checks, so they are read beside the ratings. Nothing acts on either.
+     */
+    async readScriptPerformance(query: ScriptPerformanceQuery): Promise<ScriptPerformance> {
+        const days = query.days ?? DEFAULT_PERFORMANCE_DAYS;
+
+        return { days, rows: foldPerformance(await this.history.performanceSince(days)) };
     }
 
     /**

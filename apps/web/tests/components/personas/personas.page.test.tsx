@@ -13,10 +13,16 @@ import { stubPhoneMedia } from '../../utils/phone';
 
 // This page opens four queries on mount (personas, voices, script summary). Everything but the
 // persona list itself is covered by its own suite; here it only has to not throw.
+const readScriptPerformance = vi.fn();
+
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         personas: { listPersonas: () => listPersonas() },
-        render: { listVoices: () => Promise.resolve({ voices: [] }), readScriptSummary: () => Promise.resolve({ rows: [] }) },
+        render: {
+            listVoices: () => Promise.resolve({ voices: [] }),
+            readScriptPerformance: (...args: unknown[]) => readScriptPerformance(...args),
+            readScriptSummary: () => Promise.resolve({ rows: [] }),
+        },
         settings: { getSettings: () => Promise.resolve({ descriptors: [], values: {}, configured: {} }) },
     },
 }));
@@ -43,6 +49,58 @@ const persona = (overrides: Partial<Persona> = {}): Persona => ({
 });
 
 describe('PersonasPage', () => {
+    it("shows this character's writing beside what the operator thought of it, and nobody else's", async () => {
+        const user = setupUser();
+        listPersonas.mockResolvedValue({ personas: [persona({ key: 'wayne' })] });
+        readScriptPerformance.mockResolvedValue({
+            days: 30,
+            rows: [
+                {
+                    personaKey: 'wayne',
+                    kind: 'talkbreak',
+                    written: 41,
+                    declined: 7,
+                    failed: 2,
+                    liked: 5,
+                    neutral: 1,
+                    disliked: 3,
+                    declineReasons: [
+                        { reason: 'not in its own voice', count: 6 },
+                        { reason: 'forbidden wording', count: 1 },
+                    ],
+                },
+                { personaKey: 'garth', kind: 'banter', written: 99, declined: 0, failed: 0, liked: 0, neutral: 0, disliked: 0, declineReasons: [] },
+            ],
+        });
+        render(<PersonasPage />);
+
+        await user.click(await screen.findByRole('button', { name: /more/i }));
+        await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
+
+        const row = (await screen.findByRole('cell', { name: 'talkbreak' })).closest('tr')!;
+        expect(
+            within(row)
+                .getAllByRole('cell')
+                .map(cell => cell.textContent),
+        ).toEqual(['talkbreak', '41', '7', '2', '5', '1', '3']);
+        expect(screen.getByText('6 times: not in its own voice')).toBeInTheDocument();
+        expect(screen.getByText('1 time: forbidden wording')).toBeInTheDocument();
+        expect(screen.queryByRole('cell', { name: 'banter' })).not.toBeInTheDocument();
+        expect(readScriptPerformance).toHaveBeenCalledWith({ days: 30 });
+    });
+
+    it('says when a character has written nothing in the window', async () => {
+        const user = setupUser();
+        listPersonas.mockResolvedValue({ personas: [persona({ key: 'wayne' })] });
+        readScriptPerformance.mockResolvedValue({ days: 30, rows: [] });
+        render(<PersonasPage />);
+
+        await user.click(await screen.findByRole('button', { name: /more/i }));
+        await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
+
+        expect(await screen.findByText('This character has written nothing in the last 30 days.')).toBeInTheDocument();
+    });
+
     it('keeps three actions in hand on a host card, and Delete is not one of them', async () => {
         listPersonas.mockResolvedValue({ personas: [persona()] });
         render(<PersonasPage />);

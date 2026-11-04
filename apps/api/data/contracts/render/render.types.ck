@@ -164,6 +164,32 @@ contract ScriptHistorySummary: { # What each presenter has written lately, and o
     rows: array(ScriptHistorySummaryRow)
 }
 
+contract ScriptPerformanceQuery: { # The window the figures cover
+    days?: int(min=1, max=365) # How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate
+}
+
+contract ScriptDeclineReason: { # One reason a writer's answer was refused
+    reason: string(max=2000) # The station's own sentence for the fault, without any wording it quoted
+    count: int(min=0)
+}
+
+contract ScriptPerformanceRow: { # One presenter's writing of one kind of break, and what the operator thought of it
+    personaKey?: string(max=100) # Absent means nobody was presenting, which is an ordinary state rather than a gap in the data
+    kind: string(max=100)
+    written: int(min=0)
+    declined: int(min=0)
+    failed: int(min=0)
+    liked: int(min=0)
+    neutral: int(min=0)
+    disliked: int(min=0)
+    declineReasons: array(ScriptDeclineReason) # Most common first
+}
+
+contract ScriptPerformance: { # How each presenter's breaks are doing, by the checks and by the operator
+    days: int(min=1, max=365) # The window actually read, echoed so a console can label what it draws
+    rows: array(ScriptPerformanceRow)
+}
+
 contract SegmentScanResult: { # What one pass over the inbox did
     scanned: int(min=0) # Audio files seen, whether or not they were already known
     imported: int(min=0) # Segments the station did not have before this pass

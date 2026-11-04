@@ -390,6 +390,26 @@ public sealed record ScriptHistorySummaryRow
     public required long Failed { get; init; }
 }
 
+/// <summary>The window the figures cover</summary>
+public sealed record ScriptPerformanceQuery
+{
+    /// <summary>How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Days { get; init; }
+}
+
+/// <summary>One reason a writer's answer was refused</summary>
+public sealed record ScriptDeclineReason
+{
+    /// <summary>The station's own sentence for the fault, without any wording it quoted</summary>
+    [JsonPropertyName("reason")]
+    public required string Reason { get; init; }
+
+    [JsonPropertyName("count")]
+    public required long Count { get; init; }
+}
+
 /// <summary>What one pass over the inbox did</summary>
 public sealed record SegmentScanResult
 {
@@ -1042,6 +1062,40 @@ public sealed record ScriptHistorySummary
     public required List<ScriptHistorySummaryRow> Rows { get; init; }
 }
 
+/// <summary>One presenter's writing of one kind of break, and what the operator thought of it</summary>
+public sealed record ScriptPerformanceRow
+{
+    /// <summary>Absent means nobody was presenting, which is an ordinary state rather than a gap in the data</summary>
+    [JsonPropertyName("personaKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PersonaKey { get; init; }
+
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("written")]
+    public required long Written { get; init; }
+
+    [JsonPropertyName("declined")]
+    public required long Declined { get; init; }
+
+    [JsonPropertyName("failed")]
+    public required long Failed { get; init; }
+
+    [JsonPropertyName("liked")]
+    public required long Liked { get; init; }
+
+    [JsonPropertyName("neutral")]
+    public required long Neutral { get; init; }
+
+    [JsonPropertyName("disliked")]
+    public required long Disliked { get; init; }
+
+    /// <summary>Most common first</summary>
+    [JsonPropertyName("declineReasons")]
+    public required List<ScriptDeclineReason> DeclineReasons { get; init; }
+}
+
 /// <summary>The station's lexicon, oldest first</summary>
 public sealed record PronunciationList
 {
@@ -1204,6 +1258,17 @@ public sealed record ScriptHistoryPageInput
     [JsonPropertyName("nextBefore")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NextBefore { get; init; }
+}
+
+/// <summary>How each presenter's breaks are doing, by the checks and by the operator</summary>
+public sealed record ScriptPerformance
+{
+    /// <summary>The window actually read, echoed so a console can label what it draws</summary>
+    [JsonPropertyName("days")]
+    public required long Days { get; init; }
+
+    [JsonPropertyName("rows")]
+    public required List<ScriptPerformanceRow> Rows { get; init; }
 }
 
 /// <summary>Every sound the station holds, and the sets over it</summary>

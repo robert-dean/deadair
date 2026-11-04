@@ -19,6 +19,8 @@ import {
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
+    ScriptPerformance,
+    ScriptPerformanceQuery,
     ScriptRatingInput,
     Segment,
     SegmentAudioQuery,
@@ -139,6 +141,21 @@ RenderRouter.get('/scripts/summary', requirePolicy({ policy: 'platform.view' }),
 
     const service = ctx.container.get(RenderService);
     const result: ScriptHistorySummary = await service.readScriptSummary(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Outcomes, decline reasons and ratings, per presenter and kind of break
+ * from [render.ck](../../data/contracts/render/render.ck) `GET /scripts/performance`
+ */
+RenderRouter.get('/scripts/performance', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, ScriptPerformanceQuery.strict());
+
+    const service = ctx.container.get(RenderService);
+    const result: ScriptPerformance = await service.readScriptPerformance(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

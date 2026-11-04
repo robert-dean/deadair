@@ -176,6 +176,21 @@ operation /scripts/summary: {
     }
 }
 
+# Whether the breaks that passed every check were any good: the decline reasons beside the operator's
+# ratings, per presenter and per kind. A sheet is tuned by hand from this, and nothing acts on it.
+operation /scripts/performance: {
+    get: { # Outcomes, decline reasons and ratings, per presenter and kind of break
+        name: Read script performance
+        service: RenderService.readScriptPerformance
+        query: ScriptPerformanceQuery
+        response: {
+            200: {
+                application/json: ScriptPerformance
+            }
+        }
+    }
+}
+
 operation /voices: {
     get: { # The voices the station can be asked to speak in
         name: List voices

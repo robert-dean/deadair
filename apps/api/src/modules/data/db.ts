@@ -1271,6 +1271,7 @@ export interface DeadairTrackAnalysis {
   failureCode: string | null;
   failureReason: string | null;
   id: Generated<string>;
+  remeasureFailedAt: DateTime | null;
   schemaVersion: number;
   trackId: string;
   updatedAt: Generated<DateTime>;

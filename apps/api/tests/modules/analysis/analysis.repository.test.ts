@@ -7,7 +7,7 @@
 import { Kysely, PostgresDialect, DummyDriver } from 'kysely';
 import type { DatabaseConnection, Dialect, Driver, QueryResult } from 'kysely';
 import { KyselyDefaultPlugins } from '@maroonedsoftware/kysely';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ANALYSIS_REFETCH_AFTER_MS, ANALYSIS_RETRY_AFTER_MS, AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
 import type { DB } from '../../../src/modules/data/db.js';
@@ -84,7 +84,62 @@ describe('AnalysisRepository.listTracksNeedingAnalysis', () => {
         expect(sql).toContain('a.track_id is null');
         expect(sql).toContain('a.schema_version <');
         expect(sql).toContain("a.failure_code in ('unfetchable', 'truncated')");
-        expect(sql).toContain('order by src.is_local desc, t.created_at asc');
+        expect(sql).toContain('src.is_local desc, t.created_at asc');
+    });
+});
+
+describe('a re-measure', () => {
+    it('leaves a stale row out of the queue for a day after a failed try', async () => {
+        const { sql, parameters } = await walkStatement();
+
+        expect(sql).toMatch(/a\.schema_version < \$\d+ and \(a\.remeasure_failed_at is null or a\.remeasure_failed_at < now\(\) - make_interval/);
+        expect(parameters).toContain(ANALYSIS_RETRY_AFTER_MS / 1000);
+    });
+
+    it('puts a record with no whole measurement ahead of every record that has one', async () => {
+        const { sql } = await walkStatement();
+
+        expect(sql).toContain('order by coalesce(a.analyzed_at is not null and a.complete, false) asc, src.is_local desc');
+    });
+
+    /** Statements sent, with the update answering as a row that does or does not hold a whole measurement. */
+    async function writing(holdsWhole: boolean, write: (repository: AnalysisRepository) => Promise<void>): Promise<string[]> {
+        const captured: Captured = { statements: [] };
+        const db = fakeDb(captured);
+        const repository = new AnalysisRepository(db);
+        vi.spyOn(db.getExecutor(), 'executeQuery').mockImplementation(async compiled => {
+            captured.statements.push({ sql: compiled.sql, parameters: compiled.parameters });
+            const updating = compiled.sql.startsWith('update');
+            return { rows: [], numAffectedRows: updating && holdsWhole ? 1n : 0n } as never;
+        });
+        await write(repository);
+        return captured.statements.map(statement => statement.sql.split(' ').slice(0, 2).join(' '));
+    }
+
+    const whole = { schemaVersion: 2, complete: true, data: { cueIn: 0, introEnd: 1, outroStart: 2, cueOut: 3 } };
+
+    it('keeps a whole measurement when a failure comes back', async () => {
+        const sent = await writing(true, repository => repository.recordFailure('t', 'p', 'the fetch failed', 'unfetchable'));
+
+        expect(sent).toEqual(['update "deadair"."track_analysis"']);
+    });
+
+    it('keeps a whole measurement when only part of the file comes back', async () => {
+        const sent = await writing(true, repository => repository.recordAnalysis('t', 'p', { ...whole, complete: false }));
+
+        expect(sent).toEqual(['update "deadair"."track_analysis"']);
+    });
+
+    it('records the failure of a record with nothing to keep', async () => {
+        const sent = await writing(false, repository => repository.recordFailure('t', 'p', 'the fetch failed', 'unfetchable'));
+
+        expect(sent).toEqual(['update "deadair"."track_analysis"', 'insert into']);
+    });
+
+    it('writes a whole answer without asking', async () => {
+        const sent = await writing(true, repository => repository.recordAnalysis('t', 'p', whole));
+
+        expect(sent).toEqual(['insert into']);
     });
 });
 

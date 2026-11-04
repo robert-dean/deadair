@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.90.2] — 2026-11-04
+
+- **A format clock can move to another station as a file.** The format clock has Export and Import, and Import shows what a file would add before anything is written. Bands go after your own, switched off, so your clock stays as it is until you turn one on. A band brings the subject it needs with it, and one this station already has keeps its own label and settings.
+- **A schedule can move to another station as a file.** The week view has Export and Import, and Import shows what a file would add, including which shows would clash with yours, before anything is written. Shows arrive switched off, so your schedule stays as it is until you turn one on. Hosts are matched by key and station playlists by name, and anything that does not match here is cleared and reported.
+- **A slot on the schedule can be switched off without losing it.** A switch in the slot editor takes a show off the air and off the timetable, and leaves it in a Switched off list under the week. Turning it back on checks it against what else is on at that time. Apps that know nothing of the switch simply do not see those slots.
+- **A station's subjects can move to another station as a file.** Subjects under Voice has Export and Import, and Import shows what a file would add, leave alone and leave out before anything is written. An import only adds: a subject this station already has, by kind and key, keeps its own label and settings.
+
 ## [0.90.1] — 2026-11-04
 
 - **Measuring a long record takes about a third of the memory.** The analysis sidecar now peaks at about 350 MB on a five-minute record, 730 MB on sixteen minutes and 1.2 GB at the thirty-minute limit, down from 770 MB, 2.3 GB and 4 GB. Cue points and loudness figures are unchanged. A thirty-minute record used to be able to get a 3 GiB container killed, which would have taken the station off air.
@@ -1872,7 +1879,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.2...HEAD
+[0.90.2]: https://github.com/robert-dean/deadair/compare/v0.90.1...v0.90.2
 [0.90.1]: https://github.com/robert-dean/deadair/compare/v0.90.0...v0.90.1
 [0.90.0]: https://github.com/robert-dean/deadair/compare/v0.89.6...v0.90.0
 [0.89.6]: https://github.com/robert-dean/deadair/compare/v0.89.5...v0.89.6

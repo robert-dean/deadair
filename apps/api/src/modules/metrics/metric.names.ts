@@ -41,6 +41,13 @@ export const METRICS = {
     speechCharacters: 'speech.characters',
     /** What those characters cost, by `plugin`, at the engine's price when they were spoken. Absent without one. */
     speechCost: 'speech.cost',
+    /**
+     * How long an engine took over one speak, from the request to the last byte stored, by `plugin` and
+     * `outcome` (`ok` or `failed`). Not `work.plugin.ms`, whose span ends when the engine accepts the
+     * request and so misses the audio it is still producing. Holding the speech slot does not count
+     * waiting for it. The failed series' count is how often speech failed, per engine.
+     */
+    speechMs: 'speech.ms',
 
     /** Records in the library. A gauge. */
     libraryTotal: 'library.tracks',

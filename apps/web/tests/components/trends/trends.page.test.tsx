@@ -9,7 +9,7 @@ import type { MetricSeriesPage } from '@deadair/sdk';
 
 import { clearSession, setSession } from '../../../src/auth/session.store';
 import { TrendsPage } from '../../../src/components/trends/trends.page';
-import { render, screen } from '../../utils/render';
+import { render, screen, within } from '../../utils/render';
 
 const readMetricSeries = vi.fn();
 const readMetricNames = vi.fn();
@@ -61,7 +61,7 @@ describe('TrendsPage', () => {
             expect.arrayContaining([
                 'station.listeners',
                 'model.tokens.input,model.tokens.output,model.call.ms,work.failed,model.cost',
-                'speech.characters,speech.cost',
+                'speech.characters,speech.cost,speech.ms',
                 'work.job.ms,work.plugin.ms,work.failed',
                 'library.tracks,library.cached,library.measured,storage.bytes',
             ]),
@@ -163,6 +163,28 @@ describe('TrendsPage', () => {
         expect(screen.getByText('15,400')).toBeInTheDocument();
         expect(screen.getAllByText('$1.80')).toHaveLength(2);
         expect(screen.getByText('3,400')).toBeInTheDocument();
+    });
+
+    it("reads each engine's time from the speaks it finished, and counts the ones it failed", async () => {
+        allWell();
+        const answer = readMetricSeries.getMockImplementation();
+        const timed = (at: number, sum: number, count: number) => ({ ...point(at, sum), sum, count, min: sum, max: sum, last: sum });
+        readMetricSeries.mockImplementation(async (query: { names: string }) => {
+            if (!query.names.startsWith('speech.')) return answer?.(query);
+            return page([
+                { name: 'speech.characters', labels: { plugin: 'deadair.kokoro' }, source: 'station', points: [point(0, 3400)] },
+                { name: 'speech.ms', labels: { plugin: 'deadair.kokoro', outcome: 'ok' }, source: 'station', points: [timed(0, 8000, 2)] },
+                { name: 'speech.ms', labels: { plugin: 'deadair.kokoro', outcome: 'failed' }, source: 'station', points: [timed(0, 120000, 3)] },
+            ]);
+        });
+        render(<TrendsPage />);
+
+        const row = (await screen.findByText('deadair.kokoro')).closest('tr')!;
+        const cells = within(row)
+            .getAllByRole('cell')
+            .map(cell => cell.textContent);
+        expect(cells[3]).toBe('4.0s');
+        expect(cells[4]).toBe('3');
     });
 
     it('loses only the section whose reading failed', async () => {

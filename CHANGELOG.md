@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.90.1] — 2026-11-04
+
+- **Measuring a long record takes about a third of the memory.** The analysis sidecar now peaks at about 350 MB on a five-minute record, 730 MB on sixteen minutes and 1.2 GB at the thirty-minute limit, down from 770 MB, 2.3 GB and 4 GB. Cue points and loudness figures are unchanged. A thirty-minute record used to be able to get a 3 GiB container killed, which would have taken the station off air.
+- A measurement stays readable after the analysis schema moves on, so a later re-measure will not cost any record its cue points or levelling while it runs.
+- The image now carries the weights for the analysis sidecar's beat tracker, which adds about 80 MB. Nothing uses them yet.
+- New records are now measured for tempo, how far to trust it, and where each bar starts. Nothing on air uses these yet. `ANALYSIS_BEATS=off` leaves the beat tracker out on a machine short of memory.
+- Re-measuring a record can no longer cost it its cue points or level: if the new measurement fails or only covers part of the file, the old one stays. New records are now measured ahead of any re-measuring.
+- A record's page now shows its measured tempo and how sure the station is of it.
+
 ## [0.90.0] — 2026-11-03
 
 - **A special can come round by a rule instead of on dates.** `recurrence` on a schedule slot takes the same rules an occasion does (a fixed date, the nth weekday of a month, days from Easter, a date in the Hebrew or Islamic calendar, or a list), runs the show on each day the rule falls on the station's calendar, and answers `nextDate`. Two specials are refused if they would ever be on at once in the next forty years, and the refusal says when. A client that does not know about rules cannot wipe one by saving the slot, since a rewrite naming neither dates nor a rule keeps it.
@@ -1863,7 +1872,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.1...HEAD
+[0.90.1]: https://github.com/robert-dean/deadair/compare/v0.90.0...v0.90.1
 [0.90.0]: https://github.com/robert-dean/deadair/compare/v0.89.6...v0.90.0
 [0.89.6]: https://github.com/robert-dean/deadair/compare/v0.89.5...v0.89.6
 [0.89.5]: https://github.com/robert-dean/deadair/compare/v0.89.4...v0.89.5

@@ -114,3 +114,28 @@ describe('IcecastClientsClient', () => {
         ]);
     });
 });
+
+describe('IcecastClientsClient.kill', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    const killUrl = `${BASE}/admin/killclient.json?mount=${encodeURIComponent('/live.mp3')}&id=7`;
+
+    it('asks the settled server with the admin credential', async () => {
+        const calls = stubFetch({ [killUrl]: { success: true } });
+
+        expect(await new IcecastClientsClient(stats({ base: BASE, password: 'secret' })).kill('/live.mp3', '7')).toBe(true);
+        expect(calls).toEqual([expect.objectContaining({ url: killUrl, authorization: ADMIN })]);
+    });
+
+    it('says no when no server is settled, when refused, and when nothing answers', async () => {
+        expect(await new IcecastClientsClient(stats(undefined)).kill('/live.mp3', '7')).toBe(false);
+
+        stubFetch({ [killUrl]: 403 });
+        expect(await new IcecastClientsClient(stats({ base: BASE, password: 'secret' })).kill('/live.mp3', '7')).toBe(false);
+
+        stubFetch({ [killUrl]: new Error('refused') });
+        expect(await new IcecastClientsClient(stats({ base: BASE, password: 'secret' })).kill('/live.mp3', '7')).toBe(false);
+    });
+});

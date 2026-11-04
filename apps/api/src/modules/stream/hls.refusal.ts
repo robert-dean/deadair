@@ -37,6 +37,9 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
  * one window (six segments, eighteen seconds by default). That is a delay in the client stopping,
  * not a hole — and the register, which counts served playlists only, drops it after fifteen
  * seconds either way.
+ *
+ * The same list covers the Icecast mounts, where a client holds one connection rather than asking
+ * again. See `mount.refusal.ts`.
  */
 
 /** The setting. A string, like every other one; see `apps/api/CLAUDE.md`. */

@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '#modules/stream/icecast.eventfeed.client.js';
 import { HlsAudience } from '#modules/stream/hls.audience.js';
+import { MountRefusal } from '#modules/stream/mount.refusal.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationBus } from '#modules/shared/station.bus.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
@@ -105,6 +106,10 @@ export class AudienceWatch {
 
     /** Stops listening for HLS arrivals. See {@link start}. */
     private unsubscribeHls?: () => void;
+    /** The newest Icecast reading still waiting on a refusal sweep. See {@link offer}. */
+    private offered?: number;
+    /** One sweep at a time: a robot reconnecting in a loop must not stack them. */
+    private sweeping = false;
 
     constructor(
         private readonly stats: IcecastStatsClient,
@@ -121,6 +126,8 @@ export class AudienceWatch {
         // reached for. The gate edge beside it stays a direct seam; see {@link listeners}.
         private readonly bus: StationBus,
         private readonly logger: Logger,
+        // Who an operator has said is not an audience. See {@link offer}.
+        private readonly refusal: MountRefusal,
     ) {}
 
     /**
@@ -254,7 +261,47 @@ export class AudienceWatch {
      * missed departure leaves the station airing to nobody.
      */
     report(count: number): void {
-        this.accept(Math.max(0, Math.trunc(count)));
+        this.offer(Math.max(0, Math.trunc(count)));
+    }
+
+    /**
+     * An Icecast reading, less anybody the operator has refused.
+     *
+     * The sweep comes BEFORE the count is accepted, because accepting is what opens the gate and
+     * starts {@link AUDIENCE_LINGER_MS}. A robot dropped only afterwards would reconnect, reopen the
+     * gate and hold the station on air for the linger each time, which is what the list is there to
+     * stop. So an arrival on a station with a list waits for one read of Icecast's client list,
+     * and a station without one takes the same synchronous path it always did.
+     *
+     * Only the newest reading is kept while a sweep is out. A reading of zero needs no sweep and
+     * wins over whatever is waiting.
+     */
+    private offer(count: number): void {
+        if (count === 0 || !this.refusal.refusing()) {
+            this.offered = undefined;
+            this.accept(count);
+            return;
+        }
+
+        this.offered = count;
+        if (!this.sweeping) void this.settleOffered();
+    }
+
+    private async settleOffered(): Promise<void> {
+        this.sweeping = true;
+        try {
+            while (this.offered !== undefined) {
+                const count = this.offered;
+                const refused = await this.refusal.sweep();
+                // Anything else means a newer reading arrived during the sweep, and it is the one to act on.
+                if (this.offered === count) {
+                    this.offered = undefined;
+                    this.accept(Math.max(0, count - refused));
+                }
+            }
+        } finally {
+            this.sweeping = false;
+        }
     }
 
     /**
@@ -284,7 +331,7 @@ export class AudienceWatch {
                 this.settle();
                 return;
             }
-            this.accept(listeners);
+            this.offer(listeners);
         } catch (error) {
             this.logger.warn(`audience: could not read the listener count (${errorText(error)})`);
         } finally {

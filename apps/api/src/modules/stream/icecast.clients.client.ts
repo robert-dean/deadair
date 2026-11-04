@@ -29,8 +29,9 @@ export type MountConnections = { mount: string; connections: IcecastConnection[]
  *
  * The count is `IcecastStatsClient`'s, and this is the list behind it: one row per
  * connection, with the address and the player Icecast recorded. It is read ON DEMAND,
- * for somebody looking, and is never polled, stored or logged, because what it
- * carries is listeners' addresses and nothing in the station needs them to run.
+ * for somebody looking or for {@link MountRefusal} when an operator has named players to
+ * refuse, and is never stored or logged, because what it carries is listeners' addresses
+ * and nothing in the station needs them to run.
  *
  * It asks the server the stats poll has already found, with the admin password the
  * poll already holds, through {@link IcecastStatsClient.adminApi} — the event feed's
@@ -56,6 +57,27 @@ export class IcecastClientsClient {
         if (!api) return mounts.map(mount => ({ mount, unreadable: 'unresolved' }));
 
         return Promise.all(mounts.map(mount => this.read(api, mount)));
+    }
+
+    /**
+     * Drops one connection, and says whether Icecast answered.
+     *
+     * Measured on 2.5.0 with the admin password: the connection closes within a second and
+     * the mount's other listeners are untouched. An id that has already gone is also a 200.
+     */
+    async kill(mount: string, id: string): Promise<boolean> {
+        const api = this.stats.adminApi();
+        if (!api) return false;
+
+        try {
+            const response = await fetch(`${api.base}/admin/killclient.json?mount=${encodeURIComponent(mount)}&id=${encodeURIComponent(id)}`, {
+                signal: AbortSignal.timeout(LIST_TIMEOUT_MS),
+                headers: { authorization: `Basic ${Buffer.from(`admin:${api.password}`).toString('base64')}` },
+            });
+            return response.ok;
+        } catch {
+            return false;
+        }
     }
 
     private async read(api: { base: string; password: string }, mount: string): Promise<MountConnections> {

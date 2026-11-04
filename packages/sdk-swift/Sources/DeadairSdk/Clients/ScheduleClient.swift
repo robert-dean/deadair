@@ -43,6 +43,32 @@ public final class ScheduleClient: Sendable {
         return try http.decodeJSON(ScheduleTimetable.self, from: response)
     }
 
+    /// Export schedule
+    /// This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name
+    public func exportSchedule() async throws -> SchedulePack {
+        let request = SdkRequest(method: "GET", path: ["schedule", "export"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(SchedulePack.self, from: response)
+    }
+
+    /// Preview schedule import
+    /// Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing
+    public func previewScheduleImport(body: SchedulePack) async throws -> PackImportPlan {
+        var request = SdkRequest(method: "POST", path: ["schedule", "import", "preview"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PackImportPlan.self, from: response)
+    }
+
+    /// Import schedule
+    /// Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has
+    public func importSchedule(body: SchedulePack) async throws -> ScheduleImportResult {
+        var request = SdkRequest(method: "POST", path: ["schedule", "import"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ScheduleImportResult.self, from: response)
+    }
+
     /// Update schedule slot
     /// Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
     public func updateScheduleSlot(id: String, body: ScheduleSlotInput) async throws -> ScheduleSlotList {

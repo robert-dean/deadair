@@ -573,7 +573,7 @@ export class ScheduleService {
  * playlist reader could be asked for. Sending one alone is treated as sending none rather than refused: what it
  * produces is a slot the station fills itself, which is a coherent slot.
  */
-function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
+export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
     return {
         label: body.label,
         startsAtMinutes: body.startsAtMinutes,

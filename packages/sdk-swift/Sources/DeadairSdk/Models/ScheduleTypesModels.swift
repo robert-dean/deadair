@@ -336,6 +336,53 @@ public struct SlotPlaylistPosition: Codable, Equatable, Sendable {
     }
 }
 
+/// A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+/// `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+/// co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+/// station cannot use is reported rather than refusing the file
+public struct SchedulePack: Codable, Equatable, Sendable {
+    /// Says the file is a schedule file
+    public var format: String
+    /// The version of the document's shape. This station reads version 1
+    public var version: Int
+    /// What the file is, as whoever made it would describe it
+    public var name: String
+    public var slots: [[String: JSONValue]]
+
+    public init(format: String = "deadair.schedule", version: Int, name: String, slots: [[String: JSONValue]]) {
+        self.format = format
+        self.version = version
+        self.name = name
+        self.slots = slots
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case version = "version"
+        case name = "name"
+        case slots = "slots"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.format = try container.decode(String.self, forKey: .format)
+        guard self.format == "deadair.schedule" else {
+            throw DecodingError.dataCorruptedError(forKey: .format, in: container, debugDescription: "Expected \"deadair.schedule\"")
+        }
+        self.version = try container.decode(Int.self, forKey: .version)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.slots = try container.decode([[String: JSONValue]].self, forKey: .slots)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.format, forKey: .format)
+        try container.encode(self.version, forKey: .version)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.slots, forKey: .slots)
+    }
+}
+
 /// One stretch of the station's day: from this time, on these days, the station plays this
 public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var id: String
@@ -1012,6 +1059,47 @@ public struct ScheduleSlotListInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.slots, forKey: .slots)
         try container.encodeIfPresent(self.switchedOff, forKey: .switchedOff)
+    }
+}
+
+/// What an import did, and the schedule as it now stands
+public struct ScheduleImportResult: Codable, Equatable, Sendable {
+    public var plan: PackImportPlan
+    public var list: ScheduleSlotList
+
+    public init(plan: PackImportPlan, list: ScheduleSlotList) {
+        self.plan = plan
+        self.list = list
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case plan = "plan"
+        case list = "list"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.plan = try container.decode(PackImportPlan.self, forKey: .plan)
+        self.list = try container.decode(ScheduleSlotList.self, forKey: .list)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.plan, forKey: .plan)
+        try container.encode(self.list, forKey: .list)
+    }
+}
+
+/// What an import did, and the schedule as it now stands
+public struct ScheduleImportResultInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
     }
 }
 

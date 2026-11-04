@@ -7,6 +7,7 @@ import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /** A host who sits in on a slot on some nights, saying whose show it usually is */
 @Serializable
@@ -126,6 +127,23 @@ data class SlotPlaylistPosition(
     val title: String? = null,
     /** Its lead artist */
     val artist: String? = null,
+)
+
+/**
+ * A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+ * `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+ * co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+ * station cannot use is reported rather than refusing the file
+ */
+@Serializable
+data class SchedulePack(
+    /** Says the file is a schedule file */
+    val format: String = "deadair.schedule",
+    /** The version of the document's shape. This station reads version 1 */
+    val version: Long,
+    /** What the file is, as whoever made it would describe it */
+    val name: String,
+    val slots: List<Map<String, JsonElement>>,
 )
 
 /** One stretch of the station's day: from this time, on these days, the station plays this */
@@ -339,6 +357,17 @@ data class ScheduleSlotListInput(
     /** Slots kept but not running, in the same order. Absent when there are none */
     val switchedOff: List<ScheduleSlotInput>? = null,
 )
+
+/** What an import did, and the schedule as it now stands */
+@Serializable
+data class ScheduleImportResult(
+    val plan: PackImportPlan,
+    val list: ScheduleSlotList,
+)
+
+/** What an import did, and the schedule as it now stands */
+@Serializable
+class ScheduleImportResultInput
 
 /** Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId` */
 @Serializable(with = ScheduleSlotSourceChartOrderSerializer::class)

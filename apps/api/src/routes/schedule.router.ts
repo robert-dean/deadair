@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { ScheduleFileService } from '#src/modules/schedule/schedule.file.service.js';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
 import { SlotAirService } from '#src/modules/director/slot.air.service.js';
 import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
+import { PackImportPlan } from '../modules/topics/types/topics.types.js';
 import {
+    ScheduleImportResult,
     ScheduleNow,
+    SchedulePack,
     ScheduleSlotApplied,
     ScheduleSlotInput,
     ScheduleSlotList,
@@ -69,6 +73,49 @@ ScheduleRouter.get('/schedule/timetable', requirePolicy({ policy: 'platform.view
 
     const service = ctx.container.get(ScheduleService);
     const result: ScheduleTimetable = await service.timetable(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule/export`
+ */
+ScheduleRouter.get('/schedule/export', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(ScheduleFileService);
+    const result: SchedulePack = await service.exportPack();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/import/preview`
+ */
+ScheduleRouter.post('/schedule/import/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, SchedulePack);
+
+    const service = ctx.container.get(ScheduleFileService);
+    const result: PackImportPlan = await service.previewImport(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/import`
+ */
+ScheduleRouter.post('/schedule/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, SchedulePack);
+
+    const service = ctx.container.get(ScheduleFileService);
+    const result: ScheduleImportResult = await service.importPack(body);
 
     ctx.status = 200;
     ctx.type = 'application/json';

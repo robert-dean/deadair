@@ -1,3 +1,5 @@
+import type { PackImportPlan } from '../../topics/types/topics.types.js';
+
 /**
  * A host who sits in on a slot on some nights, saying whose show it usually is
  * generated from [SlotGuestHost](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
@@ -93,6 +95,23 @@ export interface SlotPlaylistPosition {
     title?: string;
     /** Its lead artist */
     artist?: string;
+}
+
+/**
+ * A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+ * `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+ * co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+ * station cannot use is reported rather than refusing the file
+ * generated from [SchedulePack](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface SchedulePack {
+    /** Says the file is a schedule file */
+    format: 'deadair.schedule';
+    /** The version of the document's shape. This station reads version 1 */
+    version: number;
+    /** What the file is, as whoever made it would describe it */
+    name: string;
+    slots: Record<string, unknown>[];
 }
 
 /**
@@ -313,3 +332,14 @@ export interface ScheduleSlotListInput {
     /** Slots kept but not running, in the same order. Absent when there are none */
     switchedOff?: ScheduleSlotInput[];
 }
+
+/**
+ * What an import did, and the schedule as it now stands
+ * generated from [ScheduleImportResult](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface ScheduleImportResult {
+    plan: PackImportPlan;
+    list: ScheduleSlotList;
+}
+
+export interface ScheduleImportResultInput {}

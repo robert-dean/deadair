@@ -6559,6 +6559,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ScheduleTimetable'
+    '/schedule/export':
+        get:
+            operationId: exportSchedule
+            summary: 'Export schedule'
+            description: "This station's schedule as one file, to hand to another station. Slots name characters by key and playlists by name"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/SchedulePack'
+    '/schedule/import/preview':
+        post:
+            operationId: previewScheduleImport
+            summary: 'Preview schedule import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out, and what would clash if turned on. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SchedulePack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PackImportPlan'
+    '/schedule/import':
+        post:
+            operationId: importSchedule
+            summary: 'Import schedule'
+            description: 'Adds what is new in a file, switched off, so nothing airs until an operator turns it on. Changes nothing the station already has'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SchedulePack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ScheduleImportResult'
     '/schedule/{id}':
         put:
             operationId: updateScheduleSlot
@@ -17515,6 +17563,40 @@ components:
                     description: 'The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block'
             required: [now, upcoming]
             description: 'Which slot the clock says should be on right now, and what follows it'
+        SchedulePack:
+            type: object
+            properties:
+                format:
+                    const: deadair.schedule
+                    description: 'Says the file is a schedule file'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the file is, as whoever made it would describe it'
+                slots:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 500
+            required: [format, version, name, slots]
+            description: "A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with\n`personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each\nco-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a\nstation cannot use is reported rather than refusing the file"
+        ScheduleImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PackImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/ScheduleSlotList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the schedule as it now stands'
         SettingGroup:
             type: string
             enum:

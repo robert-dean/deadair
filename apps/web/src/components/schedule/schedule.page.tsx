@@ -25,6 +25,7 @@ import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
 import { SpecialsPanel } from './specials.panel';
+import { ScheduleFileButtons } from './schedule.file.buttons';
 import { SwitchedOffPanel } from './switched.off.panel';
 import { isSpecial } from './schedule.specials';
 import { i18n } from '../../i18n/i18n.setup';
@@ -364,6 +365,8 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                     <OverrunPanel />
 
                     <SwitchedOffPanel slots={switchedOff} onEdit={slot => setEditing({ kind: 'edit', slot })} />
+
+                    <ScheduleFileButtons />
                 </Stack>
             )}
 

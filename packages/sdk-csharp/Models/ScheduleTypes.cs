@@ -259,6 +259,30 @@ public sealed record SlotPlaylistPosition
     public string? Artist { get; init; }
 }
 
+/// <summary>
+/// A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+/// `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+/// co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+/// station cannot use is reported rather than refusing the file
+/// </summary>
+public sealed record SchedulePack
+{
+    /// <summary>Says the file is a schedule file</summary>
+    [JsonPropertyName("format")]
+    public string Format { get; init; } = "deadair.schedule";
+
+    /// <summary>The version of the document's shape. This station reads version 1</summary>
+    [JsonPropertyName("version")]
+    public required long Version { get; init; }
+
+    /// <summary>What the file is, as whoever made it would describe it</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("slots")]
+    public required List<Dictionary<string, JsonElement>> Slots { get; init; }
+}
+
 /// <summary>One stretch of the station's day: from this time, on these days, the station plays this</summary>
 public sealed record ScheduleSlot
 {
@@ -724,6 +748,19 @@ public sealed record ScheduleSlotListInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ScheduleSlotInput>? SwitchedOff { get; init; }
 }
+
+/// <summary>What an import did, and the schedule as it now stands</summary>
+public sealed record ScheduleImportResult
+{
+    [JsonPropertyName("plan")]
+    public required PackImportPlan Plan { get; init; }
+
+    [JsonPropertyName("list")]
+    public required ScheduleSlotList List { get; init; }
+}
+
+/// <summary>What an import did, and the schedule as it now stands</summary>
+public sealed record ScheduleImportResultInput;
 
 /// <summary>Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`</summary>
 [JsonConverter(typeof(ScheduleSlotSourceChartOrderConverter))]

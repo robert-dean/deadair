@@ -46,6 +46,18 @@ export const schedule = {
             airing: 'The block the station is airing now is filled in.',
         },
     },
+    file: {
+        export: 'Export schedule',
+        exportFailedTitle: 'The schedule could not be exported',
+        exportFailedFallback: 'Nothing was saved.',
+        importOpen: 'Import schedule',
+        import: {
+            title: 'Import a schedule',
+            intro: 'Add shows from a file another station exported. They arrive switched off, so your schedule stays as it is until you turn one on.',
+            adding_one: 'Adds {{count}} show, switched off:',
+            adding_other: 'Adds {{count}} shows, switched off:',
+        },
+    },
     switchedOff: {
         title: 'Switched off',
         description:

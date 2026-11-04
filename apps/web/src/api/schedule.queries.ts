@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ScheduleSlotInput, ScheduleSlotList } from '@deadair/sdk';
+import type { ScheduleImportResult, SchedulePack, ScheduleSlotInput, ScheduleSlotList } from '@deadair/sdk';
 
+import { saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
 import { followStationExtend } from './director.queries';
 import { useListWrite } from './mutation.kit';
@@ -146,6 +147,26 @@ export function useRestartSlotPlaylist() {
         mutationFn: (id: string) => sdk.schedule.restartSlotPlaylist(id),
         onSuccess: (_answer, id) => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.schedule.playlistPosition(id) });
+        },
+    });
+}
+
+/** Saves the schedule as a file. A download is not state this console holds, so this is no query. */
+export async function exportSchedule(): Promise<void> {
+    saveJsonDownload(await sdk.schedule.exportSchedule(), 'deadair-schedule.json');
+}
+
+export function usePreviewScheduleImport() {
+    return useMutation({ mutationFn: (pack: SchedulePack) => sdk.schedule.previewScheduleImport(pack) });
+}
+
+/** An import answers the list as it now stands. What it adds is off, so the timetable does not change. */
+export function useImportSchedule() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (pack: SchedulePack) => sdk.schedule.importSchedule(pack),
+        onSuccess: (answer: ScheduleImportResult) => {
+            queryClient.setQueryData(queryKeys.schedule.list(), answer.list);
         },
     });
 }

@@ -129,3 +129,21 @@ contract ScheduleNow: {
     airingSlotId?: string(max=100) # The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
     upcoming: array(ScheduleOccurrence) # The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block
 }
+
+# A schedule as one file, to hand to another station. Each entry is a slot as this API writes it, with
+# `personaKey` for `personaId`, `stationPlaylistName` for `sourceStationPlaylistId`, and `personaKey` on each
+# co-host and guest host, since an id means nothing elsewhere. Each is read when it is imported, so one a
+# station cannot use is reported rather than refusing the file
+contract SchedulePack: {
+    format: literal("deadair.schedule") # Says the file is a schedule file
+    version: int(min=1) # The version of the document's shape. This station reads version 1
+    name: string(min=1, max=100) # What the file is, as whoever made it would describe it
+    slots: array(record(string, unknown), max=500)
+}
+
+# What an import did, and the schedule as it now stands
+contract ScheduleImportResult: {
+    plan: readonly PackImportPlan
+    list: readonly ScheduleSlotList
+}
+

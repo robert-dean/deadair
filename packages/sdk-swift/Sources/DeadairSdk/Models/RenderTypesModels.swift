@@ -577,6 +577,59 @@ public struct ScriptHistorySummaryRow: Codable, Equatable, Sendable {
     }
 }
 
+/// The window the figures cover
+public struct ScriptPerformanceQuery: Codable, Equatable, Sendable {
+    /// How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate
+    public var days: Int?
+
+    public init(days: Int? = nil) {
+        self.days = days
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case days = "days"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.days = try container.decodeIfPresent(Int.self, forKey: .days)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.days, forKey: .days)
+    }
+}
+
+/// One reason a writer's answer was refused
+public struct ScriptDeclineReason: Codable, Equatable, Sendable {
+    /// The station's own sentence for the fault, without any wording it quoted
+    public var reason: String
+    public var count: Int
+
+    public init(reason: String, count: Int) {
+        self.reason = reason
+        self.count = count
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case count = "count"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.reason = try container.decode(String.self, forKey: .reason)
+        self.count = try container.decode(Int.self, forKey: .count)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.reason, forKey: .reason)
+        try container.encode(self.count, forKey: .count)
+    }
+}
+
 /// What one pass over the inbox did
 public struct SegmentScanResult: Codable, Equatable, Sendable {
     /// Audio files seen, whether or not they were already known
@@ -1661,6 +1714,71 @@ public struct ScriptHistorySummary: Codable, Equatable, Sendable {
     }
 }
 
+/// One presenter's writing of one kind of break, and what the operator thought of it
+public struct ScriptPerformanceRow: Codable, Equatable, Sendable {
+    /// Absent means nobody was presenting, which is an ordinary state rather than a gap in the data
+    public var personaKey: String?
+    public var kind: String
+    public var written: Int
+    public var declined: Int
+    public var failed: Int
+    public var liked: Int
+    public var neutral: Int
+    public var disliked: Int
+    /// Most common first
+    public var declineReasons: [ScriptDeclineReason]
+
+    public init(personaKey: String? = nil, kind: String, written: Int, declined: Int, failed: Int, liked: Int, neutral: Int, disliked: Int, declineReasons: [ScriptDeclineReason]) {
+        self.personaKey = personaKey
+        self.kind = kind
+        self.written = written
+        self.declined = declined
+        self.failed = failed
+        self.liked = liked
+        self.neutral = neutral
+        self.disliked = disliked
+        self.declineReasons = declineReasons
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaKey = "personaKey"
+        case kind = "kind"
+        case written = "written"
+        case declined = "declined"
+        case failed = "failed"
+        case liked = "liked"
+        case neutral = "neutral"
+        case disliked = "disliked"
+        case declineReasons = "declineReasons"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaKey = try container.decodeIfPresent(String.self, forKey: .personaKey)
+        self.kind = try container.decode(String.self, forKey: .kind)
+        self.written = try container.decode(Int.self, forKey: .written)
+        self.declined = try container.decode(Int.self, forKey: .declined)
+        self.failed = try container.decode(Int.self, forKey: .failed)
+        self.liked = try container.decode(Int.self, forKey: .liked)
+        self.neutral = try container.decode(Int.self, forKey: .neutral)
+        self.disliked = try container.decode(Int.self, forKey: .disliked)
+        self.declineReasons = try container.decode([ScriptDeclineReason].self, forKey: .declineReasons)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.personaKey, forKey: .personaKey)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.written, forKey: .written)
+        try container.encode(self.declined, forKey: .declined)
+        try container.encode(self.failed, forKey: .failed)
+        try container.encode(self.liked, forKey: .liked)
+        try container.encode(self.neutral, forKey: .neutral)
+        try container.encode(self.disliked, forKey: .disliked)
+        try container.encode(self.declineReasons, forKey: .declineReasons)
+    }
+}
+
 /// The station's lexicon, oldest first
 public struct PronunciationList: Codable, Equatable, Sendable {
     public var pronunciations: [Pronunciation]
@@ -1965,6 +2083,35 @@ public struct ScriptHistoryPageInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.attempts, forKey: .attempts)
         try container.encodeIfPresent(self.nextBefore, forKey: .nextBefore)
+    }
+}
+
+/// How each presenter's breaks are doing, by the checks and by the operator
+public struct ScriptPerformance: Codable, Equatable, Sendable {
+    /// The window actually read, echoed so a console can label what it draws
+    public var days: Int
+    public var rows: [ScriptPerformanceRow]
+
+    public init(days: Int, rows: [ScriptPerformanceRow]) {
+        self.days = days
+        self.rows = rows
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case days = "days"
+        case rows = "rows"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.days = try container.decode(Int.self, forKey: .days)
+        self.rows = try container.decode([ScriptPerformanceRow].self, forKey: .rows)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.days, forKey: .days)
+        try container.encode(self.rows, forKey: .rows)
     }
 }
 

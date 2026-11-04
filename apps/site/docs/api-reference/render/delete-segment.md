@@ -1,7 +1,7 @@
 ---
 title: 'Delete segment'
 sidebar_label: 'Delete segment'
-sidebar_position: 12
+sidebar_position: 13
 mdx:
     format: 'md'
 ---

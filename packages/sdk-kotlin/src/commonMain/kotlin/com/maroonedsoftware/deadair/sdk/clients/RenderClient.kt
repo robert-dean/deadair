@@ -20,6 +20,8 @@ import com.maroonedsoftware.deadair.sdk.models.ScriptHistoryPage
 import com.maroonedsoftware.deadair.sdk.models.ScriptHistoryQuery
 import com.maroonedsoftware.deadair.sdk.models.ScriptHistorySummary
 import com.maroonedsoftware.deadair.sdk.models.ScriptHistorySummaryQuery
+import com.maroonedsoftware.deadair.sdk.models.ScriptPerformance
+import com.maroonedsoftware.deadair.sdk.models.ScriptPerformanceQuery
 import com.maroonedsoftware.deadair.sdk.models.ScriptRatingInput
 import com.maroonedsoftware.deadair.sdk.models.Segment
 import com.maroonedsoftware.deadair.sdk.models.SegmentAudioQuery
@@ -115,6 +117,18 @@ class RenderClient(private val http: SdkHttp) {
     suspend fun readScriptSummary(query: ScriptHistorySummaryQuery? = null): ScriptHistorySummary {
         val response = http.execute(HttpMethod.Get) {
             path("scripts", "summary")
+            params(query)
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Read script performance
+     * Outcomes, decline reasons and ratings, per presenter and kind of break
+     */
+    suspend fun readScriptPerformance(query: ScriptPerformanceQuery? = null): ScriptPerformance {
+        val response = http.execute(HttpMethod.Get) {
+            path("scripts", "performance")
             params(query)
         }
         return http.decodeJson(response)

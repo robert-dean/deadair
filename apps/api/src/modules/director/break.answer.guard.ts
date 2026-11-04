@@ -6,6 +6,7 @@
  * Split out of `break.prompt.ts`, which keeps what the station ASKS for. See that file's header for
  * the failure both halves are shaped around.
  */
+import { DECLINE_QUOTE_MARK } from '#modules/render/script.performance.js';
 import { inventedConcertSentence } from './break.concert.js';
 import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
 import {
@@ -1547,7 +1548,7 @@ export type WriteFault =
     | 'character-trimmed';
 
 /** How {@link writeDecline} introduces the wording it caught, which {@link saidIn} reads back. */
-const SAID = ': it said "';
+const SAID = DECLINE_QUOTE_MARK;
 
 /**
  * The wording a {@link writeDecline} reason caught, or `undefined` where it named none.

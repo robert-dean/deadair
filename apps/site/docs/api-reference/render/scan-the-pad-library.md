@@ -1,7 +1,7 @@
 ---
 title: 'Scan the pad library'
 sidebar_label: 'Scan the pad library'
-sidebar_position: 24
+sidebar_position: 25
 mdx:
     format: 'md'
 ---

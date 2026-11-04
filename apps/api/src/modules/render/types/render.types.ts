@@ -246,6 +246,30 @@ export const ScriptHistorySummaryRow = z.strictObject({
 export type ScriptHistorySummaryRow = z.infer<typeof ScriptHistorySummaryRow>;
 
 /**
+ * The window the figures cover
+ * generated from [ScriptPerformanceQuery](../../../../data/contracts/render/render.types.ck)
+ */
+export const ScriptPerformanceQuery = z.strictObject({
+    days: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(365))
+        .optional()
+        .describe(
+            'How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate',
+        ),
+});
+export type ScriptPerformanceQuery = z.infer<typeof ScriptPerformanceQuery>;
+
+/**
+ * One reason a writer's answer was refused
+ * generated from [ScriptDeclineReason](../../../../data/contracts/render/render.types.ck)
+ */
+export const ScriptDeclineReason = z.strictObject({
+    reason: z.string().max(2000).describe("The station's own sentence for the fault, without any wording it quoted"),
+    count: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+});
+export type ScriptDeclineReason = z.infer<typeof ScriptDeclineReason>;
+
+/**
  * What one pass over the inbox did
  * generated from [SegmentScanResult](../../../../data/contracts/render/render.types.ck)
  */
@@ -630,6 +654,27 @@ export const ScriptHistorySummary = z.strictObject({
 export type ScriptHistorySummary = z.infer<typeof ScriptHistorySummary>;
 
 /**
+ * One presenter's writing of one kind of break, and what the operator thought of it
+ * generated from [ScriptPerformanceRow](../../../../data/contracts/render/render.types.ck)
+ */
+export const ScriptPerformanceRow = z.strictObject({
+    personaKey: z
+        .string()
+        .max(100)
+        .optional()
+        .describe('Absent means nobody was presenting, which is an ordinary state rather than a gap in the data'),
+    kind: z.string().max(100),
+    written: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    declined: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    failed: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    liked: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    neutral: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    disliked: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    declineReasons: z.array(ScriptDeclineReason).describe('Most common first'),
+});
+export type ScriptPerformanceRow = z.infer<typeof ScriptPerformanceRow>;
+
+/**
  * The station's lexicon, oldest first
  * generated from [PronunciationList](../../../../data/contracts/render/render.types.ck)
  */
@@ -762,6 +807,18 @@ export const ScriptHistoryPageInput = z.strictObject({
         .describe('The cursor for the page after this one, absent once the history has been read to its end'),
 });
 export type ScriptHistoryPageInput = z.infer<typeof ScriptHistoryPageInput>;
+
+/**
+ * How each presenter's breaks are doing, by the checks and by the operator
+ * generated from [ScriptPerformance](../../../../data/contracts/render/render.types.ck)
+ */
+export const ScriptPerformance = z.strictObject({
+    days: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(365))
+        .describe('The window actually read, echoed so a console can label what it draws'),
+    rows: z.array(ScriptPerformanceRow),
+});
+export type ScriptPerformance = z.infer<typeof ScriptPerformance>;
 
 /**
  * Every sound the station holds, and the sets over it

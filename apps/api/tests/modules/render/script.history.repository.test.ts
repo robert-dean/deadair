@@ -376,3 +376,34 @@ describe('ScriptHistoryRepository.newestWrittenFor', () => {
         expect(captured.parameters).toEqual(expect.arrayContaining([STATION, 'seg-1', 'seg-2', 'written']));
     });
 });
+
+describe('ScriptHistoryRepository.performanceSince', () => {
+    it('answers nothing for a window of zero without asking the database', async () => {
+        await expect(new ScriptHistoryRepository(untouchableDb(), identity()).performanceSince(0)).resolves.toEqual([]);
+    });
+
+    it('groups on the reason without what it quoted, on this station only, and reads the counts as numbers', async () => {
+        const captured: Captured = {};
+        const repository = new ScriptHistoryRepository(
+            fakeDb(
+                [
+                    { personaKey: null, kind: 'talkbreak', outcome: 'declined', reason: 'wording', rating: null, count: '3' },
+                    { personaKey: 'wayne', kind: 'talkbreak', outcome: 'written', reason: null, rating: -1, count: '2' },
+                ],
+                captured,
+            ),
+            identity(),
+        );
+
+        const counts = await repository.performanceSince(30);
+
+        expect(counts).toEqual([
+            { kind: 'talkbreak', outcome: 'declined', reason: 'wording', count: 3 },
+            { personaKey: 'wayne', kind: 'talkbreak', outcome: 'written', rating: -1, count: 2 },
+        ]);
+        // The literal twice, once selected and once grouped, since two parameters would not match.
+        expect(captured.sql?.match(/split_part\("deadair"\."script_history"\."reason", ': it said "', 1\)/g)).toHaveLength(2);
+        expect(captured.sql).toContain("'30 days'");
+        expect(captured.parameters).toContain(STATION);
+    });
+});

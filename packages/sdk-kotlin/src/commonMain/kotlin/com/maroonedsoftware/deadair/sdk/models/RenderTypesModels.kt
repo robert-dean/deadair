@@ -208,6 +208,21 @@ data class ScriptHistorySummaryRow(
     val failed: Long,
 )
 
+/** The window the figures cover */
+@Serializable
+data class ScriptPerformanceQuery(
+    /** How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate */
+    val days: Long? = null,
+)
+
+/** One reason a writer's answer was refused */
+@Serializable
+data class ScriptDeclineReason(
+    /** The station's own sentence for the fault, without any wording it quoted */
+    val reason: String,
+    val count: Long,
+)
+
 /** What one pass over the inbox did */
 @Serializable
 data class SegmentScanResult(
@@ -551,6 +566,22 @@ data class ScriptHistorySummary(
     val rows: List<ScriptHistorySummaryRow>,
 )
 
+/** One presenter's writing of one kind of break, and what the operator thought of it */
+@Serializable
+data class ScriptPerformanceRow(
+    /** Absent means nobody was presenting, which is an ordinary state rather than a gap in the data */
+    val personaKey: String? = null,
+    val kind: String,
+    val written: Long,
+    val declined: Long,
+    val failed: Long,
+    val liked: Long,
+    val neutral: Long,
+    val disliked: Long,
+    /** Most common first */
+    val declineReasons: List<ScriptDeclineReason>,
+)
+
 /** The station's lexicon, oldest first */
 @Serializable
 data class PronunciationList(
@@ -645,6 +676,14 @@ data class ScriptHistoryPageInput(
     val attempts: List<ScriptAttemptInput>,
     /** The cursor for the page after this one, absent once the history has been read to its end */
     val nextBefore: String? = null,
+)
+
+/** How each presenter's breaks are doing, by the checks and by the operator */
+@Serializable
+data class ScriptPerformance(
+    /** The window actually read, echoed so a console can label what it draws */
+    val days: Long,
+    val rows: List<ScriptPerformanceRow>,
 )
 
 /** Every sound the station holds, and the sets over it */

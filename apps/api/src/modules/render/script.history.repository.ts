@@ -6,6 +6,7 @@ import { isSpeechDelivery, type SpeechDelivery } from '@deadair/plugin-sdk';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import { DECLINE_QUOTE_MARK, type ScriptPerformanceCount } from './script.performance.js';
 
 /**
  * Everything the station ever wrote, including the attempts that came to nothing.
@@ -688,6 +689,53 @@ export class ScriptHistoryRepository extends DataRepository {
             written: Number(row.written),
             declined: Number(row.declined),
             failed: Number(row.failed),
+        }));
+    }
+
+    /**
+     * The attempts of a recent window, grouped for {@link foldPerformance}.
+     *
+     * The reason is cut at {@link DECLINE_QUOTE_MARK} in SQL so a fault that quotes different wording
+     * each time groups as one. A literal rather than a parameter, because the same expression appears
+     * in the select and the group by, and Postgres cannot tell two parameters are the same text.
+     */
+    async performanceSince(days: number): Promise<ScriptPerformanceCount[]> {
+        if (days <= 0) return [];
+
+        const reason = sql<string | null>`split_part(${sql.ref('deadair.scriptHistory.reason')}, ${sql.lit(DECLINE_QUOTE_MARK)}, 1)`;
+        const rows = await this.db
+            .selectFrom('deadair.scriptHistory')
+            .leftJoin('deadair.scriptRatings', join =>
+                join
+                    .onRef('deadair.scriptRatings.scriptId', '=', 'deadair.scriptHistory.id')
+                    .on('deadair.scriptRatings.stationKey', '=', this.identity.stationKey),
+            )
+            .select(eb => [
+                'deadair.scriptHistory.personaKey as personaKey',
+                'deadair.scriptHistory.kind as kind',
+                'deadair.scriptHistory.outcome as outcome',
+                reason.as('reason'),
+                'deadair.scriptRatings.rating as rating',
+                eb.fn.countAll<string>().as('count'),
+            ])
+            .where('deadair.scriptHistory.stationKey', '=', this.identity.stationKey)
+            .where('deadair.scriptHistory.createdAt', '>=', sql<DateTime>`now() - ${sql.lit(`${Math.floor(days)} days`)}::interval`)
+            .groupBy([
+                'deadair.scriptHistory.personaKey',
+                'deadair.scriptHistory.kind',
+                'deadair.scriptHistory.outcome',
+                reason,
+                'deadair.scriptRatings.rating',
+            ])
+            .execute();
+
+        return rows.map(row => ({
+            ...(row.personaKey == null ? {} : { personaKey: row.personaKey }),
+            kind: row.kind,
+            outcome: row.outcome,
+            ...(row.reason == null ? {} : { reason: row.reason }),
+            ...(row.rating == null ? {} : { rating: row.rating }),
+            count: Number(row.count),
         }));
     }
 

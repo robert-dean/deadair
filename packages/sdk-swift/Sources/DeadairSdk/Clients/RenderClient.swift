@@ -71,6 +71,15 @@ public final class RenderClient: Sendable {
         return try http.decodeJSON(ScriptHistorySummary.self, from: response)
     }
 
+    /// Read script performance
+    /// Outcomes, decline reasons and ratings, per presenter and kind of break
+    public func readScriptPerformance(query: ScriptPerformanceQuery? = nil) async throws -> ScriptPerformance {
+        var request = SdkRequest(method: "GET", path: ["scripts", "performance"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ScriptPerformance.self, from: response)
+    }
+
     /// List voices
     /// The voices the station can be asked to speak in
     public func listVoices() async throws -> VoiceList {

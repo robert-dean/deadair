@@ -192,6 +192,25 @@ export interface ScriptHistorySummaryRow {
 }
 
 /**
+ * The window the figures cover
+ * generated from [ScriptPerformanceQuery](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface ScriptPerformanceQuery {
+    /** How far back to read. Defaults to 30. The nightly sweep decides how far back there is anything to read, and ratings go with the rows they rate */
+    days?: number;
+}
+
+/**
+ * One reason a writer's answer was refused
+ * generated from [ScriptDeclineReason](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface ScriptDeclineReason {
+    /** The station's own sentence for the fault, without any wording it quoted */
+    reason: string;
+    count: number;
+}
+
+/**
  * What one pass over the inbox did
  * generated from [SegmentScanResult](../../../../../apps/api/data/contracts/render/render.types.ck)
  */
@@ -533,6 +552,24 @@ export interface ScriptHistorySummary {
 }
 
 /**
+ * One presenter's writing of one kind of break, and what the operator thought of it
+ * generated from [ScriptPerformanceRow](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface ScriptPerformanceRow {
+    /** Absent means nobody was presenting, which is an ordinary state rather than a gap in the data */
+    personaKey?: string;
+    kind: string;
+    written: number;
+    declined: number;
+    failed: number;
+    liked: number;
+    neutral: number;
+    disliked: number;
+    /** Most common first */
+    declineReasons: ScriptDeclineReason[];
+}
+
+/**
  * The station's lexicon, oldest first
  * generated from [PronunciationList](../../../../../apps/api/data/contracts/render/render.types.ck)
  */
@@ -646,6 +683,16 @@ export function reviveScriptHistoryPage(raw: ScriptHistoryPage): ScriptHistoryPa
         }
     }
     return raw;
+}
+
+/**
+ * How each presenter's breaks are doing, by the checks and by the operator
+ * generated from [ScriptPerformance](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface ScriptPerformance {
+    /** The window actually read, echoed so a console can label what it draws */
+    days: number;
+    rows: ScriptPerformanceRow[];
 }
 
 /**

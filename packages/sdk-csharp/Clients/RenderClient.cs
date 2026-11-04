@@ -118,6 +118,20 @@ public sealed class RenderClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Read script performance
+    /// Outcomes, decline reasons and ratings, per presenter and kind of break
+    /// </summary>
+    public async Task<ScriptPerformance> ReadScriptPerformanceAsync(ScriptPerformanceQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("scripts", "performance"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ScriptPerformance>(response);
+    }
+
+    /// <summary>
     /// List voices
     /// The voices the station can be asked to speak in
     /// </summary>

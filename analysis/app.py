@@ -14,6 +14,7 @@ import asyncio
 import ctypes
 import ipaddress
 import json
+import logging
 import os
 import re
 import socket
@@ -26,6 +27,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
+import beat_model
+from beats import beats_from
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
@@ -47,7 +50,9 @@ from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 from tags import gain_tags
 
-ANALYZER = "deadair-analysis/0.1.0"
+ANALYZER = "deadair-analysis/0.2.0"
+
+_log = logging.getLogger("uvicorn.error")
 
 # glibc keeps per-thread arenas and does not hand their freed pages back to the
 # OS on its own -- `_resident_mb` above is what first showed this process
@@ -93,6 +98,10 @@ def _trim() -> None:
 # five-minute track, plus the downloaded file and ffmpeg's own buffer. On a
 # sixteen-core box that would be several gigabytes of a machine that is usually
 # also running Postgres, the app and the station.
+# `off` leaves the beat tracker out altogether, torch included, for a machine short of memory. The rest
+# of a measurement does not read it, so this costs the tempo and nothing else.
+BEATS_ON = os.environ.get("ANALYSIS_BEATS", "on").strip().lower() != "off"
+
 WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", str(min(4, os.cpu_count() or 1)))))
 
 PORT = int(os.environ.get("ANALYSIS_PORT", "9321"))
@@ -574,6 +583,14 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
         **gain_tags(probed.tags),
     }
 
+    # The beat pass last, and on a signal a small fraction of the decode's size, with the decode let go
+    # first. A long record's channels at the reference rate are hundreds of megabytes, and holding them
+    # under the model is the largest number this service can reach on a machine with the mixer on it.
+    beat_signal = _beat_signal(decoded.samples)
+    duration_ms = decoded.duration_ms
+    del decoded
+    data.update(_beats_of(beat_signal, points.cue_out - points.cue_in))
+
     # Two independent truths, and the answer is complete only if BOTH hold.
     #
     # `whole_transfer` is what the download saw: bytes received against the
@@ -585,15 +602,46 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     # Neither subsumes the other, so neither is dropped.
     complete = whole_transfer
     if claimed_ms is not None and claimed_ms > 0:
-        complete = complete and decoded.duration_ms >= claimed_ms * COMPLETE_RATIO
+        complete = complete and duration_ms >= claimed_ms * COMPLETE_RATIO
 
     return {
         "schemaVersion": SCHEMA_VERSION,
         "analyzer": ANALYZER,
         "complete": complete,
-        "durationMs": decoded.duration_ms,
+        "durationMs": duration_ms,
         "data": data,
     }
+
+
+def _beat_signal(samples: np.ndarray) -> np.ndarray | None:
+    if not BEATS_ON:
+        return None
+    try:
+        return beat_model.model_signal(samples)
+    except Exception:
+        _log.exception("could not prepare a record for the beat tracker")
+        return None
+
+
+def _beats_of(signal: np.ndarray | None, sounding_ms: int) -> dict:
+    """The tempo and bar lines, or nothing, at no cost to the rest of the answer.
+
+    Its own failure path, and catching everything is the point. This is a second and riskier detector
+    on top of a measurement that already works, so whatever goes wrong in it leaves the cue points and
+    the loudness standing, and the fields absent, which every reader has to handle anyway. Logged,
+    because absent is also what a record with no pulse looks like, and a tracker that had stopped
+    working would otherwise look like a library with no rhythm in it.
+    """
+    if signal is None:
+        return {}
+    try:
+        beat_seconds, downbeat_seconds, logits = beat_model.track_signal(signal)
+        found = beats_from(beat_seconds, downbeat_seconds, logits, sounding_ms)
+    except Exception:
+        _log.exception("the beat tracker failed; answering without a tempo")
+        return {}
+    _trim()
+    return {} if found is None else found.as_data()
 
 
 def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay], gains: list[float] | None = None) -> tuple[bytes, int]:

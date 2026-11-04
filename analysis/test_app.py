@@ -16,6 +16,7 @@ import pytest
 
 import app
 from app import AnalysisError, Decoded, Probed, _analyze, _join, _trim, resident_mb_in
+from measure import CuePoints
 
 # Trimmed from a real `/proc/self/status`, keeping the neighbours that make the
 # parse non-trivial: `VmRSS` is not the first line, and three other keys start
@@ -29,6 +30,75 @@ VmRSS:\t  121244 kB
 RssAnon:\t   93820 kB
 Threads:\t6
 """
+
+
+@pytest.fixture(autouse=True)
+def _no_beat_tracker_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The CI job has no torch, and these tests are about the rest of the answer.
+    monkeypatch.setattr(app, "BEATS_ON", False)
+
+
+def _a_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app, "_download", lambda url: ("/no/such/file", True))
+    monkeypatch.setattr(app, "_probe", lambda path: Probed(channels=2, tags={}))
+    _stub_decode(monkeypatch, channels=2)
+
+
+def test_a_tempo_joins_the_rest_of_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+    monkeypatch.setattr(app, "BEATS_ON", True)
+    beats = np.arange(0.0, 59.0, 0.5)
+    logits = np.full(3000, -8.0)
+    logits[np.rint(beats * 50).astype(int)] = 6.0
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: (beats, beats[::4], logits))
+    monkeypatch.setattr(app, "measure", lambda samples, rate: CuePoints(0, 1000, 50_000, 60_000))
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert abs(data["bpm"] - 120.0) < 0.5
+    assert data["beatConfidence"] > 0.8
+    assert data["downbeats"][:2] == [0, 2000]
+    assert data["cueOut"] == 60_000
+
+
+def test_a_failing_beat_tracker_costs_the_tempo_and_nothing_else(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+    monkeypatch.setattr(app, "BEATS_ON", True)
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: (_ for _ in ()).throw(RuntimeError("no weights")))
+
+    result = _analyze("https://example.invalid/track.flac", 1000)
+
+    assert result["complete"] is True
+    assert result["durationMs"] == 1000
+    assert "cueIn" in result["data"]
+    assert "bpm" not in result["data"]
+
+
+def test_a_signal_that_cannot_be_prepared_costs_the_tempo_and_nothing_else(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+    monkeypatch.setattr(app, "BEATS_ON", True)
+    monkeypatch.setattr(app.beat_model, "model_signal", lambda samples: (_ for _ in ()).throw(MemoryError()))
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert "cueIn" in data and "bpm" not in data
+
+
+def test_a_record_with_no_pulse_has_no_tempo_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+    monkeypatch.setattr(app, "BEATS_ON", True)
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: (np.array([]), np.array([]), np.full(50, -8.0)))
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert not {"bpm", "beatConfidence", "downbeats"} & set(data)
+
+
+def test_switched_off_it_never_touches_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: pytest.fail("the model ran"))
+
+    assert "bpm" not in _analyze("https://example.invalid/track.flac", None)["data"]
 
 
 def test_reads_the_resident_line_and_not_a_neighbour():

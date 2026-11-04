@@ -136,8 +136,12 @@ def load(checkpoint_path: str = CHECKPOINT) -> None:
         _tracker(checkpoint_path)
 
 
-def track(samples: np.ndarray, checkpoint_path: str = CHECKPOINT, sample_rate: int = REFERENCE_RATE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Beat times and downbeat times in seconds, and the framewise beat logits."""
-    mono = model_signal(samples, sample_rate)
+def track_signal(mono: np.ndarray, checkpoint_path: str = CHECKPOINT) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Beat times and downbeat times in seconds, and the framewise beat logits, for {@link model_signal}'s answer."""
     with _lock:
         return _tracker(checkpoint_path)(mono)
+
+
+def track(samples: np.ndarray, checkpoint_path: str = CHECKPOINT, sample_rate: int = REFERENCE_RATE) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """{@link track_signal} from the decoded channels, for a caller with no reason to let them go first."""
+    return track_signal(model_signal(samples, sample_rate), checkpoint_path)

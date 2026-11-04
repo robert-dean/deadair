@@ -70,8 +70,7 @@ between 200 Hz and 4 kHz, no toolkit — which is why this only ever came up for
 the parts of that confidence, with the seconds and memory it cost. `--listen` renders a record with
 clicks on its beats and downbeats. It exists because a detector has shipped here once on synthetic
 evidence alone (discussion 45, "The vocal fields cannot be measured this way"), so every threshold a
-consumer leans on is chosen from its output on this library. Its docstring has the command. Nothing in
-the station imports `beats.py` or `beat_model.py` yet.
+consumer leans on is chosen from its output on this library. Its docstring has the command.
 
 ## The contract
 
@@ -80,7 +79,7 @@ the station imports `beats.py` or `beat_model.py` yet.
 Cheap. Does no work, decodes nothing.
 
 ```json
-{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.1.0", "maxConcurrent": 4, "rssMb": 118.4 }
+{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.2.0", "maxConcurrent": 4, "rssMb": 118.4 }
 ```
 
 Two callers, two purposes. The plugin's connection test uses it so the console can say "not
@@ -114,7 +113,7 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
 // response, 200
 {
   "schemaVersion": 1,
-  "analyzer": "deadair-analysis/0.1.0",
+  "analyzer": "deadair-analysis/0.2.0",
   "complete": true,
   "durationMs": 213880,
   "data": {
@@ -129,7 +128,11 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
 
     "tagGainDb": -9.6,        // what the FILE's own tags ask for
     "tagReferenceLufs": -18,  // and what that gain is relative to
-    "tagPeakDb": -0.1         // a SAMPLE peak, by ReplayGain's definition
+    "tagPeakDb": -0.1,        // a SAMPLE peak, by ReplayGain's definition
+
+    "bpm": 117.1,             // beats a minute, octave-ambiguous, stored as measured
+    "beatConfidence": 0.994,  // 0 to 1, how far to trust that
+    "downbeats": [460, 2510]  // where each bar starts, absolute into the file
   }
 }
 ```
@@ -157,6 +160,12 @@ database. Adding an OPTIONAL field does not bump that version: every consumer al
 answer for one being absent, so a row written before the field existed is a correct row of this
 version rather than a stale one. The `tag*` fields arrived exactly that way. A row measured before
 them keeps its measured loudness, and re-measuring the catalog is how it picks them up.
+
+The three beat fields are **optional and arrive together or not at all**. They are absent for a record
+with no pulse to report, for a tempo outside 40 to 220 BPM, and whenever the tracker failed, which
+never fails the measurement. The tracker runs one record at a time on `ANALYSIS_BEAT_THREADS` threads
+(2) whatever the concurrency, because the mixer shares the machine in the single image. `ANALYSIS_BEATS=off`
+leaves it out altogether, torch included, for a machine short of memory.
 
 Synchronous, deliberately. The caller is a background walk with its own time budget and its own
 concurrency setting, so nothing is waiting on the response and a job-id-plus-polling protocol would

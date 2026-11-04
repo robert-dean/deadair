@@ -4,9 +4,10 @@ import { Link } from '@tanstack/react-router';
 import { Anchor } from '@mantine/core';
 import { Trans, useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import type { Rating, StationOrderItem } from '@deadair/sdk';
+import type { Rating, ScriptRating, StationOrderItem } from '@deadair/sdk';
 
 import { useRateTrack } from '../../api/catalog.queries';
+import { useRateScript } from '../../api/scripts.queries';
 import {
     useAddOrderTrack,
     useExtendOrder,
@@ -101,6 +102,7 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
     const skipTo = useSkipToOrderItem();
     const rewrite = useRewriteOrderItem();
     const rateTrack = useRateTrack();
+    const rateScript = useRateScript();
 
     // Stable across renders, so the table's memoised rows survive the five-second poll instead of
     // re-rendering under handlers that are new objects each time. `mutate` is destructured because
@@ -152,6 +154,9 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
     // hearing it. The write goes to the catalog rather than to the order, and the order is re-read
     // because it carries each row's rating.
     const onRate = useCallback((trackId: string, rating: Rating) => rateRecord({ id: trackId, rating }), [rateRecord]);
+    // The same for what the station said, while it is still in the operator's ear.
+    const { mutate: rateWords } = rateScript;
+    const onRateScript = useCallback((scriptId: string, rating: ScriptRating) => rateWords({ id: scriptId, rating }), [rateWords]);
 
     const planned = items.filter(item => item.state === 'planned').length;
     const nothingOn = loaded !== undefined && items.length === 0;
@@ -314,6 +319,8 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
                         onRewrite={onRewrite}
                         ratingTrackId={rateTrack.isPending ? rateTrack.variables?.id : undefined}
                         onRate={onRate}
+                        ratingScriptId={rateScript.isPending ? rateScript.variables?.id : undefined}
+                        onRateScript={onRateScript}
                     />
                 ) : undefined}
 

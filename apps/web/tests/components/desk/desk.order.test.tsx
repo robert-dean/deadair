@@ -36,6 +36,7 @@ const replanTheRunningOrder = vi.fn();
 const stopPlayout = vi.fn();
 const startPlayout = vi.fn();
 const rateTrack = vi.fn();
+const rateScript = vi.fn();
 const getPlayoutStatus = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
@@ -58,6 +59,7 @@ vi.mock('../../../src/api/client', () => ({
         topics: { listTopics: () => Promise.resolve({ topics: [] }) },
         playout: { stopPlayout: () => stopPlayout(), startPlayout: () => startPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
+        render: { rateScript: (...args: unknown[]) => rateScript(...args) },
         station: { readStationAttention: () => Promise.resolve({ items: [] }) },
         personas: { listPersonas: () => Promise.resolve({ personas: [] }) },
         // The cast menu under the transport polls its casts on every desk; nothing is casting here.
@@ -219,6 +221,38 @@ describe('DeskPage: the running order and the broadcast controls', () => {
 
         await waitFor(() => {
             expect(rateTrack).toHaveBeenCalledWith('trk_1', { rating: 'liked' });
+        });
+    });
+
+    // The words on a break are rated where they were heard. A break with no written attempt, which
+    // is a recording or one still to be written, has nothing to rate.
+    it('rates the words of a break that has them, and re-reads the order', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', state: 'airing', kind: 'segment', title: 'Talk break', scriptId: 'script-1', scriptRating: 'liked' }),
+                    orderItem({ id: 'item-2', state: 'planned', kind: 'segment', title: 'An ident' }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+        rateScript.mockResolvedValue({ id: 'script-1', rating: 'disliked' });
+
+        render(<DeskPage />);
+        await screen.findByText('Late shift');
+        await screen.findByRole('radio', { name: 'The station should not say things like this' });
+
+        expect(screen.getAllByRole('radio', { name: 'More like this' })).toHaveLength(1);
+        expect(screen.getByRole('radio', { name: 'More like this' })).toBeChecked();
+        const reads = getTheRunningOrder.mock.calls.length;
+
+        await userEvent.click(screen.getByRole('radio', { name: 'The station should not say things like this' }));
+
+        await waitFor(() => {
+            expect(rateScript).toHaveBeenCalledWith('script-1', { rating: 'disliked' });
+        });
+        await waitFor(() => {
+            expect(getTheRunningOrder.mock.calls.length).toBeGreaterThan(reads);
         });
     });
 

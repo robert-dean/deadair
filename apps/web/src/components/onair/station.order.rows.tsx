@@ -2,9 +2,10 @@ import { memo, useCallback, useRef, type KeyboardEvent, type Ref } from 'react';
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from '@mantine/core';
 import { IconChevronsUp, IconPencil, IconPlayerTrackNext, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import type { Rating, StationOrderItem } from '@deadair/sdk';
+import type { Rating, ScriptRating, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
+import { ScriptRatingControl } from '../scripts/script.rating.control';
 import { Artwork } from '../shared/artwork';
 import { AuthoredBadge } from '../shared/authored.badge';
 import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
@@ -52,6 +53,8 @@ interface OrderRowProps {
     rewriting: boolean;
     onRate?: (trackId: string, rating: Rating) => void;
     writingRating: boolean;
+    onRateScript?: (scriptId: string, rating: ScriptRating) => void;
+    writingScriptRating: boolean;
     /** How the virtualizer's measurement finds the item this element belongs to. */
     'data-index': number;
     ref?: Ref<HTMLTableRowElement>;
@@ -132,6 +135,8 @@ export const OrderRow = memo(function OrderRow({
     rewriting,
     onRate,
     writingRating,
+    onRateScript,
+    writingScriptRating,
     'data-index': dataIndex,
     ref,
 }: OrderRowProps) {
@@ -329,7 +334,17 @@ export const OrderRow = memo(function OrderRow({
             </Table.Td>
             {onRate ? (
                 <Table.Td>
-                    {trackId === undefined ? undefined : (
+                    {item.kind === 'segment' && item.scriptId !== undefined && onRateScript ? (
+                        <span ref={ratingStopRef} style={{ display: 'contents' }}>
+                            <ScriptRatingControl
+                                rating={item.scriptRating}
+                                busy={writingScriptRating}
+                                onChange={rating => {
+                                    onRateScript(item.scriptId!, rating);
+                                }}
+                            />
+                        </span>
+                    ) : trackId === undefined ? undefined : (
                         <span ref={ratingStopRef} style={{ display: 'contents' }}>
                             <RatingControl
                                 size="xs"

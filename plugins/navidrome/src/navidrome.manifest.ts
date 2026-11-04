@@ -91,6 +91,7 @@ export const configSchema = z.object({
     // Subsonic's own parameter is in kbps and means "no limit" when zero, which is
     // the same thing as leaving this blank, so blank is the only way it is said.
     maxBitRate: z.number().int().positive().optional(),
+    libraryFolders: z.string().optional(),
 });
 
 export type NavidromeConfig = z.infer<typeof configSchema>;
@@ -161,6 +162,12 @@ export const navidromeManifest: PluginManifest = {
             // `streamFormat` always is. A row that hid itself whenever the format
             // was set would be exactly backwards.
             help: 'Only applies when the format above is not the original file. Blank means no limit.',
+        },
+        {
+            key: 'libraryFolders',
+            label: 'Library folders',
+            type: 'multiselect',
+            help: "Which of this server's music folders the whole library and searches are taken from, so an audiobook shelf can stay out. Empty means all of them. A playlist you made still brings in whatever is on it. Records from a folder you take out leave the rotation at the next sync, unless that is too much of the library at once for the sync to believe. A folder later removed from the server makes the walk fail until it is unticked here.",
         },
     ],
     configSchema,

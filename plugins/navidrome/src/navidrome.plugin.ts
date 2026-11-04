@@ -4,10 +4,12 @@ import {
     baseForm,
     errorText,
     normalize,
+    parseMultiSelect,
     type AlbumEnrichment,
     type AlbumRef,
     type ArtistEnrichment,
     type ArtistRef,
+    type ConfigFieldOption,
     type EnrichmentMatchKey,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
@@ -38,6 +40,7 @@ import { selectSong } from './navidrome.match.js';
 import type {
     AlbumResponse,
     ArtistInfoResponse,
+    MusicFoldersResponse,
     PingResponse,
     PlaylistResponse,
     PlaylistsResponse,
@@ -143,6 +146,7 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
             query,
             songCount: clampCount(options?.limit),
             songOffset: options?.offset,
+            musicFolderId: this.folderScope(),
             // Asking for none of the other two: this method answers about tracks,
             // and a server that would otherwise return twenty albums per page is
             // being asked to do work nothing reads.
@@ -253,11 +257,47 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
             query: '',
             songCount: clampCount(options?.limit) ?? MAX_PAGE_SIZE,
             songOffset: options?.offset,
+            musicFolderId: this.folderScope(),
             artistCount: 0,
             albumCount: 0,
         });
 
         return this.toTracks(body.searchResult3?.song);
+    }
+
+    /**
+     * The folders the operator chose, or `undefined` for all of them.
+     *
+     * Repeated `musicFolderId` is a union on Navidrome, measured on 0.64.2 with three libraries, and
+     * the same `navidrome:all` id and paging carry on working under it. One the server no longer has
+     * fails the call with code 70, which is deliberate here: a walk that fails retires nothing, and
+     * quietly dropping the id could widen a narrowed library or empty it.
+     */
+    private folderScope(): readonly string[] | undefined {
+        const folders = parseMultiSelect(this.config?.libraryFolders);
+        return folders.length === 0 ? undefined : folders;
+    }
+
+    /**
+     * The server's folders, for the form.
+     *
+     * Answers nothing rather than throwing when the server is unreachable: an operator fixing a bad
+     * address needs the form.
+     */
+    async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        try {
+            const body = await this.require().get<MusicFoldersResponse>('getMusicFolders.view');
+            const options: ConfigFieldOption[] = [];
+            for (const folder of body.musicFolders?.musicFolder ?? []) {
+                if (folder.id === undefined) continue;
+                const value = String(folder.id);
+                options.push({ value, label: folder.name ?? value });
+            }
+            return { libraryFolders: options };
+        } catch (error) {
+            this.host.logger.debug('navidrome could not suggest library folders', { error: errorText(error) });
+            return {};
+        }
     }
 
     // --- stream --------------------------------------------------------------

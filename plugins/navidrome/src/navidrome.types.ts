@@ -142,6 +142,10 @@ export interface SongResponse {
     song?: SubsonicChild;
 }
 
+export interface MusicFoldersResponse {
+    musicFolders?: { musicFolder?: { id?: number | string; name?: string }[] };
+}
+
 export interface PlaylistsResponse {
     playlists?: { playlist?: SubsonicPlaylist[] };
 }

@@ -7,7 +7,15 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { TopicsService } from '#src/modules/topics/topics.service.js';
-import { TopicInput, TopicKindList, TopicList, TopicQuery } from '../modules/topics/types/topics.types.js';
+import {
+    PackImportPlan,
+    TopicImportResult,
+    TopicInput,
+    TopicKindList,
+    TopicList,
+    TopicPack,
+    TopicQuery,
+} from '../modules/topics/types/topics.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -20,6 +28,9 @@ function requireMcpContainer(context: McpToolContext): Container {
 const ListTopicsArgs = z.object({ query: TopicQuery.optional() });
 const CreateTopicArgs = z.object({ body: TopicInput });
 const ListTopicKindsArgs = z.object({});
+const ExportTopicsArgs = z.object({});
+const PreviewTopicImportArgs = z.object({ body: TopicPack });
+const ImportTopicsArgs = z.object({ body: TopicPack });
 const UpdateTopicArgs = z.object({ id: z.string().min(1).max(100), body: TopicInput });
 const DeleteTopicArgs = z.object({ id: z.string().min(1).max(100) });
 
@@ -92,6 +103,74 @@ export class ListTopicKindsMcpTool implements McpToolHandler {
 }
 
 /**
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `GET /topics/export`
+ */
+@Injectable()
+export class ExportTopicsMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'export_topics',
+        description: 'Every subject this station has named as one file, to hand to another station',
+        inputSchema: z.toJSONSchema(ExportTopicsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(TopicPack, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const result = await container.get(TopicsService).exportPack();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `POST /topics/import/preview`
+ */
+@Injectable()
+export class PreviewTopicImportMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'preview_topic_import',
+        description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing',
+        inputSchema: z.toJSONSchema(PreviewTopicImportArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PackImportPlan, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, PreviewTopicImportArgs);
+        const result = await container.get(TopicsService).previewImport(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `POST /topics/import`
+ */
+@Injectable()
+export class ImportTopicsMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'import_topics',
+        description: 'Adds what is new in a file. A subject this station already has, by kind and key, is left as it is',
+        inputSchema: z.toJSONSchema(ImportTopicsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(TopicImportResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, ImportTopicsArgs);
+        const result = await container.get(TopicsService).importPack(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
  * from [topics.ck](../../data/contracts/topics/topics.ck) `PUT /topics/{id}`
  */
 @Injectable()
@@ -142,6 +221,9 @@ export function registerTopicsMcpCatalog(map: McpToolHandlerMap, container: Cont
     map.set('list_topics', container.get(ListTopicsMcpTool));
     map.set('create_topic', container.get(CreateTopicMcpTool));
     map.set('list_topic_kinds', container.get(ListTopicKindsMcpTool));
+    map.set('export_topics', container.get(ExportTopicsMcpTool));
+    map.set('preview_topic_import', container.get(PreviewTopicImportMcpTool));
+    map.set('import_topics', container.get(ImportTopicsMcpTool));
     map.set('update_topic', container.get(UpdateTopicMcpTool));
     map.set('delete_topic', container.get(DeleteTopicMcpTool));
 }
@@ -151,6 +233,9 @@ export function registerTopicsMcpToolClasses(registry: Registry): void {
     registry.register(ListTopicsMcpTool).useClass(ListTopicsMcpTool).asSingleton();
     registry.register(CreateTopicMcpTool).useClass(CreateTopicMcpTool).asSingleton();
     registry.register(ListTopicKindsMcpTool).useClass(ListTopicKindsMcpTool).asSingleton();
+    registry.register(ExportTopicsMcpTool).useClass(ExportTopicsMcpTool).asSingleton();
+    registry.register(PreviewTopicImportMcpTool).useClass(PreviewTopicImportMcpTool).asSingleton();
+    registry.register(ImportTopicsMcpTool).useClass(ImportTopicsMcpTool).asSingleton();
     registry.register(UpdateTopicMcpTool).useClass(UpdateTopicMcpTool).asSingleton();
     registry.register(DeleteTopicMcpTool).useClass(DeleteTopicMcpTool).asSingleton();
 }

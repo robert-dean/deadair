@@ -1,7 +1,7 @@
 ---
 title: 'Delete topic'
 sidebar_label: 'Delete topic'
-sidebar_position: 5
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

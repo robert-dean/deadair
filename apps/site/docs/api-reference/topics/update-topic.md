@@ -1,7 +1,7 @@
 ---
 title: 'Update topic'
 sidebar_label: 'Update topic'
-sidebar_position: 4
+sidebar_position: 7
 mdx:
     format: 'md'
 ---

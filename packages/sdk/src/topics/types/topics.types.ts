@@ -53,6 +53,63 @@ export interface TopicQuery {
 }
 
 /**
+ * One subject in a file. Nothing about the station it came from: no id, and no place in a list
+ * generated from [TopicPackRow](../../../../../apps/api/data/contracts/topics/topics.types.ck)
+ */
+export interface TopicPackRow {
+    /** Which sort of break this is a subject for */
+    kind: string;
+    /** What identifies it within its kind, here and on the station it came from */
+    key: string;
+    /** What a break calls it out loud */
+    label: string;
+    /** This sort of break's own settings for this subject */
+    config?: Record<string, unknown>;
+}
+
+/**
+ * A station's subjects as one file, to hand to another station. Each entry is read as a `TopicPackRow`
+ * when it is imported, so one a station cannot use is reported rather than refusing the file
+ * generated from [TopicPack](../../../../../apps/api/data/contracts/topics/topics.types.ck)
+ */
+export interface TopicPack {
+    /** Says the file is a topics file */
+    format: 'deadair.topics';
+    /** The version of the document's shape. This station reads version 1 */
+    version: number;
+    /** What the file is, as whoever made it would describe it */
+    name: string;
+    topics: Record<string, unknown>[];
+}
+
+/**
+ * An entry in a file that importing it would leave out, and why
+ * generated from [PackImportDropped](../../../../../apps/api/data/contracts/topics/topics.types.ck)
+ */
+export interface PackImportDropped {
+    /** Which entry in the file, counting from 1 */
+    entry: number;
+    /** What the entry calls itself, when it does */
+    words?: string;
+    /** Why the station cannot use it */
+    reason: string;
+}
+
+export interface PackImportDroppedInput {}
+
+/**
+ * Something to know about a file that does not stop it being imported, in the station's own sentence
+ * generated from [PackImportNotice](../../../../../apps/api/data/contracts/topics/topics.types.ck)
+ */
+export interface PackImportNotice {
+    /** What sort of notice, for a caller that treats one differently */
+    kind: string;
+    message: string;
+}
+
+export interface PackImportNoticeInput {}
+
+/**
  * generated from [TopicList](../../../../../apps/api/data/contracts/topics/topics.types.ck)
  */
 export interface TopicList {
@@ -69,3 +126,32 @@ export interface TopicListInput {
 export interface TopicKindList {
     kinds: TopicKindDescriptor[];
 }
+
+/**
+ * What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens
+ * generated from [PackImportPlan](../../../../../apps/api/data/contracts/topics/topics.types.ck)
+ */
+export interface PackImportPlan {
+    /** What the file says it is */
+    name: string;
+    /** What it would add, in the words a list would show */
+    adding: string[];
+    /** What this station already has, which it would leave alone */
+    skipped: string[];
+    /** What it cannot use */
+    dropped: PackImportDropped[];
+    notices: PackImportNotice[];
+}
+
+export interface PackImportPlanInput {}
+
+/**
+ * What an import did, and the subjects as they now stand
+ * generated from [TopicImportResult](../../../../../apps/api/data/contracts/topics/topics.types.ck)
+ */
+export interface TopicImportResult {
+    plan: PackImportPlan;
+    list: TopicList;
+}
+
+export interface TopicImportResultInput {}

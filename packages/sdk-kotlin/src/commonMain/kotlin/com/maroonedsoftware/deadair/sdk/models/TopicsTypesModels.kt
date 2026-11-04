@@ -52,6 +52,61 @@ data class TopicQuery(
     val kind: String? = null,
 )
 
+/** One subject in a file. Nothing about the station it came from: no id, and no place in a list */
+@Serializable
+data class TopicPackRow(
+    /** Which sort of break this is a subject for */
+    val kind: String,
+    /** What identifies it within its kind, here and on the station it came from */
+    val key: String,
+    /** What a break calls it out loud */
+    val label: String,
+    /** This sort of break's own settings for this subject */
+    val config: Map<String, JsonElement>? = null,
+)
+
+/**
+ * A station's subjects as one file, to hand to another station. Each entry is read as a `TopicPackRow`
+ * when it is imported, so one a station cannot use is reported rather than refusing the file
+ */
+@Serializable
+data class TopicPack(
+    /** Says the file is a topics file */
+    val format: String = "deadair.topics",
+    /** The version of the document's shape. This station reads version 1 */
+    val version: Long,
+    /** What the file is, as whoever made it would describe it */
+    val name: String,
+    val topics: List<Map<String, JsonElement>>,
+)
+
+/** An entry in a file that importing it would leave out, and why */
+@Serializable
+data class PackImportDropped(
+    /** Which entry in the file, counting from 1 */
+    val entry: Long,
+    /** What the entry calls itself, when it does */
+    val words: String? = null,
+    /** Why the station cannot use it */
+    val reason: String,
+)
+
+/** An entry in a file that importing it would leave out, and why */
+@Serializable
+class PackImportDroppedInput
+
+/** Something to know about a file that does not stop it being imported, in the station's own sentence */
+@Serializable
+data class PackImportNotice(
+    /** What sort of notice, for a caller that treats one differently */
+    val kind: String,
+    val message: String,
+)
+
+/** Something to know about a file that does not stop it being imported, in the station's own sentence */
+@Serializable
+class PackImportNoticeInput
+
 @Serializable
 data class TopicList(
     val topics: List<Topic>,
@@ -66,3 +121,32 @@ data class TopicListInput(
 data class TopicKindList(
     val kinds: List<TopicKindDescriptor>,
 )
+
+/** What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens */
+@Serializable
+data class PackImportPlan(
+    /** What the file says it is */
+    val name: String,
+    /** What it would add, in the words a list would show */
+    val adding: List<String>,
+    /** What this station already has, which it would leave alone */
+    val skipped: List<String>,
+    /** What it cannot use */
+    val dropped: List<PackImportDropped>,
+    val notices: List<PackImportNotice>,
+)
+
+/** What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens */
+@Serializable
+class PackImportPlanInput
+
+/** What an import did, and the subjects as they now stand */
+@Serializable
+data class TopicImportResult(
+    val plan: PackImportPlan,
+    val list: TopicList,
+)
+
+/** What an import did, and the subjects as they now stand */
+@Serializable
+class TopicImportResultInput

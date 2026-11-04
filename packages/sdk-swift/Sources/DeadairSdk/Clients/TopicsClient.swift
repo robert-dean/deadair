@@ -35,6 +35,32 @@ public final class TopicsClient: Sendable {
         return try http.decodeJSON(TopicKindList.self, from: response)
     }
 
+    /// Export topics
+    /// Every subject this station has named as one file, to hand to another station
+    public func exportTopics() async throws -> TopicPack {
+        let request = SdkRequest(method: "GET", path: ["topics", "export"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(TopicPack.self, from: response)
+    }
+
+    /// Preview topic import
+    /// Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+    public func previewTopicImport(body: TopicPack) async throws -> PackImportPlan {
+        var request = SdkRequest(method: "POST", path: ["topics", "import", "preview"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PackImportPlan.self, from: response)
+    }
+
+    /// Import topics
+    /// Adds what is new in a file. A subject this station already has, by kind and key, is left as it is
+    public func importTopics(body: TopicPack) async throws -> TopicImportResult {
+        var request = SdkRequest(method: "POST", path: ["topics", "import"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(TopicImportResult.self, from: response)
+    }
+
     /// Update topic
     /// Rewrites one subject. A break already written keeps the words it was given
     public func updateTopic(id: String, body: TopicInput) async throws -> TopicList {

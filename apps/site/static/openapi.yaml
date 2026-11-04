@@ -7121,6 +7121,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TopicKindList'
+    '/topics/export':
+        get:
+            operationId: exportTopics
+            summary: 'Export topics'
+            description: 'Every subject this station has named as one file, to hand to another station'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TopicPack'
+    '/topics/import/preview':
+        post:
+            operationId: previewTopicImport
+            summary: 'Preview topic import'
+            description: 'Reads a file and reports what importing it would add, skip and leave out. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/TopicPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PackImportPlan'
+    '/topics/import':
+        post:
+            operationId: importTopics
+            summary: 'Import topics'
+            description: 'Adds what is new in a file. A subject this station already has, by kind and key, is left as it is'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/TopicPack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TopicImportResult'
     '/topics/{id}':
         put:
             operationId: updateTopic
@@ -18351,6 +18399,102 @@ components:
                     type: string
                     maxLength: 100
                     description: 'One sort of break, or absent for every subject this station has named'
+        TopicPack:
+            type: object
+            properties:
+                format:
+                    const: deadair.topics
+                    description: 'Says the file is a topics file'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What the file is, as whoever made it would describe it'
+                topics:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: {}
+                    maxItems: 1000
+            required: [format, version, name, topics]
+            description: "A station's subjects as one file, to hand to another station. Each entry is read as a `TopicPackRow`\nwhen it is imported, so one a station cannot use is reported rather than refusing the file"
+        PackImportDropped:
+            type: object
+            properties:
+                entry:
+                    type: integer
+                    minimum: 1
+                    readOnly: true
+                    description: 'Which entry in the file, counting from 1'
+                words:
+                    type: string
+                    readOnly: true
+                    description: 'What the entry calls itself, when it does'
+                reason:
+                    type: string
+                    readOnly: true
+                    description: 'Why the station cannot use it'
+            required: [entry, reason]
+            description: 'An entry in a file that importing it would leave out, and why'
+        PackImportNotice:
+            type: object
+            properties:
+                kind:
+                    type: string
+                    readOnly: true
+                    description: 'What sort of notice, for a caller that treats one differently'
+                message:
+                    type: string
+                    readOnly: true
+            required: [kind, message]
+            description: "Something to know about a file that does not stop it being imported, in the station's own sentence"
+        PackImportPlan:
+            type: object
+            properties:
+                name:
+                    type: string
+                    readOnly: true
+                    description: 'What the file says it is'
+                adding:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                    description: 'What it would add, in the words a list would show'
+                skipped:
+                    type: array
+                    items:
+                        type: string
+                    readOnly: true
+                    description: 'What this station already has, which it would leave alone'
+                dropped:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PackImportDropped'
+                    readOnly: true
+                    description: 'What it cannot use'
+                notices:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PackImportNotice'
+                    readOnly: true
+            required: [name, adding, skipped, dropped, notices]
+            description: 'What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens'
+        TopicImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PackImportPlan'
+                    readOnly: true
+                list:
+                    '$ref': '#/components/schemas/TopicList'
+                    readOnly: true
+            required: [plan, list]
+            description: 'What an import did, and the subjects as they now stand'
         InvitationState:
             type: string
             enum: [pending, accepted, revoked, expired]

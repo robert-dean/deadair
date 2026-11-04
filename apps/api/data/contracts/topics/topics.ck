@@ -70,6 +70,52 @@ operation /topics/kinds: {
     }
 }
 
+# These three before `/topics/{id}`, which would otherwise take `export` for an id. The file travels by
+# `kind` and `key` and holds no id or position, so it can never overwrite a row it did not mean. An
+# export stays on the `platform.manage` floor, since a file leaves the station.
+
+operation /topics/export: {
+    get: { # Every subject this station has named as one file, to hand to another station
+        name: Export topics
+        service: TopicsService.exportPack
+        response: {
+            200: {
+                application/json: TopicPack
+            }
+        }
+    }
+}
+
+operation /topics/import/preview: {
+    post: { # Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+        name: Preview topic import
+        service: TopicsService.previewImport
+        request: {
+            application/json: TopicPack
+        }
+        response: {
+            200: {
+                application/json: PackImportPlan
+            }
+        }
+    }
+}
+
+operation /topics/import: {
+    post: { # Adds what is new in a file. A subject this station already has, by kind and key, is left as it is
+        name: Import topics
+        service: TopicsService.importPack
+        request: {
+            application/json: TopicPack
+        }
+        response: {
+            200: {
+                application/json: TopicImportResult
+            }
+        }
+    }
+}
+
 operation /topics/{id}: {
     params: {
         id: string(min=1, max=100)

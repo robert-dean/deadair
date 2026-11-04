@@ -1340,6 +1340,8 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
+**Topics move between stations as a file** (`topics/topic.pack.ts`, `deadair.topics`). A row is its kind, key, label and config, identified by kind and key. An import only adds: a key this station holds is left exactly as it is, and a label never overwrites one an operator here chose. A topic has no switch and needs none, because it does nothing until a band points at it. A kind this station has not registered is added and flagged in the preview, on `TopicsService`'s own rule that such a row is inert.
+
 ## Kinds an operator writes
 
 **A kind of break can be a ROW, and what it costs is that it has no floor.** `deadair.break_kinds`

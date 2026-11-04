@@ -1,8 +1,10 @@
+import { httpError } from '@maroonedsoftware/errors';
 import { Injectable } from 'injectkit';
+import { packOfTopics, planTopicPack, TOPIC_PACK_VERSION, type TopicPackReading } from './topic.pack.js';
 import { TopicKindRegistry } from './topic.kind.registry.js';
 import { TopicRepository } from './topic.repository.js';
-import type { Topic as StoredTopic } from './topic.js';
-import type { Topic, TopicInput, TopicKindList, TopicList, TopicQuery } from './types/topics.types.js';
+import { topicKeyOf, type Topic as StoredTopic } from './topic.js';
+import type { PackImportPlan, Topic, TopicImportResult, TopicInput, TopicKindList, TopicList, TopicPack, TopicQuery } from './types/topics.types.js';
 
 /**
  * The station's vocabulary, as an operator edits it.
@@ -78,6 +80,35 @@ export class TopicsService {
         return await this.list({});
     }
 
+    /** `GET /topics/export`. */
+    async exportPack(): Promise<TopicPack> {
+        return packOfTopics(await this.topics.list());
+    }
+
+    /** `POST /topics/import/preview`. Writes nothing. */
+    async previewImport(body: TopicPack): Promise<PackImportPlan> {
+        return planOf(body, await this.readPack(body));
+    }
+
+    /**
+     * `POST /topics/import`. Only ever adds, and a key this station already holds is left exactly as it is.
+     *
+     * All or nothing, by the request's own transaction: the preview is what stands between an operator
+     * and a surprise, so a file that landed halfway would be the one outcome nothing had described.
+     */
+    async importPack(body: TopicPack): Promise<TopicImportResult> {
+        const reading = await this.readPack(body);
+        // Before anything is written, since this is also what refuses a version it cannot read.
+        const plan = planOf(body, reading);
+        for (const draft of reading.adding) await this.topics.create(draft);
+        return { plan, list: await this.list({}) };
+    }
+
+    private async readPack(body: TopicPack): Promise<TopicPackReading> {
+        const declared = new Set(this.kindRegistry.all().map(kind => kind.kind));
+        return planTopicPack(body, await this.topics.list(), declared);
+    }
+
     /**
      * Write a kind's own starting vocabulary, on a station that has none of it.
      *
@@ -96,30 +127,35 @@ export class TopicsService {
     }
 }
 
-/**
- * A subject as the form sent it, with its key made referable.
- *
- * Slugged for `parseFeedRows`' reason: a key is what something else has to name exactly, and
- * `Pop culture` written back as `Pop Culture` is a subject nothing can reach. The label keeps the
- * operator's own spelling, because that is the half that gets read out.
- */
+/** A subject as the form sent it, with its key made referable. */
 function draftOf(input: TopicInput): Omit<StoredTopic, 'id'> {
     return {
         kind: input.kind.trim(),
-        key: slug(input.key) || slug(input.label) || 'topic',
+        key: topicKeyOf(input.key, input.label),
         label: input.label.trim(),
         config: input.config ?? {},
         position: input.position,
     };
 }
 
-const slug = (value: string): string =>
-    value
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+/** What a file would do, in the words the console shows. Refuses a version this station cannot read. */
+function planOf(pack: TopicPack, reading: TopicPackReading): PackImportPlan {
+    if (pack.version > TOPIC_PACK_VERSION) {
+        throw httpError(400).withDetails({
+            message: `this station reads version ${TOPIC_PACK_VERSION} of a topics file, and this file is version ${pack.version}`,
+        });
+    }
+    return {
+        name: pack.name,
+        adding: reading.adding.map(draft => draft.label),
+        skipped: reading.skipped,
+        dropped: reading.dropped,
+        notices: reading.unknownKinds.map(kind => ({
+            kind: 'unknown-kind',
+            message: `This station has no "${kind}" breaks, so subjects of that kind do nothing here until it does.`,
+        })),
+    };
+}
 
 /** Re-exported so a caller that has a wire topic can hand it on without importing two shapes. */
 export type { Topic };

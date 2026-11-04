@@ -90,6 +90,83 @@ public sealed record TopicQuery
     public string? Kind { get; init; }
 }
 
+/// <summary>One subject in a file. Nothing about the station it came from: no id, and no place in a list</summary>
+public sealed record TopicPackRow
+{
+    /// <summary>Which sort of break this is a subject for</summary>
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    /// <summary>What identifies it within its kind, here and on the station it came from</summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    /// <summary>What a break calls it out loud</summary>
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>This sort of break's own settings for this subject</summary>
+    [JsonPropertyName("config")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, JsonElement>? Config { get; init; }
+}
+
+/// <summary>
+/// A station's subjects as one file, to hand to another station. Each entry is read as a `TopicPackRow`
+/// when it is imported, so one a station cannot use is reported rather than refusing the file
+/// </summary>
+public sealed record TopicPack
+{
+    /// <summary>Says the file is a topics file</summary>
+    [JsonPropertyName("format")]
+    public string Format { get; init; } = "deadair.topics";
+
+    /// <summary>The version of the document's shape. This station reads version 1</summary>
+    [JsonPropertyName("version")]
+    public required long Version { get; init; }
+
+    /// <summary>What the file is, as whoever made it would describe it</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("topics")]
+    public required List<Dictionary<string, JsonElement>> Topics { get; init; }
+}
+
+/// <summary>An entry in a file that importing it would leave out, and why</summary>
+public sealed record PackImportDropped
+{
+    /// <summary>Which entry in the file, counting from 1</summary>
+    [JsonPropertyName("entry")]
+    public required long Entry { get; init; }
+
+    /// <summary>What the entry calls itself, when it does</summary>
+    [JsonPropertyName("words")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Words { get; init; }
+
+    /// <summary>Why the station cannot use it</summary>
+    [JsonPropertyName("reason")]
+    public required string Reason { get; init; }
+}
+
+/// <summary>An entry in a file that importing it would leave out, and why</summary>
+public sealed record PackImportDroppedInput;
+
+/// <summary>Something to know about a file that does not stop it being imported, in the station's own sentence</summary>
+public sealed record PackImportNotice
+{
+    /// <summary>What sort of notice, for a caller that treats one differently</summary>
+    [JsonPropertyName("kind")]
+    public required string Kind { get; init; }
+
+    [JsonPropertyName("message")]
+    public required string Message { get; init; }
+}
+
+/// <summary>Something to know about a file that does not stop it being imported, in the station's own sentence</summary>
+public sealed record PackImportNoticeInput;
+
 public sealed record TopicList
 {
     [JsonPropertyName("topics")]
@@ -107,3 +184,42 @@ public sealed record TopicKindList
     [JsonPropertyName("kinds")]
     public required List<TopicKindDescriptor> Kinds { get; init; }
 }
+
+/// <summary>What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens</summary>
+public sealed record PackImportPlan
+{
+    /// <summary>What the file says it is</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>What it would add, in the words a list would show</summary>
+    [JsonPropertyName("adding")]
+    public required List<string> Adding { get; init; }
+
+    /// <summary>What this station already has, which it would leave alone</summary>
+    [JsonPropertyName("skipped")]
+    public required List<string> Skipped { get; init; }
+
+    /// <summary>What it cannot use</summary>
+    [JsonPropertyName("dropped")]
+    public required List<PackImportDropped> Dropped { get; init; }
+
+    [JsonPropertyName("notices")]
+    public required List<PackImportNotice> Notices { get; init; }
+}
+
+/// <summary>What importing a file would do. The preview and the import reach it the same way, so what an operator was shown is what happens</summary>
+public sealed record PackImportPlanInput;
+
+/// <summary>What an import did, and the subjects as they now stand</summary>
+public sealed record TopicImportResult
+{
+    [JsonPropertyName("plan")]
+    public required PackImportPlan Plan { get; init; }
+
+    [JsonPropertyName("list")]
+    public required TopicList List { get; init; }
+}
+
+/// <summary>What an import did, and the subjects as they now stand</summary>
+public sealed record TopicImportResultInput;

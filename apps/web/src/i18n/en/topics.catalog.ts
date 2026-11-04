@@ -1,6 +1,16 @@
 /** The subjects page: what a break can be about, and the editor for one subject. Kind nouns, descriptions and field labels come from the API. */
 export const topics = {
     page: {
+        export: 'Export',
+        exportFailedTitle: 'The subjects could not be exported',
+        exportFailedFallback: 'Nothing was saved.',
+        importOpen: 'Import',
+        import: {
+            title: 'Import subjects',
+            intro: 'Add subjects from a file another station exported. You see what it holds before anything is added, and a subject you already have stays as it is.',
+            adding_one: 'Adds {{count}} subject:',
+            adding_other: 'Adds {{count}} subjects:',
+        },
         title: 'Subjects',
         description:
             'What a break can be about. Put one on a band in the format clock and that break covers only its subject — a technology bulletin at half past, the local news at six. Leave a band without one and the station spreads what it has.',

@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { TopicsService } from '#src/modules/topics/topics.service.js';
-import { TopicInput, TopicKindList, TopicList, TopicQuery } from '../modules/topics/types/topics.types.js';
+import {
+    PackImportPlan,
+    TopicImportResult,
+    TopicInput,
+    TopicKindList,
+    TopicList,
+    TopicPack,
+    TopicQuery,
+} from '../modules/topics/types/topics.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -46,6 +54,49 @@ TopicsRouter.post('/topics', requirePolicy({ policy: 'platform.manage' }), bodyP
 TopicsRouter.get('/topics/kinds', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(TopicsService);
     const result: TopicKindList = await service.kinds();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Every subject this station has named as one file, to hand to another station
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `GET /topics/export`
+ */
+TopicsRouter.get('/topics/export', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(TopicsService);
+    const result: TopicPack = await service.exportPack();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Reads a file and reports what importing it would add, skip and leave out. Writes nothing
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `POST /topics/import/preview`
+ */
+TopicsRouter.post('/topics/import/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, TopicPack);
+
+    const service = ctx.container.get(TopicsService);
+    const result: PackImportPlan = await service.previewImport(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Adds what is new in a file. A subject this station already has, by kind and key, is left as it is
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `POST /topics/import`
+ */
+TopicsRouter.post('/topics/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, TopicPack);
+
+    const service = ctx.container.get(TopicsService);
+    const result: TopicImportResult = await service.importPack(body);
 
     ctx.status = 200;
     ctx.type = 'application/json';

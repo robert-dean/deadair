@@ -3,14 +3,25 @@ import { ActionIcon, Button, Card, Group, Stack, Table, Text } from '@mantine/co
 import { IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import type { Topic, TopicInput, TopicKindDescriptor } from '@deadair/sdk';
+import type { Topic, TopicInput, TopicKindDescriptor, TopicPack } from '@deadair/sdk';
 
 import { useClockBands } from '../../api/clock.queries';
-import { useCreateTopic, useDeleteTopic, useTopicKinds, useTopics, useUpdateTopic } from '../../api/topics.queries';
+import { apiErrorMessage } from '../../api/sdk.error';
+import {
+    exportTopics,
+    useCreateTopic,
+    useDeleteTopic,
+    useImportTopics,
+    usePreviewTopicImport,
+    useTopicKinds,
+    useTopics,
+    useUpdateTopic,
+} from '../../api/topics.queries';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { PackImportModal, packFieldsIn } from '../shared/pack.import.modal';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { RowOpener } from '../shared/row.opener';
@@ -46,6 +57,19 @@ export function TopicsPage() {
     const create = useCreateTopic();
     const update = useUpdateTopic();
     const remove = useDeleteTopic();
+    const previewImport = usePreviewTopicImport();
+    const writeImport = useImportTopics();
+    const [importing, setImporting] = useState(false);
+    const [exportFailed, setExportFailed] = useState<string | undefined>();
+
+    const saveExport = async () => {
+        setExportFailed(undefined);
+        try {
+            await exportTopics();
+        } catch (error) {
+            setExportFailed(apiErrorMessage(error, t('page.exportFailedFallback')));
+        }
+    };
 
     const [editing, setEditing] = useState<{ kind: TopicKindDescriptor; target: TopicTarget } | undefined>(undefined);
 
@@ -79,6 +103,29 @@ export function TopicsPage() {
                         {t('page.description')}
                     </Text>
                 }
+                actions={
+                    <Group gap="xs">
+                        <Button size="xs" variant="default" onClick={() => void saveExport()}>
+                            {t('page.export')}
+                        </Button>
+                        <Button size="xs" variant="default" onClick={() => setImporting(true)}>
+                            {t('page.importOpen')}
+                        </Button>
+                    </Group>
+                }
+            />
+
+            {exportFailed ? <ErrorAlert title={t('page.exportFailedTitle')}>{exportFailed}</ErrorAlert> : undefined}
+
+            <PackImportModal
+                opened={importing}
+                onClose={() => setImporting(false)}
+                title={t('page.import.title')}
+                intro={t('page.import.intro')}
+                addingLine={count => t('page.import.adding', { count })}
+                read={text => packFieldsIn<TopicPack>(text, ['format', 'version', 'name', 'topics'])}
+                preview={previewImport}
+                write={writeImport}
             />
 
             {kinds.error ? <ErrorAlert title={t('page.loadFailedTitle')} error={kinds.error} fallback={t('page.loadFailedFallback')} /> : undefined}

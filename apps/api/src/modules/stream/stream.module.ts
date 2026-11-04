@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { IcecastClientsClient } from './icecast.clients.client.js';
+import { MountRefusal } from './mount.refusal.js';
 import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { HlsAudience } from './hls.audience.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
@@ -83,6 +84,7 @@ export const StreamModule: ServerKitModule = {
         // Who is behind that count, read from the same stats client on the same rule. It holds
         // nothing, so its lifetime is only that of what it reads through.
         registry.register(IcecastClientsClient).useClass(IcecastClientsClient).asSingleton();
+        registry.register(MountRefusal).useClass(MountRefusal).asSingleton();
 
         // Singleton, and it has to be: what it holds is the last render, which is a
         // fact about the volume rather than about a request, and the reading it is

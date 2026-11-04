@@ -304,3 +304,37 @@ h3 {
     text-transform: uppercase;
     color: var(--da-text-dimmed);
 }
+
+/* The search box and its dropdown. The plugin's defaults are a grey of its own, right in one mode only. */
+:root {
+    --search-local-modal-background: var(--da-panel);
+    --search-local-modal-shadow: var(--da-shadow);
+    --search-local-hit-background: var(--da-raised);
+    --search-local-hit-color: var(--da-text);
+    --search-local-hit-active-color: var(--da-bg);
+    --search-local-hit-shadow: none;
+    --search-local-muted-color: var(--da-text-dimmed);
+    --search-local-highlight-color: var(--da-phosphor);
+    --search-local-input-active-border-color: var(--da-phosphor);
+    --ifm-navbar-search-input-background-color: var(--da-raised);
+    --ifm-navbar-search-input-color: var(--da-text);
+    --ifm-navbar-search-input-placeholder-color: var(--da-text-dimmed);
+}
+
+/* What matched, on the full results page. A bare `mark` is the browser's yellow in both modes. */
+mark {
+    background: var(--da-phosphor-glow);
+    color: inherit;
+}
+
+/* The results page offers the contexts in `searchContextByPaths` and has no entry for the main index,
+   so a search of the guides shows "API reference" as selected, and nothing there can get back to it.
+   The context comes from the page the search started on, and this box only misreports it. */
+.col:has(> #context-selector) {
+    display: none;
+}
+
+.col:has(+ .col > #context-selector) {
+    flex-basis: 100%;
+    max-width: 100%;
+}

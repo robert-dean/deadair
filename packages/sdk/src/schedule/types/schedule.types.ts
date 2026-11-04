@@ -170,6 +170,8 @@ export interface ScheduleSlot {
     live?: boolean;
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     resumePlaylist?: boolean;
+    /** Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot */
+    enabled?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
@@ -242,6 +244,8 @@ export interface ScheduleSlotInput {
     live?: boolean;
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     resumePlaylist?: boolean;
+    /** Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot */
+    enabled?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
@@ -297,9 +301,15 @@ export interface ScheduleSlotApplied {
  * generated from [ScheduleSlotList](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
  */
 export interface ScheduleSlotList {
+    /** What the station runs: every slot that is not switched off */
     slots: ScheduleSlot[];
+    /** Slots kept but not running, in the same order. Absent when there are none */
+    switchedOff?: ScheduleSlot[];
 }
 
 export interface ScheduleSlotListInput {
+    /** What the station runs: every slot that is not switched off */
     slots: ScheduleSlotInput[];
+    /** Slots kept but not running, in the same order. Absent when there are none */
+    switchedOff?: ScheduleSlotInput[];
 }

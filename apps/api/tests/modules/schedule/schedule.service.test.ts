@@ -701,3 +701,78 @@ describe('the sustaining source', () => {
         }
     });
 });
+
+describe('a slot that is switched off', () => {
+    const input = (over: Partial<ScheduleSlotInput> = {}): ScheduleSlotInput => ({
+        label: 'x',
+        startsAtMinutes: 600,
+        endsAtMinutes: 720,
+        days: [],
+        mode: 'rotation',
+        onEnd: 'extend',
+        ...over,
+    });
+    const off = (id: string, starts: number, ends: number): ScheduleSlot => ({ ...slot(id, starts, ends), off: true });
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        // A Wednesday, 13:00 in London.
+        vi.setSystemTime(new Date('2026-08-19T12:00:00Z'));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('is not in force at a time it covers', async () => {
+        expect(await build({ slots: [off('a', 720, 840)] }).inForce()).toBeUndefined();
+    });
+
+    it('yields to one that is on at the same time', async () => {
+        expect((await build({ slots: [off('a', 720, 840), slot('b', 720, 840)] }).inForce())?.id).toBe('b');
+    });
+
+    it('stays off the timetable and out of what is coming up', async () => {
+        const service = build({ slots: [off('a', 720, 840)] });
+        expect((await service.timetable({})).occurrences).toEqual([]);
+        expect((await service.current()).upcoming).toEqual([]);
+    });
+
+    it('is listed apart from what the station runs, saying it is off', async () => {
+        const answer = await build({ slots: [off('a', 720, 840), slot('b', 900, 960)] }).list();
+        expect(answer.slots.map(entry => entry.id)).toEqual(['b']);
+        expect(answer.switchedOff?.map(entry => [entry.id, entry.enabled])).toEqual([['a', false]]);
+    });
+
+    it('leaves the list as it always was when none is off', async () => {
+        const answer = await build({ slots: [slot('b', 900, 960)] }).list();
+        expect(answer).not.toHaveProperty('switchedOff');
+        expect(answer.slots[0]).not.toHaveProperty('enabled');
+    });
+
+    it('does not clash with what is on, either way round', async () => {
+        const held = [slot('on', 600, 720), off('off', 600, 720)];
+        const service = build({ slots: held });
+        await expect(service.update('off', input({ enabled: false, label: 'renamed' }))).resolves.toBeDefined();
+        await expect(service.update('on', input({ label: 'renamed' }))).resolves.toBeDefined();
+    });
+
+    it('meets the refusal when it is turned on over something that is on', async () => {
+        const service = build({ slots: [slot('on', 600, 720), off('off', 600, 720)] });
+        await expect(service.update('off', input({ enabled: true }))).rejects.toThrow();
+    });
+
+    it('stays off through an edit that says nothing about the switch', async () => {
+        const list = [off('a', 600, 720)];
+        const service = build({ slots: list });
+        await service.update('a', input({ label: 'renamed' }));
+        expect(list[0]).toMatchObject({ label: 'renamed', off: true });
+    });
+
+    it('stays on through an edit that says nothing about the switch', async () => {
+        const list = [slot('a', 600, 720)];
+        const service = build({ slots: list });
+        await service.update('a', input({ label: 'renamed' }));
+        expect(list[0]?.off).toBeUndefined();
+    });
+});

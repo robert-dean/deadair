@@ -17242,6 +17242,9 @@ components:
                 resumePlaylist:
                     type: boolean
                     description: "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist"
+                enabled:
+                    type: boolean
+                    description: 'Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot'
                 mode:
                     type: string
                     enum: [rotation, setlist, feature]
@@ -17361,6 +17364,12 @@ components:
                     type: array
                     items:
                         '$ref': '#/components/schemas/ScheduleSlot'
+                    description: 'What the station runs: every slot that is not switched off'
+                switchedOff:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ScheduleSlot'
+                    description: 'Slots kept but not running, in the same order. Absent when there are none'
             required: [slots]
         ScheduleTimetableQuery:
             type: object

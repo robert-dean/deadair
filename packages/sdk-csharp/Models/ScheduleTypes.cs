@@ -436,6 +436,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ResumePlaylist { get; init; }
 
+    /// <summary>Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot</summary>
+    [JsonPropertyName("enabled")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Enabled { get; init; }
+
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }
 
@@ -612,6 +617,11 @@ public sealed record ScheduleSlotInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ResumePlaylist { get; init; }
 
+    /// <summary>Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot</summary>
+    [JsonPropertyName("enabled")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Enabled { get; init; }
+
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }
 
@@ -693,14 +703,26 @@ public sealed record ScheduleSlotApplied
 
 public sealed record ScheduleSlotList
 {
+    /// <summary>What the station runs: every slot that is not switched off</summary>
     [JsonPropertyName("slots")]
     public required List<ScheduleSlot> Slots { get; init; }
+
+    /// <summary>Slots kept but not running, in the same order. Absent when there are none</summary>
+    [JsonPropertyName("switchedOff")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScheduleSlot>? SwitchedOff { get; init; }
 }
 
 public sealed record ScheduleSlotListInput
 {
+    /// <summary>What the station runs: every slot that is not switched off</summary>
     [JsonPropertyName("slots")]
     public required List<ScheduleSlotInput> Slots { get; init; }
+
+    /// <summary>Slots kept but not running, in the same order. Absent when there are none</summary>
+    [JsonPropertyName("switchedOff")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScheduleSlotInput>? SwitchedOff { get; init; }
 }
 
 /// <summary>Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`</summary>

@@ -61,6 +61,8 @@ a clock-fired changeover defers its spoken half to the next track boundary where
 takes effect at once. And a console state like "who is driving" is DERIVED from facts the director
 holds rather than stored beside them, because a second copy is a second writer wearing a third name.
 
+**A slot can be switched off without being lost** (migration 0130). `ScheduleService` leaves it out of `inForce`, `liveInForce`, `current`, `timetable` and both sides of `refuseOverlap`, so two blocks can only conflict once both are on, and turning one on is the edit that meets the 409. Putting one on air by hand from the Desk still works, as an explicit act. The start-minute uniqueness is partial for the same reason. `GET /schedule` answers these in `switchedOff` rather than in `slots`, because the apps draw `slots` as the week and an older build knows nothing of a switch, and a write that does not mention `enabled` leaves it where it is, for the same builds.
+
 **A special is a slot on DATES, and it is the one precedence the schedule has** (migration 0074).
 `schedule_slots.starts_on`/`ends_on` make a row run on a date range rather than every week, `yearly`
 repeats it on the same month and day (a yearly range may run past New Year and is shorter than a year),

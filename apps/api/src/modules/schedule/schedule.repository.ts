@@ -227,6 +227,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         // nothing there back to the console as though it still applied.
         resumePlaylist: draft.resumePlaylist === true && isPlaylistSource(draft.source),
         live: draft.live === true,
+        enabled: draft.off !== true,
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -310,6 +311,7 @@ function toSlot(row: {
     recurrence: unknown;
     resumePlaylist: boolean;
     live: boolean;
+    enabled: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -367,6 +369,7 @@ function toSlot(row: {
         ...(row.recurrence == null ? {} : { dates: { rule: row.recurrence as OccasionRule } }),
         ...(row.resumePlaylist ? { resumePlaylist: true } : {}),
         ...(row.live ? { live: true } : {}),
+        ...(row.enabled ? {} : { off: true }),
         mode: row.mode,
         onEnd: row.onEnd,
     };

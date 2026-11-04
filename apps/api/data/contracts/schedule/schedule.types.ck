@@ -42,6 +42,7 @@ contract ScheduleSlot: {
     yearly?: boolean # Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
     live?: boolean # Whether this special is a LIVE SHOW: a presenter booked to take the air through the live input. At its start the station arms the input with the special's name, exactly as Go live on the Desk does, and its own programme carries on until the encoder is heard; at its end an input still waiting for anybody is disarmed, and a presenter on the air is never cut. Only a special can be one, and it names no source. Absent is no
     resumePlaylist?: boolean # Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist
+    enabled?: boolean # Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
 }
@@ -76,7 +77,8 @@ contract SpecialRecurrence: {
 }
 
 contract ScheduleSlotList: {
-    slots: array(ScheduleSlot)
+    slots: array(ScheduleSlot) # What the station runs: every slot that is not switched off
+    switchedOff?: array(ScheduleSlot) # Slots kept but not running, in the same order. Absent when there are none
 }
 
 # A window of the station's day to draw

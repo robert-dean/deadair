@@ -46,6 +46,12 @@ export const schedule = {
             airing: 'The block the station is airing now is filled in.',
         },
     },
+    switchedOff: {
+        title: 'Switched off',
+        description:
+            'Kept, but not on the air and not on the timetable. Open one to turn it on. It is checked against what else is on at that point.',
+        edit: 'Edit {{name}}',
+    },
     specials: {
         title: 'Specials',
         description:
@@ -103,6 +109,8 @@ export const schedule = {
         withCoHosts: '{{host}} with {{coHosts}}',
     },
     slot: {
+        enabledLabel: 'On the schedule',
+        enabledDescription: 'Turn this off to keep the slot without it going on the air.',
         editTitle: 'Edit slot',
         newTitle: 'New slot',
         saveFailedTitle: 'That slot could not be saved',

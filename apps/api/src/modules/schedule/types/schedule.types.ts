@@ -340,6 +340,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist",
         ),
+    enabled: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot',
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -525,6 +531,12 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist",
         ),
+    enabled: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot',
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -627,11 +639,13 @@ export type ScheduleSlotApplied = z.infer<typeof ScheduleSlotApplied>;
  * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleSlotList = z.strictObject({
-    slots: z.array(ScheduleSlot),
+    slots: z.array(ScheduleSlot).describe('What the station runs: every slot that is not switched off'),
+    switchedOff: z.array(ScheduleSlot).optional().describe('Slots kept but not running, in the same order. Absent when there are none'),
 });
 export type ScheduleSlotList = z.infer<typeof ScheduleSlotList>;
 
 export const ScheduleSlotListInput = z.strictObject({
-    slots: z.array(ScheduleSlotInput),
+    slots: z.array(ScheduleSlotInput).describe('What the station runs: every slot that is not switched off'),
+    switchedOff: z.array(ScheduleSlotInput).optional().describe('Slots kept but not running, in the same order. Absent when there are none'),
 });
 export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;

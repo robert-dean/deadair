@@ -11,6 +11,8 @@ than any of the others.
 
 from __future__ import annotations
 
+import subprocess
+
 import numpy as np
 import pytest
 
@@ -261,3 +263,23 @@ def test_join_turns_a_part_by_its_own_gain(monkeypatch: pytest.MonkeyPatch) -> N
     joined = encoded[0]
     assert float(np.max(np.abs(joined[: app.SAMPLE_RATE]))) == pytest.approx(0.5, rel=1e-4)
     assert float(np.max(np.abs(joined[app.SAMPLE_RATE :]))) == pytest.approx(0.5 * 10 ** (-6 / 20), rel=1e-4)
+
+
+def test_decode_reads_one_pipe_and_still_reports_ffmpegs_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two pipes make `subprocess` hold the whole decode twice while it joins them."""
+    seen: dict = {}
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        seen.update(kwargs)
+        kwargs["stderr"].write(b"Invalid data found when processing input\n")  # type: ignore[attr-defined]
+        return subprocess.CompletedProcess(command, 1, stdout=b"")
+
+    monkeypatch.setattr(app.subprocess, "run", fake_run)
+
+    with pytest.raises(AnalysisError) as raised:
+        app._decode("/nope", 2)
+
+    assert seen["stdout"] == subprocess.PIPE
+    assert "capture_output" not in seen
+    assert raised.value.code == "undecodable"
+    assert "Invalid data" in str(raised.value)

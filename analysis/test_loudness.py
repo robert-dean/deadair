@@ -15,10 +15,12 @@ up here as a fraction of a decibel.
 
 from __future__ import annotations
 
+import tracemalloc
+
 import numpy as np
 import pytest
 
-from loudness import REFERENCE_RATE, integrated_lufs, k_weight, sample_peak_db, to_mono, true_peak_db
+from loudness import _PASS_FRAMES, REFERENCE_RATE, _step_energies, integrated_lufs, k_weight, sample_peak_db, to_mono, true_peak_db
 
 # EBU Tech 3341 states its compliance tolerance as ±0.1 LU.
 TOLERANCE_LU = 0.1
@@ -209,22 +211,10 @@ def _reference_mean_square(weighted: np.ndarray, block: int, step: int, count: i
     return np.mean(np.square(blocks), axis=1)
 
 
-def _cumsum_mean_square(weighted: np.ndarray, block: int, step: int, count: int) -> np.ndarray:
-    """The NEW running-sum form, copied inline rather than imported so the test
-    still catches a regression to the strided form inside `integrated_lufs`."""
-    squared = weighted.copy()
-    np.square(squared, out=squared)
-    csum = np.empty(squared.size + 1, dtype=np.float64)
-    csum[0] = 0.0
-    np.cumsum(squared, out=csum[1:])
-    starts = np.arange(count) * step
-    return (csum[starts + block] - csum[starts]) / block
-
-
-class TestCumsumMatchesTheStridedReference:
-    """`integrated_lufs` now sums with a running total instead of a strided
-    block-mean. Pairwise (cumsum) and sequential summation are not
-    bit-identical, so this compares to a tolerance rather than by equality."""
+class TestPassesMatchTheWholeSignalReference:
+    """`integrated_lufs` filters a pass at a time and adds up 100 ms steps, where
+    the reference filters the whole signal and block-means it. Summation order is
+    not bit-identical, so this compares to a tolerance rather than by equality."""
 
     @pytest.mark.parametrize(
         "n",
@@ -232,46 +222,72 @@ class TestCumsumMatchesTheStridedReference:
             _BLOCK,
             _BLOCK + _STEP - 1,
             _BLOCK + _STEP * 5 + 1,  # (n - block) % step != 0
+            _PASS_FRAMES,
+            _PASS_FRAMES + _BLOCK + 1,  # a block straddles the pass boundary
+            _PASS_FRAMES * 2 + _STEP * 3 + 7,
         ],
     )
-    def test_cumsum_matches_the_strided_reference(self, n: int):
+    def test_integrated_lufs_matches_the_reference(self, n: int):
         rng = np.random.default_rng(n)
-        weighted = rng.standard_normal(n)
+        left = (0.2 * rng.standard_normal(n)).astype(np.float32)
+        right = (0.2 * rng.standard_normal(n)).astype(np.float32)
+
         count = 1 + (n - _BLOCK) // _STEP
-
-        expected = _reference_mean_square(weighted, _BLOCK, _STEP, count)
-        actual = _cumsum_mean_square(weighted, _BLOCK, _STEP, count)
-
-        assert actual == pytest.approx(expected, abs=1e-9)
-
-        expected_lufs = _OFFSET_DB + 10.0 * np.log10(np.mean(expected))
-        actual_lufs = _OFFSET_DB + 10.0 * np.log10(np.mean(actual))
-        assert actual_lufs == pytest.approx(expected_lufs, abs=1e-6)
-
-    def test_cumsum_matches_the_strided_reference_20s_stereo(self):
-        """The same comparison, but over real stereo input and through the
-        public `integrated_lufs`, summing each channel's mean square the way
-        the function itself does."""
-        length = int(20.0 * REFERENCE_RATE)
-        rng = np.random.default_rng(20)
-        left = (0.2 * rng.standard_normal(length)).astype(np.float32)
-        right = (0.2 * rng.standard_normal(length)).astype(np.float32)
-        stereo = np.stack([left, right], axis=1)
-
-        count = 1 + (length - _BLOCK) // _STEP
         expected_mean_square = np.zeros(count, dtype=np.float64)
-        actual_mean_square = np.zeros(count, dtype=np.float64)
         for channel in (left, right):
             weighted = k_weight(channel.astype(np.float64), REFERENCE_RATE)
-            expected_mean_square += _reference_mean_square(weighted.copy(), _BLOCK, _STEP, count)
-            actual_mean_square += _cumsum_mean_square(weighted.copy(), _BLOCK, _STEP, count)
-
-        assert actual_mean_square == pytest.approx(expected_mean_square, abs=1e-9)
+            expected_mean_square += _reference_mean_square(weighted, _BLOCK, _STEP, count)
 
         expected_lufs = _OFFSET_DB + 10.0 * np.log10(np.mean(expected_mean_square))
-        measured_lufs = integrated_lufs(stereo)
+        measured_lufs = integrated_lufs(np.stack([left, right], axis=1))
+
         assert measured_lufs is not None
-        assert measured_lufs == pytest.approx(expected_lufs, abs=1e-6)
+        assert measured_lufs == pytest.approx(expected_lufs, abs=1e-9)
+
+    def test_filter_state_carried_across_passes_is_the_whole_signal_filter(self):
+        """Exact, because this is the claim the rest rests on: splitting the causal
+        filter changes nothing at all, rounding included."""
+        n = _PASS_FRAMES * 2 + _STEP * 3
+        column = (0.2 * np.random.default_rng(3).standard_normal(n)).astype(np.float32)
+        steps = n // _STEP
+
+        whole = np.square(k_weight(column.astype(np.float64), REFERENCE_RATE))
+        expected = whole.reshape(-1, _STEP).sum(axis=1)
+
+        assert np.array_equal(_step_energies(column, _STEP, steps), expected)
+
+    def test_a_wrong_rate_still_refuses(self):
+        with pytest.raises(ValueError):
+            integrated_lufs(np.zeros(REFERENCE_RATE, dtype=np.float32), 44100)
+
+
+class TestPeakMemoryDoesNotScaleWithTheRecord:
+    """The record's own bytes aside, these hold a pass and not the signal. Five
+    minutes of stereo is 110 MB of float32, and a whole-array float64 intermediate
+    would be 220 MB, so any one of them coming back fails this."""
+
+    CEILING_BYTES = 90 * 1024 * 1024
+
+    @pytest.fixture
+    def stereo(self) -> np.ndarray:
+        return np.full((REFERENCE_RATE * 300, 2), 0.1, dtype=np.float32)
+
+    def peak_of(self, fn) -> int:
+        tracemalloc.start()
+        try:
+            fn()
+            return tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+
+    def test_integrated_lufs(self, stereo: np.ndarray):
+        assert self.peak_of(lambda: integrated_lufs(stereo)) < self.CEILING_BYTES
+
+    def test_sample_peak_copies_nothing(self, stereo: np.ndarray):
+        assert self.peak_of(lambda: sample_peak_db(stereo)) < 1024 * 1024
+
+    def test_to_mono_holds_its_answer_and_one_pass(self, stereo: np.ndarray):
+        assert self.peak_of(lambda: to_mono(stereo)) < self.CEILING_BYTES
 
 
 class TestAllocatesOnlyWhatIsNeeded:

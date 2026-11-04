@@ -17,6 +17,7 @@ export const TREND_METRICS = {
     modelCost: 'model.cost',
     speechCharacters: 'speech.characters',
     speechCost: 'speech.cost',
+    speechMs: 'speech.ms',
     libraryTotal: 'library.tracks',
     libraryCached: 'library.cached',
     libraryMeasured: 'library.measured',

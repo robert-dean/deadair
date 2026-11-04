@@ -55,10 +55,14 @@ export const trends = {
         unpriced:
             'No speech engine has a price, so this counts characters and not money. An engine that bills by the character, such as ElevenLabs, can be priced under Settings, Voice and audio.',
         chartLabel: 'Characters handed to the speech engine over the range',
+        meanSpeak: 'Mean time to speak',
+        failed: 'Failed',
         column: {
             engine: 'Engine',
             characters: 'Characters',
             spent: 'Spent',
+            meanSpeak: 'Mean time',
+            failed: 'Failed',
         },
     },
     work: {

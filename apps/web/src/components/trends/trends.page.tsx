@@ -133,7 +133,7 @@ export function TrendsPage() {
         range,
         signedIn,
     );
-    const speech = useMetricSeries([TREND_METRICS.speechCharacters, TREND_METRICS.speechCost], range, signedIn);
+    const speech = useMetricSeries([TREND_METRICS.speechCharacters, TREND_METRICS.speechCost, TREND_METRICS.speechMs], range, signedIn);
     const currency = useCurrency();
     const work = useMetricSeries([TREND_METRICS.jobMs, TREND_METRICS.pluginMs, TREND_METRICS.failed], range, signedIn);
     const library = useMetricSeries(
@@ -388,13 +388,29 @@ function Speech({ page, range, currency }: { page: MetricSeriesPage; range: Tren
     const spent = total(named(page.series, TREND_METRICS.speechCost));
     const { rows, tickFormatter } = chartRows([bins(page, characters)], ['characters'], bin => bin.point?.sum, range);
     const cost = new Map(totalsBy(named(page.series, TREND_METRICS.speechCost), 'plugin', Infinity).map(row => [row.value, row.sum]));
-    const engines = totalsBy(characters, 'plugin', RANKED_ROWS).map(row => ({ engine: row.value, characters: row.sum, spent: cost.get(row.value) }));
+    const timings = named(page.series, TREND_METRICS.speechMs);
+    const answered = timings.filter(s => s.labels.outcome === 'ok');
+    const refused = timings.filter(s => s.labels.outcome === 'failed');
+    // The speaks an engine finished, for the model's reason: a timeout would drag the mean up by minutes.
+    const meanSpeak = meanOf(total(answered));
+    const failedSpeaks = total(refused)?.count ?? 0;
+    const speakTime = new Map(totalsBy(answered, 'plugin', Infinity).map(row => [row.value, row.sum / row.count]));
+    const speakFailures = new Map(totalsBy(refused, 'plugin', Infinity).map(row => [row.value, row.count]));
+    const engines = totalsBy(characters, 'plugin', RANKED_ROWS).map(row => ({
+        engine: row.value,
+        characters: row.sum,
+        spent: cost.get(row.value),
+        meanMs: speakTime.get(row.value),
+        failed: speakFailures.get(row.value) ?? 0,
+    }));
 
     return (
         <Stack gap="md">
             <Group gap="xl">
                 <Figure label={t('speech.characters')} value={formatCount(spoken?.sum ?? 0)} />
                 <Figure label={t('speech.spent')} value={spent === undefined ? '—' : formatMoney(spent.sum, currency)} />
+                <Figure label={t('speech.meanSpeak')} value={meanSpeak === undefined ? '—' : formatSpent(meanSpeak)} />
+                <Figure label={t('speech.failed')} value={formatCount(failedSpeaks)} />
             </Group>
             {spent === undefined && (spoken?.sum ?? 0) > 0 && (
                 <Text size="sm" c="dimmed">
@@ -418,6 +434,8 @@ function Speech({ page, range, currency }: { page: MetricSeriesPage; range: Tren
                         <Table.Th>{t('speech.column.engine')}</Table.Th>
                         <Table.Th ta="right">{t('speech.column.characters')}</Table.Th>
                         <Table.Th ta="right">{t('speech.column.spent')}</Table.Th>
+                        <Table.Th ta="right">{t('speech.column.meanSpeak')}</Table.Th>
+                        <Table.Th ta="right">{t('speech.column.failed')}</Table.Th>
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -429,6 +447,12 @@ function Speech({ page, range, currency }: { page: MetricSeriesPage; range: Tren
                             </Table.Td>
                             <Table.Td ta="right" className="da-num">
                                 {row.spent === undefined ? '—' : formatMoney(row.spent, currency)}
+                            </Table.Td>
+                            <Table.Td ta="right" className="da-num">
+                                {row.meanMs === undefined ? '—' : formatSpent(row.meanMs)}
+                            </Table.Td>
+                            <Table.Td ta="right" className="da-num">
+                                {formatCount(row.failed)}
                             </Table.Td>
                         </Table.Tr>
                     ))}

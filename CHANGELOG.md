@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.90.3] — 2026-11-04
+
+- **A character's card can say how its breaks are doing.** "How it is doing" in a persona's menu shows the last thirty days per kind of break: written, refused and failed, what you liked and disliked, and why answers were refused, most common first. It is for tuning a sheet by hand, and nothing acts on it. The figures come from `GET /scripts/performance`.
+- **Navidrome's library can leave out a folder.** Library folders in the plugin's settings lists the server's music folders, and the library and searches then come only from the ones ticked, so an audiobook shelf can stay out. Empty means all of them, as before, and a playlist you made still brings in whatever is on it.
+- **A break can be rated from the Desk.** A break on the running order with written words now has the same three-way rating as the Voice page's history, in the column records use, so the words can be judged while they are still in the operator's ear. It rates the newest written attempt, which is the one that airs. The order's items carry `scriptId` and `scriptRating`.
+- **The players the station will not serve are now refused on the mounts too.** The list that kept a program off the HLS playlists (Players the station will not serve, Settings, Stream) now also drops matching clients from the Icecast mounts and leaves them out of the audience, so one cannot hold a station that airs only for listeners on air for nobody. Needs Icecast 2.5, and a mount whose client list cannot be read counts everybody on it.
+- **Trends says how long the voice takes and how often it fails.** The voice section now shows the mean time to speak and the failures, overall and per engine, timed from the request to the audio being stored. Waiting for a turn at the speech engine does not count.
+
 ## [0.90.2] — 2026-11-04
 
 - **A format clock can move to another station as a file.** The format clock has Export and Import, and Import shows what a file would add before anything is written. Bands go after your own, switched off, so your clock stays as it is until you turn one on. A band brings the subject it needs with it, and one this station already has keeps its own label and settings.
@@ -1879,7 +1887,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.3...HEAD
+[0.90.3]: https://github.com/robert-dean/deadair/compare/v0.90.2...v0.90.3
 [0.90.2]: https://github.com/robert-dean/deadair/compare/v0.90.1...v0.90.2
 [0.90.1]: https://github.com/robert-dean/deadair/compare/v0.90.0...v0.90.1
 [0.90.0]: https://github.com/robert-dean/deadair/compare/v0.89.6...v0.90.0

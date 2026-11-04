@@ -1,7 +1,7 @@
 import type { Container } from 'injectkit';
 import { Duration } from 'luxon';
 import { MetricsRecorder } from '@maroonedsoftware/telemetry';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { LlmGate } from '#modules/llm/llm.gate.js';
 import { METRICS } from '#modules/metrics/metric.names.js';
@@ -35,7 +35,7 @@ export function registerStationGauges(container: Container): () => void {
     let inFlight: Promise<{ total: number; cached: number; measured: number }> | undefined;
     const counts = () => {
         inFlight ??= inScope(container, scope =>
-            scope.get(TracksRepository).trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_SCHEMA_VERSION }),
+            scope.get(TracksRepository).trackStateCounts({ limit: 0, offset: 0, sort: 'asc', schemaVersion: ANALYSIS_READABLE_SINCE_VERSION }),
         ).finally(() => {
             inFlight = undefined;
         });

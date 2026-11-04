@@ -80,6 +80,20 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
 export const ANALYSIS_SCHEMA_VERSION = 1;
 
 /**
+ * The oldest {@link ANALYSIS_SCHEMA_VERSION} whose measurements a READER still uses.
+ *
+ * Stale and untrusted are two questions. A row below the current version is due a re-measure, which
+ * only the walk asks. Whether its cue points and loudness are still right is what this answers, and a
+ * version that only adds fields leaves them right. With one constant answering both, a bump would
+ * take every record's cue points and levelling away at once, and report the whole library unmeasured
+ * while the walk spent days bringing them back.
+ *
+ * Raise this only when a version changes what an EXISTING field means. A reader of a field a later
+ * version added checks for the field, since absent is already an answer it has to have.
+ */
+export const ANALYSIS_READABLE_SINCE_VERSION = 1;
+
+/**
  * Why a measurement failed, finer than the `upstream` code all three share, carried as a
  * `PluginError`'s `upstreamCode`.
  *

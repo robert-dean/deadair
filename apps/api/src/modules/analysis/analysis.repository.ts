@@ -325,7 +325,8 @@ export class AnalysisRepository extends DataRepository {
      * - a failure, which carries no measurements at all;
      * - `complete = false`, where the analyzer saw part of a file and its outro
      *   is a description of where the download stopped;
-     * - a row below `schemaVersion`, whose fields may have changed meaning.
+     * - a row below `schemaVersion`, whose fields may have changed meaning. Callers pass
+     *   `ANALYSIS_READABLE_SINCE_VERSION` here, and not the current version, which is the walk's question.
      *
      * The absence of a row and the presence of an untrustworthy one are the same
      * answer to every consumer — no opinion, degrade to the defined behaviour —

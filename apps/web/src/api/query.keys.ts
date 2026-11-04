@@ -358,6 +358,7 @@ export const queryKeys = {
                 filter.personaKey ?? 'all',
             ] as const,
         summary: (hours: number) => ['scripts', 'summary', hours] as const,
+        performance: (days: number) => ['scripts', 'performance', days] as const,
         /** Where one break's facts came from. Per segment, since a rewrite replaces them. */
         sources: (segmentId: string) => ['scripts', 'sources', segmentId] as const,
     },

@@ -17,6 +17,7 @@ import { hasKind, kindsOf, presents } from './persona.kind';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaStoriesPanel } from './persona.stories';
 import { PersonaMemoryPanel } from './persona.memory';
+import { PersonaPerformancePanel } from './persona.performance';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 
 interface PersonaCardProps {
@@ -35,6 +36,8 @@ interface PersonaCardProps {
     setShelf: Dispatch<SetStateAction<string | undefined>>;
     memory: string | undefined;
     setMemory: Dispatch<SetStateAction<string | undefined>>;
+    performance: string | undefined;
+    setPerformance: Dispatch<SetStateAction<string | undefined>>;
     exporting: string | undefined;
     exportFailure: { of: string; error: unknown } | undefined;
     save: (id?: string) => Promise<void>;
@@ -59,6 +62,8 @@ export function PersonaCard({
     setShelf,
     memory,
     setMemory,
+    performance,
+    setPerformance,
     exporting,
     exportFailure,
     save,
@@ -243,6 +248,9 @@ export function PersonaCard({
                             <Menu.Item onClick={() => setMemory(current => (current === persona.id ? undefined : persona.id))}>
                                 {memory === persona.id ? t('card.menu.hideMemory') : t('card.menu.memory')}
                             </Menu.Item>
+                            <Menu.Item onClick={() => setPerformance(current => (current === persona.id ? undefined : persona.id))}>
+                                {performance === persona.id ? t('card.menu.hidePerformance') : t('card.menu.performance')}
+                            </Menu.Item>
                             <Menu.Item
                                 disabled={exporting === persona.id}
                                 onClick={() => {
@@ -289,6 +297,8 @@ export function PersonaCard({
             {shelf === persona.id ? <PersonaStoriesPanel personaId={persona.id} /> : undefined}
 
             {memory === persona.id ? <PersonaMemoryPanel personaId={persona.id} label={persona.label} /> : undefined}
+
+            {performance === persona.id ? <PersonaPerformancePanel personaKey={persona.key} /> : undefined}
         </Card>
     );
 }

@@ -78,6 +78,8 @@ export function PersonasPage() {
     // only one of the three that is a record rather than a store, and the one an operator opens to
     // undo something.
     const [memory, setMemory] = useState<string | undefined>(undefined);
+    // A fourth, for how its breaks are doing by the checks and by the operator.
+    const [performance, setPerformance] = useState<string | undefined>(undefined);
     // Which character a delete is being asked about. Holding the persona rather than its id, so the
     // dialog can name what it is about to take without looking it back up.
     const [deleting, setDeleting] = useState<Persona | undefined>(undefined);
@@ -295,6 +297,8 @@ export function PersonasPage() {
                             setShelf={setShelf}
                             memory={memory}
                             setMemory={setMemory}
+                            performance={performance}
+                            setPerformance={setPerformance}
                             exporting={exporting}
                             exportFailure={exportFailure}
                             save={save}

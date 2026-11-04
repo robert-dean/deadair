@@ -95,6 +95,21 @@ export function useScriptSummary() {
     return useQuery(scriptSummaryOptions);
 }
 
+/** A month, matching what the API reads when nobody says otherwise. */
+export const PERFORMANCE_DAYS = 30;
+
+/**
+ * How each character's breaks are doing. One call for the whole roster, asked only once a panel opens,
+ * since a month of history is more to read than the card's day of counts.
+ */
+export function useScriptPerformance() {
+    return useQuery({
+        queryKey: queryKeys.scripts.performance(PERFORMANCE_DAYS),
+        queryFn: () => sdk.render.readScriptPerformance({ days: PERFORMANCE_DAYS }),
+        staleTime: SUMMARY_STALE_TIME,
+    });
+}
+
 /**
  * Records what the operator thought of one attempt.
  *
@@ -124,6 +139,7 @@ export function useRateScript() {
                           })),
                       },
             );
+            void queryClient.invalidateQueries({ queryKey: queryKeys.scripts.performance(PERFORMANCE_DAYS) });
             // The running order carries a break's rating too, and it is rated from there as well.
             void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
         },

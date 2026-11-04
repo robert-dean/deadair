@@ -229,33 +229,34 @@ export class SpeechService {
         // for the whole of it. Acquired HERE rather than in `speak`, which delegates to this: two
         // acquisitions on one path would be a caller queueing behind itself.
         return await this.gate.hold(
-            async () => {
-                const handle = await this.startSpeaking(plugin, performed);
-                const ext = this.extensionOf(pluginId, handle);
+            () =>
+                this.timed(pluginId, async () => {
+                    const handle = await this.startSpeaking(plugin, performed);
+                    const ext = this.extensionOf(pluginId, handle);
 
-                try {
-                    const checksum = await this.store.writeStream(handle.audio, ext);
-                    // A voice the station did not name is the ORDINARY case, not a lost value: a
-                    // voice id is opaque and only the installed engine knows which ones exist, so
-                    // none of the seeded personas names one and the plugin speaks in whichever
-                    // voice its own config chose. Logged as `undefined` this read as a fault — the
-                    // one thing it must not do is send an operator looking for a bug in the stamp.
-                    // Same shape as `feed || 'all'` on the bulletin line, and for the same reason.
-                    this.logger.info('render: spoke a segment', {
-                        plugin: pluginId,
-                        voice: request.voice ?? "the engine's own",
-                        ...(performed.delivery === undefined ? {} : { delivery: performed.delivery }),
-                        ext,
-                        checksum,
-                    });
-                    return { checksum, ext, pluginId, spokenText };
-                } finally {
-                    // Always, including the ordinary path, where the stream is drained already and this
-                    // is a no-op. It is the failure path that needs it: a store write that threw half
-                    // way leaves the plugin holding a socket nothing else will ever ask it to let go of.
-                    await cancelQuietly(handle.audio);
-                }
-            },
+                    try {
+                        const checksum = await this.store.writeStream(handle.audio, ext);
+                        // A voice the station did not name is the ORDINARY case, not a lost value: a
+                        // voice id is opaque and only the installed engine knows which ones exist, so
+                        // none of the seeded personas names one and the plugin speaks in whichever
+                        // voice its own config chose. Logged as `undefined` this read as a fault — the
+                        // one thing it must not do is send an operator looking for a bug in the stamp.
+                        // Same shape as `feed || 'all'` on the bulletin line, and for the same reason.
+                        this.logger.info('render: spoke a segment', {
+                            plugin: pluginId,
+                            voice: request.voice ?? "the engine's own",
+                            ...(performed.delivery === undefined ? {} : { delivery: performed.delivery }),
+                            ext,
+                            checksum,
+                        });
+                        return { checksum, ext, pluginId, spokenText };
+                    } finally {
+                        // Always, including the ordinary path, where the stream is drained already and this
+                        // is a no-op. It is the failure path that needs it: a store write that threw half
+                        // way leaves the plugin holding a socket nothing else will ever ask it to let go of.
+                        await cancelQuietly(handle.audio);
+                    }
+                }),
             { label: pluginId, ...options },
         );
     }
@@ -284,19 +285,20 @@ export class SpeechService {
         const performed = await this.performable(request, plugin, lexicon);
 
         return await this.gate.hold(
-            async () => {
-                // Transposed like anything else, so a preview is what the station would actually say
-                // rather than a reading of the sample line nothing else would ever produce.
-                const handle = await this.startSpeaking(plugin, performed);
-                const ext = this.extensionOf(plugin.record.id, handle);
+            () =>
+                this.timed(plugin.record.id, async () => {
+                    // Transposed like anything else, so a preview is what the station would actually say
+                    // rather than a reading of the sample line nothing else would ever produce.
+                    const handle = await this.startSpeaking(plugin, performed);
+                    const ext = this.extensionOf(plugin.record.id, handle);
 
-                try {
-                    await store.writeStreamAs(key, handle.audio, ext);
-                    return ext;
-                } finally {
-                    await cancelQuietly(handle.audio);
-                }
-            },
+                    try {
+                        await store.writeStreamAs(key, handle.audio, ext);
+                        return ext;
+                    } finally {
+                        await cancelQuietly(handle.audio);
+                    }
+                }),
             { label: plugin.record.id, ...options },
         );
     }
@@ -535,6 +537,23 @@ export class SpeechService {
         });
         this.countSpoken(plugin.record.id, request.text);
         return handle;
+    }
+
+    /**
+     * Times one speak, whichever way it ends, into `speech.ms`.
+     *
+     * Called with the speech slot already held, so the figure is the engine's and not the queue's.
+     */
+    private async timed<T>(pluginId: string, speak: () => Promise<T>): Promise<T> {
+        const startedAt = Date.now();
+        let outcome = 'failed';
+        try {
+            const spoken = await speak();
+            outcome = 'ok';
+            return spoken;
+        } finally {
+            this.metrics.observe(METRICS.speechMs, Date.now() - startedAt, { plugin: pluginId, outcome });
+        }
     }
 
     /**

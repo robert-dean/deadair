@@ -85,6 +85,13 @@ span, because a span carries a duration and no text. `metrics.speechPrices` pric
 million characters on the model rule above, at record time, into `speech.cost`; an engine the operator
 runs has no row and is counted in characters only.
 
+**How long an engine took is `speech.ms`, by engine and outcome, and it is not the plugin span.** The
+span ends when `speak` returns a stream, and a streaming engine is still producing audio for the whole
+drain, so `SpeechService.timed` wraps the request and the store write. It runs inside the speech gate,
+so the figure is the engine's rather than the queue's, and Trends averages only the `ok` series on the
+model's argument. The `failed` series' count is how often speech failed. **There is no failover to
+count**: the station has one speaker, and a speak that fails fails its segment.
+
 ## The flusher
 
 **A module-owned loop, not a cron job**, because what it drains is in this process's memory: a

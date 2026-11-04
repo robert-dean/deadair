@@ -75,7 +75,7 @@ function harness(
     const metrics = new MetricsRecorder();
     const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never, metrics);
 
-    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits, config, metrics, speak };
+    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits, config, metrics, speak, store };
 }
 
 describe('SpeechService.speakWith', () => {
@@ -356,13 +356,16 @@ describe('SpeechService.maxCharactersOf', () => {
 
 describe('SpeechService, counting what was spoken', () => {
     const drained = (metrics: MetricsRecorder) => Object.fromEntries(metrics.drain().map(b => [`${b.name} ${b.labelsKey}`, b.aggregate.sum]));
+    /** The money and the characters, without the clock. */
+    const counted = (metrics: MetricsRecorder) =>
+        Object.fromEntries(Object.entries(drained(metrics)).filter(([key]) => !key.startsWith(METRICS.speechMs)));
 
     it('counts the characters the engine was handed, after the respellings, by engine', async () => {
         const { service, plugin, metrics } = harness();
 
         await service.speakWith(plugin, { text: 'Simon & Garfunkel.' });
 
-        expect(drained(metrics)).toEqual({ [`${METRICS.speechCharacters} {"plugin":"deadair.kokoro"}`]: 'Simon and Garfunkel.'.length });
+        expect(counted(metrics)).toEqual({ [`${METRICS.speechCharacters} {"plugin":"deadair.kokoro"}`]: 'Simon and Garfunkel.'.length });
     });
 
     it('prices them at the engine’s own price per million characters', async () => {
@@ -381,6 +384,39 @@ describe('SpeechService, counting what was spoken', () => {
 
         await expect(service.speakWith(plugin, { text: 'Hello.' })).rejects.toThrow('quota exceeded');
 
-        expect(drained(metrics)).toEqual({});
+        expect(counted(metrics)).toEqual({});
+    });
+
+    const timings = (metrics: MetricsRecorder) => metrics.drain().filter(bucket => bucket.name === METRICS.speechMs);
+
+    it('times a speak until its audio is stored, not until the engine accepts it', async () => {
+        vi.useFakeTimers();
+        try {
+            const { service, plugin, metrics, store } = harness();
+            vi.mocked(store.writeStream).mockImplementationOnce(async () => {
+                vi.advanceTimersByTime(4000);
+                return 'checksum';
+            });
+
+            await service.speakWith(plugin, { text: 'Hello.' });
+
+            const [timing] = timings(metrics);
+            expect(timing?.labelsKey).toBe('{"outcome":"ok","plugin":"deadair.kokoro"}');
+            expect(timing?.aggregate.sum).toBe(4000);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('counts a refused speak and a store that failed part way as failures, by engine', async () => {
+        const { service, plugin, metrics, speak, store } = harness();
+        speak.mockRejectedValueOnce(new Error('quota exceeded'));
+        await expect(service.speakWith(plugin, { text: 'Hello.' })).rejects.toThrow('quota exceeded');
+        vi.mocked(store.writeStream).mockRejectedValueOnce(new Error('disk full'));
+        await expect(service.speakWith(plugin, { text: 'Hello.' })).rejects.toThrow('disk full');
+
+        const [timing] = timings(metrics);
+        expect(timing?.labelsKey).toBe('{"outcome":"failed","plugin":"deadair.kokoro"}');
+        expect(timing?.aggregate.count).toBe(2);
     });
 });

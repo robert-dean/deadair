@@ -14,7 +14,7 @@ import { REQUEST_TIMEOUT_MS } from './navidrome.manifest.js';
 import type { SubsonicEnvelope, SubsonicError, SubsonicResponseBody } from './navidrome.types.js';
 
 /** Query parameters as callers write them. `undefined` entries are dropped rather than sent empty. */
-export type SubsonicParams = Record<string, string | number | undefined>;
+export type SubsonicParams = Record<string, string | number | readonly string[] | undefined>;
 
 /**
  * Subsonic's numeric error codes, in the host's vocabulary.
@@ -107,7 +107,10 @@ export class SubsonicClient {
     url(endpoint: string, params: SubsonicParams = {}, stable = false): string {
         const query = new URLSearchParams({ ...(stable ? this.auth.stableParams() : this.auth.params()) });
         for (const [key, value] of Object.entries(params)) {
-            if (value !== undefined) query.set(key, String(value));
+            if (value === undefined) continue;
+            // A list is the parameter repeated, which is how `musicFolderId` names several folders.
+            if (typeof value === 'object') for (const each of value) query.append(key, each);
+            else query.set(key, String(value));
         }
         return `${this.baseUrl}/rest/${endpoint}?${query.toString()}`;
     }

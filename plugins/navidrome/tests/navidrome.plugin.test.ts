@@ -7,9 +7,9 @@ import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/t
 const BASE_URL = 'http://navidrome.test:4533';
 
 /** An initialized plugin and the host it is talking to. */
-async function build(): Promise<{ host: FakePluginHost; plugin: NavidromePlugin }> {
+async function build(extra: Record<string, unknown> = {}): Promise<{ host: FakePluginHost; plugin: NavidromePlugin }> {
     const host = createFakePluginHost();
-    host.seedConfig({ baseUrl: BASE_URL, username: 'station', streamFormat: 'raw' });
+    host.seedConfig({ baseUrl: BASE_URL, username: 'station', streamFormat: 'raw', ...extra });
     host.seedSecret('password', 'hunter2');
 
     const plugin = new NavidromePlugin();
@@ -439,5 +439,79 @@ describe('enrichAlbum', () => {
         host.queueResponse(failed(70, 'Album not found'));
 
         await expect(plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead', providerRef: 'gone' })).resolves.toEqual({});
+    });
+});
+
+describe('library folders', () => {
+    const chosen = { libraryFolders: JSON.stringify(['1', '3']) };
+
+    it('leaves the parameter out when nothing is chosen, which is every folder', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ searchResult3: { song: [] } }));
+
+        await plugin.getPlaylistTracks(EVERYTHING_PLAYLIST_ID);
+
+        expect(paramsOf(host).has('musicFolderId')).toBe(false);
+    });
+
+    it('narrows the whole library to the chosen folders, repeating the parameter, and keeps its paging', async () => {
+        const { host, plugin } = await build(chosen);
+        host.queueResponse(ok({ searchResult3: { song: [song('song-1')] } }));
+
+        await plugin.getPlaylistTracks(EVERYTHING_PLAYLIST_ID, { offset: 50, limit: 25 });
+
+        expect(paramsOf(host).getAll('musicFolderId')).toEqual(['1', '3']);
+        expect(paramsOf(host).get('songOffset')).toBe('50');
+        expect(paramsOf(host).get('songCount')).toBe('25');
+    });
+
+    it('narrows a search the same way', async () => {
+        const { host, plugin } = await build(chosen);
+        host.queueResponse(ok({ searchResult3: { song: [] } }));
+
+        await plugin.searchTracks('glory box');
+
+        expect(paramsOf(host).getAll('musicFolderId')).toEqual(['1', '3']);
+    });
+
+    it('leaves a real playlist alone, since the operator put those records on it', async () => {
+        const { host, plugin } = await build(chosen);
+        host.queueResponse(ok({ playlist: { entry: [song('song-1')] } }));
+
+        await plugin.getPlaylistTracks('a-playlist');
+
+        expect(paramsOf(host).has('musicFolderId')).toBe(false);
+    });
+
+    it('fails the walk on a folder the server no longer has rather than widening it', async () => {
+        const { host, plugin } = await build(chosen);
+        host.queueResponse(failed(70, 'Library 3 not found or not accessible'));
+
+        await expect(plugin.getPlaylistTracks(EVERYTHING_PLAYLIST_ID)).rejects.toThrow();
+    });
+
+    it('offers nothing rather than throwing when the server will not say, so the form still opens', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(failed(40, 'Wrong username or password'));
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+    });
+
+    it("offers the server's folders to the form, by id and name", async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(
+            ok({
+                musicFolders: {
+                    musicFolder: [{ id: 1, name: 'Music Library' }, { id: 2, name: 'Books' }, { name: 'no id' }],
+                },
+            }),
+        );
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({
+            libraryFolders: [
+                { value: '1', label: 'Music Library' },
+                { value: '2', label: 'Books' },
+            ],
+        });
     });
 });

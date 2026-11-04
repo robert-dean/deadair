@@ -22,6 +22,15 @@ const READING: SpokenWeather = {
     days: [{ date: '2026-08-29', condition: 'clear', words: 'clear', high: 24, low: 12, precipitationChance: 40 }],
 };
 
+/** A reading below freezing, where every way of saying the temperature but one has no sign in its digits. */
+const FREEZING: SpokenWeather = {
+    place: 'Berlin',
+    observedAt: '2026-11-04T09:00:00+01:00',
+    units: 'metric',
+    current: { condition: 'clear', words: 'clear', temperature: -5 },
+    days: [{ date: '2026-11-04', condition: 'clear', words: 'clear', high: -2, low: -7 }],
+};
+
 /** The reading behind the sentence this whole feature was asked for: a clear sky, and a host saying "sunny". */
 const SUNNY: SpokenWeather = {
     place: 'Atlanta',
@@ -62,6 +71,48 @@ describe('inventedFigure', () => {
     it('passes a script with no figures in it at all', () => {
         expect(inventedFigure("It's raining in Atlanta and it does not look like stopping.", READING)).toBeUndefined();
     });
+
+    it('reads a hyphen between two figures as a range rather than a minus', () => {
+        expect(inventedFigure('Somewhere around 17-24 degrees today.', READING)).toBeUndefined();
+        // Each end is still a figure: a range does not excuse the half nobody measured.
+        expect(inventedFigure('Somewhere around 17-31 degrees today.', READING)).toBe('31');
+    });
+
+    it('reads a hyphen after a word as no sign, and still checks the figure', () => {
+        expect(inventedFigure('Up into the mid-24s by teatime.', READING)).toBeUndefined();
+        expect(inventedFigure('Up into the mid-30s by teatime.', READING)).toBe('30');
+    });
+
+    it('takes a figure below freezing however the minus is written', () => {
+        for (const script of [
+            "It's -5 degrees.",
+            "It's \u22125 degrees.",
+            "It's minus 5 degrees.",
+            "It's 5 below out there.",
+            'Between -7 and -2 today.',
+        ]) {
+            expect(inventedFigure(script, FREEZING)).toBeUndefined();
+        }
+    });
+
+    it('holds a written sign to the reading exactly', () => {
+        // The reading said 17. A minus in the digits is a claim, and it is one nobody measured.
+        expect(inventedFigure("It's -17 degrees.", READING)).toBe('-17');
+        expect(inventedFigure("It's \u221217 degrees.", READING)).toBe('\u221217');
+        expect(inventedFigure("It's -9 degrees.", FREEZING)).toBe('-9');
+    });
+
+    it('reads a minus said in words, and holds it to the reading', () => {
+        expect(inventedFigure("It's Minus 17 degrees.", READING)).toBe('Minus 17');
+        expect(inventedFigure("It's negative 17 degrees.", READING)).toBe('negative 17');
+        expect(inventedFigure("It's 17 degrees below out there.", READING)).toBe('17 degrees below');
+        expect(inventedFigure("It's negative 5 degrees.", FREEZING)).toBeUndefined();
+        expect(inventedFigure("It's 5 degrees below zero.", FREEZING)).toBeUndefined();
+    });
+
+    it('refuses a bare figure when the reading is on the other side of zero', () => {
+        expect(inventedFigure("It's 5 degrees.", FREEZING)).toBe('5');
+    });
 });
 
 describe('mentionsWeather', () => {
@@ -76,6 +127,10 @@ describe('mentionsWeather', () => {
         // By the time this is asked, `inventedFigure` has already refused every number that was not
         // measured — so a number still in the script is one the service reported.
         expect(mentionsWeather("Twenty-six out there. 26, and I'm not moving.", SUNNY)).toBe(true);
+    });
+
+    it('answers yes on a figure below freezing with its sign in words', () => {
+        expect(mentionsWeather('Minus 5 and that is before the wind.', { ...FREEZING, place: '' })).toBe(true);
     });
 
     it('answers yes on the place the reading is about', () => {
@@ -126,6 +181,19 @@ describe('on a station that does not broadcast in English', () => {
         expect(inventedFigure(script, READING, 'de')).toBeUndefined();
         // The same sentence read as English finds a figure nobody measured in every one of those.
         expect(inventedFigure(script, READING)).toBeDefined();
+    });
+
+    it('takes a range and a figure below freezing as a German break writes them', () => {
+        expect(inventedFigure('Heute 17-24 Grad.', READING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind minus 5 Grad, gefühlt -7,0.', FREEZING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind -4,5 Grad.', FREEZING, 'de')).toBe('-4,5');
+    });
+
+    it('judges a figure with no sign in its digits by its size, which is the gap it deliberately has', () => {
+        // "Minus" is a word in every language, so reading it would mean a vocabulary per language.
+        expect(inventedFigure('Es sind minus 17 Grad.', READING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind 5 Grad.', FREEZING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind -17 Grad.', READING, 'de')).toBe('-17');
     });
 
     it('still names a figure the reading never had', () => {

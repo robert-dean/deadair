@@ -1032,8 +1032,14 @@ a forecast's claims are NUMBERS, and the set of true ones is known exactly, so `
 refuses a script naming a temperature the station was never given. That matters more here than the
 shape guards do: a plausible temperature is far easier for a model to write than a plausible news
 story, because it knows roughly what August in Atlanta is like and will fill one in without any sense
-of having invented anything. Two gaps in it are deliberate and are tests rather than comments — a
-spelled-out number gets through, and a clock time, a date or a year is not read as a measurement.
+of having invented anything. Three gaps in it are deliberate and are tests rather than comments — a
+spelled-out number gets through, a clock time, a date or a year is not read as a measurement, and
+outside English a figure with no minus sign in its digits is judged by its size, so a bare 5 stands for
+a reading of 5 or -5 while "-5" has to be exactly that. That last one is because a minus is as often a
+word as a mark, and refusing "minus 5" refused every true figure below freezing. English has its words
+read ("minus 5", "negative 5", "5 below"), so its sign is held to the reading either way. A hyphen after
+a digit or a letter is not a minus at all: "3-5 Grad" is a range, and it was refused as -5 until
+2026-11-04.
 
 **The four ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
 named, a service that is down, and a reading that will be too old to be true when the break airs: one

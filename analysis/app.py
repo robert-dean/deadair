@@ -102,6 +102,13 @@ def _trim() -> None:
 # of a measurement does not read it, so this costs the tempo and nothing else.
 BEATS_ON = os.environ.get("ANALYSIS_BEATS", "on").strip().lower() != "off"
 
+# A record longer than this goes without a tempo, so that it keeps its cue points. The tracker took 14s
+# a minute on a real station's machine (2 threads, 2026-11-04), so 16.4 minutes took 227s, and with the
+# rest of a measurement about 277s against the plugin's 300s. Running out of that time fails the WHOLE
+# measurement, which would cost a new long record its level to gain a figure nothing needs: a record
+# this long is not one a blend depends on. Five of 6,506 records there were longer than this.
+BEATS_MAX_SECONDS = int(os.environ.get("ANALYSIS_BEATS_MAX_SECONDS", "900"))
+
 WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", str(min(4, os.cpu_count() or 1)))))
 
 PORT = int(os.environ.get("ANALYSIS_PORT", "9321"))
@@ -586,8 +593,8 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     # The beat pass last, and on a signal a small fraction of the decode's size, with the decode let go
     # first. A long record's channels at the reference rate are hundreds of megabytes, and holding them
     # under the model is the largest number this service can reach on a machine with the mixer on it.
-    beat_signal = _beat_signal(decoded.samples)
     duration_ms = decoded.duration_ms
+    beat_signal = _beat_signal(decoded.samples, duration_ms)
     del decoded
     data.update(_beats_of(beat_signal, points.cue_out - points.cue_in))
 
@@ -613,8 +620,8 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     }
 
 
-def _beat_signal(samples: np.ndarray) -> np.ndarray | None:
-    if not BEATS_ON:
+def _beat_signal(samples: np.ndarray, duration_ms: int) -> np.ndarray | None:
+    if not BEATS_ON or duration_ms > BEATS_MAX_SECONDS * 1000:
         return None
     try:
         return beat_model.model_signal(samples)

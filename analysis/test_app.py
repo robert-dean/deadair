@@ -94,6 +94,17 @@ def test_a_record_with_no_pulse_has_no_tempo_fields(monkeypatch: pytest.MonkeyPa
     assert not {"bpm", "beatConfidence", "downbeats"} & set(data)
 
 
+def test_a_record_past_the_limit_keeps_its_measurement_and_skips_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+    monkeypatch.setattr(app, "BEATS_ON", True)
+    monkeypatch.setattr(app, "BEATS_MAX_SECONDS", 0)
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: pytest.fail("the model ran"))
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert "cueIn" in data and "bpm" not in data
+
+
 def test_switched_off_it_never_touches_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
     _a_record(monkeypatch)
     monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: pytest.fail("the model ran"))

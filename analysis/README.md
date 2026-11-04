@@ -162,8 +162,8 @@ version rather than a stale one. The `tag*` fields arrived exactly that way. A r
 them keeps its measured loudness, and re-measuring the catalog is how it picks them up.
 
 The three beat fields are **optional and arrive together or not at all**. They are absent for a record
-with no pulse to report, for a tempo outside 40 to 220 BPM, and whenever the tracker failed, which
-never fails the measurement. The tracker runs one record at a time on `ANALYSIS_BEAT_THREADS` threads
+with no pulse to report, for a tempo outside 40 to 220 BPM, for a record longer than
+`ANALYSIS_BEATS_MAX_SECONDS` (900), and whenever the tracker failed, which never fails the measurement. The tracker runs one record at a time on `ANALYSIS_BEAT_THREADS` threads
 (2) whatever the concurrency, because the mixer shares the machine in the single image. `ANALYSIS_BEATS=off`
 leaves it out altogether, torch included, for a machine short of memory.
 

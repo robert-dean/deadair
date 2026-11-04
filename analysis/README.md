@@ -64,6 +64,15 @@ for, and `test_transcode.py` pins the command so nobody does.
 The four cue points and the vocal fields are outside the question entirely — band-limited energy
 between 200 Hz and 4 kHz, no toolkit — which is why this only ever came up for the beat layer.
 
+## Measuring the beat tracker
+
+`beats.check.py` runs `beat_this` over real records and reports each record's tempo, confidence and
+the parts of that confidence, with the seconds and memory it cost. `--listen` renders a record with
+clicks on its beats and downbeats. It exists because a detector has shipped here once on synthetic
+evidence alone (discussion 45, "The vocal fields cannot be measured this way"), so every threshold a
+consumer leans on is chosen from its output on this library. Its docstring has the command. Nothing in
+the station imports `beats.py` or `beat_model.py` yet.
+
 ## The contract
 
 ### `GET /health`

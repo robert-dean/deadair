@@ -285,6 +285,8 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
      * address needs the form.
      */
     async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        const host = this.host;
+
         try {
             const body = await this.require().get<MusicFoldersResponse>('getMusicFolders.view');
             const options: ConfigFieldOption[] = [];
@@ -295,7 +297,7 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
             }
             return { libraryFolders: options };
         } catch (error) {
-            this.host.logger.debug('navidrome could not suggest library folders', { error: errorText(error) });
+            host.logger.debug('navidrome could not suggest library folders', { error: errorText(error) });
             return {};
         }
     }

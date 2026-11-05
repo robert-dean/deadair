@@ -50,7 +50,7 @@ export const spotifyManifest: PluginManifest = {
     // track shim beside it, and this plugin gets it by lending that shim a login
     // through `host.trackFetcher` — which is what the `trackFetcher` permission
     // below discloses.
-    capabilities: ['catalog', 'stream', 'steer', 'oauth'],
+    capabilities: ['catalog', 'stream', 'steer', 'profile', 'oauth'],
     apiVersion: '^1.0.0',
     description: 'Search Spotify, browse your playlists, and pull tracks into the rotation.',
     homepage: 'https://developer.spotify.com/documentation/web-api',

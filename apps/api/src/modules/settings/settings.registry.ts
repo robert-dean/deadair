@@ -1898,7 +1898,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Lean on what you listen to elsewhere',
         type: 'boolean',
         default: LISTENING_PROFILE_DEFAULT,
-        help: 'Shows the model the artists and styles you play most at a music provider that can say, Spotify for now, so it leans toward them where they suit the brief. It counts for less than what you have rated, your dislikes still win, and a presenter is told not to mention it on air. It asks the provider a few times a day.',
+        help: 'Shows the model the artists and styles you play most at a music provider that can say, Spotify for now, and who you played there in the last few days, so it leans toward them where they suit the brief. Records the station aired itself are left out of what you played. It counts for less than what you have rated, your dislikes still win, and a presenter is told not to mention it on air. It asks the provider about once an hour.',
     },
     {
         group: 'llm',

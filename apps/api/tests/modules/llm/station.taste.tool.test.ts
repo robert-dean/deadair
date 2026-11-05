@@ -24,13 +24,13 @@ const empty = (): StationTaste => ({
     dislikedTracks: nothing(),
 });
 
-function build(answer: Partial<StationTaste> = {}, listening?: () => Promise<ListeningProfile | undefined>) {
+function build(answer: Partial<StationTaste> = {}, listening?: () => Promise<ListeningProfile | undefined>, recent?: () => Promise<string[]>) {
     const read = vi.fn(async (_limit: number): Promise<StationTaste> => ({ ...empty(), ...answer }));
     const taste = {
         taste: read,
         withoutDisliked: vi.fn(async (names: string[]) => names.filter(name => name !== 'Disliked')),
     } as unknown as TasteRepository;
-    const profile = { read: listening ?? (async () => undefined) } as unknown as ListeningProfileService;
+    const profile = { read: listening ?? (async () => undefined), recent: recent ?? (async () => []) } as unknown as ListeningProfileService;
     return { tool: new StationTasteTool(taste, profile, logger), read };
 }
 
@@ -91,6 +91,12 @@ describe('StationTasteTool', () => {
             const answer = await run(build({}, async () => ({ artists: ['Kept', 'Disliked'], genres: ['metal'] })));
 
             expect(answer.listening).toEqual({ artists: ['Kept'], genres: ['metal'] });
+        });
+
+        it('carries who was played lately, less anybody disliked, even with no ranking', async () => {
+            const answer = await run(build({}, undefined, async () => ['Lately', 'Disliked']));
+
+            expect(answer.listening).toEqual({ artists: [], genres: [], recent: ['Lately'] });
         });
 
         it('is absent when there is nothing to say', async () => {

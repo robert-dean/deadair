@@ -265,6 +265,7 @@ describe('setPrompt', () => {
                     taste: {
                         likedArtists: ['Sleep'],
                         dislikedArtists: ['Nickelback'],
+                        recentArtists: ['Sleep'],
                         listeningArtists: ['Kyuss'],
                         listeningStyles: ['stoner rock'],
                     },
@@ -273,6 +274,8 @@ describe('setPrompt', () => {
         );
 
         expect(system).toMatch(/listening to these artists elsewhere\. Where they suit the brief[^\n]*\n- Kyuss/);
+        expect(system).toMatch(/played these artists elsewhere in the last few days\. Where they suit the brief[^\n]*\n- Sleep/);
+        expect(system.indexOf('in the last few days')).toBeLessThan(system.indexOf('listening to these artists'));
         expect(system).toMatch(/listening to these styles elsewhere[^\n]*\n- stoner rock/);
         expect(system.indexOf('LIKES')).toBeLessThan(system.indexOf('Kyuss'));
         expect(system.indexOf('Kyuss')).toBeLessThan(system.indexOf('DISLIKES'));

@@ -534,6 +534,20 @@ carries it as `listening` and tells a writer never to say it on air: it is the o
 and every writer shares that tool. `llm.setListeningProfile` turns it off. A shortlist refill has no taste block, and on a station whose briefs name their acts that is every refill, so `shortlistPrompt` gets the same read as a mark on the lines of artists it holds (`operator plays them`), described as a tie-breaker. A mark rather than names, because the list is all that model chooses from and a name not on it could only send it searching. Top and saved TRACKS do not come
 this way: Spotify lists them as playlists (`top:short_term`, `saved`), so they reach the catalog on the walk.
 
+**What the operator played in the last few days rides with it, and the station's own airings are taken out first.**
+`ListeningProfileService.recent()` asks every `profile` plugin with the optional `getRecentPlays` once an hour, on a
+clock of its own so the rankings are not asked more often, and folds the lead artists of the last three days, most
+played first. Before folding, `withoutAirings` drops any play whose song (`songKey`, so it holds across providers)
+aired on any station from 30 minutes before the play to 5 minutes after it, because a source can report what the
+station aired under the operator's account as their listening: a scrobbling service because the station scrobbles
+there, a provider because its fetches count. Done in the host because only the host knows what aired. If the airings
+cannot be read it says nothing rather than something unfiltered. Each read logs how many plays it removed and which,
+which is the evidence for the window. `ModelSetGenerator` shows these artists above the ranking and below what was
+rated, each artist once in the strongest list that holds them; a shortlist marks their lines `operator played them
+lately`, which replaces the weaker mark; `station_taste` carries them as `listening.recent`. A connection granted
+before `user-read-recently-played` was asked for answers `forbidden`, which costs this read and not the rankings,
+and the plugin's connection test asks for a reconnect.
+
 **A brief that names its acts is programmed from a numbered list, and the model answers with numbers.**
 Measured on the live station, 2026-10-25, The Church, refill trace `51fea6af`: five `search_music` calls of
 about four seconds each, then the final answer generated for two minutes with no tools and ran out of the

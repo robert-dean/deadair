@@ -144,4 +144,21 @@ describe('shortlistPrompt, marking what the operator plays elsewhere', () => {
         expect(userOf()).toBe(userOf(['Somebody Not On The List']));
         expect(userOf()).not.toContain('operator plays them');
     });
+
+    it('marks an artist played lately with that mark alone, and ranks it above the other', () => {
+        const user = shortlistPrompt({ count: 2, list: LIST, listening: ['Slayer', 'Mayhem'], recent: ['mayhem'] })[1]!.content as string;
+
+        expect(user).toMatch(/Mayhem - "[^"]+" \(operator played them lately,/);
+        expect(user).not.toMatch(/Mayhem[^\n]*operator plays them/);
+        expect(user).toMatch(/Slayer - "South of Heaven" \(operator plays them,/);
+        expect(user).toContain('the first more than the second');
+    });
+
+    it('explains only the mark that appears', () => {
+        const user = shortlistPrompt({ count: 2, list: LIST, recent: ['Slayer'] })[1]!.content as string;
+
+        expect(user).toContain('"operator played them lately" are by artists the operator played elsewhere in the last few days');
+        expect(user).not.toContain('"operator plays them"');
+        expect(user).not.toContain('the first more than the second');
+    });
 });

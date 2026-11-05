@@ -8,6 +8,7 @@ import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { writeWithModel } from './model.break.write.js';
 import { MODEL_WRITER } from './model.talk.break.writer.js';
+import { unshownGuard } from './unshown.records.js';
 import { NEWS_KIND } from './news.break.writer.js';
 
 /**
@@ -217,7 +218,11 @@ export class ModelNewsBreakWriter extends BreakWriter {
                 // refused rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See
                 // `misCuedIn`. No `years`: a bulletin's years belong to its stories rather than to a
                 // record, and that substrate has no guard of its own yet.
-                guard: () => (request.next === undefined ? {} : { cues: { next: request.next } }),
+                guard: () => ({
+                    ...(request.next === undefined ? {} : { cues: { next: request.next } }),
+                    // A record an earlier break named and this one was not given. See `unshownGuard`.
+                    ...unshownGuard(request),
+                }),
                 purpose: { noModel: 'read the news with', nothing: 'read as news' },
                 context: { stories: request.stories?.length },
             },

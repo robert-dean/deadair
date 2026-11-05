@@ -9,6 +9,7 @@ import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { writeWithModel } from './model.break.write.js';
 import { MODEL_WRITER } from './model.talk.break.writer.js';
+import { unshownGuard } from './unshown.records.js';
 
 /**
  * A model giving the weather, with the station's own report underneath it.
@@ -142,6 +143,8 @@ export class ModelWeatherBreakWriter extends BreakWriter {
                     // reading; the talk break being offered one made that two copies of the same question.
                     // See `AnswerGuard.weather`.
                     weather,
+                    // A record an earlier break named and this one was not given. See `unshownGuard`.
+                    ...unshownGuard(request),
                 }),
                 purpose: { noModel: 'give the weather with', nothing: 'read as a forecast' },
                 context: { place: weather.place },

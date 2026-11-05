@@ -446,6 +446,35 @@ export function swappedCreditIn(script: string, records: readonly (BreakTrack | 
     return undefined;
 }
 
+/**
+ * The record a script handed over to that it was not given, or `undefined` when it named none of them.
+ *
+ * Stricter than {@link namedRecordIn} on purpose, because the two ask opposite questions and err in
+ * opposite directions. That one asks whether a break named its OWN record and is generous so a
+ * nickname still counts; this one refuses a script, so it needs the record's title AND its artist in
+ * the words. That is what a hand-back says ("ABBA mit Gimme! Gimme! Gimme!", "next up, Depeche Mode
+ * with Enjoy the Silence"), and it is what a weather break saying "rain" never says about a record
+ * called "Rain" that aired an hour ago. A bare artist named in passing is let through for the same
+ * reason. Inflected outside English, as {@link namedRecordIn} is.
+ *
+ * Reported on a German station whose bulletins and weather breaks ended, every hour and through a
+ * rewrite, on a record that had left the order, ahead of a different one. The forward claim could not
+ * see it: a model writer stamps the line it was shown, and the words named another.
+ */
+export function unshownRecordIn(script: string, records: readonly BreakTrack[], language?: string): BreakTrack | undefined {
+    const says = language === undefined ? saysName : saysNameInflected;
+    const readings = [script, asSaid(script)].map(text => ` ${bareWords(text)} `);
+    const carries = (candidates: readonly string[]): boolean =>
+        candidates.some(candidate => candidate.length > 0 && readings.some(reading => says(reading, candidate)));
+
+    return records.find(record => {
+        const said = { title: asSaid(record.title), artist: asSaid(record.artist) };
+        const titles = [record, said].flatMap(form => identifiersOf({ title: form.title, artist: '' }));
+        const artists = [record.artist, said.artist].map(bareWords);
+        return carries(titles) && carries(artists);
+    });
+}
+
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {
     /**
@@ -537,6 +566,14 @@ export interface AnswerGuard {
      * it, and {@link misCuedIn} judges whichever side it is given.
      */
     cues?: BreakCues;
+    /**
+     * Records this break was NOT given that the station's recent breaks were about, so a script
+     * handing over to one of them is refused. Built by `unshownGuard` from
+     * `BreakWriteRequest.lately`, with any record its own substrate names taken out. Absent means
+     * the question is not asked, which is every kind but news, weather and the welcome. See
+     * {@link unshownRecordIn}.
+     */
+    unshown?: readonly BreakTrack[];
     /**
      * The half of the day this break was told it was speaking in.
      *
@@ -707,6 +744,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // nothing is wrong however well it is written, and reporting it as out-of-character would send
     // an operator to the persona page for a fault the prompt caused. See `namesNothing`.
     if (namesNothing(words, guard)) return undefined;
+
+    // A break that handed over to a record it was not given. Beside the naming check because it is
+    // the same question asked the other way round, and in the same position `writeDecline` asks it.
+    // See `unshownRecordIn`.
+    if (namedUnshown(words, guard) !== undefined) return undefined;
 
     // A break that named a record it was shown and then put it on the wrong side of itself: "that
     // was" about the record still to come. Checked here, in the same position `writeDecline` checks
@@ -927,6 +969,10 @@ const namesNothing = (script: string, guard: AnswerGuard): boolean => {
     const offered = (guard.names ?? []).filter(record => record !== undefined);
     return offered.length > 0 && namedRecordIn(script, offered, guard.language) === undefined;
 };
+
+/** The record a script named that its guard says it was not given. See {@link unshownRecordIn}. */
+const namedUnshown = (script: string, guard: AnswerGuard): BreakTrack | undefined =>
+    guard.unshown === undefined || guard.unshown.length === 0 ? undefined : unshownRecordIn(script, guard.unshown, guard.language);
 
 /** Whether a script cued one of its records on the wrong side. See {@link misCuedIn}. */
 const cuesWrongly = (script: string, guard: AnswerGuard): boolean =>
@@ -1479,6 +1525,11 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'ran-long':
         'the model wrote past the word ceiling with nothing whole to keep short of it, and a script cut mid-sentence is worse than the phrasing underneath it',
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
+    // Its own row rather than `cued-wrong`: that one is a record the break was given, said on the
+    // wrong side; this is a record it was never given, which almost always came out of an earlier
+    // break's words, so an operator is sent to what the station said lately rather than to the order.
+    'unshown-record':
+        'the model handed over to a record it was not given, one an earlier break named, so a listener would hear one record promised and another play',
     'cued-wrong': 'the model announced a record on the wrong side of the break, telling a listener something had played when it had not',
     'swapped-credit': 'the model credited a record to its own title, naming the artist as the song and the song as the artist',
     'wrong-daypart': 'the model called it the wrong half of the day, which a listener hears immediately and the station cannot take back',
@@ -1535,6 +1586,7 @@ export type WriteFault =
     | 'cut-off'
     | 'ran-long'
     | 'named-nothing'
+    | 'unshown-record'
     | 'cued-wrong'
     | 'swapped-credit'
     | 'wrong-daypart'
@@ -1608,6 +1660,9 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     if (speakable === undefined) return reasoned('ran-long');
 
     if (namesNothing(speakable, guard)) return reasoned('named-nothing');
+    // With the record it named, so an operator reading the row can see which name came back.
+    const unshown = namedUnshown(speakable, guard);
+    if (unshown !== undefined) return reasoned('unshown-record', `${unshown.title}" by "${unshown.artist}`);
     // After naming and before character, which is where it belongs in the narrative this order is:
     // a break that named nothing has not got as far as cueing anything wrongly, and a break that
     // told the listener the wrong record played is not worth asking whether it did so in voice.

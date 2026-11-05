@@ -143,6 +143,36 @@ describe('what it will air', () => {
         expect(await writer.write(request({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }))).toMatchObject({ claimsNext: true });
     });
 
+    // Reported on a German station: every bulletin ended on a record that had left the order, ahead
+    // of a different one. The claim was stamped on the line the writer was shown, so nothing caught it.
+    it('refuses a bulletin that hands over to a record an earlier break named, not the one it was given', async () => {
+        const abba = { title: 'Gimme! Gimme! Gimme!', artist: 'ABBA' };
+        const asked = request({ next: { title: 'Hells Bells', artist: 'AC/DC' }, lately: [abba] });
+        const settings = { ...enabled, 'stream.language': 'de' };
+
+        const stale = build('Hier sind die Nachrichten. Eine Brücke wurde eröffnet. Und jetzt: ABBA mit Gimme! Gimme! Gimme!', settings);
+        expect(await stale.writer.write(asked)).toBeUndefined();
+        expect(stale.writer.detailOfLastWrite()?.reason).toMatch(/a record it was not given/);
+
+        const right = build('Hier sind die Nachrichten. Eine Brücke wurde eröffnet. Und jetzt: AC/DC mit Hells Bells.', settings);
+        expect(await right.writer.write(asked)).toMatchObject({ claimsNext: true });
+    });
+
+    // A story about a band the station played is the news, and refusing it would refuse a correct bulletin.
+    it('airs a story that names a record an earlier break was about', async () => {
+        const { writer } = build('Here is the news. ABBA have released Gimme! Gimme! Gimme! again on vinyl. Now, Nick Drake.');
+
+        const written = await writer.write(
+            request({
+                next: { title: 'Pink Moon', artist: 'Nick Drake' },
+                lately: [{ title: 'Gimme! Gimme! Gimme!', artist: 'ABBA' }],
+                stories: [{ headline: 'ABBA reissue Gimme! Gimme! Gimme! on vinyl.' }],
+            }),
+        );
+
+        expect(written?.script).toMatch(/ABBA/);
+    });
+
     it('stamps the clock only when the answer really carries the words it was given', async () => {
         const clock = { words: 'just after nine', validFrom: 1_000, validUntil: 2_000 };
 

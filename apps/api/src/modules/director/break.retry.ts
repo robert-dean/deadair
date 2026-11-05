@@ -109,6 +109,9 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     // One sentence said to the station rather than about it, and told which (`BreakRetry.said`) the
     // fix is to drop it: the rest of the break was fine.
     'station-sign-off',
+    // A record reached for out of an earlier break rather than one got wrong: told which, the fix is
+    // to name the record it was given, or none.
+    'unshown-record',
     'nothing-said',
     // The same empty hand as `nothing-said`, and worth the same second ask: most of what stops short
     // is a model that thought too long, and that varies from one answer to the next.
@@ -163,6 +166,8 @@ const NUDGES: Record<string, string> = {
         'That said a record the wrong way round, naming the artist as the song. Say the same break again with the title first and the artist after it: the title "by" the artist.',
     'station-sign-off':
         'That said a line to the station by name, as though the station were listening. Say the same break again without that line. Name the station only as the station you are on, or not at all.',
+    'unshown-record':
+        'That named a record you were not given, one from an earlier break. Say the same break again, naming only the record you were told is coming up, or no record at all.',
     'nothing-said': 'That answered with nothing the station could read aloud. Write the break.',
     'cut-off': 'That ran out of room before it finished. Write the break again, straight away and shorter.',
 };

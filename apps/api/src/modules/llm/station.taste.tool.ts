@@ -1,6 +1,8 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { ListeningProfileService, type ListeningProfile } from '#modules/catalog/listening.profile.service.js';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 import { limitArgument } from '#modules/shared/limit.clamp.js';
 
@@ -40,6 +42,7 @@ const MAX_RESULTS = 60;
 export class StationTasteTool implements ToolSource {
     constructor(
         private readonly taste: TasteRepository,
+        private readonly listening: ListeningProfileService,
         private readonly logger: Logger,
     ) {}
 
@@ -55,7 +58,7 @@ export class StationTasteTool implements ToolSource {
                     // what it is not (the filter), because a model that believes this is the
                     // enforcement will treat an empty answer as permission.
                     description:
-                        "What the station's operator has said they like and dislike, by artist, record and song. Use it to choose records they will enjoy and to avoid ones they have rejected. The station enforces the dislikes on its own, so anything listed there will be dropped even if you choose it.",
+                        "What the station's operator has said they like and dislike, by artist, record and song. Use it to choose records they will enjoy and to avoid ones they have rejected. The station enforces the dislikes on its own, so anything listed there will be dropped even if you choose it. `listening`, when present, is who they play elsewhere: use it to choose records, weaker than what they said, and never mention it on air, because it is their private listening.",
                     parameters: {
                         type: 'object',
                         properties: {
@@ -78,13 +81,25 @@ export class StationTasteTool implements ToolSource {
      * zeroes, which is an ordinary state: it means nobody has said anything yet, not that the tool
      * failed.
      */
-    private async read(args: Record<string, unknown>): Promise<StationTaste> {
+    private async read(args: Record<string, unknown>): Promise<StationTaste & { listening?: ListeningProfile }> {
         const taste = await this.taste.taste(limitArgument(args.limit, MAX_RESULTS));
+        const listening = await this.readListening();
 
         this.logger.debug('llm: read the station taste', {
             liked: taste.likedArtists.total + taste.likedAlbums.total + taste.likedTracks.total,
             disliked: taste.dislikedArtists.total + taste.dislikedAlbums.total + taste.dislikedTracks.total,
         });
-        return taste;
+        return listening ? { ...taste, listening } : taste;
+    }
+
+    /** What they play elsewhere, less anybody they disliked, or nothing. Never fails the tool: the ratings are the answer. */
+    private async readListening(): Promise<ListeningProfile | undefined> {
+        try {
+            const profile = await this.listening.read();
+            return profile && { ...profile, artists: await this.taste.withoutDisliked(profile.artists) };
+        } catch (error) {
+            this.logger.warn(`llm: could not read what the operator listens to (${errorText(error)})`);
+            return undefined;
+        }
     }
 }

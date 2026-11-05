@@ -17,7 +17,7 @@ On Navidrome, **Library folders** in the plugin's settings chooses which of the 
 
 When a model chooses a record no playlist carries, the station looks it up at your providers, and a strict match on title and lead artist becomes a real entry, marked "found". A near match is refused: it would air the wrong record under the right name.
 
-**On Spotify, your listening comes across as well as your playlists.** The plugin offers four extra playlists: your top tracks over recent weeks, recent months and the past year, and your saved tracks. The library walks them like any other, so a large saved library takes that much longer to read. Hide any you would rather leave out on the Playlists page; a hidden playlist is not walked.
+**On Spotify, your listening comes across as well as your playlists.** The plugin offers four extra playlists: your top tracks over recent weeks, recent months and the past year, and your saved tracks. The library walks them like any other, so a large saved library takes that much longer to read. Hide any you would rather leave out on the Playlists page; a hidden playlist is not walked. The artists and styles you play most also lean the model's choices, where they suit the brief and for less than anything you have rated. **Lean on what you listen to elsewhere** under Settings, Words turns that off, and a presenter is told never to mention it on air.
 
 **Spotify needs two authorizations, and you need both.** The connection lets the plugin read your library. The playback authorization, on the card below it, lets the station fetch the audio. With only the first, your playlists list perfectly and every record is dropped for want of audio. The card walks you through the second.
 

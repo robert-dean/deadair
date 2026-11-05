@@ -165,6 +165,16 @@ export interface PersonaDraft extends PersonaSheet {
      * no station-wide set any more. Empty means the station's own five.
      */
     templates?: string;
+    /**
+     * The language this sheet is written in, as a canonical BCP 47 tag (`en`, `de`, `de-AT`).
+     *
+     * Beside the station's own language rather than derived from it, because the two differ on any
+     * station that changed its language after it was set up: the characters were seeded in English and
+     * stay English. Absent on a draft means "not stated": a new row takes the column's `en` (or the
+     * station's language, where `PersonasService` creates it), and an update keeps what the row had.
+     * Always present on a {@link Persona} read back from the table.
+     */
+    sheetLanguage?: string;
 }
 
 /** A persona as it is stored. */

@@ -363,6 +363,8 @@ data class Persona(
     val trivia: PersonaTrivia? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
+    /** The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language */
+    val sheetLanguage: String? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
     /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
@@ -423,6 +425,8 @@ data class PersonaInput(
     val trivia: PersonaTrivia? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
+    /** The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language */
+    val sheetLanguage: String? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
     /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
@@ -456,6 +460,7 @@ data class PersonaDraftView(
     val storytelling: PersonaDraftViewStorytelling? = null,
     val trivia: PersonaDraftViewTrivia? = null,
     val samples: List<String>? = null,
+    val sheetLanguage: String? = null,
     val templates: String? = null,
 )
 
@@ -721,6 +726,7 @@ data class PersonaFilePersona(
     val storytelling: PersonaDraftViewStorytelling? = null,
     val trivia: PersonaDraftViewTrivia? = null,
     val samples: List<String>? = null,
+    val sheetLanguage: String? = null,
     val templates: String? = null,
     /** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
     val kind: PersonaFilePersonaKind? = null,

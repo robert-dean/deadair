@@ -360,6 +360,8 @@ export interface Persona {
     trivia?: 'keen' | 'never' | 'always' | 'sometimes';
     /** Lines in their own voice, used as examples and as a console preview */
     samples?: string[];
+    /** The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language */
+    sheetLanguage?: string;
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     templates?: string;
     /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
@@ -418,6 +420,8 @@ export interface PersonaInput {
     trivia?: 'keen' | 'never' | 'always' | 'sometimes';
     /** Lines in their own voice, used as examples and as a console preview */
     samples?: string[];
+    /** The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language */
+    sheetLanguage?: string;
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     templates?: string;
     /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
@@ -451,6 +455,7 @@ export interface PersonaDraftView {
     storytelling?: 'never' | 'occasionally' | 'often';
     trivia?: 'keen' | 'never' | 'always' | 'sometimes';
     samples?: string[];
+    sheetLanguage?: string;
     templates?: string;
 }
 

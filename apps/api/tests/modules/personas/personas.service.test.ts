@@ -32,6 +32,8 @@ function build(
         ties?: Map<string, string[]>;
         portraits?: { seedShipped: (candidates: { id: string; key: string }[]) => Promise<number> };
         seeded?: number;
+        /** What `stream.language` holds. Absent is an English station. */
+        language?: string;
     } = {},
 ) {
     const roster = options.roster ?? [persona()];
@@ -97,7 +99,9 @@ function build(
             afterCommit,
             context as never,
             activity as never,
-            { get: (_key: string, fallback: unknown) => fallback } as never,
+            {
+                get: (key: string, fallback: unknown) => (key === 'stream.language' && options.language !== undefined ? options.language : fallback),
+            } as never,
             logger as never,
         ),
     };
@@ -505,5 +509,48 @@ describe('draftOf, for what a character may be cast as', () => {
 
     it('makes a host of a form that says neither', () => {
         expect(draftOf(base).kinds).toEqual(['host']);
+    });
+});
+
+// Which language a character's sheet is written in. The station's language and the sheet's differ on
+// any station that changed language after it was set up, which is what made it worth storing.
+describe('PersonasService, for the language a sheet is written in', () => {
+    const input = (over: Record<string, unknown> = {}) => ({ key: 'wirt', label: 'Wirt', style: 'a Viennese innkeeper', ...over }) as never;
+
+    it('takes the station language for a new character that names none', async () => {
+        const { service, personas } = build({ language: 'de-at' });
+
+        await service.create(input());
+
+        expect(personas.create).toHaveBeenCalledWith(expect.objectContaining({ sheetLanguage: 'de-AT' }));
+    });
+
+    it('takes English for a new character on a station that broadcasts in English', async () => {
+        const { service, personas } = build();
+
+        await service.create(input());
+
+        expect(personas.create).toHaveBeenCalledWith(expect.objectContaining({ sheetLanguage: 'en' }));
+    });
+
+    it('keeps the language a new character names, in its canonical form', async () => {
+        const { service, personas } = build({ language: 'de' });
+
+        await service.create(input({ sheetLanguage: ' EN-gb ' }));
+
+        expect(personas.create).toHaveBeenCalledWith(expect.objectContaining({ sheetLanguage: 'en-GB' }));
+    });
+
+    it('leaves an edit that names none to keep what the character had', async () => {
+        // A client built before the field saves without it, and that must not reset the sheet.
+        const { service, personas } = build({ language: 'de' });
+
+        await service.update('p1', input());
+
+        expect(personas.update).toHaveBeenCalledWith('p1', expect.not.objectContaining({ sheetLanguage: expect.anything() }));
+    });
+
+    it('refuses a tag that is not one, rather than storing what can never match', () => {
+        expect(() => draftOf(input({ sheetLanguage: 'not a language' }))).toThrow(expect.objectContaining({ statusCode: 400 }));
     });
 });

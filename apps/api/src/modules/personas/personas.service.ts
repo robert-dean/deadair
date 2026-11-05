@@ -100,7 +100,12 @@ export class PersonasService {
 
     async create(body: PersonaInput): Promise<PersonaList> {
         const hosts = await this.hostsFor(body);
-        const created = await this.write(body.key, () => this.personas.create(draftOf(body)));
+        // A character written on this station is taken to be written in its language unless the form
+        // says otherwise. The seeds and an imported file keep the column's `en` instead: neither was.
+        const draft = draftOf(body);
+        const created = await this.write(body.key, () =>
+            this.personas.create({ ...draft, sheetLanguage: draft.sheetLanguage ?? stationSheetLanguage(this.config) }),
+        );
         await this.personas.setHosts(created.id, hosts);
         this.logger.info('personas: an operator wrote a persona', { key: body.key });
 
@@ -387,7 +392,8 @@ export class PersonasService {
         });
 
         return {
-            persona: toDraftView(generated.draft),
+            // In the station's language, because that is what `personaPrompt` asked the model to write.
+            persona: toDraftView({ ...generated.draft, sheetLanguage: stationSheetLanguage(this.config) }),
             // Handed back beside the form rather than written here, which is what keeps this route a
             // way of FILLING IN a form. The console saves the character through POST /personas and
             // then writes these through the stories route, so both go through the same validation an
@@ -563,8 +569,31 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             avoid: list(body.avoid),
             exclusiveSubjects: list(body.exclusiveSubjects),
             samples: list(body.samples),
+            sheetLanguage: sheetLanguageOf(body.sheetLanguage),
         }),
     };
+}
+
+/**
+ * The station's language as a sheet records it: `en` where the station broadcasts in English, which
+ * `stationLanguage` answers as `undefined`.
+ */
+export const stationSheetLanguage = (config: AppConfig): string => sheetLanguageOf(stationLanguage(config)) ?? 'en';
+
+/**
+ * A sheet language as the table stores it: the canonical form of a well-formed BCP 47 tag, or
+ * `undefined` when none was sent. One that is not well-formed is refused, because it would otherwise be
+ * compared against the station's language later and silently never match.
+ */
+export function sheetLanguageOf(tag: string | undefined): string | undefined {
+    const trimmed = tag?.trim();
+    if (trimmed === undefined || trimmed.length === 0) return undefined;
+
+    try {
+        return Intl.getCanonicalLocales(trimmed)[0];
+    } catch {
+        throw httpError(400).withDetails({ message: `"${trimmed}" is not a language tag, such as en, de or de-AT` });
+    }
 }
 
 /**
@@ -607,6 +636,7 @@ function toView(persona: Persona, presentingId: string | undefined, coHostIds: R
             avoid: mutable(persona.avoid),
             exclusiveSubjects: mutable(persona.exclusiveSubjects),
             samples: mutable(persona.samples),
+            sheetLanguage: persona.sheetLanguage,
             hosts: hosts === undefined || hosts.length === 0 ? undefined : [...hosts],
         }),
     };
@@ -651,6 +681,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             avoid: mutable(draft.avoid),
             exclusiveSubjects: mutable(draft.exclusiveSubjects),
             samples: mutable(draft.samples),
+            sheetLanguage: draft.sheetLanguage,
         }),
     };
 }

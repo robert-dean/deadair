@@ -158,6 +158,10 @@ export const personas = {
             errorFallback: 'The station could not write a persona. Your own fields are untouched.',
             button: 'Write me one',
         },
+        sheetLanguage: {
+            title: 'This sheet is in {{sheet}}, and the station broadcasts in {{station}}',
+            body: "The presenter is told who this character is, but not its speech rules, signature words, catchphrases or sample lines, and its phrasings are not used. Rewrite those in the station's language and change the sheet language to match to bring them back.",
+        },
         dropped: {
             title: 'Some of it was dropped',
             markers:
@@ -237,6 +241,12 @@ export const personas = {
             background: {
                 label: 'True about them',
                 description: 'A couple of grounded facts they may mention about themselves.',
+            },
+            sheetLanguage: {
+                label: 'Sheet language',
+                description:
+                    "The language the wording on this sheet is written in, as a code such as en, de or de-AT. Leave it empty on a new character to use the station's language.",
+                placeholder: 'en',
             },
             hosts: {
                 label: 'Rings in to',

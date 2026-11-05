@@ -1,9 +1,12 @@
-import { SimpleGrid, Textarea } from '@mantine/core';
+import { Box, SimpleGrid, Text, Textarea, TextInput } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 
 import { type FormValues, Section, TEMPLATE_EXAMPLES, TemplateFaults } from './persona.editor.helpers';
 import { QuirksField } from './persona.quirks.field';
+import { languageLabel, sheetMatches, stationLanguageOf } from './sheet.language';
+import { useSettings } from '../../api/settings.queries';
+import { ErrorAlert } from '../shared/error.alert';
 
 interface Props {
     form: UseFormReturnType<FormValues>;
@@ -13,10 +16,38 @@ interface Props {
 /** Split out of `persona.editor.tsx` unchanged: the Talk section of the sheet, on the sheet's one form. */
 export function PersonaEditorTalk({ form, hosting }: Props) {
     const { t } = useTranslation('personas');
+    const settings = useSettings();
+    // Only once the settings are read, so the warning never flashes up against an assumed English.
+    const setting = settings.data?.values['stream.language'];
+    const station = settings.data === undefined ? undefined : stationLanguageOf(setting);
+    const sheet = form.getValues().sheetLanguage;
 
     return (
         <>
             <Section title={t('editor.section.talk.title')} blurb={t('editor.section.talk.blurb')} />
+
+            <TextInput
+                label={t('editor.field.sheetLanguage.label')}
+                description={t('editor.field.sheetLanguage.description')}
+                placeholder={t('editor.field.sheetLanguage.placeholder')}
+                maw={320}
+                {...form.getInputProps('sheetLanguage')}
+            />
+
+            {/* What the station does with a sheet in another language is invisible from the sheet: the
+                words are all still here, and the presenter is simply never shown them. So it is said.
+                In a Box because the form is a scrolling flex column and an Alert hides its overflow,
+                which lets the column shrink it to its title. */}
+            {station === undefined || sheetMatches(sheet, station) ? undefined : (
+                <Box>
+                    <ErrorAlert
+                        tone="warning"
+                        title={t('editor.sheetLanguage.title', { sheet: languageLabel(sheet), station: languageLabel(station) })}
+                    >
+                        <Text size="sm">{t('editor.sheetLanguage.body')}</Text>
+                    </ErrorAlert>
+                </Box>
+            )}
 
             <Textarea
                 label={t('editor.field.diction.label')}

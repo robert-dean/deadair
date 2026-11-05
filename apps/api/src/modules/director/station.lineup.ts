@@ -963,6 +963,30 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * The record that ends directly in front of this line, or `undefined` when something else airs between.
+     *
+     * {@link trackRightAfter} read backwards, for a link talked up over the record after it: that
+     * record's intro may still have the record BEFORE the link playing under it, for as long as the
+     * two blend. A line already riding the NEXT record as a talk-over airs nowhere on its own, so it is
+     * passed over like a line that will never air. One said over the end of the record before
+     * (`endOf`) means that record joins hard, so nothing of it plays under the next. Anything else in
+     * between means the record before does not reach the one the link rides.
+     */
+    trackRightBefore(itemId: string): StationLineupTrackItem | undefined {
+        const at = this.itemList.findIndex(item => item.id === itemId);
+        if (at < 0) return undefined;
+
+        for (let index = at - 1; index >= 0; index--) {
+            const item = this.itemList[index]!;
+            if (item.state === 'skipped' || item.state === 'unavailable' || item.state === 'removed') continue;
+            if (item.kind === 'segment' && item.over?.endOf === true) return undefined;
+            if (item.kind === 'segment' && item.over !== undefined) continue;
+            return item.kind === 'track' ? item : undefined;
+        }
+        return undefined;
+    }
+
+    /**
      * The nearest record before this line that actually aired, as the order stands right now.
      *
      * {@link nextTrackAfter}'s mirror, for a break's BACKWARD claim: it named a line when it was

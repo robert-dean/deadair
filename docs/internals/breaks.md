@@ -256,6 +256,22 @@ clock was fixed: `on_air_elapsed` added a fixed tick per run and ran 3.5% slow, 
 that actually passed (see its note in `radio.liq`), so the lag is the same 6s in as 170s in. That fix is
 what makes a cue timed against the END of a record possible at all.
 
+**The window has a start as well as an end: the record before may still be singing under the intro.**
+The talk-up's clock starts as the blend BEGINS, so for the length of the blend the outgoing record's last
+seconds play under the one the link rides. Measured on air: "Bad Medicine" blended 12s into the next
+record with its last line running 6.8s into it, and a link timed only against the next record's post
+started at 5.8s, over the end of the chorus. So the hand-over finds the record directly before the link
+(`StationLineup.trackRightBefore`, which passes a cue already riding the next record and finds nothing
+past a talk-out, since that record joins hard), sizes the overlap with the same `blendFor` the pusher
+stamps, and `outgoingClearMs` turns the outgoing record's vocal end into a time on the incoming one's
+clock, plus `breaks.talkUpSafetyMs`. `talkUpAt` starts the link no earlier than that, plus the duck's
+ramp because `radio.liq` starts the voice that far ahead of the cue. A link that then no longer fits airs
+in the gap. An outgoing record whose singing is unknown is read as sung to its end, so the link waits out
+the whole blend; an instrumental needs nothing. The talk-out asks the same question before leaving a
+link to the talk-up, or a link the talk-up refuses would air in the gap instead of over that record's end.
+The writer's word budget does not take this off: it stays advice, and a link it overestimated airs in the
+gap.
+
 **The writer is told the intro's length as an offer, never as a tighter ceiling.** `BreakRequestBuilder.talkUp`
 reads the next record's runway through the same `runwayFor`, and `talkUpBudget` turns it into a word
 count at `WORDS_PER_SECOND` after the same safety, ramp and clock allowances; `breakPrompt` says the

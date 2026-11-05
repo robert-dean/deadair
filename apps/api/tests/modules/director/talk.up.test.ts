@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
     CUE_CLOCK_LAG_MS,
     DEFAULT_TALK_UP_SAFETY_MS,
+    outgoingClearMs,
     resolveTalkUp,
     SETTLE_MS,
     talkUpAt,
@@ -13,6 +14,7 @@ import {
 } from '../../../src/modules/director/talk.up.js';
 import { DEFAULT_DUCK_FADE_MS, DUCK_FADE_KEY, DUCK_FADE_RANGE } from '../../../src/modules/playout/gain.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS } from '../../../src/modules/lyrics/vocal.runway.js';
+import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const ask = (runwayMs: number, voiceMs = 5_000) => talkUpAt({ voiceMs, runway: { kind: 'ms', ms: runwayMs }, safetyMs: 1_500, duckFadeMs: 300 });
@@ -53,6 +55,53 @@ describe('talkUpAt', () => {
 
     it('says nothing about a link of no length', () => {
         expect(ask(12_000, 0)).toBeUndefined();
+    });
+
+    it('waits out the record before when it is still being sung under the intro', () => {
+        // The figures off air: a 9.5s link timed against a 17.58s runway started at 6.076s, while the
+        // record before was sung until 6.83s in. Cleared, the link no longer fits, so it airs in the gap.
+        const runway = { kind: 'ms', ms: 17_580 } as const;
+        expect(talkUpAt({ voiceMs: 9_504, runway, safetyMs: 1_500, duckFadeMs: 300 })).toBe(6_076);
+        expect(talkUpAt({ voiceMs: 9_504, runway, safetyMs: 1_500, duckFadeMs: 300, clearFromMs: 8_330 })).toBeUndefined();
+    });
+
+    it('starts no earlier than the record before allows, the duck ramp included, when the link still fits', () => {
+        const at = talkUpAt({ voiceMs: 4_000, runway: { kind: 'ms', ms: 16_000 }, safetyMs: 1_500, duckFadeMs: 300, clearFromMs: 5_000 })!;
+        expect(at).toBeGreaterThanOrEqual(5_300);
+        expect(at + CUE_CLOCK_LAG_MS + 4_000 + 300).toBeLessThanOrEqual(16_000 - 1_500);
+    });
+
+    it('moves the settle point on a long intro past the singing before it', () => {
+        expect(talkUpAt({ voiceMs: 5_000, runway: { kind: 'ms', ms: 30_000 }, safetyMs: 1_500, duckFadeMs: 300, clearFromMs: 6_000 })).toBe(6_300);
+        expect(talkUpAt({ voiceMs: 5_000, runway: { kind: 'ms', ms: 30_000 }, safetyMs: 1_500, duckFadeMs: 300, clearFromMs: 0 })).toBe(SETTLE_MS);
+    });
+});
+
+describe('outgoingClearMs', () => {
+    const sung = (endMs: number): VocalMarkers => ({ kind: 'ranges', onsetMs: 10_000, endMs, ranges: [{ startMs: 10_000, endMs }] });
+
+    it("places the last sung word of the record before on the next record's clock, plus the room", () => {
+        // "Bad Medicine": cue-out 312.99s, a 12s blend, singing until 307.82s, so 6.83s into the next record.
+        expect(outgoingClearMs({ markers: sung(307_820), cueOutMs: 312_990, blendMs: 12_000 }, 1_500)).toBe(8_330);
+    });
+
+    it('needs nothing when the singing ends before the blend begins, or there is no blend', () => {
+        expect(outgoingClearMs({ markers: sung(290_000), cueOutMs: 312_990, blendMs: 12_000 }, 1_500)).toBe(0);
+        expect(outgoingClearMs({ markers: sung(312_000), cueOutMs: 312_990, blendMs: 0 }, 1_500)).toBe(0);
+        expect(outgoingClearMs(undefined, 1_500)).toBe(0);
+    });
+
+    it('needs nothing under an instrumental', () => {
+        expect(outgoingClearMs({ markers: { kind: 'instrumental' }, cueOutMs: 312_990, blendMs: 12_000 }, 1_500)).toBe(0);
+    });
+
+    it('waits out the whole blend when it cannot say where the singing ends', () => {
+        expect(outgoingClearMs({ markers: { kind: 'unknown' }, cueOutMs: 312_990, blendMs: 12_000 }, 1_500)).toBe(12_000);
+        expect(outgoingClearMs({ markers: sung(307_820), blendMs: 8_000 }, 1_500)).toBe(8_000);
+    });
+
+    it('never counts singing past the cue-out', () => {
+        expect(outgoingClearMs({ markers: sung(330_000), cueOutMs: 312_990, blendMs: 12_000 }, 1_500)).toBe(13_500);
     });
 });
 

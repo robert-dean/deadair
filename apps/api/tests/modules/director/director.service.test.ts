@@ -3584,6 +3584,64 @@ describe('DirectorService talking a link up to the post', () => {
             itemId: cueItemId,
         });
     });
+
+    // Live: "Bad Medicine" blended 12s into the next record and was still being sung 6.8s into it,
+    // while the link talked up over that record started at 5.8s. The talk-up looked only at where the
+    // NEXT record's singing starts, and the record before is under its intro for the whole blend.
+    describe('with the record before still playing under the intro', () => {
+        // Both measured: 'a' ends on a 12s outro (198s to 210s), 'b' opens on a 15s intro, so they
+        // blend for 12s and 'b' starts as 'a' reaches 198s.
+        const measured = (externalId: string): RundownTrack => ({
+            ...catalogued(externalId),
+            cueInMs: 0,
+            introEndMs: 15_000,
+            outroStartMs: 198_000,
+            cueOutMs: 210_000,
+        });
+
+        async function blended(outgoing: VocalMarkers | undefined, mode?: StationLineupMode) {
+            const built = build({
+                items: [],
+                ...(mode === undefined ? {} : { mode }),
+                segments: [link(6_000)],
+                vocalMarkers: { 'track-b': sung, ...(outgoing === undefined ? {} : { 'track-a': outgoing }) },
+            });
+            built.station.set(TALK_UP_KEYS.enabled, 'true');
+            built.lineup.append([measured('a'), measured('b')]);
+            built.lineup.insertSegment('seg-1', 1);
+            await built.director.start();
+            await settle();
+            // 'b' is committed a record later, which is when a held cue gets something to ride.
+            await airNext(built.rundown);
+            return built;
+        }
+
+        it('airs the link in the gap when the record before is sung until after the latest start that fits', async () => {
+            // Sung until 204s, which is 6s into 'b', plus the 1.5s room and the 300ms ramp: 7.8s, past
+            // the 7s by which a six-second link has to start.
+            const { rundown, lineup } = await blended({ kind: 'ranges', onsetMs: 10_000, endMs: 204_000, ranges: [] });
+            expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+            expect(lineup.all()[1]).not.toHaveProperty('over');
+        });
+
+        it('starts it after the singing before it when the link still fits', async () => {
+            // Sung until 201s: 3s into 'b', so the link starts no earlier than 3000 + 1500 + 300 = 4800ms.
+            // It still ends before 'b' is sung, so it is talked up as late as it can be.
+            const { rundown } = await blended({ kind: 'ranges', onsetMs: 10_000, endMs: 201_000, ranges: [] });
+            expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toMatchObject({ atMs: 7_000 });
+        });
+
+        it('waits out the whole blend when nothing says where the record before stops singing', async () => {
+            const { rundown, lineup } = await blended(undefined);
+            expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+            expect(lineup.all()[1]).not.toHaveProperty('over');
+        });
+
+        it('talks it up as before under an instrumental', async () => {
+            const { rundown } = await blended({ kind: 'instrumental' });
+            expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toMatchObject({ atMs: 7_000 });
+        });
+    });
 });
 
 // Talking over a record's end: a link short enough to fit between the last sung word of the record

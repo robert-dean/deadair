@@ -3294,6 +3294,24 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/GeneratedPersona'
+    '/personas/{id}/rewrite':
+        post:
+            operationId: rewrite
+            summary: 'Rewrite persona in station language'
+            description: "Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GeneratedPersona'
     '/personas/restore':
         post:
             operationId: restore

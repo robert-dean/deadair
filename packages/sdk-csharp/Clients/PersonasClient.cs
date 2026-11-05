@@ -62,6 +62,19 @@ public sealed class PersonasClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Rewrite persona in station language
+    /// Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved
+    /// </summary>
+    public async Task<GeneratedPersona> RewritePersonaInStationLanguageAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("personas", http.Segment(id), "rewrite"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<GeneratedPersona>(response);
+    }
+
+    /// <summary>
     /// Restore station personas
     /// Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
     /// </summary>

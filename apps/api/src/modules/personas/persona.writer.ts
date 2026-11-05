@@ -490,3 +490,138 @@ const nonEmpty = <T>(values: T[]): T[] | undefined => (values.length === 0 ? und
 function omitUndefined<T extends Record<string, unknown>>(values: T): Partial<T> {
     return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)) as Partial<T>;
 }
+
+/**
+ * The wording a sheet carries in its own language: what a break reuses, is checked against, or airs as a
+ * phrasing. The rest of a sheet (`style`, the quirks, the preoccupations, the background) describes the
+ * character and is read by the console and the next prompt rather than by a listener, so it stays in
+ * English whatever the station broadcasts in, as `personaPrompt` asks for it.
+ */
+const REWORDED = ['diction', 'samples', 'dictionMarkers', 'catchphrases', 'avoid', 'templates'] as const;
+
+/**
+ * A phrasing value the station fills only in English: the time, the part of the day, the day, the greeting and
+ * the weather and almanac reports. Outside English a phrasing naming one never fits. See `withoutEnglishValues`
+ * in `break.templates.ts`, which is where the station leaves them out.
+ */
+const ENGLISH_ONLY_VALUE = /\{\{\s*(?:clock\.rough|clock\.daypart|clock\.weekday|greeting|weather\.report|almanac\.report|almanac\.date)\s*\}\}/;
+
+/**
+ * The prompt that rewrites a character's own wording in `language` (`undefined` is English), keeping the
+ * character.
+ *
+ * Not a translation, and the prompt says so: a diction rule about English contractions has no German
+ * counterpart word for word, and a sample line translated literally is a line no German presenter says.
+ * The model is shown the whole sheet so it knows who it is rewriting, and asked for the six worded fields
+ * only, which is what lets {@link readRewrite} lay them over the sheet without the model touching anything
+ * else about the character.
+ */
+export function rewritePrompt(sheet: PersonaDraft, language: string | undefined): LlmMessage[] {
+    const target = language === undefined ? 'English' : languageName(language);
+    const shown = Object.fromEntries(
+        Object.entries({
+            style: sheet.style,
+            background: sheet.background,
+            quirks: sheet.quirks?.map(quirk => quirk.text),
+            preoccupations: sheet.preoccupations,
+            diction: sheet.diction,
+            samples: sheet.samples,
+            dictionMarkers: sheet.dictionMarkers,
+            catchphrases: sheet.catchphrases,
+            avoid: sheet.avoid,
+            templates: sheet.templates?.split('\n').filter(line => line.trim().length > 0),
+        }).filter(([, value]) => value !== undefined),
+    );
+
+    return [
+        {
+            role: 'system',
+            content: [
+                `You rewrite a radio presenter's character sheet so the presenter speaks ${target} on air. Keep the same character: the same attitude, humour, pace and register, said the way a native ${target} speaker of that kind would say it.`,
+                '',
+                'Answer with one JSON object and nothing else, with exactly these keys: "diction", "samples", "dictionMarkers", "catchphrases", "avoid", "templates". Each is a list of strings.',
+                '',
+                'Rules:',
+                `- Do not translate word for word. A rule or a line that only works in the original language gets the ${target} equivalent that does the same job, or is left out.`,
+                `- "diction" is how they talk, as rules that apply to every sentence, written for ${target}. Write the rules themselves in English, and quote any ${target} words they name.`,
+                `- "samples" are at least six lines of the presenter talking on air between two records, in ${target}, obeying every diction rule. Every word a rule names must appear in a sample, spelled the same way. A sample is a whole spoken line with no {{...}} values and no [[...]] brackets: those belong in "templates" only.`,
+                '- "dictionMarkers" are words COPIED from your samples, word for word: the words this character reaches for most, never a noun or a subject. Write the samples first and read the markers off them.',
+                `- "catchphrases" are at most three signature phrases in ${target}. "avoid" is wording in ${target} that would break the character.`,
+                `- "templates" are the presenter's phrasings, one string each, rewritten in ${target}. Every {{...}} value and every [[...]] bracket stays exactly as given, in the same place in the sentence; only the words around them change.`,
+                ...(language === undefined
+                    ? []
+                    : [
+                          '- Leave out any template using {{clock.rough}}, {{clock.daypart}}, {{clock.weekday}} or {{greeting}}: the station fills those in English, so it never uses a phrasing that names one.',
+                      ]),
+                "- Record titles, artist names and people's names are never translated.",
+                '- Every value is on ONE line. Use plain straight quotes. No stage directions, no asterisks, no emoji.',
+            ].join('\n'),
+        },
+        { role: 'user', content: `Rewrite this character's wording in ${target}:\n\n${JSON.stringify(shown, undefined, 1)}` },
+    ];
+}
+
+/**
+ * A model's rewrite laid over the sheet it was asked about, or `undefined` when there is no usable object
+ * in the answer.
+ *
+ * Read through the same {@link draftFrom} a generated character is, so the rewrite is held to the same
+ * rules: a marker the new samples never use is dropped and reported, and so is a phrasing the station
+ * cannot fill. A worded field the answer leaves out is CLEARED rather than kept, because what is there is
+ * in the old language, and keeping it is the leak the rewrite exists to fix. Everything that describes the
+ * character comes from the sheet untouched.
+ *
+ * Two things the prompt asks for and a model did not always do are enforced here, both measured against
+ * `gemma4:26b` rewriting the seeded characters in German: a sample line carrying `{{...}}` values (the
+ * slacker's samples came back as its phrasings) is dropped, so it can neither be shown as an example nor
+ * earn a marker; and outside English a phrasing naming a value the station fills only in English (both
+ * characters kept their `{{clock.rough}}` line) is dropped and reported, since it would never be used.
+ */
+export function readRewrite(text: string, sheet: PersonaDraft, language?: string): GeneratedPersona | undefined {
+    for (const span of jsonObjects(withoutThinking(text))) {
+        const parsed = parseLooseJson(span);
+        if (typeof parsed !== 'object' || parsed === null) continue;
+
+        const answer = parsed as Record<string, unknown>;
+        if (!REWORDED.some(field => field in answer)) continue;
+
+        const spoken = Array.isArray(answer.samples)
+            ? answer.samples.filter(line => typeof line === 'string' && !/\{\{|\[\[/.test(line))
+            : answer.samples;
+        const phrasings = lines(answer.templates);
+        const fillable = language === undefined ? phrasings : phrasings.filter(line => !ENGLISH_ONLY_VALUE.test(line));
+
+        // The sheet's own key, label and style make it a draft `draftFrom` will read; only its worded
+        // fields are taken back out.
+        const read = draftFrom({ key: sheet.key, label: sheet.label, style: sheet.style, ...answer, samples: spoken, templates: fillable });
+        if (read === undefined) continue;
+
+        const {
+            diction: _diction,
+            samples: _samples,
+            dictionMarkers: _markers,
+            catchphrases: _catchphrases,
+            avoid: _avoid,
+            templates: _templates,
+            ...described
+        } = sheet;
+        return {
+            draft: {
+                ...described,
+                ...omitUndefined({
+                    diction: read.draft.diction,
+                    samples: read.draft.samples,
+                    dictionMarkers: read.draft.dictionMarkers,
+                    catchphrases: read.draft.catchphrases,
+                    avoid: read.draft.avoid,
+                    templates: read.draft.templates,
+                }),
+            },
+            stories: [],
+            droppedMarkers: read.droppedMarkers,
+            droppedTemplates: [...phrasings.filter(line => !fillable.includes(line)), ...read.droppedTemplates],
+        };
+    }
+
+    return undefined;
+}

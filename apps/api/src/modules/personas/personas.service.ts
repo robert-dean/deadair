@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import type { LlmMessage } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
 import { AfterCommit } from '#modules/data/after.commit.js';
@@ -28,12 +29,21 @@ import {
     type PersonaKind,
 } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
-import { quirksForView, quirksIn } from './persona.sheet.js';
+import { quirksForView, quirksIn, sheetSpeaks } from './persona.sheet.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
 import { SEED_CALLERS } from './caller.defaults.js';
 import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
+import {
+    BUDGET_MS,
+    MAX_OUTPUT_TOKENS,
+    MAX_WAIT_MS,
+    PERSONA_MODEL_KEY,
+    personaPrompt,
+    readPersona,
+    readRewrite,
+    rewritePrompt,
+} from './persona.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 import { modelList } from '#modules/llm/model.list.js';
 
@@ -330,34 +340,7 @@ export class PersonasService {
      * button and says why it will not work.
      */
     async generate(body: PersonaRequest): Promise<GeneratedPersona> {
-        if (!this.llm.canGenerate()) throw httpError(503).withDetails({ message: this.llm.explainGenerator() });
-
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, PERSONA_MODEL_KEY);
-        const model = models[0] ?? '';
-        const result = await this.llm.converse(
-            {
-                messages: personaPrompt(body.description, stationLanguage(this.config)),
-                ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                // The same call the break writer makes, and for a sharper reason. Inventing a
-                // character is not a reasoning problem, and a model that thinks out loud here spends
-                // the ceiling on deliberation and gets truncated mid-object — which costs the WHOLE
-                // persona, because unlike a list of picks there is only one object to lose. Measured
-                // on this station: without it the answer ran to all 4000 tokens and parsed to
-                // nothing.
-                reasoningEffort: 'low',
-            },
-            {
-                // Nothing to look up: a character is invented rather than researched, and a tool round
-                // trip here would spend another whole generation on nothing.
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                maxWaitMs: MAX_WAIT_MS,
-            },
-        );
+        const result = await this.writeSheet(personaPrompt(body.description, stationLanguage(this.config)));
 
         const generated = readPersona(result.text);
         if (generated === undefined) {
@@ -402,6 +385,95 @@ export class PersonasService {
             droppedMarkers: [...generated.droppedMarkers],
             droppedTemplates: [...generated.droppedTemplates],
         };
+    }
+
+    /**
+     * A character's own wording rewritten in the station's language, handed back as an unsaved form.
+     *
+     * For a sheet written in another language than the station broadcasts in, which is every seeded
+     * character on a station that changed language. Such a sheet is shown to a model only as who the
+     * character is (`sheetFor`), so the character loses its voice; this is how it gets it back. It is
+     * {@link generate}'s posture exactly: nothing is written here, the console drops the answer into the
+     * editor, and the operator reads it and saves it through PUT, which is what keeps a model's rewrite an
+     * edit rather than a second writer of the table. The stories are not rewritten: they are their own
+     * list, and a story told in the old language is one the operator can rewrite or retire there.
+     */
+    async rewrite(id: string): Promise<GeneratedPersona> {
+        const persona = await this.personas.find(id);
+        if (persona === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
+
+        const language = stationLanguage(this.config);
+        if (sheetSpeaks(persona, language)) {
+            throw httpError(409).withDetails({ message: `"${persona.label}" is already written in the station's language` });
+        }
+
+        const result = await this.writeSheet(rewritePrompt(persona, language));
+        const rewritten = readRewrite(result.text, persona, language);
+        if (rewritten === undefined) {
+            this.logger.info('personas: the model answered a rewrite with nothing a sheet could be read from', {
+                key: persona.key,
+                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
+                finish: result.finishReason,
+                answer: result.text.trim().slice(0, 300),
+            });
+            throw httpError(502).withDetails({ message: 'the model did not answer with a rewritten sheet. Try again' });
+        }
+
+        this.logger.info('personas: a model rewrote a persona in the station language', {
+            key: persona.key,
+            from: persona.sheetLanguage ?? 'en',
+            to: stationSheetLanguage(this.config),
+            markers: rewritten.draft.dictionMarkers?.length ?? 0,
+            samples: rewritten.draft.samples?.length ?? 0,
+            droppedMarkers: rewritten.droppedMarkers.length,
+            droppedTemplates: rewritten.droppedTemplates.length,
+            tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
+            finish: result.finishReason,
+        });
+
+        return {
+            persona: toDraftView({ ...rewritten.draft, sheetLanguage: stationSheetLanguage(this.config) }),
+            stories: [],
+            droppedMarkers: [...rewritten.droppedMarkers],
+            droppedTemplates: [...rewritten.droppedTemplates],
+        };
+    }
+
+    /**
+     * One call to the persona model with no tools, shared by {@link generate} and {@link rewrite}.
+     *
+     * A model that is absent is an ordinary state and not a fault, so it is answered as a 503 with the
+     * sentence `LlmService` already writes for it, rather than as a crash.
+     */
+    private async writeSheet(messages: LlmMessage[]) {
+        if (!this.llm.canGenerate()) throw httpError(503).withDetails({ message: this.llm.explainGenerator() });
+
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, PERSONA_MODEL_KEY);
+        const model = models[0] ?? '';
+        return this.llm.converse(
+            {
+                messages,
+                ...(model.length === 0 ? {} : { model }),
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                // The same call the break writer makes, and for a sharper reason. Inventing a
+                // character is not a reasoning problem, and a model that thinks out loud here spends
+                // the ceiling on deliberation and gets truncated mid-object — which costs the WHOLE
+                // persona, because unlike a list of picks there is only one object to lose. Measured
+                // on this station: without it the answer ran to all 4000 tokens and parsed to
+                // nothing.
+                reasoningEffort: 'low',
+            },
+            {
+                // Nothing to look up: a character is invented rather than researched, and a tool round
+                // trip here would spend another whole generation on nothing.
+                tools: false,
+                models,
+                budgetMs: BUDGET_MS,
+                maxWaitMs: MAX_WAIT_MS,
+            },
+        );
     }
 
     /**

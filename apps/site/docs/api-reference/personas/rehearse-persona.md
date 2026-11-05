@@ -1,7 +1,7 @@
 ---
 title: 'Rehearse persona'
 sidebar_label: 'Rehearse persona'
-sidebar_position: 30
+sidebar_position: 31
 mdx:
     format: 'md'
 ---

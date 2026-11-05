@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { personaPrompt, readPersona } from '../../../src/modules/personas/persona.writer.js';
+import { personaPrompt, readPersona, readRewrite, rewritePrompt } from '../../../src/modules/personas/persona.writer.js';
 import { keepsCharacter } from '../../../src/modules/personas/persona.sheet.js';
 import { unknownPlaceholders } from '../../../src/modules/director/break.templates.js';
 
@@ -342,5 +342,92 @@ describe('personaPrompt on a station that does not broadcast in English', () => 
         const system = personaPrompt('anything')[0]!.content;
 
         expect(system).toContain('(6) one using {{clock.daypart}}');
+    });
+});
+
+// A character's own wording rewritten in the station's language. The answer is laid over the sheet it was
+// asked about, so only the worded fields can change, and it is held to the same rules a generated sheet is.
+describe('readRewrite', () => {
+    const sheet = {
+        key: 'classic',
+        kinds: ['host' as const],
+        label: 'Classic host',
+        style: 'a warm, upbeat radio host',
+        background: 'Twenty years in the booth.',
+        quirks: [{ text: 'Always names the record that is next' }],
+        diction: ['Always contract'],
+        samples: ["You're locked in."],
+        dictionMarkers: ['locked'],
+        catchphrases: ["You're locked in"],
+        avoid: ['folks'],
+        templates: 'That was {{previous.title}}.',
+    };
+    const answer = (over: Record<string, unknown> = {}) =>
+        JSON.stringify({
+            diction: ['Du-Form, locker und kurz'],
+            samples: ['Bleib dran, das wird gut.', 'Echt stark, oder?', 'Bleib dran, gleich gehts weiter.'],
+            dictionMarkers: ['bleib', 'echt'],
+            catchphrases: ['Bleib dran'],
+            avoid: ['Leute'],
+            templates: ['Das war {{previous.title}}.'],
+            ...over,
+        });
+
+    it('takes the worded fields from the answer and everything else from the sheet', () => {
+        const read = readRewrite(answer(), sheet)!;
+
+        expect(read.draft.samples).toContain('Bleib dran, das wird gut.');
+        expect(read.draft.catchphrases).toEqual(['Bleib dran']);
+        expect(read.draft.templates).toBe('Das war {{previous.title}}.');
+        expect(read.draft.style).toBe('a warm, upbeat radio host');
+        expect(read.draft.quirks).toEqual([{ text: 'Always names the record that is next' }]);
+        expect(read.draft.background).toBe('Twenty years in the booth.');
+    });
+
+    it('clears a worded field the answer left out, rather than keeping it in the old language', () => {
+        const read = readRewrite(answer({ avoid: undefined, catchphrases: [] }), sheet)!;
+
+        expect(read.draft.avoid).toBeUndefined();
+        expect(read.draft.catchphrases).toBeUndefined();
+    });
+
+    it('drops and reports a marker the new samples never use', () => {
+        const read = readRewrite(answer({ dictionMarkers: ['bleib', 'gemütlich'] }), sheet)!;
+
+        expect(read.draft.dictionMarkers).toEqual(['bleib']);
+        expect(read.droppedMarkers).toEqual(['gemütlich']);
+    });
+
+    it('drops a sample line carrying phrasing values, which is a phrasing and not something said', () => {
+        const read = readRewrite(answer({ samples: ['Das war {{previous.title}}.', 'Echt stark, oder?'] }), sheet)!;
+
+        expect(read.draft.samples).toEqual(['Echt stark, oder?']);
+    });
+
+    it('drops and reports a phrasing naming a value the station fills only in English, outside English', () => {
+        const read = readRewrite(
+            answer({ templates: ['Das war {{previous.title}}.', 'Es ist {{clock.rough}} bei {{station.name}}.'] }),
+            sheet,
+            'de',
+        )!;
+
+        expect(read.draft.templates).toBe('Das war {{previous.title}}.');
+        expect(read.droppedTemplates).toEqual(['Es ist {{clock.rough}} bei {{station.name}}.']);
+    });
+
+    it('keeps that phrasing on an English station, which fills it', () => {
+        expect(readRewrite(answer({ templates: ['It is {{clock.rough}}.'] }), sheet)!.draft.templates).toBe('It is {{clock.rough}}.');
+    });
+
+    it('reads nothing from an answer with none of the worded fields', () => {
+        expect(readRewrite('{"style": "somebody else"}', sheet)).toBeUndefined();
+        expect(readRewrite('I cannot help with that.', sheet)).toBeUndefined();
+    });
+
+    it('asks for the rewrite in the station language and leaves out the values only English fills', () => {
+        const system = String(rewritePrompt(sheet, 'de')[0]?.content);
+
+        expect(system).toContain('speaks German on air');
+        expect(system).toContain('{{clock.rough}}');
     });
 });

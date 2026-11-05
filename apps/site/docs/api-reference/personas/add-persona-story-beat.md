@@ -1,7 +1,7 @@
 ---
 title: 'Add persona story beat'
 sidebar_label: 'Add persona story beat'
-sidebar_position: 31
+sidebar_position: 32
 mdx:
     format: 'md'
 ---

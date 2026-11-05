@@ -103,6 +103,18 @@ sheet, 5 of 30 with the description alone and 2 of 30 with no character. Product
 same way. The floor leaves the character's phrasings out too, since it would air them as written, and outside
 English that passes the break over rather than falling back to the station's English five.
 
+**`POST /personas/{id}/rewrite` gives such a character its voice back**, in the station's language. It is
+`generate`'s posture: the answer is an unsaved form the console drops into the editor, and the operator saves it.
+`rewritePrompt` shows the model the whole sheet and asks for the six worded fields only (speech rules, samples,
+markers, catchphrases, avoid, phrasings), and `readRewrite` lays them over the sheet through the same `draftFrom`
+a generated character goes through, so a marker the new samples never use is dropped and reported. A worded
+field the answer leaves out is cleared rather than kept, because what is there is in the old language. Two things
+the prompt asks for and a model did not always do are enforced: a sample line carrying `{{...}}` values is
+dropped, and outside English so is a phrasing naming a value the station fills only in English. The stories are
+not rewritten; they are their own list. Measured with `gemma4:26b`, the persona model's fixed `low` reasoning
+spent all 4000 tokens thinking and answered nothing, for this and for `generate` alike; at `none` both seeded
+characters came back in 20 seconds.
+
 ## The newsreader
 
 **A bulletin is read by the newsreader when the station has one, whoever is hosting.** `newsreader` is

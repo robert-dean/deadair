@@ -1,7 +1,7 @@
 ---
 title: 'Roll back persona memory'
 sidebar_label: 'Roll back persona memory'
-sidebar_position: 37
+sidebar_position: 38
 mdx:
     format: 'md'
 ---

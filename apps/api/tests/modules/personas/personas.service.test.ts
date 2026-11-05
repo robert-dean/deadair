@@ -554,3 +554,19 @@ describe('PersonasService, for the language a sheet is written in', () => {
         expect(() => draftOf(input({ sheetLanguage: 'not a language' }))).toThrow(expect.objectContaining({ statusCode: 400 }));
     });
 });
+
+// The rewrite is the generator's posture: a form handed back unsaved. What is held here is the service's
+// half, which sheets it will rewrite at all; the prompt and the parser are `persona.writer.test.ts`'s.
+describe('PersonasService rewriting a sheet in the station language', () => {
+    it('refuses a sheet already in the station language', async () => {
+        const { service } = build({ language: 'de', setDefaultHost: persona({ sheetLanguage: 'de' }) });
+
+        await expect(service.rewrite('p1')).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it('answers a character this station does not have with a 404', async () => {
+        const { service } = build({ language: 'de', setDefaultHost: undefined });
+
+        await expect(service.rewrite('gone')).rejects.toMatchObject({ statusCode: 404 });
+    });
+});

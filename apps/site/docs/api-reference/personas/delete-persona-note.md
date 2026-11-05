@@ -1,7 +1,7 @@
 ---
 title: 'Delete persona note'
 sidebar_label: 'Delete persona note'
-sidebar_position: 19
+sidebar_position: 20
 mdx:
     format: 'md'
 ---

@@ -95,6 +95,14 @@ markers, which are words a correct break in the station's language never carries
 a sample line or a catchphrase copied word for word is how the sheet's language leaks into the break
 (discussion 868).
 
+**And a prompt is shown only what describes such a character** (`sheetFor`): its style, quirks, preoccupations,
+background and prohibitions, without its speech rules, markers, catchphrases or sample lines, and so without the
+closing reminder that restates the speech rules. Those four are wording to reuse, and a model handed English
+wording writes English: against `gemma4` on a German station, 22 of 59 breaks came out English with the whole
+sheet, 5 of 30 with the description alone and 2 of 30 with no character. Productions read the same sheet the
+same way. The floor leaves the character's phrasings out too, since it would air them as written, and outside
+English that passes the break over rather than falling back to the station's English five.
+
 ## The newsreader
 
 **A bulletin is read by the newsreader when the station has one, whoever is hosting.** `newsreader` is

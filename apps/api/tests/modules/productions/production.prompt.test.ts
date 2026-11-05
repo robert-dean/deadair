@@ -771,3 +771,24 @@ describe('a programme with notes', () => {
         expect(user).not.toContain('notes');
     });
 });
+
+// A beat is written from the same sheet as a break, so the same rule holds: where the sheet is in another
+// language than the programme, its own wording stays out and only what describes the character goes in.
+describe('a beat for a sheet in another language than the programme', () => {
+    const english = sheet({
+        background: 'Has rung the show every week since it started.',
+        samples: ['I want to believe it, I really do, but show me the paperwork.'],
+        catchphrases: ['Show me the paperwork'],
+    });
+
+    it('leaves out the sheet’s own wording', () => {
+        const system = systemOf(turn({ ...base, persona: english, language: 'de' }));
+
+        expect(system).toContain('Has rung the show every week since it started.');
+        expect(system).not.toContain('paperwork');
+    });
+
+    it('keeps it where the sheet is written in the programme’s language', () => {
+        expect(systemOf(turn({ ...base, persona: { ...english, sheetLanguage: 'de' }, language: 'de' }))).toContain('paperwork');
+    });
+});

@@ -34,7 +34,7 @@
 import { padOffer, type PadUseNote } from '#modules/render/pad.cues.js';
 import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
 import type { Persona } from '#modules/personas/persona.js';
-import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
+import { latitudeOf, personaLines, sheetFor } from '#modules/personas/persona.sheet.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { isVisitor, type CallSubject, type CastMember, type ShowRecord } from './production.cast.js';
@@ -469,7 +469,11 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
                   // chosen here. See `CastMember.preoccupation`. Rendered wherever the caller sends
                   // one: the kinds that may not have one are refused at that end, where the guard
                   // that already withholds a notebook from a bulletin lives.
-                  ...personaLines(request.persona, request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation }),
+                  // Only what describes the character where its sheet is in another language. See `sheetFor`.
+                  ...personaLines(
+                      sheetFor(request.persona, request.language),
+                      request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation },
+                  ),
                   '',
                   // The single most important line in this prompt, and it took a live 24-beat run to
                   // find. A persona sheet is written in units of BREAKS — "about once a break",

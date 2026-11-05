@@ -457,3 +457,27 @@ describe('spoken', () => {
 
 /** The part of a script that identifies its phrasing: everything up to the first space-separated pair. */
 const opening = (script: string): string => script.split(' ').slice(0, 2).join(' ').toLowerCase();
+
+// The floor reads a character's own phrasings as written, so phrasings in English would air as English on
+// a station broadcasting in German. Where the sheet is in another language they are left out, and outside
+// English the station has none of its own to fall back on, so the break is passed over.
+describe('TalkBreakWriter, for a sheet in another language than the station', () => {
+    const phrasings = 'That there haul was {{previous.title}}, from {{previous.artist}}.';
+
+    it('does not air an English sheet\u2019s phrasings on a German station', async () => {
+        const german = build({ 'stream.language': 'de' });
+
+        expect(await german.write({ kind: TALK_BREAK_KIND, previous, persona: pirate({ templates: phrasings }) })).toBeUndefined();
+    });
+
+    it('airs a sheet\u2019s phrasings where it is written in the station language', async () => {
+        const german = build({ 'stream.language': 'de' });
+        const written = await german.write({
+            kind: TALK_BREAK_KIND,
+            previous,
+            persona: pirate({ templates: 'Das war {{previous.title}} von {{previous.artist}}.', sheetLanguage: 'de' }),
+        });
+
+        expect(written?.script).toBe('Das war Solid Air von John Martyn.');
+    });
+});

@@ -887,6 +887,27 @@ export function sheetSpeaks(sheet: Pick<PersonaSheet, 'sheetLanguage'>, station:
 }
 
 /**
+ * The sheet a prompt may show a model writing in `station`'s language: the whole sheet where it is
+ * written in that language, and only what DESCRIBES the character where it is not.
+ *
+ * What goes is the character's own wording: the speech rules (`diction`, whose clauses quote words to
+ * use), the marker words, the catchphrases and the sample lines. Each of them is text in the sheet's
+ * language that the prompt asks the model to reuse, and handed English to reuse a model writes English:
+ * measured against `gemma4` with a station set to German, 22 of 59 breaks came out in English with the
+ * whole sheet and 2 of 30 with no character at all, and the description alone kept most of the
+ * difference (5 of 30). What stays is who the character is (`style`, the quirks, the preoccupations,
+ * the background), which a model carries into any language, and the prohibitions, which it is not
+ * asked to say. The checks are not given this sheet: they still refuse a sample line or a catchphrase
+ * copied word for word, which is how the sheet's language would leak through anyway.
+ */
+export function sheetFor<T extends PersonaSheet>(sheet: T, station: string | undefined): T {
+    if (sheetSpeaks(sheet, station)) return sheet;
+
+    const { diction: _diction, dictionMarkers: _markers, catchphrases: _catchphrases, samples: _samples, ...described } = sheet;
+    return described as T;
+}
+
+/**
  * Caps on how much of a sheet reaches a prompt.
  *
  * A sheet has to stay a sheet. It shares a system turn with the grounding rules, the model is a

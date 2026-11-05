@@ -273,7 +273,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         hostLabel={hostLabel}
                     />
 
-                    <PersonaEditorTalk form={form} hosting={hosting} />
+                    <PersonaEditorTalk form={form} hosting={hosting} {...(persona === undefined ? {} : { personaId: persona.id })} />
 
                     <PersonaEditorDials form={form} voiceOptions={voiceOptions} boardOptions={boardOptions} preview={preview} />
                 </Stack>

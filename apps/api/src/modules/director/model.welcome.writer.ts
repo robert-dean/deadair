@@ -10,6 +10,7 @@ import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { writeWithModel } from './model.break.write.js';
 import { MODEL_WRITER } from './model.talk.break.writer.js';
+import { unshownGuard } from './unshown.records.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 
 /**
@@ -143,6 +144,9 @@ export class ModelWelcomeWriter extends BreakWriter {
                     // for `permittedYears`' own reason: a year another writer invented is quoted back into
                     // this prompt's "You said these recently" block too. See `ModelTalkBreakWriter.write`.
                     years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+                    // The greeting that lifted Sodom's "Agent Orange" whole from the talk break above it,
+                    // refused rather than only asked against. See `unshownGuard`.
+                    ...unshownGuard(request),
                 }),
                 purpose: { noModel: 'greet with', nothing: 'greet a listener with' },
             },

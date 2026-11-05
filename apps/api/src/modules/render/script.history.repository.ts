@@ -190,6 +190,31 @@ interface ScriptHistoryRow {
 }
 
 /**
+ * A stored neighbour as a record with a title and an artist, or `undefined` for anything else.
+ *
+ * The column is `jsonb` written from a `BreakTrack`, so this is a guard against a row from an older
+ * shape rather than a parser: a neighbour with no title or no artist names nothing a script could say.
+ */
+function asHistoryTrack(value: unknown): HistoryTrack | undefined {
+    if (value == null || typeof value !== 'object') return undefined;
+    const { title, artist } = value as { title?: unknown; artist?: unknown };
+    if (typeof title !== 'string' || typeof artist !== 'string' || title.trim() === '' || artist.trim() === '') return undefined;
+    return { title, artist };
+}
+
+/**
+ * Leaves out every attempt at the break being written, for a reader building that break's memory.
+ *
+ * A break's own earlier attempt is not something the station SAID: a rewrite, or a write after a
+ * stale claim, replaces words nobody heard. Handed back as "you said these recently", the old words
+ * are the newest line in the list and the one a model copies from, so a bulletin rewritten to stop
+ * naming a record that had left the order was shown its own sentence naming that record. `is
+ * distinct from` keeps an orphaned attempt (a null `segment_id`), which cannot be this break's.
+ */
+const notTheBreakBeingWritten = (segmentId: string | undefined) =>
+    segmentId === undefined ? sql`` : sql`and segment_id is distinct from ${segmentId}::uuid`;
+
+/**
  * The columns an attempt is read back with, TABLE-QUALIFIED.
  *
  * Qualified because the page joins the ratings table, which carries its own `created_at` and
@@ -324,8 +349,11 @@ export class ScriptHistoryRepository extends DataRepository {
      * Kind-agnostic on purpose. A talk break repeating what the bulletin before it just said is the
      * same failure as one repeating another talk break, and only a reader that sees both can catch
      * it.
+     *
+     * `excludingSegment` leaves one break's own attempts out, for the break being written: see
+     * {@link notTheBreakBeingWritten}.
      */
-    async spokenDuring(broadcastId: string, limit: number): Promise<string[]> {
+    async spokenDuring(broadcastId: string, limit: number, excludingSegment?: string): Promise<string[]> {
         if (limit <= 0) return [];
 
         // `distinct on` rather than a window function: it is the cheapest way Postgres expresses
@@ -336,6 +364,7 @@ export class ScriptHistoryRepository extends DataRepository {
                 select distinct on (coalesce(segment_id::text, id::text)) script, created_at
                 from deadair.script_history
                 where broadcast_id = ${broadcastId}
+                  ${notTheBreakBeingWritten(excludingSegment)}
                   and outcome = 'written'
                   and script is not null
                 order by coalesce(segment_id::text, id::text), created_at desc
@@ -366,9 +395,10 @@ export class ScriptHistoryRepository extends DataRepository {
      * whose clock has drifted must not remember a different hour than the rows were written in. It is
      * served by `script_history_recent_idx` on `created_at`, so it needs no index of its own.
      *
-     * `0` or less, on either bound, answers nothing without asking.
+     * `0` or less, on either bound, answers nothing without asking. `excludingSegment` is
+     * {@link spokenDuring}'s.
      */
-    async spokenSince(withinMs: number, limit: number, excludeBroadcastId: string | undefined): Promise<string[]> {
+    async spokenSince(withinMs: number, limit: number, excludeBroadcastId: string | undefined, excludingSegment?: string): Promise<string[]> {
         if (withinMs <= 0 || limit <= 0) return [];
 
         const rows = await sql<{ script: string }>`
@@ -378,6 +408,7 @@ export class ScriptHistoryRepository extends DataRepository {
                 where station_key = ${this.identity.stationKey}
                   and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
                   ${excludeBroadcastId === undefined ? sql`` : sql`and broadcast_id is distinct from ${excludeBroadcastId}`}
+                  ${notTheBreakBeingWritten(excludingSegment)}
                   and outcome = 'written'
                   and script is not null
                 order by coalesce(segment_id::text, id::text), created_at desc
@@ -387,6 +418,50 @@ export class ScriptHistoryRepository extends DataRepository {
         `.execute(this.db);
 
         return rows.rows.map(row => row.script);
+    }
+
+    /**
+     * The records the station's recent breaks were written around, newest first, each once.
+     *
+     * Every written attempt's `previous` and `next` in the last `withinMs`, which is what each break
+     * was SHOWN rather than what it said: the table keeps the neighbours and not a reading of the
+     * words. That is the right superset for the one reader, which refuses a bulletin or a weather
+     * break naming any of them that it was not given this time. A record a recent break was about is
+     * the record a model finds in "you said these recently" and reuses, and on a German station that
+     * was a record that had left the order, named ahead of a different one on every bulletin.
+     *
+     * Every attempt rather than the latest per segment, unlike the reads above: a superseded attempt
+     * is exactly where a stale name lives. `limit` bounds the ATTEMPTS read, not the records answered.
+     * Cut against the database's clock, as {@link spokenSince} is. `0` or less, on either bound,
+     * answers nothing without asking.
+     */
+    async recordsAround(withinMs: number, limit: number): Promise<HistoryTrack[]> {
+        if (withinMs <= 0 || limit <= 0) return [];
+
+        const rows = await sql<{ previous: unknown; next: unknown }>`
+            select previous, next
+            from deadair.script_history
+            where station_key = ${this.identity.stationKey}
+              and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
+              and outcome = 'written'
+              and (previous is not null or next is not null)
+            order by created_at desc
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+
+        const records: HistoryTrack[] = [];
+        const seen = new Set<string>();
+        for (const row of rows.rows) {
+            for (const side of [row.next, row.previous]) {
+                const record = asHistoryTrack(side);
+                if (record === undefined) continue;
+                const key = `${record.title.toLowerCase()}\u0000${record.artist.toLowerCase()}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                records.push(record);
+            }
+        }
+        return records;
     }
 
     /**
@@ -404,6 +479,8 @@ export class ScriptHistoryRepository extends DataRepository {
      * out, it reads every kind, which is what a signature wants: a catchphrase heard in the banter is
      * as spent as one heard in a talk break.
      *
+     * `excludingSegment` is {@link spokenDuring}'s, on the same argument one break smaller.
+     *
      * `excludingProduction` leaves one programme's own beats out, for a production asking what its
      * speaker said BEFORE it: a beat being re-drafted must not be told its signature is spent by its
      * own first attempt, and that attempt is in this table as `written`. A row whose segment has gone
@@ -417,11 +494,11 @@ export class ScriptHistoryRepository extends DataRepository {
         personaKey: string,
         withinMs: number,
         limit: number,
-        options: { kind?: string; excludingProduction?: string } = {},
+        options: { kind?: string; excludingProduction?: string; excludingSegment?: string } = {},
     ): Promise<string[]> {
         if (withinMs <= 0 || limit <= 0) return [];
 
-        const { kind, excludingProduction } = options;
+        const { kind, excludingProduction, excludingSegment } = options;
 
         const rows = await sql<{ script: string }>`
             select script from (
@@ -435,6 +512,7 @@ export class ScriptHistoryRepository extends DataRepository {
                           ? sql``
                           : sql`and segment_id is distinct from all (select id from deadair.segments where production_id = ${excludingProduction})`
                   }
+                  ${notTheBreakBeingWritten(excludingSegment)}
                   and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
                   and outcome = 'written'
                   and script is not null

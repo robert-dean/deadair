@@ -459,6 +459,22 @@ words named, and `toPlayerItems` drops the break when that is no longer what pla
 record is offered to a writer only when it is the adjacent line, since a promise made across an
 intervening segment is the least trustworthy kind. Silence on one boundary beats a wrong fact.
 
+**The claim is the line the writer was SHOWN, not a reading of what the words named.** A model writer
+stamps `claimsNext` whenever it was given a next record, so a script that names some other record is
+stamped with the right line and passes both checks. Reported from a German station whose news and
+weather breaks kept naming a record that had left the order, ahead of a different one, rewrites
+included. Three things answer it. A break is never shown its own earlier attempts as "you said these
+recently" (`BreakRequestBuilder.memory` passes the segment being written, and the history reads leave
+it out). A bulletin is asked to hand back "to the music" rather than to "the record coming up", which it
+may not have been shown. And news, weather and the welcome are REFUSED for handing over to a record
+an earlier break was about (`unshown-record`): `BreakWriteRequest.lately` is every neighbour the last
+hour's written attempts were shown (`ScriptHistoryRepository.recordsAround`), less this break's own
+records and their artists, less any record its own stories name (`unshownGuard`), and
+`unshownRecordIn` counts a record as named only when the script carries its title AND its artist. That
+strictness is the point: a weather break saying "rain" is not naming a record called "Rain", and a
+nickname is not the failure being caught. It reads names rather than phrases, so it works in any
+language. A talk break is not asked, since it is shown what the show played and may refer back to it.
+
 **There are three dimensions of that, and they are one argument read three ways.** A break naming the
 next RECORD is overtaken by an edit (`claims_item_id`); one naming the TIME is overtaken by the clock
 (`claims_time_from`/`until`); one reporting a MEASUREMENT is overtaken by the world

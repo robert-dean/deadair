@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.90.5] — 2026-11-05
+
+- Restart the audio chain when Icecast has had no source on the mount for ninety seconds. A Liquidsoap whose output had stopped while its control API went on answering used to leave the station off air, with nobody able to connect, until somebody restarted it by hand.
+
 ## [0.90.4] — 2026-11-04
 
 - The analysis sidecar moves to torch and torchaudio 2.10.0 for a security advisory on loading checkpoint files. The beat tracker's beats and downbeats came out the same as on 2.9.1.
@@ -1892,7 +1896,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.5...HEAD
+[0.90.5]: https://github.com/robert-dean/deadair/compare/v0.90.4...v0.90.5
 [0.90.4]: https://github.com/robert-dean/deadair/compare/v0.90.3...v0.90.4
 [0.90.3]: https://github.com/robert-dean/deadair/compare/v0.90.2...v0.90.3
 [0.90.2]: https://github.com/robert-dean/deadair/compare/v0.90.1...v0.90.2

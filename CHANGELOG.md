@@ -9,6 +9,16 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.95.0] — 2026-11-05
+
+- Add `POST /personas/{id}/rewrite`, which rewrites a character's speech rules, sample lines, signature words, catchphrases, banned wording and phrasings in the station's language and hands the sheet back unsaved, the way generating a character does. A character already in the station's language is refused with a 409.
+- A character now records the language its sheet is written in, as `sheetLanguage`. Characters that already exist, the built-in ones included, are English. A new character takes the station's language unless it names one, and saving a character without the field keeps what it had. Nothing on air changes yet.
+- Stop refusing breaks as out of character for missing a character's signature words when the character's sheet is in a different language from the station. A break can still be refused for copying a sample line or reusing a catchphrase.
+- Add a setting for how hard the character model thinks, under the language model settings. It defaults to A little, as before. Set it to Not at all for a model that thinks until it runs out of room and writes nothing when you generate a character or rewrite one in the station's language.
+- The character editor can rewrite a character's wording in the station's language. When a sheet is in a different language from the station, the warning offers a "Rewrite in" button that fills in the speech rules, sample lines, signature words, catchphrases, banned wording and phrasings in the station's language. Nothing is saved until you press Save.
+- The character editor has a Sheet language field, and warns when a character's sheet is in a different language from the station's broadcast language, since the presenter is then told only who the character is.
+- Keep a character's English wording out of breaks on a station that broadcasts in another language. Where a character's sheet is in a different language from the station, the model is shown who the character is but not its sample lines, catchphrases, signature words or speech rules, and its phrasings are not used as a fallback. Write the character's sheet in the station's language, and set its language to match, to get its own wording back.
+
 ## [0.94.0] — 2026-11-05
 
 - Lean the model toward the artists the operator played at Spotify in the last few days, a little more strongly than the ones they play most over weeks and still less than anything they rated. Records the station aired itself are left out of that first, and the station logs which ones it left out.
@@ -1923,7 +1933,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.94.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.95.0...HEAD
+[0.95.0]: https://github.com/robert-dean/deadair/compare/v0.94.0...v0.95.0
 [0.94.0]: https://github.com/robert-dean/deadair/compare/v0.93.0...v0.94.0
 [0.93.0]: https://github.com/robert-dean/deadair/compare/v0.92.2...v0.93.0
 [0.92.2]: https://github.com/robert-dean/deadair/compare/v0.92.1...v0.92.2

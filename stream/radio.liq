@@ -362,21 +362,22 @@ on_air_item = ref("")
 # and cancels. Timing the voice against the music in here is exact; timing it against the
 # listener's clock from outside has all of that error in it.
 #
-# **The `cross` further down does not break this, and it needs no correction.** That is worth
-# stating because it is not obvious, an earlier version of this file got it wrong in both
-# directions, and [crossfades](https://github.com/robert-dean/deadair/discussions/11) deferred the whole feature on the belief that it did.
+# **It is zeroed where a record's metadata comes OUT of the `cross`, not where the queue starts
+# it** (`playout_note_heard`, beside the cross). The voice is mixed in above the cross, so the only
+# instant that means "the listener starts hearing this record" is the one at the cross's output,
+# and the queue's own boundary is that instant only while nothing is buffered between the two.
 #
-# The reasoning that looks right and is not: a cross holds a buffer of the music and the voice is
-# mixed in above it, so the bed is delayed and the voice is not, so this counter must be running
-# ahead of the audience. What that misses is that this is a WALL CLOCK, not a source position. It
-# is zeroed when the `on_track` fires, and the only question is whether that instant is when the
-# listener starts hearing the record. It is: with a buffer of L seconds the operator pulls the
-# source L ahead, so the source crosses into the next track at output time (its start - L), and the
-# overlap is L long, so it BEGINS at the same instant. The counter is zeroed exactly as the record
-# becomes audible and both then advance in real time.
-#
-# The buffer growing or shrinking afterwards, as it re-sizes for the next boundary, moves the source
-# pointer and not this clock, so it does not enter into it either.
+# In a short run nothing is: stream/voicecue.check.liq, and the same harness over a real
+# `request.queue` with cue-trimmed files and the filtered handover, all find the queue's boundary
+# and the overlap beginning in the same frame, which is why this used to be zeroed in the queue's
+# `on_track` and an earlier version of this note argued it needed no correction. On air it was
+# wrong by a lead that GROWS over a session. Measured on 2026-11-05 from the station's own logs,
+# between the queue starting a record and that record's metadata reaching the mount: 0s after a
+# restart, 5s an hour in, 12s two hours in, jumping by roughly the length of each long handover and
+# never draining. A link talked up 2s into "Back In Black" was heard over the last lines of the
+# record before it, because the counter had started 12s before the listener heard the new record.
+# What builds the lead was not reproduced offline; zeroing at the output makes the cue right
+# whatever it is.
 #
 # **It adds the time that actually passed, not a fixed tick.** It used to add `voice_tick` on every
 # run, and `thread.run` does not fire on the nail, so it ran slow: a break due at 6s landed at 6.22s
@@ -394,7 +395,7 @@ on_air_item = ref("")
 # at 14.5s -- halfway through the next verse -- and the error was exactly the blend out, which is
 # what it was adding. Nothing is added now.
 #
-# Declared above `playout_note_on_air`, which resets it: Liquidsoap resolves names where they are
+# Declared above `playout_note_heard`, which resets it: Liquidsoap resolves names where they are
 # written, so a ref used inside a `def` has to exist before the `def` does.
 on_air_elapsed = ref(0.)
 voice_tick = 0.1
@@ -470,10 +471,6 @@ def playout_note_on_air(m) =
   on_air_speech := m["deadair_speech"] == "1"
   on_air_gain := m["liq_amplify"]
   on_air_voice_lufs := string.to_float(default=voice_aim_fallback_lufs, string.trim(m["deadair_voice_lufs"]))
-  # Reset HERE, in the streaming loop, which is the whole reason this hook is synchronous: the
-  # counter below is what a voice cue is timed against, and starting it anywhere else would start
-  # it late by however long an HTTP notify took to arrive.
-  on_air_elapsed := 0.
 end
 
 # What the app has asked for and has not had yet: the uri to play, the running-order item it is
@@ -929,6 +926,25 @@ playout_bed =
     playout_transition,
     playout_bed
   )
+
+# Which record the listener is HEARING, by rundown item id, and the moment they started to: where
+# its metadata leaves the cross, which is where the voice is mixed against it. See the note on
+# `on_air_elapsed` for why this and not the queue's `on_track`, which ran 12s early on air.
+#
+# A record's metadata leaves at the start of the overlap into it, which is the instant the app times
+# a talk-up from. Only a CHANGE of item counts, so metadata repeated inside a record (an Ogg stream
+# can carry more than one block) does not restart the clock, and anything without an id (the local
+# music bed) leaves it alone.
+on_air_heard = ref("")
+
+def playout_note_heard(m) =
+  item = m["deadair_item"]
+  if item != "" and item != on_air_heard() then
+    on_air_heard := item
+    on_air_elapsed := 0.
+  end
+end
+playout_bed.on_metadata(synchronous=true, playout_note_heard)
 
 # ── Playout control endpoints ────────────────────────────────────────────────────────────────
 # Registered on the harbor port, which carries nothing else, and gated on
@@ -1675,10 +1691,11 @@ voice = request.queue(id="voice", prefetch=1)
 #              it waits.
 def voice_cue_check() =
   if voice_state() == "armed" then
-    playing = playout_queue.is_ready() and on_air_item() == voice_item()
+    # The record the LISTENER is hearing, not the one the queue is reading: see `on_air_heard`.
+    playing = playout_queue.is_ready() and on_air_heard() == voice_item()
     # ONE correction, the duck's own ramp, so the bed is down before the first word rather than
-    # during it. Deliberately nothing for the crossfade: see the note on `on_air_elapsed` for why a
-    # cross needs none, and stream/voicecue.check.liq for the measurement that settled it.
+    # during it. Nothing for the crossfade: the counter is zeroed at the cross's output, where the
+    # overlap into the record begins (see the note on `on_air_elapsed`).
     due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_now() / 1000.)
     if playing then
       voice_seen := true

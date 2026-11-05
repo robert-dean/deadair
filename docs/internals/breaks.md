@@ -256,6 +256,15 @@ clock was fixed: `on_air_elapsed` added a fixed tick per run and ran 3.5% slow, 
 that actually passed (see its note in `radio.liq`), so the lag is the same 6s in as 170s in. That fix is
 what makes a cue timed against the END of a record possible at all.
 
+**The clock starts where the listener starts hearing the record, which is the cross's output and not the
+queue.** It used to be zeroed in the queue's `on_track`, and every offline check found the two in the same
+frame. On air they drifted apart over a session, measured from the station's own logs on 2026-11-05: 0s
+after a restart, 12s two hours later. A link timed correctly 2s into "Back In Black" was heard over the last
+lines of "Gloryhole", the record before it, because the clock had started 12s before Back In Black could be
+heard. `playout_note_heard` zeroes it where a record's metadata leaves the cross, and the cue waits for that
+record there too. The app's own figures (`startedAt`, the reading's `remainingMs`) still come from the queue
+and run ahead by the same lead; nothing times a cue against them.
+
 **The window has a start as well as an end: the record before may still be singing under the intro.**
 The talk-up's clock starts as the blend BEGINS, so for the length of the blend the outgoing record's last
 seconds play under the one the link rides. Measured on air: "Bad Medicine" blended 12s into the next

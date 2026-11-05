@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.91.0] — 2026-11-05
+
+- Offer the Spotify account's top tracks over three time ranges and its saved tracks as four extra playlists, so they reach the library, the Library page and Air this playlist the way any playlist does. They need no reconnect: the connection already holds both permissions.
+
 ## [0.90.5] — 2026-11-05
 
 - Restart the audio chain when Icecast has had no source on the mount for ninety seconds. A Liquidsoap whose output had stopped while its control API went on answering used to leave the station off air, with nobody able to connect, until somebody restarted it by hand.
@@ -1896,7 +1900,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.90.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.91.0...HEAD
+[0.91.0]: https://github.com/robert-dean/deadair/compare/v0.90.5...v0.91.0
 [0.90.5]: https://github.com/robert-dean/deadair/compare/v0.90.4...v0.90.5
 [0.90.4]: https://github.com/robert-dean/deadair/compare/v0.90.3...v0.90.4
 [0.90.3]: https://github.com/robert-dean/deadair/compare/v0.90.2...v0.90.3

@@ -531,7 +531,7 @@ what was rated and above what was disliked, worded as "where they suit the brief
 is not an opinion of it and a brief has to win. Disliked artists are taken out first
 (`TasteRepository.withoutDisliked`), or the model wastes the picks `PickResolver` refuses. `station_taste`
 carries it as `listening` and tells a writer never to say it on air: it is the operator's private listening,
-and every writer shares that tool. `llm.setListeningProfile` turns it off. Top and saved TRACKS do not come
+and every writer shares that tool. `llm.setListeningProfile` turns it off. A shortlist refill has no taste block, and on a station whose briefs name their acts that is every refill, so `shortlistPrompt` gets the same read as a mark on the lines of artists it holds (`operator plays them`), described as a tie-breaker. A mark rather than names, because the list is all that model chooses from and a name not on it could only send it searching. Top and saved TRACKS do not come
 this way: Spotify lists them as playlists (`top:short_term`, `saved`), so they reach the catalog on the walk.
 
 **A brief that names its acts is programmed from a numbered list, and the model answers with numbers.**

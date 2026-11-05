@@ -1027,6 +1027,34 @@ describe('smart shuffle, as the model sees it', () => {
 });
 
 describe('ModelSetGenerator with a shortlist', () => {
+    describe('what the operator plays elsewhere', () => {
+        const entries: ShortlistEntry[] = [
+            { title: 'One', artist: 'Kyuss', trackId: 'track-1' },
+            { title: 'Two', artist: 'Sleep', trackId: 'track-2' },
+        ];
+        const userOfRun = async (built: ReturnType<typeof build>): Promise<string> => {
+            await built.generator.generate(inputs(1));
+            const [request] = built.converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+            return request.messages.find(message => message.role === 'user')?.content ?? '';
+        };
+
+        it('marks the lines of the artists they play', async () => {
+            const user = await userOfRun(
+                build({ enabled: true, shortlist: entries, text: '[1]', listening: { artists: ['Kyuss'], genres: ['stoner rock'] } }),
+            );
+
+            expect(user).toMatch(/Kyuss - "One" \(operator plays them/);
+            expect(user).not.toMatch(/Sleep[^\n]*operator plays them/);
+        });
+
+        it('programmes from the list without the marks when the read throws', async () => {
+            const user = await userOfRun(build({ enabled: true, shortlist: entries, text: '[1]', listeningFails: true }));
+
+            expect(user).toContain('Kyuss - "One"');
+            expect(user).not.toContain('operator plays them');
+        });
+    });
+
     const list: ShortlistEntry[] = [
         { title: 'South of Heaven', artist: 'Slayer', trackId: 'track-1' },
         { title: 'Freezing Moon', artist: 'Mayhem', year: 1994 },

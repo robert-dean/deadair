@@ -119,3 +119,29 @@ describe('shortlistPrompt', () => {
         expect(without?.content).not.toContain('At most');
     });
 });
+
+describe('shortlistPrompt, marking what the operator plays elsewhere', () => {
+    const userOf = (listening?: string[]): string =>
+        shortlistPrompt({ count: 2, list: LIST, ...(listening === undefined ? {} : { listening }) })[1]!.content as string;
+
+    it('marks the lines by those artists, whatever the case of the name', () => {
+        const user = userOf(['slayer', 'Somebody Not On The List']);
+
+        expect(user).toMatch(/1\. Slayer - "South of Heaven" \(operator plays them,/);
+        expect(user).not.toMatch(/Mayhem[^\n]*operator plays them/);
+        expect(user).not.toContain('Somebody Not On The List');
+    });
+
+    it('explains the mark as a tie-breaker, ahead of the list, and asks for it not to be said', () => {
+        const user = userOf(['Slayer']);
+
+        expect(user).toMatch(/Between records that suit the request equally, prefer those/);
+        expect(user).toContain('never mention it');
+        expect(user.indexOf('prefer those')).toBeLessThan(user.indexOf('The records you can choose from'));
+    });
+
+    it('says nothing at all when no line is marked', () => {
+        expect(userOf()).toBe(userOf(['Somebody Not On The List']));
+        expect(userOf()).not.toContain('operator plays them');
+    });
+});

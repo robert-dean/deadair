@@ -459,6 +459,16 @@ words named, and `toPlayerItems` drops the break when that is no longer what pla
 record is offered to a writer only when it is the adjacent line, since a promise made across an
 intervening segment is the least trustworthy kind. Silence on one boundary beats a wrong fact.
 
+**The claim is the line the writer was SHOWN, not a reading of what the words named.** A model writer
+stamps `claimsNext` whenever it was given a next record, so a script that names some other record is
+stamped with the right line and passes both checks. Nothing reads a bulletin or a weather break back
+for a record it was not given, so what keeps a stale name out is what the prompt contains: a break is
+never shown its own earlier attempts as "you said these recently" (`BreakRequestBuilder.memory` passes
+the segment being written, and the history reads leave it out), and a bulletin is asked to hand back
+"to the music" rather than to "the record coming up", which it may not have been shown. Reported from a
+German station whose news and weather breaks kept naming a record that had left the order, rewrites
+included.
+
 **There are three dimensions of that, and they are one argument read three ways.** A break naming the
 next RECORD is overtaken by an edit (`claims_item_id`); one naming the TIME is overtaken by the clock
 (`claims_time_from`/`until`); one reporting a MEASUREMENT is overtaken by the world

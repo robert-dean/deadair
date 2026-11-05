@@ -496,6 +496,18 @@ describe('breakPrompt', () => {
         expect(user(breakPrompt(bulletin, { dj: '  ' }, NEWS_SHAPE))).not.toMatch(/say who you are/i);
     });
 
+    // A bulletin with a segment behind it rather than a record is shown no record and told not to
+    // name one. Its rules also asked it to "hand back to the record coming up", and the only records
+    // left in that prompt were in the earlier breaks it was shown.
+    it('never asks a bulletin for a record coming up that it was not shown', () => {
+        const bulletin = { kind: 'news', stories: [{ headline: 'Bridge reopens.' }], recent: ['Und jetzt: ABBA mit Gimme! Gimme! Gimme!'] };
+        const messages = breakPrompt(bulletin, { language: 'de' }, NEWS_SHAPE);
+
+        expect(system(messages)).not.toMatch(/record coming up/i);
+        expect(user(messages)).not.toMatch(/record coming up/i);
+        expect(user(messages)).toMatch(/You have not been given a record/);
+    });
+
     it('passes the recent scripts through as an avoid-list', () => {
         const said = user(prompt({ kind: 'talkbreak', previous, recent: ['That was Solid Air.'] }));
 

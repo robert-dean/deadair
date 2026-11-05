@@ -244,6 +244,49 @@ describe('ScriptHistoryRepository.spokenBy', () => {
     });
 });
 
+// The memory a break is written with. A break's own earlier attempt is words nobody heard: on a
+// rewrite it was the newest line in the list, and a German bulletin rewritten because the record it
+// named had left the order was shown its own sentence naming that record and said it again.
+describe("ScriptHistoryRepository's memory leaves out the break being written", () => {
+    const BREAK = '6f1d2c4e-3b1a-4c5d-9e8f-7a6b5c4d3e2f';
+
+    it('in what the broadcast said', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenDuring('broadcast-1', 6, BREAK);
+
+        // `is distinct from`, so an attempt whose segment was deleted (a null id) is still kept.
+        expect(captured.sql).toContain('segment_id is distinct from');
+        expect(captured.parameters).toContain(BREAK);
+    });
+
+    it('in what was said before the broadcast', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenSince(3_600_000, 6, 'broadcast-1', BREAK);
+
+        expect(captured.sql).toContain('segment_id is distinct from');
+        expect(captured.parameters).toContain(BREAK);
+    });
+
+    it("in the presenter's own words", async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenBy('lotta', 3_600_000, 6, { kind: 'news', excludingSegment: BREAK });
+
+        expect(captured.sql).toContain('segment_id is distinct from');
+        expect(captured.parameters).toContain(BREAK);
+    });
+
+    it('and leaves nothing out for a reader that is writing no break', async () => {
+        const during: Captured = {};
+        await repositoryOver(fakeDb([], during)).spokenDuring('broadcast-1', 6);
+        const since: Captured = {};
+        await repositoryOver(fakeDb([], since)).spokenSince(3_600_000, 6, 'broadcast-1');
+        const by: Captured = {};
+        await repositoryOver(fakeDb([], by)).spokenBy('lotta', 3_600_000, 6);
+
+        for (const read of [during, since, by]) expect(read.sql).not.toContain('segment_id is distinct from');
+    });
+});
+
 describe('ScriptHistoryRepository.page', () => {
     it('answers nothing for a page of zero without asking the database', async () => {
         await expect(repositoryOver(untouchableDb()).page({ limit: 0 })).resolves.toEqual([]);

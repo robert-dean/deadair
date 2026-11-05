@@ -406,8 +406,8 @@ export class BreakRequestBuilder {
             ...(await this.talkOut(lineup, kind, neighbours.previous)),
             ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            ...(await this.memory(kind)),
-            ...(await this.ownWords(kind, persona)),
+            ...(await this.memory(kind, turn)),
+            ...(await this.ownWords(kind, persona, turn)),
             // Read here rather than held by any writer, for the reason the facts above are: the
             // character the station is in is a property of the moment, and every binding uses a
             // different half of it. Read per break, so an operator putting a different persona on
@@ -490,20 +490,26 @@ export class BreakRequestBuilder {
      * and a writer that repeats a catchphrase because nothing told it not to is the exact failure
      * `characterFault` exists for.
      *
+     * **Never this break's own earlier words.** `turn` is the segment being written, and every
+     * attempt at it is left out: on a rewrite those words were never heard, and they are exactly
+     * the sentence a model copies. A German bulletin rewritten because the record it named had left
+     * the order was otherwise shown, as the newest thing it had "said", its own sentence naming that
+     * record. The per-kind fallback needs no exclusion, because a reopen clears the row's script.
+     *
      * Best-effort in the same sense the facts are: memory makes a break better and never makes it
      * possible, so a read that fails costs the recall rather than the break. The deterministic floor
      * underneath never wanted any of it.
      */
-    private async memory(kind: string): Promise<{ recent: readonly string[]; played?: readonly PlayedRecord[] }> {
+    private async memory(kind: string, turn: string): Promise<{ recent: readonly string[]; played?: readonly PlayedRecord[] }> {
         const broadcastId = this.identity.current();
         if (broadcastId === undefined) return { recent: await this.segments.recentScripts(kind, RECENT_WINDOW) };
 
         try {
             const [said, played] = await Promise.all([
-                this.history.spokenDuring(broadcastId, RECENT_WINDOW),
+                this.history.spokenDuring(broadcastId, RECENT_WINDOW, turn),
                 this.plays.duringBroadcast(broadcastId, PLAYED_WINDOW),
             ]);
-            const recent = said.length >= RECENT_WINDOW ? said : await this.carriedOver(said, broadcastId);
+            const recent = said.length >= RECENT_WINDOW ? said : await this.carriedOver(said, broadcastId, turn);
 
             return { recent, ...(played.length === 0 ? {} : { played }) };
         } catch (error) {
@@ -523,11 +529,11 @@ export class BreakRequestBuilder {
      * Best-effort for the reason the station's memory is: a read that fails costs the recall rather
      * than the break.
      */
-    private async ownWords(kind: string, persona: Persona | undefined): Promise<{ own?: readonly string[] }> {
+    private async ownWords(kind: string, persona: Persona | undefined, turn: string): Promise<{ own?: readonly string[] }> {
         if (persona === undefined) return {};
 
         try {
-            const own = await this.history.spokenBy(persona.key, CARRY_WINDOW_MS, RECENT_WINDOW, { kind });
+            const own = await this.history.spokenBy(persona.key, CARRY_WINDOW_MS, RECENT_WINDOW, { kind, excludingSegment: turn });
             return own.length === 0 ? {} : { own };
         } catch (error) {
             this.logger.warn(`director: could not read what ${persona.key} has said lately (${errorText(error)})`);
@@ -543,8 +549,8 @@ export class BreakRequestBuilder {
      * of the boundary) is kept once, at its newer place: listed twice it would tell a writer the
      * station said it twice.
      */
-    private async carriedOver(said: readonly string[], broadcastId: string): Promise<readonly string[]> {
-        const before = await this.history.spokenSince(CARRY_WINDOW_MS, RECENT_WINDOW, broadcastId);
+    private async carriedOver(said: readonly string[], broadcastId: string, turn: string): Promise<readonly string[]> {
+        const before = await this.history.spokenSince(CARRY_WINDOW_MS, RECENT_WINDOW, broadcastId, turn);
         // Asked for a whole window rather than the shortfall, so a line dropped as a duplicate below
         // does not leave the list short.
         const recent = [...said];

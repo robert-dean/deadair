@@ -98,6 +98,12 @@ function harness(
         deliveries?: readonly SpeechDelivery[];
         /** What the station has already said this broadcast. */
         said?: readonly string[];
+        /**
+         * The same, as the history table holds it: one written attempt per segment, newest first. Read
+         * in place of {@link said} when given, and filtered as the query is, for the tests about which
+         * break's words are left out.
+         */
+        attempts?: readonly { segmentId?: string; script: string }[];
         /** What the station said in the last hour OUTSIDE this broadcast, for the carry-over across a boundary. */
         saidBefore?: readonly string[];
         /** Present and `undefined` for the off-air case, which falls back to the per-kind read. */
@@ -151,14 +157,20 @@ function harness(
     const requests = { findById: vi.fn(async () => options.request) };
     const history = {
         recordAll: vi.fn(async (_writes: readonly ScriptWrite[]) => options.historyThrows && Promise.reject(new Error('the history table is gone'))),
-        spokenDuring: vi.fn(async () =>
-            options.spokenThrows === true ? Promise.reject(new Error('the history table is gone')) : (options.said ?? []),
+        spokenDuring: vi.fn(async (_broadcastId: string, _limit: number, excludingSegment?: string) =>
+            options.spokenThrows === true
+                ? Promise.reject(new Error('the history table is gone'))
+                : options.attempts !== undefined
+                  ? options.attempts
+                        .filter(attempt => attempt.segmentId === undefined || attempt.segmentId !== excludingSegment)
+                        .map(attempt => attempt.script)
+                  : (options.said ?? []),
         ),
         // Empty unless a test says, which is the state every assertion above this file's memory tests
         // was written against: a list topped up from nowhere is the list it was.
-        spokenSince: vi.fn(async (_withinMs: number, _limit: number, _excluding?: string) => options.saidBefore ?? []),
+        spokenSince: vi.fn(async (_withinMs: number, _limit: number, _excluding?: string, _excludingSegment?: string) => options.saidBefore ?? []),
         // Empty unless a test says, and never asked for a station presenting as nobody.
-        spokenBy: vi.fn(async (_personaKey: string, _withinMs: number, _limit: number, _options?: { kind?: string }) =>
+        spokenBy: vi.fn(async (_personaKey: string, _withinMs: number, _limit: number, _options?: { kind?: string; excludingSegment?: string }) =>
             options.saidByMe instanceof Error ? Promise.reject(options.saidByMe) : (options.saidByMe ?? []),
         ),
     };
@@ -2563,7 +2575,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(plays.duringBroadcast).toHaveBeenCalledWith('broadcast-1', expect.any(Number));
-            expect(history.spokenDuring).toHaveBeenCalledWith('broadcast-1', expect.any(Number));
+            expect(history.spokenDuring).toHaveBeenCalledWith('broadcast-1', expect.any(Number), 'seg-1');
             // The per-kind read is what this REPLACES, so it must not also happen: two sources of
             // "what did I say" is two lists that can disagree.
             expect(segments.recentScripts).not.toHaveBeenCalled();
@@ -2572,6 +2584,34 @@ describe('WriteBreakJob', () => {
                 expect.objectContaining({ played: [{ title: 'Yeah!', artist: 'USHER' }], recent: ['that was the one before'] }),
                 'model',
             );
+        });
+
+        // Reported on a German station: every bulletin ended by naming ABBA's "Gimme! Gimme! Gimme!"
+        // ahead of AC/DC, and a rewrite from the console said it again. The rewrite's own superseded
+        // attempt was the newest line it was shown as "you said these recently", so the one record
+        // name in its memory was the one it had just been rewritten to stop saying.
+        it('never shows a break its own earlier words, so a rewrite cannot copy the record they named', async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Rock Me Amadeus', 'Falco'), track('Hells Bells', 'AC/DC')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            const { job, writers, history } = harness({
+                lineup,
+                attempts: [
+                    {
+                        segmentId: 'seg-1',
+                        script: 'Hier sind die Nachrichten. In Graz wurde eine Brücke eröffnet. Und jetzt: ABBA mit Gimme! Gimme! Gimme!',
+                    },
+                    { segmentId: 'seg-0', script: 'Das war Falco mit Rock Me Amadeus.' },
+                ],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.spokenDuring).toHaveBeenCalledWith('broadcast-1', expect.any(Number), 'seg-1');
+            const [request] = writers.write.mock.calls[0] as unknown as [BreakWriteRequest];
+            expect(request.next?.title).toBe('Hells Bells');
+            expect(request.recent).toEqual(['Das war Falco mit Rock Me Amadeus.']);
+            expect(JSON.stringify(request)).not.toMatch(/ABBA|Gimme/);
         });
 
         // A broadcast boundary is not an audience boundary. A stand-down or a restart opens a new
@@ -2587,7 +2627,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             // Within an hour, and never this broadcast's own words a second time.
-            expect(history.spokenSince).toHaveBeenCalledWith(60 * 60 * 1000, expect.any(Number), 'broadcast-1');
+            expect(history.spokenSince).toHaveBeenCalledWith(60 * 60 * 1000, expect.any(Number), 'broadcast-1', 'seg-1');
             // This broadcast's own words first, then the carried ones, newest first throughout.
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({ recent: ['the first thing this show said', 'the last show signing off', 'the last show before that'] }),
@@ -2667,7 +2707,10 @@ describe('WriteBreakJob', () => {
 
                 await job.run({ segmentId: 'seg-1' });
 
-                expect(history.spokenBy).toHaveBeenCalledWith('garth', 60 * 60 * 1000, expect.any(Number), { kind: 'talkbreak' });
+                expect(history.spokenBy).toHaveBeenCalledWith('garth', 60 * 60 * 1000, expect.any(Number), {
+                    kind: 'talkbreak',
+                    excludingSegment: 'seg-1',
+                });
                 expect(writers.write).toHaveBeenCalledWith(
                     expect.objectContaining({ recent: ['a banter beat of Wayne'], own: ['I hid in the basement.', 'The basement again.'] }),
                     'model',

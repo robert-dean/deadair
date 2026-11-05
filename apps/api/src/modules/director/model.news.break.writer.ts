@@ -141,8 +141,14 @@ export const NEWS_SHAPE: BreakPromptShape = {
         // told in the same prompt that the handover was the last thing it said, and the rule won. A
         // sign-off is one fixed line that closes the bulletin, not the twelve sentences of atmosphere
         // above, so it is allowed by name and bounded to a line.
+        //
+        // "Hand back to the music" and not "to the record coming up". The rules are the same for every
+        // bulletin, and a bulletin with a segment rather than a record behind it is shown no record and
+        // told not to name one: asking it here for "the record coming up" made it find one, and the only
+        // records left in its prompt were in the earlier breaks it was shown. When there is a record
+        // coming up, the prompt shows it under that heading, which is all the naming it needs.
         'Stop when the stories stop. After the last story you may give your own sign-off, if your character has one, in one short line; ' +
-            'then hand back to the record coming up, in one line, and you are done. ' +
+            'then hand back to the music, in one line, and you are done. ' +
             'Nothing else: no remarks about the night, no scene-setting, nothing about the sound of the station.',
     ],
 };

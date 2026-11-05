@@ -31,6 +31,7 @@ import {
     SWEEP_ORPHANS_KEY,
 } from '#modules/storage/orphan.sweep.js';
 import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
+import { LISTENING_PROFILE_DEFAULT, LISTENING_PROFILE_KEY } from '#modules/catalog/listening.profile.service.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
@@ -1890,6 +1891,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: MODEL_GENERATOR_DEFAULT,
         help: 'With this off the station picks by rule: a weighted draw shaped by the repeat window, the artist cooldown and your ratings. With it on the model chooses first and that draw finishes whatever it did not — a model that names six good records has done most of the job, so a partial answer is kept rather than thrown away. It chooses from your library and from your providers, and a record you do not own yet is fetched when it is picked.',
+    },
+    {
+        group: 'llm',
+        key: LISTENING_PROFILE_KEY,
+        label: 'Lean on what you listen to elsewhere',
+        type: 'boolean',
+        default: LISTENING_PROFILE_DEFAULT,
+        help: 'Shows the model the artists and styles you play most at a music provider that can say, Spotify for now, so it leans toward them where they suit the brief. It counts for less than what you have rated, your dislikes still win, and a presenter is told not to mention it on air. It asks the provider a few times a day.',
     },
     {
         group: 'llm',

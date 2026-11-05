@@ -155,6 +155,25 @@ export interface ProviderPlaylist {
     madeByProvider?: boolean;
 }
 
+/**
+ * How far back a listening ranking looks. The provider's own windows, named for what they are rather
+ * than in any one service's words: Spotify calls them `short_term`, `medium_term` and `long_term`.
+ */
+export type ProfileTimeRange = 'short' | 'medium' | 'long';
+
+/** One artist out of the account's listening. */
+export interface ProviderArtist {
+    /** The provider's id for this artist. */
+    id: string;
+    name: string;
+    /** The provider's style words for this artist. Absent when it did not say, never an empty claim. */
+    genres?: string[];
+}
+
+export interface GetTopArtistsOptions {
+    limit?: number;
+}
+
 /** A playable stream, plus how long the URL stays good for. */
 export interface ProviderStream {
     url: string;
@@ -351,4 +370,15 @@ export interface MusicProviderOAuth {
  * Convenience alias for a provider implementing every sub-capability.
  * Implement the individual interfaces instead when you only support some.
  */
-export interface MusicProvider extends MusicProviderCatalog, MusicProviderStream, MusicProviderSteer, MusicProviderOAuth {}
+/**
+ * What the connected account listens to, as far as the service will say.
+ *
+ * Artists and nothing else, because they are what a playlist listing has nowhere to put: a provider
+ * with a ranking of tracks offers it through `listPlaylists`, and it reaches the catalog that way.
+ */
+export interface MusicProviderProfile {
+    /** The artists the account plays most over `timeRange`, most played first. */
+    getTopArtists(timeRange: ProfileTimeRange, options?: GetTopArtistsOptions): Promise<ProviderArtist[]>;
+}
+
+export interface MusicProvider extends MusicProviderCatalog, MusicProviderStream, MusicProviderSteer, MusicProviderOAuth, MusicProviderProfile {}

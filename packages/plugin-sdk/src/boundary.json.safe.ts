@@ -95,6 +95,8 @@ import type {
     ListPlaylistsOptions,
     PlaybackReport,
     PlaybackState,
+    ProviderArtist,
+    GetTopArtistsOptions,
     ProviderPlaylist,
     ProviderStream,
     ProviderTrack,
@@ -196,6 +198,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     PluginManifestWithoutConfigSchema: IsJsonSafe<Omit<PluginManifest, 'configSchema'>>;
     ProviderTrack: IsJsonSafe<ProviderTrack>;
     ProviderPlaylist: IsJsonSafe<ProviderPlaylist>;
+    ProviderArtist: IsJsonSafe<ProviderArtist>;
+    GetTopArtistsOptions: IsJsonSafe<GetTopArtistsOptions>;
     ProviderStream: IsJsonSafe<ProviderStream>;
     TrackFetchSession: IsJsonSafe<TrackFetchSession>;
     TrackFetchRequest: IsJsonSafe<TrackFetchRequest>;
@@ -315,6 +319,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'PluginManifest',
     'ProviderTrack',
     'ProviderPlaylist',
+    'ProviderArtist',
+    'GetTopArtistsOptions',
     'ProviderStream',
     'TrackFetchSession',
     'TrackFetchRequest',
@@ -440,6 +446,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'MusicProviderStream',
     'MusicProviderSteer',
     'MusicProviderOAuth',
+    'MusicProviderProfile',
     'MusicProvider',
     'EnrichmentProvider',
     'SpeechPluginInstance',

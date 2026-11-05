@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmReasoningEffort, LlmUsage } from '@deadair/plugin-sdk';
+import { ListeningProfileService } from '#modules/catalog/listening.profile.service.js';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
@@ -316,6 +317,8 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly briefActs: BriefActs,
         // The screened, numbered list the model chooses from when the brief names its acts. See `Shortlist`.
         private readonly shortlist: Shortlist,
+        // What the operator plays elsewhere, for a lean weaker than what they rated. See `tasteLines`.
+        private readonly listening: ListeningProfileService,
     ) {
         super();
     }
@@ -844,7 +847,28 @@ export class ModelSetGenerator extends SetGenerator {
             dislikedArtists: taste.dislikedArtists.shown.map(entry => entry.name),
             likedTracks: named(taste.likedTracks),
             dislikedTracks: named(taste.dislikedTracks),
+            ...(await this.describeListening(new Set(taste.likedArtists.shown.map(entry => entry.name.toLowerCase())))),
         };
+    }
+
+    /**
+     * What the operator plays at their providers, less anybody they rated either way.
+     *
+     * Someone they disliked is dropped because a model told to lean toward them only wastes the pick
+     * `PickResolver` will refuse, and someone they liked is already said more strongly. On the same
+     * trade as {@link describeTaste}: a read that fails costs this lean and never the set.
+     */
+    private async describeListening(liked: ReadonlySet<string>): Promise<Pick<TastePrompt, 'listeningArtists' | 'listeningStyles'>> {
+        try {
+            const profile = await this.listening.read();
+            if (!profile) return {};
+
+            const artists = await this.taste.withoutDisliked(profile.artists.filter(name => !liked.has(name.toLowerCase())));
+            return { listeningArtists: artists.slice(0, TASTE_SHOWN), listeningStyles: profile.genres };
+        } catch (error) {
+            this.logger.warn(`director: could not read what the operator listens to; programming without it (${errorText(error)})`);
+            return {};
+        }
     }
 }
 

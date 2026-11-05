@@ -67,6 +67,10 @@ export interface TastePrompt {
     /** Songs, as `"Title" by Artist`. */
     likedTracks?: readonly string[];
     dislikedTracks?: readonly string[];
+    /** Who the operator plays at their music providers. Weaker than a rating: nobody said anything. */
+    listeningArtists?: readonly string[];
+    /** The styles those artists come under, in the provider's words. */
+    listeningStyles?: readonly string[];
 }
 
 /** How the operator wants the station programmed. */
@@ -481,6 +485,13 @@ function tasteLines(taste: TastePrompt | undefined): string[] {
 
     section('The operator LIKES these artists. Search for them and lean toward them:', taste.likedArtists);
     section('The operator LIKES these records. Search for them and lean toward them:', taste.likedTracks);
+    // Below what they rated and worded as less than it: playing something is not an opinion of it, and
+    // a brief asking for something else has to win.
+    section(
+        'The operator has been listening to these artists elsewhere. Where they suit the brief, search for them and lean toward them:',
+        taste.listeningArtists,
+    );
+    section('The operator has been listening to these styles elsewhere. Where they suit the brief, lean toward them:', taste.listeningStyles);
     section('The operator DISLIKES these artists. Never choose them; the station drops them anyway:', taste.dislikedArtists);
     section('The operator DISLIKES these records. Never choose them; the station drops them anyway:', taste.dislikedTracks);
 

@@ -8,6 +8,7 @@ import { TracksService } from './tracks.service.js';
 import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
+import { ListeningProfileService } from './listening.profile.service.js';
 import { TasteRepository } from './taste.repository.js';
 import { ProviderPlaylistsRepository } from './provider.playlists.repository.js';
 import { HiddenPlaylistsRepository } from './hidden.playlists.repository.js';
@@ -37,6 +38,8 @@ export const CatalogModule: ServerKitModule = {
         // here rather than in either of them: the two ask the same question for different reasons,
         // and two spellings of "what has the operator rated" would eventually disagree.
         registry.register(TasteRepository).useClass(TasteRepository).asScoped();
+        // A singleton because the point of it is remembering an answer between refills.
+        registry.register(ListeningProfileService).useClass(ListeningProfileService).asSingleton();
         // The provider playlists an operator hid. Here rather than in `PlaylistsModule` because the
         // sync below skips them too, and this module registers first.
         registry.register(HiddenPlaylistsRepository).useClass(HiddenPlaylistsRepository).asScoped();

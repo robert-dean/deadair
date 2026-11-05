@@ -1,5 +1,13 @@
 import type { MaxInt } from '@spotify/web-api-ts-sdk';
-import type { PlaybackState, ProviderPlaylist, ProviderPlaylistPermission, ProviderTrack, SearchTracksOptions } from '@deadair/plugin-sdk';
+import type {
+    PlaybackState,
+    ProfileTimeRange,
+    ProviderArtist,
+    ProviderPlaylist,
+    ProviderPlaylistPermission,
+    ProviderTrack,
+    SearchTracksOptions,
+} from '@deadair/plugin-sdk';
 import { plainText } from '@deadair/plugin-sdk';
 
 /**
@@ -190,6 +198,29 @@ export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, curren
         // playlist a person made would be a claim this mapping has no better grounds for.
         ...(playlist.owner?.id === SPOTIFY_EDITORIAL_OWNER_ID ? { madeByProvider: true } : {}),
     };
+}
+
+/** Each profile window, in Spotify's words for it. */
+export const SPOTIFY_TIME_RANGES: Readonly<Record<ProfileTimeRange, string>> = { short: 'short_term', medium: 'medium_term', long: 'long_term' };
+
+/** One row of `GET /me/top/artists`, as far as anything here reads it. */
+export interface SpotifyTopArtist {
+    id?: string;
+    name?: string;
+    genres?: string[];
+}
+
+/**
+ * An artist as the SDK carries one, or `undefined` for a row with no id or name.
+ *
+ * `genres` is left off when Spotify sent none, which it does for plenty of real artists: an empty
+ * list on the wire says Spotify has no words for them, not that they have no style.
+ */
+export function mapArtist(artist: SpotifyTopArtist | null | undefined): ProviderArtist | undefined {
+    if (!artist?.id || !artist.name) return undefined;
+
+    const genres = (artist.genres ?? []).filter(genre => typeof genre === 'string' && genre.length > 0);
+    return { id: artist.id, name: artist.name, ...(genres.length > 0 ? { genres } : {}) };
 }
 
 /** The id of the account's saved tracks in a listing. */

@@ -4,11 +4,14 @@ import {
     configString,
     errorText,
     type GetPlaylistTracksOptions,
+    type GetTopArtistsOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
     type PlaybackState,
     type PluginConnectionResult,
     type PluginHost,
+    type ProfileTimeRange,
+    type ProviderArtist,
     type ProviderPlaylist,
     type ProviderStream,
     type ProviderTrack,
@@ -26,14 +29,17 @@ import {
     clampSearchTotal,
     explicitFilterNotice,
     mapPlaybackState,
+    mapArtist,
     mapPlaylist,
     mapTrack,
     SEARCH_OFFSET_MAX,
     SPOTIFY_ACCOUNT_LISTS,
     SPOTIFY_SAVED_TRACKS_ID,
+    SPOTIFY_TIME_RANGES,
     SPOTIFY_TOP_TRACKS_MAX,
     spotifyPlaylistIdFromUrl,
     spotifyTopRange,
+    type SpotifyTopArtist,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
 
@@ -309,6 +315,25 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
                 throw fetcherError;
             }
         }
+    }
+
+    /**
+     * The artists this account plays most over `timeRange`, most played first.
+     *
+     * One page, and the one the endpoint's own ceiling allows. Nothing asks for more: the host wants
+     * who the account listens to, and the fiftieth artist of a ranking is already a weak claim.
+     */
+    async getTopArtists(timeRange: ProfileTimeRange, options?: GetTopArtistsOptions): Promise<ProviderArtist[]> {
+        const limit = clampLimit(options?.limit) ?? SPOTIFY_TOP_TRACKS_MAX;
+        const query = new URLSearchParams({ time_range: SPOTIFY_TIME_RANGES[timeRange], limit: String(limit) });
+        const page = await this.getApi().makeRequest<{ items?: (SpotifyTopArtist | null)[] }>('GET', `me/top/artists?${query.toString()}`);
+
+        const artists: ProviderArtist[] = [];
+        for (const item of page?.items ?? []) {
+            const mapped = mapArtist(item);
+            if (mapped) artists.push(mapped);
+        }
+        return artists;
     }
 
     /**

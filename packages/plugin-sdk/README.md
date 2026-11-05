@@ -12,6 +12,7 @@ A plugin extends deadair by declaring capabilities:
 | `catalog`    | supply music: list playlists, list their tracks                |
 | `stream`     | get the station the audio to play (`resolveStreamUrl`)         |
 | `steer`      | own your audio output and let deadair only tell you what to do |
+| `profile`    | say what the connected account listens to: a window in, artists out |
 | `enrichment` | supply facts about a track: year, genre, label, trivia, prose  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
@@ -1137,7 +1138,7 @@ the station encodes nothing in its own process.
 
 ## Music providers
 
-A `music-provider` declares any subset of four sub-capabilities and lists the
+A `music-provider` declares any subset of five sub-capabilities and lists the
 ones it implements in `manifest.capabilities`:
 
 - **`catalog`** — `searchTracks`, `getTrack`, `listPlaylists`,
@@ -1220,6 +1221,13 @@ ones it implements in `manifest.capabilities`:
   provider owns the audio output and deadair only tells it what to do. Named
   from the plugin's side on purpose: deadair's own `playout` module is the
   opposite end of this, the one that owns the running order.
+- **`profile`** — `getTopArtists(timeRange, options)`: the artists the connected
+  account plays most over a `short`, `medium` or `long` window, most played first.
+  Artists only: a ranking of tracks goes through `listPlaylists`, where it reaches
+  the catalog. The host reads this rarely and keeps the answer, so a service with a
+  tight quota is not asked on every refill. What it does with the answer is steer a
+  model, never enforce anything, and a failed read costs the steer and nothing else.
+
 - **`oauth`** — `getAuthorizeUrl(state)` and `handleCallback(params)`. The host
   owns the redirect endpoint (`host.oauth.getRedirectUri()`) and the token
   vault (`saveTokens` / `getTokens`); you only build the authorize URL and

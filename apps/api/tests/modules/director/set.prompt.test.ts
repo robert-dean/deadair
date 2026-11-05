@@ -257,6 +257,27 @@ describe('setPrompt', () => {
         expect(system).toMatch(/and 5 more/);
     });
 
+    it('words what the operator plays elsewhere as less than a rating, and below the brief', () => {
+        const system = systemOf(
+            setPrompt(
+                { count: 5, avoid: [] },
+                {
+                    taste: {
+                        likedArtists: ['Sleep'],
+                        dislikedArtists: ['Nickelback'],
+                        listeningArtists: ['Kyuss'],
+                        listeningStyles: ['stoner rock'],
+                    },
+                },
+            ),
+        );
+
+        expect(system).toMatch(/listening to these artists elsewhere\. Where they suit the brief[^\n]*\n- Kyuss/);
+        expect(system).toMatch(/listening to these styles elsewhere[^\n]*\n- stoner rock/);
+        expect(system.indexOf('LIKES')).toBeLessThan(system.indexOf('Kyuss'));
+        expect(system.indexOf('Kyuss')).toBeLessThan(system.indexOf('DISLIKES'));
+    });
+
     it('says nothing about taste when the operator has rated nothing', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }, { taste: {} }))).not.toMatch(/LIKES/);
         expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/DISLIKES/);

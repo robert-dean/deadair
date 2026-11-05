@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 
 /**
@@ -92,6 +93,27 @@ export class TasteRepository extends DataRepository {
         ]);
 
         return { likedArtists, dislikedArtists, likedAlbums, dislikedAlbums, likedTracks, dislikedTracks };
+    }
+
+    /**
+     * `names` less any artist the operator has disliked, in the order given.
+     *
+     * For a list that came from outside the station. Compared case-blind, since a provider's spelling
+     * of a name is not always the catalog's. Merged rows are left out on the rule below.
+     */
+    async withoutDisliked(names: readonly string[]): Promise<string[]> {
+        if (names.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.artists')
+            .select('name')
+            .where('rating', '=', -1)
+            .where('mergedIntoId', 'is', null)
+            .where(sql<string>`lower(name)`, 'in', names.map(name => name.toLowerCase()))
+            .execute();
+
+        const disliked = new Set(rows.map(row => row.name.toLowerCase()));
+        return names.filter(name => !disliked.has(name.toLowerCase()));
     }
 
     /**

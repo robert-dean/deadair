@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import type { ListeningProfile, ListeningProfileService } from '../../../src/modules/catalog/listening.profile.service.js';
 import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
 import { StationTasteTool } from '../../../src/modules/llm/station.taste.tool.js';
 
@@ -23,10 +24,14 @@ const empty = (): StationTaste => ({
     dislikedTracks: nothing(),
 });
 
-function build(answer: Partial<StationTaste> = {}) {
+function build(answer: Partial<StationTaste> = {}, listening?: () => Promise<ListeningProfile | undefined>) {
     const read = vi.fn(async (_limit: number): Promise<StationTaste> => ({ ...empty(), ...answer }));
-    const taste = { taste: read } as unknown as TasteRepository;
-    return { tool: new StationTasteTool(taste, logger), read };
+    const taste = {
+        taste: read,
+        withoutDisliked: vi.fn(async (names: string[]) => names.filter(name => name !== 'Disliked')),
+    } as unknown as TasteRepository;
+    const profile = { read: listening ?? (async () => undefined) } as unknown as ListeningProfileService;
+    return { tool: new StationTasteTool(taste, profile, logger), read };
 }
 
 const only = async (tool: StationTasteTool) => (await tool.tools())[0]!;
@@ -74,5 +79,38 @@ describe('StationTasteTool', () => {
         const result = (await (await only(tool)).run({})) as StationTaste;
 
         expect(result.dislikedArtists).toEqual({ shown: [], total: 0 });
+    });
+
+    describe('what the operator listens to elsewhere', () => {
+        const run = async (built: ReturnType<typeof build>) => {
+            const [declared] = await built.tool.tools();
+            return (await declared!.run({})) as StationTaste & { listening?: ListeningProfile };
+        };
+
+        it('rides along less anybody disliked', async () => {
+            const answer = await run(build({}, async () => ({ artists: ['Kept', 'Disliked'], genres: ['metal'] })));
+
+            expect(answer.listening).toEqual({ artists: ['Kept'], genres: ['metal'] });
+        });
+
+        it('is absent when there is nothing to say', async () => {
+            expect(await run(build())).not.toHaveProperty('listening');
+        });
+
+        it('costs itself and not the ratings when the read fails', async () => {
+            const answer = await run(
+                build({ likedArtists: { shown: [{ name: 'Liked' }], total: 1 } }, async () => {
+                    throw new Error('the provider went away');
+                }),
+            );
+
+            expect(answer.likedArtists.total).toBe(1);
+            expect(answer).not.toHaveProperty('listening');
+        });
+
+        it('tells a writer not to say it on air', async () => {
+            const [declared] = await build().tool.tools();
+            expect(declared!.declaration.description).toContain('never mention it on air');
+        });
     });
 });

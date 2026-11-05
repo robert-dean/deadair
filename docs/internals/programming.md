@@ -523,6 +523,17 @@ answer with owned records and the failure moves from the model's choice into the
 enforces, and `ModelSetGenerator` also puts a short version straight in its prompt so a model that cannot
 drive tools still gets the steer.
 
+**What the operator plays elsewhere is the third and weakest steer.** `ListeningProfileService` reads
+`getTopArtists` from every plugin declaring `profile`, over the `short` and `medium` windows, and keeps the
+fold in memory for six hours, half an hour after a failure, because every other steer here is the station's
+own database and this one spends a quota Spotify has already run out on. `ModelSetGenerator` shows it below
+what was rated and above what was disliked, worded as "where they suit the brief", because playing something
+is not an opinion of it and a brief has to win. Disliked artists are taken out first
+(`TasteRepository.withoutDisliked`), or the model wastes the picks `PickResolver` refuses. `station_taste`
+carries it as `listening` and tells a writer never to say it on air: it is the operator's private listening,
+and every writer shares that tool. `llm.setListeningProfile` turns it off. Top and saved TRACKS do not come
+this way: Spotify lists them as playlists (`top:short_term`, `saved`), so they reach the catalog on the walk.
+
 **A brief that names its acts is programmed from a numbered list, and the model answers with numbers.**
 Measured on the live station, 2026-10-25, The Church, refill trace `51fea6af`: five `search_music` calls of
 about four seconds each, then the final answer generated for two minutes with no tools and ran out of the

@@ -8,6 +8,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { writeCapture } from '../../../src/modules/llm/llm.capture.js';
+import type { ListeningProfileService } from '../../../src/modules/catalog/listening.profile.service.js';
 import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
@@ -57,6 +58,10 @@ interface Options {
     settings?: Record<string, string>;
     /** What the operator has rated. Absent is a station nobody has said anything about. */
     taste?: Partial<StationTaste>;
+    listening?: { artists: string[]; genres: string[] };
+    listeningFails?: boolean;
+    /** Artists `withoutDisliked` removes. */
+    dislikedElsewhere?: string[];
     /** A catalog that cannot answer what the operator likes. */
     tasteFails?: boolean;
     /** The styles the library answers to, commonest first. Absent is a catalog nothing enriched. */
@@ -131,7 +136,14 @@ function build(options: Options = {}) {
                 ...options.taste,
             };
         }),
+        withoutDisliked: vi.fn(async (names: string[]) => names.filter(name => !(options.dislikedElsewhere ?? []).includes(name))),
     } as unknown as TasteRepository;
+    const listening = {
+        read: vi.fn(async () => {
+            if (options.listeningFails) throw new Error('the provider went away');
+            return options.listening;
+        }),
+    };
 
     const styleVocabulary = vi.fn(async (): Promise<{ style: string; records: number }[]> => {
         if (options.stylesFail) throw new Error('the pool is gone');
@@ -186,6 +198,7 @@ function build(options: Options = {}) {
             aired,
             briefActs as unknown as BriefActs,
             shortlist as unknown as Shortlist,
+            listening as unknown as ListeningProfileService,
         ),
         rules,
         converse,
@@ -376,6 +389,37 @@ describe('ModelSetGenerator', () => {
         expect(system).toMatch(/Sleep/);
         expect(system).toMatch(/Nickelback/);
         expect(system).toMatch(/Photograph/);
+    });
+
+    describe('what the operator plays elsewhere', () => {
+        const systemOfRun = async (built: ReturnType<typeof build>): Promise<string> => {
+            await built.generator.generate(inputs(5));
+            const [request] = built.converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+            return request.messages.find(message => message.role === 'system')?.content ?? '';
+        };
+
+        it('leans on it, less anybody disliked and anybody already liked', async () => {
+            const system = await systemOfRun(
+                build({
+                    enabled: true,
+                    text: '[{"title":"One","artist":"A"}]',
+                    taste: { likedArtists: { shown: [{ name: 'Sleep' }], total: 1 } },
+                    listening: { artists: ['Kyuss', 'sleep', 'Nickelback'], genres: ['stoner rock'] },
+                    dislikedElsewhere: ['Nickelback'],
+                }),
+            );
+
+            expect(system).toContain('- Kyuss');
+            expect(system).toContain('- stoner rock');
+            expect(system).not.toContain('- sleep');
+            expect(system).not.toContain('Nickelback');
+        });
+
+        it('programmes without it rather than failing when the read throws', async () => {
+            const built = build({ enabled: true, listeningFails: true, text: '[{"title":"One","artist":"A"}]' });
+
+            expect(await systemOfRun(built)).not.toContain('listening to these');
+        });
     });
 
     it('reads the taste on every refill, so an opinion counts on the next hour', async () => {

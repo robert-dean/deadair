@@ -413,6 +413,50 @@ describe('SpotifyPlugin', () => {
             expect(results[0]?.permissions).toBeUndefined();
         });
 
+        describe('getTopArtists', () => {
+            it('declares the capability it implements', () => {
+                expect(spotifyManifest.capabilities).toContain('profile');
+            });
+
+            it.each([
+                ['short', 'short_term'],
+                ['medium', 'medium_term'],
+                ['long', 'long_term'],
+            ] as const)('reads the %s window as %s', async (window, range) => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [] }));
+
+                await plugin.getTopArtists(window);
+
+                const url = new URL(host.calls[0].url);
+                expect(url.pathname).toBe('/v1/me/top/artists');
+                expect(url.searchParams.get('time_range')).toBe(range);
+                expect(url.searchParams.get('limit')).toBe('50');
+            });
+
+            it('keeps the order, and leaves genres off an artist Spotify has no words for', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(
+                    apiResponse({
+                        items: [
+                            { id: 'a1', name: 'First', genres: ['thrash metal', ''] },
+                            { id: 'a2', name: 'Second', genres: [] },
+                            { id: 'a3' },
+                            null,
+                        ],
+                    }),
+                );
+
+                await expect(plugin.getTopArtists('short', { limit: 10 })).resolves.toEqual([
+                    { id: 'a1', name: 'First', genres: ['thrash metal'] },
+                    { id: 'a2', name: 'Second' },
+                ]);
+                expect(new URL(host.calls[0].url).searchParams.get('limit')).toBe('10');
+            });
+        });
+
         describe('the account lists', () => {
             const REAL_PLAYLIST = { id: 'pl-1', name: 'Playlist One', owner: { id: 'me-1' } };
             const row = (id: string) => ({ id, name: `Song ${id}`, artists: [{ name: 'Artist' }] });

@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.94.0] — 2026-11-05
+
+- Lean the model toward the artists the operator played at Spotify in the last few days, a little more strongly than the ones they play most over weeks and still less than anything they rated. Records the station aired itself are left out of that first, and the station logs which ones it left out.
+- A link talked up over a record's intro no longer starts while the record before it is still being sung under that intro. When two records blend, the station now waits for the outgoing record's last sung word before the presenter starts, and airs the link in the gap when it no longer fits before the next record's singing.
+
 ## [0.93.0] — 2026-11-05
 
 - A plugin with the `profile` capability can now report what its account played recently through an optional `getRecentPlays`. Spotify implements it, and nothing in the station reads it yet.
@@ -1918,7 +1923,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.93.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.94.0...HEAD
+[0.94.0]: https://github.com/robert-dean/deadair/compare/v0.93.0...v0.94.0
 [0.93.0]: https://github.com/robert-dean/deadair/compare/v0.92.2...v0.93.0
 [0.92.2]: https://github.com/robert-dean/deadair/compare/v0.92.1...v0.92.2
 [0.92.1]: https://github.com/robert-dean/deadair/compare/v0.92.0...v0.92.1

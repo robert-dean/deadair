@@ -200,6 +200,7 @@ export const plugins = {
         catalog: 'Library',
         stream: 'Plays records',
         steer: 'Steers playback',
+        profile: 'Reads your listening',
         speech: 'Voice',
         llm: 'Writing',
         analysis: 'Measures records',

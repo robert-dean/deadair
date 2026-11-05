@@ -3,7 +3,13 @@ import type { ChartsProvider } from './capabilities/charts.js';
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
 import type { LyricsProvider } from './capabilities/lyrics.js';
 import type { MessagingProvider } from './capabilities/messaging.js';
-import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
+import type {
+    MusicProviderCatalog,
+    MusicProviderOAuth,
+    MusicProviderProfile,
+    MusicProviderSteer,
+    MusicProviderStream,
+} from './capabilities/music.provider.js';
 import type { NarrationProvider } from './capabilities/narration.js';
 import type { ConcertsProvider } from './capabilities/concerts.js';
 import type { NewsProvider } from './capabilities/news.js';
@@ -43,7 +49,8 @@ export type MusicProviderPluginInstance = PluginLifecycle &
     Partial<MusicProviderCatalog> &
     Partial<MusicProviderStream> &
     Partial<MusicProviderSteer> &
-    Partial<MusicProviderOAuth>;
+    Partial<MusicProviderOAuth> &
+    Partial<MusicProviderProfile>;
 
 /** Instance shape for an `enrichment` plugin. */
 export type EnrichmentPluginInstance = PluginLifecycle & EnrichmentProvider;

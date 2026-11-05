@@ -28,6 +28,14 @@ export const PLUGIN_CAPABILITY_STREAM = 'stream';
  */
 export const PLUGIN_CAPABILITY_STEER = 'steer';
 export const PLUGIN_CAPABILITY_OAUTH = 'oauth';
+
+/**
+ * The plugin can say what the connected account listens to (`getTopArtists`).
+ * Separate from {@link PLUGIN_CAPABILITY_CATALOG} because most catalogs have no
+ * such ranking, and because "reads what you listen to" is worth a line an
+ * operator can see on a manifest.
+ */
+export const PLUGIN_CAPABILITY_PROFILE = 'profile';
 export const PLUGIN_CAPABILITY_ENRICHMENT = 'enrichment';
 
 /** The plugin can say something out loud: text in, audio out. */

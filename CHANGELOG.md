@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.92.0] — 2026-11-05
+
+- Lean the model's choices toward the artists and styles the operator plays most at Spotify, read through a new optional `profile` plugin capability. It counts for less than a rating, a dislike still wins, a presenter is told never to mention it on air, and a setting turns it off. Spotify is asked a few times a day, with no reconnect needed.
+
 ## [0.91.0] — 2026-11-05
 
 - Offer the Spotify account's top tracks over three time ranges and its saved tracks as four extra playlists, so they reach the library, the Library page and Air this playlist the way any playlist does. They need no reconnect: the connection already holds both permissions.
@@ -1900,7 +1904,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.91.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.92.0...HEAD
+[0.92.0]: https://github.com/robert-dean/deadair/compare/v0.91.0...v0.92.0
 [0.91.0]: https://github.com/robert-dean/deadair/compare/v0.90.5...v0.91.0
 [0.90.5]: https://github.com/robert-dean/deadair/compare/v0.90.4...v0.90.5
 [0.90.4]: https://github.com/robert-dean/deadair/compare/v0.90.3...v0.90.4

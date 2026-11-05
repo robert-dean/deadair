@@ -86,6 +86,15 @@ and the next prompt rather than by a listener. It also asks for no `{{clock.roug
 the templates, since the station fills those in English and a phrasing that names one is never used. The marker
 check is loosened for the language rather than translated; see `breaks.md` § "The station's language".
 
+**A sheet records the language it is written in** (`sheet_language`, migration 0131), because a station that
+changes language keeps the characters it was seeded with, and those are English. Every row that existed before
+the column is `en`; a character saved on the station takes its language unless the save names one, and a save
+that leaves the field out keeps what the row had. `sheetSpeaks` compares the two by language and not region, so
+a German sheet on an Austrian station matches. Where they differ, `characterFault` stops requiring the sheet's
+markers, which are words a correct break in the station's language never carries, and keeps every prohibition:
+a sample line or a catchphrase copied word for word is how the sheet's language leaks into the break
+(discussion 868).
+
 ## The newsreader
 
 **A bulletin is read by the newsreader when the station has one, whoever is hosting.** `newsreader` is

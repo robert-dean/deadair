@@ -860,6 +860,30 @@ export interface PersonaSheet {
     soundboard?: string;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */
     samples?: readonly string[];
+    /**
+     * The language this sheet is written in, as a canonical BCP 47 tag (`en`, `de`, `de-AT`).
+     *
+     * Beside the station's own language rather than derived from it, because the two differ on any
+     * station that changed its language after it was set up: the characters were seeded in English and
+     * stay English. Absent means English, which is what the column holds for every row written before
+     * it existed. On a draft, absent means "not stated": a new row takes the column's `en` (or the
+     * station's language, where `PersonasService` creates it), and an update keeps what the row had.
+     * See {@link sheetSpeaks}.
+     */
+    sheetLanguage?: string;
+}
+
+/**
+ * Whether a sheet is written in the language the station broadcasts in.
+ *
+ * Compared by the language alone and not the region, so an Austrian station reading a sheet written in
+ * German is a match: what this guards against is a model being handed one language's words while it
+ * writes in another, and `de` and `de-AT` share them. `station` is `stationLanguage`'s answer, which is
+ * `undefined` for English.
+ */
+export function sheetSpeaks(sheet: Pick<PersonaSheet, 'sheetLanguage'>, station: string | undefined): boolean {
+    const primary = (tag: string | undefined): string => (tag ?? 'en').split('-')[0]!.toLowerCase();
+    return primary(sheet.sheetLanguage) === primary(station);
 }
 
 /**
@@ -1647,6 +1671,13 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     // that keep the dialect are the ones whose repeats were the presenter's own. See
     // `MAX_RECENT_ECHO_WORDS`.
     if (context.recent !== undefined && repeatOf(context.recent, script) !== undefined) return 'repeated-itself';
+
+    // The one requirement, and the one check a sheet in another language cannot be held to: its markers
+    // are words in that language, so a break written correctly in the station's never carries them, and
+    // every one was refused as out of character (discussion 868). The prohibitions above still run,
+    // since a sample line or a catchphrase copied word for word is exactly how the sheet's language
+    // leaks into the break.
+    if (!sheetSpeaks(sheet, context.language)) return undefined;
 
     return keepsCharacter(sheet, script, context.language) ? undefined : 'out-of-character';
 }

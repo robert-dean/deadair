@@ -229,6 +229,48 @@ describe('HostVaultAuthStrategy', () => {
         });
     });
 
+    describe('missingScopes', () => {
+        const stale = () => ({ accessToken: 'old-access', refreshToken: 'old-refresh', expiresAt: String(Date.now() - 1000) });
+        const everything = SPOTIFY_SCOPES.join(' ');
+
+        it('says nothing about a record that does not say what it was granted', async () => {
+            const host = createFakePluginHost();
+            host.seedTokens({ accessToken: 'access-1', refreshToken: 'refresh-1', expiresAt: String(Date.now() + 3_600_000) });
+
+            await expect(new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI).missingScopes()).resolves.toEqual([]);
+        });
+
+        it('says nothing when there is no connection at all', async () => {
+            await expect(new HostVaultAuthStrategy(createFakePluginHost(), CLIENT_ID, REDIRECT_URI).missingScopes()).resolves.toEqual([]);
+        });
+
+        it('learns the grant from a refresh and names what it lacks', async () => {
+            const host = createFakePluginHost();
+            host.queueResponse(tokenResponse({ body: '{"access_token":"fresh-access","expires_in":3600,"scope":"streaming user-top-read"}' }));
+            host.seedTokens(stale());
+            const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
+
+            await strategy.getBearer();
+
+            expect(host.getVaultTokens()?.scope).toBe('streaming user-top-read');
+            const missing = await strategy.missingScopes();
+            expect(missing).toContain('user-read-recently-played');
+            expect(missing).not.toContain('streaming');
+        });
+
+        it('keeps the grant when a refresh omits it', async () => {
+            const host = createFakePluginHost();
+            host.queueResponse(tokenResponse({ body: '{"access_token":"fresh-access","expires_in":3600}' }));
+            host.seedTokens({ ...stale(), scope: everything });
+            const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
+
+            await strategy.getBearer();
+
+            expect(host.getVaultTokens()?.scope).toBe(everything);
+            await expect(strategy.missingScopes()).resolves.toEqual([]);
+        });
+    });
+
     describe('refresh flow', () => {
         it('refreshes a stale token via getBearer and persists the new one', async () => {
             const host = createFakePluginHost();

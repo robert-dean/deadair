@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SpotifyPlugin, spotifyManifest } from '../src/spotify.plugin.js';
+import { SPOTIFY_SCOPES } from '../src/spotify.manifest.js';
 import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const CLIENT_ID = 'client-abc';
@@ -100,6 +101,23 @@ describe('SpotifyPlugin', () => {
             host.queueResponse(apiResponse({ id: 'user-1', display_name: 'DJ Test' }));
 
             await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected as DJ Test.' });
+        });
+
+        it('asks for a reconnect when the stored grant lacks a scope the station wants', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.seedTokens({
+                accessToken: 'access-1',
+                refreshToken: 'refresh-1',
+                expiresAt: String(Date.now() + 60 * 60 * 1000),
+                scope: SPOTIFY_SCOPES.filter(scope => scope !== 'user-read-recently-played').join(' '),
+            });
+            host.queueResponse(apiResponse({ id: 'user-1', display_name: 'DJ Test' }));
+
+            const result = await plugin.testConnection();
+
+            expect(result.ok).toBe(true);
+            expect(result.message).toMatch(/^Connected as DJ Test\. .*user-read-recently-played.*Reconnect Spotify/);
         });
 
         it('falls back to the profile id when display_name is empty', async () => {
@@ -411,6 +429,43 @@ describe('SpotifyPlugin', () => {
 
             expect(results).toHaveLength(1);
             expect(results[0]?.permissions).toBeUndefined();
+        });
+
+        describe('getRecentPlays', () => {
+            it('asks for the most Spotify keeps, and maps the plays in order', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(
+                    apiResponse({
+                        items: [
+                            { track: searchHit('t1'), played_at: '2026-11-05T08:30:00.000Z' },
+                            { track: null, played_at: '2026-11-05T08:25:00.000Z' },
+                            { track: searchHit('t2') },
+                            null,
+                            { track: searchHit('t3'), played_at: '2026-11-05T08:20:00.000Z' },
+                        ],
+                    }),
+                );
+
+                const plays = await plugin.getRecentPlays();
+
+                const url = new URL(host.calls[0].url);
+                expect(url.pathname).toBe('/v1/me/player/recently-played');
+                expect(url.searchParams.get('limit')).toBe('50');
+                expect(plays.map(play => [play.track.id, play.track.artists, play.playedAt])).toEqual([
+                    ['t1', ['Artist'], '2026-11-05T08:30:00.000Z'],
+                    ['t3', ['Artist'], '2026-11-05T08:20:00.000Z'],
+                ]);
+            });
+
+            it('answers nothing when the account has no history', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [] }));
+
+                await expect(plugin.getRecentPlays({ limit: 10 })).resolves.toEqual([]);
+                expect(new URL(host.calls[0].url).searchParams.get('limit')).toBe('10');
+            });
         });
 
         describe('getTopArtists', () => {

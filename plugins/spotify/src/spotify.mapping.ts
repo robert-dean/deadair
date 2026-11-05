@@ -5,6 +5,7 @@ import type {
     ProviderArtist,
     ProviderPlaylist,
     ProviderPlaylistPermission,
+    ProviderPlay,
     ProviderTrack,
     SearchTracksOptions,
 } from '@deadair/plugin-sdk';
@@ -229,6 +230,9 @@ export const SPOTIFY_SAVED_TRACKS_ID = 'saved';
 /** How much of a `GET /me/top/tracks` ranking is read. One full page, the most the endpoint hands over in a call. */
 export const SPOTIFY_TOP_TRACKS_MAX = 50;
 
+/** The endpoint's own ceiling on one page of `me/player/recently-played`. */
+export const SPOTIFY_RECENT_PLAYS_MAX = 50;
+
 /** Each window `GET /me/top/tracks` ranks over, by the id it has in a listing. */
 const SPOTIFY_TOP_RANGES: Readonly<Record<string, string>> = {
     'top:short_term': 'short_term',
@@ -328,6 +332,32 @@ export function explicitFilterNotice(profile: SpotifyUserProfile | null | undefi
     return profile.explicit_content.filter_locked === true
         ? 'This account has explicit content turned off and locked, so it may refuse to serve explicit records. It cannot be changed from here; set the station to clean-only if you want it to stop choosing them.'
         : 'This account has explicit content turned off, so it may refuse to serve explicit records. Change it in your Spotify account settings, or set the station to clean-only.';
+}
+
+/** One row of `GET /me/player/recently-played`. Every field is narrowed, for the reason at the top of this file. */
+export interface SpotifyPlayHistory {
+    track?: SpotifyTrack | null;
+    played_at?: string;
+}
+
+/** One play, or `undefined` for a row with no usable record or no time. */
+export function mapPlay(row: SpotifyPlayHistory | null | undefined): ProviderPlay | undefined {
+    const track = mapTrack(row?.track);
+    if (!track || !row?.played_at) return undefined;
+
+    return { track, playedAt: row.played_at };
+}
+
+/**
+ * What a connection granted before the station asked for more should do about it, or nothing to say.
+ *
+ * Appended to a connection that really is fine, like {@link explicitFilterNotice}: everything it was
+ * already allowed to do still works, and the one read it lacks fails by itself.
+ */
+export function missingGrantNotice(missing: readonly string[]): string | undefined {
+    if (missing.length === 0) return undefined;
+
+    return `This connection was granted before the station asked for ${missing.join(', ')}. Reconnect Spotify to allow it. Everything else keeps working until you do.`;
 }
 
 /**

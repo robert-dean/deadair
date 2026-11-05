@@ -17,6 +17,8 @@ On Navidrome, **Library folders** in the plugin's settings chooses which of the 
 
 When a model chooses a record no playlist carries, the station looks it up at your providers, and a strict match on title and lead artist becomes a real entry, marked "found". A near match is refused: it would air the wrong record under the right name.
 
+**On Spotify, your listening comes across as well as your playlists.** The plugin offers four extra playlists: your top tracks over recent weeks, recent months and the past year, and your saved tracks. The library walks them like any other, so a large saved library takes that much longer to read. Hide any you would rather leave out on the Playlists page; a hidden playlist is not walked.
+
 **Spotify needs two authorizations, and you need both.** The connection lets the plugin read your library. The playback authorization, on the card below it, lets the station fetch the audio. With only the first, your playlists list perfectly and every record is dropped for want of audio. The card walks you through the second.
 
 **YouTube Music signs in with a cookie you paste, and plays signed out.** There is no sign-in button to offer: Google withdrew that for this service, so the plugin's page asks for the Cookie header from a browser signed in to music.youtube.com, and says where to copy it from. It has no refresh and expires on the account's own schedule. When it does, the plugin's card says so rather than your library quietly thinning, because search goes on working signed out. If the browser is signed in to more than one Google account, **Google account** picks which one the playlists come from, and Test connection names the account it reached.

@@ -29,7 +29,11 @@ import {
     mapPlaylist,
     mapTrack,
     SEARCH_OFFSET_MAX,
+    SPOTIFY_ACCOUNT_LISTS,
+    SPOTIFY_SAVED_TRACKS_ID,
+    SPOTIFY_TOP_TRACKS_MAX,
     spotifyPlaylistIdFromUrl,
+    spotifyTopRange,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
 
@@ -236,6 +240,10 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
             const mapped = mapPlaylist({ ...item, tracks: item.tracks ?? undefined }, currentUserId);
             if (mapped) playlists.push(mapped);
         }
+        // On the first page only, and on top of it rather than in place of anything: the host asks
+        // for offsets by page number, so a longer first page moves nothing, and a later page would
+        // list them again.
+        if (!options?.offset) playlists.push(...SPOTIFY_ACCOUNT_LISTS);
         return playlists;
     }
 
@@ -259,6 +267,12 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         // disposed, and an operator saving the config mid-walk is exactly when that happens.
         const host = this.host;
         const limit = clampLimit(options?.limit);
+
+        // Ahead of everything below, which is about real playlists: the station's fetcher has never
+        // heard of these ids, so a refusal here is reported rather than handed to it.
+        const topRange = spotifyTopRange(playlistId);
+        if (topRange !== undefined) return this.topTracks(topRange, options?.offset, limit);
+        if (playlistId === SPOTIFY_SAVED_TRACKS_ID) return this.savedTracks(options?.offset, limit);
 
         if (this.refusedPlaylists.has(playlistId)) {
             return this.tracksFromFetcher(host, playlistId, options?.offset, limit);
@@ -295,6 +309,29 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
                 throw fetcherError;
             }
         }
+    }
+
+    /**
+     * One page of the account's ranking over `timeRange`, best first.
+     *
+     * Stops at {@link SPOTIFY_TOP_TRACKS_MAX} without asking: the host reads a full page as "there
+     * is more", and Spotify states no ceiling on `offset` for this endpoint, so the page past the
+     * end answers `[]` here rather than spending a call whose refusal would fail a whole library walk.
+     */
+    private async topTracks(timeRange: string, offset = 0, limit: number = SPOTIFY_TOP_TRACKS_MAX): Promise<ProviderTrack[]> {
+        const remaining = SPOTIFY_TOP_TRACKS_MAX - offset;
+        if (remaining <= 0) return [];
+
+        const query = new URLSearchParams({ time_range: timeRange, limit: String(Math.min(limit, remaining)), offset: String(offset) });
+        const page = await this.getApi().makeRequest<{ items?: Parameters<typeof mapTrack>[0][] }>('GET', `me/top/tracks?${query.toString()}`);
+        return toProviderTracks(page?.items ?? []);
+    }
+
+    /** One page of the account's saved tracks, most recently saved first. */
+    private async savedTracks(offset = 0, limit: number = SPOTIFY_TOP_TRACKS_MAX): Promise<ProviderTrack[]> {
+        const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+        const page = await this.getApi().makeRequest<{ items?: SpotifyPlaylistedItem[] }>('GET', `me/tracks?${query.toString()}`);
+        return toProviderTracks((page?.items ?? []).map(row => row.track));
     }
 
     /**

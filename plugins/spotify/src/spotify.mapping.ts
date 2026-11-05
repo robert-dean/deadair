@@ -192,6 +192,44 @@ export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, curren
     };
 }
 
+/** The id of the account's saved tracks in a listing. */
+export const SPOTIFY_SAVED_TRACKS_ID = 'saved';
+
+/** How much of a `GET /me/top/tracks` ranking is read. One full page, the most the endpoint hands over in a call. */
+export const SPOTIFY_TOP_TRACKS_MAX = 50;
+
+/** Each window `GET /me/top/tracks` ranks over, by the id it has in a listing. */
+const SPOTIFY_TOP_RANGES: Readonly<Record<string, string>> = {
+    'top:short_term': 'short_term',
+    'top:medium_term': 'medium_term',
+    'top:long_term': 'long_term',
+};
+
+/**
+ * The `time_range` a listing id asks for, or `undefined` for any other playlist.
+ *
+ * A real Spotify id is 22 base-62 characters, so neither these nor {@link SPOTIFY_SAVED_TRACKS_ID}
+ * can name a real playlist.
+ */
+export function spotifyTopRange(playlistId: string): string | undefined {
+    return Object.hasOwn(SPOTIFY_TOP_RANGES, playlistId) ? SPOTIFY_TOP_RANGES[playlistId] : undefined;
+}
+
+/**
+ * The account's top and saved tracks, as entries in its playlist listing.
+ *
+ * They are not playlists, and this is the small untruth that lets them reach the catalog, the
+ * Library page and an air button through the path every playlist already takes. The top lists are
+ * `madeByProvider` because Spotify computes them; saved tracks are not, because the person chose
+ * each one. No `trackCount`: Spotify would need one more call per entry on every listing to say.
+ */
+export const SPOTIFY_ACCOUNT_LISTS: readonly ProviderPlaylist[] = [
+    { id: 'top:short_term', name: 'Your top tracks: recent weeks', permissions: ['read'], madeByProvider: true },
+    { id: 'top:medium_term', name: 'Your top tracks: recent months', permissions: ['read'], madeByProvider: true },
+    { id: 'top:long_term', name: 'Your top tracks: past year', permissions: ['read'], madeByProvider: true },
+    { id: SPOTIFY_SAVED_TRACKS_ID, name: 'Your saved tracks', permissions: ['read'] },
+];
+
 /**
  * What this station can do with the playlist's items.
  *

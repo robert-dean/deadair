@@ -236,6 +236,34 @@ describe('StationLineup and what the player has done', () => {
         expect(lineup.trackRightAfter(jingle!.id)).toBeUndefined();
     });
 
+    it('finds the record directly before a line, passing a talk-over riding the next record', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        lineup.insertSegment('jingle', 1);
+        const [a, jingle, link] = lineup.all();
+
+        expect(lineup.trackRightBefore(jingle!.id)?.id).toBe(a!.id);
+        // A jingle between them airs between them, so nothing of the record before reaches the link's record.
+        expect(lineup.trackRightBefore(link!.id)).toBeUndefined();
+
+        const riding = lineupWith(['a', 'b']);
+        riding.insertSegment('cue', 1, { atMs: 500 });
+        riding.insertSegment('link', 2);
+        const [first, , next] = riding.all();
+        expect(riding.trackRightBefore(next!.id)?.id).toBe(first!.id);
+    });
+
+    it('finds nothing before a line when the record before carries a link over its end, since that record joins hard', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('out', 1);
+        lineup.insertSegment('link', 2);
+        const [a, out, link] = lineup.all();
+
+        expect(lineup.handOverTalkingOut(out!.id, 120_000)).toBe(true);
+        expect(lineup.trackRightBefore(link!.id)).toBeUndefined();
+        expect(lineup.trackRightBefore(out!.id)?.id).toBe(a!.id);
+    });
+
     it('does not pass over a talk-over riding the record now starting', () => {
         // A talk-over cue is `handed` — armed — before the record it rides ever starts,
         // and it sits right in front of that record in the order. It has not missed

@@ -2,6 +2,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { numberInRange } from '#modules/shared/setting.numbers.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS, type Runway } from '#modules/lyrics/vocal.runway.js';
+import type { VocalMarkers } from '#modules/lyrics/vocal.ranges.js';
 import { DUCK_FADE_KEY, resolveDuckFadeMs } from '#modules/playout/gain.js';
 import { WORDS_PER_SECOND } from './break.prompt.js';
 
@@ -76,6 +77,11 @@ export interface TalkUpQuestion {
     safetyMs: number;
     /** The duck's ramp. The bed comes back up over this long after the last word, so it is part of the link. */
     duckFadeMs: number;
+    /**
+     * How far into the record the RECORD BEFORE it is still being sung, from {@link outgoingClearMs}.
+     * The link may not be heard before this. Absent, or zero, when nothing is still singing under it.
+     */
+    clearFromMs?: number;
 }
 
 /**
@@ -85,8 +91,12 @@ export interface TalkUpQuestion {
  * for the cue firing a tick or two late. On an intro long enough not to bind, starts at {@link SETTLE_MS}
  * instead of hanging silent until the post. Never trims and never re-renders: a link that does not
  * fit is simply aired in the gap.
+ *
+ * And never starts before `clearFromMs`, which is the other end of the window: the record before can
+ * still be playing under this one's intro for the length of the blend, and still singing. `radio.liq`
+ * starts the voice the duck's ramp ahead of the cue, so that ramp is allowed for at this end too.
  */
-export function talkUpAt({ voiceMs, runway, safetyMs, duckFadeMs }: TalkUpQuestion): number | undefined {
+export function talkUpAt({ voiceMs, runway, safetyMs, duckFadeMs, clearFromMs }: TalkUpQuestion): number | undefined {
     if (runway.kind !== 'ms') return undefined;
     if (!Number.isFinite(voiceMs) || voiceMs <= 0) return undefined;
     if (runway.ms < RUNWAY_FLOOR_MS) return undefined;
@@ -97,7 +107,47 @@ export function talkUpAt({ voiceMs, runway, safetyMs, duckFadeMs }: TalkUpQuesti
     const latest = Math.floor(post - spoken - CUE_CLOCK_LAG_MS);
     if (latest < 0) return undefined;
 
-    return runway.ms >= RUNWAY_CEILING_MS ? Math.min(latest, SETTLE_MS) : latest;
+    // The earliest start that is not heard over the record before. A cue firing late only helps here.
+    const earliest = clearFromMs !== undefined && Number.isFinite(clearFromMs) && clearFromMs > 0 ? Math.ceil(clearFromMs + duckFadeMs) : 0;
+    if (earliest > latest) return undefined;
+
+    const at = runway.ms >= RUNWAY_CEILING_MS ? Math.min(latest, SETTLE_MS) : latest;
+    return Math.max(at, earliest);
+}
+
+/** The record a talked-up link follows, as far as {@link outgoingClearMs} needs it. */
+export interface OutgoingRecord {
+    /** Where its singing is. */
+    markers: VocalMarkers;
+    /** Its measured cue-out, in milliseconds from the top of its file. Absent on an unmeasured record. */
+    cueOutMs?: number;
+    /** How long it overlaps the record the link rides, from `blendFor`. Zero for a hard join. */
+    blendMs: number;
+}
+
+/**
+ * How far into the incoming record the outgoing one stops being sung, plus `safetyMs`, or 0 when it
+ * is not sung under it at all.
+ *
+ * The talk-up's clock starts as the blend BEGINS (see `on_air_elapsed` in `radio.liq`), so for the
+ * first `blendMs` of the incoming record the outgoing one's last seconds are playing under it, and a
+ * record that is still being sung then is one a link talked up from the top would talk over. Measured
+ * on air: "Bad Medicine" blended 12s into the next record with its last line running 6.8s into it,
+ * and a link timed only against the next record's post started at 5.8s.
+ *
+ * The outgoing record's vocal end is on its FILE timeline, as its cue-out is, so the two compare with
+ * no shift. A record whose singing is unknown is assumed to sing to its end: the cautious reading,
+ * which waits out the blend before the link starts. An instrumental needs nothing.
+ */
+export function outgoingClearMs(outgoing: OutgoingRecord | undefined, safetyMs: number): number {
+    if (outgoing === undefined || !(outgoing.blendMs > 0)) return 0;
+    if (outgoing.markers.kind === 'instrumental') return 0;
+    if (outgoing.markers.kind === 'unknown' || outgoing.cueOutMs === undefined || !Number.isFinite(outgoing.cueOutMs)) return outgoing.blendMs;
+
+    // Where the incoming record starts, on the outgoing record's own timeline.
+    const handOverMs = outgoing.cueOutMs - outgoing.blendMs;
+    const sungUntilMs = Math.min(outgoing.markers.endMs, outgoing.cueOutMs) - handOverMs;
+    return sungUntilMs <= 0 ? 0 : sungUntilMs + safetyMs;
 }
 
 /** Below this many words there is no link worth offering to fit, so the writer is told nothing. */

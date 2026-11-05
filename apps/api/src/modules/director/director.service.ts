@@ -39,7 +39,9 @@ import { inScope } from '#modules/shared/scoped.work.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor, type Runway } from '#modules/lyrics/vocal.runway.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
-import { resolveTalkUp, talkUpAt, type TalkUpSettings } from './talk.up.js';
+import { outgoingClearMs, resolveTalkUp, talkUpAt, type TalkUpSettings } from './talk.up.js';
+import { blendFor } from '#modules/playout/crossfade.js';
+import { UNKNOWN_MARKERS, type VocalMarkers } from '#modules/lyrics/vocal.ranges.js';
 import { tailFor, talkOutAt, talkOutIsOn } from './talk.out.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
@@ -71,6 +73,7 @@ import {
     type ShuffleResult,
     type StationLineupBinding,
     type StationLineupItem,
+    type StationLineupTrackItem,
     type StationLineupSnapshot,
 } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
@@ -285,6 +288,22 @@ function onAirName(persona?: Persona): string | undefined {
  * before its caller is answered, because the response says it happened.
  */
 const PERSIST_THROTTLE_MS = 2_000;
+
+/**
+ * Where a talked-up link may go: the next record's runway, and how far into that record the one
+ * before it is still being sung (`outgoingClearMs`, 0 when nothing is).
+ */
+interface TalkUpWindow {
+    runway: Runway;
+    clearFromMs: number;
+}
+
+/** The record still playing under the start of the next one, and for how long. */
+interface OutgoingUnder {
+    trackId: string;
+    cueOutMs?: number;
+    blendMs: number;
+}
 
 /** What a production the shelf life retired carries as its error. See `production.shelf.ts`. */
 const EXPIRED_PRODUCTION = 'it was made too long ago to air: what it says about the time of day is no longer true';
@@ -3126,35 +3145,68 @@ export class DirectorService {
     }
 
     /**
-     * The runway of the record directly after each talk link in this batch that could be talked up.
+     * The runway of the record directly after each talk link in this batch that could be talked up,
+     * and how far into that record the one before it is still being sung.
      *
      * Keyed by the LINK's item id. A link qualifies when it is an ordinary talk break, not already a
      * talk-over, rendered (so its length is known), and directly in front of a record the catalog
      * holds. The markers are read in one batch, and a failure to read them costs the talk-ups and
      * never the links: every one of them then airs in the gap, as before.
      */
-    private async talkUpRunways(items: readonly StationLineupItem[], segments: Map<string, Segment>): Promise<Map<string, Runway>> {
+    private async talkUpRunways(
+        items: readonly StationLineupItem[],
+        segments: Map<string, Segment>,
+        safetyMs: number,
+    ): Promise<Map<string, TalkUpWindow>> {
         const candidates = items.flatMap(item => {
             if (item.kind !== 'segment' || item.over !== undefined) return [];
             const segment = segments.get(item.segmentId);
             if (segment?.state !== 'ready' || segment.kind !== TALK_BREAK_KIND || segment.durationMs === undefined) return [];
             const next = this.lineup?.trackRightAfter(item.id);
-            return next?.track.trackId === undefined ? [] : [{ itemId: item.id, trackId: next.track.trackId, cueInMs: next.track.cueInMs }];
+            if (next?.track.trackId === undefined) return [];
+            return [{ itemId: item.id, trackId: next.track.trackId, cueInMs: next.track.cueInMs, outgoing: this.outgoingUnder(item.id, next) }];
         });
         if (candidates.length === 0) return new Map();
 
-        const markers = await inScope(this.container, async scope =>
-            scope.get(VocalMarkersReader).forTracks(candidates.map(one => one.trackId)),
-        ).catch(error => {
+        const trackIds = candidates.flatMap(one => [one.trackId, ...(one.outgoing === undefined ? [] : [one.outgoing.trackId])]);
+        const markers = await inScope(this.container, async scope => scope.get(VocalMarkersReader).forTracks(trackIds)).catch(error => {
             this.logger.warn(`director: could not read where the singing starts, so every link airs in the gap (${errorText(error)})`);
-            return new Map();
+            return new Map<string, VocalMarkers>();
         });
 
         return new Map(
-            candidates.flatMap(({ itemId, trackId, cueInMs }) => {
+            candidates.flatMap(({ itemId, trackId, cueInMs, outgoing }) => {
                 const found = markers.get(trackId);
-                return found === undefined ? [] : [[itemId, runwayFor(found, cueInMs)] as const];
+                if (found === undefined) return [];
+                return [[itemId, { runway: runwayFor(found, cueInMs), clearFromMs: this.clearOf(outgoing, markers, safetyMs) }] as const];
             }),
+        );
+    }
+
+    /**
+     * The record that will still be playing under the start of `incoming`, and for how long, or
+     * nothing when the two join hard or something else airs between them.
+     *
+     * Sized with `blendFor` on the same pair and the same rule the pusher stamps, so the window a
+     * talk-up is fitted into is the overlap the mixer will actually make.
+     */
+    private outgoingUnder(linkId: string, incoming: StationLineupTrackItem): OutgoingUnder | undefined {
+        const outgoing = this.lineup?.trackRightBefore(linkId);
+        if (outgoing?.track.trackId === undefined) return undefined;
+        const blendMs = blendFor(outgoing.track, incoming.track, { crossfade: this.rundown.crossfade() });
+        return blendMs > 0 ? { trackId: outgoing.track.trackId, cueOutMs: outgoing.track.cueOutMs, blendMs } : undefined;
+    }
+
+    /** {@link outgoingClearMs} for a record found by {@link outgoingUnder}, with its markers from the batch read. */
+    private clearOf(outgoing: OutgoingUnder | undefined, markers: Map<string, VocalMarkers>, safetyMs: number): number {
+        if (outgoing === undefined) return 0;
+        return outgoingClearMs(
+            {
+                markers: markers.get(outgoing.trackId) ?? UNKNOWN_MARKERS,
+                blendMs: outgoing.blendMs,
+                ...(outgoing.cueOutMs === undefined ? {} : { cueOutMs: outgoing.cueOutMs }),
+            },
+            safetyMs,
         );
     }
 
@@ -3213,12 +3265,25 @@ export class DirectorService {
                     ready.flatMap(({ record, link, segment, next }) => {
                         const voiceMs = segment.durationMs!;
                         const nextMarkers = next?.track.trackId === undefined ? undefined : markers.get(next.track.trackId);
-                        if (talkUp.enabled && nextMarkers !== undefined) {
-                            const runway = runwayFor(nextMarkers, next?.track.cueInMs);
-                            if (talkUpAt({ voiceMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: talkUp.duckFadeMs }) !== undefined) return [];
+                        const own = markers.get(record.track.trackId!);
+                        if (talkUp.enabled && nextMarkers !== undefined && next !== undefined) {
+                            // Asked exactly as the hand-over will ask it, this record still singing
+                            // under the next one's intro included, or a link the talk-up will refuse
+                            // is left to it here and airs in the gap instead of over this record's end.
+                            const blendMs = blendFor(record.track, next.track, { crossfade: this.rundown.crossfade() });
+                            const clearFromMs = outgoingClearMs(
+                                {
+                                    markers: own ?? UNKNOWN_MARKERS,
+                                    blendMs,
+                                    ...(record.track.cueOutMs === undefined ? {} : { cueOutMs: record.track.cueOutMs }),
+                                },
+                                talkUp.safetyMs,
+                            );
+                            const runway = runwayFor(nextMarkers, next.track.cueInMs);
+                            if (talkUpAt({ voiceMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: talkUp.duckFadeMs, clearFromMs }) !== undefined)
+                                return [];
                         }
 
-                        const own = markers.get(record.track.trackId!);
                         if (own === undefined) return [];
                         const atMs = talkOutAt({
                             voiceMs,
@@ -3339,7 +3404,7 @@ export class DirectorService {
         // Where the singing starts on each record a link in this batch could be talked up over, read
         // once for the batch and only when talking up is switched on. See `talk.up.ts`.
         const talkUp = resolveTalkUp(this.config);
-        const runways = talkUp.enabled ? await this.talkUpRunways(items, segments) : new Map<string, Runway>();
+        const runways = talkUp.enabled ? await this.talkUpRunways(items, segments, talkUp.safetyMs) : new Map<string, TalkUpWindow>();
         // And which records carry a link over their end, decided at the record's own hand-over. See
         // `talk.out.ts`. A link riding a record this way is skipped when the loop reaches it below.
         const talkOuts = talkOutIsOn(this.config) ? await this.talkOutCues(items, talkUp) : new Map<string, never>();
@@ -3608,17 +3673,25 @@ export class DirectorService {
             // nothing is already waiting to ride it, since two voices on one record is one talking
             // over the other. Anything that does not fit, or has no runway to judge by, airs in the
             // gap as it always did.
-            const runway = item.over === undefined && pending === undefined ? runways.get(item.id) : undefined;
+            const window = item.over === undefined && pending === undefined ? runways.get(item.id) : undefined;
+            const runway = window?.runway;
             const upAt =
-                runway === undefined || segment.durationMs === undefined
+                window === undefined || segment.durationMs === undefined
                     ? undefined
-                    : talkUpAt({ voiceMs: segment.durationMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: talkUp.duckFadeMs });
+                    : talkUpAt({
+                          voiceMs: segment.durationMs,
+                          runway: window.runway,
+                          safetyMs: talkUp.safetyMs,
+                          duckFadeMs: talkUp.duckFadeMs,
+                          clearFromMs: window.clearFromMs,
+                      });
             if (upAt !== undefined) {
                 this.logger.info('director: talking a link up to the post', {
                     segment: segment.id,
                     atMs: upAt,
                     voiceMs: segment.durationMs,
                     runwayMs: runway?.kind === 'ms' ? runway.ms : undefined,
+                    ...(window?.clearFromMs ? { clearFromMs: window.clearFromMs } : {}),
                 });
                 // Marked as a talk-over on the order itself, not only handled as one here: see
                 // `StationLineup.handOverTalkingUp` for the sweep that would otherwise skip it.

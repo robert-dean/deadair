@@ -5,9 +5,11 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { AUDIENCE_POLL_MS } from '../../../src/modules/playout/audience.watch.js';
 import {
     FRESH_WATCHDOG,
     judgeAudioChain,
+    NO_SOURCE_AFTER_MS,
     RESTART_ATTEMPTS,
     RESTART_COOLDOWN_MS,
     STUCK_AFTER_MS,
@@ -164,5 +166,60 @@ describe('judgeAudioChain while a presenter is live', () => {
             action: 'restart',
             reason: 'notAnswering',
         });
+    });
+});
+
+describe('judgeAudioChain with nothing on the mount', () => {
+    /** The 2026-11-05 reading: answering, not starved, no listener and so no wish for the mount, and Icecast empty. */
+    const empty = (sourceMissingForMs: number, over: Partial<ChainFacts> = {}): ChainFacts =>
+        working({ wantsAir: false, queued: 1, sourceMissingForMs, ...over });
+
+    it('asks for a restart with nobody listening, because nobody can', () => {
+        const { verdict, memory } = judgeAudioChain(empty(NO_SOURCE_AFTER_MS), FRESH_WATCHDOG);
+
+        expect(verdict).toMatchObject({ action: 'restart', reason: 'noSource', stuckForMs: NO_SOURCE_AFTER_MS });
+        expect(verdict.action === 'restart' && verdict.detail).toBe(
+            'Icecast has had no source on the mount for 90s, so the station asked for the audio chain to be restarted.',
+        );
+        expect(memory).toEqual({ lastRequestAt: NOW, unanswered: 1, gaveUp: false });
+    });
+
+    it('leaves the reconnects Liquidsoap makes on its own', () => {
+        // The live station's worst from 2026-10-29 to 2026-11-05 was fifteen seconds.
+        expect(judgeAudioChain(empty(15_000), FRESH_WATCHDOG).verdict).toEqual({ action: 'none' });
+        expect(judgeAudioChain(empty(NO_SOURCE_AFTER_MS - 1), FRESH_WATCHDOG).verdict).toEqual({ action: 'none' });
+    });
+
+    it('waits for a second audience poll to find the mount empty', () => {
+        // The clock only moves on that poll, so at one interval the poll that would clear it may still be in flight.
+        expect(NO_SOURCE_AFTER_MS).toBeGreaterThan(AUDIENCE_POLL_MS);
+        expect(NO_SOURCE_AFTER_MS).toBeLessThan(2 * AUDIENCE_POLL_MS);
+    });
+
+    it('does not take a chain with an empty mount as working, so the attempts bound holds', () => {
+        const memory: WatchdogMemory = { lastRequestAt: NOW - 1, unanswered: 2, gaveUp: false };
+
+        expect(judgeAudioChain(empty(1_000), memory).memory).toBe(memory);
+    });
+
+    it('starts counting again once the source is back', () => {
+        const memory: WatchdogMemory = { lastRequestAt: NOW - 1, unanswered: 2, gaveUp: false };
+
+        expect(judgeAudioChain(working({ wantsAir: false }), memory).memory).toEqual(FRESH_WATCHDOG);
+    });
+
+    it('gives up pointing at the source password, the cause a restart cannot fix', () => {
+        const { verdict } = judgeAudioChain(empty(NO_SOURCE_AFTER_MS), { unanswered: RESTART_ATTEMPTS, gaveUp: false });
+
+        expect(verdict).toMatchObject({ action: 'giveUp', reason: 'noSource' });
+        expect(verdict.action === 'giveUp' && verdict.detail).toContain('ICECAST_SOURCE_PASSWORD');
+    });
+
+    it('still restarts with a presenter on, who is not getting through either', () => {
+        expect(judgeAudioChain(empty(NO_SOURCE_AFTER_MS, { live: 'onair' }), FRESH_WATCHDOG).verdict).toMatchObject({ reason: 'noSource' });
+    });
+
+    it('does nothing when the operator has switched it off', () => {
+        expect(judgeAudioChain(empty(NO_SOURCE_AFTER_MS, { enabled: false }), FRESH_WATCHDOG).verdict).toEqual({ action: 'none' });
     });
 });

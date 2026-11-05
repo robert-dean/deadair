@@ -600,8 +600,8 @@ answerable at all.
 
 ## When the audio chain hangs
 
-**The station asks for Liquidsoap back when it holds a record for a minute without playing it, or answers
-nothing for a minute.** On 2026-09-13 a listener arrived, the transport handed over a record, and Liquidsoap
+**The station asks for Liquidsoap back when it holds a record for a minute without playing it, answers
+nothing for a minute, or leaves Icecast with no source for ninety seconds.** On 2026-09-13 a listener arrived, the transport handed over a record, and Liquidsoap
 wrote its last log line for ten minutes: it never prepared the record and never switched to the programme,
 while its control API went on answering most calls. The diagnosis said `starved` the whole time, correctly, and
 every console action went to a process no longer acting on anything. A restart by hand brought it back and the
@@ -623,6 +623,18 @@ clearing there would blind this watch to the one failure it restarts for. "Not a
 audience, because a restart nobody hears is the cheapest there is. A minute is several times the worst stall
 the live log shows the chain recovering from on its own (62 status and 15 lease timeouts in ten days, none
 longer than about twelve seconds).
+
+**An empty mount is its own signature, because the other two need something this failure takes away.** On
+2026-11-05 Liquidsoap's output clock stopped on a lock at 02:47 local: control API answering, its other threads
+running, both Icecast connections in `CLOSE-WAIT`, nothing logged and no reconnect. Holding-and-not-playing
+needs the station to want the mount, which needs a listener, and nobody can join an empty mount, so the watch
+counted every reading as healthy for five hours while the diagnosis said `streamUnreachable` correctly. It now
+reads `IcecastStatsClient.sourceMissingSince` as well. Ninety seconds is deliberately between one and two of the
+audience poll's minutes, since only that poll moves the clock: it takes two polls in a row finding the mount
+empty, and Liquidsoap's own reconnects took at most fifteen seconds that week. The empty mount also has to clear
+before the chain counts as working, so a refused source password spends its three restarts and gives up, naming
+the password, rather than cutting the bed for ever. Only the primary mount is read, so one secondary mount lost
+alone is not caught. Why the clock stopped was never found.
 
 **The app never restarts anything itself.** `AudioChainRestart` writes `liquidsoap.restart` beside the rendered
 config, and the container's config watch restarts Liquidsoap alone when its mtime moves: the same road a

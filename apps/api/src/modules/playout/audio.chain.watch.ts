@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
 import { AudioChainRestart } from '#modules/stream/stream.restart.js';
 import {
     DEFAULT_RESTART_STUCK_CHAIN,
@@ -24,7 +25,8 @@ import { PlayoutPusher, RECONCILE_TICK_MS } from './playout.pusher.js';
  * the thing that stalls when Liquidsoap stops answering, since every call in it waits out its own
  * timeout, and a watchdog riding inside it would be as late as the fault it is watching for. And it
  * reads nothing the pass does not already leave behind: the control client's two clocks and its last
- * reading, and the pusher's own answer to whether the station wants the mount.
+ * reading, the pusher's own answer to whether the station wants the mount, and the audience poll's
+ * clock on whether Icecast has a source.
  *
  * What a restart verdict does is write the request, say so in the log, and put one line in the
  * activity feed, where "why was the station quiet at 3am" is answered. What it does NOT do is touch
@@ -40,6 +42,7 @@ export class AudioChainWatch {
     constructor(
         private readonly control: PlayoutControlClient,
         private readonly pusher: PlayoutPusher,
+        private readonly stats: IcecastStatsClient,
         private readonly restart: AudioChainRestart,
         private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
@@ -75,6 +78,7 @@ export class AudioChainWatch {
         const downSince = this.control.downSince();
         const starvedSince = this.control.starvedSince();
         const reading = this.control.lastReading();
+        const sourceMissingSince = this.stats.sourceMissingSince();
         return {
             now,
             enabled: settingIsOn(this.config, RESTART_STUCK_CHAIN_KEY, DEFAULT_RESTART_STUCK_CHAIN),
@@ -84,6 +88,7 @@ export class AudioChainWatch {
             ...(reading?.ready === undefined ? {} : { ready: reading.ready }),
             ...(reading === undefined ? {} : { queued: reading.queued }),
             ...(reading?.live === undefined ? {} : { live: reading.live }),
+            ...(sourceMissingSince === undefined ? {} : { sourceMissingForMs: now - sourceMissingSince }),
         };
     }
 

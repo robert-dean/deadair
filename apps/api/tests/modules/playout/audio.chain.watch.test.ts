@@ -7,11 +7,18 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { AudioChainWatch } from '../../../src/modules/playout/audio.chain.watch.js';
-import { RESTART_ATTEMPTS, RESTART_COOLDOWN_MS, RESTART_STUCK_CHAIN_KEY, STUCK_AFTER_MS } from '../../../src/modules/playout/audio.chain.watchdog.js';
+import {
+    NO_SOURCE_AFTER_MS,
+    RESTART_ATTEMPTS,
+    RESTART_COOLDOWN_MS,
+    RESTART_STUCK_CHAIN_KEY,
+    STUCK_AFTER_MS,
+} from '../../../src/modules/playout/audio.chain.watchdog.js';
 import type { QueueStatus, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 import type { StationEvent } from '../../../src/modules/activity/station.events.repository.js';
+import type { IcecastStatsClient } from '../../../src/modules/stream/icecast.stats.client.js';
 import type { AudioChainRestart } from '../../../src/modules/stream/stream.restart.js';
 
 const NOW = 50_000_000;
@@ -20,6 +27,7 @@ interface Chain {
     downSince?: number;
     starvedSince?: number;
     reading?: QueueStatus;
+    sourceMissingSince?: number;
     wantsAir?: boolean;
     setting?: string;
     written?: boolean;
@@ -32,6 +40,7 @@ function watchOver(chain: Chain) {
         lastReading: () => chain.reading,
     } as unknown as PlayoutControlClient;
     const pusher = { wantsAir: () => chain.wantsAir ?? true } as unknown as PlayoutPusher;
+    const stats = { sourceMissingSince: () => chain.sourceMissingSince } as unknown as IcecastStatsClient;
     const request = vi.fn(() => chain.written ?? true);
     const record = vi.fn(async (_event: StationEvent) => undefined);
     // A setting is a string at every layer, so the double answers one, and only for the key asked.
@@ -43,6 +52,7 @@ function watchOver(chain: Chain) {
     const watch = new AudioChainWatch(
         control,
         pusher,
+        stats,
         { request } as unknown as AudioChainRestart,
         { record } as unknown as ActivityRecorder,
         config as unknown as AppConfig,
@@ -99,6 +109,20 @@ describe('AudioChainWatch', () => {
 
         expect(watch.check(NOW)).toMatchObject({ action: 'restart', reason: 'notAnswering' });
         expect(request).toHaveBeenCalledWith('notAnswering');
+    });
+
+    it('asks for a chain with nothing on the mount, from the audience poll clock, with nobody listening', () => {
+        const { watch, request, record } = watchOver({
+            sourceMissingSince: NOW - NO_SOURCE_AFTER_MS,
+            wantsAir: false,
+            reading: { queued: 1, ready: true },
+        });
+
+        expect(watch.check(NOW)).toMatchObject({ action: 'restart', reason: 'noSource' });
+        expect(request).toHaveBeenCalledWith('noSource');
+        expect(record).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'chain.restart', data: expect.objectContaining({ reason: 'noSource' }) }),
+        );
     });
 
     it('still reports a request it could not write, and says it needs a hand', () => {

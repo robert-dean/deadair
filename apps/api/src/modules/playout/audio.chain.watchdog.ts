@@ -11,7 +11,7 @@
  * longer acting on them, and only a restart by hand brought it back, after which the SAME record
  * played within six seconds.
  *
- * So there are two signatures, and a probe of the control API catches only one:
+ * So there are three signatures, and a probe of the control API catches only one:
  *
  * - **Holding a record and not playing it** (`holdingNotPlaying`). Liquidsoap says, through its own
  *   starve push and its own reading, that its queue is not producing, while that same reading says
@@ -23,6 +23,13 @@
  *   silence from a process still running is a hung one. Judged whether or not anybody is listening,
  *   because a restart that nobody hears is the cheapest one there is, and a chain that hung in the
  *   small hours should not wait for the first listener of the morning to be found.
+ * - **Nothing on the mount** (`noSource`). Icecast is answering and has no source. On 2026-11-05
+ *   Liquidsoap's output clock stopped on a lock at 02:47 local, with its control API still
+ *   answering, its other threads running, and both Icecast connections left in `CLOSE-WAIT`. It
+ *   logged nothing and never reconnected. The other two signatures cannot see that: the first needs
+ *   the station to want the mount, which needs a listener, and nobody can join an empty mount. The
+ *   station stayed down for five hours saying exactly why. `radio.liq` holds its source connected on
+ *   silence whenever nothing is driving, so an empty mount is never the idle station.
  *
  * ## What it deliberately is not
  *
@@ -62,6 +69,17 @@ export const STUCK_AFTER_MS = 60_000;
 export const UNREACHABLE_AFTER_MS = 60_000;
 
 /**
+ * How long Icecast may answer with nothing on the mount before the chain is judged to have lost it.
+ *
+ * Longer than one `AUDIENCE_POLL_MS`, because the clock is only moved by that poll: a source that
+ * dropped and came straight back is stamped by one poll and cleared by the next, and this must not
+ * fire in the moment between the second poll starting and it answering. So it takes two polls in a
+ * row finding the mount empty. Liquidsoap's own reconnects are far shorter: from 2026-10-29 to
+ * 2026-11-05 the live station's worst was fifteen seconds.
+ */
+export const NO_SOURCE_AFTER_MS = 90_000;
+
+/**
  * The least time between two restart requests.
  *
  * Longer than anything a request takes to land: the watch polls every five seconds and waits one
@@ -72,8 +90,8 @@ export const RESTART_COOLDOWN_MS = 300_000;
 /** How many restarts may be asked for, with no sign of the chain working in between, before giving up. */
 export const RESTART_ATTEMPTS = 3;
 
-/** Which of the two signatures the chain is showing. */
-export type StuckReason = 'holdingNotPlaying' | 'notAnswering';
+/** Which of the three signatures the chain is showing. */
+export type StuckReason = 'holdingNotPlaying' | 'notAnswering' | 'noSource';
 
 /** One reading of the audio chain, as plain values so the judgement can be called with a literal. */
 export interface ChainFacts {
@@ -111,6 +129,11 @@ export interface ChainFacts {
      * would cut the presenter off to rescue records nobody can hear.
      */
     live?: LiveState;
+    /**
+     * How long Icecast has been answering with no source on the primary mount. `undefined` while
+     * there is one, and while Icecast is not answering, which says nothing about its sources.
+     */
+    sourceMissingForMs?: number;
 }
 
 /** What the watchdog remembers between readings. Start from {@link FRESH_WATCHDOG}. */
@@ -137,14 +160,15 @@ const NONE: WatchdogVerdict = { action: 'none' };
  * Judge one reading of the audio chain.
  *
  * Answers the verdict and the memory to carry into the next reading. A chain seen working, meaning
- * it answers and is not holding the mount on its bed, clears the memory whatever else is true,
+ * it answers, is not holding the mount on its bed and has a source on it, clears the memory whatever else is true,
  * because the attempts bound is about restarts that did not help and one that led to a working
  * chain did.
  */
 export function judgeAudioChain(facts: ChainFacts, memory: WatchdogMemory): { verdict: WatchdogVerdict; memory: WatchdogMemory } {
     const answering = facts.downForMs === undefined;
     const producing = facts.starvedForMs === undefined || facts.ready !== false;
-    if (answering && producing) return { verdict: NONE, memory: FRESH_WATCHDOG };
+    const sourced = facts.sourceMissingForMs === undefined;
+    if (answering && producing && sourced) return { verdict: NONE, memory: FRESH_WATCHDOG };
 
     const stuck = stuckFor(facts);
     if (stuck === undefined || !facts.enabled || memory.gaveUp) return { verdict: NONE, memory };
@@ -181,17 +205,34 @@ function stuckFor(facts: ChainFacts): { reason: StuckReason; stuckForMs: number 
     ) {
         return { reason: 'holdingNotPlaying', stuckForMs: facts.starvedForMs };
     }
+    // No guard for a presenter, unlike the case above: with nothing on the mount they are not being
+    // heard either, so a restart cuts off nobody who is getting through.
+    if (facts.sourceMissingForMs !== undefined && facts.sourceMissingForMs >= NO_SOURCE_AFTER_MS) {
+        return { reason: 'noSource', stuckForMs: facts.sourceMissingForMs };
+    }
     return undefined;
 }
 
 function restartDetail(stuck: { reason: StuckReason; stuckForMs: number }): string {
     const seconds = Math.round(stuck.stuckForMs / 1000);
-    return stuck.reason === 'holdingNotPlaying'
-        ? `The audio chain has held a record for ${seconds}s without playing it, so the station asked for it to be restarted.`
-        : `The audio chain has not answered for ${seconds}s, so the station asked for it to be restarted.`;
+    switch (stuck.reason) {
+        case 'holdingNotPlaying':
+            return `The audio chain has held a record for ${seconds}s without playing it, so the station asked for it to be restarted.`;
+        case 'notAnswering':
+            return `The audio chain has not answered for ${seconds}s, so the station asked for it to be restarted.`;
+        case 'noSource':
+            return `Icecast has had no source on the mount for ${seconds}s, so the station asked for the audio chain to be restarted.`;
+    }
 }
 
 function giveUpDetail(reason: StuckReason, attempts: number): string {
-    const what = reason === 'holdingNotPlaying' ? 'is still holding a record without playing it' : 'is still not answering';
-    return `The audio chain ${what} after ${attempts} restarts, so the station has stopped asking. Restart the container to bring it back.`;
+    switch (reason) {
+        case 'holdingNotPlaying':
+            return `The audio chain is still holding a record without playing it after ${attempts} restarts, so the station has stopped asking. Restart the container to bring it back.`;
+        case 'notAnswering':
+            return `The audio chain is still not answering after ${attempts} restarts, so the station has stopped asking. Restart the container to bring it back.`;
+        case 'noSource':
+            // A restart that does not bring the source back is usually Icecast refusing it, which restarting the container would not change.
+            return `Icecast still has no source on the mount after ${attempts} restarts of the audio chain, so the station has stopped asking. Check that ICECAST_SOURCE_PASSWORD matches the one Icecast holds, then restart the container.`;
+    }
 }

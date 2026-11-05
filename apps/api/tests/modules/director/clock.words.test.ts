@@ -18,10 +18,12 @@ import {
     saysTime,
     stationZone,
     timeClaimFor,
+    UNREAD_CLAIM_EARLY_MS,
     heldToOccasion,
     timeClaimIn,
     weekday,
 } from '../../../src/modules/director/clock.words.js';
+import { brokenClaim } from '../../../src/modules/director/break.claims.js';
 
 /** An instant from a UTC wall clock, so a test can name the time it means. */
 const at = (hour: number, minute: number, second = 0): number => Date.UTC(2026, 7, 13, hour, minute, second);
@@ -656,9 +658,36 @@ describe('timeClaimFor', () => {
     // wrong time.
     it('outside English, holds a script to everything it was offered', () => {
         expect(timeClaimFor('Es ist kurz nach halb zehn.', 'de', halfPast, morning)).toEqual({
-            from: halfPast.validFrom,
+            from: halfPast.validFrom - UNREAD_CLAIM_EARLY_MS,
             until: halfPast.validUntil,
         });
+    });
+
+    // A bulletin that never mentions the time cannot be told from one that does, and an early break is
+    // dropped rather than written again, so a few minutes' drift used to cost the station the bulletin.
+    describe('outside English, a break that arrives ahead of the window it was offered', () => {
+        const claimsTime = timeClaimFor('Der Stadtrat hat eine neue Tramlinie genehmigt.', 'de', halfPast, morning)!;
+        const verdict = (now: number) => brokenClaim({ claimsTime }, {}, now);
+
+        it('still airs inside the margin, which clears the drift measured on the live station', () => {
+            expect(verdict(halfPast.validFrom - 11 * 60_000)).toBeUndefined();
+            expect(verdict(halfPast.validFrom - UNREAD_CLAIM_EARLY_MS)).toBeUndefined();
+        });
+
+        it('is dropped past the margin, where a break that did say the time would be plainly wrong', () => {
+            expect(verdict(halfPast.validFrom - UNREAD_CLAIM_EARLY_MS - 1)).toMatchObject({ kind: 'time', when: 'early' });
+        });
+
+        it('is still dropped for running late, since that end of the window is unchanged', () => {
+            expect(verdict(halfPast.validUntil)).toMatchObject({ kind: 'time', when: 'late' });
+        });
+    });
+
+    it('in English, gives a break that named the time no margin, because its words were read', () => {
+        const claim = timeClaimFor(`It is ${halfPast.words}.`, undefined, halfPast)!;
+
+        expect(claim).toEqual({ from: halfPast.validFrom, until: halfPast.validUntil });
+        expect(brokenClaim({ claimsTime: claim }, {}, halfPast.validFrom - 1)).toMatchObject({ kind: 'time', when: 'early' });
     });
 
     it('outside English, still makes no claim when nothing was offered', () => {

@@ -110,6 +110,15 @@ export function heldToOccasion(
 }
 
 /**
+ * How much sooner than its window a break may air when nobody could read whether it named the time.
+ *
+ * Fifteen minutes, to clear the 8 to 11 minutes early that {@link NAMES_THE_TIME_DEFAULT} measured on
+ * the live station, and short enough that a break which did say the hour is still only a little ahead.
+ * Not measured on a station outside English: it is a margin over the one number there is.
+ */
+export const UNREAD_CLAIM_EARLY_MS = 15 * 60_000;
+
+/**
  * {@link timeClaimIn} for a station in any language: the same answer in English, and outside it
  * every phrasing the break was offered, as though it had used them all.
  *
@@ -117,6 +126,13 @@ export function heldToOccasion(
  * offer as said is the safe direction for the reason the claim exists at all: a break stamped with a
  * claim it did not make is dropped or rewritten when it runs late, where a break that stated the time
  * and was stamped with nothing airs it wrong.
+ *
+ * **That argument holds for running late and not for arriving early**, which is why the window opens
+ * {@link UNREAD_CLAIM_EARLY_MS} sooner here. A late break is written again, so the claim costs it the
+ * words. An early one cannot be (`BreakPlanner.staleClaims` refuses it, since a rewrite would derive
+ * the same phrasing), so it is dropped, and a bulletin that never mentioned the time cost the station
+ * the bulletin (discussion 868). What this costs is a break that did say the time airing up to
+ * fifteen minutes ahead of it.
  */
 export function timeClaimFor(
     script: string,
@@ -124,7 +140,9 @@ export function timeClaimFor(
     ...offered: readonly (RoughTime | undefined)[]
 ): { from: number; until: number } | undefined {
     if (language === undefined) return timeClaimIn(script, ...offered);
-    return claimOf(offered.filter((time): time is RoughTime => time !== undefined));
+
+    const claim = claimOf(offered.filter((time): time is RoughTime => time !== undefined));
+    return claim === undefined ? undefined : { from: claim.from - UNREAD_CLAIM_EARLY_MS, until: claim.until };
 }
 
 /** The window every one of `said` holds true in, or `undefined` for none. */

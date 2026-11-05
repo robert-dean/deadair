@@ -111,9 +111,10 @@ a generated character goes through, so a marker the new samples never use is dro
 field the answer leaves out is cleared rather than kept, because what is there is in the old language. Two things
 the prompt asks for and a model did not always do are enforced: a sample line carrying `{{...}}` values is
 dropped, and outside English so is a phrasing naming a value the station fills only in English. The stories are
-not rewritten; they are their own list. Measured with `gemma4:26b`, the persona model's fixed `low` reasoning
-spent all 4000 tokens thinking and answered nothing, for this and for `generate` alike; at `none` both seeded
-characters came back in 20 seconds.
+not rewritten; they are their own list. Measured with `gemma4:26b`, the persona model's `low` reasoning spent
+all 4000 tokens thinking and answered nothing, for this and for `generate` alike; at `none` both seeded
+characters came back in 20 seconds. So the effort is a setting now, `llm.personaReasoning`, defaulting to the
+`low` it always was.
 
 ## The newsreader
 

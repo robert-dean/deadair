@@ -40,6 +40,7 @@ import {
     MAX_WAIT_MS,
     PERSONA_MODEL_KEY,
     personaPrompt,
+    personaReasoning,
     readPersona,
     readRewrite,
     rewritePrompt,
@@ -457,13 +458,12 @@ export class PersonasService {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
                 maxOutputTokens: MAX_OUTPUT_TOKENS,
-                // The same call the break writer makes, and for a sharper reason. Inventing a
-                // character is not a reasoning problem, and a model that thinks out loud here spends
-                // the ceiling on deliberation and gets truncated mid-object — which costs the WHOLE
-                // persona, because unlike a list of picks there is only one object to lose. Measured
-                // on this station: without it the answer ran to all 4000 tokens and parsed to
-                // nothing.
-                reasoningEffort: 'low',
+                // The operator's, defaulting to the `low` this always sent. Inventing a character is not
+                // a reasoning problem, and a model that thinks out loud here spends the ceiling on
+                // deliberation and gets truncated mid-object, which costs the WHOLE persona. Measured on
+                // this station: without `low` one model's answer ran to all 4000 tokens and parsed to
+                // nothing, and `gemma4:26b` does the same AT `low`. See `PERSONA_REASONING_KEY`.
+                reasoningEffort: personaReasoning(this.config),
             },
             {
                 // Nothing to look up: a character is invented rather than researched, and a tool round

@@ -132,7 +132,7 @@ import { ALWAYS_REACH_DEFAULT, MUSIC_SEARCH_KEYS } from '#modules/llm/music.sear
 import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
 import { PERSONA_NOTES_DEFAULT, PERSONA_NOTES_KEYS } from '#modules/personas/persona.distil.service.js';
 import { PERSONA_STORIES_DEFAULT, PERSONA_STORIES_KEYS } from '#modules/personas/persona.story.pass.service.js';
-import { PERSONA_MODEL_KEY } from '#modules/personas/persona.writer.js';
+import { DEFAULT_PERSONA_REASONING, PERSONA_MODEL_KEY, PERSONA_REASONING_KEY } from '#modules/personas/persona.writer.js';
 import { MODEL_LIST_COLUMN } from '#modules/llm/model.list.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
@@ -2066,6 +2066,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
         help: "Used when you press Write on a persona. Nothing is on air waiting for it and what it produces is edited before anything is said, so a slower and more careful model is the right trade. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: PERSONA_REASONING_KEY,
+        label: 'How hard the character model thinks',
+        type: 'select',
+        default: DEFAULT_PERSONA_REASONING,
+        options: [
+            { value: 'none', label: 'Not at all' },
+            { value: 'low', label: 'A little' },
+            { value: 'medium', label: 'Some' },
+            { value: 'high', label: 'A lot' },
+        ],
+        help: "For writing a character and for rewriting one in the station's language. Some models think at length even on A little and run out of room before they write anything, which the console reports as the model not answering with a persona; Not at all is the fix for those. Only reaches the model if the language model plugin's own effort setting is Auto.",
     },
     {
         group: 'llm',

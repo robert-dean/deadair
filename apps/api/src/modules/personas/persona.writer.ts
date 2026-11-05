@@ -35,7 +35,9 @@
 
 import { TEMPLATE_VOCABULARY, unusablePhrasing, unwrapTemplate } from '#modules/director/break.templates.js';
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
-import type { LlmMessage } from '@deadair/plugin-sdk';
+import type { LlmMessage, LlmReasoningEffort } from '@deadair/plugin-sdk';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { BREAK_REASONING_EFFORTS } from '#modules/director/model.talk.break.writer.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { DEFAULT_PERSONA_KIND, type PersonaDraft } from './persona.js';
 import type { PersonaStoryDraft } from './persona.story.js';
@@ -72,6 +74,27 @@ export const MAX_DESCRIPTION = 2000;
  * here would turn off a button rather than a behaviour.
  */
 export const PERSONA_MODEL_KEY = 'llm.personaModel';
+
+/**
+ * How hard the persona model thinks before it writes a sheet, beside {@link PERSONA_MODEL_KEY}.
+ *
+ * A setting because it belongs to the model, on `llm.breakReasoning`'s argument. Writing a character was
+ * sent `low` unconditionally, sized against a model that without it thought to the end of
+ * {@link MAX_OUTPUT_TOKENS} and answered nothing. `gemma4:26b` does exactly that AT `low`: asked to rewrite
+ * the seeded classic and slacker hosts in German, it spent all 4000 tokens thinking and returned an empty
+ * answer twice, and at `none` it wrote both in about 20 seconds (2026-11-05). So `low` stays the default,
+ * which changes nothing for a station that sets nothing, and `none` is there for the models that need it.
+ */
+export const PERSONA_REASONING_KEY = 'llm.personaReasoning';
+
+/** `low`, which is what writing a persona always asked for before this was a setting. */
+export const DEFAULT_PERSONA_REASONING: LlmReasoningEffort = 'low';
+
+/** The persona model's effort as a setting holds it: one of the break model's efforts, else the default. */
+export function personaReasoning(config: AppConfig): LlmReasoningEffort {
+    const effort = String(config.get(PERSONA_REASONING_KEY, DEFAULT_PERSONA_REASONING) ?? '').trim();
+    return (BREAK_REASONING_EFFORTS as readonly string[]).includes(effort) ? (effort as LlmReasoningEffort) : DEFAULT_PERSONA_REASONING;
+}
 
 /** How long an operator will wait for the gate before being told the station is busy. */
 export const MAX_WAIT_MS = 60_000;

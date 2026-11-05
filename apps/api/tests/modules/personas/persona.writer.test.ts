@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { personaPrompt, readPersona, readRewrite, rewritePrompt } from '../../../src/modules/personas/persona.writer.js';
+import { personaPrompt, personaReasoning, readPersona, readRewrite, rewritePrompt } from '../../../src/modules/personas/persona.writer.js';
 import { keepsCharacter } from '../../../src/modules/personas/persona.sheet.js';
 import { unknownPlaceholders } from '../../../src/modules/director/break.templates.js';
 
@@ -429,5 +429,24 @@ describe('readRewrite', () => {
 
         expect(system).toContain('speaks German on air');
         expect(system).toContain('{{clock.rough}}');
+    });
+});
+
+// How hard the persona model thinks, read from a setting that is a string like every other.
+describe('personaReasoning', () => {
+    const config = (value?: string) => ({ get: (_key: string, fallback: unknown) => value ?? fallback }) as never;
+
+    it('keeps the low effort a station that sets nothing always had', () => {
+        expect(personaReasoning(config())).toBe('low');
+    });
+
+    it('takes an effort the operator chose', () => {
+        expect(personaReasoning(config('none'))).toBe('none');
+        expect(personaReasoning(config(' high '))).toBe('high');
+    });
+
+    it('takes the default for a value it does not know', () => {
+        expect(personaReasoning(config('loads'))).toBe('low');
+        expect(personaReasoning(config(''))).toBe('low');
     });
 });

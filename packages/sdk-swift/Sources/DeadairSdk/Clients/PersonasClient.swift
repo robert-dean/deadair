@@ -35,6 +35,14 @@ public final class PersonasClient: Sendable {
         return try http.decodeJSON(GeneratedPersona.self, from: response)
     }
 
+    /// Rewrite persona in station language
+    /// Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved
+    public func rewritePersonaInStationLanguage(id: String) async throws -> GeneratedPersona {
+        let request = try SdkRequest(method: "POST", path: ["personas", http.segment(id), "rewrite"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(GeneratedPersona.self, from: response)
+    }
+
     /// Restore station personas
     /// Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
     public func restoreStationPersonas() async throws -> PersonaList {

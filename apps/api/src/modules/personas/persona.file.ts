@@ -116,6 +116,9 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
             avoid: mutable(persona.avoid),
             exclusiveSubjects: mutable(persona.exclusiveSubjects),
             samples: mutable(persona.samples),
+            // Travels, unlike `growth`: it is a fact about the words in this file, and a station importing
+            // them needs it to know whether they match its own language.
+            sheetLanguage: persona.sheetLanguage,
         }),
         // Last, so the file reads the way the character does: the sheet, then what has happened to
         // it. This is the one field here that is a list of objects rather than a line, and a file an

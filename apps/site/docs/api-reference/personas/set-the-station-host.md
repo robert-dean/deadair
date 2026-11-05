@@ -1,7 +1,7 @@
 ---
 title: 'Set the station host'
 sidebar_label: 'Set the station host'
-sidebar_position: 15
+sidebar_position: 16
 mdx:
     format: 'md'
 ---

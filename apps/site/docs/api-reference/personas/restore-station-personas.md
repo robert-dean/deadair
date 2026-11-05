@@ -1,7 +1,7 @@
 ---
 title: 'Restore station personas'
 sidebar_label: 'Restore station personas'
-sidebar_position: 8
+sidebar_position: 9
 mdx:
     format: 'md'
 ---

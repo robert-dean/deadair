@@ -3294,6 +3294,24 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/GeneratedPersona'
+    '/personas/{id}/rewrite':
+        post:
+            operationId: rewrite
+            summary: 'Rewrite persona in station language'
+            description: "Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GeneratedPersona'
     '/personas/restore':
         post:
             operationId: restore
@@ -13013,6 +13031,11 @@ components:
                         minLength: 1
                         maxLength: 500
                     description: 'Lines in their own voice, used as examples and as a console preview'
+                sheetLanguage:
+                    type: string
+                    minLength: 2
+                    maxLength: 35
+                    description: "The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language"
                 templates:
                     type: string
                     maxLength: 20000
@@ -13156,6 +13179,10 @@ components:
                         type: string
                         minLength: 1
                         maxLength: 500
+                sheetLanguage:
+                    type: string
+                    minLength: 2
+                    maxLength: 35
                 templates:
                     type: string
                     maxLength: 20000

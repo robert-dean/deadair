@@ -80,6 +80,26 @@ PersonasRouter.post('/personas/generate', requirePolicy({ policy: 'platform.mana
 });
 
 /**
+ * Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/{id}/rewrite`
+ */
+PersonasRouter.post('/personas/:id/rewrite', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string(),
+        }),
+    );
+
+    const service = ctx.container.get(PersonasService);
+    const result: GeneratedPersona = await service.rewrite(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
  * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/restore`
  */

@@ -860,6 +860,51 @@ export interface PersonaSheet {
     soundboard?: string;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */
     samples?: readonly string[];
+    /**
+     * The language this sheet is written in, as a canonical BCP 47 tag (`en`, `de`, `de-AT`).
+     *
+     * Beside the station's own language rather than derived from it, because the two differ on any
+     * station that changed its language after it was set up: the characters were seeded in English and
+     * stay English. Absent means English, which is what the column holds for every row written before
+     * it existed. On a draft, absent means "not stated": a new row takes the column's `en` (or the
+     * station's language, where `PersonasService` creates it), and an update keeps what the row had.
+     * See {@link sheetSpeaks}.
+     */
+    sheetLanguage?: string;
+}
+
+/**
+ * Whether a sheet is written in the language the station broadcasts in.
+ *
+ * Compared by the language alone and not the region, so an Austrian station reading a sheet written in
+ * German is a match: what this guards against is a model being handed one language's words while it
+ * writes in another, and `de` and `de-AT` share them. `station` is `stationLanguage`'s answer, which is
+ * `undefined` for English.
+ */
+export function sheetSpeaks(sheet: Pick<PersonaSheet, 'sheetLanguage'>, station: string | undefined): boolean {
+    const primary = (tag: string | undefined): string => (tag ?? 'en').split('-')[0]!.toLowerCase();
+    return primary(sheet.sheetLanguage) === primary(station);
+}
+
+/**
+ * The sheet a prompt may show a model writing in `station`'s language: the whole sheet where it is
+ * written in that language, and only what DESCRIBES the character where it is not.
+ *
+ * What goes is the character's own wording: the speech rules (`diction`, whose clauses quote words to
+ * use), the marker words, the catchphrases and the sample lines. Each of them is text in the sheet's
+ * language that the prompt asks the model to reuse, and handed English to reuse a model writes English:
+ * measured against `gemma4` with a station set to German, 22 of 59 breaks came out in English with the
+ * whole sheet and 2 of 30 with no character at all, and the description alone kept most of the
+ * difference (5 of 30). What stays is who the character is (`style`, the quirks, the preoccupations,
+ * the background), which a model carries into any language, and the prohibitions, which it is not
+ * asked to say. The checks are not given this sheet: they still refuse a sample line or a catchphrase
+ * copied word for word, which is how the sheet's language would leak through anyway.
+ */
+export function sheetFor<T extends PersonaSheet>(sheet: T, station: string | undefined): T {
+    if (sheetSpeaks(sheet, station)) return sheet;
+
+    const { diction: _diction, dictionMarkers: _markers, catchphrases: _catchphrases, samples: _samples, ...described } = sheet;
+    return described as T;
 }
 
 /**
@@ -1647,6 +1692,13 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     // that keep the dialect are the ones whose repeats were the presenter's own. See
     // `MAX_RECENT_ECHO_WORDS`.
     if (context.recent !== undefined && repeatOf(context.recent, script) !== undefined) return 'repeated-itself';
+
+    // The one requirement, and the one check a sheet in another language cannot be held to: its markers
+    // are words in that language, so a break written correctly in the station's never carries them, and
+    // every one was refused as out of character (discussion 868). The prohibitions above still run,
+    // since a sample line or a catchphrase copied word for word is exactly how the sheet's language
+    // leaks into the break.
+    if (!sheetSpeaks(sheet, context.language)) return undefined;
 
     return keepsCharacter(sheet, script, context.language) ? undefined : 'out-of-character';
 }

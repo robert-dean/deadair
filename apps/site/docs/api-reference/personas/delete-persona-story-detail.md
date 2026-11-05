@@ -1,7 +1,7 @@
 ---
 title: 'Delete persona story detail'
 sidebar_label: 'Delete persona story detail'
-sidebar_position: 28
+sidebar_position: 29
 mdx:
     format: 'md'
 ---

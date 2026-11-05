@@ -1,7 +1,7 @@
 ---
 title: 'List persona notes'
 sidebar_label: 'List persona notes'
-sidebar_position: 16
+sidebar_position: 17
 mdx:
     format: 'md'
 ---

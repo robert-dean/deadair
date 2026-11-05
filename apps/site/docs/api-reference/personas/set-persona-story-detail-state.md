@@ -1,7 +1,7 @@
 ---
 title: 'Set persona story detail state'
 sidebar_label: 'Set persona story detail state'
-sidebar_position: 29
+sidebar_position: 30
 mdx:
     format: 'md'
 ---

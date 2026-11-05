@@ -279,6 +279,7 @@ export interface FormValues {
     avoid: string;
     exclusiveSubjects: string;
     samples: string;
+    sheetLanguage: string;
     hosts: string[];
 }
 
@@ -341,6 +342,7 @@ export function valuesOf(persona: PersonaDraftView | Persona | undefined, kind: 
         avoid: linesOf(persona?.avoid),
         exclusiveSubjects: linesOf(persona?.exclusiveSubjects),
         samples: linesOf(persona?.samples),
+        sheetLanguage: persona?.sheetLanguage ?? '',
         // An `in` check, as `growth` is: a generated draft carries no ties, which are this station's
         // own ids and nothing a model could know.
         hosts: persona !== undefined && 'hosts' in persona ? [...(persona.hosts ?? [])] : [],
@@ -418,6 +420,9 @@ export function draftOf(values: FormValues): PersonaInput {
             avoid: list(values.avoid),
             exclusiveSubjects: list(values.exclusiveSubjects),
             samples: list(values.samples),
+            // Empty is left out: a new character then takes the station's language, and an edit keeps
+            // what the character had.
+            sheetLanguage: text(values.sheetLanguage),
             // Only somebody who rings in or drops by is tied. Absent unties them, which is what the
             // API reads it as.
             hosts: (values.kinds.includes('caller') || values.kinds.includes('guest')) && values.hosts.length > 0 ? values.hosts : undefined,

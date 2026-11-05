@@ -1,22 +1,108 @@
-import { SimpleGrid, Textarea } from '@mantine/core';
+import { Box, Button, Group, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 
-import { type FormValues, Section, TEMPLATE_EXAMPLES, TemplateFaults } from './persona.editor.helpers';
+import { type FormValues, GenerationNotes, Section, TEMPLATE_EXAMPLES, TemplateFaults, valuesOf } from './persona.editor.helpers';
 import { QuirksField } from './persona.quirks.field';
+import { languageLabel, sheetMatches, stationLanguageOf } from './sheet.language';
+import { useRewritePersona } from '../../api/personas.queries';
+import { useSettings } from '../../api/settings.queries';
+import { ErrorAlert } from '../shared/error.alert';
 
 interface Props {
     form: UseFormReturnType<FormValues>;
     hosting: boolean;
+    /** The saved character's id, absent for one being written: only a saved sheet can be rewritten. */
+    personaId?: string;
 }
 
+/** The fields a rewrite answers, which are the only ones it may change in the form. */
+const REWORDED = ['diction', 'dictionMarkers', 'catchphrases', 'avoid', 'samples', 'templates', 'sheetLanguage'] as const;
+
 /** Split out of `persona.editor.tsx` unchanged: the Talk section of the sheet, on the sheet's one form. */
-export function PersonaEditorTalk({ form, hosting }: Props) {
+export function PersonaEditorTalk({ form, hosting, personaId }: Props) {
     const { t } = useTranslation('personas');
+    const settings = useSettings();
+    // Only once the settings are read, so the warning never flashes up against an assumed English.
+    const setting = settings.data?.values['stream.language'];
+    const station = settings.data === undefined ? undefined : stationLanguageOf(setting);
+    const sheet = form.getValues().sheetLanguage;
+    const rewrite = useRewritePersona();
+
+    // Laid over the form field by field, so nothing the operator has typed anywhere else is touched.
+    const rewriteSheet = (id: string) =>
+        rewrite.mutate(id, {
+            onSuccess: written => {
+                const values = valuesOf(written.persona, form.getValues().kinds[0] ?? 'host');
+                for (const field of REWORDED) form.setFieldValue(field, values[field]);
+            },
+        });
 
     return (
         <>
             <Section title={t('editor.section.talk.title')} blurb={t('editor.section.talk.blurb')} />
+
+            <TextInput
+                label={t('editor.field.sheetLanguage.label')}
+                description={t('editor.field.sheetLanguage.description')}
+                placeholder={t('editor.field.sheetLanguage.placeholder')}
+                maw={320}
+                {...form.getInputProps('sheetLanguage')}
+            />
+
+            {/* What the station does with a sheet in another language is invisible from the sheet: the
+                words are all still here, and the presenter is simply never shown them. So it is said.
+                In a Box because the form is a scrolling flex column and an Alert hides its overflow,
+                which lets the column shrink it to its title. */}
+            {station === undefined || sheetMatches(sheet, station) ? undefined : (
+                <Box>
+                    <ErrorAlert
+                        tone="warning"
+                        title={t('editor.sheetLanguage.title', { sheet: languageLabel(sheet), station: languageLabel(station) })}
+                    >
+                        <Stack gap="xs">
+                            <Text size="sm">{t('editor.sheetLanguage.body')}</Text>
+                            <Group gap="sm" wrap="nowrap">
+                                <Button
+                                    size="xs"
+                                    variant="light"
+                                    // Its own width, whatever the hint beside it needs: the label names the language.
+                                    style={{ flexShrink: 0 }}
+                                    disabled={personaId === undefined}
+                                    loading={rewrite.isPending}
+                                    onClick={() => (personaId === undefined ? undefined : rewriteSheet(personaId))}
+                                >
+                                    {t('editor.sheetLanguage.rewrite', { station: languageLabel(station) })}
+                                </Button>
+                                <Text size="xs" c="dimmed">
+                                    {personaId === undefined ? t('editor.sheetLanguage.unsaved') : t('editor.sheetLanguage.rewriteHint')}
+                                </Text>
+                            </Group>
+                        </Stack>
+                    </ErrorAlert>
+                </Box>
+            )}
+
+            {/* Outside the warning, which goes as soon as the rewrite sets the sheet language to the station's. */}
+            {rewrite.isError ? (
+                <Box>
+                    <ErrorAlert
+                        title={t('editor.sheetLanguage.errorTitle')}
+                        error={rewrite.error}
+                        fallback={t('editor.sheetLanguage.errorFallback')}
+                    />
+                </Box>
+            ) : undefined}
+            {rewrite.data && station !== undefined ? (
+                <Box>
+                    <Stack gap="xs">
+                        <Text size="sm" c="dimmed">
+                            {t('editor.sheetLanguage.rewritten', { station: languageLabel(station) })}
+                        </Text>
+                        <GenerationNotes generated={rewrite.data} />
+                    </Stack>
+                </Box>
+            ) : undefined}
 
             <Textarea
                 label={t('editor.field.diction.label')}

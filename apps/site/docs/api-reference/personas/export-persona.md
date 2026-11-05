@@ -1,7 +1,7 @@
 ---
 title: 'Export persona'
 sidebar_label: 'Export persona'
-sidebar_position: 10
+sidebar_position: 11
 mdx:
     format: 'md'
 ---

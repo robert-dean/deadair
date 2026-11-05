@@ -614,6 +614,11 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Samples { get; init; }
 
+    /// <summary>The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language</summary>
+    [JsonPropertyName("sheetLanguage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SheetLanguage { get; init; }
+
     /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -752,6 +757,11 @@ public sealed record PersonaInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Samples { get; init; }
 
+    /// <summary>The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language</summary>
+    [JsonPropertyName("sheetLanguage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SheetLanguage { get; init; }
+
     /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -846,6 +856,10 @@ public sealed record PersonaDraftView
     [JsonPropertyName("samples")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Samples { get; init; }
+
+    [JsonPropertyName("sheetLanguage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SheetLanguage { get; init; }
 
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1327,6 +1341,10 @@ public sealed record PersonaFilePersona
     [JsonPropertyName("samples")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Samples { get; init; }
+
+    [JsonPropertyName("sheetLanguage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SheetLanguage { get; init; }
 
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

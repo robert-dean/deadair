@@ -52,7 +52,8 @@ function build() {
         new AfterCommit(),
         { actor: { kind: 'user', sessionToken: '', actorId: 'actor-1' } } as never,
         { record: vi.fn(async () => undefined) } as never,
-        { get: vi.fn(() => undefined) } as never,
+        // Answers every key with its default, as the real config does for a setting nobody saved.
+        { get: vi.fn((_key: string, fallback?: unknown) => fallback) } as never,
         logger as never,
     );
 

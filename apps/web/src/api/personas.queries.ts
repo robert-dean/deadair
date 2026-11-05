@@ -219,6 +219,17 @@ export const useGeneratePersona = () =>
     });
 
 /**
+ * A saved character's own wording rewritten in the station's language, as a form's contents.
+ *
+ * `useGeneratePersona`'s shape and for its reason: nothing is saved, so nothing is invalidated. The editor lays
+ * the answer over its fields and the operator saves it.
+ */
+export const useRewritePersona = () =>
+    useMutation<GeneratedPersona, Error, string>({
+        mutationFn: (id: string) => sdk.personas.rewritePersonaInStationLanguage(id),
+    });
+
+/**
  * Save a character to the operator's disk: one of them, or the whole roster.
  *
  * A plain function rather than a query or a mutation, on `fetchVoiceSample`'s rule — nothing is

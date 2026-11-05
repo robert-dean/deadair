@@ -169,3 +169,32 @@ describe('PersonaRepository.castable', () => {
         expect(captured.statements[0]?.sql).not.toContain('not in');
     });
 });
+
+// Written only when the draft names one, so an insert takes the column's `en` and an update keeps what the
+// row had: the column is how a client that predates the field is kept from resetting it.
+describe('PersonaRepository, for the language a sheet is written in', () => {
+    it('reads it back', async () => {
+        const repository = new PersonaRepository(scriptedDb([[row('wirt', 'host', { sheetLanguage: 'de-AT' })]]), identity());
+
+        expect((await repository.find('wirt'))?.sheetLanguage).toBe('de-AT');
+    });
+
+    it('writes it when the draft names it', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[row('wirt', 'host')]], captured), identity());
+
+        await repository.create({ key: 'wirt', kinds: ['host'], label: 'Wirt', style: 'an innkeeper', sheetLanguage: 'de' });
+
+        expect(captured.statements[0]?.sql).toContain('"sheet_language"');
+        expect(captured.statements[0]?.parameters).toContain('de');
+    });
+
+    it('leaves the column alone when the draft does not', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new PersonaRepository(scriptedDb([[row('wirt', 'host')]], captured), identity());
+
+        await repository.update('wirt', { key: 'wirt', kinds: ['host'], label: 'Wirt', style: 'an innkeeper' });
+
+        expect(captured.statements[0]?.sql).not.toContain('sheet_language');
+    });
+});

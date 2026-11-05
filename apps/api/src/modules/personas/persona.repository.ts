@@ -412,6 +412,9 @@ function columnsOf(draft: PersonaDraft) {
         avoid: jsonOf(draft.avoid),
         exclusiveSubjects: jsonOf(draft.exclusiveSubjects),
         samples: jsonOf(draft.samples),
+        // Only when the draft states one: absent leaves the column's `en` on an insert and what the row
+        // already had on an update, so a client that predates the field cannot reset it by saving.
+        ...(draft.sheetLanguage === undefined ? {} : { sheetLanguage: draft.sheetLanguage }),
     };
 }
 
@@ -457,6 +460,7 @@ function toPersona(row: {
     avoid: unknown;
     exclusiveSubjects: unknown;
     samples: unknown;
+    sheetLanguage: string;
 }): Persona {
     const list = (value: unknown, key: string): Record<string, string[]> => {
         const strings = stringsIn(value);
@@ -497,6 +501,7 @@ function toPersona(row: {
         ...list(row.preoccupations, 'preoccupations'),
         ...list(row.catchphrases, 'catchphrases'),
         ...list(row.avoid, 'avoid'),
+        sheetLanguage: row.sheetLanguage,
         ...list(row.exclusiveSubjects, 'exclusiveSubjects'),
         ...list(row.samples, 'samples'),
     };

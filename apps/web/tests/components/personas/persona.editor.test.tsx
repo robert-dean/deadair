@@ -14,6 +14,22 @@ vi.mock('../../../src/api/personas.queries', () => ({
     usePersonas: () => ({ data: { personas: roster }, isLoading: false }),
     useGeneratePersona: () => ({ mutate: vi.fn(), isPending: false }),
     useRehearsePersona: () => ({ mutate: vi.fn(), isPending: false, data: undefined, reset: vi.fn() }),
+    useRewritePersona: () => rewriting,
+}));
+
+// The rewrite's answer, handed to `onSuccess` as the real mutation would. Hoisted with the mock above.
+const rewriting = vi.hoisted(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: undefined,
+    data: undefined as unknown,
+}));
+// The station's broadcast language, which the sheet language is compared with. English unless a case
+// sets it, which is what an empty setting means.
+const station = vi.hoisted(() => ({ language: '' }));
+vi.mock('../../../src/api/settings.queries', () => ({
+    useSettings: () => ({ data: { values: { 'stream.language': station.language } }, isLoading: false }),
 }));
 vi.mock('../../../src/api/pads.queries', () => ({ usePads: () => ({ data: undefined, isLoading: false }) }));
 vi.mock('../../../src/api/voices.queries', () => ({
@@ -264,5 +280,99 @@ describe('PersonaEditor, quirks and how often they apply', () => {
         await user.click(screen.getByRole('button', { name: 'Save' }));
 
         expect(onSubmit.mock.calls[0]![0].quirks).toEqual([{ text: 'Yell for Sharon', cadence: 'rarely' }]);
+    });
+});
+
+// A sheet records the language its wording is in. On a station broadcasting in another, the presenter is
+// shown only who the character is, which nothing on the sheet would otherwise say.
+describe('PersonaEditor, the language a sheet is written in', () => {
+    const openIn = (sheetLanguage: string | undefined, onSubmit: (draft: PersonaInput) => void = () => {}) =>
+        render(
+            <PersonaEditor
+                persona={{ ...believer, ...(sheetLanguage === undefined ? {} : { sheetLanguage }) }}
+                kind="host"
+                opened
+                onClose={() => {}}
+                onSubmit={onSubmit}
+                saving={false}
+            />,
+        );
+
+    it('says so when the sheet is not in the station language', async () => {
+        station.language = 'de';
+        openIn('en');
+
+        expect(await screen.findByText('This sheet is in English, and the station broadcasts in German')).toBeInTheDocument();
+        station.language = '';
+    });
+
+    it('says nothing when they match by language, whatever the region', async () => {
+        station.language = 'de-AT';
+        openIn('de');
+
+        expect(await screen.findByLabelText('Sheet language')).toHaveValue('de');
+        expect(screen.queryByText(/This sheet is in/)).not.toBeInTheDocument();
+        station.language = '';
+    });
+
+    it('saves the language as typed', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        openIn('en', onSubmit);
+
+        const box = await screen.findByLabelText('Sheet language');
+        await user.clear(box);
+        await user.type(box, 'de');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0].sheetLanguage).toBe('de');
+    });
+
+    it('leaves an empty field out, so a new character takes the station language', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        openIn(undefined, onSubmit);
+
+        await screen.findByLabelText('Sheet language');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sheetLanguage');
+    });
+});
+
+// The rewrite is a form's contents, as a generated character is: the answer is laid over the worded fields
+// and nothing else, and nothing is saved until the operator presses Save.
+describe('PersonaEditor, rewriting a sheet in the station language', () => {
+    const english: Persona = { ...believer, sheetLanguage: 'en', samples: ["You're locked in."], background: 'Twenty years in the booth.' };
+    const answer = {
+        persona: {
+            key: english.key,
+            label: english.label,
+            style: english.style,
+            samples: ['Bleib dran.'],
+            dictionMarkers: ['dran'],
+            sheetLanguage: 'de',
+        },
+        stories: [],
+        droppedMarkers: ['gemütlich'],
+        droppedTemplates: [],
+    };
+
+    it('lays the rewrite over the worded fields and leaves the rest alone', async () => {
+        station.language = 'de';
+        rewriting.mutate.mockImplementation((_id: string, options: { onSuccess: (written: typeof answer) => void }) => options.onSuccess(answer));
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        render(<PersonaEditor persona={english} kind="host" opened onClose={() => {}} onSubmit={onSubmit} saving={false} />);
+
+        await user.click(await screen.findByRole('button', { name: 'Rewrite in German' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(rewriting.mutate).toHaveBeenCalledWith('p-1', expect.anything());
+        const saved = onSubmit.mock.calls[0]![0];
+        expect(saved.samples).toEqual(['Bleib dran.']);
+        expect(saved.sheetLanguage).toBe('de');
+        expect(saved.background).toBe('Twenty years in the booth.');
+        station.language = '';
     });
 });

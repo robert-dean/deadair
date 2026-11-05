@@ -773,6 +773,7 @@ export interface DeadairPersonas {
   preoccupations: Generated<Json>;
   quirks: Generated<Json>;
   samples: Generated<Json>;
+  sheetLanguage: Generated<string>;
   soundboard: string | null;
   stationKey: Generated<string>;
   storytelling: string | null;

@@ -3139,7 +3139,15 @@ describe('breakPrompt on a station that does not broadcast in English', () => {
     });
 
     it('puts the language after the persona reminder rather than before it', () => {
-        const persona = { key: 'salt', label: 'Salt', kind: 'host', style: 'a sea captain', diction: ['Aye for yes'], defaultHost: false } as const;
+        const persona = {
+            key: 'salt',
+            label: 'Salt',
+            kind: 'host',
+            style: 'a sea captain',
+            diction: ['Aye for yes'],
+            defaultHost: false,
+            sheetLanguage: 'de',
+        } as const;
         const rules = system(prompt({ kind: 'talkbreak', previous }, { language: 'de', persona } as PromptSettings));
 
         expect(rules).toContain('Plain German is wrong here');
@@ -3471,5 +3479,54 @@ describe('readAnswer, against a line said to the station', () => {
 
         expect(declined?.fault).toBe('station-sign-off');
         expect(saidIn(declined?.reason ?? '')).toBe('Party on, Deadair!');
+    });
+});
+
+// A character written in English on a station broadcasting in German, which is every seeded character on
+// a station that changed its language. Its own wording is in English, and a model handed it to reuse
+// writes English, so only what describes the character is sent.
+describe('breakPrompt, for a sheet in another language than the station', () => {
+    const sheet = {
+        key: 'classic',
+        label: 'Classic host',
+        kind: 'host',
+        style: 'a warm, upbeat radio host',
+        diction: ['Always contract: "you\'re", "that\'s"'],
+        dictionMarkers: ['locked'],
+        catchphrases: ["You're locked in"],
+        samples: ["That's the sort of thing this station is for."],
+        background: 'Has presented the breakfast show for ten years.',
+        defaultHost: false,
+    } as const;
+
+    it('keeps who the character is', () => {
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { language: 'de', persona: sheet } as PromptSettings));
+
+        expect(rules).toContain('You are a warm, upbeat radio host');
+        expect(rules).toContain('Has presented the breakfast show for ten years.');
+    });
+
+    it('leaves out its own wording and the reminder that restates it', () => {
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { language: 'de', persona: sheet } as PromptSettings));
+
+        expect(rules).not.toContain('locked');
+        expect(rules).not.toContain('the sort of thing this station is for');
+        expect(rules).not.toContain('Always contract');
+        expect(rules).not.toContain('Plain German is wrong here');
+    });
+
+    it('sends the whole sheet where it is written in the station language', () => {
+        const rules = system(
+            prompt({ kind: 'talkbreak', previous }, { language: 'de', persona: { ...sheet, sheetLanguage: 'de' } } as PromptSettings),
+        );
+
+        expect(rules).toContain('the sort of thing this station is for');
+        expect(rules).toContain('Plain German is wrong here');
+    });
+
+    it('sends the whole sheet on an English station, which is every seeded character', () => {
+        expect(system(prompt({ kind: 'talkbreak', previous }, { persona: sheet } as PromptSettings))).toContain(
+            'the sort of thing this station is for',
+        );
     });
 });

@@ -13,6 +13,7 @@ import {
     type RenderedTemplate,
 } from './break.templates.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
+import { sheetSpeaks } from '#modules/personas/persona.sheet.js';
 
 /**
  * The station's words for a talk break, written from the two records either side of it.
@@ -104,8 +105,12 @@ export class TalkBreakWriter extends BreakWriter {
         // The persona's own phrasings, read off the request, so an operator editing a character
         // hears the change on the next break. They are what keeps a character on the station when
         // the model declined; a character with none gets the station's own five.
+        // Not where the sheet is in another language: its phrasings are in that language too, and the
+        // floor would air them as written. Outside English the station's own fall back to nothing, so the
+        // break is passed over rather than read out in the wrong language. See `sheetSpeaks`.
         const language = stationLanguage(this.config);
-        const templates = resolveTemplates(request.persona?.templates, language);
+        const own = request.persona === undefined || !sheetSpeaks(request.persona, language) ? undefined : request.persona.templates;
+        const templates = resolveTemplates(own, language);
         this.complainAboutTypos(templates);
 
         const fits = usable(templates, inputs, spoken, language);

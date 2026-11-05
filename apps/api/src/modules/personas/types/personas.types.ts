@@ -479,6 +479,14 @@ export const Persona = z.strictObject({
             "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `sometimes` a share of links are treated as `always` and the rest as `never`, drawn per link. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says",
         ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
+    sheetLanguage: z
+        .string()
+        .min(2)
+        .max(35)
+        .optional()
+        .describe(
+            "The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language",
+        ),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
     hosts: z
         .array(z.string().min(1).max(100))
@@ -602,6 +610,14 @@ export const PersonaInput = z.strictObject({
             "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `never` the break is shown none of them and nothing is rested. At `always` the station chooses one fact for every link, where it has one, and asks for it to be said beside the presenter's own patter. At `sometimes` a share of links are treated as `always` and the rest as `never`, drawn per link. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says",
         ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
+    sheetLanguage: z
+        .string()
+        .min(2)
+        .max(35)
+        .optional()
+        .describe(
+            "The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language",
+        ),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
     hosts: z
         .array(z.string().min(1).max(100))
@@ -639,6 +655,7 @@ export const PersonaDraftView = z.strictObject({
     storytelling: z.enum(['never', 'occasionally', 'often']).optional(),
     trivia: z.enum(['keen', 'never', 'always', 'sometimes']).optional(),
     samples: z.array(z.string().min(1).max(500)).optional(),
+    sheetLanguage: z.string().min(2).max(35).optional(),
     templates: z.string().max(20000).optional(),
 });
 export type PersonaDraftView = z.infer<typeof PersonaDraftView>;

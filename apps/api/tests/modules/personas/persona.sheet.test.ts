@@ -36,6 +36,7 @@ import {
     triviaOf,
     triviaForBreak,
     SOMETIMES_FACT_ODDS,
+    sheetSpeaks,
 } from '../../../src/modules/personas/persona.sheet.js';
 
 describe('personaLines', () => {
@@ -651,6 +652,47 @@ describe('spentCatchphrases', () => {
         const recent = ['Anyway, that was Kreator. Make of that what you will.'];
 
         expect(spentCatchphrases(both, recent)).toEqual(['Make of that what you will']);
+    });
+});
+
+// A sheet in one language read on a station broadcasting in another: the characters a station was seeded
+// with are English, and they stay English when it changes language.
+describe('sheetSpeaks', () => {
+    it('takes a sheet with no language stated as English', () => {
+        expect(sheetSpeaks({}, undefined)).toBe(true);
+        expect(sheetSpeaks({}, 'de')).toBe(false);
+    });
+
+    it('compares the language and not the region', () => {
+        expect(sheetSpeaks({ sheetLanguage: 'de' }, 'de-at')).toBe(true);
+        expect(sheetSpeaks({ sheetLanguage: 'de-AT' }, 'de')).toBe(true);
+        expect(sheetSpeaks({ sheetLanguage: 'en-GB' }, undefined)).toBe(true);
+    });
+
+    it('tells two languages apart', () => {
+        expect(sheetSpeaks({ sheetLanguage: 'en' }, 'fr')).toBe(false);
+        expect(sheetSpeaks({ sheetLanguage: 'de' }, undefined)).toBe(false);
+    });
+});
+
+describe('characterFault, for a sheet in another language than the station', () => {
+    const english = {
+        dictionMarkers: ['wow', 'anyway', 'alright'],
+        samples: ['Wow. Four minutes of my life and yours, gone. Anyway, this next one is genuinely great.'],
+    };
+
+    it('does not hold a break to markers in a language it is not written in', () => {
+        expect(characterFault(english, 'Das war ein schöner Song, und der nächste ist noch besser.', { language: 'de' })).toBeUndefined();
+    });
+
+    it('still refuses a sample line copied word for word, which is the sheet leaking into the break', () => {
+        expect(characterFault(english, 'Wow. Four minutes of my life and yours, gone. Anyway.', { language: 'de' })).toBe('quoted-sample');
+    });
+
+    it('holds a sheet written in the station language to its markers as before', () => {
+        const german = { ...english, dictionMarkers: ['krass', 'echt', 'halt'], sheetLanguage: 'de' };
+
+        expect(characterFault(german, 'Das war ein schöner Song, und der nächste ist noch besser.', { language: 'de' })).toBe('out-of-character');
     });
 });
 

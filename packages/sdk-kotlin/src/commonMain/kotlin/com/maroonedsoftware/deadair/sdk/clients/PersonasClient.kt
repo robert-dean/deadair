@@ -63,6 +63,17 @@ class PersonasClient(private val http: SdkHttp) {
     }
 
     /**
+     * Rewrite persona in station language
+     * Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved
+     */
+    suspend fun rewritePersonaInStationLanguage(id: String): GeneratedPersona {
+        val response = http.execute(HttpMethod.Post) {
+            path("personas", segment(id), "rewrite")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
      * Restore station personas
      * Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
      */

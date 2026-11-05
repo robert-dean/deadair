@@ -43,6 +43,7 @@ import {
     latitudeOf,
     personaLines,
     personaVoiceReminder,
+    sheetFor,
     spentCatchphrases,
     LATITUDE_INSTRUCTIONS,
     LATITUDE_LICENCE,
@@ -928,7 +929,9 @@ function sittingInLine(regular: SittingIn): string {
 function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string {
     const station = settings.station?.trim();
     const dj = settings.dj?.trim();
-    const persona = settings.persona;
+    // Only what describes the character, where its sheet is in another language than the station's. The
+    // reminder below then has no diction to restate and says nothing. See `sheetFor`.
+    const persona = settings.persona === undefined ? undefined : sheetFor(settings.persona, settings.language);
     const maxWords = maxWordsFor(settings, shape);
     const seconds = Math.round(maxWords / WORDS_PER_SECOND);
     const latitude = latitudeIn(settings, shape);

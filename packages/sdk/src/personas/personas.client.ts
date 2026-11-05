@@ -106,6 +106,15 @@ export class PersonasClient {
     }
 
     /**
+     * @name Rewrite persona in station language
+     * @description Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved
+     */
+    async rewritePersonaInStationLanguage(id: string): Promise<GeneratedPersona> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/rewrite`, { method: 'POST' });
+        return await parseJson<GeneratedPersona>(result);
+    }
+
+    /**
      * @name Restore station personas
      * @description Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
      */

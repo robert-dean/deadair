@@ -86,6 +86,36 @@ and the next prompt rather than by a listener. It also asks for no `{{clock.roug
 the templates, since the station fills those in English and a phrasing that names one is never used. The marker
 check is loosened for the language rather than translated; see `breaks.md` § "The station's language".
 
+**A sheet records the language it is written in** (`sheet_language`, migration 0131), because a station that
+changes language keeps the characters it was seeded with, and those are English. Every row that existed before
+the column is `en`; a character saved on the station takes its language unless the save names one, and a save
+that leaves the field out keeps what the row had. `sheetSpeaks` compares the two by language and not region, so
+a German sheet on an Austrian station matches. Where they differ, `characterFault` stops requiring the sheet's
+markers, which are words a correct break in the station's language never carries, and keeps every prohibition:
+a sample line or a catchphrase copied word for word is how the sheet's language leaks into the break
+(discussion 868).
+
+**And a prompt is shown only what describes such a character** (`sheetFor`): its style, quirks, preoccupations,
+background and prohibitions, without its speech rules, markers, catchphrases or sample lines, and so without the
+closing reminder that restates the speech rules. Those four are wording to reuse, and a model handed English
+wording writes English: against `gemma4` on a German station, 22 of 59 breaks came out English with the whole
+sheet, 5 of 30 with the description alone and 2 of 30 with no character. Productions read the same sheet the
+same way. The floor leaves the character's phrasings out too, since it would air them as written, and outside
+English that passes the break over rather than falling back to the station's English five.
+
+**`POST /personas/{id}/rewrite` gives such a character its voice back**, in the station's language. It is
+`generate`'s posture: the answer is an unsaved form the console drops into the editor, and the operator saves it.
+`rewritePrompt` shows the model the whole sheet and asks for the six worded fields only (speech rules, samples,
+markers, catchphrases, avoid, phrasings), and `readRewrite` lays them over the sheet through the same `draftFrom`
+a generated character goes through, so a marker the new samples never use is dropped and reported. A worded
+field the answer leaves out is cleared rather than kept, because what is there is in the old language. Two things
+the prompt asks for and a model did not always do are enforced: a sample line carrying `{{...}}` values is
+dropped, and outside English so is a phrasing naming a value the station fills only in English. The stories are
+not rewritten; they are their own list. Measured with `gemma4:26b`, the persona model's `low` reasoning spent
+all 4000 tokens thinking and answered nothing, for this and for `generate` alike; at `none` both seeded
+characters came back in 20 seconds. So the effort is a setting now, `llm.personaReasoning`, defaulting to the
+`low` it always was.
+
 ## The newsreader
 
 **A bulletin is read by the newsreader when the station has one, whoever is hosting.** `newsreader` is

@@ -1,7 +1,7 @@
 ---
 title: 'Update persona'
 sidebar_label: 'Update persona'
-sidebar_position: 13
+sidebar_position: 14
 mdx:
     format: 'md'
 ---

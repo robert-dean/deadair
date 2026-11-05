@@ -1017,6 +1017,8 @@ public struct Persona: Codable, Equatable, Sendable {
     public var trivia: PersonaTrivia?
     /// Lines in their own voice, used as examples and as a console preview
     public var samples: [String]?
+    /// The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language
+    public var sheetLanguage: String?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
     /// The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties
@@ -1028,7 +1030,7 @@ public struct Persona: Codable, Equatable, Sendable {
     /// Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting`
     public var coHosting: Bool?
 
-    public init(id: String, key: String, kind: PersonaKind? = nil, kinds: [PersonaKinds]? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool, coHosting: Bool? = nil) {
+    public init(id: String, key: String, kind: PersonaKind? = nil, kinds: [PersonaKinds]? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, sheetLanguage: String? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool, coHosting: Bool? = nil) {
         self.id = id
         self.key = key
         self.kind = kind
@@ -1053,6 +1055,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.growth = growth
         self.trivia = trivia
         self.samples = samples
+        self.sheetLanguage = sheetLanguage
         self.templates = templates
         self.hosts = hosts
         self.defaultHost = defaultHost
@@ -1085,6 +1088,7 @@ public struct Persona: Codable, Equatable, Sendable {
         case growth = "growth"
         case trivia = "trivia"
         case samples = "samples"
+        case sheetLanguage = "sheetLanguage"
         case templates = "templates"
         case hosts = "hosts"
         case defaultHost = "defaultHost"
@@ -1118,6 +1122,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.growth = try container.decodeIfPresent(PersonaGrowth.self, forKey: .growth)
         self.trivia = try container.decodeIfPresent(PersonaTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
+        self.sheetLanguage = try container.decodeIfPresent(String.self, forKey: .sheetLanguage)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.hosts = try container.decodeIfPresent([String].self, forKey: .hosts)
         self.defaultHost = try container.decode(Bool.self, forKey: .defaultHost)
@@ -1151,6 +1156,7 @@ public struct Persona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.growth, forKey: .growth)
         try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
+        try container.encodeIfPresent(self.sheetLanguage, forKey: .sheetLanguage)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encodeIfPresent(self.hosts, forKey: .hosts)
         try container.encode(self.defaultHost, forKey: .defaultHost)
@@ -1206,12 +1212,14 @@ public struct PersonaInput: Codable, Equatable, Sendable {
     public var trivia: PersonaTrivia?
     /// Lines in their own voice, used as examples and as a console preview
     public var samples: [String]?
+    /// The language this character's sheet is written in, as a BCP 47 tag such as `en` or `de`. Every built-in character is `en`. Absent on a save keeps what the character had, and a new character takes the station's language
+    public var sheetLanguage: String?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
     /// The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties
     public var hosts: [String]?
 
-    public init(key: String, kind: PersonaKind? = nil, kinds: [PersonaKinds]? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil) {
+    public init(key: String, kind: PersonaKind? = nil, kinds: [PersonaKinds]? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, sheetLanguage: String? = nil, templates: String? = nil, hosts: [String]? = nil) {
         self.key = key
         self.kind = kind
         self.kinds = kinds
@@ -1235,6 +1243,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         self.growth = growth
         self.trivia = trivia
         self.samples = samples
+        self.sheetLanguage = sheetLanguage
         self.templates = templates
         self.hosts = hosts
     }
@@ -1263,6 +1272,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         case growth = "growth"
         case trivia = "trivia"
         case samples = "samples"
+        case sheetLanguage = "sheetLanguage"
         case templates = "templates"
         case hosts = "hosts"
     }
@@ -1292,6 +1302,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         self.growth = try container.decodeIfPresent(PersonaGrowth.self, forKey: .growth)
         self.trivia = try container.decodeIfPresent(PersonaTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
+        self.sheetLanguage = try container.decodeIfPresent(String.self, forKey: .sheetLanguage)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.hosts = try container.decodeIfPresent([String].self, forKey: .hosts)
     }
@@ -1321,6 +1332,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.growth, forKey: .growth)
         try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
+        try container.encodeIfPresent(self.sheetLanguage, forKey: .sheetLanguage)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encodeIfPresent(self.hosts, forKey: .hosts)
     }
@@ -1350,9 +1362,10 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
     public var storytelling: PersonaDraftViewStorytelling?
     public var trivia: PersonaDraftViewTrivia?
     public var samples: [String]?
+    public var sheetLanguage: String?
     public var templates: String?
 
-    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, templates: String? = nil) {
+    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, sheetLanguage: String? = nil, templates: String? = nil) {
         self.key = key
         self.label = label
         self.style = style
@@ -1373,6 +1386,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         self.storytelling = storytelling
         self.trivia = trivia
         self.samples = samples
+        self.sheetLanguage = sheetLanguage
         self.templates = templates
     }
 
@@ -1397,6 +1411,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         case storytelling = "storytelling"
         case trivia = "trivia"
         case samples = "samples"
+        case sheetLanguage = "sheetLanguage"
         case templates = "templates"
     }
 
@@ -1422,6 +1437,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         self.storytelling = try container.decodeIfPresent(PersonaDraftViewStorytelling.self, forKey: .storytelling)
         self.trivia = try container.decodeIfPresent(PersonaDraftViewTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
+        self.sheetLanguage = try container.decodeIfPresent(String.self, forKey: .sheetLanguage)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
     }
 
@@ -1447,6 +1463,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.storytelling, forKey: .storytelling)
         try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
+        try container.encodeIfPresent(self.sheetLanguage, forKey: .sheetLanguage)
         try container.encodeIfPresent(self.templates, forKey: .templates)
     }
 }
@@ -2265,6 +2282,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
     public var storytelling: PersonaDraftViewStorytelling?
     public var trivia: PersonaDraftViewTrivia?
     public var samples: [String]?
+    public var sheetLanguage: String?
     public var templates: String?
     /// The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else
     public var kind: PersonaFilePersonaKind?
@@ -2272,7 +2290,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
     public var kinds: [PersonaFilePersonaKinds]?
     public var stories: [PersonaFileStory]
 
-    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, templates: String? = nil, kind: PersonaFilePersonaKind? = nil, kinds: [PersonaFilePersonaKinds]? = nil, stories: [PersonaFileStory]) {
+    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, sheetLanguage: String? = nil, templates: String? = nil, kind: PersonaFilePersonaKind? = nil, kinds: [PersonaFilePersonaKinds]? = nil, stories: [PersonaFileStory]) {
         self.key = key
         self.label = label
         self.style = style
@@ -2293,6 +2311,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         self.storytelling = storytelling
         self.trivia = trivia
         self.samples = samples
+        self.sheetLanguage = sheetLanguage
         self.templates = templates
         self.kind = kind
         self.kinds = kinds
@@ -2320,6 +2339,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         case storytelling = "storytelling"
         case trivia = "trivia"
         case samples = "samples"
+        case sheetLanguage = "sheetLanguage"
         case templates = "templates"
         case kind = "kind"
         case kinds = "kinds"
@@ -2348,6 +2368,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         self.storytelling = try container.decodeIfPresent(PersonaDraftViewStorytelling.self, forKey: .storytelling)
         self.trivia = try container.decodeIfPresent(PersonaDraftViewTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
+        self.sheetLanguage = try container.decodeIfPresent(String.self, forKey: .sheetLanguage)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.kind = try container.decodeIfPresent(PersonaFilePersonaKind.self, forKey: .kind)
         self.kinds = try container.decodeIfPresent([PersonaFilePersonaKinds].self, forKey: .kinds)
@@ -2376,6 +2397,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.storytelling, forKey: .storytelling)
         try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
+        try container.encodeIfPresent(self.sheetLanguage, forKey: .sheetLanguage)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encodeIfPresent(self.kind, forKey: .kind)
         try container.encodeIfPresent(self.kinds, forKey: .kinds)

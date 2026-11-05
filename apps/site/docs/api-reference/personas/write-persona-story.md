@@ -1,7 +1,7 @@
 ---
 title: 'Write persona story'
 sidebar_label: 'Write persona story'
-sidebar_position: 22
+sidebar_position: 23
 mdx:
     format: 'md'
 ---

@@ -76,6 +76,22 @@ operation /personas/generate: {
     }
 }
 
+operation /personas/{id}/rewrite: {
+    params: {
+        id: string
+    }
+    post: { # Rewrites a character's own wording (its speech rules, sample lines, signature words, catchphrases, banned wording and phrasings) in the station's language, keeping who it is, and hands the sheet back unsaved
+        name: Rewrite persona in station language
+        mcp: exclude
+        service: PersonasService.rewrite
+        response: {
+            200: {
+                application/json: GeneratedPersona
+            }
+        }
+    }
+}
+
 operation /personas/restore: {
     post: { # Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
         name: Restore station personas

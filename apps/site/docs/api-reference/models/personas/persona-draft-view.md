@@ -10,7 +10,7 @@ mdx:
 > is what keeps generating a way of filling in the form rather than a second writer of the table
 
 <details>
-<summary>Attributes (21)</summary>
+<summary>Attributes (22)</summary>
 
 | Attribute           | Type                                                                | Required | Description |
 | ------------------- | ------------------------------------------------------------------- | -------- | ----------- |
@@ -34,6 +34,7 @@ mdx:
 | `storytelling`      | `'never' \| 'occasionally' \| 'often'`                              | No       |             |
 | `trivia`            | `'keen' \| 'never' \| 'always' \| 'sometimes'`                      | No       |             |
 | `samples`           | `string[]`                                                          | No       |             |
+| `sheetLanguage`     | `string`                                                            | No       |             |
 | `templates`         | `string`                                                            | No       |             |
 
 </details>

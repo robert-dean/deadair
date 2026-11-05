@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import type { LlmMessage } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
 import { AfterCommit } from '#modules/data/after.commit.js';
@@ -28,12 +29,22 @@ import {
     type PersonaKind,
 } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
-import { quirksForView, quirksIn } from './persona.sheet.js';
+import { quirksForView, quirksIn, sheetSpeaks } from './persona.sheet.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
 import { SEED_CALLERS } from './caller.defaults.js';
 import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
+import {
+    BUDGET_MS,
+    MAX_OUTPUT_TOKENS,
+    MAX_WAIT_MS,
+    PERSONA_MODEL_KEY,
+    personaPrompt,
+    personaReasoning,
+    readPersona,
+    readRewrite,
+    rewritePrompt,
+} from './persona.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 import { modelList } from '#modules/llm/model.list.js';
 
@@ -100,7 +111,12 @@ export class PersonasService {
 
     async create(body: PersonaInput): Promise<PersonaList> {
         const hosts = await this.hostsFor(body);
-        const created = await this.write(body.key, () => this.personas.create(draftOf(body)));
+        // A character written on this station is taken to be written in its language unless the form
+        // says otherwise. The seeds and an imported file keep the column's `en` instead: neither was.
+        const draft = draftOf(body);
+        const created = await this.write(body.key, () =>
+            this.personas.create({ ...draft, sheetLanguage: draft.sheetLanguage ?? stationSheetLanguage(this.config) }),
+        );
         await this.personas.setHosts(created.id, hosts);
         this.logger.info('personas: an operator wrote a persona', { key: body.key });
 
@@ -325,34 +341,7 @@ export class PersonasService {
      * button and says why it will not work.
      */
     async generate(body: PersonaRequest): Promise<GeneratedPersona> {
-        if (!this.llm.canGenerate()) throw httpError(503).withDetails({ message: this.llm.explainGenerator() });
-
-        // In the operator's order; the first is what the request names, and the rest are who to ask
-        // when it fails before answering. See `modelList`.
-        const models = modelList(this.config, PERSONA_MODEL_KEY);
-        const model = models[0] ?? '';
-        const result = await this.llm.converse(
-            {
-                messages: personaPrompt(body.description, stationLanguage(this.config)),
-                ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                // The same call the break writer makes, and for a sharper reason. Inventing a
-                // character is not a reasoning problem, and a model that thinks out loud here spends
-                // the ceiling on deliberation and gets truncated mid-object — which costs the WHOLE
-                // persona, because unlike a list of picks there is only one object to lose. Measured
-                // on this station: without it the answer ran to all 4000 tokens and parsed to
-                // nothing.
-                reasoningEffort: 'low',
-            },
-            {
-                // Nothing to look up: a character is invented rather than researched, and a tool round
-                // trip here would spend another whole generation on nothing.
-                tools: false,
-                models,
-                budgetMs: BUDGET_MS,
-                maxWaitMs: MAX_WAIT_MS,
-            },
-        );
+        const result = await this.writeSheet(personaPrompt(body.description, stationLanguage(this.config)));
 
         const generated = readPersona(result.text);
         if (generated === undefined) {
@@ -387,7 +376,8 @@ export class PersonasService {
         });
 
         return {
-            persona: toDraftView(generated.draft),
+            // In the station's language, because that is what `personaPrompt` asked the model to write.
+            persona: toDraftView({ ...generated.draft, sheetLanguage: stationSheetLanguage(this.config) }),
             // Handed back beside the form rather than written here, which is what keeps this route a
             // way of FILLING IN a form. The console saves the character through POST /personas and
             // then writes these through the stories route, so both go through the same validation an
@@ -396,6 +386,94 @@ export class PersonasService {
             droppedMarkers: [...generated.droppedMarkers],
             droppedTemplates: [...generated.droppedTemplates],
         };
+    }
+
+    /**
+     * A character's own wording rewritten in the station's language, handed back as an unsaved form.
+     *
+     * For a sheet written in another language than the station broadcasts in, which is every seeded
+     * character on a station that changed language. Such a sheet is shown to a model only as who the
+     * character is (`sheetFor`), so the character loses its voice; this is how it gets it back. It is
+     * {@link generate}'s posture exactly: nothing is written here, the console drops the answer into the
+     * editor, and the operator reads it and saves it through PUT, which is what keeps a model's rewrite an
+     * edit rather than a second writer of the table. The stories are not rewritten: they are their own
+     * list, and a story told in the old language is one the operator can rewrite or retire there.
+     */
+    async rewrite(id: string): Promise<GeneratedPersona> {
+        const persona = await this.personas.find(id);
+        if (persona === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
+
+        const language = stationLanguage(this.config);
+        if (sheetSpeaks(persona, language)) {
+            throw httpError(409).withDetails({ message: `"${persona.label}" is already written in the station's language` });
+        }
+
+        const result = await this.writeSheet(rewritePrompt(persona, language));
+        const rewritten = readRewrite(result.text, persona, language);
+        if (rewritten === undefined) {
+            this.logger.info('personas: the model answered a rewrite with nothing a sheet could be read from', {
+                key: persona.key,
+                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
+                finish: result.finishReason,
+                answer: result.text.trim().slice(0, 300),
+            });
+            throw httpError(502).withDetails({ message: 'the model did not answer with a rewritten sheet. Try again' });
+        }
+
+        this.logger.info('personas: a model rewrote a persona in the station language', {
+            key: persona.key,
+            from: persona.sheetLanguage ?? 'en',
+            to: stationSheetLanguage(this.config),
+            markers: rewritten.draft.dictionMarkers?.length ?? 0,
+            samples: rewritten.draft.samples?.length ?? 0,
+            droppedMarkers: rewritten.droppedMarkers.length,
+            droppedTemplates: rewritten.droppedTemplates.length,
+            tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
+            finish: result.finishReason,
+        });
+
+        return {
+            persona: toDraftView({ ...rewritten.draft, sheetLanguage: stationSheetLanguage(this.config) }),
+            stories: [],
+            droppedMarkers: [...rewritten.droppedMarkers],
+            droppedTemplates: [...rewritten.droppedTemplates],
+        };
+    }
+
+    /**
+     * One call to the persona model with no tools, shared by {@link generate} and {@link rewrite}.
+     *
+     * A model that is absent is an ordinary state and not a fault, so it is answered as a 503 with the
+     * sentence `LlmService` already writes for it, rather than as a crash.
+     */
+    private async writeSheet(messages: LlmMessage[]) {
+        if (!this.llm.canGenerate()) throw httpError(503).withDetails({ message: this.llm.explainGenerator() });
+
+        // In the operator's order; the first is what the request names, and the rest are who to ask
+        // when it fails before answering. See `modelList`.
+        const models = modelList(this.config, PERSONA_MODEL_KEY);
+        const model = models[0] ?? '';
+        return this.llm.converse(
+            {
+                messages,
+                ...(model.length === 0 ? {} : { model }),
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                // The operator's, defaulting to the `low` this always sent. Inventing a character is not
+                // a reasoning problem, and a model that thinks out loud here spends the ceiling on
+                // deliberation and gets truncated mid-object, which costs the WHOLE persona. Measured on
+                // this station: without `low` one model's answer ran to all 4000 tokens and parsed to
+                // nothing, and `gemma4:26b` does the same AT `low`. See `PERSONA_REASONING_KEY`.
+                reasoningEffort: personaReasoning(this.config),
+            },
+            {
+                // Nothing to look up: a character is invented rather than researched, and a tool round
+                // trip here would spend another whole generation on nothing.
+                tools: false,
+                models,
+                budgetMs: BUDGET_MS,
+                maxWaitMs: MAX_WAIT_MS,
+            },
+        );
     }
 
     /**
@@ -563,8 +641,31 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             avoid: list(body.avoid),
             exclusiveSubjects: list(body.exclusiveSubjects),
             samples: list(body.samples),
+            sheetLanguage: sheetLanguageOf(body.sheetLanguage),
         }),
     };
+}
+
+/**
+ * The station's language as a sheet records it: `en` where the station broadcasts in English, which
+ * `stationLanguage` answers as `undefined`.
+ */
+export const stationSheetLanguage = (config: AppConfig): string => sheetLanguageOf(stationLanguage(config)) ?? 'en';
+
+/**
+ * A sheet language as the table stores it: the canonical form of a well-formed BCP 47 tag, or
+ * `undefined` when none was sent. One that is not well-formed is refused, because it would otherwise be
+ * compared against the station's language later and silently never match.
+ */
+export function sheetLanguageOf(tag: string | undefined): string | undefined {
+    const trimmed = tag?.trim();
+    if (trimmed === undefined || trimmed.length === 0) return undefined;
+
+    try {
+        return Intl.getCanonicalLocales(trimmed)[0];
+    } catch {
+        throw httpError(400).withDetails({ message: `"${trimmed}" is not a language tag, such as en, de or de-AT` });
+    }
 }
 
 /**
@@ -607,6 +708,7 @@ function toView(persona: Persona, presentingId: string | undefined, coHostIds: R
             avoid: mutable(persona.avoid),
             exclusiveSubjects: mutable(persona.exclusiveSubjects),
             samples: mutable(persona.samples),
+            sheetLanguage: persona.sheetLanguage,
             hosts: hosts === undefined || hosts.length === 0 ? undefined : [...hosts],
         }),
     };
@@ -651,6 +753,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             avoid: mutable(draft.avoid),
             exclusiveSubjects: mutable(draft.exclusiveSubjects),
             samples: mutable(draft.samples),
+            sheetLanguage: draft.sheetLanguage,
         }),
     };
 }

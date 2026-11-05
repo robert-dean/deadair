@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.92.1] — 2026-11-05
+
+- Let what the operator plays at Spotify reach a refill programmed from a shortlist, which is any refill whose brief names its acts. Records by those artists are marked on the list, as a tie-breaker between records that suit the brief equally.
+
 ## [0.92.0] — 2026-11-05
 
 - Lean the model's choices toward the artists and styles the operator plays most at Spotify, read through a new optional `profile` plugin capability. It counts for less than a rating, a dislike still wins, a presenter is told never to mention it on air, and a setting turns it off. Spotify is asked a few times a day, with no reconnect needed.
@@ -1904,7 +1908,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.92.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.92.1...HEAD
+[0.92.1]: https://github.com/robert-dean/deadair/compare/v0.92.0...v0.92.1
 [0.92.0]: https://github.com/robert-dean/deadair/compare/v0.91.0...v0.92.0
 [0.91.0]: https://github.com/robert-dean/deadair/compare/v0.90.5...v0.91.0
 [0.90.5]: https://github.com/robert-dean/deadair/compare/v0.90.4...v0.90.5

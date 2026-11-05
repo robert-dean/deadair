@@ -29,6 +29,9 @@ import type { BreakTrack, BreakWriteRequest, PlayedRecord, SittingIn } from './b
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone, weekday } from './clock.words.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
+import { NEWS_KIND } from './news.break.writer.js';
+import { WELCOME_KIND } from './welcome.writer.js';
+import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -45,6 +48,23 @@ import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { stretchMood } from './mood.stage.js';
 import { OccasionService } from '#modules/schedule/occasion.service.js';
 import { rotationOf } from '#modules/shared/rotation.js';
+
+/**
+ * How many recent attempts are read for the records they were about. Every attempt rather than one
+ * per break, so a little over the hour's breaks; past it the names are older than any list a writer
+ * is shown. See `BreakRequestBuilder.lately`.
+ */
+const LATELY_ATTEMPTS = 24;
+
+/**
+ * The kinds that name only what they are handed and are refused for naming a record their recent
+ * breaks were about. A talk break is not one of them: it is shown what the show played and may
+ * refer back to it.
+ */
+const LATELY_KINDS: ReadonlySet<string> = new Set([NEWS_KIND, WEATHER_KIND, WELCOME_KIND]);
+
+/** An artist's name as compared, for {@link BreakRequestBuilder.lately}. */
+const sameName = (name: string): string => name.trim().toLowerCase();
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
 const RECENT_WINDOW = 6;
@@ -408,6 +428,7 @@ export class BreakRequestBuilder {
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(kind, turn)),
             ...(await this.ownWords(kind, persona, turn)),
+            ...(await this.lately(kind, neighbours)),
             // Read here rather than held by any writer, for the reason the facts above are: the
             // character the station is in is a property of the moment, and every binding uses a
             // different half of it. Read per break, so an operator putting a different persona on
@@ -537,6 +558,33 @@ export class BreakRequestBuilder {
             return own.length === 0 ? {} : { own };
         } catch (error) {
             this.logger.warn(`director: could not read what ${persona.key} has said lately (${errorText(error)})`);
+            return {};
+        }
+    }
+
+    /**
+     * The records the last hour's breaks were about that this one was not given, for the kinds whose
+     * guard refuses naming one. See `BreakWriteRequest.lately`.
+     *
+     * Over the same hour as {@link ownWords}, bounded by {@link LATELY_ATTEMPTS} rather than by the
+     * recent list's length, because a superseded attempt is where a stale name lives and the recent
+     * list deliberately keeps one per break. This break's own neighbours come out, and so does any
+     * record by the same artist as one of them, since naming the artist of the record coming up is
+     * naming that record and the guard reads artists as well as titles.
+     *
+     * Best-effort for the memory's reason: a read that fails costs the guard rather than the break.
+     */
+    private async lately(kind: string, neighbours: Neighbours): Promise<{ lately?: readonly BreakTrack[] }> {
+        if (!LATELY_KINDS.has(kind)) return {};
+
+        try {
+            const shown = [neighbours.previous?.track, neighbours.next?.track].filter((track): track is BreakTrack => track !== undefined);
+            const artists = new Set(shown.map(track => sameName(track.artist)));
+            const records = await this.history.recordsAround(CARRY_WINDOW_MS, LATELY_ATTEMPTS);
+            const lately = records.filter(record => !artists.has(sameName(record.artist)));
+            return lately.length === 0 ? {} : { lately: lately.map(({ title, artist }) => ({ title, artist })) };
+        } catch (error) {
+            this.logger.warn(`director: could not read which records the station talked about lately (${errorText(error)})`);
             return {};
         }
     }

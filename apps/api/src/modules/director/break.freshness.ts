@@ -110,6 +110,9 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     recent: 'timeless',
     // The presenter's own last hour, which is history on exactly that argument.
     own: 'timeless',
+    // The records those breaks were about, read for a guard and never spoken. History again: a
+    // record the station talked about an hour ago was still talked about when this break airs.
+    lately: 'timeless',
     played: 'timeless',
 
     // The bulletin, fetched against `airs_at` by `BulletinSource.storiesFor` and cut to the

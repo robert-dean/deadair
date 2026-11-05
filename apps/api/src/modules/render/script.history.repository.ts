@@ -190,6 +190,19 @@ interface ScriptHistoryRow {
 }
 
 /**
+ * A stored neighbour as a record with a title and an artist, or `undefined` for anything else.
+ *
+ * The column is `jsonb` written from a `BreakTrack`, so this is a guard against a row from an older
+ * shape rather than a parser: a neighbour with no title or no artist names nothing a script could say.
+ */
+function asHistoryTrack(value: unknown): HistoryTrack | undefined {
+    if (value == null || typeof value !== 'object') return undefined;
+    const { title, artist } = value as { title?: unknown; artist?: unknown };
+    if (typeof title !== 'string' || typeof artist !== 'string' || title.trim() === '' || artist.trim() === '') return undefined;
+    return { title, artist };
+}
+
+/**
  * Leaves out every attempt at the break being written, for a reader building that break's memory.
  *
  * A break's own earlier attempt is not something the station SAID: a rewrite, or a write after a
@@ -405,6 +418,50 @@ export class ScriptHistoryRepository extends DataRepository {
         `.execute(this.db);
 
         return rows.rows.map(row => row.script);
+    }
+
+    /**
+     * The records the station's recent breaks were written around, newest first, each once.
+     *
+     * Every written attempt's `previous` and `next` in the last `withinMs`, which is what each break
+     * was SHOWN rather than what it said: the table keeps the neighbours and not a reading of the
+     * words. That is the right superset for the one reader, which refuses a bulletin or a weather
+     * break naming any of them that it was not given this time. A record a recent break was about is
+     * the record a model finds in "you said these recently" and reuses, and on a German station that
+     * was a record that had left the order, named ahead of a different one on every bulletin.
+     *
+     * Every attempt rather than the latest per segment, unlike the reads above: a superseded attempt
+     * is exactly where a stale name lives. `limit` bounds the ATTEMPTS read, not the records answered.
+     * Cut against the database's clock, as {@link spokenSince} is. `0` or less, on either bound,
+     * answers nothing without asking.
+     */
+    async recordsAround(withinMs: number, limit: number): Promise<HistoryTrack[]> {
+        if (withinMs <= 0 || limit <= 0) return [];
+
+        const rows = await sql<{ previous: unknown; next: unknown }>`
+            select previous, next
+            from deadair.script_history
+            where station_key = ${this.identity.stationKey}
+              and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
+              and outcome = 'written'
+              and (previous is not null or next is not null)
+            order by created_at desc
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+
+        const records: HistoryTrack[] = [];
+        const seen = new Set<string>();
+        for (const row of rows.rows) {
+            for (const side of [row.next, row.previous]) {
+                const record = asHistoryTrack(side);
+                if (record === undefined) continue;
+                const key = `${record.title.toLowerCase()}\u0000${record.artist.toLowerCase()}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                records.push(record);
+            }
+        }
+        return records;
     }
 
     /**

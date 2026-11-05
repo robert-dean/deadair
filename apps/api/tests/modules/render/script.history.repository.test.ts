@@ -287,6 +287,44 @@ describe("ScriptHistoryRepository's memory leaves out the break being written", 
     });
 });
 
+describe('ScriptHistoryRepository.recordsAround', () => {
+    it('answers nothing for a window or a limit of zero without asking the database', async () => {
+        await expect(repositoryOver(untouchableDb()).recordsAround(0, 24)).resolves.toEqual([]);
+        await expect(repositoryOver(untouchableDb()).recordsAround(3_600_000, 0)).resolves.toEqual([]);
+    });
+
+    // Every written attempt, superseded ones included, because a stale name lives in exactly those.
+    it("reads every written attempt's neighbours on this station, against the database clock", async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).recordsAround(3_600_000, 24);
+
+        expect(captured.sql).toContain('station_key =');
+        expect(captured.parameters).toContain(STATION);
+        expect(captured.sql).toContain(`created_at >= now() - '3600000 milliseconds'::interval`);
+        expect(captured.sql).toContain(`outcome = 'written'`);
+        expect(captured.sql).not.toContain('distinct on');
+    });
+
+    it('answers each record once, newest first, and skips a neighbour with nothing to name', async () => {
+        const abba = { title: 'Gimme! Gimme! Gimme!', artist: 'ABBA', facts: ['a fact'] };
+        const records = await repositoryOver(
+            fakeDb(
+                [
+                    { previous: { title: 'Rock Me Amadeus', artist: 'Falco' }, next: abba },
+                    { previous: undefined, next: { title: 'GIMME! GIMME! GIMME!', artist: 'abba' } },
+                    { previous: { title: '', artist: 'Nobody' }, next: 'not a record' },
+                ],
+                {},
+            ),
+        ).recordsAround(3_600_000, 24);
+
+        expect(records).toEqual([
+            { title: 'Gimme! Gimme! Gimme!', artist: 'ABBA' },
+            { title: 'Rock Me Amadeus', artist: 'Falco' },
+        ]);
+    });
+});
+
 describe('ScriptHistoryRepository.page', () => {
     it('answers nothing for a page of zero without asking the database', async () => {
         await expect(repositoryOver(untouchableDb()).page({ limit: 0 })).resolves.toEqual([]);

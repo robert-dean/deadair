@@ -112,6 +112,8 @@ function harness(
         spokenThrows?: boolean;
         /** What the presenting character said in the last hour, in breaks of this kind. */
         saidByMe?: readonly string[] | Error;
+        /** The records the last hour's breaks were written around, or a throw for a failed read. */
+        recordsAround?: readonly { title: string; artist: string }[] | Error;
         /** What is on the presenting character's soundboard. Empty for every test that is not about one. */
         pads?: { name: string }[];
         /** How long since the station last made a noise, which is what the floor's spacing reads. */
@@ -170,6 +172,9 @@ function harness(
         // was written against: a list topped up from nowhere is the list it was.
         spokenSince: vi.fn(async (_withinMs: number, _limit: number, _excluding?: string, _excludingSegment?: string) => options.saidBefore ?? []),
         // Empty unless a test says, and never asked for a station presenting as nobody.
+        recordsAround: vi.fn(async (_withinMs: number, _limit: number) =>
+            options.recordsAround instanceof Error ? Promise.reject(options.recordsAround) : (options.recordsAround ?? []),
+        ),
         spokenBy: vi.fn(async (_personaKey: string, _withinMs: number, _limit: number, _options?: { kind?: string; excludingSegment?: string }) =>
             options.saidByMe instanceof Error ? Promise.reject(options.saidByMe) : (options.saidByMe ?? []),
         ),
@@ -682,6 +687,69 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
+        });
+    });
+
+    // What a bulletin, a weather break or a welcome is refused for naming. Reported on a German
+    // station whose every bulletin ended on ABBA, a record that had left the order, ahead of AC/DC.
+    describe('the records recent breaks were about', () => {
+        const order = (): StationLineup => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Rock Me Amadeus', 'Falco'), track('Hells Bells', 'AC/DC')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+        const lately = [
+            { title: 'Gimme! Gimme! Gimme!', artist: 'ABBA' },
+            { title: 'Back In Black', artist: 'AC/DC' },
+            { title: 'Rock Me Amadeus', artist: 'Falco' },
+            { title: 'Jeanny', artist: 'Falco' },
+            { title: 'Enjoy the Silence', artist: 'Depeche Mode' },
+        ];
+
+        it("hands a bulletin every one it was not given, leaving out its own records and their artists'", async () => {
+            const { job, writers, history } = harness({ lineup: order(), segment: planned({ kind: 'news' }), recordsAround: lately });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordsAround).toHaveBeenCalledWith(60 * 60 * 1000, expect.any(Number));
+            const [request] = writers.write.mock.calls[0] as unknown as [BreakWriteRequest];
+            expect(request.next?.title).toBe('Hells Bells');
+            expect(request.lately).toEqual([
+                { title: 'Gimme! Gimme! Gimme!', artist: 'ABBA' },
+                { title: 'Enjoy the Silence', artist: 'Depeche Mode' },
+            ]);
+        });
+
+        it('reads them for a weather break as well', async () => {
+            const { job, writers } = harness({ lineup: order(), segment: planned({ kind: 'weather' }), recordsAround: lately });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ lately: expect.arrayContaining([expect.objectContaining({ artist: 'ABBA' })]) }),
+                'model',
+            );
+        });
+
+        // A talk break is shown what the show played and may refer back to it.
+        it('never reads them for a talk break', async () => {
+            const { job, writers, history } = harness({ lineup: order(), recordsAround: lately });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordsAround).not.toHaveBeenCalled();
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ lately: expect.anything() }), 'model');
+        });
+
+        it('leaves them off when there is nothing to refuse, or the read fails', async () => {
+            for (const recordsAround of [[{ title: 'Back In Black', artist: 'AC/DC' }], new Error('the history table is gone')]) {
+                const { job, writers } = harness({ lineup: order(), segment: planned({ kind: 'news' }), recordsAround });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ lately: expect.anything() }), 'model');
+            }
         });
     });
 

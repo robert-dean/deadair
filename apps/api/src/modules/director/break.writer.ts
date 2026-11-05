@@ -508,6 +508,19 @@ export interface BreakWriteRequest {
      */
     recent?: readonly string[];
     /**
+     * Records the station's recent breaks were written around, that this break was NOT given.
+     *
+     * Not material and never shown: it is what a guard refuses. A model handed no record, or one
+     * record, still finds others in {@link recent}, and a bulletin on a German station ended on a
+     * record that had left the order, ahead of a different one, every hour and through a rewrite.
+     * The forward claim cannot catch that, because a model writer stamps the line it was SHOWN. So a
+     * kind that names only what it is handed is refused for naming one of these instead. Read for
+     * news, weather and the welcome only (`BreakRequestBuilder.lately`), with this break's own
+     * neighbours, and any record sharing an artist with them, already taken out. Absent when there is
+     * nothing to refuse.
+     */
+    lately?: readonly BreakTrack[];
+    /**
      * What the presenter saying this break said in the last hour, newest first, in breaks of this kind.
      *
      * The speaker's own memory beside the station's. {@link recent} is the last few lines anybody

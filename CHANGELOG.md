@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.92.2] — 2026-11-05
+
+- Drop fewer breaks for arriving early on a station that doesn't broadcast in English. The station can't read whether those breaks named the time, so it now lets them air up to 15 minutes ahead of the time they were offered instead of dropping them.
+
 ## [0.92.1] — 2026-11-05
 
 - Let what the operator plays at Spotify reach a refill programmed from a shortlist, which is any refill whose brief names its acts. Records by those artists are marked on the list, as a tie-breaker between records that suit the brief equally.
@@ -1908,7 +1912,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.92.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.92.2...HEAD
+[0.92.2]: https://github.com/robert-dean/deadair/compare/v0.92.1...v0.92.2
 [0.92.1]: https://github.com/robert-dean/deadair/compare/v0.92.0...v0.92.1
 [0.92.0]: https://github.com/robert-dean/deadair/compare/v0.91.0...v0.92.0
 [0.91.0]: https://github.com/robert-dean/deadair/compare/v0.90.5...v0.91.0

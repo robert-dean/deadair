@@ -2,6 +2,7 @@ import {
     PLUGIN_CAPABILITY_ALMANAC,
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CATALOG,
+    PLUGIN_CAPABILITY_PROFILE,
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_CONCERTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
@@ -100,6 +101,25 @@ export const asCatalogPlugin = (record: PluginRecord): CatalogPlugin | undefined
 
     const instance = record.instance as MusicProviderPluginInstance;
     return { record, manifest: record.manifest, instance, searchesTracks: implementsTrackSearch(instance) };
+};
+
+/** A plugin narrowed to "can say what its account listens to, right now". */
+export interface ProfilePlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: MusicProviderPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `profile` capability. */
+export const implementsProfile = (manifest: PluginManifest | undefined, instance: unknown): boolean =>
+    manifest?.capabilities.includes(PLUGIN_CAPABILITY_PROFILE) === true && typeof (instance as Record<string, unknown>).getTopArtists === 'function';
+
+/** The profile-capable view of a record, or `undefined` when it is not one. */
+export const asProfilePlugin = (record: PluginRecord): ProfilePlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsProfile(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as MusicProviderPluginInstance };
 };
 
 /** Whether this plugin can be asked for a track by name, as opposed to only browsed. */

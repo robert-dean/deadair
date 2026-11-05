@@ -369,7 +369,7 @@ describe('SpotifyPlugin', () => {
             );
             host.queueResponse(apiResponse({ id: 'me-1', display_name: 'DJ' }));
 
-            const results = await plugin.listPlaylists({ limit: 20 });
+            const results = await plugin.listPlaylists({ limit: 20, offset: 20 });
 
             expect(results).toEqual([
                 { id: 'pl-1', name: 'Playlist One', description: 'desc', trackCount: 12, artworkUrl: 'https://img.test/pl.jpg' },
@@ -390,7 +390,7 @@ describe('SpotifyPlugin', () => {
             );
             host.queueResponse(apiResponse({ id: 'me-1', display_name: 'DJ' }));
 
-            const results = await plugin.listPlaylists();
+            const results = await plugin.listPlaylists({ offset: 50 });
 
             // The followed one is readable through the station's fetcher and editable by nobody:
             // there is no way round ownership for a write.
@@ -407,10 +407,98 @@ describe('SpotifyPlugin', () => {
             host.queueResponse(apiResponse({ items: [{ id: 'pl-1', name: 'Playlist One', owner: { id: 'someone' } }] }));
             host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error' }));
 
-            const results = await plugin.listPlaylists();
+            const results = await plugin.listPlaylists({ offset: 50 });
 
             expect(results).toHaveLength(1);
             expect(results[0]?.permissions).toBeUndefined();
+        });
+
+        describe('the account lists', () => {
+            const REAL_PLAYLIST = { id: 'pl-1', name: 'Playlist One', owner: { id: 'me-1' } };
+            const row = (id: string) => ({ id, name: `Song ${id}`, artists: [{ name: 'Artist' }] });
+
+            it('adds the top and saved lists to the first page, after the real playlists', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [REAL_PLAYLIST] }));
+                host.queueResponse(apiResponse({ id: 'me-1', display_name: 'DJ' }));
+
+                const results = await plugin.listPlaylists({ limit: 50, offset: 0 });
+
+                expect(results.map(playlist => playlist.id)).toEqual(['pl-1', 'top:short_term', 'top:medium_term', 'top:long_term', 'saved']);
+                expect(results.slice(1).every(playlist => playlist.permissions?.join() === 'read')).toBe(true);
+                // Spotify computes the rankings; the person chose what they saved.
+                expect(results.slice(1).map(playlist => playlist.madeByProvider)).toEqual([true, true, true, undefined]);
+            });
+
+            it('does not list them again on a later page, or the host would walk them twice', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [] }));
+                host.queueResponse(apiResponse({ id: 'me-1', display_name: 'DJ' }));
+
+                await expect(plugin.listPlaylists({ limit: 50, offset: 50 })).resolves.toEqual([]);
+            });
+
+            it.each([
+                ['top:short_term', 'short_term'],
+                ['top:medium_term', 'medium_term'],
+                ['top:long_term', 'long_term'],
+            ])('reads %s from /me/top/tracks over %s', async (id, range) => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [row('t1'), row('t2')] }));
+
+                const results = await plugin.getPlaylistTracks(id, { limit: 50, offset: 0 });
+
+                expect(results.map(track => track.id)).toEqual(['t1', 't2']);
+                const url = new URL(host.calls[0].url);
+                expect(url.pathname).toBe('/v1/me/top/tracks');
+                expect(url.searchParams.get('time_range')).toBe(range);
+                expect(url.searchParams.get('limit')).toBe('50');
+            });
+
+            it('answers the page past the ranking with no call, so a full first page ends the walk', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+
+                await expect(plugin.getPlaylistTracks('top:short_term', { limit: 50, offset: 50 })).resolves.toEqual([]);
+                expect(host.calls).toHaveLength(0);
+            });
+
+            it('never asks past the ranking when a page straddles its end', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [row('t1')] }));
+
+                await plugin.getPlaylistTracks('top:long_term', { limit: 50, offset: 40 });
+
+                const url = new URL(host.calls[0].url);
+                expect(url.searchParams.get('limit')).toBe('10');
+                expect(url.searchParams.get('offset')).toBe('40');
+            });
+
+            it('reads saved tracks from /me/tracks, unwrapping each row', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [{ added_at: '2026-01-01T00:00:00Z', track: row('s1') }, { track: null }] }));
+
+                const results = await plugin.getPlaylistTracks('saved', { limit: 50, offset: 100 });
+
+                expect(results.map(track => track.id)).toEqual(['s1']);
+                const url = new URL(host.calls[0].url);
+                expect(url.pathname).toBe('/v1/me/tracks');
+                expect(url.searchParams.get('offset')).toBe('100');
+            });
+
+            it('reports a refusal rather than asking the fetcher, which has never heard of these ids', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ error: 'forbidden' }, { status: 403, statusText: 'Forbidden' }));
+
+                await expect(plugin.getPlaylistTracks('saved')).rejects.toThrow();
+                expect(host.trackFetcher.playlistTracks).not.toHaveBeenCalled();
+            });
         });
 
         it('getPlaylistTracks reads the 2026 `item` key', async () => {

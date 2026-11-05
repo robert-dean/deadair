@@ -331,6 +331,18 @@ export function explicitFilterNotice(profile: SpotifyUserProfile | null | undefi
 }
 
 /**
+ * What a connection granted before the station asked for more should do about it, or nothing to say.
+ *
+ * Appended to a connection that really is fine, like {@link explicitFilterNotice}: everything it was
+ * already allowed to do still works, and the one read it lacks fails by itself.
+ */
+export function missingGrantNotice(missing: readonly string[]): string | undefined {
+    if (missing.length === 0) return undefined;
+
+    return `This connection was granted before the station asked for ${missing.join(', ')}. Reconnect Spotify to allow it. Everything else keeps working until you do.`;
+}
+
+/**
  * Maps a playback snapshot to a {@link PlaybackState}. The 204-no-content case (nothing
  * playing) deserializes to `null` on the SDK side, so the caller handles that before
  * reaching here; this stays total for a missing/undefined `item` on whatever it is

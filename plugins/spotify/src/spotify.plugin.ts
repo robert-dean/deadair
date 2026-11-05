@@ -28,6 +28,7 @@ import {
     clampSearchOffset,
     clampSearchTotal,
     explicitFilterNotice,
+    missingGrantNotice,
     mapPlaybackState,
     mapArtist,
     mapPlaylist,
@@ -142,8 +143,8 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
             const connected = who ? `Connected as ${who}.` : 'Connected.';
             // Appended rather than replacing: the connection genuinely IS fine, and this is the one
             // moment an operator is looking at this plugin's own words. See `explicitFilterNotice`.
-            const advisory = explicitFilterNotice(profile);
-            return { ok: true, message: advisory === undefined ? connected : `${connected} ${advisory}` };
+            const notices = [explicitFilterNotice(profile), missingGrantNotice((await this.auth?.missingScopes()) ?? [])];
+            return { ok: true, message: [connected, ...notices.filter(notice => notice !== undefined)].join(' ') };
         } catch (error) {
             if (error instanceof SpotifyRequestError) return { ok: false, message: `Spotify replied HTTP ${error.status}.` };
             return { ok: false, message: errorText(error) };

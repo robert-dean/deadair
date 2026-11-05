@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SpotifyPlugin, spotifyManifest } from '../src/spotify.plugin.js';
+import { SPOTIFY_SCOPES } from '../src/spotify.manifest.js';
 import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const CLIENT_ID = 'client-abc';
@@ -100,6 +101,23 @@ describe('SpotifyPlugin', () => {
             host.queueResponse(apiResponse({ id: 'user-1', display_name: 'DJ Test' }));
 
             await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected as DJ Test.' });
+        });
+
+        it('asks for a reconnect when the stored grant lacks a scope the station wants', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.seedTokens({
+                accessToken: 'access-1',
+                refreshToken: 'refresh-1',
+                expiresAt: String(Date.now() + 60 * 60 * 1000),
+                scope: SPOTIFY_SCOPES.filter(scope => scope !== 'user-read-recently-played').join(' '),
+            });
+            host.queueResponse(apiResponse({ id: 'user-1', display_name: 'DJ Test' }));
+
+            const result = await plugin.testConnection();
+
+            expect(result.ok).toBe(true);
+            expect(result.message).toMatch(/^Connected as DJ Test\. .*user-read-recently-played.*Reconnect Spotify/);
         });
 
         it('falls back to the profile id when display_name is empty', async () => {

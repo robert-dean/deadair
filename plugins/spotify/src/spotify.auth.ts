@@ -13,12 +13,15 @@ interface StoredTokens {
     refreshToken?: string;
     /** Unix epoch millis. */
     expiresAt: number;
+    /** What Spotify says this token may do, space separated. Absent on a record saved before this was kept. */
+    scope?: string;
 }
 
 interface SpotifyTokenResponse {
     access_token?: string;
     refresh_token?: string;
     expires_in?: number;
+    scope?: string;
 }
 
 /** A PKCE verifier parked in `host.storage` between `getAuthorizeUrl` and the callback. */
@@ -175,6 +178,21 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
         return { accessToken, expiresAt };
     };
 
+    /**
+     * The scopes this station asks for that the stored grant does not hold.
+     *
+     * Empty when nothing is stored or the record does not say: a record saved before the grant was
+     * kept learns its scope on its next refresh, within the hour, and a false alarm before then
+     * would send an operator to reconnect a connection that may not need it.
+     */
+    async missingScopes(): Promise<string[]> {
+        const scope = (await this.loadTokens())?.scope;
+        if (scope === undefined) return [];
+
+        const granted = new Set(scope.split(/\s+/));
+        return SPOTIFY_SCOPES.filter(wanted => !granted.has(wanted));
+    }
+
     // --- oauth -----------------------------------------------------------
 
     async getAuthorizeUrl(state: string): Promise<string> {
@@ -275,6 +293,7 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
             // An unparseable expiry is treated as "expired": worst case that
             // costs one refresh round-trip, versus a guaranteed 401 otherwise.
             expiresAt: Number.isFinite(expiresAt) ? expiresAt : 0,
+            ...(stored?.scope ? { scope: stored.scope } : {}),
         };
         return this.tokens;
     }
@@ -344,10 +363,13 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
         const accessToken = payload?.access_token;
         if (!accessToken) throw new PluginError('Spotify token response carried no access token').withCode('upstream');
 
+        // The same trade as the refresh token: a response that omits the scope has not withdrawn it.
+        const scope = payload?.scope ?? this.tokens?.scope;
         return {
             accessToken,
             refreshToken: payload?.refresh_token ?? existingRefreshToken,
             expiresAt: Date.now() + (payload?.expires_in ?? DEFAULT_TOKEN_LIFETIME_S) * 1000,
+            ...(scope ? { scope } : {}),
         };
     }
 
@@ -359,6 +381,7 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
             expiresAt: String(tokens.expiresAt),
         };
         if (tokens.refreshToken) record.refreshToken = tokens.refreshToken;
+        if (tokens.scope) record.scope = tokens.scope;
 
         await this.host.oauth.saveTokens(record);
     }

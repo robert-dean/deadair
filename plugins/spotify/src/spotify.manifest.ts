@@ -2,19 +2,24 @@ import { type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
 /**
- * Scopes requested at authorize time. Carried over verbatim from the legacy
- * first-party Spotify client so an existing connection asks for exactly what
- * it used to: the catalog half feeds the rotation pool, the playback half
- * backs the settings card's preview and the Connect session.
+ * Scopes requested at authorize time: the catalog half feeds the rotation pool
+ * and the lean on what the account plays, the playback half backs the settings
+ * card's preview and the Connect session.
+ *
+ * Changing this list reaches a connected account only when its operator
+ * reconnects, because a refreshed token keeps the scopes it was first granted.
+ * `testConnection` says so when the stored grant falls short. Batch changes, so
+ * one prompt covers them.
  */
 export const SPOTIFY_SCOPES: string[] = [
     // Catalog / profile — the rotation pool
+    // Not `email`: February 2026 removed it from `GET /me`. This one still gates `explicit_content`.
     'user-read-private',
-    'user-read-email',
     'user-library-read',
     'playlist-read-private',
     'playlist-read-collaborative',
     'user-top-read',
+    'user-read-recently-played',
     // The shim's session, plus the settings card's playback preview
     'streaming',
     'user-read-playback-state',

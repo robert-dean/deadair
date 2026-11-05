@@ -163,6 +163,17 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
+     * Every airing since `since`, on any station, as its song and its time.
+     *
+     * Not scoped to a station, unlike the rotation reads above: this answers "did the install air
+     * that", for telling what an operator played from what the station played under their account,
+     * and any station can do that. Rows rather than a set, because the time is the point.
+     */
+    async airingsSince(since: DateTime): Promise<{ songKey: string; airedAt: DateTime }[]> {
+        return this.db.selectFrom('deadair.playHistory').select(['songKey', 'airedAt']).where('airedAt', '>', since).execute();
+    }
+
+    /**
      * When each of these artists last aired, by lead artist key. An artist the history has no row
      * for is absent, which is retention's answer as much as "never": rows past
      * {@link PLAY_HISTORY_RETENTION_DAYS} are pruned.

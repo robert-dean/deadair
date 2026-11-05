@@ -45,6 +45,20 @@ function fakeDb(rows: unknown[], captured: Captured): Kysely<DB> {
     return new Kysely<DB>({ dialect, plugins: [...KyselyDefaultPlugins] });
 }
 
+describe('PlayHistoryRepository.airingsSince', () => {
+    it('answers each airing since the time asked, on every station', async () => {
+        const captured: Captured = { queries: [] };
+        const airedAt = DateTime.utc().minus({ hours: 1 });
+        const repository = new PlayHistoryRepository(fakeDb([{ song_key: 'a:one', aired_at: airedAt }], captured));
+
+        const airings = await repository.airingsSince(DateTime.utc().minus({ days: 3 }));
+
+        expect(airings).toEqual([{ songKey: 'a:one', airedAt }]);
+        expect(captured.queries[0]!.sql).toMatch(/"aired_at" > \$1/);
+        expect(captured.queries[0]!.sql).not.toMatch(/station_key/);
+    });
+});
+
 describe('PlayHistoryRepository.lastAiredSince', () => {
     it('answers the newest airing of each song, scoped to the station and bounded by the horizon', async () => {
         const captured: Captured = { queries: [] };

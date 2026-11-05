@@ -1171,22 +1171,31 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // there is. Advice only: whether the link actually goes over the intro is decided at hand-over on
     // its real length (`talk.up.ts`), and one that runs long simply airs before the record instead.
     // So it is an offer and says so, never a tighter ceiling.
+    //
+    // A word count and no seconds. Told "the singing starts about 5 seconds in", models read the
+    // number OUT: "Five seconds left!" and "Seven seconds of that music..." both aired in the first
+    // week of 2026-11, from different presenters. The word count is the whole of what the writer can
+    // act on, and the closing sentence says the timing is not material.
     if (request.next && request.talkUp !== undefined) {
         parts.push(
-            `The singing on the record coming up starts about ${Math.floor(request.talkUp.runwayMs / 1000)} seconds in. ` +
+            `The record coming up has an instrumental intro before the singing starts. ` +
                 `Say this in ${request.talkUp.words} words or fewer and it goes out over that intro, finishing just before the singer comes in. ` +
-                'Anything longer is said before the record starts, which is fine too.',
+                'Anything longer is said before the record starts, which is fine too. ' +
+                'That is timing for the studio, not something to talk about: never mention how long an intro or an ending runs.',
         );
     }
 
     // The other end: the record just finished runs on after its last sung line, and a link short
     // enough goes out over that ending. The same offer on the same terms (`talk.out.ts`), and when
     // both are made the link is said over one of them or in the gap, never stretched to cover both.
+    // No seconds here either, for the talk-up's reason: "Nine seconds of that Judas Priest track is
+    // tailing off" was the opening line of a break written to this offer.
     if (previous && request.talkOut !== undefined) {
         parts.push(
-            `The record that just finished runs on for about ${Math.floor(request.talkOut.tailMs / 1000)} seconds after its last sung line. ` +
+            `The record that just finished runs on after its last sung line. ` +
                 `Say this in ${request.talkOut.words} words or fewer and it can go out over that ending, finishing as the record does. ` +
-                'Anything longer is said after the record ends, which is fine too.',
+                'Anything longer is said after the record ends, which is fine too. ' +
+                'That is timing for the studio, not something to talk about: never mention how long an intro or an ending runs.',
         );
     }
 

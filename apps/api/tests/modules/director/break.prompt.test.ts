@@ -122,13 +122,21 @@ describe('the intro of the record coming up', () => {
     it('offers a word budget for talking over it, as an offer rather than a ceiling', () => {
         const words = user(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_400, words: 33 } }));
 
-        expect(words).toContain('starts about 15 seconds in');
+        expect(words).toContain('has an instrumental intro before the singing starts');
         expect(words).toContain('33 words or fewer');
         expect(words).toContain('which is fine too');
     });
 
+    // A figure in seconds was read out on air ("Five seconds left!"), so the offer carries words alone.
+    it('gives the writer no length in seconds to read out, and says the timing is not to be mentioned', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_400, words: 33 } }));
+
+        expect(words).not.toMatch(/\b15 seconds\b/);
+        expect(words).toContain('never mention how long an intro or an ending runs');
+    });
+
     it('says nothing about an intro when it has not been told one', () => {
-        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('seconds in');
+        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('instrumental intro');
     });
 
     it('leaves the ceiling where it was', () => {
@@ -141,9 +149,17 @@ describe('the end of the record just finished', () => {
     it('offers a word budget for talking over it, as an offer rather than a ceiling', () => {
         const words = user(prompt({ kind: 'talkbreak', previous, next, talkOut: { tailMs: 10_400, words: 20 } }));
 
-        expect(words).toContain('runs on for about 10 seconds after its last sung line');
+        expect(words).toContain('runs on after its last sung line');
         expect(words).toContain('20 words or fewer');
         expect(words).toContain('said after the record ends, which is fine too');
+    });
+
+    // "Nine seconds of that Judas Priest track is tailing off" opened a break written to this offer.
+    it('gives the writer no length in seconds to read out, and says the timing is not to be mentioned', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next, talkOut: { tailMs: 10_400, words: 20 } }));
+
+        expect(words).not.toMatch(/\b10 seconds\b/);
+        expect(words).toContain('never mention how long an intro or an ending runs');
     });
 
     it('says nothing about an ending when it has not been told one', () => {

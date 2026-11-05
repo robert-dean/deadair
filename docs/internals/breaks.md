@@ -284,8 +284,10 @@ gap.
 **The writer is told the intro's length as an offer, never as a tighter ceiling.** `BreakRequestBuilder.talkUp`
 reads the next record's runway through the same `runwayFor`, and `talkUpBudget` turns it into a word
 count at `WORDS_PER_SECOND` after the same safety, ramp and clock allowances; `breakPrompt` says the
-singing starts about N seconds in and that a link of that many words or fewer goes out over the intro,
-and that a longer one is fine. Only inside the band where a runway binds (2.5s to 18s): past it any
+record has an intro before the singing and that a link of that many words or fewer goes out over it,
+and that a longer one is fine. **It gives the word count and never the seconds**, and says the timing
+is not something to talk about: told "the singing starts about 5 seconds in", models opened breaks with
+"Five seconds left!" and "Seven seconds of that music…" in the first week of 2026-11. Only inside the band where a runway binds (2.5s to 18s): past it any
 link fits, and below it a link airs in the gap, where it clashes with nothing, so there is nothing
 worth saying. A station that always talks over a record's head needs a "the vocal starts at once,
 say nothing" warning and a hard trim; this one does not, because the hand-over decides on the real
@@ -334,8 +336,10 @@ the singing.
 
 **The writer is told the tail's length as an offer, on the talk-up's terms.** `BreakRequestBuilder.talkOut`
 reads the previous record's tail through the same `tailFor` and `talkOutBudget` turns it into words after
-the same room, ramp and lag; `breakPrompt` says the record runs on for about N seconds after its last
-sung line and that a link of that many words can go out over that ending. Only between the floor and the
+the same room, ramp and lag; `breakPrompt` says the record runs on after its last sung line and that a
+link of that many words can go out over that ending, again with no seconds and the same "not something
+to talk about" (a break written to the old wording opened "Nine seconds of that Judas Priest track is
+tailing off"). Only between the floor and the
 ceiling, `not-spoken` in `break.freshness.ts`, and never a tighter ceiling: a link offered both endings is
 said over one of them or in the gap, never stretched to cover both.
 

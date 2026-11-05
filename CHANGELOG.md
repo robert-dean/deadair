@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.95.2] — 2026-11-05
+
+- A link talked over a record's intro starts when listeners actually hear that record, not when the player first reads it. Over a long session those two drifted apart by as much as 12 seconds, so a link timed correctly against the next record could be heard over the end of the record before it.
+
 ## [0.95.1] — 2026-11-05
 
 - A break that is written again no longer sees its own earlier words as something the station said. Rewriting a news or weather break could hand the model its previous attempt, so the record that attempt named (one that had since left the running order) came back in the new words. A bulletin is also no longer asked to hand back to "the record coming up" when it was given none, which pushed a model to borrow a record from earlier breaks.
@@ -1938,7 +1942,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.95.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.95.2...HEAD
+[0.95.2]: https://github.com/robert-dean/deadair/compare/v0.95.1...v0.95.2
 [0.95.1]: https://github.com/robert-dean/deadair/compare/v0.95.0...v0.95.1
 [0.95.0]: https://github.com/robert-dean/deadair/compare/v0.94.0...v0.95.0
 [0.94.0]: https://github.com/robert-dean/deadair/compare/v0.93.0...v0.94.0

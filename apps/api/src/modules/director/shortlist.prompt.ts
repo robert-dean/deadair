@@ -19,6 +19,9 @@ import { pickReason } from './pick.reason.js';
  * array, and goes through `PickResolver` like any other pick.
  */
 
+/** What a line says about an artist the operator plays elsewhere. */
+const LISTENING_NOTE = 'operator plays them';
+
 /** What the user turn needs beside the list. */
 export interface ShortlistPromptRequest {
     count: number;
@@ -26,6 +29,8 @@ export interface ShortlistPromptRequest {
     era?: { from?: number; to?: number };
     lean?: readonly string[];
     list: readonly ShortlistEntry[];
+    /** Who the operator plays at their music providers, for marking the lines they are on. */
+    listening?: readonly string[];
 }
 
 /** What the system turn needs. */
@@ -96,13 +101,25 @@ function userPrompt(request: ShortlistPromptRequest): string {
         lines.push('', `For now the station is leaning toward ${request.lean.join(', ')}.`);
     }
 
-    lines.push('', 'The records you can choose from:', ...request.list.map((entry, index) => describe(index + 1, entry)));
+    // Marked on the lines rather than listed by name: the list is all this model chooses from, so a
+    // name not on it could only send it searching, and the brief's own acts have to stay what the set is.
+    const listening = new Set((request.listening ?? []).map(name => name.toLowerCase()));
+    const plays = (entry: ShortlistEntry): boolean => listening.has(entry.artist.toLowerCase());
+    if (request.list.some(plays)) {
+        lines.push(
+            '',
+            `Records marked "${LISTENING_NOTE}" are by artists the operator listens to elsewhere. Between records that suit the request equally, prefer those, without letting them crowd out the rest of the request. This is private: never mention it.`,
+        );
+    }
+
+    lines.push('', 'The records you can choose from:', ...request.list.map((entry, index) => describe(index + 1, entry, plays(entry))));
     return lines.join('\n');
 }
 
 /** One numbered line: the artist and title first, then only what helps choose. */
-function describe(number: number, entry: ShortlistEntry): string {
+function describe(number: number, entry: ShortlistEntry, listened: boolean): string {
     const notes = [
+        ...(listened ? [LISTENING_NOTE] : []),
         ...(entry.year === undefined ? [] : [String(entry.year)]),
         ...(entry.like === undefined ? [] : [`like ${entry.like}`]),
         entry.airedDaysAgo === undefined ? 'not played lately' : entry.airedDaysAgo === 0 ? 'played today' : `played ${entry.airedDaysAgo}d ago`,

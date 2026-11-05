@@ -405,6 +405,7 @@ export class ModelSetGenerator extends SetGenerator {
                           ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                           ...(inputs.era === undefined ? {} : { era: inputs.era }),
                           ...(steer === undefined ? {} : { lean: steer.genres }),
+                          listening: await this.listeningOnAList(),
                       },
                       {
                           station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
@@ -849,6 +850,21 @@ export class ModelSetGenerator extends SetGenerator {
             dislikedTracks: named(taste.dislikedTracks),
             ...(await this.describeListening(new Set(taste.likedArtists.shown.map(entry => entry.name.toLowerCase())))),
         };
+    }
+
+    /**
+     * Who the operator plays at their providers, for marking the lines of a shortlist.
+     *
+     * Not filtered as {@link describeListening} is: `Shortlist` has already taken out anybody they
+     * dislike, so a name it would remove matches no line. A read that fails costs the marks.
+     */
+    private async listeningOnAList(): Promise<readonly string[]> {
+        try {
+            return (await this.listening.read())?.artists ?? [];
+        } catch (error) {
+            this.logger.warn(`director: could not read what the operator listens to; programming without it (${errorText(error)})`);
+            return [];
+        }
     }
 
     /**

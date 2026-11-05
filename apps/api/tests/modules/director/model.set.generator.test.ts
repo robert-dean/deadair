@@ -60,6 +60,8 @@ interface Options {
     taste?: Partial<StationTaste>;
     listening?: { artists: string[]; genres: string[] };
     listeningFails?: boolean;
+    recent?: string[];
+    recentFails?: boolean;
     /** Artists `withoutDisliked` removes. */
     dislikedElsewhere?: string[];
     /** A catalog that cannot answer what the operator likes. */
@@ -142,6 +144,10 @@ function build(options: Options = {}) {
         read: vi.fn(async () => {
             if (options.listeningFails) throw new Error('the provider went away');
             return options.listening;
+        }),
+        recent: vi.fn(async () => {
+            if (options.recentFails) throw new Error('the history went away');
+            return options.recent ?? [];
         }),
     };
 
@@ -419,6 +425,34 @@ describe('ModelSetGenerator', () => {
             const built = build({ enabled: true, listeningFails: true, text: '[{"title":"One","artist":"A"}]' });
 
             expect(await systemOfRun(built)).not.toContain('listening to these');
+        });
+
+        it('puts who was played lately above the ranking, each artist once, less anybody liked or disliked', async () => {
+            const system = await systemOfRun(
+                build({
+                    enabled: true,
+                    text: '[{"title":"One","artist":"A"}]',
+                    taste: { likedArtists: { shown: [{ name: 'Sleep' }], total: 1 } },
+                    listening: { artists: ['Kyuss', 'Fu Manchu'], genres: ['stoner rock'] },
+                    recent: ['kyuss', 'Sleep', 'Nickelback'],
+                    dislikedElsewhere: ['Nickelback'],
+                }),
+            );
+
+            expect(system).toMatch(/in the last few days[^\n]*\n- kyuss\n\n/);
+            expect(system).toMatch(/listening to these artists elsewhere[^\n]*\n- Fu Manchu\n/);
+            expect(system).not.toContain('- Kyuss');
+            expect(system).not.toContain('Nickelback');
+            expect(system.indexOf('in the last few days')).toBeLessThan(system.indexOf('listening to these artists'));
+        });
+
+        it('keeps the ranking when the recent read throws', async () => {
+            const system = await systemOfRun(
+                build({ enabled: true, text: '[{"title":"One","artist":"A"}]', listening: { artists: ['Kyuss'], genres: [] }, recentFails: true }),
+            );
+
+            expect(system).toContain('- Kyuss');
+            expect(system).not.toContain('in the last few days');
         });
     });
 
@@ -1045,6 +1079,20 @@ describe('ModelSetGenerator with a shortlist', () => {
 
             expect(user).toMatch(/Kyuss - "One" \(operator plays them/);
             expect(user).not.toMatch(/Sleep[^\n]*operator plays them/);
+        });
+
+        it('marks who was played lately more strongly, and keeps the ranking mark when the recent read throws', async () => {
+            const lately = await userOfRun(
+                build({ enabled: true, shortlist: entries, text: '[1]', listening: { artists: ['Kyuss'], genres: [] }, recent: ['Sleep'] }),
+            );
+            expect(lately).toMatch(/Sleep - "Two" \(operator played them lately/);
+            expect(lately).toMatch(/Kyuss - "One" \(operator plays them/);
+
+            const failed = await userOfRun(
+                build({ enabled: true, shortlist: entries, text: '[1]', listening: { artists: ['Kyuss'], genres: [] }, recentFails: true }),
+            );
+            expect(failed).toMatch(/Kyuss - "One" \(operator plays them/);
+            expect(failed).not.toContain('played them lately');
         });
 
         it('programmes from the list without the marks when the read throws', async () => {

@@ -405,7 +405,7 @@ export class ModelSetGenerator extends SetGenerator {
                           ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                           ...(inputs.era === undefined ? {} : { era: inputs.era }),
                           ...(steer === undefined ? {} : { lean: steer.genres }),
-                          listening: await this.listeningOnAList(),
+                          ...(await this.listeningOnAList()),
                       },
                       {
                           station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
@@ -858,11 +858,26 @@ export class ModelSetGenerator extends SetGenerator {
      * Not filtered as {@link describeListening} is: `Shortlist` has already taken out anybody they
      * dislike, so a name it would remove matches no line. A read that fails costs the marks.
      */
-    private async listeningOnAList(): Promise<readonly string[]> {
+    private async listeningOnAList(): Promise<{ listening: readonly string[]; recent: readonly string[] }> {
+        const [listening, recent] = await Promise.all([
+            this.listening.read().then(
+                profile => profile?.artists ?? [],
+                (error: unknown) => {
+                    this.logger.warn(`director: could not read what the operator listens to; programming without it (${errorText(error)})`);
+                    return [];
+                },
+            ),
+            this.recentListening(),
+        ]);
+        return { listening, recent };
+    }
+
+    /** Who the operator played in the last few days. A read that fails costs this lean and nothing else. */
+    private async recentListening(): Promise<string[]> {
         try {
-            return (await this.listening.read())?.artists ?? [];
+            return await this.listening.recent();
         } catch (error) {
-            this.logger.warn(`director: could not read what the operator listens to; programming without it (${errorText(error)})`);
+            this.logger.warn(`director: could not read what the operator played recently; programming without it (${errorText(error)})`);
             return [];
         }
     }
@@ -874,13 +889,21 @@ export class ModelSetGenerator extends SetGenerator {
      * `PickResolver` will refuse, and someone they liked is already said more strongly. On the same
      * trade as {@link describeTaste}: a read that fails costs this lean and never the set.
      */
-    private async describeListening(liked: ReadonlySet<string>): Promise<Pick<TastePrompt, 'listeningArtists' | 'listeningStyles'>> {
+    private async describeListening(
+        liked: ReadonlySet<string>,
+    ): Promise<Pick<TastePrompt, 'recentArtists' | 'listeningArtists' | 'listeningStyles'>> {
         try {
-            const profile = await this.listening.read();
-            if (!profile) return {};
+            const [profile, recentNames] = await Promise.all([this.listening.read(), this.recentListening()]);
 
-            const artists = await this.taste.withoutDisliked(profile.artists.filter(name => !liked.has(name.toLowerCase())));
-            return { listeningArtists: artists.slice(0, TASTE_SHOWN), listeningStyles: profile.genres };
+            // Each artist once, in the strongest list that holds them: liked, then lately, then the ranking.
+            const recent = await this.taste.withoutDisliked(recentNames.filter(name => !liked.has(name.toLowerCase())));
+            const shownLately = new Set([...liked, ...recent.map(name => name.toLowerCase())]);
+            const artists = profile ? await this.taste.withoutDisliked(profile.artists.filter(name => !shownLately.has(name.toLowerCase()))) : [];
+
+            return {
+                ...(recent.length === 0 ? {} : { recentArtists: recent.slice(0, TASTE_SHOWN) }),
+                ...(profile ? { listeningArtists: artists.slice(0, TASTE_SHOWN), listeningStyles: profile.genres } : {}),
+            };
         } catch (error) {
             this.logger.warn(`director: could not read what the operator listens to; programming without it (${errorText(error)})`);
             return {};

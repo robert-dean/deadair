@@ -67,6 +67,8 @@ export interface TastePrompt {
     /** Songs, as `"Title" by Artist`. */
     likedTracks?: readonly string[];
     dislikedTracks?: readonly string[];
+    /** Who the operator played at their music providers in the last few days. Above the ranking below it, and still below a rating. */
+    recentArtists?: readonly string[];
     /** Who the operator plays at their music providers. Weaker than a rating: nobody said anything. */
     listeningArtists?: readonly string[];
     /** The styles those artists come under, in the provider's words. */
@@ -487,6 +489,12 @@ function tasteLines(taste: TastePrompt | undefined): string[] {
     section('The operator LIKES these records. Search for them and lean toward them:', taste.likedTracks);
     // Below what they rated and worded as less than it: playing something is not an opinion of it, and
     // a brief asking for something else has to win.
+    // What was on in the last few days ahead of the weeks-long ranking: it is what the operator wants
+    // now. Still under the ratings, for the same reason the ranking is.
+    section(
+        'The operator has played these artists elsewhere in the last few days. Where they suit the brief, search for them and lean toward them:',
+        taste.recentArtists,
+    );
     section(
         'The operator has been listening to these artists elsewhere. Where they suit the brief, search for them and lean toward them:',
         taste.listeningArtists,

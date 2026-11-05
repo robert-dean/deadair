@@ -241,8 +241,18 @@ export class ListeningProfileService {
             const airings = await inScope(this.container, scope => scope.get(PlayHistoryRepository).airingsSince(since));
             const aired = airings.map(airing => ({ songKey: airing.songKey, airedAtMs: airing.airedAt.toMillis() }));
 
-            this.keptRecent = foldRecent(withoutAirings(answered.flat(), aired), nowMs);
+            const plays = answered.flat();
+            const kept = withoutAirings(plays, aired);
+            this.keptRecent = foldRecent(kept, nowMs);
             this.nextRecentAt = nowMs + RECENT_FRESH_MS;
+
+            // Once an hour, and the evidence for the window: what was taken out as the station's own
+            // airing, by name, since those are records the station aired and not the operator's listening.
+            const removed = plays.filter(play => !kept.includes(play));
+            this.logger.info(
+                `listening profile: ${plays.length} recent plays, ${removed.length} left out as the station's own airings, ${this.keptRecent.length} artists kept`,
+                { removed: removed.map(play => `${play.track.artists[0] ?? '?'} - ${play.track.title} @ ${play.playedAt}`) },
+            );
         } catch (error) {
             this.logger.warn(`listening profile: could not read what the station aired, so recent plays say nothing for now (${errorText(error)})`);
             this.keptRecent = [];

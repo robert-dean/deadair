@@ -58,7 +58,7 @@ export class StationTasteTool implements ToolSource {
                     // what it is not (the filter), because a model that believes this is the
                     // enforcement will treat an empty answer as permission.
                     description:
-                        "What the station's operator has said they like and dislike, by artist, record and song. Use it to choose records they will enjoy and to avoid ones they have rejected. The station enforces the dislikes on its own, so anything listed there will be dropped even if you choose it. `listening`, when present, is who they play elsewhere: use it to choose records, weaker than what they said, and never mention it on air, because it is their private listening.",
+                        "What the station's operator has said they like and dislike, by artist, record and song. Use it to choose records they will enjoy and to avoid ones they have rejected. The station enforces the dislikes on its own, so anything listed there will be dropped even if you choose it. `listening`, when present, is who they play elsewhere, with `recent` naming who they played in the last few days: use it to choose records, weaker than what they said, and never mention it on air, because it is their private listening.",
                     parameters: {
                         type: 'object',
                         properties: {
@@ -81,7 +81,7 @@ export class StationTasteTool implements ToolSource {
      * zeroes, which is an ordinary state: it means nobody has said anything yet, not that the tool
      * failed.
      */
-    private async read(args: Record<string, unknown>): Promise<StationTaste & { listening?: ListeningProfile }> {
+    private async read(args: Record<string, unknown>): Promise<StationTaste & { listening?: ListeningProfile & { recent?: string[] } }> {
         const taste = await this.taste.taste(limitArgument(args.limit, MAX_RESULTS));
         const listening = await this.readListening();
 
@@ -93,10 +93,17 @@ export class StationTasteTool implements ToolSource {
     }
 
     /** What they play elsewhere, less anybody they disliked, or nothing. Never fails the tool: the ratings are the answer. */
-    private async readListening(): Promise<ListeningProfile | undefined> {
+    private async readListening(): Promise<(ListeningProfile & { recent?: string[] }) | undefined> {
         try {
-            const profile = await this.listening.read();
-            return profile && { ...profile, artists: await this.taste.withoutDisliked(profile.artists) };
+            const [profile, recentNames] = await Promise.all([this.listening.read(), this.listening.recent()]);
+            const recent = await this.taste.withoutDisliked(recentNames);
+            if (!profile && recent.length === 0) return undefined;
+
+            return {
+                artists: profile ? await this.taste.withoutDisliked(profile.artists) : [],
+                genres: profile?.genres ?? [],
+                ...(recent.length === 0 ? {} : { recent }),
+            };
         } catch (error) {
             this.logger.warn(`llm: could not read what the operator listens to (${errorText(error)})`);
             return undefined;

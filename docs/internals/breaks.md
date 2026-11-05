@@ -1439,7 +1439,10 @@ never fire. That is a guard lost silently, and saying so in the code is what mak
   as having said it (`timeClaimFor`), a break offered a reading as having reported it, and a story's anchor
   words have to be seven letters or more, a crude stand-in for a stop list the language does not have. The
   first two cost a break that did not make a claim the claim's expiry, where the other direction airs a
-  stale time or reading; the third costs a story told only in short words being offered again.
+  stale time or reading; the third costs a story told only in short words being offered again. A claim
+  nobody could read opens `UNREAD_CLAIM_EARLY_MS` (15 minutes) ahead of its window, because an early break
+  is dropped rather than rewritten, and bulletins that never named the time were being lost that way. A break
+  that did say the time can air that far ahead of it. Running late is held to the window as before.
 
 The English tables were not translated. Adding a language properly is a table per check, and every one of
 them is currently a single English constant.

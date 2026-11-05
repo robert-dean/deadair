@@ -12,7 +12,7 @@ A plugin extends deadair by declaring capabilities:
 | `catalog`    | supply music: list playlists, list their tracks                |
 | `stream`     | get the station the audio to play (`resolveStreamUrl`)         |
 | `steer`      | own your audio output and let deadair only tell you what to do |
-| `profile`    | say what the connected account listens to: a window in, artists out |
+| `profile`    | say what the connected account listens to: a window in, artists out, and optionally its latest plays |
 | `enrichment` | supply facts about a track: year, genre, label, trivia, prose  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
@@ -1227,6 +1227,9 @@ ones it implements in `manifest.capabilities`:
   the catalog. The host reads this rarely and keeps the answer, so a service with a
   tight quota is not asked on every refill. What it does with the answer is steer a
   model, never enforce anything, and a failed read costs the steer and nothing else.
+  `getRecentPlays(options)` is optional: the account's latest plays, newest first, each
+  with an ISO-8601 `playedAt`. Report them as the provider has them. The host removes
+  the station's own airings, so a plugin never has to.
 
 - **`oauth`** — `getAuthorizeUrl(state)` and `handleCallback(params)`. The host
   owns the redirect endpoint (`host.oauth.getRedirectUri()`) and the token

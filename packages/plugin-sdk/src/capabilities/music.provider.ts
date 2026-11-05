@@ -174,6 +174,17 @@ export interface GetTopArtistsOptions {
     limit?: number;
 }
 
+/** One time the connected account played a record, wherever it was playing. */
+export interface ProviderPlay {
+    track: ProviderTrack;
+    /** When it was played, as ISO-8601. Providers differ on whether that is the start or the end of the play. */
+    playedAt: string;
+}
+
+export interface GetRecentPlaysOptions {
+    limit?: number;
+}
+
 /** A playable stream, plus how long the URL stays good for. */
 export interface ProviderStream {
     url: string;
@@ -373,12 +384,20 @@ export interface MusicProviderOAuth {
 /**
  * What the connected account listens to, as far as the service will say.
  *
- * Artists and nothing else, because they are what a playlist listing has nowhere to put: a provider
- * with a ranking of tracks offers it through `listPlaylists`, and it reaches the catalog that way.
+ * The ranking is artists and nothing else, because they are what a playlist listing has nowhere to
+ * put: a provider with a ranking of tracks offers it through `listPlaylists`, and it reaches the
+ * catalog that way.
  */
 export interface MusicProviderProfile {
     /** The artists the account plays most over `timeRange`, most played first. */
     getTopArtists(timeRange: ProfileTimeRange, options?: GetTopArtistsOptions): Promise<ProviderArtist[]>;
+    /**
+     * The account's latest plays, newest first, for a provider that keeps a history.
+     *
+     * Report them as the provider has them, the station's own airings included if that is how they
+     * arrive: the host takes those out, because only it knows what it aired.
+     */
+    getRecentPlays?(options?: GetRecentPlaysOptions): Promise<ProviderPlay[]>;
 }
 
 export interface MusicProvider extends MusicProviderCatalog, MusicProviderStream, MusicProviderSteer, MusicProviderOAuth, MusicProviderProfile {}

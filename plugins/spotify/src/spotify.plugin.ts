@@ -4,6 +4,7 @@ import {
     configString,
     errorText,
     type GetPlaylistTracksOptions,
+    type GetRecentPlaysOptions,
     type GetTopArtistsOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
@@ -11,6 +12,7 @@ import {
     type PluginConnectionResult,
     type PluginHost,
     type ProfileTimeRange,
+    type ProviderPlay,
     type ProviderArtist,
     type ProviderPlaylist,
     type ProviderStream,
@@ -29,6 +31,7 @@ import {
     clampSearchTotal,
     explicitFilterNotice,
     missingGrantNotice,
+    mapPlay,
     mapPlaybackState,
     mapArtist,
     mapPlaylist,
@@ -40,6 +43,8 @@ import {
     SPOTIFY_TOP_TRACKS_MAX,
     spotifyPlaylistIdFromUrl,
     spotifyTopRange,
+    SPOTIFY_RECENT_PLAYS_MAX,
+    type SpotifyPlayHistory,
     type SpotifyTopArtist,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
@@ -335,6 +340,22 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
             if (mapped) artists.push(mapped);
         }
         return artists;
+    }
+
+    /**
+     * The account's latest plays, newest first. One page, and the most the endpoint allows: the host
+     * wants what was on lately, and older plays have already stopped being that.
+     */
+    async getRecentPlays(options?: GetRecentPlaysOptions): Promise<ProviderPlay[]> {
+        const limit = clampLimit(options?.limit) ?? SPOTIFY_RECENT_PLAYS_MAX;
+        const page = await this.getApi().makeRequest<{ items?: (SpotifyPlayHistory | null)[] }>('GET', `me/player/recently-played?limit=${limit}`);
+
+        const plays: ProviderPlay[] = [];
+        for (const row of page?.items ?? []) {
+            const mapped = mapPlay(row);
+            if (mapped) plays.push(mapped);
+        }
+        return plays;
     }
 
     /**

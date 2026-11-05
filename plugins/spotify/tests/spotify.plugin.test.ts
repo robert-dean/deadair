@@ -431,6 +431,43 @@ describe('SpotifyPlugin', () => {
             expect(results[0]?.permissions).toBeUndefined();
         });
 
+        describe('getRecentPlays', () => {
+            it('asks for the most Spotify keeps, and maps the plays in order', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(
+                    apiResponse({
+                        items: [
+                            { track: searchHit('t1'), played_at: '2026-11-05T08:30:00.000Z' },
+                            { track: null, played_at: '2026-11-05T08:25:00.000Z' },
+                            { track: searchHit('t2') },
+                            null,
+                            { track: searchHit('t3'), played_at: '2026-11-05T08:20:00.000Z' },
+                        ],
+                    }),
+                );
+
+                const plays = await plugin.getRecentPlays();
+
+                const url = new URL(host.calls[0].url);
+                expect(url.pathname).toBe('/v1/me/player/recently-played');
+                expect(url.searchParams.get('limit')).toBe('50');
+                expect(plays.map(play => [play.track.id, play.track.artists, play.playedAt])).toEqual([
+                    ['t1', ['Artist'], '2026-11-05T08:30:00.000Z'],
+                    ['t3', ['Artist'], '2026-11-05T08:20:00.000Z'],
+                ]);
+            });
+
+            it('answers nothing when the account has no history', async () => {
+                const host = createFakePluginHost();
+                const plugin = await initedPlugin(host);
+                host.queueResponse(apiResponse({ items: [] }));
+
+                await expect(plugin.getRecentPlays({ limit: 10 })).resolves.toEqual([]);
+                expect(new URL(host.calls[0].url).searchParams.get('limit')).toBe('10');
+            });
+        });
+
         describe('getTopArtists', () => {
             it('declares the capability it implements', () => {
                 expect(spotifyManifest.capabilities).toContain('profile');

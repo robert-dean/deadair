@@ -2033,6 +2033,7 @@ export class DirectorService {
         // replaced. `BreakPlanner` plants the shuffled tail again on the commit pass below, so what
         // is retired here is only the rows behind the breaks that were describing the old one. A
         // listener's request drops the break or ident whose place it took, and nothing replants that.
+        if (edit.kind === 'insertRequested') this.reportGivenWay(dropped);
         if (dropped.length > 0)
             await this.retireSegments(
                 lineup,
@@ -2279,6 +2280,27 @@ export class DirectorService {
         }
         this.persistSoon();
         void this.retireSegments(lineup, dropped, 'the record this dedication was for is no longer directly behind it');
+    }
+
+    /**
+     * Say that a listener request took a break's place, once per break it displaced.
+     *
+     * By design (`StationLineup.insertRequested`), and silent until this: the only trace of it was a
+     * request being placed, so a break that never aired read as one the station lost. On 2026-11-06
+     * a break between "Ready Steady Go" and "Make It Bun Dem" went that way, and finding out why took
+     * the segment's claims, the as-run log and the request table side by side.
+     */
+    private reportGivenWay(dropped: readonly StationLineupItem[]): void {
+        for (const item of dropped) {
+            if (item.kind !== 'segment') continue;
+            this.logger.info('director: a break gave way to a listener request', { item: item.id, segment: item.segmentId });
+            void this.activity.record({
+                module: 'director',
+                kind: 'item.skipped',
+                detail: 'A break was taken out of the running order to make room for a listener request.',
+                data: { itemId: item.id, segmentId: item.segmentId },
+            });
+        }
     }
 
     private async collectRemoved(lineup: StationLineup, itemId: string): Promise<void> {

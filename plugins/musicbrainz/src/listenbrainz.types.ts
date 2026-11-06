@@ -113,6 +113,22 @@ export interface ListenBrainzRadioRecording {
 export type ListenBrainzRadioResponse = Record<string, ListenBrainzRadioRecording[]>;
 
 /**
+ * One row of `GET /1/lb-radio/tags`: a recording carrying the tags asked about.
+ *
+ * An id and how the match was made, and never a name: `source` says whether the
+ * tag sat on the recording, its release group or its artist. Naming the record
+ * costs a metadata call, as on the radio path. Checked against the live service
+ * on 2026-11-06.
+ */
+export interface ListenBrainzTagRecording {
+    recording_mbid?: string;
+    /** Where the record fell in the popularity window, 0 to 100. */
+    percent?: number;
+    tag_count?: number;
+    source?: string;
+}
+
+/**
  * One row of `GET /1/popularity/top-recordings-for-artist/{mbid}`, already
  * ordered by listen count.
  *

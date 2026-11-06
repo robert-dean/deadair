@@ -489,6 +489,18 @@ draw precisely, and gives a real match `STEER_LEAN` (four) times its weight thro
 Nothing ever removes a record for being outside a steer, so it can never leave the station with nothing to
 play: a lean toward a genre the library barely holds plays what it has and fills the rest as usual.
 
+**A steer also reaches past the library, through `TagSetGenerator`** ([#207](https://github.com/robert-dean/deadair/discussions/207)).
+Without it, the only path from a steered genre to records the station does not own was a model naming acts
+from memory. While a steer is in force, it asks `SimilarityService.tracksForTags` for any of the steered genres
+and takes `rotation.tagMix` of the refill (a quarter by default, inert without a steer), each artist once and
+none the batch is avoiding or the cooldown holds. It sits between the chart and the similarity binding: below
+a published chart, above an inference from what happened to air. The picks are names, so `PickResolver`
+judges and looks up every one. It reads the steer and never the brief, so it declares `ignoresBrief`, and a
+binding brief leaves it out. **A genre nobody tags is said, not swallowed**: when a source answers that nothing carries
+the steered genres (`SimilarityService.askTagged` tells that from a source that failed), `TagWatch` writes one
+`rotation.steerUntagged` warning to the activity feed per steer, cleared once the genres find records, so a
+misspelled genre reads as a spelling to fix rather than as a station quietly doing half of what it was asked.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**
@@ -516,6 +528,20 @@ resolver's own give-way rules, so it is never narrower than what `PickResolver` 
 **The providers are reached only when the library comes up short** (`THIN`), or always if the operator sets
 `llm.alwaysSearchProviders`; the default is not merely thrift, because break writers share this tool and
 theirs check a record already in the catalog, so under the default a break write never waits on a provider.
+
+**A style reaches the providers as `tags`, never as `query`** ([#207](https://github.com/robert-dean/deadair/discussions/207)).
+A provider's search matches titles, so `synthwave` in `query` found songs CALLED Synthwave. `tags` is
+offered only when a similarity plugin implements `tracksForTags` (`SimilarityService.canNameTagged`; the
+MusicBrainz plugin answers it from ListenBrainz's tag radio with no token), and `setPrompt` mentions it
+only then (`tagSearch`). Tags alone search the library for each style in turn, taken alternately; with a
+query, the query is the library's search and the tags speak for the providers. The tag source answers in
+names, and **"every result is safe to name" survives by checking**: an owned record is the library's own,
+and an unowned one is offered only once `ProviderTrackLookup.find`, the lookup `PickResolver` makes for a
+record the catalog has never seen, finds a copy. At most `TAG_CONFIRMED` (eight) per search, side by
+side; the rest are left out rather than offered unchecked. Dislikes, version rules and the period narrow
+this half as they narrow the others. `SimilarityService` holds a tag answer for half an hour, empty ones
+included, and always asks for fifty, because a genre hour asks the same question on every refill and the
+source is a free service sampling a popularity window.
 
 And **`OWNED_SHARE` reserves room for the provider half**, or a brief the library HALF matches fills the
 answer with owned records and the failure moves from the model's choice into the ordering. A second tool,

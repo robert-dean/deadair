@@ -11,7 +11,7 @@ export const PLUGIN_ID = 'deadair.musicbrainz';
  * well as `enrichment`, it is called MusicBrainz and ListenBrainz now, and it
  * reaches a host it did not before.
  */
-export const PLUGIN_VERSION = '0.2.0';
+export const PLUGIN_VERSION = '0.3.0';
 
 /** The public web service. Also the default `baseUrl`, which an operator can point at a mirror. */
 export const DEFAULT_BASE_URL = 'https://musicbrainz.org/ws/2';
@@ -99,6 +99,15 @@ export const REQUEST_TIMEOUT_MS = 10_000;
 /** Search results below this score are not the track we asked about. MusicBrainz scores 0-100. */
 export const DEFAULT_MATCH_SCORE = 90;
 
+/**
+ * The bottom of the popularity window a style is asked within, out of 100.
+ *
+ * High, because the tag radio samples rather than ranks: at 80 to 100 `synthwave` answered the
+ * genre's own acts, and at 40 it answered a game soundtrack cue (measured 2026-09-20). Seventy keeps
+ * an hour recognisable and still reaches past the handful of acts everybody names.
+ */
+export const DEFAULT_TAG_POPULARITY = 70;
+
 /** Pink Floyd, used by `testConnection` because an artist that stable will not 404. */
 export const TEST_ARTIST_MBID = '83d91898-7763-47d7-b03b-b92132375c47';
 
@@ -106,6 +115,7 @@ export const configSchema = z.object({
     contactEmail: z.email(),
     baseUrl: z.url().default(DEFAULT_BASE_URL),
     matchScore: z.coerce.number().int().min(0).max(100).default(DEFAULT_MATCH_SCORE),
+    tagPopularity: z.coerce.number().int().min(0).max(99).default(DEFAULT_TAG_POPULARITY),
     includeArtistFacts: z.boolean().default(true),
     includeArtwork: z.boolean().default(true),
     scrobbling: z.boolean().default(false),
@@ -185,6 +195,13 @@ export const musicbrainzManifest: PluginManifest = {
             type: 'number',
             default: DEFAULT_MATCH_SCORE,
             help: 'How confident a search result has to be, out of 100, before a track is treated as identified. Lower it to fill in more tracks, raise it if the DJ starts talking about the wrong song.',
+        },
+        {
+            key: 'tagPopularity',
+            label: 'How well known records found by style are',
+            type: 'number',
+            default: DEFAULT_TAG_POPULARITY,
+            help: 'When the station looks for records in a style it does not hold, such as synthwave, ListenBrainz picks a sample from records tagged with it. This is how far down the popularity list that sample may reach, from 0 (anything tagged) to 99 (only the best known). Lower it for deeper cuts, raise it if the station plays things nobody recognises.',
         },
         {
             key: 'includeArtistFacts',

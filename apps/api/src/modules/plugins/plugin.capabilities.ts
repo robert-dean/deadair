@@ -772,6 +772,11 @@ export interface SimilarityPlugin {
      * caller that wants it falls back to the artist walk when it is absent.
      */
     namesSimilarTracks: boolean;
+    /**
+     * Whether `tracksForTags` is there to call: records in a style, named by its tags, which is the
+     * one question here that starts from a word rather than from something the station played.
+     */
+    namesTagged: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `similarity` capability. */
@@ -785,6 +790,9 @@ export const implementsArtistTopTracks = (instance: unknown): boolean => typeof 
 
 /** Whether this plugin can name records that sound like one record. */
 export const implementsSimilarTracks = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).similarTracks === 'function';
+
+/** Whether this plugin can name records in a style by its tags. */
+export const implementsTracksForTags = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).tracksForTags === 'function';
 
 /**
  * The similarity-capable view of a record, or `undefined` when it is not one.
@@ -814,6 +822,7 @@ export const asSimilarityPlugin = (record: PluginRecord): SimilarityPlugin | und
         instance,
         namesTracks: implementsArtistTopTracks(instance),
         namesSimilarTracks: implementsSimilarTracks(instance),
+        namesTagged: implementsTracksForTags(instance),
     };
 };
 

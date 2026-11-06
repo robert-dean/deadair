@@ -74,6 +74,26 @@ export interface ArtistTrack {
 }
 
 /**
+ * A style asked about by its tags, for {@link SimilarityProvider.tracksForTags}.
+ *
+ * Tags are words a source's listeners or editors attached to records (`synthwave`, `dub techno`),
+ * not a closed list, so a tag nobody uses is an ordinary question with an empty answer. The host
+ * normalizes them (lowercase, trimmed, no empties, no duplicates) before asking, and a source
+ * compares them however its own vocabulary needs.
+ */
+export interface TagQuery {
+    /** At least one tag. */
+    tags: string[];
+    /**
+     * Whether a record must carry every tag (`all`) or any one of them (`any`).
+     *
+     * `any` is how a lean toward several genres is asked, since a record in one of them is the
+     * answer. `all` narrows a style by a second word, and with one tag the two are the same.
+     */
+    match: 'all' | 'any';
+}
+
+/**
  * Implemented by a `similarity` plugin.
  */
 export interface SimilarityProvider {
@@ -117,4 +137,20 @@ export interface SimilarityProvider {
      * ordinary answer, and the host falls back to the artist-level walk when it gets one.
      */
     similarTracks?(ref: TrackRef, limit: number): Promise<ArtistTrack[]>;
+
+    /**
+     * Records in a style, named by its tags.
+     *
+     * Optional, and a different question from the other three: they start from something the
+     * station already played or holds, and this starts from a word. It is how a style reaches
+     * records the library does not hold without a model naming artists from memory. A music
+     * provider's own search matches titles, so a search for `synthwave` finds songs CALLED
+     * Synthwave, and a source that knows what records are TAGGED is the only honest answer.
+     *
+     * Order is the source's own and may be a sample rather than a ranking. The host treats every
+     * record as a suggestion and judges it like any other pick. Each record carries its own LEAD
+     * artist. An empty array is an ordinary answer: no record carries the tags, or the source has
+     * stopped answering anonymous callers. Neither is a fault the host should report as one.
+     */
+    tracksForTags?(query: TagQuery, limit: number): Promise<ArtistTrack[]>;
 }

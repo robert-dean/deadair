@@ -75,7 +75,7 @@ import type { LyricLine, LyricWord, TrackLyrics } from './capabilities/lyrics.js
 import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
-import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
+import type { ArtistTrack, SimilarArtist, TagQuery } from './capabilities/similarity.js';
 import type { WeatherConditions, WeatherDay, WeatherQuery, WeatherReading } from './capabilities/weather.js';
 import type {
     AlbumEnrichment,
@@ -269,6 +269,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     PodcastDirectoryEntry: IsJsonSafe<PodcastDirectoryEntry>;
     SimilarArtist: IsJsonSafe<SimilarArtist>;
     ArtistTrack: IsJsonSafe<ArtistTrack>;
+    TagQuery: IsJsonSafe<TagQuery>;
     SearchQuery: IsJsonSafe<SearchQuery>;
     SearchResult: IsJsonSafe<SearchResult>;
     WeatherQuery: IsJsonSafe<WeatherQuery>;
@@ -390,6 +391,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'PodcastDirectoryEntry',
     'SimilarArtist',
     'ArtistTrack',
+    'TagQuery',
     'SearchQuery',
     'SearchResult',
     'WeatherQuery',

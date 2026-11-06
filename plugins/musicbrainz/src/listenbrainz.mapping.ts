@@ -41,6 +41,7 @@ import type {
     ListenBrainzRecordingMetadata,
     ListenBrainzRecordingMetadataResponse,
     ListenBrainzSimilarRecording,
+    ListenBrainzTagRecording,
     ListenBrainzTopRecording,
     ListenBrainzTag,
 } from './listenbrainz.types.js';
@@ -285,4 +286,51 @@ export function toSimilarTracks(
 /** The recording ids in a similar-recordings answer, the seed excluded, in the order given. */
 export function similarRecordingMbids(rows: ListenBrainzSimilarRecording[], seedMbid: string): string[] {
     return rows.map(row => row.recording_mbid).filter((mbid): mbid is string => typeof mbid === 'string' && mbid.length > 0 && mbid !== seedMbid);
+}
+
+/**
+ * The distinct recording ids in a tag answer, in the order given.
+ *
+ * The endpoint can answer one recording twice when its tag sits in more than
+ * one place (on the recording and on its release group), so repeats are
+ * dropped here rather than costing a metadata slot each.
+ */
+export function tagRecordingMbids(rows: ListenBrainzTagRecording[]): string[] {
+    const seen = new Set<string>();
+    for (const row of rows) {
+        const mbid = row.recording_mbid;
+        if (typeof mbid === 'string' && mbid.length > 0) seen.add(mbid);
+    }
+    return [...seen];
+}
+
+/**
+ * Records in a style, as the host's shape, in the order the ids were given.
+ *
+ * The tag answer carries ids only, so everything here comes from `metadata`:
+ * the title from the recording, the lead artist from `artist.artists[0]` and
+ * never the joined credit, the album from the release. A recording the
+ * metadata could not name, or name a lead for, is dropped rather than guessed
+ * at. Two recordings of one song (a single and its album copy) arrive as two
+ * ids, so a repeat of the same title by the same lead is dropped too.
+ */
+export function toTagTracks(mbids: readonly string[], metadata: ListenBrainzRecordingMetadataResponse): ArtistTrack[] {
+    const tracks: ArtistTrack[] = [];
+    const named = new Set<string>();
+
+    for (const mbid of mbids) {
+        const found = metadata[mbid];
+        const title = found?.recording?.name?.trim();
+        const artist = found?.artist?.artists?.[0]?.name?.trim();
+        if (!title || !artist) continue;
+
+        const key = `${artist.toLowerCase()}\u0000${title.toLowerCase()}`;
+        if (named.has(key)) continue;
+        named.add(key);
+
+        const album = found?.release?.name?.trim();
+        tracks.push({ title, artist, ...(album ? { album } : {}) });
+    }
+
+    return tracks;
 }

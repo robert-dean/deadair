@@ -20,7 +20,7 @@ A plugin extends deadair by declaring capabilities:
 | `mixer`      | make one piece of audio out of several: parts in, audio out    |
 | `transcode`  | make a small copy of some audio to share: audio in, audio out  |
 | `charts`     | say what is popular: a chart id in, ranked names out           |
-| `similarity` | say what sounds like this: an artist or a record in, names out |
+| `similarity` | say what sounds like this: an artist, a record or a style's tags in, names out |
 | `news`       | say what happened outside the station: a feed in, entries out  |
 | `podcast`    | carry somebody else's programme: a show in, episodes out       |
 | `search`     | ask the open web a question: words in, pages out               |

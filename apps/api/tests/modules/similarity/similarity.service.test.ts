@@ -20,7 +20,7 @@ import {
     type StoredNeighbour,
     type StoredRecord,
 } from '../../../src/modules/similarity/similarity.store.repository.js';
-import { STORED_ANSWER_TTL_MS } from '../../../src/modules/similarity/similarity.service.js';
+import { normalizeTags, STORED_ANSWER_TTL_MS, TAGGED_ASK } from '../../../src/modules/similarity/similarity.service.js';
 
 const LASTFM = 'deadair.lastfm';
 const OTHER = 'deadair.other';
@@ -46,6 +46,8 @@ interface InstanceOptions {
     artistTopTracks?: unknown;
     /** Absent means a source that answers about artists only, which is every one before this existed. */
     similarTracks?: unknown;
+    /** Absent means a source that cannot name records in a style, which is every one before this existed. */
+    tracksForTags?: unknown;
 }
 
 function record(id: string, options: InstanceOptions = {}, overrides: Partial<PluginRecord> = {}): PluginRecord {
@@ -55,6 +57,7 @@ function record(id: string, options: InstanceOptions = {}, overrides: Partial<Pl
     };
     if (options.artistTopTracks) instance.artistTopTracks = options.artistTopTracks;
     if (options.similarTracks) instance.similarTracks = options.similarTracks;
+    if (options.tracksForTags) instance.tracksForTags = options.tracksForTags;
 
     return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
 }
@@ -323,6 +326,73 @@ describe('naming records like one record', () => {
         });
 
         expect(await build([record(LASTFM, { similarTracks })]).similarTracks(teardrop, 5)).toEqual([]);
+    });
+});
+
+describe('naming records in a style by its tags', () => {
+    const tagged = (...titles: string[]): ArtistTrack[] => titles.map(title => ({ title, artist: 'Kalax' }));
+
+    it('says whether anything can', () => {
+        expect(build([record(LASTFM, { similarTracks: vi.fn() })]).canNameTagged()).toBe(false);
+        expect(build([record(LASTFM, { tracksForTags: vi.fn() })]).canNameTagged()).toBe(true);
+    });
+
+    it('asks with the tags normalized and for a full answer, and hands back as many as were wanted', async () => {
+        const tracksForTags = vi.fn(async () => tagged('Prism', 'Dusk', 'Raw'));
+        const service = build([record(LASTFM, { tracksForTags })]);
+
+        expect((await service.tracksForTags([' Synthwave ', 'synthwave', 'Dark  Synth'], 'any', 2)).map(track => track.title)).toEqual([
+            'Prism',
+            'Dusk',
+        ]);
+        expect(tracksForTags).toHaveBeenCalledWith({ tags: ['synthwave', 'dark synth'], match: 'any' }, TAGGED_ASK);
+    });
+
+    it('takes the first source with records, past one that never wrote the method and one with nothing', async () => {
+        const service = build([
+            record(LASTFM),
+            record(OTHER, { tracksForTags: vi.fn(async () => []) }),
+            record('deadair.third', { tracksForTags: vi.fn(async () => tagged('Prism')) }),
+        ]);
+
+        expect((await service.tracksForTags(['synthwave'], 'all', 5)).map(track => track.title)).toEqual(['Prism']);
+    });
+
+    it('holds an answer, in any tag order, so a genre hour asks the source once', async () => {
+        const tracksForTags = vi.fn(async () => tagged('Prism'));
+        const service = build([record(LASTFM, { tracksForTags })]);
+
+        await service.tracksForTags(['synthwave', 'outrun'], 'any', 5);
+        await build([record(LASTFM, { tracksForTags })]).tracksForTags(['Outrun', 'synthwave'], 'any', 5);
+        await service.tracksForTags(['synthwave', 'outrun'], 'all', 5);
+
+        expect(tracksForTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('holds an empty answer, and asks again after a failure', async () => {
+        const empty = vi.fn(async () => []);
+        const service = build([record(LASTFM, { tracksForTags: empty })]);
+        await service.tracksForTags(['nobody-uses-this'], 'all', 5);
+        expect(await service.tracksForTags(['nobody-uses-this'], 'all', 5)).toEqual([]);
+        expect(empty).toHaveBeenCalledTimes(1);
+
+        const failing = vi.fn(async () => {
+            throw new PluginError('upstream is down').withCode('upstream');
+        });
+        const broken = build([record(OTHER, { tracksForTags: failing })]);
+        expect(await broken.tracksForTags(['vaporwave'], 'all', 5)).toEqual([]);
+        await broken.tracksForTags(['vaporwave'], 'all', 5);
+        expect(failing).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks nothing for no usable tags', async () => {
+        const tracksForTags = vi.fn(async () => tagged('Prism'));
+        expect(await build([record(LASTFM, { tracksForTags })]).tracksForTags([' '], 'all', 5)).toEqual([]);
+        expect(tracksForTags).not.toHaveBeenCalled();
+    });
+
+    it('keeps the punctuation a tag needs', () => {
+        expect(normalizeTags(['R&B', 'Drum & Bass', 'r&b'])).toEqual(['r&b', 'drum & bass']);
     });
 });
 

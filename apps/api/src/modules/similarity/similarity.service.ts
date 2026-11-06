@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import type { ArtistRef, ArtistTrack, SimilarArtist, TrackRef } from '@deadair/plugin-sdk';
+import type { ArtistRef, ArtistTrack, SimilarArtist, TagQuery, TrackRef } from '@deadair/plugin-sdk';
 import { type SimilarityPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PROVIDER_CAPABILITIES, pluginsInOrder } from '#modules/plugins/plugin.providers.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -97,6 +97,38 @@ export const STORED_ANSWER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** How long one call into a plugin may take. Bounded well inside a refill's own budget. */
 const INVOKE_TIMEOUT_MS = 12_000;
 
+/**
+ * How long an answer about some tags is held, empty or not.
+ *
+ * Half an hour: long enough that a genre hour asks a source once or twice rather than on every
+ * refill and every search, and short enough that the next hour of the same steer gets a fresh
+ * sample of a window the source deliberately samples.
+ */
+export const TAGGED_TTL_MS = 30 * 60 * 1000;
+
+/** How many records a tag question asks for, whatever the caller wants, so a held answer has room in it. */
+export const TAGGED_ASK = 50;
+
+/** How many tag questions are held at once. A station steers toward a handful at a time. */
+const TAGGED_CACHE_MAX = 200;
+
+/**
+ * Tags as every source is asked them: trimmed, lowercase, inner space collapsed, empties and
+ * repeats dropped, in the order given.
+ *
+ * Lowercase because the sources' vocabularies are folksonomies that spell a genre in lowercase, and
+ * a steer typed `Synthwave` is the same question as `synthwave`. Not `normalizeKey`, which strips
+ * punctuation a tag needs: `r&b` and `drum & bass` are tags as they stand.
+ */
+export function normalizeTags(tags: readonly string[]): string[] {
+    const seen = new Set<string>();
+    for (const tag of tags) {
+        const clean = tag.trim().replace(/\s+/g, ' ').toLowerCase();
+        if (clean.length > 0) seen.add(clean);
+    }
+    return [...seen];
+}
+
 @Injectable()
 export class SimilarityService {
     /**
@@ -111,6 +143,9 @@ export class SimilarityService {
      * what an upstream said.
      */
     private static readonly cache = new BoundedTtlMap<Neighbour[]>(SIMILARITY_TTL_MS, SIMILARITY_CACHE_MAX);
+
+    /** Answers about tags, static for the reason {@link cache} gives. See {@link tracksForTags}. */
+    private static readonly tagged = new BoundedTtlMap<ArtistTrack[]>(TAGGED_TTL_MS, TAGGED_CACHE_MAX);
 
     constructor(
         private readonly pluginRegistry: PluginRegistry,
@@ -302,6 +337,64 @@ export class SimilarityService {
         return this.plugins().some(plugin => plugin.namesSimilarTracks);
     }
 
+    /** Whether anything can name records in a style by its tags. */
+    canNameTagged(): boolean {
+        return this.plugins().some(plugin => plugin.namesTagged);
+    }
+
+    /**
+     * Records in a style, named by its tags, from the first source with a usable answer.
+     *
+     * {@link topTracks}' rule: the first usable answer wins, because a source's sample is an order
+     * of its own and two interleaved are an order neither stands behind. The tags are normalized
+     * here (`normalizeTags`), so every source and the cache see one spelling.
+     *
+     * **The answer is remembered for {@link TAGGED_TTL_MS}, empty ones included,** and always asked
+     * for {@link TAGGED_ASK} records whatever the caller wants. A genre hour asks about the same tags
+     * on every refill and every search, and the source is a free service sampling a window: asking
+     * it again each time buys a different sample at the cost of its patience, and a bigger answer
+     * held for a while gives the callers, which drop what they have already used, room to choose.
+     * An empty answer is held too, or a tag nobody uses would be asked about on every refill.
+     */
+    async tracksForTags(tags: readonly string[], match: TagQuery['match'], limit: number): Promise<ArtistTrack[]> {
+        const asked = normalizeTags(tags);
+        if (asked.length === 0 || limit <= 0) return [];
+
+        const key = `${match}\u0000${[...asked].sort().join('\u0000')}`;
+        const remembered = SimilarityService.tagged.get(key);
+        if (remembered !== undefined) return remembered.slice(0, limit);
+
+        const ask = Math.max(limit, TAGGED_ASK);
+        let anyAnswered = false;
+        for (const plugin of this.plugins()) {
+            if (!plugin.namesTagged) continue;
+
+            try {
+                const tracks = await this.pluginInvoker.invoke(
+                    plugin.record.id,
+                    'similarity.tracksForTags',
+                    // Non-null for the reason `topTracks` gives: `namesTagged` is the check.
+                    async () => plugin.instance.tracksForTags!({ tags: [...asked], match }, ask),
+                    { timeoutMs: INVOKE_TIMEOUT_MS },
+                );
+
+                anyAnswered = true;
+                const usable = (tracks ?? []).filter(track => track?.title?.trim() && track.artist?.trim()).slice(0, ask);
+                if (usable.length > 0) {
+                    SimilarityService.tagged.set(key, usable);
+                    return usable.slice(0, limit);
+                }
+            } catch (error) {
+                this.logger.info(`similarity: a plugin could not name records tagged ${asked.join(', ')} (${plugin.record.id}: ${errorText(error)})`);
+            }
+        }
+
+        // Held only when a source answered, as `topTracks` keeps its empty answers: a failure is
+        // worth asking again about, and "nothing carries these tags" is not.
+        if (anyAnswered) SimilarityService.tagged.set(key, []);
+        return [];
+    }
+
     /**
      * Read a stored answer, or nothing when the store cannot be read. A failed read costs the store
      * and never the answer: the sources are asked as they were before it existed.
@@ -360,6 +453,7 @@ export class SimilarityService {
      */
     static forget(): void {
         SimilarityService.cache.clear();
+        SimilarityService.tagged.clear();
     }
 }
 

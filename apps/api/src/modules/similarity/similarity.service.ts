@@ -357,12 +357,24 @@ export class SimilarityService {
      * An empty answer is held too, or a tag nobody uses would be asked about on every refill.
      */
     async tracksForTags(tags: readonly string[], match: TagQuery['match'], limit: number): Promise<ArtistTrack[]> {
+        return (await this.askTagged(tags, match, limit)).tracks;
+    }
+
+    /**
+     * {@link tracksForTags}, saying whether a source actually ANSWERED.
+     *
+     * An empty list means two different things: a source said nothing carries these tags, or every
+     * source failed. Only the first is worth telling an operator about (a genre nobody tags is one
+     * edit away from being fixed), and only this can tell them apart. A held answer counts as
+     * answered, since only answers are held.
+     */
+    async askTagged(tags: readonly string[], match: TagQuery['match'], limit: number): Promise<{ tracks: ArtistTrack[]; answered: boolean }> {
         const asked = normalizeTags(tags);
-        if (asked.length === 0 || limit <= 0) return [];
+        if (asked.length === 0 || limit <= 0) return { tracks: [], answered: false };
 
         const key = `${match}\u0000${[...asked].sort().join('\u0000')}`;
         const remembered = SimilarityService.tagged.get(key);
-        if (remembered !== undefined) return remembered.slice(0, limit);
+        if (remembered !== undefined) return { tracks: remembered.slice(0, limit), answered: true };
 
         const ask = Math.max(limit, TAGGED_ASK);
         let anyAnswered = false;
@@ -382,7 +394,7 @@ export class SimilarityService {
                 const usable = (tracks ?? []).filter(track => track?.title?.trim() && track.artist?.trim()).slice(0, ask);
                 if (usable.length > 0) {
                     SimilarityService.tagged.set(key, usable);
-                    return usable.slice(0, limit);
+                    return { tracks: usable.slice(0, limit), answered: true };
                 }
             } catch (error) {
                 this.logger.info(`similarity: a plugin could not name records tagged ${asked.join(', ')} (${plugin.record.id}: ${errorText(error)})`);
@@ -392,7 +404,7 @@ export class SimilarityService {
         // Held only when a source answered, as `topTracks` keeps its empty answers: a failure is
         // worth asking again about, and "nothing carries these tags" is not.
         if (anyAnswered) SimilarityService.tagged.set(key, []);
-        return [];
+        return { tracks: [], answered: anyAnswered };
     }
 
     /**

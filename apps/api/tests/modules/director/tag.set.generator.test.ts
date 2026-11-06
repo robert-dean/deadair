@@ -17,6 +17,8 @@ import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { DISCOVER_KEY } from '../../../src/modules/director/pick.resolver.js';
+import { TagWatch } from '../../../src/modules/director/tag.watch.js';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
 
@@ -30,11 +32,13 @@ interface Build {
     tagged?: ArtistTrack[];
     canNameTagged?: boolean;
     cooled?: string[];
+    /** Whether a source answered, as against failing. */
+    answered?: boolean;
 }
 
-function build({ settings = {}, steer = { genres: ['synthwave'] }, tagged = [], canNameTagged = true, cooled = [] }: Build = {}) {
-    const tracksForTags = vi.fn(async () => tagged);
-    const similarity = { canNameTagged: () => canNameTagged, tracksForTags } as unknown as SimilarityService;
+function build({ settings = {}, steer = { genres: ['synthwave'] }, tagged = [], canNameTagged = true, cooled = [], answered = true }: Build = {}) {
+    const tracksForTags = vi.fn(async () => ({ tracks: tagged, answered }));
+    const similarity = { canNameTagged: () => canNameTagged, askTagged: tracksForTags } as unknown as SimilarityService;
     const rules = {
         steer: vi.fn(async () => (steer.genres.length === 0 ? undefined : { ...steer, endsAt: '2026-11-07T00:00:00.000Z' })),
     } as unknown as BlockRulesRepository;
@@ -42,8 +46,17 @@ function build({ settings = {}, steer = { genres: ['synthwave'] }, tagged = [], 
     // Strings, as every layer of AppConfig holds.
     const config = { get: (key: string, fallback?: unknown) => (key in settings ? settings[key] : fallback) } as unknown as AppConfig;
     const warn = vi.fn();
-    const generator = new TagSetGenerator(similarity, rules, history, new StationIdentity(), config, { ...logger, warn } as unknown as Logger);
-    return { generator, tracksForTags, warn };
+    const watch = { nothingTagged: vi.fn(), found: vi.fn() };
+    const generator = new TagSetGenerator(
+        similarity,
+        rules,
+        history,
+        new StationIdentity(),
+        config,
+        { ...logger, warn } as unknown as Logger,
+        watch as unknown as TagWatch,
+    );
+    return { generator, tracksForTags, warn, watch };
 }
 
 const many = records(
@@ -106,6 +119,41 @@ describe('TagSetGenerator', () => {
         await generator.generate(inputs());
         await generator.generate(inputs());
         expect(warn).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('a steered genre nobody tags', () => {
+    it('is reported when a source answered empty, and not when every source failed', async () => {
+        const empty = build({ tagged: [] });
+        await empty.generator.generate(inputs());
+        expect(empty.watch.nothingTagged).toHaveBeenCalledWith(['synthwave']);
+
+        const failed = build({ tagged: [], answered: false });
+        await failed.generator.generate(inputs());
+        expect(failed.watch.nothingTagged).not.toHaveBeenCalled();
+    });
+
+    it('clears once the genres find records', async () => {
+        const { generator, watch } = build({ tagged: many });
+        await generator.generate(inputs());
+        expect(watch.found).toHaveBeenCalled();
+    });
+
+    it('writes one warning per steer, and a new one once the genres change or recover', () => {
+        const record = vi.fn(async (_event: unknown) => undefined);
+        const watch = new TagWatch({ record } as unknown as ActivityRecorder, logger);
+
+        watch.nothingTagged(['Synthwav']);
+        watch.nothingTagged(['synthwav']);
+        expect(record).toHaveBeenCalledTimes(1);
+        expect(record.mock.calls[0]?.[0]).toMatchObject({ kind: 'rotation.steerUntagged', severity: 'warn', data: { genres: ['Synthwav'] } });
+
+        watch.nothingTagged(['vaporwav']);
+        expect(record).toHaveBeenCalledTimes(2);
+
+        watch.found();
+        watch.nothingTagged(['vaporwav']);
+        expect(record).toHaveBeenCalledTimes(3);
     });
 });
 

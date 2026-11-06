@@ -10,6 +10,7 @@ import { PlayHistoryRepository } from './play.history.repository.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
 import { artistKey, creditKey, isArtistHeld, songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
+import { TagWatch } from './tag.watch.js';
 
 /**
  * Records in the steered genres that the library may not hold, named by a source that knows what
@@ -78,6 +79,8 @@ export class TagSetGenerator extends SetGenerator {
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        // Where a genre nobody tags is said out loud, rather than costing this share in silence.
+        private readonly watch: TagWatch,
     ) {
         super();
     }
@@ -102,7 +105,9 @@ export class TagSetGenerator extends SetGenerator {
         }
 
         const want = Math.max(1, Math.round(inputs.count * mix));
-        const named = await this.similarity.tracksForTags(steer.genres, 'any', TAGGED_ASK);
+        const { tracks: named, answered } = await this.similarity.askTagged(steer.genres, 'any', TAGGED_ASK);
+        if (answered && named.length === 0) this.watch.nothingTagged(steer.genres);
+        else if (named.length > 0) this.watch.found();
         const picks = choose(named, want, inputs, await this.heldArtists(inputs));
 
         this.logger.debug('director: took records tagged with the steered genres', {

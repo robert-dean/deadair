@@ -496,7 +496,10 @@ and takes `rotation.tagMix` of the refill (a quarter by default, inert without a
 none the batch is avoiding or the cooldown holds. It sits between the chart and the similarity binding: below
 a published chart, above an inference from what happened to air. The picks are names, so `PickResolver`
 judges and looks up every one. It reads the steer and never the brief, so it declares `ignoresBrief`, and a
-binding brief leaves it out.
+binding brief leaves it out. **A genre nobody tags is said, not swallowed**: when a source answers that nothing carries
+the steered genres (`SimilarityService.askTagged` tells that from a source that failed), `TagWatch` writes one
+`rotation.steerUntagged` warning to the activity feed per steer, cleared once the genres find records, so a
+misspelled genre reads as a spelling to fix rather than as a station quietly doing half of what it was asked.
 
 ## What the model is offered
 

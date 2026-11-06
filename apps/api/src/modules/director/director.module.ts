@@ -49,6 +49,7 @@ import { NeverPlay } from './never.play.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
 import { EraWatch } from './era.watch.js';
+import { TagWatch } from './tag.watch.js';
 import { RepeatWatch } from './repeat.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
@@ -136,6 +137,8 @@ export const DirectorModule: ServerKitModule = {
         // reported on, so an operator who narrows a decade after reading the first row is answered
         // again rather than suppressed. See `EraWatch`.
         registry.register(EraWatch).useClass(EraWatch).asSingleton();
+        // Its sibling for a steered genre nobody tags, singleton for the same reason. See `TagWatch`.
+        registry.register(TagWatch).useClass(TagWatch).asSingleton();
         // The repeat window giving way to fill a batch, for the same reason. See `RepeatWatch`.
         registry.register(RepeatWatch).useClass(RepeatWatch).asSingleton();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();

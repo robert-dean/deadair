@@ -385,6 +385,18 @@ describe('naming records in a style by its tags', () => {
         expect(failing).toHaveBeenCalledTimes(2);
     });
 
+    it('says whether a source answered, so an empty answer is told apart from a failure', async () => {
+        const empty = build([record(LASTFM, { tracksForTags: vi.fn(async () => []) })]);
+        expect(await empty.askTagged(['nobody-uses-this'], 'all', 5)).toEqual({ tracks: [], answered: true });
+        // Held, and still an answer.
+        expect((await empty.askTagged(['nobody-uses-this'], 'all', 5)).answered).toBe(true);
+
+        const failing = vi.fn(async () => {
+            throw new PluginError('upstream is down').withCode('upstream');
+        });
+        expect(await build([record(OTHER, { tracksForTags: failing })]).askTagged(['vaporwave'], 'all', 5)).toEqual({ tracks: [], answered: false });
+    });
+
     it('asks nothing for no usable tags', async () => {
         const tracksForTags = vi.fn(async () => tagged('Prism'));
         expect(await build([record(LASTFM, { tracksForTags })]).tracksForTags([' '], 'all', 5)).toEqual([]);

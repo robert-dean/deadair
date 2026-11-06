@@ -246,6 +246,7 @@ export interface DeadairAsRun {
   pickedBecause: string | null;
   segmentId: string | null;
   source: string | null;
+  spokenOver: Generated<boolean>;
   stationKey: Generated<string>;
   title: string;
   trackId: string | null;

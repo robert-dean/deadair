@@ -1242,6 +1242,41 @@ describe('Rundown settling a talk-over from the mixer', () => {
         expect(outro!.state).toBe('played');
     });
 
+    it('says a cue was spoken, timed from its record’s start, once and only for one that fired', async () => {
+        // The as-run log's only evidence of a link said over a record: the player never names it.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b'].map(track));
+        order.insertSegment('spoke', 0, { atMs: 2_000 });
+        order.insertSegment('quiet', 2, { atMs: 500 });
+        rundown.attach(order);
+        const spoken = vi.fn();
+        rundown.onSpokenOver(spoken);
+
+        const [spoke, a, quiet, b] = order.all();
+        order.markHanded(spoke!.id);
+        order.markHanded(quiet!.id);
+        rundown.prepare([
+            { ...track('a'), id: a!.id, voice: { segmentId: 'spoke', atMs: 2_000, itemId: spoke!.id } },
+            { ...track('b'), id: b!.id, voice: { segmentId: 'quiet', atMs: 500, itemId: quiet!.id } },
+        ]);
+
+        const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+        rundown.markAired((await rundown.next())!.item.id);
+        now.mockReturnValue(1_003_500);
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'fired', voiceItem: a!.id });
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'fired', voiceItem: a!.id });
+
+        expect(spoken).toHaveBeenCalledTimes(1);
+        expect(spoken).toHaveBeenCalledWith({ itemId: spoke!.id, segmentId: 'spoke', carrierId: a!.id, at: 1_002_000 });
+
+        rundown.markAired((await rundown.next())!.item.id);
+        rundown.reconcile({ queued: 5, ready: true, onAir: b!.id, voice: 'missed', voiceItem: b!.id });
+        now.mockRestore();
+
+        expect(spoken).toHaveBeenCalledTimes(1);
+    });
+
     it('ignores a reading whose voice item is some other record, whatever onAir says', async () => {
         const rundown = new Rundown(new StubResolver(), logger);
         const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });

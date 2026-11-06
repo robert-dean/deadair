@@ -704,6 +704,18 @@ read joins `gap`, `air.on` and `air.off` from `station_events`, on the one-write
 days (`AS_RUN_RETENTION_DAYS`), past the feed's 90, so the oldest stretch of the log has its items and not its
 gaps.
 
+**A link said over a record is the one row that is not in the sequence.** A talked-up intro or a talked-out
+end is never handed to the player as an item, so no `onAired` edge names it, and for as long as the log
+existed it simply was not there: on 2026-11-06 links over the intro of "Sentient" and the end of "Ghosts 'n'
+Stuff" aired, and the log read as three records in a row with no talk. `Rundown.onSpokenOver` is that edge,
+raised once when the mixer's reading says a cue `fired` (never for `missed`), and `AsRunRepository.recordSpokenOver`
+writes it as a `break` with `spoken_over` set (migration 0132), its label for a title, and **its own start and
+end**: the record's start plus the cue's offset, on the clock the record's own row was written on rather than
+the mixer's heard clock (which would put a talked-out link after the record it was said over), and that start
+plus the segment's measured length. It closes nothing, and the close and the overtaken-write end both leave it
+out, since a link two seconds into a record would otherwise end the record there. The contract is unchanged:
+an operator reads it as a break whose times sit inside a record's.
+
 **A heartbeat is not a health check.** `modules/shared/heartbeat.ts` is a map of name to two
 timestamps and holds no opinion about thresholds, because a five-second poll and a nightly sweep are
 both healthy and no one number describes both: it answers how long it has been and the reader

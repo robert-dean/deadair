@@ -13,7 +13,7 @@ import { Epoch } from '#modules/shared/epoch.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { Rundown, type FollowingRecord, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { Rundown, type FollowingRecord, type RundownItem, type RundownTrack, type SpokenOverCue } from '#modules/playout/rundown.js';
 import { isStationArt } from '#modules/playout/annotate.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
@@ -512,6 +512,8 @@ export class DirectorService {
         // history for no benefit and put a write nobody is waiting on in front of the decisions
         // that keep the station on air.
         this.unsubscribes.push(this.rundown.onAired((item, passedOver) => this.remember(item, passedOver)));
+        // The same posture for a link said over a record, which the aired edge never names.
+        this.unsubscribes.push(this.rundown.onSpokenOver(cue => this.logSpokenOver(cue)));
         // A stand-down is the station being stopped, from wherever: the transport's
         // own Stop, or this class reaching the end of an order that says to stop. The
         // director has to hear it, or the next change event refills the running order
@@ -4088,6 +4090,20 @@ export class DirectorService {
                 ...(broadcastId === undefined ? {} : { broadcastId }),
             }),
         ).catch(error => this.logger.warn(`director: could not write the as-run log (${errorText(error)})`));
+    }
+
+    /** Writes a link said over a record into the as-run log, beside that record. See `AsRunRepository.recordSpokenOver`. */
+    private logSpokenOver(cue: SpokenOverCue): void {
+        const broadcastId = this.lineup?.broadcastId;
+        void inScope(this.container, async scope =>
+            scope.get(AsRunRepository).recordSpokenOver({
+                itemId: cue.itemId,
+                segmentId: cue.segmentId,
+                stationKey: this.identity.stationKey,
+                at: cue.at,
+                ...(broadcastId === undefined ? {} : { broadcastId }),
+            }),
+        ).catch(error => this.logger.warn(`director: could not write a spoken-over link to the as-run log (${errorText(error)})`));
     }
 
     /**

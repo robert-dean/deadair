@@ -412,6 +412,23 @@ export interface RundownBroadcast {
 export type RundownTrack = Omit<RundownItem, 'id'>;
 
 /** The airing item's bookkeeping: which one, and when the playhead was last measured. */
+/** A talk-over cue the mixer said it spoke. See {@link Rundown.onSpokenOver}. */
+export interface SpokenOverCue {
+    /** The running order's own id for the cue's item, the link itself. */
+    itemId: string;
+    /** The segment that was spoken. */
+    segmentId: string;
+    /** The record it was spoken over. */
+    carrierId: string;
+    /**
+     * When it started, in epoch milliseconds, on the clock {@link Rundown.onAired} reports a record's
+     * start on: that record's start plus the cue's offset into it. Not the moment the reading arrived,
+     * which lags the first word by up to a tick, and not the mixer's own heard clock, which runs behind
+     * the queue's by the cross's buffer and would put the link after the record it was said over.
+     */
+    at: number;
+}
+
 interface AiringItem {
     id: string;
     startedAt: number;
@@ -500,7 +517,7 @@ export class Rundown {
      * naming this carrier can still arrive a tick after the boundary, and it must still
      * match. Only {@link reconcile}, once it has actually settled the cue, clears it.
      */
-    private armedVoice?: { carrierId: string; itemId: string };
+    private armedVoice?: { carrierId: string; itemId: string; segmentId: string; atMs: number; carrierStartedAt: number };
     /** What the director last said about blending this broadcast's boundaries. See {@link crossfade}. */
     private crossfadeEnabled = false;
     /** What the director last said follows what it has prepared. See {@link setFollowing}. */
@@ -523,6 +540,7 @@ export class Rundown {
     private readonly changeListeners = new Set<() => void>();
     private readonly resetListeners = new Set<(standingDown: boolean) => void>();
     private readonly airedListeners = new Set<(item: RundownItem, passedOver: number) => void>();
+    private readonly spokenOverListeners = new Set<(cue: SpokenOverCue) => void>();
 
     constructor(
         private readonly resolver: TrackResolver,
@@ -1113,6 +1131,18 @@ export class Rundown {
     }
 
     /**
+     * Subscribe to a talk-over cue being spoken over its record: a talked-up intro or a talked-out end.
+     *
+     * Called once, when the mixer's reading says the cue fired, which is the only evidence there is:
+     * the cue never goes through the player's queue, so {@link onAired} never sees it. Synchronous and
+     * must not block, as {@link onAired}'s listeners must not.
+     */
+    onSpokenOver(listener: (cue: SpokenOverCue) => void): () => void {
+        this.spokenOverListeners.add(listener);
+        return () => this.spokenOverListeners.delete(listener);
+    }
+
+    /**
      * Reconcile what the player is holding against what we think we handed it.
      *
      * `held` is {@link heldBy} of the reading: `queued` plus whatever Liquidsoap is
@@ -1229,7 +1259,15 @@ export class Rundown {
             this.announceAired(item, passedOver);
             // Arms the settling path for this item's own cue. Nothing here CLEARS
             // `armedVoice` for an item with no voice of its own — see the field's note.
-            if (item.voice?.itemId !== undefined) this.armedVoice = { carrierId: id, itemId: item.voice.itemId };
+            if (item.voice?.itemId !== undefined) {
+                this.armedVoice = {
+                    carrierId: id,
+                    itemId: item.voice.itemId,
+                    segmentId: item.voice.segmentId,
+                    atMs: item.voice.atMs,
+                    carrierStartedAt: this.airing.startedAt,
+                };
+            }
         }
     }
 
@@ -1269,12 +1307,29 @@ export class Rundown {
         if (!this.armedVoice || (reading.voice !== 'fired' && reading.voice !== 'missed')) return;
         if ((reading.voiceItem ?? reading.onAir) !== this.armedVoice.carrierId) return;
 
-        const { itemId } = this.armedVoice;
+        const { itemId, segmentId, carrierId, atMs, carrierStartedAt } = this.armedVoice;
         if (!this.order?.markSpokenOver(itemId, reading.voice)) return;
 
         if (reading.voice === 'missed') this.logger.warn('rundown: a talk-over cue missed its record', { item: itemId });
         this.armedVoice = undefined;
+        if (reading.voice === 'fired') this.announceSpokenOver({ itemId, segmentId, carrierId, at: carrierStartedAt + atMs });
         this.emit();
+    }
+
+    /**
+     * Tell the listeners a talk-over cue was spoken.
+     *
+     * The sibling of {@link onAired} for the one kind of item the player is never handed in its own
+     * right, so no aired edge ever names it. Isolated per listener for {@link announceAired}'s reason.
+     */
+    private announceSpokenOver(cue: SpokenOverCue): void {
+        for (const listener of this.spokenOverListeners) {
+            try {
+                listener(cue);
+            } catch (error) {
+                this.logger.warn(`rundown: a spoken-over listener threw (${errorText(error)})`);
+            }
+        }
     }
 
     /** Take the airing item off air: the player says it is not producing it. */

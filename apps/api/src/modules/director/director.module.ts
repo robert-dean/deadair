@@ -58,6 +58,7 @@ import { BriefActs } from './brief.acts.js';
 import { Shortlist } from './shortlist.js';
 import { BriefArtistSetGenerator } from './brief.artist.set.generator.js';
 import { SimilarPicker } from './similar.picker.js';
+import { TagSetGenerator } from './tag.set.generator.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { SlotAirService } from './slot.air.service.js';
@@ -121,6 +122,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
         registry.register(SimilarPicker).useClass(SimilarPicker).asScoped();
         registry.register(SimilarSetGenerator).useClass(SimilarSetGenerator).asScoped();
+        registry.register(TagSetGenerator).useClass(TagSetGenerator).asScoped();
         registry.register(BriefArtistSetGenerator).useClass(BriefArtistSetGenerator).asScoped();
         // A SINGLETON among scoped generators, and only because it holds one boolean. The draw
         // below discovers that the advisory policy has left the station nothing to play, and a feed
@@ -164,6 +166,12 @@ export const DirectorModule: ServerKitModule = {
                     // Both take only their configured share, so the order between them decides who
                     // gets the good slots rather than who gets any.
                     //
+                    // Records tagged with a steered genre sit between the chart and the similarity
+                    // binding. Below the chart, which is a claim somebody published; above the
+                    // neighbours, because a steer is something the operator asked for now and a
+                    // neighbour is an inference from what happened to air. Both take only their share.
+                    // See `TagSetGenerator`.
+                    //
                     // The brief's own acts go FIRST, ahead of the model, and only for their share.
                     // A slow model works down a brief from the top and runs out of time near it, so
                     // behind the model the acts at the far end of the brief would get whatever the
@@ -175,6 +183,7 @@ export const DirectorModule: ServerKitModule = {
                             container.get(BriefArtistSetGenerator),
                             container.get(ModelSetGenerator),
                             container.get(ChartSetGenerator),
+                            container.get(TagSetGenerator),
                             container.get(SimilarSetGenerator),
                             container.get(CatalogSetGenerator),
                         ],

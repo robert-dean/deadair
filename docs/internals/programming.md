@@ -489,6 +489,15 @@ draw precisely, and gives a real match `STEER_LEAN` (four) times its weight thro
 Nothing ever removes a record for being outside a steer, so it can never leave the station with nothing to
 play: a lean toward a genre the library barely holds plays what it has and fills the rest as usual.
 
+**A steer also reaches past the library, through `TagSetGenerator`** ([#207](https://github.com/robert-dean/deadair/discussions/207)).
+Without it, the only path from a steered genre to records the station does not own was a model naming acts
+from memory. While a steer is in force, it asks `SimilarityService.tracksForTags` for any of the steered genres
+and takes `rotation.tagMix` of the refill (a quarter by default, inert without a steer), each artist once and
+none the batch is avoiding or the cooldown holds. It sits between the chart and the similarity binding: below
+a published chart, above an inference from what happened to air. The picks are names, so `PickResolver`
+judges and looks up every one. It reads the steer and never the brief, so it declares `ignoresBrief`, and a
+binding brief leaves it out.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

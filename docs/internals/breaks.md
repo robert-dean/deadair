@@ -1097,6 +1097,16 @@ read ("minus 5", "negative 5", "5 below"), so its sign is held to the reading ei
 a digit or a letter is not a minus at all: "3-5 Grad" is a range, and it was refused as -5 until
 2026-11-04.
 
+**The reading says which of its lines are NOW and which are a FORECAST, in so many words.** A day's condition
+is the service's summary of the whole day, usually its worst hour, so in the morning the two routinely
+disagree. They were labelled `Sky:` and `Today:`, and on 2026-11-06 at 07:44 a break read both as the present:
+"Atlanta's got a clear sky ... Today's overcast". `describeWeather` now marks the current figures `now`, calls
+every day line a forecast (`Today's forecast`, `Tomorrow's forecast`, `Forecast for <date>`), and, only when a
+reading carries a day, says that a forecast is said as what the day holds and never as the sky right now. No
+guard checks it: both skies are true readings, so `inventedFigure` and the sky check have nothing to refuse,
+and the fix has to be in what the model is told. The floor needed none of this, since `outlookOf` only ever
+says the day's high and low.
+
 **The four ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
 named, a service that is down, and a reading that will be too old to be true when the break airs: one
 silence to the writer, and four different things for an operator to do. A station whose clock asks for

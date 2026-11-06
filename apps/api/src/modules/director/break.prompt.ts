@@ -1780,20 +1780,32 @@ function describeWeather(weather: SpokenWeather): string {
     const degrees = weather.units === 'imperial' ? 'Fahrenheit' : 'Celsius';
     const speed = weather.units === 'imperial' ? 'miles per hour' : 'kilometres per hour';
 
+    // The day lines are FORECASTS and the sky line is the sky now, and the model has to be told which
+    // is which. A day's condition is the service's summary of the whole day, usually its worst hour, so
+    // at 07:44 on 2026-11-06 the reading said clear now and overcast for the day, and the break said
+    // "Atlanta's got a clear sky ... Today's overcast", two skies in two sentences.
+    const days = weather.days ?? [];
     const lines = [
-        `The weather in ${weather.place}, right now. Temperatures are in ${degrees} and wind in ${speed}; say the numbers as they are written.`,
-        `- Sky: ${weather.current.words}${weather.current.description === undefined ? '' : ` (${weather.current.description})`}`,
+        `The weather in ${weather.place}. Temperatures are in ${degrees} and wind in ${speed}; say the numbers as they are written.`,
+        ...(days.length === 0
+            ? []
+            : [
+                  "The lines marked 'now' are what it is doing at this moment. Each forecast line is what that day as a whole holds, so say it " +
+                      "as what is coming ('clouding over later', 'a high of 71 today') and never as the sky right now.",
+              ]),
+        `- Sky now: ${weather.current.words}${weather.current.description === undefined ? '' : ` (${weather.current.description})`}`,
     ];
 
-    if (weather.current.temperature !== undefined) lines.push(`- Temperature: ${weather.current.temperature}`);
-    if (weather.current.feelsLike !== undefined) lines.push(`- Feels like: ${weather.current.feelsLike}`);
-    if (weather.current.wind !== undefined) lines.push(`- Wind: ${weather.current.wind}`);
-    if (weather.current.humidity !== undefined) lines.push(`- Humidity: ${weather.current.humidity}%`);
+    if (weather.current.temperature !== undefined) lines.push(`- Temperature now: ${weather.current.temperature}`);
+    if (weather.current.feelsLike !== undefined) lines.push(`- Feels like now: ${weather.current.feelsLike}`);
+    if (weather.current.wind !== undefined) lines.push(`- Wind now: ${weather.current.wind}`);
+    if (weather.current.humidity !== undefined) lines.push(`- Humidity now: ${weather.current.humidity}%`);
 
-    for (const [index, day] of (weather.days ?? []).entries()) {
+    for (const [index, day] of days.entries()) {
         // Named as "today" and "tomorrow" rather than by date, because that is what a presenter says
-        // and because a model handed `2026-08-31` will read the date out.
-        const when = index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : day.date;
+        // and because a model handed `2026-08-31` will read the date out. "Forecast" on every one, so
+        // none of them reads as the present.
+        const when = index === 0 ? "Today's forecast" : index === 1 ? "Tomorrow's forecast" : `Forecast for ${day.date}`;
         const figures = [
             day.high === undefined ? undefined : `high ${day.high}`,
             day.low === undefined ? undefined : `low ${day.low}`,

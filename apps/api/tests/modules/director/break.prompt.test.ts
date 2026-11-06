@@ -3034,7 +3034,7 @@ describe('the weather, under two licences', () => {
     it('shows the same figures to both', () => {
         for (const said of [talk(), forecast()]) {
             expect(said).toMatch(/Atlanta/);
-            expect(said).toMatch(/Temperature: 26/);
+            expect(said).toMatch(/Temperature now: 26/);
         }
     });
 

@@ -95,8 +95,8 @@ describe('what the model is shown', () => {
         const shown = userTurn(converse);
         expect(shown).toContain('Atlanta');
         expect(shown).toContain('Celsius');
-        expect(shown).toContain('- Temperature: 17');
-        expect(shown).toContain('- Today: clear, high 24, low 12, 40% chance of rain');
+        expect(shown).toContain('- Temperature now: 17');
+        expect(shown).toContain("- Today's forecast: clear, high 24, low 12, 40% chance of rain");
     });
 
     it('names the days as today and tomorrow rather than by date', async () => {
@@ -113,8 +113,34 @@ describe('what the model is shown', () => {
         await writer.write(request({ weather: week }));
 
         const shown = userTurn(converse);
-        expect(shown).toContain('- Today:');
-        expect(shown).toContain('- Tomorrow:');
+        expect(shown).toContain("- Today's forecast:");
+        expect(shown).toContain("- Tomorrow's forecast:");
+    });
+
+    it('tells the sky now apart from the day’s forecast, so a break does not say two skies at once', async () => {
+        // 6 November, 07:44: clear now, overcast as the day's summary, and the break said "Atlanta's
+        // got a clear sky ... Today's overcast" with both lines labelled as if they were the present.
+        const morning: SpokenWeather = {
+            ...READING,
+            current: { condition: 'clear', words: 'clear', temperature: 13 },
+            days: [{ date: '2026-11-06', condition: 'overcast', words: 'overcast', high: 22, low: 11 }],
+        };
+        const { writer, converse } = build("It's clear in Atlanta, clouding over later.");
+
+        await writer.write(request({ weather: morning }));
+
+        const shown = userTurn(converse);
+        expect(shown).toContain('- Sky now: clear');
+        expect(shown).toContain("- Today's forecast: overcast, high 22, low 11");
+        expect(shown).toContain('never as the sky right now');
+    });
+
+    it('says nothing about forecasts to a reading that carries none', async () => {
+        const { writer, converse } = build("It's foggy in Atlanta.");
+
+        await writer.write(request({ weather: { ...READING, days: [] } }));
+
+        expect(userTurn(converse)).not.toContain('forecast');
     });
 
     it('leaves a measurement the service never sent off the list entirely', async () => {
@@ -230,7 +256,7 @@ describe('what it produces', () => {
         expect(written?.claimsReadingUntil).toBe(1_800_000);
     });
 
-    it('stamps a greeting it opened with, for the bulletin\'s reason', async () => {
+    it("stamps a greeting it opened with, for the bulletin's reason", async () => {
         const greeting = { words: 'Good morning', validFrom: 1_000, validUntil: 5_000 };
         const { writer } = build("Good morning. It's 17 and raining.");
 

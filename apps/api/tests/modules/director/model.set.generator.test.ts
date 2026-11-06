@@ -205,6 +205,7 @@ function build(options: Options = {}) {
             briefActs as unknown as BriefActs,
             shortlist as unknown as Shortlist,
             listening as unknown as ListeningProfileService,
+            { canNameTagged: () => false } as never,
         ),
         rules,
         converse,

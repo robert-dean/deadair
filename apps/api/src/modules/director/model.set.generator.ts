@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmReasoningEffort, LlmUsage } from '@deadair/plugin-sdk';
+import { SimilarityService } from '#modules/similarity/similarity.service.js';
 import { ListeningProfileService } from '#modules/catalog/listening.profile.service.js';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
@@ -319,6 +320,9 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly shortlist: Shortlist,
         // What the operator plays elsewhere, for a lean weaker than what they rated. See `tasteLines`.
         private readonly listening: ListeningProfileService,
+        // Whether the search can take a style as tags, so the prompt says so only when it can. See
+        // `MusicSearchTool.tagsParameter`, which asks the same question.
+        private readonly similarity: SimilarityService,
     ) {
         super();
     }
@@ -396,6 +400,7 @@ export class ModelSetGenerator extends SetGenerator {
                           cleanOnly: demandsClean(advisoryPolicy(this.config)),
                           maxPerArtist: inputs.rules.maxPerArtist,
                           ...(reasons ? { reasons } : {}),
+                          ...(this.similarity.canNameTagged() ? { tagSearch: true } : {}),
                       },
                   )
                 : shortlistPrompt(

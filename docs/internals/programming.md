@@ -517,6 +517,20 @@ resolver's own give-way rules, so it is never narrower than what `PickResolver` 
 `llm.alwaysSearchProviders`; the default is not merely thrift, because break writers share this tool and
 theirs check a record already in the catalog, so under the default a break write never waits on a provider.
 
+**A style reaches the providers as `tags`, never as `query`** ([#207](https://github.com/robert-dean/deadair/discussions/207)).
+A provider's search matches titles, so `synthwave` in `query` found songs CALLED Synthwave. `tags` is
+offered only when a similarity plugin implements `tracksForTags` (`SimilarityService.canNameTagged`; the
+MusicBrainz plugin answers it from ListenBrainz's tag radio with no token), and `setPrompt` mentions it
+only then (`tagSearch`). Tags alone search the library for each style in turn, taken alternately; with a
+query, the query is the library's search and the tags speak for the providers. The tag source answers in
+names, and **"every result is safe to name" survives by checking**: an owned record is the library's own,
+and an unowned one is offered only once `ProviderTrackLookup.find`, the lookup `PickResolver` makes for a
+record the catalog has never seen, finds a copy. At most `TAG_CONFIRMED` (eight) per search, side by
+side; the rest are left out rather than offered unchecked. Dislikes, version rules and the period narrow
+this half as they narrow the others. `SimilarityService` holds a tag answer for half an hour, empty ones
+included, and always asks for fifty, because a genre hour asks the same question on every refill and the
+source is a free service sampling a popularity window.
+
 And **`OWNED_SHARE` reserves room for the provider half**, or a brief the library HALF matches fills the
 answer with owned records and the failure moves from the model's choice into the ordering. A second tool,
 `StationTasteTool` (`station_taste`), answers what the operator has liked and disliked; it reports and never

@@ -19,6 +19,9 @@ import { StationIdentity } from '../../../src/modules/shared/station.identity.js
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { NeverPlay } from '../../../src/modules/director/never.play.js';
 import { LYRIC_SUBJECT_KEYS } from '../../../src/modules/lyrics/lyrics.keys.js';
+import type { SimilarityService } from '../../../src/modules/similarity/similarity.service.js';
+import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
+import type { ArtistTrack } from '@deadair/plugin-sdk';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -59,6 +62,10 @@ interface Build {
     neverPlay?: { rules: unknown[]; blockedTitles: string[] };
     /** How many records have a subject, and how many there are. */
     coverage?: { withSubject: number; total: number };
+    /** What a tag source names for a style, or absent for a station where nothing can answer one. */
+    tagged?: ArtistTrack[];
+    /** Records a provider carries, by `key(title, artist)`, for the lookup that confirms a tagged row. */
+    carried?: string[];
 }
 
 function build({
@@ -73,6 +80,8 @@ function build({
     broadcastId,
     neverPlay: forbidden,
     coverage = { withSubject: 0, total: 0 },
+    tagged,
+    carried = [],
 }: Build = {}) {
     const searchPlayable = vi.fn(async () => library);
     const ownership = vi.fn(async () => ({ owned: new Set(ownedKeys), banned: new Set(bannedKeys) }));
@@ -108,8 +117,17 @@ function build({
         ),
     } as unknown as NeverPlay;
 
+    const tracksForTags = vi.fn(async () => tagged ?? []);
+    const similarity = { canNameTagged: () => tagged !== undefined, tracksForTags } as unknown as SimilarityService;
+    const find = vi.fn(async (title: string, artist: string) =>
+        carried.includes(key(title, artist)) ? { pluginId: 'deadair.provider' } : undefined,
+    );
+    const lookup = { canLookUp: () => true, find } as unknown as ProviderTrackLookup;
+
     return {
-        tool: new MusicSearchTool(tracks, providers, queued, aired, searched, identity, neverPlay, config, logger),
+        tool: new MusicSearchTool(tracks, providers, queued, aired, searched, identity, neverPlay, similarity, lookup, config, logger),
+        tracksForTags,
+        find,
         searchPlayable,
         search,
         ownership,
@@ -679,5 +697,101 @@ describe('MusicSearchTool searching by what a record is about', () => {
         expect(searchPlayable).toHaveBeenCalledWith('', expect.any(Number), false, expect.objectContaining({ about: 'leaving town' }));
         expect(search).not.toHaveBeenCalled();
         expect(result.tracks.map(row => row.title)).toEqual(['Roads']);
+    });
+});
+
+describe('MusicSearchTool searching a style by its tags', () => {
+    const synth = (title: string, artist = 'Kalax', extra: Partial<ArtistTrack> = {}): ArtistTrack => ({ title, artist, ...extra });
+
+    it('offers tags only when something can name records by tag, and says so in the description', async () => {
+        const without = (await only(build().tool)).declaration;
+        expect(Object.keys(without.parameters.properties as object)).not.toContain('tags');
+        expect(without.description).not.toMatch(/tags/);
+
+        const offered = (await only(build({ tagged: [] }).tool)).declaration;
+        expect(Object.keys(offered.parameters.properties as object)).toContain('tags');
+        expect(offered.description).toMatch(/in tags rather than in query/);
+    });
+
+    it('accepts tags alone as a search, and asks for any of them', async () => {
+        const { tool, tracksForTags } = build({ tagged: [] });
+        await run(tool, { tags: ['Synthwave', 'outrun'] });
+        expect(tracksForTags).toHaveBeenCalledWith(['synthwave', 'outrun'], 'any', expect.any(Number));
+    });
+
+    it('offers a record found by tag that the station owns, and one a provider carries, and drops one nobody carries', async () => {
+        const { tool, find } = build({
+            tagged: [synth('Prism'), synth('Dusk', 'Waveshaper'), synth('Nowhere', 'Ghost Act')],
+            ownedKeys: [key('Prism', 'Kalax')],
+            carried: [key('Dusk', 'Waveshaper')],
+        });
+
+        const { tracks } = await run(tool, { tags: ['synthwave'] });
+
+        expect(tracks.map(row => [row.title, row.owned])).toEqual([
+            ['Prism', true],
+            ['Dusk', false],
+        ]);
+        // The owned one is never looked up: the catalog already speaks for it.
+        expect(find).toHaveBeenCalledTimes(2);
+    });
+
+    it('confirms only so many unowned records per search', async () => {
+        const many = Array.from({ length: 20 }, (_, index) => synth(`Track ${index}`));
+        const { tool, find } = build({ tagged: many, carried: many.map(track => key(track.title, track.artist)) });
+
+        await run(tool, { tags: ['synthwave'] });
+        expect(find).toHaveBeenCalledTimes(8);
+    });
+
+    it('searches the library for each style when tags come alone, and never the providers by text', async () => {
+        const { tool, searchPlayable, search } = build({ tagged: [] });
+        await run(tool, { tags: ['synthwave', 'darkwave'] });
+
+        expect(searchPlayable.mock.calls.map(call => (call as unknown[])[0])).toEqual(['synthwave', 'darkwave']);
+        expect(search).not.toHaveBeenCalled();
+    });
+
+    it('keeps the query as the library search when both come, and reaches the providers by it', async () => {
+        const { tool, searchPlayable, search } = build({ tagged: [] });
+        await run(tool, { query: 'Kalax', tags: ['synthwave'] });
+
+        expect(searchPlayable.mock.calls.map(call => (call as unknown[])[0])).toEqual(['Kalax']);
+        expect(search).toHaveBeenCalled();
+    });
+
+    it('drops a record found by tag that the operator disliked, or that is outside the period', async () => {
+        const { tool } = build({
+            tagged: [synth('Prism'), synth('Old', 'Kalax', { year: 1979 }), synth('Banned', 'Hated Act')],
+            ownedKeys: [key('Prism', 'Kalax'), key('Old', 'Kalax')],
+            bannedArtists: ['Hated Act'],
+        });
+
+        const { tracks } = await run(tool, { tags: ['synthwave'], yearFrom: 2010 });
+        expect(tracks.map(row => row.title)).toEqual(['Prism']);
+    });
+
+    it('shows a record once when the tag half and the provider half both carry it', async () => {
+        const { tool } = build({
+            tagged: [synth('Prism')],
+            ownedKeys: [key('Prism', 'Kalax')],
+            reached: [found('Prism', 'Kalax')],
+        });
+
+        const { tracks } = await run(tool, { query: 'Kalax', tags: ['synthwave'] });
+        expect(tracks.filter(row => row.title === 'Prism')).toHaveLength(1);
+    });
+
+    it('counts a record found by tag as answering the search, for a refill that falls back to it', async () => {
+        const { tool, searched } = build({ tagged: [synth('Prism')], ownedKeys: [key('Prism', 'Kalax')] });
+        await run(tool, { query: 'something else', tags: ['synthwave'] });
+
+        expect(searched.matching()).toContainEqual({ title: 'Prism', artist: 'Kalax' });
+    });
+
+    it('ignores tags on a station that cannot answer them, and still needs something to search on', async () => {
+        const { tool, tracksForTags } = build();
+        await expect(run(tool, { tags: ['synthwave'] })).rejects.toThrow(/needs/);
+        expect(tracksForTags).not.toHaveBeenCalled();
     });
 });

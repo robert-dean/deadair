@@ -14,8 +14,11 @@ import { blockedBy, readsTags, type CompiledRule } from '#modules/director/block
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { LYRIC_SUBJECT_KEYS, LYRIC_SUBJECTS_DEFAULT } from '#modules/lyrics/lyrics.keys.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
+import { SimilarityService, TAGGED_ASK } from '#modules/similarity/similarity.service.js';
+import { ProviderTrackLookup } from '#modules/director/provider.track.lookup.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 import { nonEmptyText } from '#modules/shared/text.value.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * "What can the station play?", as ONE thing a model can ask.
@@ -109,6 +112,19 @@ const OWNED_SHARE = 15;
  */
 const THIN = 3;
 
+/** How many tags one search may carry. A style is a word or two; past three the model is listing a brief. */
+const MAX_TAGS = 3;
+
+/**
+ * How many records found by tag and not owned are confirmed at a provider per search.
+ *
+ * A tag source answers in names, and only a provider can say the station could fetch one, so every
+ * unowned row costs one lookup before it is offered. That is the price of keeping "every result is
+ * safe to name" true, and this bounds it: the lookups run side by side, each asking the providers in
+ * turn, so eight is eight provider searches per provider in one tool call.
+ */
+const TAG_CONFIRMED = 8;
+
 /** How the operator asks for every search to reach the providers, whatever the library returned. */
 export const MUSIC_SEARCH_KEYS = { alwaysReach: 'llm.alwaysSearchProviders' } as const;
 
@@ -179,6 +195,10 @@ export class MusicSearchTool implements ToolSource {
         private readonly identity: StationIdentity,
         // Never-play rules, so the model is not offered what the station will refuse. See `ownedAllowed`.
         private readonly neverPlay: NeverPlay,
+        // Records in a style by its tags, and the resolver's own lookup that confirms a provider
+        // carries one before it is offered. See `fromTags`.
+        private readonly similarity: SimilarityService,
+        private readonly lookup: ProviderTrackLookup,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -209,8 +229,24 @@ export class MusicSearchTool implements ToolSource {
         };
     }
 
+    /**
+     * The `tags` parameter, or `undefined` when nothing can answer a style.
+     *
+     * Offered only when a similarity source can name records by tag, on `about`'s rule: a parameter
+     * whose every use answers nothing spends context teaching the model something that cannot help.
+     */
+    private tagsParameter(): { type: 'array'; items: { type: 'string' }; description: string } | undefined {
+        if (!this.similarity.canNameTagged()) return undefined;
+        return {
+            type: 'array',
+            items: { type: 'string' },
+            description: `Styles, as genre words ("synthwave", "dub techno"), at most ${MAX_TAGS}. Finds records in any of them in the library AND at the providers, including records the station does not own, so this is how to search a style rather than putting it in query. Use the plain genre word, not a phrase from the brief.`,
+        };
+    }
+
     async tools(): Promise<StationTool[]> {
         const about = await this.aboutParameter();
+        const tags = this.tagsParameter();
         return [
             {
                 // The catalog. It moves when somebody ingests, not on its own, and a record that
@@ -222,7 +258,8 @@ export class MusicSearchTool implements ToolSource {
                     // rather than which store was read, because there is no longer a choice to
                     // steer — what is left to explain is the one field that carries the old split.
                     description:
-                        'Search for records the station can play: its own library and everything its music providers offer, in one answer. Every result is safe to name. Each row says whether the station already owns it — an owned record is ready to play, and one it does not own yet is fetched when you choose it. A row marked queued is already in the running order: choosing it does nothing, so pick something else. A row with airedDaysAgo played on this station that many days ago (0 is today): between two records that fit equally well, prefer the one without it, or the one that aired longest ago. It matches NAMES and styles in the library, but only NAMES at the providers: to fill a brief, work out for yourself which artists fit it and search for them one at a time.',
+                        'Search for records the station can play: its own library and everything its music providers offer, in one answer. Every result is safe to name. Each row says whether the station already owns it — an owned record is ready to play, and one it does not own yet is fetched when you choose it. A row marked queued is already in the running order: choosing it does nothing, so pick something else. A row with airedDaysAgo played on this station that many days ago (0 is today): between two records that fit equally well, prefer the one without it, or the one that aired longest ago. It matches NAMES and styles in the library, but only NAMES at the providers: to fill a brief, work out for yourself which artists fit it and search for them one at a time.' +
+                        (tags === undefined ? '' : ' To reach a STYLE at the providers too, pass it in tags rather than in query.'),
                     parameters: {
                         type: 'object',
                         properties: {
@@ -237,6 +274,7 @@ export class MusicSearchTool implements ToolSource {
                                     'Narrow to records released in or after this year. Narrows the library and the providers alike, and a record whose release year nobody recorded is still offered.',
                             },
                             yearTo: { type: 'number', description: 'Narrow to records released in or before this year. As yearFrom.' },
+                            ...(tags === undefined ? {} : { tags }),
                             ...(about === undefined ? {} : { about }),
                             limit: {
                                 type: 'number',
@@ -266,12 +304,15 @@ export class MusicSearchTool implements ToolSource {
     private async search(args: Record<string, unknown>, signal?: AbortSignal): Promise<{ tracks: MusicTrack[] }> {
         const query = nonEmptyText(args.query) ?? '';
         const about = nonEmptyText(args.about);
+        // Read even when the parameter was not offered, and then ignored: a model that invents it
+        // on a station that cannot answer a style is searching by its other arguments.
+        const tags = this.similarity.canNameTagged() ? readTags(args.tags) : [];
         const filters = {
             ...(readYear(args.yearFrom) === undefined ? {} : { yearFrom: readYear(args.yearFrom)! }),
             ...(readYear(args.yearTo) === undefined ? {} : { yearTo: readYear(args.yearTo)! }),
         };
-        if (query.length === 0 && about === undefined && Object.keys(filters).length === 0) {
-            throw new Error('a search needs a "query" string, an "about", or a year to narrow by');
+        if (query.length === 0 && about === undefined && tags.length === 0 && Object.keys(filters).length === 0) {
+            throw new Error('a search needs a "query" string, "tags", an "about", or a year to narrow by');
         }
 
         const limit = clampLimit(args.limit);
@@ -290,16 +331,28 @@ export class MusicSearchTool implements ToolSource {
         // for one programme and move between them. See `searchPlayable`'s order clause.
         // The never-play rules holding now, read once for both halves. See `ownedAllowed`.
         const rules = await this.neverPlay.holding();
-        const owned = await this.ownedAllowed(rules, query, limit, cleanOnly, {
+        const libraryOptions = {
             ...filters,
             ...seedOf(this.identity.current()),
             ...(about === undefined ? {} : { about }),
-        });
+        };
+        // Tags with no query search the library for each style in turn, since the library matches a
+        // style the way it matches a name. With a query, the query is the library's search and the
+        // tags speak for the providers, as a style in `query` always has.
+        const owned =
+            query.length === 0 && tags.length > 0
+                ? await this.ownedForTags(rules, tags, limit, cleanOnly, libraryOptions)
+                : await this.ownedAllowed(rules, query, limit, cleanOnly, libraryOptions);
 
         // Never with `about`: the providers keep no summary, so reaching them would answer the query
         // alone and hand back records nobody judged to be about anything.
+        //
+        // Not on tags alone either: a provider searched with no text answers whatever it answers to
+        // nothing, and the tag half below is what reaches the providers for a style.
         const reaching =
-            about === undefined && (owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT));
+            about === undefined &&
+            (query.length > 0 || tags.length === 0) &&
+            (owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT));
         // The conversation's signal goes with it, so a model the gate takes back mid-search stops the
         // provider calls too rather than only the registry's wait on them. See `ProviderSearch.search`.
         const searched = reaching ? (await this.providers.search(query, filters, MAX_RESULTS, signal === undefined ? {} : { signal })).tracks : [];
@@ -315,9 +368,12 @@ export class MusicSearchTool implements ToolSource {
                           undefined,
                   );
 
-        const fromProviders = await this.fromProviders(reached, owned);
-        const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromProviders.length));
-        const rows = [...fromLibrary, ...fromProviders].slice(0, limit);
+        // Never with `about`, for the reason the providers are not reached with it.
+        const fromTags = tags.length > 0 && about === undefined ? await this.fromTags(tags, filters, versionRules, owned) : [];
+        const shownByTags = new Set(fromTags.map(row => keyOf(row.title, row.artist)));
+        const fromProviders = (await this.fromProviders(reached, owned)).filter(row => !shownByTags.has(keyOf(row.title, row.artist)));
+        const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromTags.length + fromProviders.length));
+        const rows = [...fromLibrary, ...fromTags, ...fromProviders].slice(0, limit);
         // Kept in the order the answer carries, before it is serialized for the model. A refill
         // whose model never names anything uses these rather than nothing; see `SearchedRecords`
         // for the run that cost an hour and for why the transcript is the wrong place to read it
@@ -327,7 +383,11 @@ export class MusicSearchTool implements ToolSource {
         // reads the strays and skips them, and only a refill falling back to these rows needs telling.
         // A row answers by its credits, or by a style the library tagged it with, which only the SQL
         // can see. Never by its title alone: see `answersQuery`.
-        const styleMatches = new Set(owned.filter(row => row.matchesStyle === true).map(row => keyOf(row.title, row.artistName)));
+        // A record found by tag answers the style it was found under, so it counts as a match too.
+        const styleMatches = new Set([
+            ...owned.filter(row => row.matchesStyle === true).map(row => keyOf(row.title, row.artistName)),
+            ...shownByTags,
+        ]);
         this.searched.remember(
             rows.map(row => ({
                 title: row.title,
@@ -338,9 +398,11 @@ export class MusicSearchTool implements ToolSource {
         this.logger.debug('llm: searched for music', {
             query,
             ...(about === undefined ? {} : { about }),
+            ...(tags.length === 0 ? {} : { tags }),
             ...filters,
             owned: owned.length,
             reached: reached.length,
+            ...(tags.length === 0 ? {} : { tagged: fromTags.length }),
             answered: rows.length,
         });
 
@@ -375,6 +437,78 @@ export class MusicSearchTool implements ToolSource {
     }
 
     /**
+     * The library's half for a search by tags alone: each style searched as the library searches a
+     * style, the answers taken in turn so the first tag does not crowd out the second, each record once.
+     */
+    private async ownedForTags(
+        rules: readonly CompiledRule[],
+        tags: readonly string[],
+        limit: number,
+        cleanOnly: boolean,
+        options: Parameters<TracksRepository['searchPlayable']>[3],
+    ) {
+        const answers = await Promise.all(tags.map(async tag => await this.ownedAllowed(rules, tag, limit, cleanOnly, options)));
+        const seen = new Set<string>();
+        const rows: (typeof answers)[number] = [];
+        for (let index = 0; rows.length < limit && answers.some(answer => index < answer.length); index++) {
+            for (const answer of answers) {
+                const row = answer[index];
+                if (row === undefined || seen.has(row.trackId)) continue;
+                seen.add(row.trackId);
+                rows.push(row);
+            }
+        }
+        return rows.slice(0, limit);
+    }
+
+    /**
+     * Records in the style, from a source that knows what is TAGGED with it, minus what the answer
+     * must not carry and what no provider has.
+     *
+     * The tag source answers in names. An owned one is the library's own record. An unowned one is a
+     * suggestion only a provider can make good, and the answer promises the model that every row is
+     * safe to name, so each is confirmed with `ProviderTrackLookup.find`, the very lookup
+     * `PickResolver` makes for a record the catalog has never seen, and dropped when it finds nothing.
+     * At most {@link TAG_CONFIRMED} of them, side by side; the rest are left out rather than offered
+     * unconfirmed. A failed lookup is a dropped row, never a failed search.
+     */
+    private async fromTags(
+        tags: readonly string[],
+        filters: { yearFrom?: number; yearTo?: number },
+        versionRules: readonly CompiledRule[],
+        owned: readonly { title: string; artistName: string }[],
+    ): Promise<MusicTrack[]> {
+        const named = await this.similarity.tracksForTags(tags, 'any', TAGGED_ASK).catch((error: unknown) => {
+            this.logger.debug(`llm: the tag search failed, so the answer has no records found by style (${errorText(error)})`);
+            return [];
+        });
+        // The period narrows this half as it narrows the others, and a record whose year nobody
+        // recorded is still offered, as the year filters say.
+        const inPeriod = named.filter(
+            track =>
+                track.year === undefined ||
+                ((filters.yearFrom === undefined || track.year >= filters.yearFrom) &&
+                    (filters.yearTo === undefined || track.year <= filters.yearTo)),
+        );
+        const allowed =
+            versionRules.length === 0
+                ? inPeriod
+                : inPeriod.filter(
+                      track =>
+                          blockedBy(versionRules, { tags: [], title: track.title, ...(track.album === undefined ? {} : { album: track.album }) }) ===
+                          undefined,
+                  );
+
+        const rows = await this.fromProviders(allowed, owned);
+        const ownedRows = rows.filter(row => row.owned);
+        const unowned = this.lookup.canLookUp() ? rows.filter(row => !row.owned).slice(0, TAG_CONFIRMED) : [];
+        const confirmed = await Promise.all(
+            unowned.map(async row => ((await this.lookup.find(row.title, row.artist).catch(() => undefined)) === undefined ? undefined : row)),
+        );
+        return [...ownedRows, ...confirmed.filter((row): row is MusicTrack => row !== undefined)];
+    }
+
+    /**
      * Provider rows, minus everything the answer must not carry.
      *
      * Two reads rather than one because they answer for different records: {@link
@@ -382,7 +516,7 @@ export class MusicSearchTool implements ToolSource {
      * artist the station never catalogued joins to no track at all. Both are batch and both are
      * skipped entirely when nothing was reached.
      */
-    private async fromProviders(reached: readonly FoundTrack[], owned: readonly { title: string; artistName: string }[]): Promise<MusicTrack[]> {
+    private async fromProviders(reached: readonly OfferedTrack[], owned: readonly { title: string; artistName: string }[]): Promise<MusicTrack[]> {
         if (reached.length === 0) return [];
 
         const [ownership, bannedArtists] = await Promise.all([
@@ -440,6 +574,22 @@ export class MusicSearchTool implements ToolSource {
         };
     }
 }
+
+/**
+ * What {@link MusicSearchTool.fromProviders} reads off a row, which a provider's search answers and
+ * a tag source's names answer too: a title, a LEAD artist, and whatever else is known.
+ */
+type OfferedTrack = Pick<FoundTrack, 'title' | 'artist'> & Partial<Pick<FoundTrack, 'featuring' | 'album' | 'popularity'>>;
+
+/**
+ * Tags as the model sent them: a list of words, or one word, trimmed, empties and repeats dropped,
+ * at most {@link MAX_TAGS}. The similarity service lowercases them for the sources.
+ */
+const readTags = (value: unknown): string[] => {
+    const raw = Array.isArray(value) ? value : [value];
+    const tags = raw.map(tag => nonEmptyText(tag)).filter((tag): tag is string => tag !== undefined);
+    return [...new Set(tags.map(tag => tag.toLowerCase()))].slice(0, MAX_TAGS);
+};
 
 /** A library row as the model reads it. Everything the catalog does not know is left out rather than sent as null. */
 const toOwnedRow = (row: {

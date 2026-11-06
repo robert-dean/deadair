@@ -11,6 +11,11 @@ const systemOf = (messages: ReturnType<typeof setPrompt>) => messages.find(messa
 const userOf = (messages: ReturnType<typeof setPrompt>) => messages.find(message => message.role === 'user')?.content ?? '';
 
 describe('setPrompt', () => {
+    it('tells the model to search a style by tags only when the search can take them', () => {
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/takes tags/);
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { tagSearch: true }))).toMatch(/takes tags/);
+    });
+
     it('opens with one system turn and one user turn', () => {
         const messages = setPrompt({ count: 5, avoid: [] });
 

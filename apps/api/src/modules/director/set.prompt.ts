@@ -80,6 +80,11 @@ export interface SetPromptSettings {
     /** What the station calls itself, from `stream.title`. */
     station?: string;
     /**
+     * Whether `search_music` takes a style as `tags`, which it does only when a similarity source can
+     * name records by tag. Absent, the prompt never mentions the parameter.
+     */
+    tagSearch?: boolean;
+    /**
      * What the operator has liked and disliked, for steering.
      *
      * In the SYSTEM turn, unlike the brief: this is a standing fact about the station rather than
@@ -332,6 +337,14 @@ function systemPrompt(settings: SetPromptSettings): string {
         // which no longer offers it — this line went with it rather than being left to recommend a
         // parameter that is not there.
         '- search_music also takes yearFrom and yearTo. Use those for a period, never words like "80s" in the query text.',
+        // The same rule for a style, and only where the search can keep it: `tags` is offered only
+        // when a similarity source can name records by tag. A style in `query` reaches the providers
+        // as a title, so "synthwave" found songs CALLED Synthwave; in `tags` it finds the genre.
+        ...(settings.tagSearch === true
+            ? [
+                  '- search_music also takes tags. To find records in a style, pass the genre word as tags (["synthwave"]) rather than in the query: in tags it reaches records the station does not own, and in the query it only finds titles.',
+              ]
+            : []),
         // Two live runs pulled this rule in opposite directions and it now states the condition
         // rather than a number of searches, which is what satisfies both.
         //

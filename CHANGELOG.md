@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.96.1] — 2026-11-06
+
+- Show links said over a record in the as-run log. A link talked over a record's intro or ending was never handed to the player as an item of its own, so the log never saw it and a morning of talk-ups read as records back to back with nothing said. Each one now appears as a break, with its own start and end inside the record it was said over.
+- Say when a listener request takes a break's place, and stop writing that break again. The break that made way was dropped with no trace beyond the request being placed, and the station then had the model write it again and spoke it again for a slot it would never air in. The station now logs it and reports it in the activity feed, and only breaks that can still air are rewritten.
+- Stop presenters sighing or laughing in nearly every break. A reaction is no longer offered while either of the presenter's last two breaks of the same kind already had one, so it lands in at most one break in three, and a talk break drops a reaction it was not offered instead of performing it anyway. Most presenters had been reaching for one in well over half their breaks, usually back to back.
+- Record a link spoken over the end of a record as aired. Since the voice clock started following the record listeners hear, such a link fires a few seconds after the queue moves on to the next record, and the running order had already written it off as passed over by then. The order now waits for the mixer to say what became of it, and the mixer names the record its cue belongs to so the answer can be matched.
+- Stop weather breaks describing two skies at once. The reading handed to the presenter now marks the current conditions as now and every day's line as a forecast, and says a forecast is to be said as what the day holds: a morning break had said "Atlanta's got a clear sky" and then "Today's overcast", reading the day's summary as the present.
+
 ## [0.96.0] — 2026-11-06
 
 - The MusicBrainz and ListenBrainz plugin can name records in a style, such as synthwave, from what ListenBrainz's listeners have tagged, with no token. A new setting, "How well known records found by style are", sets how far down the popularity list it may reach. Nothing in the station asks for these records yet.
@@ -1955,7 +1963,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.1...HEAD
+[0.96.1]: https://github.com/robert-dean/deadair/compare/v0.96.0...v0.96.1
 [0.96.0]: https://github.com/robert-dean/deadair/compare/v0.95.3...v0.96.0
 [0.95.3]: https://github.com/robert-dean/deadair/compare/v0.95.2...v0.95.3
 [0.95.2]: https://github.com/robert-dean/deadair/compare/v0.95.1...v0.95.2

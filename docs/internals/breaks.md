@@ -345,8 +345,19 @@ said over one of them or in the gap, never stretched to cover both.
 
 **A cue on an end that is reclaimed becomes an ordinary link again.** `StationLineup.reclaim` drops its
 `over`, since a retract or a restart offering it again as a cue would read it as riding the next record
-at an offset measured into the previous one. And `markAiring` does not exempt it when the next record
-starts, unlike a cue on a start: its record is over by then, so a cue still `handed` never fired.
+at an offset measured into the previous one.
+
+**A cue on an end is still to come when the queue says the next record has started.** `markAiring` runs
+at the QUEUE's boundary, and the cue fires on the clock of the record being HEARD, which starts the length
+of the cross's buffer later (see "The clock starts where the listener starts hearing the record" above).
+So the outgoing record's last seconds, and the link riding them, are still to be heard when the next record
+is reported starting, and `markAiring` leaves a `handed` cue on the end of the record ending at that
+boundary alone, for the mixer's reading to settle. That reading names the cue's own record in `voiceItem`,
+because `onAir` already names the next one by the time the cue fires, and `Rundown.settleVoice` matched on
+`onAir` alone, so no talk-out could be settled at all. Both were measured together on 2026-11-06: a link
+spoken over "Ghosts 'n' Stuff" at 07:44:04 had been recorded as passed over at 07:43:54. A cue nothing
+settles is swept at the NEXT boundary, when its record is no longer the one ending, which is the old rule
+one record later.
 
 ## What a record is about, and the words it never says
 

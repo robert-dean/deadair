@@ -1255,15 +1255,19 @@ export class Rundown {
      * Settle an armed talk-over cue from the mixer's own reading, rather than leaving it
      * to the boundary sweep in `StationLineup.markAiring`.
      *
-     * Checked against `onAir` naming the CARRIER — the record the cue rides — rather
-     * than against whatever this process currently believes is airing: a reading naming
-     * it can land a tick after the next boundary has already moved {@link airing} on,
-     * and it is still reporting on the same cue. A reading naming anything else is not
-     * about this cue at all and is left for the next one.
+     * Checked against the CARRIER — the record the cue rides — rather than against
+     * whatever this process currently believes is airing: a reading about it can land
+     * after the next boundary has already moved {@link airing} on, and it is still
+     * reporting on the same cue. The mixer names the carrier itself in `voiceItem`, and
+     * that is what is read when it is there, because a cue on the END of a record fires
+     * while the listener is still hearing that record and the queue's `onAir` already
+     * names the next one: checked against `onAir`, every such cue went unsettled and was
+     * swept as never aired. `onAir` is the fallback for a script too old to say. A reading
+     * about anything else is not about this cue at all and is left for the next one.
      */
     private settleVoice(reading: QueueStatus): void {
         if (!this.armedVoice || (reading.voice !== 'fired' && reading.voice !== 'missed')) return;
-        if (reading.onAir !== this.armedVoice.carrierId) return;
+        if ((reading.voiceItem ?? reading.onAir) !== this.armedVoice.carrierId) return;
 
         const { itemId } = this.armedVoice;
         if (!this.order?.markSpokenOver(itemId, reading.voice)) return;

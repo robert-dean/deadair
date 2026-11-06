@@ -1352,6 +1352,11 @@ def playout_reading() =
   # otherwise have to infer it, and the one state worth seeing — a cue that expired because its
   # record ended first — is invisible from outside by construction. Every /control/* handler
   # answers with this reading, so it costs no extra call.
+  # `voiceItem` is the record that cue is timed against, beside it, because `onAir` cannot say. A cue
+  # on the END of a record fires on the clock of the record being HEARD, which is still the outgoing
+  # one for the length of the cross's buffer after the queue has moved on, so by the time it fires
+  # `onAir` already names the next record and the app could not tell which cue the state was about.
+  # Empty when nothing is armed.
   # Which radio.env this process booted with. Constant for the life of the container, which is the
   # entire point: the app compares it against the file as it stands now, and a difference means
   # everything below is being done with credentials that have been replaced.
@@ -1366,7 +1371,7 @@ def playout_reading() =
   # `remainingMs`.
   live_in_ms = if live_state() == "preroll" then int_of_float(max(0., live_preroll_s - live_held()) * 1000.) else -1 end
   live_for_ms = if live_on_air() then int_of_float(live_for() * 1000.) else -1 end
-  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "warming": #{warming_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}", "live": "#{live_state()}", "liveInMs": #{live_in_ms}, "liveForMs": #{live_for_ms}'
+  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "warming": #{warming_json}, "voice": "#{voice_state()}", "voiceItem": "#{voice_item()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}", "live": "#{live_state()}", "liveInMs": #{live_in_ms}, "liveForMs": #{live_for_ms}'
 end
 
 def control_status(req) =

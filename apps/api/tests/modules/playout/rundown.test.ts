@@ -1217,4 +1217,47 @@ describe('Rundown settling a talk-over from the mixer', () => {
         rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'fired' });
         expect(spoke!.state).toBe('played');
     });
+
+    it('settles a cue on the end of a record from the voice item, after the queue has moved on', async () => {
+        // The cue fires while the listener still hears `a`, and by then the queue's `onAir` names `b`.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b'].map(track));
+        order.insertSegment('outro', 1);
+        rundown.attach(order);
+
+        const [a, outro, b] = order.all();
+        order.handOverTalkingOut(outro!.id, 190_000);
+        rundown.prepare([
+            { ...track('a'), id: a!.id, voice: { segmentId: 'outro', atMs: 190_000, itemId: outro!.id, endOf: true } },
+            { ...track('b'), id: b!.id },
+        ]);
+
+        rundown.markAired((await rundown.next())!.item.id);
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'armed', voiceItem: a!.id });
+        rundown.markAired((await rundown.next())!.item.id);
+        expect(outro!.state).toBe('handed');
+
+        rundown.reconcile({ queued: 5, ready: true, onAir: b!.id, voice: 'fired', voiceItem: a!.id });
+        expect(outro!.state).toBe('played');
+    });
+
+    it('ignores a reading whose voice item is some other record, whatever onAir says', async () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b'].map(track));
+        order.insertSegment('spoke', 0, { atMs: 500 });
+        rundown.attach(order);
+
+        const [spoke, a, b] = order.all();
+        order.markHanded(spoke!.id);
+        rundown.prepare([
+            { ...track('a'), id: a!.id, voice: { segmentId: 'spoke', atMs: 500, itemId: spoke!.id } },
+            { ...track('b'), id: b!.id },
+        ]);
+        rundown.markAired((await rundown.next())!.item.id);
+
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'fired', voiceItem: b!.id });
+        expect(spoke!.state).toBe('handed');
+    });
 });

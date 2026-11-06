@@ -1148,6 +1148,19 @@ export class StationLineup implements LiveOrder {
         // was exempted and left `handed` for good, with nothing afterwards to settle it.
         const ridesTheRecordStarting = (at: number): boolean => !this.itemList.slice(at + 1, index).some(isTrackItem);
 
+        // A cue on the END of a record is the other exception, and only for the record that is ending
+        // at this very boundary. This call is the QUEUE's boundary, and the mixer times a cue against
+        // the record the listener is HEARING, which starts later by the length of the cross's buffer
+        // (`playout_note_heard` in `radio.liq`), so the last seconds of the outgoing record, and the
+        // cue riding them, are still to be heard when the next record is reported starting. Swept here,
+        // a link spoken over "Ghosts 'n' Stuff" at 07:44:04 on 2026-11-06 was recorded as passed over
+        // at 07:43:54. Left handed, the mixer's reading settles it through `markSpokenOver`, and one it
+        // never settles is swept at the NEXT boundary, when its record is no longer the one ending.
+        const outgoing = this.itemList.slice(0, index).findIndex(earlier => earlier.state === 'airing');
+        const outgoingIsRecord =
+            outgoing >= 0 && isTrackItem(this.itemList[outgoing]!) && !this.itemList.slice(outgoing + 1, index).some(isTrackItem);
+        const ridesTheRecordEnding = (at: number): boolean => outgoingIsRecord && at > outgoing;
+
         let passedOver = 0;
         this.itemList.slice(0, index).forEach((earlier, earlierIndex) => {
             if (earlier.state === 'airing') {
@@ -1155,16 +1168,10 @@ export class StationLineup implements LiveOrder {
                 return;
             }
             if (earlier.state !== 'handed' && earlier.state !== 'planned') return;
-            // Not a cue riding the END of a record: that record is over once the next one starts, so a
-            // cue still handed then never fired, and is swept like anything else.
-            if (
-                earlier.kind === 'segment' &&
-                earlier.state === 'handed' &&
-                earlier.over !== undefined &&
-                earlier.over.endOf !== true &&
-                ridesTheRecordStarting(earlierIndex)
-            )
-                return;
+            if (earlier.kind === 'segment' && earlier.state === 'handed' && earlier.over !== undefined) {
+                if (earlier.over.endOf !== true && ridesTheRecordStarting(earlierIndex)) return;
+                if (earlier.over.endOf === true && ridesTheRecordEnding(earlierIndex)) return;
+            }
 
             earlier.state = 'skipped';
             passedOver += 1;

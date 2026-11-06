@@ -186,9 +186,9 @@ describe('StationLineup and what the player has done', () => {
         expect(lineup.handOverTalkingOut(link!.id, 1)).toBe(false);
     });
 
-    it('sweeps a cue on the end of a record that is over when the next one starts', () => {
-        // Unlike a cue riding the record now STARTING, one riding the record that just ENDED and
-        // still unsettled never fired: its record is gone.
+    it('keeps a cue on the end of the record ending at this boundary, for the mixer to settle', () => {
+        // The boundary is the QUEUE's, and the cue fires on the clock of the record the listener is
+        // still hearing: on 2026-11-06 one aired ten seconds after being swept here as passed over.
         const lineup = lineupWith(['a', 'b']);
         lineup.insertSegment('link', 1);
         const [a, link, b] = lineup.all();
@@ -198,7 +198,43 @@ describe('StationLineup and what the player has done', () => {
         lineup.handOverTalkingOut(link!.id, 190_000);
         lineup.markHanded(b!.id);
 
-        expect(lineup.markAiring(b!.id)).toEqual({ passedOver: 1 });
+        expect(lineup.markAiring(b!.id)).toEqual({ passedOver: 0 });
+        expect(link!.state).toBe('handed');
+        expect(a!.state).toBe('played');
+
+        expect(lineup.markSpokenOver(link!.id, 'fired')).toBe(true);
+        expect(link!.state).toBe('played');
+    });
+
+    it('sweeps a cue on the end of a record once a later boundary passes with it unsettled', () => {
+        // Its record is no longer the one ending, so a cue still handed then never fired.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('link', 1);
+        const [a, link, b, c] = lineup.all();
+
+        lineup.markHanded(a!.id);
+        lineup.markAiring(a!.id);
+        lineup.handOverTalkingOut(link!.id, 190_000);
+        lineup.markHanded(b!.id);
+        lineup.markAiring(b!.id);
+        lineup.markHanded(c!.id);
+
+        expect(lineup.markAiring(c!.id)).toEqual({ passedOver: 1 });
+        expect(link!.state).toBe('skipped');
+    });
+
+    it('sweeps a cue on the end of a record that never aired', () => {
+        // The exception is for the record ending HERE. One the player moved past never played its end.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        const [a, link, b] = lineup.all();
+
+        lineup.markHanded(a!.id);
+        lineup.handOverTalkingOut(link!.id, 190_000);
+        lineup.markHanded(b!.id);
+
+        expect(lineup.markAiring(b!.id)).toEqual({ passedOver: 2 });
+        expect(a!.state).toBe('skipped');
         expect(link!.state).toBe('skipped');
     });
 

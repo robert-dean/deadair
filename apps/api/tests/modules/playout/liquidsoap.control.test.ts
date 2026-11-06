@@ -97,6 +97,12 @@ describe('parseReading', () => {
         expect(parseReading({ queued: 0, ready: true, voice: 'singing' })!.voice).toBeUndefined();
     });
 
+    it('reads the record an armed cue is timed against, and "" as nothing armed', () => {
+        expect(parseReading({ queued: 0, ready: true, voice: 'fired', voiceItem: 'item-a' })!.voiceItem).toBe('item-a');
+        expect(parseReading({ queued: 0, ready: true, voice: 'idle', voiceItem: '' })!.voiceItem).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: true, voice: 'idle' })!.voiceItem).toBeUndefined();
+    });
+
     it('ignores a malformed field instead of failing the whole reading', () => {
         const reading = parseReading({ queued: 2, ready: 'yes', onAir: 42, remainingMs: 'soon', resolving: 'one' });
 

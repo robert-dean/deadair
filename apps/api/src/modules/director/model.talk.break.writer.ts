@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import type { LlmReasoningEffort } from '@deadair/plugin-sdk';
 import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { offeredDeliveries, offeredPads, TALK_BREAK_SHAPE, type PromptSettings } from './break.prompt.js';
+import { offeredDeliveries, offeredPads, offeredReactions, TALK_BREAK_SHAPE, type PromptSettings } from './break.prompt.js';
 import { permittedYears, shownWithoutRecent } from './break.answer.guard.js';
 import { resolveBreakWords } from './break.words.js';
 import { timeClaimFor } from './clock.words.js';
@@ -246,6 +246,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
                     // keep a pad hit in a kind of break whose shape refused to offer one, which is the same
                     // class of disagreement `maxWordsFor` exists to prevent one field up.
                     pads: offeredPads(settings, TALK_BREAK_SHAPE),
+                    // And the reactions on the same terms, so one that is resting is trimmed rather than
+                    // performed. See `reaction.rest.ts`.
+                    reactions: offeredReactions(settings, TALK_BREAK_SHAPE),
                     // Only the shows this break was handed may be announced.
                     shows: [request.previous?.concert, request.next?.concert].filter(show => show !== undefined),
                     // The dates this break was actually handed, from the same two records the prompt was

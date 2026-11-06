@@ -106,3 +106,21 @@ describe('unshownGuard', () => {
         expect(unshownGuard({ lately: [abba, falco] })).toEqual({ unshown: [abba, falco] });
     });
 });
+
+describe('readAnswer and the reactions a break was offered', () => {
+    const script = 'That one was a lot. [sigh] Here is the next record.';
+
+    it('keeps a presenter reaction when the guard names none, as every guard did before', () => {
+        expect(readAnswer(script, {})).toContain('[sigh]');
+    });
+
+    it('trims a reaction the break was not offered, rather than letting the engine perform it', () => {
+        const kept = readAnswer(script, { reactions: [] });
+        expect(kept).not.toContain('[sigh]');
+        expect(kept).toContain('Here is the next record.');
+    });
+
+    it('keeps one it was offered', () => {
+        expect(readAnswer(script, { reactions: ['sigh'] })).toContain('[sigh]');
+    });
+});

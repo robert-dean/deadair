@@ -38,6 +38,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor } from '#modules/lyrics/vocal.runway.js';
 import { resolveTalkUp, talkUpBudget } from './talk.up.js';
+import { reactionsResting } from './reaction.rest.js';
 import { tailFor, talkOutBudget, talkOutIsOn } from './talk.out.js';
 import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from './about.the.record.js';
 import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.js';
@@ -388,6 +389,9 @@ export class BreakRequestBuilder {
         // still count as a telling — `breaks.md` records what the same mistake cost the bulletin
         // that made it: three rewrites emptied the window and lost seven bulletins in two hours.
         const chosen = await this.story(persona, kind, nothingKnown);
+        // Read once and used twice: the writer is shown it, and it decides whether this break is
+        // offered a reaction at all. See `reaction.rest.ts`.
+        const own = await this.ownWords(kind, persona, turn);
 
         const request: BreakWriteRequest = {
             kind: kind,
@@ -427,7 +431,7 @@ export class BreakRequestBuilder {
             ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(kind, turn)),
-            ...(await this.ownWords(kind, persona, turn)),
+            ...own,
             ...(await this.lately(kind, neighbours)),
             // Read here rather than held by any writer, for the reason the facts above are: the
             // character the station is in is a property of the moment, and every binding uses a
@@ -450,8 +454,10 @@ export class BreakRequestBuilder {
             // What the engine that will speak this can do beyond reading. Read here for the notebook's
             // reason and answered once, so every binding asked for this break agrees about what was on
             // offer — and so a station that changed engine between two breaks writes for the one that
-            // is installed now.
-            ...(await this.reactions()),
+            // is installed now. Withheld outright while this presenter's last couple of breaks of
+            // this kind already had one, because the prompt's own "most breaks want none" is a rule
+            // the models ignore. See `reaction.rest.ts`.
+            ...(reactionsResting(own.own) ? {} : await this.reactions()),
             // The readings the same engine can perform, asked for the reactions' reason and answered
             // once for every binding. Offered only to a kind of break whose shape allows one.
             ...(await this.deliveries()),

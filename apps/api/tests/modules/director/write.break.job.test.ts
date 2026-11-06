@@ -2785,6 +2785,28 @@ describe('WriteBreakJob', () => {
                 );
             });
 
+            it('rests the reactions while one of this presenter’s last two breaks had one', async () => {
+                // Nine presenters in twelve used one in more than half their breaks in the week to
+                // 2026-11-06, most back to back. See `reaction.rest.ts`.
+                const sighed = harness({
+                    lineup: await lineupWithBreak(),
+                    persona: garth,
+                    cues: ['laugh', 'sigh'],
+                    saidByMe: ['Plain words.', 'That one was a lot. [sigh] Here is the next.'],
+                });
+                await sighed.job.run({ segmentId: 'seg-1' });
+                expect(sighed.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ reactions: expect.anything() }), 'model');
+
+                const rested = harness({
+                    lineup: await lineupWithBreak(),
+                    persona: garth,
+                    cues: ['laugh', 'sigh'],
+                    saidByMe: ['Plain words.', 'More plain words.', 'An old one. [laugh]'],
+                });
+                await rested.job.run({ segmentId: 'seg-1' });
+                expect(rested.writers.write).toHaveBeenCalledWith(expect.objectContaining({ reactions: ['laugh', 'sigh'] }), 'model');
+            });
+
             it('asks nothing for a station presenting as nobody', async () => {
                 const { job, writers, history } = harness({ lineup: await lineupWithBreak() });
 

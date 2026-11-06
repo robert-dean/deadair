@@ -762,8 +762,12 @@ export { MAX_REACTIONS };
  * Both are vetoes and neither is a preference, so this is an intersection rather than a fallback: a
  * kind of break that should not carry one is not talked into it by a capable engine, and a kind that
  * may is not given one by an engine that cannot perform it.
+ *
+ * Exported for {@link offeredPads}' reason: a writer builds its guard from this call, so a reaction the
+ * prompt did not offer (a rested one, see `reaction.rest.ts`) is trimmed from the answer rather than
+ * performed because the engine happens to know it.
  */
-const offeredReactions = (settings: PromptSettings, shape: BreakPromptShape): readonly SpeechCue[] =>
+export const offeredReactions = (settings: PromptSettings, shape: BreakPromptShape): readonly SpeechCue[] =>
     shape.allowsCues === true ? (settings.reactions ?? []) : [];
 
 /**

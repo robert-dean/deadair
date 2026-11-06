@@ -14,6 +14,7 @@ import type {
     ListenBrainzRecordingMetadataResponse,
     ListenBrainzSimilarRecording,
     ListenBrainzSubmission,
+    ListenBrainzTagRecording,
     ListenBrainzTopRecording,
 } from './listenbrainz.types.js';
 
@@ -172,6 +173,38 @@ export class ListenBrainzClient {
             pop_end: String(options.popEnd ?? 100),
         });
         return answer && typeof answer === 'object' ? answer : {};
+    }
+
+    /**
+     * `GET /1/lb-radio/tags`: recordings carrying some tags, from somewhere in a
+     * popularity window.
+     *
+     * Open to anonymous callers today, like the artist radio above, and it is
+     * the only keyless source that answers a STYLE: a music provider's search
+     * matches the word in titles. It SAMPLES rather than ranks, so the
+     * popularity window is what keeps an hour recognisable. Measured on
+     * 2026-09-20: `synthwave` at 80 to 100 answered the genre's own acts, and at
+     * 40 it answered a game soundtrack cue.
+     *
+     * `tag` repeats once per tag, and `operator` says whether a recording needs
+     * all of them or any one. **`pop_begin` and `pop_end` are MANDATORY**, as on
+     * the artist radio: leaving one off is a 400 naming it (checked
+     * 2026-11-06), so they are defaulted here.
+     */
+    async radioForTags(
+        tags: readonly string[],
+        options: { match?: 'all' | 'any'; count?: number; popBegin?: number; popEnd?: number } = {},
+    ): Promise<ListenBrainzTagRecording[]> {
+        const params = new URLSearchParams();
+        for (const tag of tags) params.append('tag', tag);
+        params.set('operator', options.match === 'any' ? 'OR' : 'AND');
+        params.set('count', String(options.count ?? 25));
+        params.set('pop_begin', String(options.popBegin ?? 0));
+        params.set('pop_end', String(options.popEnd ?? 100));
+        const answer = await this.send<ListenBrainzTagRecording[] | undefined>(LISTENBRAINZ_ORIGIN, `1/lb-radio/tags?${params.toString()}`, {
+            method: 'GET',
+        });
+        return Array.isArray(answer) ? answer : [];
     }
 
     /**

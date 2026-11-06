@@ -15,6 +15,7 @@ import {
     type ScrobbleResult,
     type SimilarArtist,
     type SimilarityPluginInstance,
+    type TagQuery,
     type TrackEnrichment,
     type TrackRef,
 } from '@deadair/plugin-sdk';
@@ -26,13 +27,22 @@ import {
     mapListenBrainz,
     resultKey,
     similarRecordingMbids,
+    tagRecordingMbids,
     toLookupQuery,
     toSimilarArtists,
     toSimilarTracks,
+    toTagTracks,
     topRecordingMbids,
     toTopTracks,
 } from './listenbrainz.mapping.js';
-import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, PLUGIN_VERSION, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
+import {
+    DEFAULT_BASE_URL,
+    DEFAULT_MATCH_SCORE,
+    DEFAULT_TAG_POPULARITY,
+    PLUGIN_VERSION,
+    REQUEST_TIMEOUT_MS,
+    TEST_ARTIST_MBID,
+} from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
 import {
@@ -194,6 +204,18 @@ const DEFAULT_TOP_TRACKS = 10;
  */
 const STEP_BUDGET_MS = 3_000;
 
+/**
+ * The popularity floor an operator typed, as a whole number from 0 to 99, or the default.
+ *
+ * Clamped rather than refused, because this is a stored value being read: a floor of 100 would leave
+ * a window with nothing in it, and a typo should cost the default rather than every answer.
+ */
+function tagPopularityOf(raw: unknown): number {
+    const value = Number(raw);
+    if (raw === undefined || raw === null || raw === '' || !Number.isFinite(value)) return DEFAULT_TAG_POPULARITY;
+    return Math.min(99, Math.max(0, Math.round(value)));
+}
+
 function errorText(error: unknown): string {
     if (error instanceof Error) return error.message;
     return String(error);
@@ -234,6 +256,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
     private client?: MusicBrainzClient;
     private listenBrainz?: ListenBrainzClient;
     private matchScore = DEFAULT_MATCH_SCORE;
+    /** The bottom of the popularity window a style is asked within. See {@link tracksForTags}. */
+    private tagPopularity = DEFAULT_TAG_POPULARITY;
     private includeArtwork = true;
     private includeArtistFacts = true;
     /** The operator's switch for publishing plays to ListenBrainz. See {@link accepting}. */
@@ -245,6 +269,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         const baseUrl = configString(config.baseUrl) ?? DEFAULT_BASE_URL;
         const matchScore = Number(config.matchScore);
         this.matchScore = Number.isFinite(matchScore) ? matchScore : DEFAULT_MATCH_SCORE;
+        this.tagPopularity = tagPopularityOf(config.tagPopularity);
         this.includeArtwork = config.includeArtwork !== false;
         this.includeArtistFacts = config.includeArtistFacts !== false;
         // `=== true` rather than `!== false`, the opposite posture to the two above: those default ON
@@ -979,6 +1004,55 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
             // A 400 here is most likely the algorithm enum having been retired,
             // which is the service's to change and not an operator's to fix.
             host.logger.debug('listenbrainz named nothing like that record', { title: ref.title, artist: ref.artist, reason });
+            return [];
+        }
+    }
+
+    /**
+     * Records in a style, named by its tags.
+     *
+     * Two requests on the ListenBrainz bucket, both open to anonymous callers:
+     * the tag radio for ids, then one batched metadata call for the names and
+     * lead artists, as on the artist radio path. No token is needed, so a
+     * station that has pasted none still has a style it can reach.
+     *
+     * ## The popularity window is the whole of its judgement
+     *
+     * The endpoint samples a window rather than ranking, so the window decides
+     * whether an hour of synthwave is the genre's known acts or a game cue
+     * called "Turbine Tunnel Bass Arp II". It is asked from the operator's floor
+     * (`tagPopularity`) to the top, and the host judges every record it gets.
+     *
+     * ## Every failure here is an empty answer
+     *
+     * For the reason {@link similarArtists} gives: ListenBrainz has closed
+     * endpoints to anonymous callers before, and three thrown failures would
+     * quarantine this plugin's enrichment over a style lookup.
+     */
+    async tracksForTags(query: TagQuery, limit: number): Promise<ArtistTrack[]> {
+        const host = this.host;
+        const listenBrainz = this.listenBrainz;
+        if (!listenBrainz) return [];
+
+        const tags = [...new Set(query.tags.map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0))];
+        if (tags.length === 0) return [];
+
+        try {
+            const wanted = Math.max(1, Math.min(limit || DEFAULT_SIMILAR_LIMIT, METADATA_BATCH_SIZE));
+            const rows = await listenBrainz.radioForTags(tags, { match: query.match, count: wanted, popBegin: this.tagPopularity, popEnd: 100 });
+            const mbids = tagRecordingMbids(rows).slice(0, wanted);
+            if (mbids.length === 0) return [];
+
+            if (host.remainingMs() < STEP_BUDGET_MS) {
+                host.logger.debug('listenbrainz ran out of budget before naming the records for those tags', { tags });
+                return [];
+            }
+
+            const metadata = await listenBrainz.recordingMetadata(mbids);
+            return toTagTracks(mbids, metadata).slice(0, wanted);
+        } catch (error) {
+            const reason = error instanceof ListenBrainzRequestError ? `HTTP ${error.status}` : errorText(error);
+            host.logger.debug('listenbrainz named no records for those tags', { tags, reason });
             return [];
         }
     }

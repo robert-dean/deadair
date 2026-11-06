@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.96.0] — 2026-11-06
+
+- The MusicBrainz and ListenBrainz plugin can name records in a style, such as synthwave, from what ListenBrainz's listeners have tagged, with no token. A new setting, "How well known records found by style are", sets how far down the popularity list it may reach. Nothing in the station asks for these records yet.
+- A plugin with the `similarity` capability can now name records in a style by its tags through an optional `tracksForTags`, asked with a `TagQuery` (the tags, and whether a record needs all of them or any one). No plugin implements it yet and nothing in the station asks for it, so nothing on air changes.
+- When a similarity source can name records by tag, the model's music search takes a style as `tags` and finds records in it at the providers, not only songs with the word in their title. A record the station does not own is offered only after a provider is found to carry it, at most eight per search, so every result stays one the station can play. The refill prompt tells the model to use it only on a station where it works.
+- The station can ask its similarity sources for records in a style by its tags, and holds each answer for half an hour so a genre hour asks a source once or twice rather than on every refill. Nothing uses the answer yet, so nothing on air changes.
+- When a genre steer names a genre that nothing is tagged with, such as a misspelling, the activity feed now says so once, instead of the steer quietly reaching only the records the library already holds.
+- While a genre steer is set, a share of each refill (a quarter by default, "How much of each batch comes from records in the steered genres" in Settings, Rotation) now comes from records other listeners have tagged with the steered genres, including ones the library does not hold. Before, a steer only leaned toward records the station already owned unless a model was naming artists. Each record is still judged by every rule before it can air.
+
 ## [0.95.3] — 2026-11-06
 
 - Stop presenters reading the length of an intro or an ending out on air. The offer to talk over a record's intro or outro now gives the writer a word count and no seconds, and says the timing is not something to mention: breaks had been opening with lines like "Nine seconds of that Judas Priest track is tailing off".
@@ -1946,7 +1955,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.95.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.0...HEAD
+[0.96.0]: https://github.com/robert-dean/deadair/compare/v0.95.3...v0.96.0
 [0.95.3]: https://github.com/robert-dean/deadair/compare/v0.95.2...v0.95.3
 [0.95.2]: https://github.com/robert-dean/deadair/compare/v0.95.1...v0.95.2
 [0.95.1]: https://github.com/robert-dean/deadair/compare/v0.95.0...v0.95.1

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.95.3] — 2026-11-06
+
+- Stop presenters reading the length of an intro or an ending out on air. The offer to talk over a record's intro or outro now gives the writer a word count and no seconds, and says the timing is not something to mention: breaks had been opening with lines like "Nine seconds of that Judas Priest track is tailing off".
+
 ## [0.95.2] — 2026-11-05
 
 - A link talked over a record's intro starts when listeners actually hear that record, not when the player first reads it. Over a long session those two drifted apart by as much as 12 seconds, so a link timed correctly against the next record could be heard over the end of the record before it.
@@ -1942,7 +1946,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.95.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.95.3...HEAD
+[0.95.3]: https://github.com/robert-dean/deadair/compare/v0.95.2...v0.95.3
 [0.95.2]: https://github.com/robert-dean/deadair/compare/v0.95.1...v0.95.2
 [0.95.1]: https://github.com/robert-dean/deadair/compare/v0.95.0...v0.95.1
 [0.95.0]: https://github.com/robert-dean/deadair/compare/v0.94.0...v0.95.0

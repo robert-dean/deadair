@@ -153,6 +153,16 @@ export interface QueueStatus {
      */
     voice?: VoiceCueState;
     /**
+     * The rundown item id of the record the cue in {@link voice} is timed against.
+     *
+     * Not {@link onAir}, and the difference is the reason it exists: a cue on the END of a record fires
+     * on the clock of the record the listener is hearing, which is still the outgoing one for the
+     * length of the cross's buffer after the queue has started the next. By the time such a cue says
+     * `fired`, `onAir` already names the next record. Absent when nothing is armed, and from a script
+     * too old to report it, where `onAir` is the only evidence there is.
+     */
+    voiceItem?: string;
+    /**
      * The generation of `radio.env` the running Liquidsoap booted with, as the
      * app's materializer stamped it.
      *
@@ -756,6 +766,8 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     // Absent from a Liquidsoap on an older script, which is not an error: everything else in the
     // reading is still true, and the app simply cannot see the cue.
     if (typeof raw.voice === 'string' && VOICE_STATES.includes(raw.voice)) status.voice = raw.voice as VoiceCueState;
+    // "" is radio.liq's "nothing armed", as for `onAir`.
+    if (typeof raw.voiceItem === 'string' && raw.voiceItem !== '') status.voiceItem = raw.voiceItem;
     // "" is radio.liq's "the app that rendered my config did not stamp it", which is
     // the same answer as an older script: no evidence, rather than a generation of "".
     if (typeof raw.configStamp === 'string' && raw.configStamp !== '') status.configStamp = raw.configStamp;

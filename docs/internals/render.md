@@ -130,6 +130,17 @@ is aimed AT somebody in the room and is business rather than delivery) and the s
 `PRESENTER_CUES` is the original four, `CALLER_CUES` is all of them, and both are intersected with what the
 installed engine reports.
 
+**A presenter's reactions REST for two breaks after one is used**, because the prompt asking for restraint was
+measured and does nothing: in the week to 2026-11-06, nine of the twelve presenters with ten or more model
+talk breaks put a reaction in more than half of them, most back to back, one in 41 of 43. A sigh in every
+link is a tic by the third. So `BreakRequestBuilder` offers none while either of the presenter's own last two
+breaks of this kind carried one (`reactionsResting`, `director/reaction.rest.ts`, read off the same
+`BreakWriteRequest.own` the writer is shown), which caps it at one break in three. Withholding the offer alone
+does not hold, because several sheets name `[sigh]` in their own diction and the engine performs whatever it
+can: the talk break's guard is therefore built from `offeredReactions` as its pads are
+(`AnswerGuard.reactions`), and an answer keeps only what it was offered. Absent there still keeps all four,
+which is every other kind's guard as before.
+
 **How much text one call may hold is the engine's to state, and an engine that says nothing is assumed to
 have a limit rather than none.** `SpeechLimits.maxCharacters` is `listCues`' shape one method over
 (`listLimits`, optional, asked per call, swallowed to a default), and it takes the OPPOSITE default for a

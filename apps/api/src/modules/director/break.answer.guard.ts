@@ -16,6 +16,7 @@ import {
     wholeSentencesOf,
     withoutCues,
     type LlmMessage,
+    type SpeechCue,
     type SpeechDelivery,
 } from '@deadair/plugin-sdk';
 import { withoutPads } from '#modules/render/pad.cues.js';
@@ -609,6 +610,16 @@ export interface AnswerGuard {
      */
     pads?: readonly string[];
     /**
+     * The reactions this break was offered, which are the only ones its answer keeps.
+     *
+     * {@link pads}' rule for the engine's half of what is on offer. Absent keeps every presenter
+     * reaction, which is what every guard did before this existed. An EMPTY list keeps none, and it is
+     * the list a break gets while its presenter's reactions are resting (`reaction.rest.ts`): without
+     * it a `[sigh]` the prompt never offered, written because a persona sheet's own diction mentions
+     * one, was performed anyway, since the engine can and nothing else asks.
+     */
+    reactions?: readonly SpeechCue[];
+    /**
      * Every year this break was actually given, and so the only ones it may say.
      *
      * {@link inventedFigure}'s doctrine carried across to the music path, and it arrives here rather
@@ -823,7 +834,7 @@ const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined =
 /** {@link tidyAnswer} before anything is taken off for stopping short. */
 const tidiedWhole = (text: string, guard: AnswerGuard): string | undefined =>
     speakableScript(text, {
-        perform: PRESENTER_CUES,
+        perform: guard.reactions ?? PRESENTER_CUES,
         pads: guard.pads ?? [],
         ...(guard.language === undefined ? {} : { language: guard.language }),
         ...(guard.speakers === undefined ? {} : { speakers: guard.speakers }),

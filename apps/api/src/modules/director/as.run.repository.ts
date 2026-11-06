@@ -32,6 +32,17 @@ export interface AsRunEntry {
     at: number;
 }
 
+/** A link said over a record, as the mixer's reading knows it. See {@link AsRunRepository.recordSpokenOver}. */
+export interface SpokenOverEntry {
+    /** The running order's id for the link. */
+    itemId: string;
+    segmentId: string;
+    stationKey: string;
+    broadcastId?: string;
+    /** When the first word went out, on the clock the records' own rows are written on. See `SpokenOverCue.at`. */
+    at: number;
+}
+
 /**
  * The as-run log: what actually went out, in order, with when it started and when it ended.
  *
@@ -91,7 +102,7 @@ export class AsRunRepository extends DataRepository {
                 // means this write was overtaken and that item's start is where this one stopped.
                 endedAt: sql<DateTime>`(
                     select min(later.aired_at) from deadair.as_run later
-                    where later.station_key = ${entry.stationKey} and later.aired_at > ${at}
+                    where later.station_key = ${entry.stationKey} and later.aired_at > ${at} and not later.spoken_over
                 )`,
                 passedOver: Math.max(0, Math.floor(entry.passedOver)),
                 // Why the model picked a record, when it was asked to say. Null for a break, whose
@@ -108,17 +119,56 @@ export class AsRunRepository extends DataRepository {
     }
 
     /**
+     * Writes a link said over a record, with its own start and end, and closes nothing.
+     *
+     * The one row that is NOT one item in the sequence: it is heard at the same time as a record, so it
+     * neither ends the row that is open nor is ended by the next one. Its end is its start plus the
+     * segment's measured length, read in the same statement, and its title the segment's label, as a
+     * break's is. A segment with no length leaves the end open, which is what a row nobody saw end
+     * means here, and a segment the sweep has already forgotten writes nothing, since there is no label
+     * left to say which link it was.
+     */
+    async recordSpokenOver(entry: SpokenOverEntry): Promise<void> {
+        const at = instant(entry.at);
+        await this.db
+            .insertInto('deadair.asRun')
+            .columns(['stationKey', 'broadcastId', 'itemId', 'kind', 'segmentId', 'title', 'airedAt', 'endedAt', 'spokenOver'])
+            .expression(eb =>
+                eb
+                    .selectFrom('deadair.segments as s')
+                    .select([
+                        eb.val(entry.stationKey).as('stationKey'),
+                        eb.val(entry.broadcastId ?? null).as('broadcastId'),
+                        eb.val(entry.itemId).as('itemId'),
+                        eb.val('break').as('kind'),
+                        's.id as segmentId',
+                        's.label as title',
+                        eb.val(at).as('airedAt'),
+                        sql<DateTime>`case when s.duration_ms is null then null else ${at}::timestamptz + make_interval(secs => s.duration_ms / 1000.0) end`.as(
+                            'endedAt',
+                        ),
+                        eb.val(true).as('spokenOver'),
+                    ])
+                    .where('s.id', '=', entry.segmentId),
+            )
+            .execute();
+    }
+
+    /**
      * Ends whichever item started before `at` and is still open, or was ended after `at`, at `at`.
      *
      * The second half is the overtaken write: a later item that wrote first closed the row before it
      * at its own start, and this item started in between. Bounded below by the row's own start, so a
      * clock that stepped backwards cannot write an end before a beginning (the table refuses one).
+     * A link said over a record is never touched: it ends when its own audio does, not when the next
+     * item starts.
      */
     async close(stationKey: string, at: number): Promise<void> {
         await this.db
             .updateTable('deadair.asRun')
             .set({ endedAt: sql<DateTime>`greatest(aired_at, ${instant(at)})` })
             .where('stationKey', '=', stationKey)
+            .where('spokenOver', '=', false)
             .where(eb => eb.or([eb('endedAt', 'is', null), eb('endedAt', '>', instant(at))]))
             .where('airedAt', '<', instant(at))
             .execute();

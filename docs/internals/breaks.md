@@ -345,8 +345,19 @@ said over one of them or in the gap, never stretched to cover both.
 
 **A cue on an end that is reclaimed becomes an ordinary link again.** `StationLineup.reclaim` drops its
 `over`, since a retract or a restart offering it again as a cue would read it as riding the next record
-at an offset measured into the previous one. And `markAiring` does not exempt it when the next record
-starts, unlike a cue on a start: its record is over by then, so a cue still `handed` never fired.
+at an offset measured into the previous one.
+
+**A cue on an end is still to come when the queue says the next record has started.** `markAiring` runs
+at the QUEUE's boundary, and the cue fires on the clock of the record being HEARD, which starts the length
+of the cross's buffer later (see "The clock starts where the listener starts hearing the record" above).
+So the outgoing record's last seconds, and the link riding them, are still to be heard when the next record
+is reported starting, and `markAiring` leaves a `handed` cue on the end of the record ending at that
+boundary alone, for the mixer's reading to settle. That reading names the cue's own record in `voiceItem`,
+because `onAir` already names the next one by the time the cue fires, and `Rundown.settleVoice` matched on
+`onAir` alone, so no talk-out could be settled at all. Both were measured together on 2026-11-06: a link
+spoken over "Ghosts 'n' Stuff" at 07:44:04 had been recorded as passed over at 07:43:54. A cue nothing
+settles is swept at the NEXT boundary, when its record is no longer the one ending, which is the old rule
+one record later.
 
 ## What a record is about, and the words it never says
 
@@ -1085,6 +1096,16 @@ word as a mark, and refusing "minus 5" refused every true figure below freezing.
 read ("minus 5", "negative 5", "5 below"), so its sign is held to the reading either way. A hyphen after
 a digit or a letter is not a minus at all: "3-5 Grad" is a range, and it was refused as -5 until
 2026-11-04.
+
+**The reading says which of its lines are NOW and which are a FORECAST, in so many words.** A day's condition
+is the service's summary of the whole day, usually its worst hour, so in the morning the two routinely
+disagree. They were labelled `Sky:` and `Today:`, and on 2026-11-06 at 07:44 a break read both as the present:
+"Atlanta's got a clear sky ... Today's overcast". `describeWeather` now marks the current figures `now`, calls
+every day line a forecast (`Today's forecast`, `Tomorrow's forecast`, `Forecast for <date>`), and, only when a
+reading carries a day, says that a forecast is said as what the day holds and never as the sky right now. No
+guard checks it: both skies are true readings, so `inventedFigure` and the sky check have nothing to refuse,
+and the fix has to be in what the model is told. The floor needed none of this, since `outlookOf` only ever
+says the day's high and low.
 
 **The four ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
 named, a service that is down, and a reading that will be too old to be true when the break airs: one

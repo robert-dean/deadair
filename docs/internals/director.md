@@ -616,6 +616,16 @@ the order: the request is held and offered again, which beats one that airs an h
 asking. The requests module only ever posts a record whose audio is already local, so this never holds the
 commit pass behind a download.
 
+**A break that gives way is said to have, and is never written again.** Each one is logged and goes to the
+feed as `item.skipped` (`DirectorService.reportGivenWay`), because a break that simply never airs reads
+as a break the station lost: on 2026-11-06 one between "Ready Steady Go" (an operator's request) and "Make
+It Bun Dem" went that way, and finding out why took the segment's claims, the as-run log and
+`listener_requests` side by side. A `ready` row is kept rather than failed, on `retireSegments`' rule that
+a voiced break is material an operator can put back, and its `removed` line stays in the order as a mark.
+That combination is why `BreakPlanner.ripen` reads only the `planned` lines in its window: read with the
+rest, the request in front of the removed line made its back-announce stale, so the row went back to
+`planned` and was written by the model and spoken a second time for a slot that no longer existed.
+
 **Prepared is not handed, and the transport never hands over past a gap.** A commit PREPARES a record and
 leaves it `planned`. It becomes `handed` only when the pusher gives it to Liquidsoap, and with nobody listening
 that never happens (`WARM_LEAD` is 0). So an idle station's next record sits prepared and `planned`, and

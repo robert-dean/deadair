@@ -1479,6 +1479,33 @@ describe('BreakPlanner.ripen', () => {
             expect(built.reopenSegments).toHaveBeenCalledTimes(2);
         });
 
+        it('never writes again a break the order has already given up on, however stale its words', async () => {
+            // 6 November: a listener request took this break's place, which marks the line `removed`
+            // and leaves it where it was. The request then sat in front of it, so its back-announce
+            // read as stale, and it was written again and spoken again for a slot that no longer existed.
+            const { built, lineup, segmentId, promised } = await written();
+            const line = lineup.all().find(item => item.kind === 'segment' && item.segmentId === segmentId)!;
+            lineup.remove(line.id);
+            lineup.move(promised, lineup.all().length - 1);
+
+            const result = await built.planner.ripen(lineup, clock());
+
+            expect(result.rewritten).toEqual([]);
+            expect(built.reopenSegments).not.toHaveBeenCalled();
+            expect(asked(built.send)).toEqual([]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
+        });
+
+        it('does not ask for the words of a planned break whose line was removed', async () => {
+            const { built, lineup, segmentId } = await written();
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'planned', script: undefined, claimsItemId: undefined });
+            lineup.remove(lineup.all().find(item => item.kind === 'segment' && item.segmentId === segmentId)!.id);
+
+            await built.planner.ripen(lineup, clock());
+
+            expect(asked(built.send)).not.toContain(segmentId);
+        });
+
         it('leaves alone a row the player already holds, however stale its words have become', async () => {
             // The same row at two positions, which idents from the shared library legitimately are.
             // The copy in front is handed, so its audio is in Liquidsoap: rewriting the row would

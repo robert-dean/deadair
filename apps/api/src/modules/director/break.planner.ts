@@ -935,7 +935,13 @@ export class BreakPlanner {
     async ripen(lineup: StationLineup, clock: AirClock): Promise<RipenResult> {
         const items = lineup.all();
         const from = lineup.committedThrough();
-        const window = items.slice(Math.max(0, from), Math.max(0, from) + WRITE_AHEAD);
+        // Only the lines that can still air. Past `committedThrough` everything is `planned` except a
+        // line the order has already given up on — `removed` by an edit or a request, `skipped`,
+        // `unavailable` — which keeps its place in the list as a mark and will never be handed over.
+        // Read with them, a break a listener request had just taken the place of was judged stale
+        // (the request now sat in front of it), written again by the model and spoken again, and then
+        // never aired: on 2026-11-06 that was the only trace of a break the request had displaced.
+        const window = items.slice(Math.max(0, from), Math.max(0, from) + WRITE_AHEAD).filter(item => item.state === 'planned');
 
         const ids = [...new Set(window.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])))];
         if (ids.length === 0) return NOTHING_RIPENED;

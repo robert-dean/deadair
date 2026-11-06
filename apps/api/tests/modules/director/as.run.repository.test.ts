@@ -111,3 +111,36 @@ describe('AsRunRepository.close', () => {
         expect(close?.sql).toContain('greatest(aired_at, to_timestamp(');
     });
 });
+
+describe('AsRunRepository and a link said over a record', () => {
+    const at = Date.UTC(2026, 10, 6, 12, 53, 24);
+
+    it('writes the link from its segment, with its own end, and closes nothing', async () => {
+        const captured: Captured[] = [];
+        await new AsRunRepository(fakeDb(captured)).recordSpokenOver({ itemId: 'item-link', segmentId: SEGMENT, stationKey: 'main', at });
+
+        // One statement: an insert, never the close every other row starts with, because the record it
+        // was said over is still on.
+        expect(captured).toHaveLength(1);
+        const [insert] = captured;
+        expect(insert?.sql).toMatch(/^insert into "deadair"\."as_run"/);
+        expect(insert?.sql).toContain('from "deadair"."segments" as "s"');
+        expect(insert?.sql).toContain('"s"."label" as "title"');
+        expect(insert?.sql).toContain('s.duration_ms');
+        expect(insert?.parameters).toEqual(expect.arrayContaining(['main', 'item-link', 'break', true, SEGMENT]));
+    });
+
+    it('is left out of the close, so the next item never ends it', async () => {
+        const captured: Captured[] = [];
+        await new AsRunRepository(fakeDb(captured)).close('main', at);
+
+        expect(captured[0]?.sql).toContain('"spoken_over" = ');
+        expect(captured[0]?.parameters).toContain(false);
+    });
+
+    it('never ends the row of a record written after it, which a link two seconds into it would', async () => {
+        const [, insert] = await write(record);
+
+        expect(insert?.sql).toContain('and not later.spoken_over');
+    });
+});

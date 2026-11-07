@@ -1929,6 +1929,46 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ClockBandList'
+    '/direction':
+        get:
+            operationId: read
+            summary: 'Read the talk direction'
+            description: 'The direction in force, if any'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TalkDirectionReading'
+        put:
+            operationId: direct
+            summary: 'Direct the presenters'
+            description: 'Gives the presenters a line to lean on for a number of hours, replacing any direction already in force. Breaks already written are not rewritten'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/TalkDirectionInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TalkDirectionReading'
+        delete:
+            operationId: stop
+            summary: 'Stop directing the presenters'
+            description: 'Ends the direction now. Breaks already written are not rewritten'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/TalkDirectionReading'
     '/director/air':
         get:
             operationId: getAir
@@ -4523,7 +4563,7 @@ paths:
                                 '$ref': '#/components/schemas/PlayoutStatus'
     '/playout/stop':
         post:
-            operationId: stop
+            operationId: stopPlayout
             summary: 'Stop playout'
             description: 'Stands the station down: stops what is on air at once and hands the mount back. The running order is LEFT as it is, so `/playout/start` can pick it up where this stopped it. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed'
             responses:
@@ -6750,7 +6790,7 @@ paths:
                       maxLength: 100
     '/settings':
         get:
-            operationId: read
+            operationId: getSettings
             summary: 'Get settings'
             description: 'Every station setting, its descriptor and its current value'
             responses:
@@ -10775,6 +10815,42 @@ components:
                     readOnly: true
             required: [plan, list]
             description: 'What an import did, and the clock as it now stands'
+        TalkDirection:
+            type: object
+            properties:
+                words:
+                    type: string
+                    minLength: 1
+                    maxLength: 280
+                    description: 'What the presenters are told, as the operator wrote it'
+                endsAt:
+                    type: string
+                    format: date-time
+                    description: 'When the presenters stop hearing it'
+            required: [words, endsAt]
+            description: "A line the operator gives the presenters for a while. Talk breaks, banter between co-hosts and the\nchangeover into a show hear it as a lean on what they talk about, never as a fact to state or a\nline to read out. Bulletins, the date, jingles and calls never hear it"
+        TalkDirectionReading:
+            type: object
+            properties:
+                direction:
+                    '$ref': '#/components/schemas/TalkDirection'
+                    description: 'Absent when nothing is directing the presenters, including once a direction has run out'
+            description: 'The direction in force, or none'
+        TalkDirectionInput:
+            type: object
+            properties:
+                words:
+                    type: string
+                    minLength: 1
+                    maxLength: 280
+                    description: 'A lean for the presenters, such as "it''s Sam''s birthday tonight" or "we''re snowed in, keep it cosy"'
+                hours:
+                    type: integer
+                    minimum: 1
+                    maximum: 24
+                    description: 'How long it lasts, from now'
+            required: [words, hours]
+            description: 'Direct the presenters for a number of hours'
         StationMode:
             type: string
             enum: [rotation, setlist, feature]

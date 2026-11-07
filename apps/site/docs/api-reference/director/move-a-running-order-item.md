@@ -1,7 +1,7 @@
 ---
 title: 'Move a running order item'
 sidebar_label: 'Move a running order item'
-sidebar_position: 32
+sidebar_position: 35
 mdx:
     format: 'md'
 ---

@@ -1,6 +1,6 @@
 ---
 title: 'SetStationHostInput'
-sidebar_position: 25
+sidebar_position: 28
 mdx:
     format: 'md'
 ---

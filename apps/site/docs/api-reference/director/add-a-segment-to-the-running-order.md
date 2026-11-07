@@ -1,7 +1,7 @@
 ---
 title: 'Add a segment to the running order'
 sidebar_label: 'Add a segment to the running order'
-sidebar_position: 30
+sidebar_position: 33
 mdx:
     format: 'md'
 ---

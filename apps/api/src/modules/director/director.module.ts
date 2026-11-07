@@ -46,6 +46,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { BlockRulesService } from './block.rules.service.js';
 import { TalkDirectionRepository } from './talk.direction.repository.js';
+import { TalkDirectionService } from './talk.direction.service.js';
 import { NeverPlay } from './never.play.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
@@ -377,6 +378,7 @@ export const DirectorModule: ServerKitModule = {
         // The talk direction: the steer's sibling for what the presenters say. Read by the break
         // builder and the production writer as well as the console. See `talk.direction.repository.ts`.
         registry.register(TalkDirectionRepository).useClass(TalkDirectionRepository).asScoped();
+        registry.register(TalkDirectionService).useClass(TalkDirectionService).asScoped();
 
         // The first producer on the station bus: somebody tuned in, so ask for a greeting. A
         // singleton because it holds a subscription, and its own class rather than a branch in the

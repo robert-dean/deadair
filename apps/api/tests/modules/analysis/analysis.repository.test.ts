@@ -88,6 +88,49 @@ describe('AnalysisRepository.listTracksNeedingAnalysis', () => {
     });
 });
 
+describe('AnalysisRepository.trackNeedingAnalysisFor', () => {
+    async function oneStatement(rows: unknown[] = []) {
+        const captured: Captured = { statements: [] };
+        const track = await new AnalysisRepository(fakeDb(captured, rows)).trackNeedingAnalysisFor('source-9', 1);
+        const [statement] = captured.statements;
+        if (statement === undefined) throw new Error('the lookup sent no statement');
+        return { track, sql: statement.sql.replace(/\s+/g, ' '), parameters: statement.parameters };
+    }
+
+    // The point of sharing the statement: the per-track job is due exactly when the walk would be.
+    it("asks the walk's own question, held to the track behind the binding", async () => {
+        const { sql, parameters } = await oneStatement();
+        const walk = await walkStatement();
+
+        expect(sql).toMatch(/and t\.id = \(select own\.track_id from deadair\.track_sources own where own\.id = \$1\)/);
+        expect(parameters[0]).toBe('source-9');
+        expect(sql.replace(/and t\.id = \(select own\.track_id from deadair\.track_sources own where own\.id = \$1\) /, '')).toBe(
+            walk.sql.replace(/\$(\d+)/g, (_, n: string) => `$${Number(n) + 1}`),
+        );
+    });
+
+    it('answers nothing when the track is not due, which is a measured one', async () => {
+        const { track } = await oneStatement([]);
+
+        expect(track).toBeUndefined();
+    });
+
+    it('answers the track and the binding the walk would measure', async () => {
+        const { track } = await oneStatement([
+            { trackId: 'track-9', title: 'A Record', artistName: 'An Artist', pluginId: 'deadair.navidrome', externalId: 'nd-9', durationMs: 200_000 },
+        ]);
+
+        expect(track).toEqual({
+            trackId: 'track-9',
+            title: 'A Record',
+            artistName: 'An Artist',
+            pluginId: 'deadair.navidrome',
+            externalId: 'nd-9',
+            durationMs: 200_000,
+        });
+    });
+});
+
 describe('a re-measure', () => {
     it('leaves a stale row out of the queue for a day after a failed try', async () => {
         const { sql, parameters } = await walkStatement();

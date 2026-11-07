@@ -13,6 +13,7 @@ import { LyricSubjectsJob } from '#modules/lyrics/lyric.subjects.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
+import { AnalyseTrackJob } from '#modules/analysis/analyse.track.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { ReportPlaybackJob } from '#modules/playout/providers/report.playback.job.js';
 import { FETCH_PER_PASS } from '#modules/playout/audio/track.cache.planner.js';
@@ -251,6 +252,27 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: AnalysisJob,
         cron: '7 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 50 }) },
+    },
+
+    // No cron: `playout.cache_track` sends this once it has a record's audio in hand, so a record
+    // fetched ahead of its slot is measured in minutes rather than by the hourly walk above, which can
+    // land after it aired. The walk stays as the backfill for everything this does not reach.
+    //
+    // NOT the catalog sync's arrival, for the reason the walk gives above: a sync can add thousands
+    // of tracks, and this is sent for the few an hour the station is about to play.
+    //
+    // ONE worker, the default, so no worker policy, and that is what collapses a duplicate. Each run first asks whether its track is
+    // still due, with the walk's own predicate, so a second job for a record the first has measured
+    // finds nothing and stops; two at once would both find it due and decode it twice. It also means
+    // this queue adds at most one measurement beside the walk, and `AnalysisSlots` then holds the two
+    // together to `analysis.concurrency`.
+    //
+    // NO retry: the service never throws, a failed measurement is a row with its own retry wait, and
+    // the walk is the retry. `expiresIn` covers waiting out one of the walk's measurements for a slot
+    // and then making one of its own, each bounded by `ANALYZE_INVOKE_TIMEOUT_MS`.
+    'catalog.analyze_track': {
+        job: AnalyseTrackJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 15 }) },
     },
 
     // No cron: a record is worth a local copy because the station played it, so the

@@ -15,6 +15,7 @@ import { ANALYSIS_SCHEMA_VERSION, PluginError, type TrackAnalysis } from '@deada
 import { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import { resetDefaultPickReports } from '../../../src/modules/plugins/plugin.selection.js';
 import type { AnalysableTrack } from '../../../src/modules/analysis/analysis.repository.js';
+import { AnalysisSlots } from '../../../src/modules/analysis/analysis.slots.js';
 
 const stubLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() }) as unknown as Logger;
 
@@ -55,6 +56,8 @@ interface HarnessOptions {
     hasLocalAudio?: (binding: { pluginId: string; externalId: string }) => Promise<boolean>;
     /** What `AudienceWatch.gateOpen` answers, read once per track. Default: open. */
     gateOpen?: () => boolean;
+    /** The process-wide measurement count. A fresh one per test unless a test shares one on purpose. */
+    slots?: AnalysisSlots;
 }
 
 function build(options: HarnessOptions = {}) {
@@ -74,6 +77,7 @@ function build(options: HarnessOptions = {}) {
 
     const repository = {
         listTracksNeedingAnalysis: vi.fn(async () => options.pending ?? [track(1)]),
+        trackNeedingAnalysisFor: vi.fn(async () => (options.pending ?? [track(1)])[0]),
         recordAnalysis,
         recordFailure,
     };
@@ -114,6 +118,7 @@ function build(options: HarnessOptions = {}) {
     } as unknown as AppConfig;
 
     const logger = stubLogger();
+    const slots = options.slots ?? new AnalysisSlots();
 
     const service = new AnalysisService(
         repository as never,
@@ -124,9 +129,10 @@ function build(options: HarnessOptions = {}) {
         audience as never,
         config,
         logger,
+        slots,
     );
 
-    return { service, repository, registry, invoker, trackAudio, audioService, logger, analyzeTrack, recordAnalysis, recordFailure };
+    return { service, slots, repository, registry, invoker, trackAudio, audioService, logger, analyzeTrack, recordAnalysis, recordFailure };
 }
 
 describe('choosing an analyzer', () => {
@@ -333,6 +339,26 @@ describe('the walk itself', () => {
 
         expect(peak).toBe(3);
         expect(summary.measured).toBe(8);
+    });
+
+    // Two walks standing in for the walk and the per-track job: different scopes, one process.
+    it('holds two runs sharing the process-wide count to `analysis.concurrency` between them', async () => {
+        let inFlight = 0;
+        let peak = 0;
+        const analyze = vi.fn(async () => {
+            peak = Math.max(peak, ++inFlight);
+            await new Promise(resolve => setTimeout(resolve, 5));
+            inFlight -= 1;
+            return measurement();
+        });
+
+        const slots = new AnalysisSlots();
+        const first = build({ pending: [track(1), track(2)], concurrency: 1, analyze, slots });
+        const second = build({ pending: [track(3), track(4)], concurrency: 1, analyze, slots });
+        await Promise.all([first.service.analysePending(50, undefined), second.service.analysePending(50, undefined)]);
+
+        expect(peak).toBe(1);
+        expect(analyze).toHaveBeenCalledTimes(4);
     });
 
     it('never opens more workers than there is work', async () => {
@@ -569,5 +595,76 @@ describe('pacing', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+describe('measuring the track behind one binding', () => {
+    it('costs nothing, not even a query, with no analyzer', async () => {
+        const { service, repository, invoker } = build({ analyzers: [] });
+
+        expect(await service.analyseSource('source-1')).toBe('none');
+        expect(repository.trackNeedingAnalysisFor).not.toHaveBeenCalled();
+        expect(invoker.invoke).not.toHaveBeenCalled();
+    });
+
+    it('measures nothing with an analyzer that is quarantined', async () => {
+        const { service, registry, repository } = build();
+        // `asAnalysisPlugin` declines anything not active, which is how a quarantine reaches here.
+        (registry.list() as Array<{ status: string }>).forEach(record => (record.status = 'failed'));
+
+        expect(await service.analyseSource('source-1')).toBe('none');
+        expect(repository.trackNeedingAnalysisFor).not.toHaveBeenCalled();
+    });
+
+    it('asks for the track behind the binding at the version a reader trusts', async () => {
+        const { service, repository } = build();
+
+        await service.analyseSource('source-7');
+
+        expect(repository.trackNeedingAnalysisFor).toHaveBeenCalledWith('source-7', ANALYSIS_SCHEMA_VERSION);
+    });
+
+    it('measures and stores a track that is due', async () => {
+        const { service, analyzeTrack, recordAnalysis } = build({ hasLocalAudio: async () => true });
+
+        expect(await service.analyseSource('source-1')).toBe('measured');
+        expect(analyzeTrack).toHaveBeenCalledTimes(1);
+        expect(recordAnalysis).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.objectContaining({ complete: true }));
+    });
+
+    // What collapses a duplicate: the second job for a record the first one measured finds no work.
+    it('stops at the lookup for a track that is not due', async () => {
+        const { service, repository, analyzeTrack } = build();
+        repository.trackNeedingAnalysisFor.mockResolvedValueOnce(undefined);
+
+        expect(await service.analyseSource('source-1')).toBe('current');
+        expect(analyzeTrack).not.toHaveBeenCalled();
+    });
+
+    it('records a failure the way the walk does', async () => {
+        const { service, recordFailure } = build({
+            hasLocalAudio: async () => true,
+            analyze: async () => {
+                throw new Error('not audio');
+            },
+        });
+
+        expect(await service.analyseSource('source-1')).toBe('failed');
+        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.stringContaining('not audio'), undefined);
+    });
+
+    it('fetches nothing while nobody is listening when the copy is not here', async () => {
+        const { service, analyzeTrack, trackAudio } = build({ hasLocalAudio: async () => false, gateOpen: () => false });
+
+        expect(await service.analyseSource('source-1')).toBe('withheld');
+        expect(trackAudio.resolveBinding).not.toHaveBeenCalled();
+        expect(analyzeTrack).not.toHaveBeenCalled();
+    });
+
+    it('measures a local copy while nobody is listening, since that costs no download', async () => {
+        const { service, analyzeTrack } = build({ hasLocalAudio: async () => true, gateOpen: () => false });
+
+        expect(await service.analyseSource('source-1')).toBe('measured');
+        expect(analyzeTrack).toHaveBeenCalledTimes(1);
     });
 });

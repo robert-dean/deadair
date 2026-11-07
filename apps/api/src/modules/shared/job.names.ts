@@ -9,6 +9,7 @@ export type JobNames =
     | 'catalog.label_subjects'
     | 'catalog.cache_art'
     | 'catalog.analyze'
+    | 'catalog.analyze_track'
     | 'playout.cache_track'
     | 'playout.sweep_track_cache'
     | 'playout.report_playback'

@@ -695,6 +695,19 @@ or not, because the sweep's protected set covers only the order on air and a rec
 fetched again keeps the `last_served_at` of its last real serve: without the mark, an opening fetched
 early could be the first thing a sweep took.
 
+**A record fetched ahead is measured as it arrives, not when the hourly walk reaches it.** `remeasure`
+re-reads a measurement onto a planned item right up to air, but only a measurement that exists, and the
+walk (`catalog.analyze`, hourly) used to be the only thing that made one: a record cached in the hour
+before its slot could air at its raw level, untrimmed, with nothing in the log to say so. So
+`CacheTrackJob` sends `catalog.analyze_track` for the binding once its bytes are here.
+`AnalysisService.analyseSource` asks the walk's own question of that one track
+(`AnalysisRepository.trackNeedingAnalysisFor` is the walk's statement narrowed to it), so the trusted
+version, the failure waits and the audience gate all still decide. Duplicates collapse on the row: the
+queue runs one at a time and a second job for a measured record finds nothing due. `AnalysisSlots` holds
+the walk and these jobs together to `analysis.concurrency`. With no analyzer in use (none installed, the
+chosen one quarantined, or a setting naming one that is not running) the cache job sends nothing. The walk
+stays as the backfill for the rest of the library.
+
 ## Where a record's audio comes from
 
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**

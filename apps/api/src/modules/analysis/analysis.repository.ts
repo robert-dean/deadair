@@ -148,6 +148,34 @@ export class AnalysisRepository extends DataRepository {
      * file would sit at the head of the queue on every pass.
      */
     async listTracksNeedingAnalysis(schemaVersion: number, limit: number): Promise<AnalysableTrack[]> {
+        return await this.needingAnalysis(schemaVersion, limit);
+    }
+
+    /**
+     * The track a binding belongs to, if that track is due a measurement, with the binding to measure.
+     *
+     * {@link listTracksNeedingAnalysis} narrowed to one track, and deliberately the SAME statement
+     * rather than a lookup of its own: every rule about when a track is due (the trusted version, the
+     * day's wait after a failure, the doubling wait after a partial file, the re-measure going last)
+     * lives in that one predicate, so the per-track job cannot measure something the walk would have
+     * left alone. A track that already holds a whole current measurement answers `undefined`, which is
+     * what makes a second job for the same record cost one query and nothing else.
+     *
+     * The binding returned is the walk's choice too, local first, so it is usually the one just
+     * fetched; when the track has another copy already here, that one is measured instead, which is
+     * the walk's own rule about which copy describes what airs.
+     *
+     * @param sourceId - A `track_sources.id`, the key the cache-ahead step fetches by.
+     */
+    async trackNeedingAnalysisFor(sourceId: string, schemaVersion: number): Promise<AnalysableTrack | undefined> {
+        const [track] = await this.needingAnalysis(schemaVersion, 1, sourceId);
+        return track;
+    }
+
+    /** {@link listTracksNeedingAnalysis}'s statement, optionally held to the track behind one binding. */
+    private async needingAnalysis(schemaVersion: number, limit: number, sourceId?: string): Promise<AnalysableTrack[]> {
+        const scope = sourceId === undefined ? sql`` : sql`and t.id = (select own.track_id from deadair.track_sources own where own.id = ${sourceId})`;
+
         const rows = await sql<{
             trackId: string;
             title: string;
@@ -180,6 +208,7 @@ export class AnalysisRepository extends DataRepository {
                    limit 1
               ) src on true
              where t.merged_into_id is null
+               ${scope}
                and (
                    a.track_id is null
                    -- Stale, unless re-measuring it just went wrong: see REMEASURE above.

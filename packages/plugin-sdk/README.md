@@ -936,6 +936,12 @@ has that the right town was found.
 one thing, and mapping them is yours. Your service's own word survives beside it
 as `description`, which nothing deterministic reads and a model may use.
 
+**An hourly outlook is a span, and each row says when it starts.** `query.hours`
+asks for the next that-many hours, and `reading.hours` answers with whatever rows
+your service has inside them, an hour or three hours apart. Put the place's offset
+on every `at`: a caller says "by midnight" from it, and a bare UTC instant cannot
+say what the clock reads there.
+
 `undefined` is an answer, on the same terms as a search plugin's empty array: an
 unconfigured plugin, a place nothing could resolve and a service that is down are
 one outcome to every caller. Throw only for something the operator must fix.

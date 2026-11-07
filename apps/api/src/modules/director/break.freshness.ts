@@ -136,6 +136,11 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     weather: 'claims-reading',
     // The expiry itself, which is the guard rather than anything a break says.
     weatherFreshUntil: 'not-spoken',
+    // The next few hours, which are the reading's own rows said as sentences, and the reading's claim
+    // covers them: a break carrying them is a weather break, which stamps unconditionally. Their
+    // distances are measured from the projected `airs_at`, and drift inside the shelf life moves
+    // "in about three hours" by less than the "about" already allows.
+    weatherOutlook: 'claims-reading',
 
     // The day and its entries. What the entries SAY cannot stop being true — 1966 will be 1966 at
     // the slot — so the only perishable part is the word "today" in front of them, and every

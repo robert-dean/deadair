@@ -22,6 +22,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { BulletinSource } from './bulletin.source.js';
 import { ChangeoverSource } from './changeover.source.js';
+import type { OutlookSaid } from '#modules/weather/weather.outlook.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
@@ -292,7 +293,7 @@ export class BreakRequestBuilder {
      */
     async build(
         input: BreakRequestInput,
-    ): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string; handedClaims: HandedClaim[] }> {
+    ): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string; handedClaims: HandedClaim[]; outlookSaid?: OutlookSaid }> {
         const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority } = input;
 
         const zone = stationZone(this.config);
@@ -415,6 +416,7 @@ export class BreakRequestBuilder {
             // The reading's own shelf life, travelling beside it so whichever writer takes it stamps
             // the same expiry. See `BreakWriteRequest.weatherFreshUntil`.
             ...(forecast?.freshUntil === undefined ? {} : { weatherFreshUntil: forecast.freshUntil }),
+            ...(forecast?.outlook === undefined ? {} : { weatherOutlook: forecast.outlook }),
             // The day and its entries together, which is one answer rather than a substrate and a
             // policy — see `BreakWriteRequest.almanac`.
             ...(history?.almanac === undefined ? {} : { almanac: history.almanac }),
@@ -493,6 +495,9 @@ export class BreakRequestBuilder {
             ...(chosen === undefined ? {} : { chosen }),
             ...(handedFact === undefined ? {} : { handedFact }),
             handedClaims: facts.withhold ? [] : handedClaims,
+            // What a weather break is to stamp as covered of the next few hours. Not on the request
+            // for `handedFact`'s reason: no writer needs it, and the job writes it with the words.
+            ...(forecast?.outlookSaid === undefined ? {} : { outlookSaid: forecast.outlookSaid }),
         };
     }
 

@@ -1,9 +1,9 @@
-import type { WeatherConditions, WeatherDay, WeatherReading } from '@deadair/plugin-sdk';
+import type { WeatherConditions, WeatherDay, WeatherHour, WeatherReading } from '@deadair/plugin-sdk';
 import { conditionFromOpenWeatherId } from './weather.codes.js';
 import { fetchJson, type Service } from './weather.http.js';
 import { field, kphFromMetresPerSecond, localDate, localInstant, optional, percentage, reading, text } from './weather.values.js';
 import type { GeoPoint } from './weather.geocode.js';
-import { MAX_FORECAST_DAYS, OPENWEATHERMAP_HOST, REQUEST_TIMEOUT_MS } from './weather.manifest.js';
+import { MAX_FORECAST_DAYS, MAX_FORECAST_HOURS, OPENWEATHERMAP_HOST, REQUEST_TIMEOUT_MS } from './weather.manifest.js';
 
 /**
  * OpenWeatherMap: the arm for an operator who already holds a key.
@@ -26,7 +26,8 @@ import { MAX_FORECAST_DAYS, OPENWEATHERMAP_HOST, REQUEST_TIMEOUT_MS } from './we
  *
  * **The forecast is three-hourly, not daily.** Forty entries of three hours each,
  * which is what {@link parseOpenWeatherForecast} folds into calendar days at the
- * place's own offset.
+ * place's own offset, and what {@link parseOpenWeatherHours} reads as the hourly
+ * outlook, one row per three hours. One `/forecast` call feeds both.
  */
 
 /** OpenWeatherMap's own geocoder, which is the one this arm uses. */
@@ -73,15 +74,22 @@ export async function openWeatherRead(
     point: GeoPoint,
     days: number,
     language = 'en',
+    hours = 0,
 ): Promise<WeatherReading | undefined> {
-    const now = parseOpenWeatherCurrent(await ask(service, apiKey, 'weather', point, language), point.name);
+    const current = await ask(service, apiKey, 'weather', point, language);
+    const now = parseOpenWeatherCurrent(current, point.name);
     if (now === undefined) return undefined;
 
     const wanted = Math.min(Math.max(0, Math.trunc(days)), MAX_FORECAST_DAYS);
-    if (wanted === 0) return now;
+    const span = Math.min(Math.max(0, Math.trunc(hours)), MAX_FORECAST_HOURS);
+    if (wanted === 0 && span === 0) return now;
 
-    const forecast = parseOpenWeatherForecast(await ask(service, apiKey, 'forecast', point, language), wanted);
-    return { ...now, ...(forecast.length === 0 ? {} : { days: forecast }) };
+    // One request for both: the free tier's forecast is the same three-hourly list whichever of the
+    // two is wanted, so asking twice would be paying for one answer two times.
+    const data = await ask(service, apiKey, 'forecast', point, language);
+    const forecast = wanted === 0 ? [] : parseOpenWeatherForecast(data, wanted);
+    const outlook = span === 0 ? [] : parseOpenWeatherHours(data, field(current, 'dt'), span);
+    return { ...now, ...(forecast.length === 0 ? {} : { days: forecast }), ...(outlook.length === 0 ? {} : { hours: outlook }) };
 }
 
 async function ask(service: Service, apiKey: string, endpoint: 'weather' | 'forecast', point: GeoPoint, language: string): Promise<unknown> {
@@ -164,6 +172,50 @@ export function parseOpenWeatherForecast(data: unknown, wanted: number): Weather
 
     return [...byDate.values()].slice(0, wanted).map(built);
 }
+
+/**
+ * The three-hourly list, as the hourly outlook: one row per entry, starting at the entry's own time.
+ *
+ * A row is kept while its three hours have not ended by `fromEpoch`, the current observation's time,
+ * and until `span` hours after it. So the first row is often the period already under way, which the
+ * capability allows and its `at` says, and a caller asking for six hours gets two or three rows.
+ *
+ * `pop` is the chance across the entry's three hours, which is the closest thing this tier has to the
+ * hourly chance the other services give.
+ */
+export function parseOpenWeatherHours(data: unknown, fromEpoch: unknown, span: number): WeatherHour[] {
+    const list = field(data, 'list');
+    if (!Array.isArray(list) || typeof fromEpoch !== 'number' || !Number.isFinite(fromEpoch)) return [];
+
+    const offset = offsetOf(field(data, 'city'));
+    const end = fromEpoch + Math.max(0, span) * 3_600;
+    const rows: WeatherHour[] = [];
+
+    for (const entry of list) {
+        const dt = field(entry, 'dt');
+        if (typeof dt !== 'number' || !Number.isFinite(dt) || dt + THREE_HOURS <= fromEpoch) continue;
+        if (dt >= end) break;
+
+        const at = localInstant(dt, offset);
+        if (at === undefined) continue;
+
+        const main = field(entry, 'main');
+        rows.push({
+            at,
+            ...describe(field(entry, 'weather')),
+            ...optional('temperatureC', reading(field(main, 'temp'))),
+            ...optional('feelsLikeC', reading(field(main, 'feels_like'))),
+            ...optional('humidity', percentage(field(main, 'humidity'))),
+            ...optional('windKph', kphFromMetresPerSecond(field(field(entry, 'wind'), 'speed'))),
+            ...optional('precipitationChance', percentage(fraction(field(entry, 'pop')))),
+        });
+    }
+
+    return rows;
+}
+
+/** How long one entry of the free forecast covers, in seconds. */
+const THREE_HOURS = 3 * 3_600;
 
 /** One day being assembled out of the entries that fall in it. */
 interface DayBuilder {

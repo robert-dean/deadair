@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import type { OutlookNote } from '#modules/weather/weather.outlook.js';
 import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
@@ -131,7 +132,7 @@ export class WeatherBreakWriter extends BreakWriter {
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         this.lastTemplate = undefined;
 
-        const report = request.weather === undefined ? undefined : reportOf(request.weather);
+        const report = request.weather === undefined ? undefined : reportOf(request.weather, request.weatherOutlook);
         // Nothing to report. See the note on the class: this is the branch that keeps the station
         // from announcing the weather it does not have. Which of the three empty states this is was
         // said by `WeatherSource`, which is the only thing that can tell them apart.
@@ -226,8 +227,12 @@ export class WeatherBreakWriter extends BreakWriter {
  * `undefined` where the reading carries no temperature AND no condition worth saying, which is a
  * service that answered with almost nothing: "It's clear." on its own is a break, and a bare place
  * name is not.
+ *
+ * `coming` is the outlook `WeatherSource` worked out for the hour this airs, and its first note is said
+ * between now and the day. Every digit in one is a figure the service reported, which is the rule this
+ * function keeps; the times are words.
  */
-export function reportOf(reading: SpokenWeather): string | undefined {
+export function reportOf(reading: SpokenWeather, coming: readonly OutlookNote[] = []): string | undefined {
     const place = reading.place.trim();
     const { temperature, words } = reading.current;
 
@@ -238,8 +243,12 @@ export function reportOf(reading: SpokenWeather): string | undefined {
     const now = temperature === undefined ? `It's ${words}` : `It's ${temperature} degrees and ${words}`;
     const opening = place.length === 0 ? `${now}.` : `${now} in ${place}.`;
 
+    // The next few hours, at most one sentence of them, and the first is the one worth having: the
+    // outlook puts precipitation ahead of the temperature. Its words were worked out against when
+    // this airs by `WeatherSource`, so nothing here measures anything.
+    const next = coming[0]?.text;
     const outlook = outlookOf(reading);
-    return outlook === undefined ? opening : `${opening} ${outlook}`;
+    return [opening, next, outlook].filter(part => part !== undefined).join(' ');
 }
 
 /**

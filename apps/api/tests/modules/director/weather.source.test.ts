@@ -15,12 +15,14 @@ import {
     MAX_WEATHER_DAYS,
     MAX_WEATHER_MAX_AGE_MINUTES,
     MIN_WEATHER_MAX_AGE_MINUTES,
+    outlookHoursFor,
     WeatherSource,
     WEATHER_SOURCE_KEYS,
     WEATHER_SPACING_MS,
 } from '../../../src/modules/director/weather.source.js';
 import type { WeatherService } from '../../../src/modules/weather/weather.service.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
+import type { OutlookSaid } from '../../../src/modules/weather/weather.outlook.js';
 import type { TopicRepository } from '../../../src/modules/topics/topic.repository.js';
 import type { SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
@@ -30,6 +32,9 @@ import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer
 /** A fixed "now", so every assertion about a reading's age is about arithmetic rather than luck. */
 const NOW = Date.parse('2026-08-30T14:00:00Z');
 const MINUTE = 60_000;
+
+/** The outlook every read asks for under the default age limit: six hours past a reading two hours old. */
+const HOURS = outlookHoursFor(DEFAULT_WEATHER_MAX_AGE_MINUTES);
 
 /** A reading observed this many minutes before {@link NOW}. */
 const observed = (minutesAgo: number): SpokenWeather => ({
@@ -62,10 +67,12 @@ interface Options {
     /** Whether a weather break is due near the moment asked about. */
     weatherNearby?: boolean;
     nearbyThrows?: boolean;
+    /** What the last weather break stamped of the next few hours. */
+    lastSaid?: OutlookSaid;
 }
 
 function harness(options: Options = {}) {
-    const read = vi.fn(async (_place?: string, _days?: number, _units?: string): Promise<SpokenWeather | undefined> => {
+    const read = vi.fn(async (_place?: string, _days?: number, _units?: string, _hours?: number): Promise<SpokenWeather | undefined> => {
         if (options.readThrows) throw new Error('the weather module fell over');
         return 'reading' in options ? options.reading : READING;
     });
@@ -92,9 +99,10 @@ function harness(options: Options = {}) {
         if (options.nearbyThrows) throw new Error('the segments table is unreachable');
         return options.weatherNearby ?? false;
     });
-    const segments = { airsNear } as unknown as SegmentRepository;
+    const lastOutlookSaid = vi.fn(async (_kind: string, _place: string, _before: number) => options.lastSaid);
+    const segments = { airsNear, lastOutlookSaid } as unknown as SegmentRepository;
 
-    return { source: new WeatherSource(weather, topics, segments, config, logger), read, logger, airsNear };
+    return { source: new WeatherSource(weather, topics, segments, config, logger), read, logger, airsNear, lastOutlookSaid };
 }
 
 describe('which kinds it answers for', () => {
@@ -128,7 +136,7 @@ describe('the reading a talk break is offered', () => {
 
         expect(report?.reading).toEqual(READING);
         expect(report?.freshUntil).toBe(Date.parse(READING.observedAt) + DEFAULT_WEATHER_MAX_AGE_MINUTES * MINUTE);
-        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, HOURS);
     });
 
     // Measured on 2026-11-07: a talk break eight minutes after the weather said "clear here in
@@ -173,7 +181,7 @@ describe('the reading a talk break is offered', () => {
         const report = await source.readingFor(TALK_BREAK_KIND, { topic: 'town' }, NOW);
 
         expect(report?.subject).toBeUndefined();
-        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, HOURS);
     });
 
     it('declines quietly, because nobody asked for the weather and no slot was passed over', async () => {
@@ -235,7 +243,7 @@ describe('where it reports on', () => {
 
         const report = await source.readingFor(WEATHER_KIND, undefined, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, HOURS);
         expect(report?.reading).toEqual(READING);
         expect(report?.subject).toBeUndefined();
     });
@@ -245,7 +253,7 @@ describe('where it reports on', () => {
 
         const report = await source.readingFor(WEATHER_KIND, { topic: 'town' }, NOW);
 
-        expect(read).toHaveBeenCalledWith('Chipping Norton, Oxfordshire', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Chipping Norton, Oxfordshire', DEFAULT_WEATHER_DAYS, undefined, HOURS);
         expect(report?.subject).toEqual({ key: 'town', label: 'town' });
     });
 
@@ -254,7 +262,7 @@ describe('where it reports on', () => {
 
         await source.readingFor(WEATHER_KIND, { topic: 'boston' }, NOW);
 
-        expect(read).toHaveBeenCalledWith('Boston, MA', DEFAULT_WEATHER_DAYS, 'imperial');
+        expect(read).toHaveBeenCalledWith('Boston, MA', DEFAULT_WEATHER_DAYS, 'imperial', HOURS);
     });
 
     it("falls back to the station's own place for a location that has since been deleted", async () => {
@@ -264,7 +272,7 @@ describe('where it reports on', () => {
 
         const report = await source.readingFor(WEATHER_KIND, { topic: 'a-place-that-went-away' }, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, HOURS);
         expect(report?.subject).toBeUndefined();
     });
 
@@ -273,7 +281,7 @@ describe('where it reports on', () => {
 
         await source.readingFor(WEATHER_KIND, { topic: 'town' }, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, HOURS);
     });
 
     it('keeps the subject even when there was no reading, so a decline can name the place', async () => {
@@ -289,7 +297,7 @@ describe('how far ahead', () => {
 
         await source.readingFor(WEATHER_KIND, undefined, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', 3, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', 3, undefined, HOURS);
     });
 
     it('takes zero, which is the conditions alone and a real thing to want', async () => {
@@ -297,7 +305,7 @@ describe('how far ahead', () => {
 
         await source.readingFor(WEATHER_KIND, undefined, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', 0, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', 0, undefined, HOURS);
     });
 
     it('CLAMPS a stored row rather than refusing it, since a setting that will not load stops the break', async () => {
@@ -305,7 +313,7 @@ describe('how far ahead', () => {
 
         await source.readingFor(WEATHER_KIND, undefined, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', MAX_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', MAX_WEATHER_DAYS, undefined, HOURS);
     });
 
     it('takes the default for a row nobody can parse', async () => {
@@ -313,7 +321,7 @@ describe('how far ahead', () => {
 
         await source.readingFor(WEATHER_KIND, undefined, NOW);
 
-        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, HOURS);
     });
 });
 
@@ -396,5 +404,109 @@ describe('how old a reading may be when it airs', () => {
         });
 
         expect(await source.readingFor(WEATHER_KIND, undefined, NOW)).toEqual({});
+    });
+});
+
+describe('the next few hours', () => {
+    /** A reading with hourly rows either side of {@link NOW}, rain three hours after it. */
+    const withHours = (): SpokenWeather => ({
+        ...READING,
+        current: { condition: 'cloudy', words: 'cloudy', temperature: 17 },
+        hours: [-3, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8].map(offset => ({
+            at: new Date(NOW + offset * 60 * MINUTE).toISOString(),
+            condition: offset === 3 ? ('rain' as const) : ('cloudy' as const),
+            words: offset === 3 ? 'raining' : 'cloudy',
+            temperature: 17,
+            ...(offset === 3 ? { precipitationChance: 70 } : {}),
+        })),
+    });
+
+    it('fetches six hours past the oldest a reading may be when it airs, capped at a day', () => {
+        expect(outlookHoursFor(120)).toBe(8);
+        expect(outlookHoursFor(45)).toBe(7);
+        expect(outlookHoursFor(MAX_WEATHER_MAX_AGE_MINUTES)).toBe(18);
+        expect(outlookHoursFor(100_000)).toBe(24);
+    });
+
+    it('asks for the span the age limit needs', async () => {
+        const { source, read } = harness({ settings: { [WEATHER_SOURCE_KEYS.maxAgeMinutes]: '45' } });
+
+        await source.readingFor(WEATHER_KIND, undefined, NOW);
+
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined, 7);
+    });
+
+    it('works the notes out against the slot and cuts the rows to the window', async () => {
+        const { source } = harness({ reading: withHours() });
+
+        const report = await source.readingFor(WEATHER_KIND, undefined, NOW);
+
+        expect(report?.outlook?.map(note => note.text)).toEqual(['Rain likely in about three hours, a 70% chance.']);
+        // The rows a model is held to are the window's: none that ended before the slot, none past it.
+        expect(report?.reading?.hours?.map(hour => (Date.parse(hour.at) - NOW) / (60 * MINUTE))).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    });
+
+    it('gives a talk break the reading without the outlook', async () => {
+        const { source } = harness({ reading: withHours(), settings: { [WEATHER_SOURCE_KEYS.inTalk]: 'true' } });
+
+        const report = await source.readingFor(TALK_BREAK_KIND, undefined, NOW);
+
+        expect(report?.reading).toBeDefined();
+        expect(report?.reading?.hours).toBeUndefined();
+        expect(report?.outlook).toBeUndefined();
+    });
+});
+
+describe('an outlook already given', () => {
+    const rainAt = (offsetHours: number): SpokenWeather => ({
+        ...READING,
+        current: { condition: 'cloudy', words: 'cloudy', temperature: 17 },
+        hours: [0, 1, 2, 3, 4].map(offset => ({
+            at: new Date(NOW + offset * 60 * MINUTE).toISOString(),
+            condition: offset === offsetHours ? ('rain' as const) : ('cloudy' as const),
+            words: 'x',
+            temperature: 17,
+            ...(offset === offsetHours ? { precipitationChance: 70 } : {}),
+        })),
+    });
+    const stamp = (onsetHours: number): OutlookSaid => ({
+        place: READING.place,
+        notes: [{ kind: 'precipitation', word: 'rain', band: 'likely', onset: new Date(NOW + onsetHours * 60 * MINUTE).toISOString() }],
+    });
+
+    it('leaves out a note the last weather break about the place was given, and stamps it again as it was', async () => {
+        const { source, lastOutlookSaid } = harness({ reading: rainAt(3), lastSaid: stamp(2) });
+
+        const report = await source.readingFor(WEATHER_KIND, undefined, NOW);
+
+        expect(lastOutlookSaid).toHaveBeenCalledWith(WEATHER_KIND, READING.place, NOW);
+        expect(report?.outlook).toBeUndefined();
+        // The OLD onset is carried, so an hour's drift a break never adds up to new news.
+        expect(report?.outlookSaid).toEqual(stamp(2));
+    });
+
+    it('says it again once the onset has moved by more than an hour', async () => {
+        const { source } = harness({ reading: rainAt(4), lastSaid: stamp(2) });
+
+        const report = await source.readingFor(WEATHER_KIND, undefined, NOW);
+
+        expect(report?.outlook?.map(note => note.text)).toEqual(['Rain likely in about four hours, a 70% chance.']);
+        expect(report?.outlookSaid?.notes.map(note => note.onset)).toEqual([new Date(NOW + 4 * 60 * MINUTE).toISOString()]);
+    });
+
+    it('stamps an empty outlook too, since a break with nothing to say is the latest word', async () => {
+        const { source } = harness({ lastSaid: stamp(2) });
+
+        expect((await source.readingFor(WEATHER_KIND, undefined, NOW))?.outlookSaid).toEqual({ place: READING.place, notes: [] });
+    });
+
+    it('says the outlook when the last break could not be read', async () => {
+        const { source, logger } = harness({ reading: rainAt(3) });
+        vi.mocked((source as unknown as { segments: SegmentRepository }).segments.lastOutlookSaid).mockRejectedValueOnce(new Error('down'));
+
+        const report = await source.readingFor(WEATHER_KIND, undefined, NOW);
+
+        expect(report?.outlook).toHaveLength(1);
+        expect(logger.warn).toHaveBeenCalled();
     });
 });

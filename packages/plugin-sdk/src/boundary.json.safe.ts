@@ -76,7 +76,7 @@ import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayReq
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist, TagQuery } from './capabilities/similarity.js';
-import type { WeatherConditions, WeatherDay, WeatherQuery, WeatherReading } from './capabilities/weather.js';
+import type { WeatherConditions, WeatherDay, WeatherHour, WeatherQuery, WeatherReading } from './capabilities/weather.js';
 import type {
     AlbumEnrichment,
     AlbumRef,
@@ -277,6 +277,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     WeatherQuery: IsJsonSafe<WeatherQuery>;
     WeatherConditions: IsJsonSafe<WeatherConditions>;
     WeatherDay: IsJsonSafe<WeatherDay>;
+    WeatherHour: IsJsonSafe<WeatherHour>;
     WeatherReading: IsJsonSafe<WeatherReading>;
     ConcertQuery: IsJsonSafe<ConcertQuery>;
     Concert: IsJsonSafe<Concert>;
@@ -400,6 +401,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'WeatherQuery',
     'WeatherConditions',
     'WeatherDay',
+    'WeatherHour',
     'WeatherReading',
     'ConcertQuery',
     'Concert',

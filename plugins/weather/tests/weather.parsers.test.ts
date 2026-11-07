@@ -12,7 +12,12 @@ import { describe, expect, it } from 'vitest';
 import { parseGeocoding } from '../src/weather.geocode.js';
 import { parseOpenMeteoForecast } from '../src/openmeteo.provider.js';
 import { parseNwsForecast, parseNwsHourly, parseNwsPoints, windKph } from '../src/nws.provider.js';
-import { parseOpenWeatherCurrent, parseOpenWeatherForecast, parseOpenWeatherGeocoding } from '../src/openweathermap.provider.js';
+import {
+    parseOpenWeatherCurrent,
+    parseOpenWeatherForecast,
+    parseOpenWeatherGeocoding,
+    parseOpenWeatherHours,
+} from '../src/openweathermap.provider.js';
 
 describe('the Open-Meteo geocoder', () => {
     const answer = {
@@ -176,6 +181,41 @@ describe('Open-Meteo forecasts', () => {
         expect(parseOpenMeteoForecast(null, 'London')).toBeUndefined();
     });
 
+    it('reads the columnar hourly block as rows, each with the offset on its time', () => {
+        const hourly = {
+            ...answer,
+            hourly: {
+                time: ['2026-08-29T09:00', '2026-08-29T10:00', 'later'],
+                weather_code: [3, 61, 0],
+                temperature_2m: [17.4, 16.2, 15],
+                apparent_temperature: [16.1],
+                precipitation_probability: [20, 80, 0],
+                wind_speed_10m: [14.8, 18.1, 10],
+            },
+        };
+
+        const hours = parseOpenMeteoForecast(hourly, 'London')?.hours ?? [];
+
+        // The third row has no time anybody can read, so it is dropped rather than placed.
+        expect(hours).toHaveLength(2);
+        expect(hours[0]).toEqual({
+            at: '2026-08-29T09:00:00+01:00',
+            condition: 'overcast',
+            description: 'overcast',
+            temperatureC: 17.4,
+            feelsLikeC: 16.1,
+            windKph: 14.8,
+            precipitationChance: 20,
+        });
+        expect(hours[1]).toMatchObject({ at: '2026-08-29T10:00:00+01:00', condition: 'rain', precipitationChance: 80 });
+        // A column shorter than the times leaves that row's figure absent rather than zero.
+        expect('feelsLikeC' in hours[1]!).toBe(false);
+    });
+
+    it('leaves the outlook off entirely when none was asked for', () => {
+        expect(parseOpenMeteoForecast(answer, 'London')?.hours).toBeUndefined();
+    });
+
     it('reports a measurement it did not get as absent rather than as zero', () => {
         const thin = { ...answer, current: { time: '2026-08-29T09:00', weather_code: 0 } };
         const reading = parseOpenMeteoForecast(thin, 'London');
@@ -235,7 +275,37 @@ describe('the National Weather Service', () => {
                 windKph: 13,
                 precipitationChance: 40,
             },
+            hours: [],
         });
+    });
+
+    it('reads the rest of the hourly forecast as the outlook, inside the span asked for', () => {
+        const period = (startTime: string, extra: Record<string, unknown>) => ({
+            startTime,
+            temperature: 20,
+            windSpeed: '10 km/h',
+            icon: 'https://api.weather.gov/icons/land/day/rain,80?size=small',
+            shortForecast: 'Rain Showers Likely',
+            ...extra,
+        });
+        const hourly = {
+            properties: {
+                periods: [
+                    period('2026-08-29T09:00:00-04:00', { probabilityOfPrecipitation: { value: 80 } }),
+                    // The service sends `null` for a good share of hours, which is no figure, not zero.
+                    period('2026-08-29T10:00:00-04:00', { probabilityOfPrecipitation: { value: null } }),
+                    period('2026-08-29T11:00:00-04:00', { probabilityOfPrecipitation: { value: 30 } }),
+                    period('2026-08-29T12:00:00-04:00', { probabilityOfPrecipitation: { value: 10 } }),
+                ],
+            },
+        };
+
+        const read = parseNwsHourly(hourly, 3);
+
+        expect(read?.hours.map(hour => hour.at)).toEqual(['2026-08-29T09:00:00-04:00', '2026-08-29T10:00:00-04:00', '2026-08-29T11:00:00-04:00']);
+        expect(read?.hours[0]).toMatchObject({ condition: 'rain', temperatureC: 20, precipitationChance: 80 });
+        expect('precipitationChance' in read!.hours[1]!).toBe(false);
+        expect(parseNwsHourly(hourly)?.hours).toEqual([]);
     });
 
     it('folds day and night periods into calendar days', () => {
@@ -392,8 +462,31 @@ describe('OpenWeatherMap', () => {
         expect(days[1]).toMatchObject({ date: '2026-08-30', condition: 'clear', highC: 24 });
     });
 
+    it('reads the three-hourly list as the outlook, from the period under way to the end of the span', () => {
+        const entry = (hour: number, pop: number, id: number) => ({
+            dt: Date.UTC(2026, 7, 29, hour) / 1_000,
+            main: { temp: 10 + hour / 3, feels_like: 9 },
+            weather: [{ id, description: 'words' }],
+            wind: { speed: 5 },
+            pop,
+        });
+        const forecast = {
+            city: { timezone: 3_600 },
+            list: [entry(6, 0, 800), entry(9, 0.2, 803), entry(12, 0.7, 500), entry(15, 0.1, 800), entry(18, 0, 800)],
+        };
+
+        // Observed at 10:00 UTC: the 06:00 period ended at 09:00, the 09:00 one is under way, and a
+        // six-hour span ends at 16:00, so the 15:00 period is the last one in it.
+        const hours = parseOpenWeatherHours(forecast, Date.UTC(2026, 7, 29, 10) / 1_000, 6);
+
+        expect(hours.map(hour => hour.at)).toEqual(['2026-08-29T10:00:00+01:00', '2026-08-29T13:00:00+01:00', '2026-08-29T16:00:00+01:00']);
+        expect(hours[1]).toMatchObject({ condition: 'rain', temperatureC: 14, precipitationChance: 70, windKph: 18 });
+    });
+
     it('answers nothing for a shape it does not recognise', () => {
         expect(parseOpenWeatherCurrent({}, 'London')).toBeUndefined();
         expect(parseOpenWeatherForecast({}, 7)).toEqual([]);
+        expect(parseOpenWeatherHours({}, 1_800_000_000, 6)).toEqual([]);
+        expect(parseOpenWeatherHours({ list: [] }, undefined, 6)).toEqual([]);
     });
 });

@@ -110,6 +110,16 @@ export const PLACE_MISS_HOLD_MS = 60 * 60_000;
 export const MAX_FORECAST_DAYS = 7;
 
 /**
+ * How many hours of hourly outlook any engine will be asked for.
+ *
+ * A day, which is past anything a station says about "the next few hours" and
+ * leaves room for a reading that sat in a cache for a while before a break
+ * looked at it. Clamped like the days are, so a caller asking for a week of
+ * hours gets the day.
+ */
+export const MAX_FORECAST_HOURS = 24;
+
+/**
  * Requests a second, per service, each in its own bucket.
  *
  * Separate buckets rather than one shared `weather`, because these are three

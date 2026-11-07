@@ -324,6 +324,36 @@ describe('SegmentRepository.airsNear', () => {
     });
 });
 
+describe('SegmentRepository.lastOutlookSaid', () => {
+    it('asks for the newest stamped, unfailed rows of the kind before the moment, inside half a day', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).lastOutlookSaid('weather', 'Atlanta', 50_000_000);
+
+        expect(statements[0]?.sql).toContain('"outlook_said" is not null');
+        expect(statements[0]?.sql).toContain('"state" != $');
+        expect(statements[0]?.sql).toMatch(/order by "airs_at" desc limit \$\d+/);
+        expect(statements[0]?.parameters).toEqual(
+            expect.arrayContaining(['a-station', 'weather', 'failed', 50_000_000, 50_000_000 - 12 * 60 * 60_000]),
+        );
+    });
+
+    it("answers with the newest row's stamp for this place, passing over another place's", async () => {
+        const rows = [
+            { outlookSaid: { place: 'Boston', notes: [] } },
+            {
+                outlookSaid: {
+                    place: 'Atlanta',
+                    notes: [{ kind: 'precipitation', word: 'rain', band: 'likely', onset: '2026-11-07T20:00:00.000Z' }],
+                },
+            },
+            { outlookSaid: { place: 'Atlanta', notes: [] } },
+        ];
+
+        expect((await new SegmentRepository(fakeDb(rows, []), identity()).lastOutlookSaid('weather', 'Atlanta', 0))?.notes).toHaveLength(1);
+        expect(await new SegmentRepository(fakeDb(rows, []), identity()).lastOutlookSaid('weather', 'Leeds', 0)).toBeUndefined();
+    });
+});
+
 describe('SegmentRepository.padInLastBreaks', () => {
     it('asks only for the last few scripted rows of the kind asked for, newest first', async () => {
         const statements: Statement[] = [];

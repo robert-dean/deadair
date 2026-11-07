@@ -12,7 +12,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { inventedFigure, mentionsWeather, unofferedWeather } from '../../../src/modules/director/weather.figures.js';
-import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
+import type { WeatherHour } from '@deadair/plugin-sdk';
+import { outlookNotes } from '../../../src/modules/weather/weather.outlook.js';
+import { spoken, type SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 
 const READING: SpokenWeather = {
     place: 'Atlanta',
@@ -255,5 +257,54 @@ describe('unofferedWeather', () => {
 
     it('asks nothing of a station that does not broadcast in English', () => {
         expect(unofferedWeather('Es ist sonnig und 22 Grad.', 'de')).toBeUndefined();
+    });
+});
+
+describe('the hourly outlook', () => {
+    const airsAt = Date.parse('2026-11-07T20:00:00-05:00');
+
+    /** A reading converted from the same metric rows into either unit, so both are tested on one sky. */
+    const outlookIn = (units: 'metric' | 'imperial', rows: WeatherHour[]): SpokenWeather =>
+        spoken(
+            { place: 'Atlanta', observedAt: '2026-11-07T19:45:00-05:00', current: { condition: 'cloudy', temperatureC: 9.4 }, hours: rows },
+            units,
+        );
+
+    const at = (clock: string): string => `2026-11-07T${clock}:00-05:00`;
+
+    // Each sky makes at least one note, so between them every shape of sentence is produced.
+    const skies: WeatherHour[][] = [
+        [
+            { at: at('20'), condition: 'cloudy', temperatureC: 9.4 },
+            { at: at('22'), condition: 'rain', temperatureC: 6.2, precipitationChance: 85 },
+            { at: '2026-11-08T00:00:00-05:00', condition: 'overcast', temperatureC: -2.6, precipitationChance: 10 },
+        ],
+        [
+            { at: at('20'), condition: 'cloudy', temperatureC: 9.4 },
+            { at: at('21'), condition: 'overcast', temperatureC: 0.4, precipitationChance: 72 },
+            { at: at('23'), condition: 'clear', temperatureC: -4.3 },
+        ],
+        [
+            { at: at('20'), condition: 'cloudy', temperatureC: 9.4 },
+            { at: at('22'), condition: 'snow', temperatureC: 18.4, precipitationChance: 41 },
+        ],
+    ];
+
+    it.each(['metric', 'imperial'] as const)('passes every note it generates, in %s', units => {
+        let notes = 0;
+        for (const rows of skies) {
+            const weather = outlookIn(units, rows);
+            for (const note of outlookNotes(weather, airsAt)) {
+                notes += 1;
+                expect(inventedFigure(note.text, weather), note.text).toBeUndefined();
+            }
+        }
+        // A test whose loop never ran would pass on nothing.
+        expect(notes).toBeGreaterThanOrEqual(4);
+    });
+
+    it('still refuses a figure the outlook did not carry', () => {
+        const weather = outlookIn('metric', skies[0]!);
+        expect(inventedFigure('Down to 3 degrees Celsius by midnight.', weather)).toBe('3');
     });
 });

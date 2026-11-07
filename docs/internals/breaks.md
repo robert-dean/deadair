@@ -1162,6 +1162,39 @@ guard checks it: both skies are true readings, so `inventedFigure` and the sky c
 and the fix has to be in what the model is told. The floor needed none of this, since `outlookOf` only ever
 says the day's high and low.
 
+**The next few hours are handed over as sentences, worked out against the slot.** A weather plugin can answer
+with an hourly outlook (`WeatherQuery.hours`, rows an hour or three hours apart, each with the place's offset on
+its `at`), and `WeatherSource` asks for `6 + ceil(maxAgeMinutes / 60)` hours, capped at a day, so a reading that
+is as old as it may be when it airs still covers the six hours after the slot. It then cuts the rows to that
+window (a row is in it while its period has not ended by `airs_at`, and until six hours after) and
+`weather.outlook.ts` turns them into at most two notes: precipitation, then the temperature. Every distance is
+measured from `airs_at` and never from where a row sits, because a reading out of a cache routinely starts an
+hour or two before the break is heard. The rules each answer a sentence some station has aired: "likely" and
+its figure only at 50% or more, the row's own word as a possibility with no figure from 30% to 49%, and nothing
+below 30%; a row whose code is dry with a high chance keeps its sky, and its precipitation is snow at or below
+freezing and rain above, or nothing with no temperature to tell; nothing about rain arriving while it rains; a
+temperature note only for a swing of 5°C or 8°F, and always with the unit. Times are written in words ("in
+about three hours", "by midnight"), so every digit in a note is a measured figure, and `inventedFigure` reads
+the outlook rows the break was shown, which is what lets a model that said one pass. The model is shown the
+notes rather than the rows, under a line telling it the timing is already worked out, because the sums are the
+part it gets wrong. The floor says the first note between now and the day. Only the weather break is given any:
+a talk break asks for the same span, so it shares the plugin's cached reading, and is handed the reading
+without its rows.
+
+**An outlook the last weather break about the same place was given is not given again.** The next few
+hours barely move between two breaks an hour apart, and said every time they are one forecast read out as news
+every hour. So a weather break stamps `segments.outlook_said` with the place and a key per note (its kind, its
+word, its band, and the hour it is about rounded to the place's own hour), and `WeatherSource` reads the newest
+unfailed stamp for the same place inside the last twelve hours (`SegmentRepository.lastOutlookSaid`, passing
+over another location's) and leaves out any note that matches one. An onset that moved by an hour or less is
+the same news; a different word or band, or rain that moved further, is new. The stamp carries a matched key
+AS IT WAS, not the new one, so an onset creeping an hour a break never drifts out of being the same news, and a
+key that matched nothing is dropped, so rain that clears and comes back is said again. It stamps what the break
+was GIVEN, not what it said, because nothing reads the script for the outlook: the floor says one note where it
+was handed two, and the second is then taken as said. That errs toward silence, and a read of the last stamp
+that fails errs the other way and says the outlook, since a repeated forecast is cheaper than a break that
+leaves out rain. A weather break with nothing to say stamps an empty list, which is the latest word too.
+
 **The four ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
 named, a service that is down, and a reading that will be too old to be true when the break airs: one
 silence to the writer, and four different things for an operator to do. A station whose clock asks for

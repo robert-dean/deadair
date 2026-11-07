@@ -1,9 +1,9 @@
-import { PluginError, type WeatherConditions, type WeatherDay, type WeatherReading } from '@deadair/plugin-sdk';
+import { PluginError, type WeatherConditions, type WeatherDay, type WeatherHour, type WeatherReading } from '@deadair/plugin-sdk';
 import { conditionFromNwsIcon } from './weather.codes.js';
 import { fetchJson, type Service } from './weather.http.js';
 import { field, optional, percentage, reading, text } from './weather.values.js';
 import type { GeoPoint } from './weather.geocode.js';
-import { MAX_FORECAST_DAYS, NWS_HOST, REQUEST_TIMEOUT_MS } from './weather.manifest.js';
+import { MAX_FORECAST_DAYS, MAX_FORECAST_HOURS, NWS_HOST, REQUEST_TIMEOUT_MS } from './weather.manifest.js';
 
 /**
  * The United States National Weather Service: free, public-domain, and the best
@@ -87,16 +87,20 @@ export function parseNwsPoints(data: unknown): NwsGrid | undefined {
 }
 
 /** What it is like, out of a grid the service has already named. */
-export async function nwsRead(service: Service, grid: NwsGrid, fallbackPlace: string, days: number): Promise<WeatherReading | undefined> {
-    const now = parseNwsHourly(await fetchPeriods(service, grid.hourlyUrl));
+export async function nwsRead(service: Service, grid: NwsGrid, fallbackPlace: string, days: number, hours = 0): Promise<WeatherReading | undefined> {
+    // The hourly forecast is fetched on every read anyway, for the current hour, so the outlook costs
+    // no request at all: it is the rest of the same answer, which this used to throw away.
+    const span = Math.min(Math.max(0, Math.trunc(hours)), MAX_FORECAST_HOURS);
+    const now = parseNwsHourly(await fetchPeriods(service, grid.hourlyUrl), span);
     if (now === undefined) return undefined;
 
     const place = grid.place ?? fallbackPlace;
+    const outlook = now.hours.length === 0 ? {} : { hours: now.hours };
     const wanted = Math.min(Math.max(0, Math.trunc(days)), MAX_FORECAST_DAYS);
-    if (wanted === 0) return { place, observedAt: now.observedAt, current: now.conditions };
+    if (wanted === 0) return { place, observedAt: now.observedAt, current: now.conditions, ...outlook };
 
     const forecast = parseNwsForecast(await fetchPeriods(service, grid.forecastUrl), wanted);
-    return { place, observedAt: now.observedAt, current: now.conditions, ...(forecast.length === 0 ? {} : { days: forecast }) };
+    return { place, observedAt: now.observedAt, current: now.conditions, ...(forecast.length === 0 ? {} : { days: forecast }), ...outlook };
 }
 
 /**
@@ -126,15 +130,39 @@ async function fetchPeriods(service: Service, forecastUrl: string): Promise<unkn
     });
 }
 
-/** The hour the station is in, which is what this arm reports as current. */
-export function parseNwsHourly(data: unknown): { observedAt: string; conditions: WeatherConditions } | undefined {
-    const first = periodsOf(data)[0];
+/**
+ * The hour the station is in, which is what this arm reports as current, and the hours after it.
+ *
+ * `hours` is a SPAN from the first period's start, so the outlook is every period that begins inside
+ * it, the current one included. Its first row and `current` are the same period, which is the honest
+ * shape: the capability's first row may be the hour already under way, and a caller measures from
+ * each row's own `at` rather than from where it sits.
+ *
+ * A period's chance of precipitation is `null` for a good share of hours, which the service means as
+ * "no figure" rather than as zero, and it is read as absent on {@link percentage}'s rule.
+ */
+export function parseNwsHourly(data: unknown, hours = 0): { observedAt: string; conditions: WeatherConditions; hours: WeatherHour[] } | undefined {
+    const periods = periodsOf(data);
+    const first = periods[0];
     if (first === undefined) return undefined;
 
     const observedAt = text(field(first, 'startTime'));
     if (observedAt === undefined) return undefined;
 
-    return { observedAt, conditions: conditionsOf(first) };
+    const start = Date.parse(observedAt);
+    const end = start + Math.max(0, hours) * 3_600_000;
+    const outlook: WeatherHour[] = [];
+    if (Number.isFinite(start)) {
+        for (const period of periods) {
+            const at = text(field(period, 'startTime'));
+            const when = at === undefined ? NaN : Date.parse(at);
+            if (at === undefined || !Number.isFinite(when) || when < start) continue;
+            if (when >= end) break;
+            outlook.push({ at, ...conditionsOf(period) });
+        }
+    }
+
+    return { observedAt, conditions: conditionsOf(first), hours: outlook };
 }
 
 /**

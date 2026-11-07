@@ -9,6 +9,7 @@ import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { BreakContext } from '#modules/director/break.request.js';
 import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
 import { instant, millisOf } from '#modules/data/timestamp.columns.js';
+import { outlookSaidOf, type OutlookSaid } from '#modules/weather/weather.outlook.js';
 
 /**
  * How far along producing a segment is. Mirrors `segments.state`.
@@ -416,6 +417,14 @@ interface SegmentRow {
     pads: unknown;
 }
 
+/**
+ * How far back {@link SegmentRepository.lastOutlookSaid} looks for the last weather break, and how
+ * many it reads. Half a day: an outlook said longer ago than that is about hours that have passed,
+ * and a station with a weather band every hour across three locations is well inside a dozen rows.
+ */
+const OUTLOOK_LOOKBACK_MS = 12 * 60 * 60_000;
+const OUTLOOK_LOOKBACK_ROWS = 12;
+
 const SEGMENT_COLUMNS = [
     'id',
     'kind',
@@ -757,6 +766,38 @@ export class SegmentRepository extends DataRepository {
             .executeTakeFirst();
 
         return row !== undefined;
+    }
+
+    /**
+     * What the last weather break about `place` was told of the next few hours, or `undefined`.
+     *
+     * The newest written row of `kind` that airs before `before` and inside {@link OUTLOOK_LOOKBACK_MS}
+     * of it, whose stamp is for this place. A failed row is not one: it was never heard. A row about
+     * another place is passed over rather than ending the search, so a band alternating between two
+     * locations still compares each with its own last break.
+     *
+     * The stamp is read as untrusted JSON, since it is a column anything could have written, and one
+     * that does not have the shape is no stamp at all.
+     */
+    async lastOutlookSaid(kind: string, place: string, before: number): Promise<OutlookSaid | undefined> {
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select('outlookSaid')
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('kind', '=', kind)
+            .where('state', '!=', 'failed')
+            .where('outlookSaid', 'is not', null)
+            .where('airsAt', '<', instant(before))
+            .where('airsAt', '>=', instant(before - OUTLOOK_LOOKBACK_MS))
+            .orderBy('airsAt', 'desc')
+            .limit(OUTLOOK_LOOKBACK_ROWS)
+            .execute();
+
+        for (const row of rows) {
+            const said = outlookSaidOf(row.outlookSaid);
+            if (said?.place === place) return said;
+        }
+        return undefined;
     }
 
     /** One segment, whatever state it is in. */
@@ -1111,6 +1152,7 @@ export class SegmentRepository extends DataRepository {
             claimsPreviousItemId?: string;
             claimsTime?: { from: number; until: number };
             claimsReadingUntil?: number;
+            outlookSaid?: OutlookSaid;
             personaId?: string;
             voice?: string;
             delivery?: SpeechDelivery;
@@ -1168,6 +1210,9 @@ export class SegmentRepository extends DataRepository {
                 // Written and cleared with the words for the same reason as the two above — the
                 // expiry describes the observation THESE words state, and a rewrite states another.
                 claimsReadingUntil: written.claimsReadingUntil === undefined ? null : instant(written.claimsReadingUntil),
+                // What a weather break was told about the next few hours, written and cleared with the
+                // words on the claims' argument: a rewrite was given its own outlook, or none.
+                outlookSaid: written.outlookSaid === undefined ? null : JSON.stringify(written.outlookSaid),
             })
             .where('id', '=', id)
             .where('state', '=', 'writing')

@@ -12,6 +12,7 @@ import {
     FAILURE_HOLD_MS,
     MAX_FAILURE_HOLD_MS,
     MAX_FORECAST_DAYS,
+    MAX_FORECAST_HOURS,
     NWS_HOST,
     OPENWEATHERMAP_HOST,
     OPEN_METEO_GEOCODING_HOST,
@@ -184,6 +185,34 @@ describe('Open-Meteo, the default', () => {
         expect(host.calls[1]?.url).not.toContain('daily=');
     });
 
+    it('asks for the hourly outlook in the same request, as a span from the hour the place is in', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta', hours: 8 });
+
+        expect(host.calls).toHaveLength(2);
+        expect(host.calls[1]?.url).toContain('forecast_hours=8');
+        expect(host.calls[1]?.url).toContain('hourly=');
+    });
+
+    it('asks for no hourly block when nobody wanted an outlook, and caps one that asks for too much', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta' });
+        await plugin.getWeather({ place: 'Atlanta', hours: 500 });
+
+        expect(host.calls[1]?.url).not.toContain('hourly=');
+        expect(host.calls[1]?.url).not.toContain('forecast_hours');
+        // A different span is a different reading, so the cached one without an outlook is not
+        // handed to the caller that asked for one.
+        expect(host.calls[2]?.url).toContain(`forecast_hours=${MAX_FORECAST_HOURS}`);
+    });
+
     it('will not ask for more days than any of these services is worth asking for', async () => {
         await initialize();
         queueJson(GEOCODED);
@@ -236,6 +265,18 @@ describe('the National Weather Service', () => {
         expect(host.calls[2]?.url).toContain('units=si');
     });
 
+    it('fills the outlook from the hourly forecast it already fetches, at no extra request', async () => {
+        await initialize({ engine: 'nws' });
+        queueJson(GEOCODED);
+        queueJson(POINTS);
+        queueJson(HOURLY);
+
+        const reading = await plugin.getWeather({ place: 'Atlanta', hours: 6 });
+
+        expect(host.calls).toHaveLength(3);
+        expect(reading?.hours?.[0]).toMatchObject({ at: '2026-08-29T09:00:00-04:00', condition: 'clear', temperatureC: 24 });
+    });
+
     it('says which service covers only the United States when it answers 404', async () => {
         await initialize({ engine: 'nws' });
         queueJson(GEOCODED);
@@ -279,6 +320,19 @@ describe('OpenWeatherMap', () => {
 
         expect(new URL(host.calls[1]!.url).searchParams.get('lang')).toBe('de');
         expect(reading?.current.condition).toBe('clear');
+    });
+
+    it('feeds the days and the outlook from one forecast request', async () => {
+        await initialize({ engine: 'openweathermap' }, 'a-key');
+        queueJson([{ name: 'Atlanta', lat: 33.749, lon: -84.388 }]);
+        queueJson({ dt: 1_800_000_000, timezone: 0, weather: [{ id: 800 }], main: { temp: 24 } });
+        queueJson({ city: { timezone: 0 }, list: [{ dt: 1_800_003_600, main: { temp: 20 }, weather: [{ id: 500 }], pop: 0.6 }] });
+
+        const reading = await plugin.getWeather({ place: 'Atlanta', days: 1, hours: 6 });
+
+        expect(host.calls.filter(call => call.url.includes('/data/2.5/forecast'))).toHaveLength(1);
+        expect(reading?.days).toHaveLength(1);
+        expect(reading?.hours?.[0]).toMatchObject({ condition: 'rain', precipitationChance: 60 });
     });
 
     it('names the key when the service says 401, which the status alone does not', async () => {

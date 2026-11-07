@@ -630,6 +630,14 @@ describe('breakPrompt', () => {
             expect(user(prompt({ kind: 'talkbreak', previous, next, recent: worn }))).toContain('"groove"');
         });
 
+        // Measured on 2026-11-07: two of Frank's own breaks behind him named nothing, and the station's
+        // list (four of his breaks, "real gone" in all four) was never read.
+        it("falls back to the station list when the presenter's own is too short to judge", () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next, recent: worn, own: worn.slice(0, 2) }));
+
+            expect(said).toContain('"groove"');
+        });
+
         it('names a habit from the presenter alone, with nothing else behind the station', () => {
             expect(user(prompt({ kind: 'talkbreak', previous, next, own: worn }))).toMatch(/you have leaned on/i);
         });

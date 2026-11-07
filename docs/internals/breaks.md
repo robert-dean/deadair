@@ -782,6 +782,10 @@ reads it when it is there. Replayed over his previous two weeks, it would have n
 "drumming" 20 and "sorry" 6. Of the same KIND, because the banter is a different format with different habits
 and mixed in it dilutes the share that names one. The spent-signature rule reads both lists, prompt and guard
 alike, and `repeatOf` still reads only `recent`, since that is the list the prompt quotes back.
+`own` wins only when it holds enough breaks to judge (`WORN_MIN_SCRIPTS`). Preferring it whenever it was
+non-empty silenced the line for a presenter's first hour in the chair: on 2026-11-07 Frank's third talk
+break read his two earlier ones, named nothing, and passed over a station list with "real gone" in four of
+his scripts.
 
 **The writers hear the mood the show is leaning into, as a lean.** A broadcast's mood stages
 (`schedule_slots.moods`, copied onto the running order) used to steer the draw and nothing else, so a

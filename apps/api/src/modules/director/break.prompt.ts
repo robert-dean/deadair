@@ -1486,7 +1486,14 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // fills it: Garth's "basement" was in 26 of his 99 talk breaks and this line never once named it,
     // while it named "just", "like" and "wayne" off a window that was mostly Wayne. See
     // `BreakWriteRequest.own`.
-    const worn = settings.language === undefined ? overusedWords(request.own ?? request.recent) : [];
+    //
+    // But only when that list is long enough to judge. Below `WORN_MIN_SCRIPTS` it names nothing, and
+    // preferring it anyway silenced the line exactly when a presenter is new to the chair: on
+    // 2026-11-07 Frank's third talk break of the morning had two of his own behind it, so the line
+    // read those two, named nothing, and ignored a station list holding four of his scripts with
+    // "real gone" in all four.
+    const habits = (request.own?.length ?? 0) >= WORN_MIN_SCRIPTS ? request.own : request.recent;
+    const worn = settings.language === undefined ? overusedWords(habits) : [];
     if (worn.length > 0) {
         parts.push(
             `You have leaned on ${worn.map(word => `"${word}"`).join(', ')} in nearly every recent break. Reach past ${worn.length === 1 ? 'it' : 'them'} ` +

@@ -1,6 +1,20 @@
 #!/bin/sh
 # The station's voice.
 exec 2>&1
+
+# Off when the operator already runs a speech server of their own and has pointed the speech plugin
+# at it: a second copy of the model idling on the CPU here is memory the station never uses. This is
+# for the `full` tag above all, which is the only way to get the bundled database and cache and so
+# cannot be swapped for `slim` just to lose the voice.
+#
+# Asleep rather than exited, because a service that exits is a service the supervisor restarts.
+case "$(echo "${BUNDLED_TTS:-on}" | tr '[:upper:]' '[:lower:]')" in
+    off | false | 0 | no)
+        echo "tts: BUNDLED_TTS is off, so the bundled speech server is not started; the station speaks through whatever its speech plugin points at"
+        exec sleep infinity
+        ;;
+esac
+
 cd /opt/tts || exit 1
 
 # Its own interpreter and its own environment, kept apart from the measurement sidecar's: they

@@ -228,6 +228,10 @@ function checkAddresses() {
 
 function checkVoice() {
     if (!process.env.TTS_PORT || !statSafe('/opt/tts')) return;
+    if (['off', 'false', '0', 'no'].includes((process.env.BUNDLED_TTS ?? '').trim().toLowerCase())) {
+        record('ok', 'Voice', 'the bundled speech server is off (BUNDLED_TTS); the station speaks through whatever its speech plugin points at.');
+        return;
+    }
     const weights = `${process.env.DEADAIR_MEDIA || `${DATA}/media`}/tts-models`;
     let held = false;
     try {

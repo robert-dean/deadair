@@ -32,6 +32,11 @@ the machine already has a database you keep backups of, which is the better plac
 station's to live. `slim` is for pointing the speech plugin at a machine with a graphics card in
 it; the voice is the one part of this that genuinely wants one.
 
+**Already running a speech server, and still want `full`?** Point the speech plugin at yours under
+**Plugins**, then set `BUNDLED_TTS=off` on the container. The speech server inside it is then never
+started, and the database and cache carry on as before. `on`, the default, starts it again with the
+same voices, since they live under `/data/voices` either way.
+
 ## Before the first start
 
 Two secrets, and **the station makes both itself** on its first boot when neither is set. It writes

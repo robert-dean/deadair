@@ -17,6 +17,12 @@ DATA="${DATA_DIR:-/data}"
 
 [ -d /opt/tts ] || exit 0
 
+# Nothing to seed for a server that is not going to start (see the `tts` service's run script). The
+# links stay wherever an earlier boot left them, so turning it back on finds the same voices.
+case "$(echo "${BUNDLED_TTS:-on}" | tr '[:upper:]' '[:lower:]')" in
+    off | false | 0 | no) exit 0 ;;
+esac
+
 # Move a directory out to the volume and leave a link behind it. Never clobbering: a voice the
 # operator replaced by hand stays replaced, and weights already fetched are not fetched again.
 keep() {

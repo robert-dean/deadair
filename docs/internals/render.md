@@ -390,6 +390,14 @@ whatever the speech engine produced, often wav at three megabytes a minute, whic
 The copy is AAC in an `.m4a`, mono at 64 kbps (`SHARE_BITRATE_KBPS`, `SHARE_CHANNELS` in
 `segment.share.store.ts`), so a minute is about half a megabyte.
 
+**Sharing one beat of a production sends the whole production**, once its beats have been joined
+(`RenderService.shareableWhole`). The script history is written per beat, since each turn is one model call
+in one voice, so every client's share button reaches a beat's id first, and on its own that sent one
+presenter's line out of a banter or a phone-in. The joined row is what aired and the only file that is the
+conversation. Before the join, or where it never ran or has no audio, the beat's own audio is shared, since
+half a conversation is better than a 404. Only `share` is redirected: `original` is what the player asks
+for, and it must answer exactly the segment that was committed.
+
 **`rendition` names a purpose, never a format**, and it is a closed enum (`original`, the default, or
 `share`). The station decides what `share` means, so the encoding can change without any client changing, and
 the next purpose is one more value. Two designs were turned down: `Accept` negotiation names a format rather

@@ -38,9 +38,13 @@ export function conditionFromWmoCode(code: unknown): WeatherCondition {
     if (typeof code !== 'number' || !Number.isFinite(code)) return 'cloudy';
 
     switch (Math.trunc(code)) {
+        // 1 is "mainly clear", a few clouds in a clear sky. It was `cloudy` once,
+        // which handed the weather writer the word "cloudy" beside the description
+        // "mainly clear" in the same reading. A few clouds is clear on all three
+        // services now: NWS's `few` and OpenWeatherMap's 801 say the same.
         case 0:
-            return 'clear';
         case 1:
+            return 'clear';
         case 2:
             return 'cloudy';
         case 3:
@@ -210,10 +214,11 @@ export function conditionFromOpenWeatherId(id: unknown): WeatherCondition {
     if (typeof id !== 'number' || !Number.isFinite(id)) return 'cloudy';
 
     const code = Math.trunc(id);
-    if (code === 800) return 'clear';
-    // 801 to 803 is a sky between a tenth and five sixths covered; 804 is the
-    // whole of it, which is the only one worth a different word.
-    if (code >= 801 && code <= 803) return 'cloudy';
+    // 801 is "few clouds", a tenth to a quarter of the sky, which is clear as
+    // NWS's `few` and WMO's 1 are. 802 and 803 are scattered to broken cloud;
+    // 804 is the whole of it, which is the only one worth a different word.
+    if (code === 800 || code === 801) return 'clear';
+    if (code === 802 || code === 803) return 'cloudy';
     if (code === 804) return 'overcast';
 
     // Sleet (611-613) and rain-mixed-with-snow (615, 616) sit inside the snow

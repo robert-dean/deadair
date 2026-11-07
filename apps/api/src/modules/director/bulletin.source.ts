@@ -14,7 +14,7 @@ import { ReadLogStore } from './bulletin.read.store.js';
 import { NEWS_KIND } from './news.break.writer.js';
 import { numberInRange } from '#modules/shared/setting.numbers.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
-import { readsNames, sameStory, signatureOf, StoryRarity, type StorySignature } from './story.signature.js';
+import { readsNames, sameStory, signatureOf, StoryRarity, type SameStoryEvidence, type StorySignature } from './story.signature.js';
 
 /**
  * The stories a bulletin is written from, fetched once and handed to whichever writer takes it.
@@ -206,9 +206,15 @@ const MAX_BODY_CHARS = 700;
  * ## Keyed on the HEADLINE rather than on the item id
  *
  * An id is per publisher, so one story carried by two newsrooms is two ids and one thing a listener
- * hears twice. The headline is what actually gets read out, which makes it the honest key. It does
- * not catch two publishers WORDING one story differently — nothing here does, and that is a real
- * limit rather than an oversight.
+ * hears twice. The headline is what actually gets read out, which makes it the honest key.
+ *
+ * ## And beside it, what the story was ABOUT
+ *
+ * Two publishers wording one story differently are two keys, so each entry also holds the story's
+ * {@link StorySignature} where the caller had one, and {@link coveredBy} answers for a story read
+ * under ANOTHER headline as well as this one. Kept in a second set in the store, so the first still
+ * answers exactly what it always did. See `story.signature.ts` for the rule and what it was set
+ * against.
  *
  * ## Marked at SELECTION, not at air
  *
@@ -238,6 +244,8 @@ const MAX_BODY_CHARS = 700;
 @Injectable()
 export class ReadLog {
     private readonly readAt = new Map<string, number>();
+    /** What each headline in {@link readAt} was about, where whoever kept it knew. */
+    private readonly about = new Map<string, StorySignature>();
     /** The one read of the store this process makes, once it has succeeded. A failed one is tried again. */
     private restored?: Promise<void>;
 
@@ -261,17 +269,55 @@ export class ReadLog {
         return this.readAt.has(key(headline));
     }
 
-    /** When this headline last went out, or `undefined` if it has not inside the window. Valid when {@link has} is. */
-    lastRead(headline: string): number | undefined {
-        return this.readAt.get(key(headline));
+    /**
+     * When a story was read, under this headline or as one story with another (`sameStory`), or
+     * `undefined` when it has not been inside the window.
+     *
+     * `rarity` is the window the caller is judging in, which is what makes a token evidence. The
+     * latest of several matches is the one answered, so a story read twice rests from the second.
+     * Valid when {@link has} is.
+     */
+    coveredBy(
+        headline: string,
+        signature: StorySignature | undefined,
+        rarity: StoryRarity,
+    ): { at: number; headline?: string; evidence?: SameStoryEvidence } | undefined {
+        const exact = this.readAt.get(key(headline));
+        if (exact !== undefined || signature === undefined) return exact === undefined ? undefined : { at: exact };
+
+        let found: { at: number; headline: string; evidence: SameStoryEvidence } | undefined;
+        for (const [heard, theirs] of this.about) {
+            const at = this.readAt.get(heard);
+            if (at === undefined || (found !== undefined && at <= found.at)) continue;
+            const evidence = sameStory(signature, theirs, rarity);
+            if (evidence !== undefined) found = { at, headline: heard, evidence };
+        }
+        return found;
     }
 
-    /** Mark everything this bulletin is about to read. */
-    async keep(headlines: readonly string[], now: number): Promise<void> {
+    /** What every story read inside the window was about, for a caller with no window of its own to measure rarity in. */
+    signatures(): StorySignature[] {
+        return [...this.about.values()];
+    }
+
+    /**
+     * Mark everything this bulletin is about to read.
+     *
+     * A bare headline is kept by its words alone; one with its signature can also be recognised under
+     * another headline later, which is what every bulletin and breaking story now keeps.
+     */
+    async keep(stories: readonly (string | { headline: string; signature?: StorySignature })[], now: number): Promise<void> {
         await this.restore();
-        const keys = headlines.map(key);
-        for (const heard of keys) this.readAt.set(heard, now);
-        await this.persist('keep', () => this.store.save(keys, now));
+        const entries = stories.map(story =>
+            typeof story === 'string'
+                ? { key: key(story) }
+                : { key: key(story.headline), ...(story.signature === undefined ? {} : { signature: story.signature }) },
+        );
+        for (const entry of entries) {
+            this.readAt.set(entry.key, now);
+            if (entry.signature !== undefined) this.about.set(entry.key, entry.signature);
+        }
+        await this.persist('keep', () => this.store.save(entries, now));
     }
 
     /**
@@ -288,7 +334,10 @@ export class ReadLog {
     async forget(before: number): Promise<void> {
         await this.restore();
         for (const [seen, at] of this.readAt) {
-            if (at < before) this.readAt.delete(seen);
+            if (at < before) {
+                this.readAt.delete(seen);
+                this.about.delete(seen);
+            }
         }
         await this.persist('prune', () => this.store.prune(before));
     }
@@ -302,10 +351,13 @@ export class ReadLog {
     private restore(): Promise<void> {
         this.restored ??= this.store.load().then(
             saved => {
-                for (const [heard, at] of saved) {
+                for (const [heard, at] of saved.read) {
                     if (at > (this.readAt.get(heard) ?? Number.NEGATIVE_INFINITY)) this.readAt.set(heard, at);
                 }
-                if (saved.size > 0) this.logger.debug('director: the read log was restored', { headlines: saved.size });
+                // What this process kept since boot is newer than anything saved before it.
+                for (const [heard, signature] of saved.about) if (!this.about.has(heard)) this.about.set(heard, signature);
+                if (saved.read.size > 0)
+                    this.logger.debug('director: the read log was restored', { headlines: saved.read.size, signatures: saved.about.size });
             },
             (error: unknown) => {
                 this.restored = undefined;
@@ -588,8 +640,19 @@ export class BulletinSource {
             const offer = (page: readonly NewsItem[]): BreakStory[] => page.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []);
             // `about` has no default: an explicit `undefined` is the general pass, and a default would
             // quietly turn it back into the category.
-            const eligibleIn = (page: readonly BreakStory[], about: BreakSubject | undefined): BreakStory[] => {
-                const unread = page.filter(story => !this.read.has(story.headline));
+            //
+            // `read` defaults to the headline alone, which is all the roster's settling can ask: it
+            // runs while pages are still arriving, and rarity is measured over the whole window. Once
+            // every page is in, the cut asks by what each story is ABOUT as well (`readAt` below). A
+            // roster that settled on a story that turns out to have been read under another headline
+            // reaches further down the pages it already holds, so the cost is the occasional bulletin
+            // a story short, never a repeat.
+            const eligibleIn = (
+                page: readonly BreakStory[],
+                about: BreakSubject | undefined,
+                read: (story: BreakStory) => boolean = story => this.read.has(story.headline),
+            ): BreakStory[] => {
+                const unread = page.filter(story => !read(story));
                 // Cut to what this bulletin is about, when it was asked for one.
                 return about === undefined ? unread : unread.filter(story => (story.categories ?? []).includes(about.key));
             };
@@ -618,14 +681,31 @@ export class BulletinSource {
             const offeredBy = pages.map(offer);
             const offered = offeredBy.flat();
 
-            const unread = offeredBy.flat().filter(story => !this.read.has(story.headline));
-
             // What each story is ABOUT, for the cut below. Rarity is measured over one copy of each
             // headline, or a story two feeds carried word for word would count its own tokens twice.
             // See `story.signature.ts`.
             const names = readsNames(stationLanguage(this.config));
             const signatures = new Map<BreakStory, StorySignature>(offered.map(story => [story, signatureOf(story, { names })]));
             const rarity = new StoryRarity(distinct(offered).map(story => signatures.get(story) as StorySignature));
+
+            // When each offered story was read, under its own headline or as one story with another.
+            // A story read under ANOTHER headline is said at debug, with what joined them, because
+            // that is the line a wrong join would be found by.
+            const readAt = new Map<BreakStory, number>();
+            for (const story of offered) {
+                const covered = this.read.coveredBy(story.headline, signatures.get(story), rarity);
+                if (covered === undefined) continue;
+                readAt.set(story, covered.at);
+                if (covered.headline !== undefined) {
+                    this.logger.debug('director: a story in the news window was read earlier under another headline, so it is passed over', {
+                        story: story.headline,
+                        read: covered.headline,
+                        ...covered.evidence,
+                    });
+                }
+            }
+            const isRead = (story: BreakStory): boolean => readAt.has(story);
+            const unread = offered.filter(story => !isRead(story));
 
             // The stories one bulletin about `about` (or about anything) would read off these pages.
             //
@@ -642,7 +722,7 @@ export class BulletinSource {
             // Two newsrooms headlining one event differently is the same fault under two keys, so the
             // first story of each EVENT is kept too, which is the one the roster's order reached first.
             const choose = (about: BreakSubject | undefined): BreakStory[] => {
-                const eligibleBy = offeredBy.map(page => eligibleIn(page, about));
+                const eligibleBy = offeredBy.map(page => eligibleIn(page, about, isRead));
                 const eligible =
                     roster.length === 0 ? (about === undefined ? spread(eligibleBy[0] ?? []) : (eligibleBy[0] ?? [])) : inTurn(eligibleBy);
                 return this.oneOfEach(distinct(eligible), signatures, rarity).slice(0, wanted);
@@ -684,7 +764,7 @@ export class BulletinSource {
             if (stories.length === 0 && repeatWhenRead(this.config) === 'repeat') {
                 const pools = asked === undefined ? [undefined] : fallback === 'general' ? [asked, undefined] : [asked];
                 for (const about of pools) {
-                    const again = this.longestAgo(offered, about, wanted, signatures, rarity);
+                    const again = this.longestAgo(offered, about, wanted, readAt, signatures, rarity);
                     if (again.length === 0) continue;
                     stories = again;
                     subject = about;
@@ -715,7 +795,7 @@ export class BulletinSource {
             // Kept whether fresh or repeated: a story read again starts its rest again, which is what
             // makes the next recap reach for a different one.
             await this.read.keep(
-                stories.map(story => story.headline),
+                stories.map(story => ({ headline: story.headline, signature: signatures.get(story) as StorySignature })),
                 now,
             );
             if (recap) this.recaps.repeating(stories.length);
@@ -776,9 +856,23 @@ export class BulletinSource {
                     ? undefined
                     : (await this.news.fetchItems({ feedId: asked.feedId, limit: BREAKING_LOOKUP_LIMIT })).find(item => item.id === asked.itemId);
             const story = toStory(found ?? { title: asked.headline }, rules, undefined);
-            if (story === undefined || this.read.has(story.headline)) return { stories: [] };
+            if (story === undefined) return { stories: [] };
 
-            await this.read.keep([story.headline], now);
+            // Judged against what the station has read, which is the only window this path has: it
+            // asked one feed for one story. A breaking story an ordinary bulletin read under another
+            // newsroom's headline is the station breaking in to say what it said five minutes ago.
+            const signature = signatureOf(story, { names: readsNames(stationLanguage(this.config)) });
+            const covered = this.read.coveredBy(story.headline, signature, new StoryRarity([...this.read.signatures(), signature]));
+            if (covered !== undefined) {
+                if (covered.headline !== undefined) {
+                    this.logger.info('director: a breaking story was read in a bulletin under another headline, so it was skipped', {
+                        read: covered.headline,
+                    });
+                }
+                return { stories: [] };
+            }
+
+            await this.read.keep([{ headline: story.headline, signature }], now);
             this.logger.debug('director: read a breaking story for its bulletin', { found: found !== undefined });
             return { stories: [story] };
         } catch (error) {
@@ -835,13 +929,12 @@ export class BulletinSource {
         offered: readonly BreakStory[],
         about: BreakSubject | undefined,
         wanted: number,
+        readAt: ReadonlyMap<BreakStory, number>,
         signatures: ReadonlyMap<BreakStory, StorySignature>,
         rarity: StoryRarity,
     ): BreakStory[] {
-        const pool = distinct(
-            offered.filter(story => this.read.has(story.headline) && (about === undefined || (story.categories ?? []).includes(about.key))),
-        );
-        const oldestFirst = [...pool].sort((a, b) => (this.read.lastRead(a.headline) ?? 0) - (this.read.lastRead(b.headline) ?? 0));
+        const pool = distinct(offered.filter(story => readAt.has(story) && (about === undefined || (story.categories ?? []).includes(about.key))));
+        const oldestFirst = [...pool].sort((a, b) => (readAt.get(a) ?? 0) - (readAt.get(b) ?? 0));
         return this.oneOfEach(oldestFirst, signatures, rarity).slice(0, wanted);
     }
 

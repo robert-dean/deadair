@@ -16,6 +16,7 @@ import {
     MIN_BREAKING_COOLDOWN_MINUTES,
 } from '../../../src/modules/director/breaking.news.settings.js';
 import { ReadLog } from '../../../src/modules/director/bulletin.source.js';
+import { signatureOf } from '../../../src/modules/director/story.signature.js';
 import type { ReadLogStore } from '../../../src/modules/director/bulletin.read.store.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { NewsService } from '../../../src/modules/news/news.service.js';
@@ -66,7 +67,7 @@ function build(options: Options = {}) {
 }
 
 const readLog = (): ReadLog => {
-    const store = { load: vi.fn(async () => new Map()), save: vi.fn(async () => {}), prune: vi.fn(async () => {}) };
+    const store = { load: vi.fn(async () => ({ read: new Map(), about: new Map() })), save: vi.fn(async () => {}), prune: vi.fn(async () => {}) };
     return new ReadLog(store as unknown as ReadLogStore, logger);
 };
 
@@ -156,6 +157,32 @@ describe('BreakingNewsWatch', () => {
         await watch.pass(NOW);
 
         pages[ALERTS] = [story('c')];
+        await watch.pass(NOW + 5 * MINUTE);
+
+        expect(requestBreak).not.toHaveBeenCalled();
+    });
+
+    // Two newsrooms on one event almost never share a headline, so the read log is asked by what the
+    // story is about as well. Modelled on a pair the station's roster carried on 2026-11-07.
+    it("skips a story an ordinary bulletin read under another newsroom's headline", async () => {
+        const read = readLog();
+        const bbc = {
+            headline: "Cornell faculty pass no-confidence vote over leadership's handling of Jane Doe allegations",
+            summary:
+                'The resolution passed by the academic staff is largely symbolic, as the faculty have no power to remove the leadership of the university.',
+        };
+        await read.keep([{ headline: bbc.headline, signature: signatureOf(bbc) }], NOW);
+        const { watch, pages, requestBreak } = build({ read });
+        pages[ALERTS] = [];
+        await watch.pass(NOW);
+
+        pages[ALERTS] = [
+            story('pbs', {
+                title: "Cornell faculty vote 'no confidence' in university leadership after alleged fraternity gang rape",
+                summary:
+                    "The faculty body has no power over the university's leaders, but the resolution was meant to be more than symbolic, its backers at Cornell said.",
+            }),
+        ];
         await watch.pass(NOW + 5 * MINUTE);
 
         expect(requestBreak).not.toHaveBeenCalled();

@@ -922,7 +922,14 @@ true ones, which is the direction to be wrong in (a miss is the repeat this repl
 story nobody hears). Things it gets wrong on purpose: a roundup ("News Wrap") joins whatever it summarises,
 and a market selloff and the next day's rebound are one story to it. `BulletinSource.oneOfEach` keeps the
 first story of each event in the order the roster reached them, and logs each drop at debug with both
-headlines and the shared evidence. Names are read only in a language that capitalises names alone
+headlines and the shared evidence. **Across bulletins it is `ReadLog.coveredBy`**: each kept story's
+signature is written through beside its key, to a second sorted set (`bulletin-read-about`) so the first
+answers exactly what it always did and `prune` is still one range delete per set, and a story is read
+when its headline OR its signature matches one inside the window. The same question is asked by a
+breaking bulletin, by `BreakingNewsWatch` before it asks for one, and of a news edition's titles, which
+are signed from the title alone and so match less. The roster's early stop still settles on headlines
+only, because rarity needs the whole window, so a story found to be covered once every page is in costs
+a bulletin a story at worst, never a repeat. Names are read only in a language that capitalises names alone
 (`readsNames`): German capitalises every noun, so a German station joins on an id and nothing else.
 Not an embedding and not a model: no `llm` capability returns vectors, a bulletin is assembled minutes
 before air through the one model slot, and this is replayable over a saved window, which is how it was

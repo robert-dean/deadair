@@ -179,7 +179,11 @@ const asked = wanted === undefined || wanted.length === 0 ? undefined : { topic:
 // memory: in the app it is a singleton holding what the last bulletins said, and one run of a script
 // has nothing to have said before. Over a store that holds nothing and keeps nothing, so a run
 // neither reads the station's Redis nor spends a story the station has yet to air.
-const nowhere = { load: async () => new Map<string, number>(), save: async () => {}, prune: async () => {} } as unknown as ReadLogStore;
+const nowhere = {
+    load: async () => ({ read: new Map<string, number>(), about: new Map() }),
+    save: async () => {},
+    prune: async () => {},
+} as unknown as ReadLogStore;
 const watch = new CategoryWatch({ record: async () => {} } as unknown as ActivityRecorder, loud);
 const recaps = new RecapWatch({ record: async () => {} } as unknown as ActivityRecorder, loud);
 const bulletin = await new BulletinSource(news, new ReadLog(nowhere, loud), topics, watch, recaps, config, loud).storiesFor(NEWS_KIND, asked);

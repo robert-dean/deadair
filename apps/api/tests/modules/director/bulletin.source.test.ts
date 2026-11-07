@@ -19,6 +19,7 @@ import {
     RecapWatch,
 } from '../../../src/modules/director/bulletin.source.js';
 import type { ReadLogStore } from '../../../src/modules/director/bulletin.read.store.js';
+import type { StorySignature } from '../../../src/modules/director/story.signature.js';
 import { NEWS_KIND } from '../../../src/modules/director/news.break.writer.js';
 import type { NewsService } from '../../../src/modules/news/news.service.js';
 import { NEWS_FEEDS_KEY } from '../../../src/modules/news/news.settings.js';
@@ -49,12 +50,21 @@ const item = (title: string, overrides: Partial<NewsItem> = {}): NewsItem => ({
  */
 class MemoryStore {
     readonly read = new Map<string, number>();
-    load = vi.fn(async () => new Map(this.read));
-    save = vi.fn(async (keys: readonly string[], at: number) => {
-        for (const key of keys) this.read.set(key, at);
+    readonly about = new Map<string, StorySignature>();
+    load = vi.fn(async () => ({ read: new Map(this.read), about: new Map(this.about) }));
+    save = vi.fn(async (entries: readonly { key: string; signature?: StorySignature }[], at: number) => {
+        for (const entry of entries) {
+            this.read.set(entry.key, at);
+            if (entry.signature !== undefined) this.about.set(entry.key, entry.signature);
+        }
     });
     prune = vi.fn(async (before: number) => {
-        for (const [key, at] of this.read) if (at < before) this.read.delete(key);
+        for (const [key, at] of this.read) {
+            if (at < before) {
+                this.read.delete(key);
+                this.about.delete(key);
+            }
+        }
     });
 }
 
@@ -694,6 +704,49 @@ describe('what the station has already read', () => {
                 expect.stringContaining('are one story'),
                 expect.objectContaining({ dropped: expect.stringContaining("'no confidence'"), names: ['cornell'] }),
             );
+        });
+
+        it('passes over it in a LATER bulletin, read under the other headline', async () => {
+            const read = readLog();
+            await build({ items: [bbc, item('Bridge reopens after four years'), item('Council votes on the harbour')], read }).source.storiesFor(
+                NEWS_KIND,
+                undefined,
+                NOW,
+            );
+
+            const later = await build({ items: [pbs, item('Gallery opens a new wing')], read }).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(later?.stories.map(story => story.headline)).toEqual(['Gallery opens a new wing.']);
+            expect(logger.debug).toHaveBeenCalledWith(
+                expect.stringContaining('under another headline'),
+                expect.objectContaining({ read: expect.stringContaining('cornell faculty pass'), names: ['cornell'] }),
+            );
+        });
+
+        // The signature is written through with the headline, so a release between the two bulletins
+        // forgets nothing: the restart case `ReadLog` was given a store for, one level up.
+        it('passes over it after a RESTART as well', async () => {
+            const store = new MemoryStore();
+            await build({ items: [bbc], read: readLog(store) }).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            const afterRestart = await build({ items: [pbs, item('Gallery opens a new wing')], read: readLog(store) }).source.storiesFor(
+                NEWS_KIND,
+                undefined,
+                NOW,
+            );
+
+            expect(afterRestart?.stories.map(story => story.headline)).toEqual(['Gallery opens a new wing.']);
+        });
+
+        it('declines a breaking bulletin about it once an ordinary bulletin has read the other wording', async () => {
+            const read = readLog();
+            await build({ items: [bbc], read }).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            const breaking = { headline: pbs.title, feedId: 'deadair.rss:us', itemId: 'pbs-1' };
+            const bulletin = await build({ items: [pbs], read }).source.storiesFor(NEWS_KIND, breaking, NOW);
+
+            expect(bulletin).toEqual({ stories: [] });
+            expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('under another headline'), expect.anything());
         });
 
         it('reads both on a station whose language capitalises every noun, where a capital is not a name', async () => {

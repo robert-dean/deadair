@@ -125,6 +125,16 @@ banter form says it is what the presenters talk about, and the records form says
 `production.prompt.test.ts` holds a banter's outline and turns to never mentioning a caller, a call or
 ringing, so a new rule worded for phone-ins that leaks into the shared passages is caught there.
 
+**A banter hears the operator's talk direction, and a call never does.** `ProduceProductionJob.directionFor`
+reads it for a cast of presenters with nobody visiting, against `scheduledFor` (now for a standing banter, on
+`whenItAirs`' terms), and every beat is told it in the break prompt's own words (`directionNote`). A phone-in or
+a guest never hears it and the table is not even read for one: the note is the station's to its presenters, and
+a caller is somebody from outside the studio, which is the same reason a call never inherits the brief. The
+prompt checks again (`banter && !caller`), so a request that carried one by mistake still renders nothing. A
+beat that copies six words of it in a row is corrected by `directionFaults` beside `recordFaults` in the DRAFT
+pass, because most stations write banter `outlined` and have no check pass, and in the check pass too. Naming
+its subject is never refused; `docs/internals/breaks.md` § "The talk direction" says why.
+
 ## Commissioning one
 
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a

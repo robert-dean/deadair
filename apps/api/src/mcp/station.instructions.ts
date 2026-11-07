@@ -27,6 +27,7 @@ How the tools fit together:
 Where things are:
 - The running order: get_the_running_order, add_a_record_to_the_running_order, move_a_running_order_item, remove_a_running_order_item, skip_to_a_running_order_item. write_a_running_order_break_again rewrites one break that has not aired yet. request_a_break asks for the news, the weather or a word from the host now.
 - Quiet for a while: keep_the_station_quiet stops the station's own breaks for a number of records; end_the_quiet_spell ends it.
+- A note for the presenters: direct_the_presenters gives them a line to lean on for 1 to 24 hours (talk breaks, banter and the change of show hear it; news, weather and calls never do), read_the_talk_direction and stop_directing_the_presenters.
 - Opinion of a record: rate_track, rate_album, rate_artist. suspend_track, suspend_album and suspend_artist keep one off the air for a while without disliking it; lift_track_suspension and the others bring it back.
 - Requests: create_request asks as a listener would, with who is asking and a dedication. list_requests, grant_request and decline_request are for when an operator decides.
 - The timetable: create_schedule_slot adds a weekly block, or a special on dates. A special with live set books a live show. apply_schedule_slot_to_air applies an edited slot to the show on air without starting it again.

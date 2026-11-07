@@ -1159,6 +1159,14 @@ station makes most of and the setting decides whether a weather service is asked
 BAND was pointed at — and its four declines drop to `debug` there: they exist for an operator whose
 clock asks every hour and hears silence every hour, and on a talk break nothing was passed over.
 
+**A talk break near the weather break is not offered the reading at all.** The prompt's "most breaks are
+better without it" did not hold next to a bulletin: on 2026-11-07 a talk break eight minutes after the weather
+said "clear here in Atlanta with a wind of 7 miles per hour" a second time. So `WeatherSource` asks
+`SegmentRepository.airsNear` whether a weather break is due within `WEATHER_SPACING_MS` (half an hour) either
+side of this one, judged on `airs_at` because both are written well ahead in the same pass, and answers nothing
+when one is. A failed row is not coming and does not count. A read that fails offers the reading as before,
+since one repeated figure is the cheaper mistake.
+
 **The stamp is conditional on the talk break and unconditional on the weather break, which is one
 argument read from both ends.** `ModelWeatherBreakWriter` stamps `claims_reading_until` always,
 because `WEATHER_SHAPE` exists to make the model state the reading and a break that reached the stamp

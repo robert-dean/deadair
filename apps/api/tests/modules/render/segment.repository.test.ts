@@ -299,6 +299,31 @@ describe('SegmentRepository.recentScripts', () => {
 // What withholds a character's rack for a few talk breaks after one hit a pad. Counted from the rows,
 // so a station restarted every hour does not hit on the first break after each restart, and over one
 // kind, so a jingle's sting every time does not keep the talk breaks' board withdrawn forever.
+describe('SegmentRepository.airsNear', () => {
+    it('asks for a live row of the kind airing inside the window either side', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).airsNear('weather', 1_000_000, 60_000);
+
+        expect(statements[0]?.sql).toContain('"kind" = $');
+        expect(statements[0]?.sql).toContain('"state" != $');
+        expect(statements[0]?.sql).toMatch(/"airs_at" >= to_timestamp\(\$\d+ \/ 1000.0\)/);
+        expect(statements[0]?.sql).toMatch(/"airs_at" <= to_timestamp\(\$\d+ \/ 1000.0\)/);
+        expect(statements[0]?.parameters).toEqual(expect.arrayContaining(['a-station', 'weather', 'failed', 940_000, 1_060_000]));
+    });
+
+    it('answers from whether a row came back', async () => {
+        expect(await new SegmentRepository(fakeDb([{ id: 'seg-1' }], []), identity()).airsNear('weather', 0, 60_000)).toBe(true);
+        expect(await new SegmentRepository(fakeDb([], []), identity()).airsNear('weather', 0, 60_000)).toBe(false);
+    });
+
+    it('costs no query for an empty window', async () => {
+        const statements: Statement[] = [];
+
+        expect(await new SegmentRepository(fakeDb([], statements), identity()).airsNear('weather', 0, 0)).toBe(false);
+        expect(statements).toEqual([]);
+    });
+});
+
 describe('SegmentRepository.padInLastBreaks', () => {
     it('asks only for the last few scripted rows of the kind asked for, newest first', async () => {
         const statements: Statement[] = [];

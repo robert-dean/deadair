@@ -45,7 +45,7 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
  * gap and a much smaller one than refusing "seventeen degrees" for not being in the list.
  *
  * **The permitted set is every figure in the reading**, not only the ones the prompt emphasised: the
- * humidity, each day's high and low, and the percentages. A model that mentioned the humidity when
+ * humidity, each day's high and low, each hour of the outlook, and the percentages. A model that mentioned the humidity when
  * the prompt did not ask it to has said something true, and refusing that would push it toward
  * saying less than it knows rather than more than it was told.
  *
@@ -206,6 +206,17 @@ function measuredFigures(weather: SpokenWeather): Set<number> {
         keep(day.precipitationChance);
     }
 
+    // The hourly outlook, which `WeatherSource` has already cut to the window the break was shown, so
+    // a figure from an hour nobody was told about is still refused. Every digit in an outlook note
+    // (`weather.outlook.ts`) is one of these, since its times are written in words.
+    for (const hour of weather.hours ?? []) {
+        keep(hour.temperature);
+        keep(hour.feelsLike);
+        keep(hour.wind);
+        keep(hour.humidity);
+        keep(hour.precipitationChance);
+    }
+
     return measured;
 }
 
@@ -296,7 +307,11 @@ const WEATHER_CLAIM = new RegExp(String.raw`\b(?:${WEATHER_WORDS.join('|')})\b|-
 
 /** Every word that would count as reporting this reading's sky, across the conditions it names. */
 function conditionVocabulary(weather: SpokenWeather): string[] {
-    const conditions = [weather.current.condition, ...(weather.days ?? []).map(day => day.condition)];
+    const conditions = [
+        weather.current.condition,
+        ...(weather.days ?? []).map(day => day.condition),
+        ...(weather.hours ?? []).map(hour => hour.condition),
+    ];
 
     return conditions.flatMap(condition => CONDITION_VOCABULARY[condition]);
 }

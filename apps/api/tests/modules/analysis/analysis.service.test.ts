@@ -15,6 +15,7 @@ import { ANALYSIS_SCHEMA_VERSION, PluginError, type TrackAnalysis } from '@deada
 import { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import { resetDefaultPickReports } from '../../../src/modules/plugins/plugin.selection.js';
 import type { AnalysableTrack } from '../../../src/modules/analysis/analysis.repository.js';
+import { AnalysisSlots } from '../../../src/modules/analysis/analysis.slots.js';
 
 const stubLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() }) as unknown as Logger;
 
@@ -55,6 +56,8 @@ interface HarnessOptions {
     hasLocalAudio?: (binding: { pluginId: string; externalId: string }) => Promise<boolean>;
     /** What `AudienceWatch.gateOpen` answers, read once per track. Default: open. */
     gateOpen?: () => boolean;
+    /** The process-wide measurement count. A fresh one per test unless a test shares one on purpose. */
+    slots?: AnalysisSlots;
 }
 
 function build(options: HarnessOptions = {}) {
@@ -114,6 +117,7 @@ function build(options: HarnessOptions = {}) {
     } as unknown as AppConfig;
 
     const logger = stubLogger();
+    const slots = options.slots ?? new AnalysisSlots();
 
     const service = new AnalysisService(
         repository as never,
@@ -124,9 +128,10 @@ function build(options: HarnessOptions = {}) {
         audience as never,
         config,
         logger,
+        slots,
     );
 
-    return { service, repository, registry, invoker, trackAudio, audioService, logger, analyzeTrack, recordAnalysis, recordFailure };
+    return { service, slots, repository, registry, invoker, trackAudio, audioService, logger, analyzeTrack, recordAnalysis, recordFailure };
 }
 
 describe('choosing an analyzer', () => {
@@ -333,6 +338,26 @@ describe('the walk itself', () => {
 
         expect(peak).toBe(3);
         expect(summary.measured).toBe(8);
+    });
+
+    // Two walks standing in for the walk and the per-track job: different scopes, one process.
+    it('holds two runs sharing the process-wide count to `analysis.concurrency` between them', async () => {
+        let inFlight = 0;
+        let peak = 0;
+        const analyze = vi.fn(async () => {
+            peak = Math.max(peak, ++inFlight);
+            await new Promise(resolve => setTimeout(resolve, 5));
+            inFlight -= 1;
+            return measurement();
+        });
+
+        const slots = new AnalysisSlots();
+        const first = build({ pending: [track(1), track(2)], concurrency: 1, analyze, slots });
+        const second = build({ pending: [track(3), track(4)], concurrency: 1, analyze, slots });
+        await Promise.all([first.service.analysePending(50, undefined), second.service.analysePending(50, undefined)]);
+
+        expect(peak).toBe(1);
+        expect(analyze).toHaveBeenCalledTimes(4);
     });
 
     it('never opens more workers than there is work', async () => {

@@ -18,6 +18,7 @@ import { TrackAudioResolver } from '#modules/playout/providers/track.audio.resol
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
+import { AnalysisSlots } from './analysis.slots.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
     ANALYSIS_LOCAL_PACE_KEY,
@@ -106,6 +107,9 @@ export class AnalysisService {
         private readonly audience: AudienceWatch,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        // The process-wide count of measurements in flight, shared with the per-track job so the walk
+        // and a freshly fetched record together stay within `analysis.concurrency`. See `measureOne`.
+        private readonly slots: AnalysisSlots,
     ) {}
 
     /**
@@ -379,9 +383,13 @@ export class AnalysisService {
         };
 
         try {
-            const result = await this.invoker.invoke(pluginId, 'analysis.analyzeTrack', async () => analyzer.instance.analyzeTrack(ref), {
-                timeoutMs: ANALYZE_INVOKE_TIMEOUT_MS,
-            });
+            // Inside a slot, so this decode counts against `analysis.concurrency` whoever asked for it:
+            // the walk's own workers, or `AnalyseTrackJob` measuring a record the moment it arrived.
+            const result = await this.slots.run(this.concurrency(), () =>
+                this.invoker.invoke(pluginId, 'analysis.analyzeTrack', async () => analyzer.instance.analyzeTrack(ref), {
+                    timeoutMs: ANALYZE_INVOKE_TIMEOUT_MS,
+                }),
+            );
 
             await this.repository.recordAnalysis(track.trackId, pluginId, result);
 

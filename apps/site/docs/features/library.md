@@ -62,7 +62,15 @@ An unmeasured record still plays, untrimmed, left to the stream's live leveller.
 
 A record is committed to the running order only once its audio is on this machine. Fetching from a provider at the moment the player needed the record once put two seconds of silence on air, so the station fetches several records ahead. A record whose audio has not arrived is held rather than skipped, so your sequence is never reordered by whichever download finished first. A copy that fails four times in a row is benched, a record with no copy left comes out of the order before its slot, and the next walk of the library gives a benched copy another chance if the provider still lists it. See [the running order](./running-order.md).
 
-Every record fetched is kept, so a second airing costs no download. "Keep at most" under Settings → Playout caps the space; the least recently played go first, and never one about to air.
+### How much it keeps
+
+Every record fetched is kept, so a second airing costs no download, and out of the box nothing is ever removed. The station's copies sit in the media folder (`/media/tracks`) and grow to roughly the size of the library you actually play. **Settings → Storage** shows how much they take up.
+
+Copying cannot be turned off, because a record cannot air until its audio is here, but the space can be capped. Under **Settings → Playout**, set **Keep at most** to a size in gigabytes. Empty, the default, keeps everything.
+
+- Every fifteen minutes the station checks the total, and once it is over the cap it removes the least recently played copies until it is under. A record about to air, or one still downloading, is never removed.
+- Nothing is lost. The record stays in your library and is fetched again the next time it is picked.
+- Leave room for what is coming up. If the cap cannot fit the next few records, the station stores nothing new and skips them rather than airing a cut-short file. A few gigabytes is the least that makes sense; 20 GB holds well over a thousand records.
 
 Records, cover art and the audio of everything the station has said are each stored as a file with a row in the database pointing at it. A crash between writing the one and the other can leave a file nothing points at, which nothing can reach again. Settings → Storage counts them, and **Delete media files nothing points at** under Settings → Housekeeping (off by default) removes them in a nightly sweep. A file is left alone until it has sat unclaimed for a day (an hour at the least), because a file being written this moment has no row yet either; a file two rows share is kept while either wants it. The activity feed notes each sweep that removes anything, under **Storage**.
 

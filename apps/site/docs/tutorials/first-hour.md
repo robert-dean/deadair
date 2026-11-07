@@ -64,6 +64,10 @@ library, so a library with no playlists is still a complete setup.
 Then let the library sync. **You should see** your records under **Library** before going on. Nothing
 can be programmed until there are records.
 
+Once the station is playing, it downloads each record a few records ahead of when it airs and keeps the copy,
+so the media folder grows as it goes. That is on purpose. To cap the space it may use, see
+[the library § How much it keeps](../features/library.md#how-much-it-keeps).
+
 ## 2. Name the station and say where it is
 
 Open **Settings → Station**:

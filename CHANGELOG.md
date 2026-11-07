@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.96.5] — 2026-11-07
+
+- A mainly clear sky is clear. Open-Meteo's code 1 ("mainly clear") was reported as cloudy, so the weather writer was told "cloudy" and "mainly clear" in the same reading; OpenWeatherMap's "few clouds" had the same mapping. Both now read as clear, as the National Weather Service's few clouds already did.
+
 ## [0.96.4] — 2026-11-07
 
 - Sharing one line of a banter or a phone-in now sends the whole conversation. The share button on a row of what the station said used to send only that presenter's turn, because each turn is written separately. Once the turns have been joined into the one file that aired, sharing any of them sends that file. Before then, the single turn is still shared.
@@ -1981,7 +1985,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.5...HEAD
+[0.96.5]: https://github.com/robert-dean/deadair/compare/v0.96.4...v0.96.5
 [0.96.4]: https://github.com/robert-dean/deadair/compare/v0.96.3...v0.96.4
 [0.96.3]: https://github.com/robert-dean/deadair/compare/v0.96.2...v0.96.3
 [0.96.2]: https://github.com/robert-dean/deadair/compare/v0.96.1...v0.96.2

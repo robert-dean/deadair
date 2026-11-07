@@ -61,10 +61,16 @@ interface ServiceOptions {
     board?: Record<string, Pad>;
     /** What the joiner answers. Absent is nothing joined, which falls back to the words alone. */
     join?: (request: PadJoinRequest) => Promise<PadJoined | undefined>;
+    /** The production's joined row, for a beat's share. Absent is a production not joined yet. */
+    joined?: Segment;
 }
 
 const service = (options: ServiceOptions = {}) => {
     const findById = vi.fn().mockResolvedValue(options.segment);
+    const joinedOf = vi.fn().mockResolvedValue(options.joined);
+    // The copy is the share service's to make and is tested there; this answers with the segment it
+    // was asked about, which is the whole of what a case here checks.
+    const copyOf = vi.fn(async (segment: Segment) => ({ segmentId: segment.id }));
     const list = vi.fn().mockResolvedValue(options.segments ?? []);
     const read = vi.fn().mockResolvedValue(options.bytes);
     const scan = vi.fn().mockResolvedValue({ scanned: 1, imported: 1, skipped: 0 });
@@ -111,7 +117,7 @@ const service = (options: ServiceOptions = {}) => {
 
     return {
         service: new RenderService(
-            { findById, list, plan } as unknown as SegmentRepository,
+            { findById, joinedOf, list, plan } as unknown as SegmentRepository,
             { read } as unknown as SegmentStore,
             {
                 scan,
@@ -138,14 +144,16 @@ const service = (options: ServiceOptions = {}) => {
             {} as never,
             {} as never,
             logger as never,
-            // The copies listeners share. No case here asks for one.
-            {} as never,
+            // The copies listeners share, faked to say which segment was copied.
+            { copyOf } as never,
             { join } as never,
             config,
             // Where a break's facts came from, which no case here reads.
             {} as never,
         ),
         findById,
+        joinedOf,
+        copyOf,
         named,
         join,
         speak,
@@ -204,6 +212,67 @@ describe('RenderService.getSegmentAudio', () => {
         const { service: render } = service({ segment: READY, bytes: undefined });
 
         expect(await status(render.getSegmentAudio(ID))).toBe(404);
+    });
+});
+
+describe('RenderService.getSegmentAudio for a production beat', () => {
+    const PRODUCTION = '22222222-2222-4222-8222-222222222222';
+    const BEAT: Segment = {
+        ...READY,
+        id: ID,
+        kind: 'banter',
+        label: 'banter, turn 3',
+        source: 'render',
+        productionId: PRODUCTION,
+        productionOrdinal: 3,
+    };
+    const JOINED: Segment = {
+        ...READY,
+        id: '33333333-3333-4333-8333-333333333333',
+        kind: 'banter',
+        label: 'banter',
+        source: 'render',
+        audioChecksum: 'b'.repeat(64),
+    };
+
+    // One turn of a banter is half a conversation, and every client reaches a beat's id first
+    // because the script history is written per beat.
+    it('shares the joined production once its beats have been stitched', async () => {
+        const { service: render, joinedOf, copyOf } = service({ segment: BEAT, joined: JOINED });
+
+        expect(await render.getSegmentAudio(ID, { rendition: 'share' })).toEqual({ segmentId: JOINED.id });
+        expect(joinedOf).toHaveBeenCalledWith(PRODUCTION);
+        expect(copyOf).toHaveBeenCalledWith(expect.objectContaining({ id: JOINED.id, audioChecksum: JOINED.audioChecksum }));
+    });
+
+    it('shares the beat itself before the production is joined', async () => {
+        const { service: render } = service({ segment: BEAT, joined: undefined });
+
+        expect(await render.getSegmentAudio(ID, { rendition: 'share' })).toEqual({ segmentId: ID });
+    });
+
+    it('shares the beat itself when the joined row has no audio', async () => {
+        const { service: render } = service({ segment: BEAT, joined: { ...JOINED, audioChecksum: undefined, audioExt: undefined } });
+
+        expect(await render.getSegmentAudio(ID, { rendition: 'share' })).toEqual({ segmentId: ID });
+    });
+
+    // The player asks for exactly the segment it committed, and a beat that airs as a beat must
+    // still play as one.
+    it('never redirects the original rendition', async () => {
+        const { service: render, joinedOf, read } = service({ segment: BEAT, joined: JOINED, bytes: BYTES });
+
+        await render.getSegmentAudio(ID);
+
+        expect(joinedOf).not.toHaveBeenCalled();
+        expect(read).toHaveBeenCalledWith(CHECKSUM, 'mp3');
+    });
+
+    it('does not look for a production behind an ordinary break', async () => {
+        const { service: render, joinedOf } = service({ segment: READY });
+
+        expect(await render.getSegmentAudio(ID, { rendition: 'share' })).toEqual({ segmentId: ID });
+        expect(joinedOf).not.toHaveBeenCalled();
     });
 });
 

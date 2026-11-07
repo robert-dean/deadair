@@ -369,10 +369,18 @@ export class RenderService {
      * `rendition=share` answers a small copy made for a listener to send on instead, which is
      * {@link SegmentShareService}'s; the 404s are the same, since there is nothing to copy either.
      * It may also answer 503 (nothing can make one) or 502 (the encoder failed).
+     *
+     * A share asked for one BEAT of a production answers the whole production once its beats have
+     * been joined, since a single turn of a banter or a phone-in is half a conversation and the joined
+     * file is what aired. Every client reaches a beat's id first (a script row is written per beat),
+     * so this is the one place that can give all of them the programme. Before the join, or where it
+     * never ran, the beat's own audio is still shared. The original rendition is never redirected:
+     * the player asks for exactly the segment it committed.
      */
     async getSegmentAudio(id: string, query: SegmentAudioQuery = { rendition: 'original' }): Promise<SegmentAudioResponse | SegmentShareResponse> {
-        const segment = await this.segments.findById(id);
-        if (segment === undefined) throw httpError(404).withDetails({ message: `segment "${id}" does not exist` });
+        const found = await this.segments.findById(id);
+        if (found === undefined) throw httpError(404).withDetails({ message: `segment "${id}" does not exist` });
+        const segment = query.rendition === 'share' ? await this.shareableWhole(found) : found;
         if (segment.audioChecksum === undefined || segment.audioExt === undefined) {
             throw httpError(404).withDetails({ message: `segment "${id}" has no audio (${segment.state})` });
         }
@@ -387,6 +395,21 @@ export class RenderService {
             body: bytes,
             headers: { cacheControl: CACHE_CONTROL, etag: `"${segment.audioChecksum}"` },
         };
+    }
+
+    /**
+     * What sharing a segment sends: the production a beat belongs to once it has been joined and its
+     * file is in hand, and otherwise the segment itself.
+     *
+     * A joined row with no audio is passed over rather than answered with a 404, because the beat
+     * still has words a listener can hear and the share is better as half a conversation than as none.
+     */
+    private async shareableWhole(segment: Segment): Promise<Segment> {
+        if (segment.productionId === undefined || segment.productionOrdinal === undefined) return segment;
+
+        const joined = await this.segments.joinedOf(segment.productionId);
+        if (joined?.audioChecksum === undefined || joined.audioExt === undefined) return segment;
+        return joined;
     }
 
     /**

@@ -15,7 +15,7 @@ import { conditionFromNwsIcon, conditionFromOpenWeatherId, conditionFromWmoCode,
 describe('WMO codes, as Open-Meteo reports them', () => {
     it.each([
         [0, 'clear'],
-        [1, 'cloudy'],
+        [1, 'clear'],
         [2, 'cloudy'],
         [3, 'overcast'],
         [45, 'fog'],
@@ -106,7 +106,8 @@ describe('National Weather Service icons', () => {
 describe('OpenWeatherMap condition ids', () => {
     it('tells a clear sky from a full one, which is four numbers apart', () => {
         expect(conditionFromOpenWeatherId(800)).toBe('clear');
-        expect(conditionFromOpenWeatherId(801)).toBe('cloudy');
+        expect(conditionFromOpenWeatherId(801)).toBe('clear');
+        expect(conditionFromOpenWeatherId(802)).toBe('cloudy');
         expect(conditionFromOpenWeatherId(803)).toBe('cloudy');
         expect(conditionFromOpenWeatherId(804)).toBe('overcast');
     });
@@ -143,7 +144,7 @@ describe('OpenWeatherMap condition ids', () => {
 describe('the vocabulary as a whole', () => {
     it('has every word reachable from at least one service', () => {
         const produced = new Set<WeatherCondition>([
-            ...[0, 1, 3, 45, 51, 56, 61, 71, 95, 96].map(conditionFromWmoCode),
+            ...[0, 2, 3, 45, 51, 56, 61, 71, 95, 96].map(conditionFromWmoCode),
             ...([conditionFromNwsIcon('/icons/land/day/rain_snow')].filter(Boolean) as WeatherCondition[]),
             ...[300, 804].map(conditionFromOpenWeatherId),
         ]);

@@ -92,6 +92,16 @@ export interface WeatherQuery {
      */
     days?: number;
     /**
+     * How many hours ahead to include an hourly outlook for, counted from the hour the service is in.
+     *
+     * `0` or absent asks for none, which is what every caller asked before this existed. A SPAN of
+     * hours rather than a count of rows, because services publish at different steps: one answers
+     * every hour and one every three, and a caller asking "the next six hours" wants six hours of
+     * either. A plugin answers with the rows its service has inside that span, and caps it where the
+     * service stops, on {@link days}' rule.
+     */
+    hours?: number;
+    /**
      * The language the station broadcasts in, as a BCP 47 tag, or absent for English.
      *
      * Worth honouring for the PLACE above everything else: {@link WeatherReading.place} is said out
@@ -151,6 +161,24 @@ export interface WeatherDay extends WeatherConditions {
     sunset?: string;
 }
 
+/**
+ * What one moment ahead is expected to be like.
+ *
+ * A row of the hourly outlook. The moment is the START of the period the row describes, which for
+ * most services is an hour and for some is three: a caller works out how far away a row is from
+ * {@link at} and never from the row's position, because a reading handed out of a cache is a reading
+ * whose first row may already be in the past.
+ */
+export interface WeatherHour extends WeatherConditions {
+    /**
+     * When this row begins, as an ISO-8601 instant WITH the place's offset on it. Never a `Date`.
+     *
+     * The offset is load-bearing rather than tidy: a caller saying "by midnight" needs the hour on
+     * the PLACE's clock, and an instant in UTC alone cannot say what that is.
+     */
+    at: string;
+}
+
 /** What one place is like. */
 export interface WeatherReading {
     /**
@@ -181,6 +209,14 @@ export interface WeatherReading {
      * the difference belongs in the plugin's own log.
      */
     days?: WeatherDay[];
+    /**
+     * The hours ahead, earliest first, as the service forecast them.
+     *
+     * Absent or empty when {@link WeatherQuery.hours} asked for none, and when the service has no
+     * hourly forecast to give, on {@link days}' terms. The first row may be the hour already under
+     * way, and its {@link WeatherHour.at} says so.
+     */
+    hours?: WeatherHour[];
 }
 
 /**

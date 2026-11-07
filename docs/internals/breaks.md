@@ -913,11 +913,39 @@ set scored by the instant each headline was read: the first `keep` or `forget` a
 runs a Redis for its sessions, and the `full` image saves it under `/data/redis`. A store that fails is
 logged and never costs a bulletin: the log carries on in memory, and the next restart repeats the window,
 which is all memory alone ever bought. Keyed on the HEADLINE rather than the item id, because one story carried by two newsrooms
-is two ids and one thing a listener hears twice; it does not catch two publishers WORDING one story
-differently, and nothing here does. Marked at SELECTION, so a bulletin that never airs has still spent its
+is two ids and one thing a listener hears twice; two publishers WORDING one story differently is the next
+paragraph. Marked at SELECTION, so a bulletin that never airs has still spent its
 stories — the same inaccuracy `chooseFacts` buys, against the same alternative of a second writer that can
 disagree. `forget` runs on the way IN rather than when stories are kept, or the one station that needs it most
 (a feed so slow every bulletin declines) would be the one whose log never aged out.
+
+**One event headlined two ways by two newsrooms is one story, and a headline key cannot see it.** On
+2026-11-07 the BBC's "Cornell faculty pass no-confidence vote over leadership's handling of Jane Doe
+allegations" and PBS's "Cornell faculty vote 'no confidence' in university leadership after alleged
+fraternity gang rape" sat in one window as two stories the station had not read, and a roster taking turns
+reads both. `story.signature.ts` reduces each story to what it is ABOUT: the content words of its headline,
+teaser and opening, the NAMES it writes (a run of capitals mid-sentence is one name, so "Justice Department"
+counts once), and any vulnerability id. Two stories are one on a shared rare id, two rare names, or one rare
+name and four rare words, where rare means at most four stories in the offered window carry it, so "Trump"
+or "AI" on a political day is never evidence. **The rule is code, not a judgement**, and the bar was set with
+`scripts/bulletin.duplicates.smoke.ts` against two live windows: of 136 stories over two days it joined
+sixteen pairs, every one one story or a story and its follow-up, and the closest pairs it left apart were
+true ones, which is the direction to be wrong in (a miss is the repeat this replaced; a wrong join is a
+story nobody hears). Things it gets wrong on purpose: a roundup ("News Wrap") joins whatever it summarises,
+and a market selloff and the next day's rebound are one story to it. `BulletinSource.oneOfEach` keeps the
+first story of each event in the order the roster reached them, and logs each drop at debug with both
+headlines and the shared evidence. **Across bulletins it is `ReadLog.coveredBy`**: each kept story's
+signature is written through beside its key, to a second sorted set (`bulletin-read-about`) so the first
+answers exactly what it always did and `prune` is still one range delete per set, and a story is read
+when its headline OR its signature matches one inside the window. The same question is asked by a
+breaking bulletin, by `BreakingNewsWatch` before it asks for one, and of a news edition's titles, which
+are signed from the title alone and so match less. The roster's early stop still settles on headlines
+only, because rarity needs the whole window, so a story found to be covered once every page is in costs
+a bulletin a story at worst, never a repeat. Names are read only in a language that capitalises names alone
+(`readsNames`): German capitalises every noun, so a German station joins on an id and nothing else.
+Not an embedding and not a model: no `llm` capability returns vectors, a bulletin is assembled minutes
+before air through the one model slot, and this is replayable over a saved window, which is how it was
+tuned.
 
 **A news show's edition spends its stories too** (`editionHeadlines`). An episode of one of the station's own
 shows, once the director places it in the running order, keeps the headlines of its linked sources in the

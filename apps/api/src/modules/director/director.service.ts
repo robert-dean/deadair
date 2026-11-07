@@ -49,6 +49,7 @@ import { brokenClaim } from './break.claims.js';
 import { PRODUCTION_SHELF_LIFE_MS, productionExpired, productionLanding, standingCall } from './production.shelf.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { editionHeadlines, ReadLog } from './bulletin.source.js';
+import { readsNames, signatureOf } from './story.signature.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { breakPicture } from './break.picture.js';
@@ -80,6 +81,7 @@ import { StationLineupRepository } from './station.lineup.repository.js';
 import { PLANNING_TIME_LIMIT_MS } from './plan.records.js';
 import { awaitsMeasurement, measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * How many items to keep in the running order beyond what is airing.
@@ -1353,7 +1355,10 @@ export class DirectorService {
 
                     // A news edition's stories are now the station's to have said, so the bulletins
                     // after it pass over them. See `editionHeadlines`.
-                    const covered = editionHeadlines(production);
+                    // Titles only, so what each is about is read from the title alone: weaker than a
+                    // bulletin's, and still a story worded differently elsewhere it can recognise.
+                    const names = readsNames(stationLanguage(this.config));
+                    const covered = editionHeadlines(production).map(headline => ({ headline, signature: signatureOf({ headline }, { names }) }));
                     if (covered.length > 0) await scope.get(ReadLog).keep(covered, Date.now());
                     this.logger.info('director: put a production into the running order', {
                         production: production.id,
@@ -2818,7 +2823,9 @@ export class DirectorService {
 
         try {
             const trackIds = [...new Set(waiting.map(item => item.track.trackId!))];
-            const found = await inScope(this.container, scope => scope.get(AnalysisRepository).trustedAnalysisFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION));
+            const found = await inScope(this.container, scope =>
+                scope.get(AnalysisRepository).trustedAnalysisFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION),
+            );
 
             let taken = 0;
             for (const item of waiting) {

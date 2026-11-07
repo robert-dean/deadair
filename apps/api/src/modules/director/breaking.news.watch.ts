@@ -17,6 +17,8 @@ import {
     MIN_BREAKING_POLL_MINUTES,
 } from './breaking.news.settings.js';
 import { BREAKING_CONTEXT, ReadLog } from './bulletin.source.js';
+import { readsNames, signatureOf, StoryRarity, type StorySignature } from './story.signature.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 import { DirectorService } from './director.service.js';
 import { NEWS_KIND } from './news.break.writer.js';
 
@@ -175,6 +177,23 @@ export class BreakingNewsWatch {
 
         await this.read.ready();
 
+        // What each story is about, so one an ordinary bulletin read under another newsroom's headline
+        // is not news to this watch either. Rarity over this pass's stories and what the station has
+        // read, which is the window this watch has. Headlines and teasers only: it asked for no more.
+        const names = readsNames(stationLanguage(this.config));
+        const signatures = new Map<NewsItem, StorySignature>(
+            pages.flatMap(({ items }) =>
+                items.map(
+                    item =>
+                        [
+                            item,
+                            signatureOf({ headline: item.title, ...(item.summary === undefined ? {} : { summary: item.summary }) }, { names }),
+                        ] as const,
+                ),
+            ),
+        );
+        const rarity = new StoryRarity([...signatures.values(), ...this.read.signatures()]);
+
         const arrived: NewsItem[] = [];
         for (const { feedId, items } of pages) {
             const first = !this.baselined.has(feedId);
@@ -183,7 +202,7 @@ export class BreakingNewsWatch {
             for (const item of items) {
                 const known = this.seen.has(item.id);
                 this.seen.set(item.id, now);
-                if (first || known || this.read.has(item.title)) continue;
+                if (first || known || this.read.coveredBy(item.title, signatures.get(item), rarity) !== undefined) continue;
 
                 arrived.push(item);
             }

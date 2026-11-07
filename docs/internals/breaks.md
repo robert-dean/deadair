@@ -772,6 +772,14 @@ names them. That last one asks and never refuses, deliberately — `dictionMarke
 counted in every answer, so the cheapest way to pass the character check is to say the marker list again, and
 a check that declined over it would be refusing the character for being itself.
 
+**It names worn PHRASES too, because a tic built from short words was invisible to it.** The word count skips
+anything under four letters and the grammar list, so "dig this", which handed over six of Frank's nine breaks on
+2026-11-07, never registered, and "real gone" could only ever be named as two loose words. Two words side by side
+are now counted the same way (scripts, not uses): two content words always, and a grammar word only beside one too
+short to be counted alone, so "dig this" is a phrase and "the groove" is just "groove". A phrase is named whole
+and its words are not named again beside it. On Frank's morning it names "real gone", "dig this", "gonna",
+"horn" and "makes".
+
 **A habit belongs to whoever has it, so the worn-word line reads the presenter's own breaks.** `recent` is
 the station's last six lines, whoever said them, and on a show with co-hosts one banter fills it with beats.
 Measured on 2026-10-29: Garth's newest talk break was handed a jingle, one of his own breaks and four banter

@@ -351,6 +351,19 @@ export const schedule = {
             current: 'Leaning toward {{genres}} until {{until}}.',
             failed: 'The lean could not be changed',
         },
+        direction: {
+            title: 'Tell the presenters',
+            description:
+                'A line for the presenters to lean on for a few hours, such as "it\'s Sam\'s birthday tonight" or "we\'re snowed in, keep it cosy". Talk breaks, banter and the change of show hear it; the news, the weather, the date, jingles and calls never do. It is never read out or stated as fact, and breaks already written are not rewritten.',
+            wordsLabel: 'What to tell them',
+            wordsPlaceholder: "It's Sam's birthday tonight",
+            hoursLabel: 'For (hours)',
+            start: 'Tell them',
+            replace: 'Replace the note',
+            stop: 'Stop',
+            current: 'The presenters are leaning on "{{words}}" until {{until}}.',
+            failed: 'The note to the presenters could not be changed',
+        },
         never: {
             title: 'Never play',
             description:

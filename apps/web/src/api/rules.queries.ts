@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { BlockRuleInput, BlockRuleList, GenreSteerInput, GenreSteerReading } from '@deadair/sdk';
+import type { BlockRuleInput, BlockRuleList, GenreSteerInput, GenreSteerReading, TalkDirectionInput, TalkDirectionReading } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { useListWrite } from './mutation.kit';
@@ -54,4 +54,26 @@ export function useSteerTowardGenres() {
 
 export function useStopSteering() {
     return useSteerWrite((_: void) => sdk.director.stopSteering());
+}
+
+/** The talk direction in force, if any. It runs out with the clock, as a lean does. */
+export function useTalkDirection() {
+    return useQuery({
+        queryKey: queryKeys.director.direction(),
+        queryFn: () => sdk.director.readTheTalkDirection(),
+        staleTime: RULES_STALE_TIME,
+        refetchInterval: RULES_STALE_TIME,
+    });
+}
+
+function useDirectionWrite<TArgs>(mutationFn: (args: TArgs) => Promise<TalkDirectionReading>) {
+    return useListWrite(queryKeys.director.direction(), mutationFn);
+}
+
+export function useDirectThePresenters() {
+    return useDirectionWrite((input: TalkDirectionInput) => sdk.director.directThePresenters(input));
+}
+
+export function useStopDirecting() {
+    return useDirectionWrite((_: void) => sdk.director.stopDirectingThePresenters());
 }

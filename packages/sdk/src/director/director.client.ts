@@ -3,6 +3,8 @@ import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type { PackImportPlan } from '../topics/types/topics.types.js';
 import type { BreakKindFile, BreakKindImportPlan, BreakKindImportResult, BreakKindInput, BreakKindList } from './types/break.kinds.types.js';
 import type { ClockBandInput, ClockBandList, ClockImportResult, ClockPack } from './types/clock.types.js';
+import type { TalkDirectionInput, TalkDirectionReading } from './types/direction.types.js';
+import { reviveTalkDirectionReading } from './types/direction.types.js';
 import type {
     AddStationSegmentInput,
     AddStationTrackInput,
@@ -196,6 +198,37 @@ export class DirectorClient {
     async deleteClockBand(id: string): Promise<ClockBandList> {
         const result = await this.fetch(`/clock/bands/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return await parseJson<ClockBandList>(result);
+    }
+
+    /**
+     * @name Read the talk direction
+     * @description The direction in force, if any
+     */
+    async readTheTalkDirection(): Promise<TalkDirectionReading> {
+        const result = await this.fetch(`/direction`, { method: 'GET' });
+        return reviveTalkDirectionReading(await parseJson<TalkDirectionReading>(result));
+    }
+
+    /**
+     * @name Direct the presenters
+     * @description Gives the presenters a line to lean on for a number of hours, replacing any direction already in force. Breaks already written are not rewritten
+     */
+    async directThePresenters(body: TalkDirectionInput): Promise<TalkDirectionReading> {
+        const result = await this.fetch(`/direction`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveTalkDirectionReading(await parseJson<TalkDirectionReading>(result));
+    }
+
+    /**
+     * @name Stop directing the presenters
+     * @description Ends the direction now. Breaks already written are not rewritten
+     */
+    async stopDirectingThePresenters(): Promise<TalkDirectionReading> {
+        const result = await this.fetch(`/direction`, { method: 'DELETE' });
+        return reviveTalkDirectionReading(await parseJson<TalkDirectionReading>(result));
     }
 
     /**

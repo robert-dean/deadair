@@ -66,6 +66,7 @@ import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './bre
 import type { ChartPlacing } from '#modules/playout/rundown.js';
 import { retryNudge } from './break.retry.js';
 import { spoken } from './talk.break.writer.js';
+import { directionNote } from './talk.direction.words.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -373,6 +374,16 @@ export interface BreakPromptShape {
      * come up, and a quirk with a cadence was never a rule to be sent everywhere.
      */
     allowsOccasionalQuirk?: boolean;
+    /**
+     * Whether this kind of break hears the operator's talk direction (`BreakWriteRequest.direction`).
+     *
+     * On for the talk break and the changeover, and off everywhere else on
+     * {@link BreakPromptShape.allowsPreoccupation}'s argument one source further out: a bulletin, a
+     * forecast or the date handed a line about the evening will work it into the report, in the voice
+     * that reports facts. The welcome, a story and a dedication are off too: each already has its
+     * subject, and the direction is a lean for a presenter with nothing in particular to say.
+     */
+    hearsDirection?: boolean;
 }
 
 /**
@@ -495,6 +506,9 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     allowsPreoccupation: true,
     // And the one with room for a character's now-and-then act. See `allowsOccasionalQuirk`.
     allowsOccasionalQuirk: true,
+    // The ordinary link is where a presenter with nothing in particular to say hears what the
+    // operator asked for tonight. See `hearsDirection`.
+    hearsDirection: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -1419,6 +1433,8 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    parts.push(...directionLines(request, shape));
+
     // What this character has said before tonight, which is the half of a presenter's memory that
     // outlives the broadcast. Placed ahead of the recent scripts rather than after them, because the
     // two are read very differently and running them together would confuse both: this one is
@@ -2275,3 +2291,11 @@ export const bareWords = (text: string): string =>
         .replace(/[‘’ʼ′]/g, "'")
         .replace(/[^\p{L}\p{N}']+/gu, ' ')
         .trim();
+
+/** The operator's talk direction, for a shape that hears one, or nothing. The wording is `directionNote`'s. */
+function directionLines(request: BreakWriteRequest, shape: BreakPromptShape): string[] {
+    const direction = request.direction?.trim() ?? '';
+    if (shape.hearsDirection !== true || direction.length === 0) return [];
+
+    return [directionNote(direction)];
+}

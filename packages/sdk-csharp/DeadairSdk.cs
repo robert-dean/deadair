@@ -31,6 +31,7 @@ public sealed class DeadairSdk : IDisposable
         Charts = new ChartsClient(Http);
         BreakKinds = new BreakKindsClient(Http);
         Clock = new ClockClient(Http);
+        Direction = new DirectionClient(Http);
         Director = new DirectorClient(Http);
         Rules = new RulesClient(Http);
         Events = new EventsClient(Http);
@@ -95,6 +96,8 @@ public sealed class DeadairSdk : IDisposable
     public BreakKindsClient BreakKinds { get; }
 
     public ClockClient Clock { get; }
+
+    public DirectionClient Direction { get; }
 
     public DirectorClient Director { get; }
 

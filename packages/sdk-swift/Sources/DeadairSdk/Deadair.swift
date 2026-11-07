@@ -18,6 +18,7 @@ public final class Deadair: Sendable {
     public let charts: ChartsClient
     public let breakKinds: BreakKindsClient
     public let clock: ClockClient
+    public let direction: DirectionClient
     public let director: DirectorClient
     public let rules: RulesClient
     public let events: EventsClient
@@ -71,6 +72,7 @@ public final class Deadair: Sendable {
         self.charts = ChartsClient(http: http)
         self.breakKinds = BreakKindsClient(http: http)
         self.clock = ClockClient(http: http)
+        self.direction = DirectionClient(http: http)
         self.director = DirectorClient(http: http)
         self.rules = RulesClient(http: http)
         self.events = EventsClient(http: http)

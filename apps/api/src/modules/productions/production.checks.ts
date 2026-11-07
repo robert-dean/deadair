@@ -32,7 +32,7 @@
 
 import { withoutCues } from '@deadair/plugin-sdk';
 import type { CastRole } from './production.cast.js';
-import { withoutRecordNames } from '#modules/director/break.answer.guard.js';
+import { readOutDirectionIn, withoutRecordNames } from '#modules/director/break.answer.guard.js';
 import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from '#modules/director/clock.words.js';
 import { unofferedWeather } from '#modules/director/weather.figures.js';
 import { avoidedWording } from '#modules/personas/persona.sheet.js';
@@ -308,6 +308,11 @@ export interface BeatCheckInput {
      */
     raised?: readonly string[];
     /**
+     * The operator's talk direction this beat heard, which it may lean on and never read out. Absent
+     * asks nothing, which is every programme but a banter. See {@link directionFaults}.
+     */
+    direction?: string;
+    /**
      * The station's language when it is not English. The four checks that read English words, the
      * two about the time of day, the one about the weather and the one about a programme introducing
      * itself twice, stand down.
@@ -379,6 +384,7 @@ export function checkBeat(input: BeatCheckInput): string[] {
 
     // Still about what the beat SAYS: a record it was never handed, cued or named.
     problems.push(...recordFaults({ ...input, text }));
+    problems.push(...directionFaults({ ...input, text }));
 
     const spoken = countWords(text);
     const target = expectedWords(input.words);
@@ -610,6 +616,28 @@ function handedTo(input: RecordCheckInput): { given: (part: string) => boolean; 
             return people.some(one => lower === one || lower.startsWith(`${one} `) || lower.startsWith(`${one}'`) || lower.startsWith(`${one}’`));
         },
     };
+}
+
+/** What {@link directionFaults} reads: the beat, the direction it heard, and the records it may name. */
+export type DirectionCheckInput = Pick<BeatCheckInput, 'text' | 'direction' | 'records'>;
+
+/**
+ * The talk direction read out, as a correction, or nothing.
+ *
+ * The break guard's own question (`readOutDirectionIn`), asked of a beat: a run of six words copied
+ * from the direction is a reading, and naming its subject is not, so a short direction is never
+ * refused. Run by the DRAFT pass beside {@link recordFaults} as well as by the check pass, because a
+ * banter is written `outlined` on most stations and has no check pass at all.
+ */
+export function directionFaults(input: DirectionCheckInput): string[] {
+    if (input.direction === undefined) return [];
+    const said = readOutDirectionIn(withoutPads(withoutCues(input.text)), { direction: input.direction, names: input.records ?? [] });
+    return said === undefined
+        ? []
+        : [
+              'This beat reads out the note the station gave you for tonight, which was meant for you and not for the listener. ' +
+                  'Touch on it only in your own words, or not at all.',
+          ];
 }
 
 /**

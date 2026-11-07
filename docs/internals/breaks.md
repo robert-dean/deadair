@@ -49,7 +49,9 @@ same `patienceFor(airsAt)` as the first, so a retry with no time left is refused
 writes the break exactly as it would have. A year, a figure or a run of lyric the model was never given
 (`invented-year`, `invented-figure`, `quoted-lyric`) is retried too, since 2026-10-07: those are one claim
 added to an otherwise sound break, the same mistake as `unoffered-weather`, and the fix is to drop it. A
-lyric is the one fault whose refused answer is not quoted back, because the answer is the quotation.
+lyric is the one fault whose refused answer is not quoted back, because the answer is the quotation. The
+operator's talk direction read out (`read-out-direction`) is retried on the lyric's terms; see "The talk
+direction".
 
 **A quiet spell is the station not talking for N records, and it is counted where the planner counts.**
 `station_air.breaks_quiet_records` (migration 0114) holds the count. The `quiet` director command sets it,
@@ -871,6 +873,39 @@ rows are records in the contract and are read as `OccasionPackRow` one at a time
 bad month with a 400 for the whole file. An import only adds: a row with the same words and the same rule is skipped, and
 what it adds starts switched off, since a file from somebody else should not change what the station says until an
 operator says so. No `id` and no `position` in the file, so it cannot collide with a row it did not mean.
+
+## The talk direction
+
+**A talk direction is a line the operator gives the presenters for a while, and it is a lean, never a claim.**
+"It's Sam's birthday tonight", "we're snowed in, keep it cosy": one per station, 1 to 280 characters, for 1 to
+24 hours, in `deadair.talk_directions` (migration 0135) beside the genre steer it is modelled on, and set at
+`/direction` (its own path, because `/rules/{id}` would match `/rules/direction` and answer every write from the
+id check). It exists because nothing timed and free-text reached the talk: the broadcast brief is deliberately
+music-only and a band's `topic` is a key rather than words, so making the station feel live for one evening
+meant editing persona sheets.
+
+**Who hears it is the shape's call, `BreakPromptShape.hearsDirection`**, and the builder holds no second opinion
+(`DIRECTION_KINDS` is built from the shapes, as the story and trivia sets are): the talk break and the changeover.
+News, the weather and the date never hear it, on `allowsPreoccupation`'s argument one source further out: a
+report handed a line about the evening works it into the report, in the voice that states facts. The welcome, a
+story and a dedication do not either, because each already has its subject. A kind absent from the set never
+even reads the table, and `break.direction.test.ts` holds every report's prompt to never containing it.
+
+**It is read against the break's AIR time, not now**, by `BreakRequestBuilder.direction` against `airs_at`, so a
+break written twenty minutes before a direction ends and airing after it does not hear it. Its freshness row is
+`fetched-for-air`. Setting or clearing one rewrites nothing already written: a break written without it, or with
+one since cleared, said nothing untrue, and "write it again" is there for a break that must change.
+
+**The prompt offers it in three clauses** (`directionNote`, shared with the banter): optional, on the played
+list's measured argument that a model handed material gets through it; a direction rather than news or evidence,
+so nothing is stated as fact or added to it; and never read out or quoted. **The guard holds the third as
+`read-out-direction`**, retryable on `quoted-lyric`'s terms (the break was fine to lean on it, and the fix is the
+presenter's own words). It refuses only a run of six words copied in a row (`DIRECTION_ECHO_WORDS`, on `runOf`'s
+rule rather than `echoOf`'s). `echoOf` refuses a short line that appears whole, which would refuse every break
+that says "Sam's birthday" under a direction that is exactly that, and naming the subject is what the direction
+asked for. So a direction shorter than six words is never refused for echo. A read-out in another language gets
+past it, which is accepted: the prompt still says not to, and a translated note is the presenter's own words
+in every sense a listener can hear.
 
 ## Bulletins
 

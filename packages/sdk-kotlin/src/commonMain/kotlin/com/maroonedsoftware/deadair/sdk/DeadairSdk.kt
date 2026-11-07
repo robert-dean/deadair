@@ -13,6 +13,7 @@ import com.maroonedsoftware.deadair.sdk.clients.CatalogClient
 import com.maroonedsoftware.deadair.sdk.clients.ChartsClient
 import com.maroonedsoftware.deadair.sdk.clients.BreakKindsClient
 import com.maroonedsoftware.deadair.sdk.clients.ClockClient
+import com.maroonedsoftware.deadair.sdk.clients.DirectionClient
 import com.maroonedsoftware.deadair.sdk.clients.DirectorClient
 import com.maroonedsoftware.deadair.sdk.clients.RulesClient
 import com.maroonedsoftware.deadair.sdk.clients.EventsClient
@@ -73,6 +74,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val charts: ChartsClient = ChartsClient(http)
     val breakKinds: BreakKindsClient = BreakKindsClient(http)
     val clock: ClockClient = ClockClient(http)
+    val direction: DirectionClient = DirectionClient(http)
     val director: DirectorClient = DirectorClient(http)
     val rules: RulesClient = RulesClient(http)
     val events: EventsClient = EventsClient(http)

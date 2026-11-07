@@ -1261,6 +1261,13 @@ export interface DeadairStationLineup {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairTalkDirections {
+  createdAt: Generated<DateTime>;
+  endsAt: DateTime;
+  stationKey: Generated<string>;
+  words: string;
+}
+
 export interface DeadairTopics {
   config: Generated<Json>;
   createdAt: Generated<DateTime>;
@@ -1522,6 +1529,7 @@ export interface DB {
   "deadair.stationAir": DeadairStationAir;
   "deadair.stationEvents": DeadairStationEvents;
   "deadair.stationLineup": DeadairStationLineup;
+  "deadair.talkDirections": DeadairTalkDirections;
   "deadair.topics": DeadairTopics;
   "deadair.trackAnalysis": DeadairTrackAnalysis;
   "deadair.trackArtists": DeadairTrackArtists;

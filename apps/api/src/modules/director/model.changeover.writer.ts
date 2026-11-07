@@ -71,6 +71,9 @@ export const CHANGEOVER_SHAPE: BreakPromptShape = {
             .filter(Boolean)
             .join(' ');
     },
+    // The top of a show is where a presenter sets the evening up, so it hears the operator's direction
+    // as the talk break does. See `BreakPromptShape.hearsDirection`.
+    hearsDirection: true,
 };
 
 @Injectable()

@@ -23,6 +23,7 @@ import { withoutPads } from '#modules/render/pad.cues.js';
 import { afterThinking, speakableScript } from '#modules/render/speakable.script.js';
 import {
     characterFault,
+    MAX_SAMPLE_ECHO_WORDS,
     runOf,
     subjectsVisited,
     type CharacterContext,
@@ -675,6 +676,12 @@ export interface AnswerGuard {
      */
     shows?: readonly BreakConcert[];
     /**
+     * The operator's talk direction this break heard, which may lean it and may never be read out.
+     * Absent asks nothing, which is every break whose shape does not hear one. See
+     * {@link readOutDirectionIn}.
+     */
+    direction?: string;
+    /**
      * The station's name, which a script may say and may not say a line TO. Build it with
      * `stationGuard`, from the same setting the prompt names the station from. Absent asks nothing.
      * See `stationSignOffIn`.
@@ -801,6 +808,10 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // one thing the station must never say. After the factual checks and in the same position
     // `writeDecline` checks it, on the one-story rule. See `quotedLyricIn`.
     if (quotedLyricIn(words, guard) !== undefined) return undefined;
+
+    // The operator's direction read out rather than leaned on. Beside the lyric, because it is the
+    // same question asked of a different text, and in the same position `writeDecline` asks it.
+    if (readOutDirectionIn(words, guard) !== undefined) return undefined;
 
     // A line said TO the station, "Party on, Deadair!". After every factual check, because it is a
     // fault of voice rather than of fact, and before the character, because a sign-off that is
@@ -1411,6 +1422,25 @@ const quotedLyricIn = (script: string, guard: AnswerGuard): string | undefined =
     guard.lyrics === undefined || guard.lyrics.length === 0 ? undefined : runOf(guard.lyrics, withoutRecordNames(script, guard), SUBJECT_ECHO_WORDS);
 
 /**
+ * How many words in a row a script may copy from the talk direction before it counts as reading it out.
+ *
+ * One more than a sample's, and applied on {@link runOf}'s rule rather than `echoOf`'s, which is the
+ * whole of the difference. `echoOf` refuses a line of {@link MAX_SAMPLE_ECHO_WORDS} words or fewer
+ * when it appears whole, which is right for a sample and wrong here: a direction is often a subject
+ * ("Sam's birthday"), and a break that names the subject is doing what the direction asked. So only
+ * a run of six copied words is a reading, and a direction shorter than that is never refused for it.
+ */
+export const DIRECTION_ECHO_WORDS = MAX_SAMPLE_ECHO_WORDS + 1;
+
+/**
+ * The talk direction, when a script copied {@link DIRECTION_ECHO_WORDS} of its words in a row, or
+ * `undefined`. Record names are out of the script first, on {@link quotedLyricIn}'s argument: a
+ * direction that names a record is not read out by a break that names it too.
+ */
+export const readOutDirectionIn = (script: string, guard: AnswerGuard): string | undefined =>
+    guard.direction === undefined ? undefined : runOf([guard.direction], withoutRecordNames(script, guard), DIRECTION_ECHO_WORDS);
+
+/**
  * The weather a break described when it was given no reading to describe, or `undefined`.
  *
  * The other half of {@link inventedFigureIn}: that one asks what a break did with the reading it was
@@ -1556,6 +1586,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // by — a temperature said confidently is acted on.
     'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
     'quoted-lyric': 'the model quoted a run of a record’s lyrics, which the station never says on air',
+    'read-out-direction': 'the model read the talk direction out rather than leaning on it, so a listener heard the note meant for the presenter',
     // Not folded into the row above: there the station had a reading and the model contradicted it,
     // here it had none and the model described the sky anyway, and the two send an operator to
     // different places (the service, against the prompt).
@@ -1604,6 +1635,7 @@ export type WriteFault =
     | 'invented-year'
     | 'invented-figure'
     | 'quoted-lyric'
+    | 'read-out-direction'
     | 'unoffered-weather'
     | 'invented-home'
     | 'invented-concert'
@@ -1710,6 +1742,8 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
     // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
     if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');
+    // Without the words for the opposite reason: they are the operator's own, already in front of them.
+    if (readOutDirectionIn(speakable, guard) !== undefined) return reasoned('read-out-direction');
     // With the sentence, so the second ask can be told which line to drop.
     const signOff = stationSignOffIn(speakable, guard);
     if (signOff !== undefined) return reasoned('station-sign-off', signOff);

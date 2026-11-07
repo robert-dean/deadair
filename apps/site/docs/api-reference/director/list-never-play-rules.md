@@ -1,7 +1,7 @@
 ---
 title: 'List never-play rules'
 sidebar_label: 'List never-play rules'
-sidebar_position: 36
+sidebar_position: 39
 mdx:
     format: 'md'
 ---

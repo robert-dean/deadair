@@ -501,6 +501,11 @@ the steered genres (`SimilarityService.askTagged` tells that from a source that 
 `rotation.steerUntagged` warning to the activity feed per steer, cleared once the genres find records, so a
 misspelled genre reads as a spelling to fix rather than as a station quietly doing half of what it was asked.
 
+**The steer's sibling for what is SAID is the talk direction**, and it touches no pick: a line the presenters
+lean on for a few hours, one per station, read by talk breaks, changeovers and banter and never by bulletins or
+calls. It lives beside the steer on the console's rules tab and is described in `docs/internals/breaks.md`
+§ "The talk direction".
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

@@ -1,16 +1,33 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, MultiSelect, NumberInput, SegmentedControl, Select, Stack, TagsInput, Text, TextInput } from '@mantine/core';
+import {
+    Badge,
+    Button,
+    Card,
+    Group,
+    MultiSelect,
+    NumberInput,
+    SegmentedControl,
+    Select,
+    Stack,
+    TagsInput,
+    Text,
+    TextInput,
+    Textarea,
+} from '@mantine/core';
 import type { BlockRule, ScheduleSlot } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
 import {
     useAddNeverPlayRule,
+    useDirectThePresenters,
     useGenreSteer,
     useNeverPlayRules,
     useRemoveNeverPlayRule,
+    useStopDirecting,
     useStopSteering,
     useSteerTowardGenres,
+    useTalkDirection,
 } from '../../api/rules.queries';
 import { useSchedule } from '../../api/schedule.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -22,6 +39,9 @@ import { Eyebrow } from '../shared/eyebrow';
 /** How long a lean can be asked for, in hours. The API takes 1 to 24. */
 const STEER_HOURS = ['1', '2', '3', '4', '6', '8', '12', '24'];
 
+/** The longest note to the presenters the API keeps, in characters. */
+const DIRECTION_LENGTH = 280;
+
 /** The modes a rule can be limited to, in the order the Programme page offers them everywhere else. */
 const RULE_MODES = ['rotation', 'setlist', 'feature'] as const;
 type RuleMode = (typeof RULE_MODES)[number];
@@ -29,17 +49,19 @@ type RuleMode = (typeof RULE_MODES)[number];
 const isRuleMode = (value: string): value is RuleMode => (RULE_MODES as readonly string[]).includes(value);
 
 /**
- * The two ways an operator shapes what the station chooses beyond the rotation's own rules.
+ * The ways an operator shapes the station beyond the rotation's own rules, for a while.
  *
  * A LEAN (the genre steer) makes some genres come up more often for a few hours and never stops the
- * station playing anything else. A RULE (never play) is absolute, like a dislike, for as long as it
- * holds. They share a tab because an operator reaching for one is usually deciding between the two,
- * and they are drawn as separate cards because they are not the same strength of instruction.
+ * station playing anything else. Its sibling, the talk DIRECTION, is a lean for what the presenters
+ * say rather than what plays. A RULE (never play) is absolute, like a dislike, for as long as it
+ * holds. They share a tab because an operator reaching for one is usually deciding between them,
+ * and they are drawn as separate cards because they are not the same instruction.
  */
 export function RulesPanel() {
     return (
         <Stack gap="lg">
             <SteerCard />
+            <DirectionCard />
             <NeverPlayCard />
         </Stack>
     );
@@ -103,6 +125,73 @@ function SteerCard() {
                         onClick={() => start.mutate({ genres, hours: Number(hours) }, { onSuccess: () => setGenres([]) })}
                     >
                         {current === undefined ? t('rules.steer.start') : t('rules.steer.replace')}
+                    </Button>
+                </Group>
+            </Stack>
+        </Card>
+    );
+}
+
+/** The talk direction: a line the presenters lean on for a few hours, and when it ends. */
+function DirectionCard() {
+    const { t } = useTranslation('schedule');
+    const direction = useTalkDirection();
+    const start = useDirectThePresenters();
+    const stop = useStopDirecting();
+    const [words, setWords] = useState('');
+    const [hours, setHours] = useState('3');
+
+    const current = direction.data?.direction;
+    const failure = start.isError
+        ? apiErrorMessage(start.error, t('rules.direction.failed'))
+        : stop.isError
+          ? apiErrorMessage(stop.error, t('rules.direction.failed'))
+          : undefined;
+
+    return (
+        <Card padding="lg">
+            <Stack gap="sm">
+                <Eyebrow>{t('rules.direction.title')}</Eyebrow>
+                <Text size="sm" c="dimmed">
+                    {t('rules.direction.description')}
+                </Text>
+                {failure ? <ErrorAlert title={t('rules.direction.failed')}>{failure}</ErrorAlert> : undefined}
+
+                {current === undefined ? undefined : (
+                    <Group justify="space-between" wrap="nowrap">
+                        <Text size="sm">{t('rules.direction.current', { words: current.words, until: formatClock(current.endsAt.toJSDate()) })}</Text>
+                        <Button size="xs" variant="default" loading={stop.isPending} onClick={() => stop.mutate()}>
+                            {t('rules.direction.stop')}
+                        </Button>
+                    </Group>
+                )}
+
+                <Group align="flex-end" gap="sm" wrap="wrap">
+                    <Textarea
+                        label={t('rules.direction.wordsLabel')}
+                        placeholder={t('rules.direction.wordsPlaceholder')}
+                        value={words}
+                        onChange={event => setWords(event.currentTarget.value)}
+                        maxLength={DIRECTION_LENGTH}
+                        autosize
+                        minRows={1}
+                        maxRows={4}
+                        style={{ flex: 1, minWidth: 240 }}
+                    />
+                    <Select
+                        label={t('rules.direction.hoursLabel')}
+                        data={STEER_HOURS}
+                        value={hours}
+                        onChange={value => setHours(value ?? '3')}
+                        w={120}
+                        allowDeselect={false}
+                    />
+                    <Button
+                        disabled={words.trim() === ''}
+                        loading={start.isPending}
+                        onClick={() => start.mutate({ words: words.trim(), hours: Number(hours) }, { onSuccess: () => setWords('') })}
+                    >
+                        {current === undefined ? t('rules.direction.start') : t('rules.direction.replace')}
                     </Button>
                 </Group>
             </Stack>

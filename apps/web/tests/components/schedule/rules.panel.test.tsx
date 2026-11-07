@@ -3,7 +3,7 @@
 // rule sends a season or a window of hours only when both of its ends were filled in, and modes or
 // schedule blocks only when some were chosen.
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
 import { RulesPanel } from '../../../src/components/schedule/rules.panel';
@@ -15,6 +15,9 @@ const removeANeverPlayRule = vi.fn();
 const readTheGenreSteer = vi.fn();
 const steerTowardGenres = vi.fn();
 const stopSteering = vi.fn();
+const readTheTalkDirection = vi.fn();
+const directThePresenters = vi.fn();
+const stopDirectingThePresenters = vi.fn();
 const listSchedule = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
@@ -26,6 +29,9 @@ vi.mock('../../../src/api/client', () => ({
             readTheGenreSteer: () => readTheGenreSteer(),
             steerTowardGenres: (body: unknown) => steerTowardGenres(body),
             stopSteering: () => stopSteering(),
+            readTheTalkDirection: () => readTheTalkDirection(),
+            directThePresenters: (body: unknown) => directThePresenters(body),
+            stopDirectingThePresenters: () => stopDirectingThePresenters(),
         },
         schedule: {
             listSchedule: () => listSchedule(),
@@ -35,6 +41,10 @@ vi.mock('../../../src/api/client', () => ({
 
 afterEach(() => {
     vi.resetAllMocks();
+});
+
+beforeEach(() => {
+    readTheTalkDirection.mockResolvedValue({});
 });
 
 const slot = (id: string, label: string) => ({ id, label, startsAtMinutes: 0, endsAtMinutes: 60, mode: 'rotation' });
@@ -51,6 +61,37 @@ describe('RulesPanel', () => {
         await user.click(screen.getByRole('button', { name: 'Stop leaning' }));
 
         await waitFor(() => expect(stopSteering).toHaveBeenCalled());
+    });
+
+    it('shows the note to the presenters in force and stops it', async () => {
+        listNeverPlayRules.mockResolvedValue({ rules: [] });
+        readTheGenreSteer.mockResolvedValue({});
+        readTheTalkDirection.mockResolvedValue({
+            direction: { words: "It's Sam's birthday tonight", endsAt: DateTime.fromISO('2026-10-04T21:00:00') },
+        });
+        stopDirectingThePresenters.mockResolvedValue({});
+        const user = setupUser();
+        render(<RulesPanel />);
+
+        expect(await screen.findByText(/The presenters are leaning on "It's Sam's birthday tonight" until/)).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Stop' }));
+
+        await waitFor(() => expect(stopDirectingThePresenters).toHaveBeenCalled());
+    });
+
+    it('tells the presenters a trimmed line for the hours chosen', async () => {
+        listNeverPlayRules.mockResolvedValue({ rules: [] });
+        readTheGenreSteer.mockResolvedValue({});
+        directThePresenters.mockResolvedValue({});
+        const user = setupUser();
+        render(<RulesPanel />);
+
+        const button = await screen.findByRole('button', { name: 'Tell them' });
+        expect(button).toBeDisabled();
+        await user.type(screen.getByRole('textbox', { name: 'What to tell them' }), "  We're snowed in, keep it cosy ");
+        await user.click(button);
+
+        await waitFor(() => expect(directThePresenters).toHaveBeenCalledWith({ words: "We're snowed in, keep it cosy", hours: 3 }));
     });
 
     it('says whether each rule holds now and when it is scoped to', async () => {

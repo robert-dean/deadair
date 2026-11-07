@@ -1,7 +1,7 @@
 ---
 title: 'Set the air mode'
 sidebar_label: 'Set the air mode'
-sidebar_position: 18
+sidebar_position: 21
 mdx:
     format: 'md'
 ---

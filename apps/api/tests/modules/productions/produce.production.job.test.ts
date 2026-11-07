@@ -81,6 +81,7 @@ function build(answers: (string | { text: string; finishReason: string })[], cla
         activity,
         {} as never,
         {} as never,
+        {} as never,
         { id: 'job-1' } as never,
         {} as never,
         logger as never,
@@ -281,6 +282,7 @@ describe('the research pass', () => {
             { record: vi.fn(async () => {}) } as never,
             { read } as never,
             { canResearch: () => options.canResearch ?? true, documentsAbout } as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -419,6 +421,7 @@ describe('sending the beats to be spoken', () => {
             { record: vi.fn(async () => {}) } as never,
             {} as never,
             {} as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -513,6 +516,7 @@ describe('the last pass of a polished production', () => {
             { record: vi.fn(async () => {}) } as never,
             {} as never,
             {} as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -589,6 +593,7 @@ describe("a speaker's signatures spent before the programme", () => {
             { record: vi.fn(async () => {}) } as never,
             {} as never,
             {} as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -657,6 +662,7 @@ describe('weather in a phone-in', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             {} as never,
             {} as never,
             { id: 'job-1' } as never,
@@ -756,6 +762,7 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             {} as never,
             {} as never,
             { id: 'job-1' } as never,
@@ -938,7 +945,7 @@ describe('the draft pass and a record nobody handed the programme', () => {
     const INVENTED = 'The drums are mayhem and I am air-drumming so hard right now. Blue Monday by New Order.';
     const CLEAN = 'The drums are mayhem and I am air-drumming so hard right now, Wayne. It is scary.';
 
-    async function draftWith(answers: (string | Error)[], over: Partial<Production> = {}) {
+    async function draftWith(answers: (string | Error)[], over: Partial<Production> = {}, held?: { words: string; endsAt: string }) {
         let at = 0;
         const converse = vi.fn(async (_request: { messages: { content: string }[] }) => {
             const answer = answers[Math.min(at++, answers.length - 1)]!;
@@ -952,6 +959,12 @@ describe('the draft pass and a record nobody handed the programme', () => {
             moveTo: vi.fn(async () => true),
         } as never;
         const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+        // The table's own rule: a direction is read against an instant and holds while it ends after it.
+        const directions = {
+            direction: vi.fn(async (at?: string) =>
+                held !== undefined && (at === undefined || Date.parse(held.endsAt) > Date.parse(at)) ? held : undefined,
+            ),
+        };
 
         const job = new ProduceProductionJob(
             productions,
@@ -970,6 +983,7 @@ describe('the draft pass and a record nobody handed the programme', () => {
             { record: vi.fn(async () => {}) } as never,
             {} as never,
             {} as never,
+            directions as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -978,7 +992,7 @@ describe('the draft pass and a record nobody handed the programme', () => {
         const draft = (job as unknown as { draft: (input: Production) => Promise<boolean> }).draft.bind(job);
         await draft(production({ state: 'drafting' }));
 
-        return { converse, written: plan.mock.calls.map(([input]) => input.script) };
+        return { converse, directions, written: plan.mock.calls.map(([input]) => input.script) };
     }
 
     it('asks again with the record named in the correction, and keeps the rewrite', async () => {
@@ -1026,6 +1040,70 @@ describe('the draft pass and a record nobody handed the programme', () => {
         const opened = await draftWith([REACTION, CLEAN, CLEAN], banter);
         expect(opened.converse).toHaveBeenCalledTimes(3);
         expect(String(opened.converse.mock.calls[1]?.[0].messages[1]?.content)).toContain('as if a record had just played');
+    });
+
+    describe('the talk direction', () => {
+        const banter = {
+            plan: {
+                beats: [
+                    { ordinal: 0, speaker: 0, words: 12 },
+                    { ordinal: 1, speaker: 1, words: 12 },
+                ],
+            } as never,
+            casting: [
+                { role: 'host', name: 'Wayne', personaKey: 'wayne' },
+                { role: 'cohost', name: 'Garth', personaKey: 'garth' },
+            ] as never,
+            scheduledFor: Date.parse('2026-11-07T21:30:00.000Z'),
+        };
+        const held = { words: "We're snowed in tonight, so keep it cosy and warm for everybody", endsAt: '2026-11-07T23:00:00.000Z' };
+        const READ_OUT = "We're snowed in tonight, so keep it cosy, Garth. I am not going anywhere in this.";
+        const LEANED = 'Nobody is getting out of this street till Tuesday, Wayne, and I have made peace with it.';
+        const prompts = (converse: { mock: { calls: [{ messages: { content: string }[] }][] } }) =>
+            converse.mock.calls.map(([request]) => request.messages.map(message => message.content).join('\n'));
+
+        it('is heard by every presenter on a banter, read against the slot it airs in', async () => {
+            const { converse, directions } = await draftWith([LEANED, LEANED], banter, held);
+
+            expect(directions.direction).toHaveBeenCalledWith('2026-11-07T21:30:00.000Z');
+            for (const prompt of prompts(converse)) expect(prompt).toContain('A note from the station for tonight');
+        });
+
+        it('is not heard by a banter whose slot is past its end', async () => {
+            const { converse } = await draftWith([LEANED, LEANED], { ...banter, scheduledFor: Date.parse('2026-11-07T23:30:00.000Z') }, held);
+
+            for (const prompt of prompts(converse)) expect(prompt).not.toContain('snowed in');
+        });
+
+        it('asks again for a beat that reads it out, and keeps the rewrite', async () => {
+            const { converse, written } = await draftWith([READ_OUT, LEANED, LEANED], banter, held);
+
+            expect(converse).toHaveBeenCalledTimes(3);
+            expect(prompts(converse)[1]).toContain('reads out the note the station gave you for tonight');
+            expect(written).toEqual([LEANED, LEANED]);
+        });
+
+        it('lets a beat name the subject of a short direction', async () => {
+            const birthday = { words: "Sam's birthday", endsAt: held.endsAt };
+            const NAMED = "Happy birthday, Sam. It's Sam's birthday, Garth, so behave.";
+            const { converse } = await draftWith([NAMED, LEANED], banter, birthday);
+
+            expect(converse).toHaveBeenCalledTimes(2);
+        });
+
+        it('is never heard on a call, and is not even read', async () => {
+            const call = {
+                ...banter,
+                casting: [
+                    { role: 'host', name: 'Wayne', personaKey: 'wayne' },
+                    { role: 'caller', name: 'Dana' },
+                ] as never,
+            };
+            const { converse, directions } = await draftWith([LEANED, LEANED], call, held);
+
+            expect(directions.direction).not.toHaveBeenCalled();
+            for (const prompt of prompts(converse)) expect(prompt).not.toContain('snowed in');
+        });
     });
 
     // The check pass's own terms: a re-draft that fails leaves the first attempt in place rather than

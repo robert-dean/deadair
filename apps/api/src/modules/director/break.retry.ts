@@ -97,6 +97,9 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     'invented-year',
     'invented-figure',
     'quoted-lyric',
+    // The operator's direction read out, the lyric's mistake about a different text: the break was
+    // fine to lean on it, and the fix is to say it in the presenter's own words.
+    'read-out-direction',
     // One claim added to a sound break, the year's kind of mistake about a different subject: told
     // which phrase, the fix is a deletion.
     'invented-home',
@@ -158,6 +161,8 @@ const NUDGES: Record<string, string> = {
     'invented-figure':
         'That gave a figure you were not given, and it sounds exactly like one somebody measured. Say the same break again using only the figures you were told, or none.',
     'quoted-lyric': 'That quoted the words of a record, which the station never says on air. Say the same break again in your own words.',
+    'read-out-direction':
+        'That read out the note the station gave you for tonight, which was meant for you and not for the listener. Say the same break again, touching on it only in your own words, or not at all.',
     'invented-home':
         'That called somewhere here that is not where the station is. Say the same break again without it: the only place that is here is the one you were told, and if you were told none, do not say where you are.',
     'invented-concert':

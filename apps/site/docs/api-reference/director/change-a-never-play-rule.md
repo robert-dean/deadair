@@ -1,7 +1,7 @@
 ---
 title: 'Change a never-play rule'
 sidebar_label: 'Change a never-play rule'
-sidebar_position: 41
+sidebar_position: 44
 mdx:
     format: 'md'
 ---

@@ -69,7 +69,18 @@ listener's [CHANGELOG](../CHANGELOG.md).
 
 | Date | Version | Version code | Rollout | Notes cover |
 | --- | --- | --- | --- | --- |
+| 2026-11-07 | 0.27.0 | 2435 | `completed`, straight to everybody | 0.23.0 to 0.27.0 |
+| 2026-10-19 | 0.22.1 | 2187 | `completed`, sent for review by hand from Publishing overview | 0.13.0 to 0.22.1 |
 | 2026-10-03 | 0.13.0 | 1902 | `completed`, straight to everybody | 0.10.0 to 0.13.0 |
+
+**2026-11-07, 0.27.0.** Build 2435 was published from main straight to production rather than
+promoted. The 0.27.0 already on internal (built 2026-11-01) still carried 0.22.1's notes, and the
+commit that rewrote them changed nothing else in the app, so the new build is that same code with
+new notes, and the listen on a phone was skipped for that reason.
+
+**2026-10-19, 0.22.1.** Build 2187 was promoted from internal while Play held the app over the
+Android Auto "App crashes" issue, so the edit was committed without review and sent from
+Publishing overview.
 
 **2026-10-03, 0.13.0.** Build 1895 (0.12.0) had reached internal with the 0.7 widget's notes
 still in `whatsnew/`, and promotion carries a build's notes with it, so it was not promoted. The

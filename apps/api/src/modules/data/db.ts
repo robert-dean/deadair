@@ -1162,6 +1162,7 @@ export interface DeadairSegments {
   productionOrdinal: number | null;
   requestId: string | null;
   script: string | null;
+  showScoped: Generated<boolean>;
   source: Generated<string>;
   sourcePath: string | null;
   spokenScript: string | null;
@@ -1170,6 +1171,14 @@ export interface DeadairSegments {
   updatedAt: Generated<DateTime>;
   voice: string | null;
   writer: string | null;
+}
+
+export interface DeadairSegmentScopes {
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  personaId: string | null;
+  segmentId: string;
+  slotId: string | null;
 }
 
 export interface DeadairSettings {
@@ -1505,6 +1514,7 @@ export interface DB {
   "deadair.segmentEvents": DeadairSegmentEvents;
   "deadair.segmentFacts": DeadairSegmentFacts;
   "deadair.segments": DeadairSegments;
+  "deadair.segmentScopes": DeadairSegmentScopes;
   "deadair.settings": DeadairSettings;
   "deadair.similarArtists": DeadairSimilarArtists;
   "deadair.similarityAsks": DeadairSimilarityAsks;

@@ -13,6 +13,8 @@ import type { BreakStory, BreakSubject } from './break.writer.js';
 import { ReadLogStore } from './bulletin.read.store.js';
 import { NEWS_KIND } from './news.break.writer.js';
 import { numberInRange } from '#modules/shared/setting.numbers.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
+import { readsNames, sameStory, signatureOf, StoryRarity, type StorySignature } from './story.signature.js';
 
 /**
  * The stories a bulletin is written from, fetched once and handed to whichever writer takes it.
@@ -618,6 +620,13 @@ export class BulletinSource {
 
             const unread = offeredBy.flat().filter(story => !this.read.has(story.headline));
 
+            // What each story is ABOUT, for the cut below. Rarity is measured over one copy of each
+            // headline, or a story two feeds carried word for word would count its own tokens twice.
+            // See `story.signature.ts`.
+            const names = readsNames(stationLanguage(this.config));
+            const signatures = new Map<BreakStory, StorySignature>(offered.map(story => [story, signatureOf(story, { names })]));
+            const rarity = new StoryRarity(distinct(offered).map(story => signatures.get(story) as StorySignature));
+
             // The stories one bulletin about `about` (or about anything) would read off these pages.
             //
             // Two ways of ordering one page, and which applies is decided by whether the operator
@@ -629,11 +638,14 @@ export class BulletinSource {
             // One story carried by two feeds is two items with one headline, and `ReadLog` only
             // stops it airing in a LATER bulletin. Both copies went into one on 10 October, and the
             // floor read the same story twice in a row. Before the cut, so the count is still met.
+            //
+            // Two newsrooms headlining one event differently is the same fault under two keys, so the
+            // first story of each EVENT is kept too, which is the one the roster's order reached first.
             const choose = (about: BreakSubject | undefined): BreakStory[] => {
                 const eligibleBy = offeredBy.map(page => eligibleIn(page, about));
                 const eligible =
                     roster.length === 0 ? (about === undefined ? spread(eligibleBy[0] ?? []) : (eligibleBy[0] ?? [])) : inTurn(eligibleBy);
-                return distinct(eligible).slice(0, wanted);
+                return this.oneOfEach(distinct(eligible), signatures, rarity).slice(0, wanted);
             };
 
             const fallback = categoryFallback(this.config);
@@ -672,7 +684,7 @@ export class BulletinSource {
             if (stories.length === 0 && repeatWhenRead(this.config) === 'repeat') {
                 const pools = asked === undefined ? [undefined] : fallback === 'general' ? [asked, undefined] : [asked];
                 for (const about of pools) {
-                    const again = this.longestAgo(offered, about, wanted);
+                    const again = this.longestAgo(offered, about, wanted, signatures, rarity);
                     if (again.length === 0) continue;
                     stories = again;
                     subject = about;
@@ -777,17 +789,60 @@ export class BulletinSource {
     }
 
     /**
+     * The first of each EVENT among these stories, in order, where `distinct` keeps the first of each
+     * headline.
+     *
+     * A later story is dropped when it is one story with one already KEPT (`sameStory`), never with
+     * one already dropped: a chain of three where only neighbours match would otherwise drop the
+     * third on evidence it does not share with anything read. Each drop is logged at debug with what
+     * joined them, so a wrong one can be found.
+     */
+    private oneOfEach(stories: readonly BreakStory[], signatures: ReadonlyMap<BreakStory, StorySignature>, rarity: StoryRarity): BreakStory[] {
+        const kept: BreakStory[] = [];
+        for (const story of stories) {
+            const signature = signatures.get(story);
+            const twin =
+                signature === undefined
+                    ? undefined
+                    : kept.flatMap(other => {
+                          const theirs = signatures.get(other);
+                          const evidence = theirs === undefined ? undefined : sameStory(signature, theirs, rarity);
+                          return evidence === undefined ? [] : [{ other, evidence }];
+                      })[0];
+            if (twin === undefined) {
+                kept.push(story);
+                continue;
+            }
+            this.logger.debug('director: two headlines in the news window are one story, so a bulletin reads only the first', {
+                kept: twin.other.headline,
+                dropped: story.headline,
+                ...twin.evidence,
+            });
+        }
+        return kept;
+    }
+
+    /**
      * The stories read longest ago, about `about` or about anything, for a bulletin that repeats.
      *
      * Only what is still offered, so only what the freshness window allows, and only what has been
      * read (everything here has, or a fresh bulletin would have taken it). Oldest-read first; a sort
-     * is stable, so stories read in the same bulletin keep the order the feeds gave them.
+     * is stable, so stories read in the same bulletin keep the order the feeds gave them. One of
+     * each event, for the reason a fresh bulletin keeps one: a recap reading two wordings of one story
+     * is the repeat this file exists to stop, twice over.
      */
-    private longestAgo(offered: readonly BreakStory[], about: BreakSubject | undefined, wanted: number): BreakStory[] {
+    private longestAgo(
+        offered: readonly BreakStory[],
+        about: BreakSubject | undefined,
+        wanted: number,
+        signatures: ReadonlyMap<BreakStory, StorySignature>,
+        rarity: StoryRarity,
+    ): BreakStory[] {
         const pool = distinct(
             offered.filter(story => this.read.has(story.headline) && (about === undefined || (story.categories ?? []).includes(about.key))),
         );
-        return [...pool].sort((a, b) => (this.read.lastRead(a.headline) ?? 0) - (this.read.lastRead(b.headline) ?? 0)).slice(0, wanted);
+        const oldestFirst = [...pool].sort((a, b) => (this.read.lastRead(a.headline) ?? 0) - (this.read.lastRead(b.headline) ?? 0));
+        return this.oneOfEach(oldestFirst, signatures, rarity).slice(0, wanted);
     }
 
     /**

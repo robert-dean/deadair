@@ -653,6 +653,59 @@ describe('what the station has already read', () => {
         ]);
     });
 
+    // Two newsrooms on one event almost never agree on a headline, so the key above never matched them.
+    // Modelled on a pair the station's own roster carried on 2026-11-07, teasers reworded.
+    describe('one event, headlined differently by two newsrooms', () => {
+        const bbc = item("Cornell faculty pass no-confidence vote over leadership's handling of Jane Doe allegations", {
+            summary:
+                'The resolution passed by the academic staff is largely symbolic, as the faculty have no power to remove the leadership of the university.',
+        });
+        const pbs = item("Cornell faculty vote 'no confidence' in university leadership after alleged fraternity gang rape", {
+            id: 'pbs-1',
+            feedId: 'deadair.rss:us',
+            summary:
+                "The faculty body has no power over the university's leaders, but the resolution was meant to be more than symbolic, its backers at Cornell said.",
+        });
+        const twoFeeds = (values: Record<string, unknown> = {}) =>
+            build(
+                {
+                    byFeed: {
+                        'deadair.rss:world': [bbc, item('Bridge reopens after four years')],
+                        'deadair.rss:us': [pbs, item('Gallery opens a new wing', { feedId: 'deadair.rss:us' })],
+                    },
+                },
+                { ...roster('deadair.rss:world', 'deadair.rss:us'), ...values },
+            );
+
+        it('reads the one the roster reached first, and still fills the count', async () => {
+            const bulletin = await twoFeeds().source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toEqual([
+                "Cornell faculty pass no-confidence vote over leadership's handling of Jane Doe allegations.",
+                'Bridge reopens after four years.',
+                'Gallery opens a new wing.',
+            ]);
+        });
+
+        it('says which two it joined and on what, so a wrong join can be found', async () => {
+            await twoFeeds().source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(logger.debug).toHaveBeenCalledWith(
+                expect.stringContaining('are one story'),
+                expect.objectContaining({ dropped: expect.stringContaining("'no confidence'"), names: ['cornell'] }),
+            );
+        });
+
+        it('reads both on a station whose language capitalises every noun, where a capital is not a name', async () => {
+            const bulletin = await twoFeeds({ 'stream.language': 'de' }).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toHaveLength(3);
+            expect(bulletin?.stories.map(story => story.headline)).toContain(
+                "Cornell faculty vote 'no confidence' in university leadership after alleged fraternity gang rape.",
+            );
+        });
+    });
+
     it('declines the slot when everything in the window has been read', async () => {
         // Silence rather than a repeat, on the same argument the freshness window is on: a listener
         // cannot tell a station reading this morning's headlines again from one that is simply wrong.

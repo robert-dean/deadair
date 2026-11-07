@@ -6,6 +6,7 @@ import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { WeatherService } from '#modules/weather/weather.service.js';
 import { weatherLocations, type WeatherLocation } from '#modules/weather/weather.topic.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import { OUTLOOK_HOURS, outlookNotes, outlookWindow, type OutlookNote } from '#modules/weather/weather.outlook.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
@@ -159,6 +160,29 @@ export interface WeatherReport {
     freshUntil?: number;
     /** The location the format clock asked for, when it asked for one. */
     subject?: BreakSubject;
+    /**
+     * What the next few hours hold, as sentences measured from when the break airs. Present only on a
+     * weather break, and only when there is something to say: see `weather.outlook.ts`.
+     *
+     * Worked out HERE, from the same reading and the same `airsAt`, so the floor and the model binding
+     * say the same thing about the same hour, which is the reason everything else on this report is.
+     */
+    outlook?: OutlookNote[];
+}
+
+/** The weather plugin's own ceiling on an outlook, restated for {@link MAX_WEATHER_DAYS}' reason. */
+export const MAX_OUTLOOK_FETCH_HOURS = 24;
+
+/**
+ * How many hours of outlook to fetch for a reading that may be this old by the time it airs.
+ *
+ * The window is {@link OUTLOOK_HOURS} from the moment the break is HEARD, and a reading may be up to
+ * the age limit old by then, so the fetch covers both: a reading taken at a quarter to the hour and
+ * aired near the end of its shelf life still has rows across the whole window. Capped at a day, which
+ * is the plugin's own ceiling.
+ */
+export function outlookHoursFor(maxAgeMinutes: number): number {
+    return Math.min(MAX_OUTLOOK_FETCH_HOURS, OUTLOOK_HOURS + Math.ceil(Math.max(0, maxAgeMinutes) / 60));
 }
 
 @Injectable()
@@ -234,10 +258,19 @@ export class WeatherSource {
             Math.floor,
         );
         const subject = asked === undefined ? undefined : { key: asked.key, label: asked.label };
+        const maxAgeMinutes = numberInRange(
+            this.config.get(WEATHER_SOURCE_KEYS.maxAgeMinutes, DEFAULT_WEATHER_MAX_AGE_MINUTES),
+            DEFAULT_WEATHER_MAX_AGE_MINUTES,
+            { min: MIN_WEATHER_MAX_AGE_MINUTES, max: MAX_WEATHER_MAX_AGE_MINUTES },
+            Math.floor,
+        );
 
         try {
-            const reading = await this.weather.read(place, days, asked?.units);
-            if (reading === undefined) {
+            // The outlook is asked for on both kinds, though only the weather break says it: the plugin
+            // caches by what was asked, so a talk break asking for less would be a second request for
+            // the same sky rather than the reading the weather break already fetched.
+            const fetched = await this.weather.read(place, days, asked?.units, outlookHoursFor(maxAgeMinutes));
+            if (fetched === undefined) {
                 // Said at info rather than debug, and it is the one line here worth an operator's
                 // attention: a station whose clock asks for the weather every hour and whose service
                 // is refusing is silent every hour, and this is what says so.
@@ -247,13 +280,7 @@ export class WeatherSource {
 
             // The fourth way of having nothing: a reading that is correct and will be too old to be
             // true by the time anybody hears it. Judged against the SLOT, not against now.
-            const maxAgeMinutes = numberInRange(
-                this.config.get(WEATHER_SOURCE_KEYS.maxAgeMinutes, DEFAULT_WEATHER_MAX_AGE_MINUTES),
-                DEFAULT_WEATHER_MAX_AGE_MINUTES,
-                { min: MIN_WEATHER_MAX_AGE_MINUTES, max: MAX_WEATHER_MAX_AGE_MINUTES },
-                Math.floor,
-            );
-            const fresh = freshUntil(reading.observedAt, maxAgeMinutes * 60_000);
+            const fresh = freshUntil(fetched.observedAt, maxAgeMinutes * 60_000);
             if (fresh === undefined || fresh <= airsAt) {
                 // At info beside the other three, and it names both fixes because only the operator
                 // can tell them apart: a service that has stopped updating and a window set too
@@ -262,12 +289,21 @@ export class WeatherSource {
                     offered,
                     'director: a weather break had only a reading that will be too old to be true when it airs, so the station passed over the ' +
                         'slot. The service is behind, or "How old a reading may be" is set tighter than it updates.',
-                    { place, observedAt: reading.observedAt, airsAt: new Date(airsAt).toISOString(), maxAgeMinutes },
+                    { place, observedAt: fetched.observedAt, airsAt: new Date(airsAt).toISOString(), maxAgeMinutes },
                 );
                 return subject === undefined ? {} : { subject };
             }
 
-            return { reading, freshUntil: fresh, ...(subject === undefined ? {} : { subject }) };
+            // The outlook is the weather break's alone, and it is cut to the window the break airs in
+            // so that the rows a model is held to (`inventedFigure` reads every one) are the rows the
+            // notes came from. A talk break gets the reading without it: it is not offered the next
+            // few hours, and figures from them would be figures it was never shown.
+            const { hours: _hours, ...now } = fetched;
+            const window = offered ? [] : outlookWindow(fetched, airsAt);
+            const reading: SpokenWeather = window.length === 0 ? now : { ...now, hours: window };
+            const outlook = offered ? [] : outlookNotes(reading, airsAt);
+
+            return { reading, freshUntil: fresh, ...(subject === undefined ? {} : { subject }), ...(outlook.length === 0 ? {} : { outlook }) };
         } catch (error) {
             // `WeatherService` already swallows a plugin's failures, so reaching here means something
             // else went wrong. Absorbed for the same reason everything else is: a break the station

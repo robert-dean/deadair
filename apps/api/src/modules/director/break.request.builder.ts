@@ -415,6 +415,7 @@ export class BreakRequestBuilder {
             // The reading's own shelf life, travelling beside it so whichever writer takes it stamps
             // the same expiry. See `BreakWriteRequest.weatherFreshUntil`.
             ...(forecast?.freshUntil === undefined ? {} : { weatherFreshUntil: forecast.freshUntil }),
+            ...(forecast?.outlook === undefined ? {} : { weatherOutlook: forecast.outlook }),
             // The day and its entries together, which is one answer rather than a substrate and a
             // policy — see `BreakWriteRequest.almanac`.
             ...(history?.almanac === undefined ? {} : { almanac: history.almanac }),

@@ -99,6 +99,36 @@ describe('what the model is shown', () => {
         expect(shown).toContain("- Today's forecast: clear, high 24, low 12, 40% chance of rain");
     });
 
+    it('is given the next few hours as finished sentences, and told to keep their timing', async () => {
+        const { writer, converse } = build("It's 17 and raining.");
+
+        await writer.write(
+            request({
+                weatherOutlook: [
+                    {
+                        kind: 'temperature',
+                        word: 'down',
+                        band: 'swing',
+                        at: '2026-08-30T00:00:00-04:00',
+                        text: 'Down to 9 degrees Celsius by midnight.',
+                    },
+                ],
+            }),
+        );
+
+        const shown = userTurn(converse);
+        expect(shown).toContain('already worked out from when this will be heard');
+        expect(shown).toContain('- Down to 9 degrees Celsius by midnight.');
+    });
+
+    it('is shown no outlook block when there is nothing to say about the next few hours', async () => {
+        const { writer, converse } = build("It's 17 and raining.");
+
+        await writer.write(request());
+
+        expect(userTurn(converse)).not.toContain('next few hours');
+    });
+
     it('names the days as today and tomorrow rather than by date', async () => {
         // A model handed `2026-08-31` reads the date out.
         const week: SpokenWeather = {

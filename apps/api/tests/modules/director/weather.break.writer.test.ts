@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import type { OutlookNote } from '../../../src/modules/weather/weather.outlook.js';
 import { reportOf, WeatherBreakWriter, WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '../../../src/modules/director/weather.break.writer.js';
 import { unknownPlaceholders } from '../../../src/modules/director/break.templates.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
@@ -90,6 +91,41 @@ describe('reportOf', () => {
         });
 
         expect(reportOf(week)).not.toContain('19');
+    });
+
+    it('says the first note about the next few hours, between now and the day', () => {
+        const withToday = reading({ days: [{ date: '2026-08-29', condition: 'clear', words: 'clear', high: 24 }] });
+        const coming: OutlookNote[] = [
+            {
+                kind: 'precipitation',
+                word: 'rain',
+                band: 'likely',
+                at: '2026-08-29T12:00:00-04:00',
+                text: 'Rain likely in about three hours, a 70% chance.',
+            },
+            {
+                kind: 'temperature',
+                word: 'down',
+                band: 'swing',
+                at: '2026-08-29T15:00:00-04:00',
+                text: 'Down to 9 degrees Celsius by three this afternoon.',
+            },
+        ];
+
+        expect(reportOf(withToday, coming)).toBe(
+            "It's 17 degrees and raining in Atlanta. Rain likely in about three hours, a 70% chance. A high of 24 today.",
+        );
+    });
+
+    it('hands the floor its outlook through the request', async () => {
+        const { writer } = build({ [WEATHER_BREAK_KEYS.templates]: '{{weather.report}}' });
+        const coming: OutlookNote[] = [
+            { kind: 'temperature', word: 'down', band: 'swing', at: '2026-08-30T00:00:00-04:00', text: 'Down to 9 degrees Celsius by midnight.' },
+        ];
+
+        const written = await writer.write(request({ weatherOutlook: coming }));
+
+        expect(written?.script).toContain('Down to 9 degrees Celsius by midnight.');
     });
 
     it('says nothing about yesterday, a coat, or how lovely it is', () => {

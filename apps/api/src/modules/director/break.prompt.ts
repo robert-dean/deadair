@@ -58,6 +58,7 @@ import {
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import type { OutlookNote } from '#modules/weather/weather.outlook.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { homeRule } from '#modules/shared/station.home.js';
@@ -1340,7 +1341,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // licences, and rendering one block for both is what made "nothing about how the weather makes
     // anyone feel" a rule for a presenter linking two records.
     if (request.weather !== undefined && shape.weather !== undefined) {
-        parts.push(describeWeather(request.weather));
+        parts.push(describeWeather(request.weather, request.weatherOutlook));
         parts.push(
             shape.weather === 'reported'
                 ? 'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written ' +
@@ -1783,7 +1784,7 @@ function describeDay(date: string, entries: readonly AlmanacEntry[]): string {
     return [`What happened on today's date (${date}), one line each. These were looked up; they are not yours to add to.`, ...lines].join('\n');
 }
 
-function describeWeather(weather: SpokenWeather): string {
+function describeWeather(weather: SpokenWeather, outlook: readonly OutlookNote[] = []): string {
     const degrees = weather.units === 'imperial' ? 'Fahrenheit' : 'Celsius';
     const speed = weather.units === 'imperial' ? 'miles per hour' : 'kilometres per hour';
 
@@ -1820,6 +1821,15 @@ function describeWeather(weather: SpokenWeather): string {
         ].filter(part => part !== undefined);
 
         lines.push(`- ${when}: ${[day.words, ...figures].join(', ')}`);
+    }
+
+    // The next few hours as finished sentences rather than rows, because the sums are the part a
+    // model gets wrong: which hour is "in about three hours" depends on when this is HEARD, and the
+    // rows were fetched before that. So the times are worked out already and the model is told not to
+    // redo them. Only the weather break is handed any (see `WeatherSource`).
+    if (outlook.length > 0) {
+        lines.push('The next few hours, already worked out from when this will be heard. Keep the timing as it is written:');
+        for (const note of outlook) lines.push(`- ${note.text}`);
     }
 
     return lines.join('\n');

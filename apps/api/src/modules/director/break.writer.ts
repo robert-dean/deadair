@@ -36,6 +36,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import type { OutlookNote } from '#modules/weather/weather.outlook.js';
 import type { StationAlmanac } from '#modules/almanac/almanac.service.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakRetry } from './break.retry.js';
@@ -619,6 +620,14 @@ export interface BreakWriteRequest {
      * A writer that uses the reading passes it through to {@link WrittenBreak.claimsReadingUntil}.
      */
     weatherFreshUntil?: number;
+    /**
+     * What the next few hours hold, as sentences already measured from when this break airs.
+     *
+     * Beside {@link weather} for {@link weatherFreshUntil}'s reason: the reading is a conversion and
+     * this is a judgement about which rows are worth a sentence, made once in `WeatherSource` so the
+     * floor and the model say the same thing. Only a weather break is given one.
+     */
+    weatherOutlook?: OutlookNote[];
     /**
      * What happened on the date this break airs on, and how long it is still that date.
      *

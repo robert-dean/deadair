@@ -95,9 +95,10 @@ export class WeatherService {
      * @param place - Where to ask about. Defaults to {@link home}.
      * @param days - How much forecast to include beyond now.
      * @param units - A location's own override, where one is set. Defaults to {@link units}.
+     * @param hours - How many hours of hourly outlook to ask for. None by default.
      */
-    async read(place?: string, days = 0, units?: StationUnits): Promise<SpokenWeather | undefined> {
-        const reading = await this.reading(place, days);
+    async read(place?: string, days = 0, units?: StationUnits, hours = 0): Promise<SpokenWeather | undefined> {
+        const reading = await this.reading(place, days, hours);
         return reading === undefined ? undefined : spoken(reading, units ?? this.units());
     }
 
@@ -110,12 +111,12 @@ export class WeatherService {
      * moment resolver in [station-moment](https://github.com/robert-dean/deadair/discussions/38) is the one this exists for
      * — and converting it back would be two roundings.
      */
-    async reading(place?: string, days = 0): Promise<WeatherReading | undefined> {
+    async reading(place?: string, days = 0, hours = 0): Promise<WeatherReading | undefined> {
         const asked = (place ?? this.home() ?? '').trim();
         if (asked.length === 0) return undefined;
 
         for (const plugin of this.plugins()) {
-            const reading = await this.ask(plugin, asked, days);
+            const reading = await this.ask(plugin, asked, days, hours);
             // The FIRST that answers, and then stop. See the note on this class:
             // a second reading of one sky is not more knowledge about it.
             if (reading !== undefined) return reading;
@@ -144,7 +145,7 @@ export class WeatherService {
         const plugin = this.plugins().find(candidate => candidate.record.id === pluginId);
         if (home === undefined || plugin === undefined) return undefined;
 
-        const reading = await this.ask(plugin, home, 0);
+        const reading = await this.ask(plugin, home, 0, 0);
         if (reading === undefined) return `It could not find the station's location, "${home}". Check Station location in Settings.`;
 
         const units = this.units();
@@ -160,10 +161,10 @@ export class WeatherService {
      * the place is what a presenter says out loud, and it is the only evidence
      * anybody has that the right town was found.
      */
-    private async ask(plugin: WeatherPlugin, place: string, days: number): Promise<WeatherReading | undefined> {
+    private async ask(plugin: WeatherPlugin, place: string, days: number, hours: number): Promise<WeatherReading | undefined> {
         try {
             const reading = await this.pluginInvoker.invoke(plugin.record.id, 'weather.getWeather', async () =>
-                plugin.instance.getWeather({ place, ...(days > 0 ? { days } : {}), ...this.language() }),
+                plugin.instance.getWeather({ place, ...(days > 0 ? { days } : {}), ...(hours > 0 ? { hours } : {}), ...this.language() }),
             );
 
             if (reading === undefined) return undefined;

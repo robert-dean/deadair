@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.96.4] — 2026-11-07
+
+- Sharing one line of a banter or a phone-in now sends the whole conversation. The share button on a row of what the station said used to send only that presenter's turn, because each turn is written separately. Once the turns have been joined into the one file that aired, sharing any of them sends that file. Before then, the single turn is still shared.
+
 ## [0.96.3] — 2026-11-07
 
 - Presenters are told about the phrases they keep repeating, not only single words. A presenter who said "dig this" or "real gone" in nearly every break was never warned, because short words were skipped and a two-word tic could only be named as two loose words. Worn two-word phrases are now named whole.
@@ -1977,7 +1981,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.4...HEAD
+[0.96.4]: https://github.com/robert-dean/deadair/compare/v0.96.3...v0.96.4
 [0.96.3]: https://github.com/robert-dean/deadair/compare/v0.96.2...v0.96.3
 [0.96.2]: https://github.com/robert-dean/deadair/compare/v0.96.1...v0.96.2
 [0.96.1]: https://github.com/robert-dean/deadair/compare/v0.96.0...v0.96.1

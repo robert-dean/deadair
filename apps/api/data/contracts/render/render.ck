@@ -328,6 +328,34 @@ operation /segments/{id}: {
     }
 }
 
+# Scoping a recording to shows and presenters. Its own route rather than a field on the upload, because a
+# recording already on the shelf needs scoping too and the upload's form fields are capped. A PUT of the
+# whole scope rather than add and remove verbs, because the console holds the whole list in one picker.
+
+operation /segments/{id}/scope: {
+    params: {
+        id: uuid
+    }
+    put: { # Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show
+        name: Scope segment
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.scopeSegment
+        request: {
+            application/json: SegmentScope
+        }
+        response: {
+            200: {
+                application/json: Segment
+            }
+            400:
+            404:
+            409:
+        }
+    }
+}
+
 # Where a break's facts came from: the stored claims its writer was handed, each with the page and the
 # span that state it, and whether the station's own read-back found the words saying it. Copied when
 # the break was written, so a claim gone with its record still answers here. An unknown segment, or

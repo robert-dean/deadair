@@ -13,6 +13,9 @@ const createSegment = vi.fn();
 const scanTheSegmentInbox = vi.fn();
 const listVoices = vi.fn();
 const deleteSegment = vi.fn();
+const scopeSegment = vi.fn();
+const listSchedule = vi.fn();
+const listPersonas = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -22,7 +25,10 @@ vi.mock('../../../src/api/client', () => ({
             scanTheSegmentInbox: (...args: unknown[]) => scanTheSegmentInbox(...args),
             listVoices: (...args: unknown[]) => listVoices(...args),
             deleteSegment: (...args: unknown[]) => deleteSegment(...args),
+            scopeSegment: (...args: unknown[]) => scopeSegment(...args),
         },
+        schedule: { listSchedule: (...args: unknown[]) => listSchedule(...args) },
+        personas: { listPersonas: (...args: unknown[]) => listPersonas(...args) },
     },
 }));
 
@@ -168,5 +174,70 @@ describe('SegmentsPage', () => {
         render(<SegmentsPage />);
 
         expect(await screen.findByText('The station has no segments')).toBeInTheDocument();
+    });
+
+    describe('which shows a recording is for', () => {
+        const SLOT = '22222222-2222-4222-8222-222222222222';
+        const PERSONA = '33333333-3333-4333-8333-333333333333';
+
+        const shows = () => {
+            listSchedule.mockResolvedValue({ slots: [{ id: SLOT, label: 'Breakfast', startsAtMinutes: 360, endsAtMinutes: 600 }] });
+            listPersonas.mockResolvedValue({ personas: [{ id: PERSONA, key: 'wayne', label: 'Wayne' }] });
+        };
+
+        it('says a recording with no scope is for every show, without reading the schedule', async () => {
+            listSegments.mockResolvedValue({ segments: [segment()] });
+            listVoices.mockResolvedValue({ voices: [] });
+
+            render(<SegmentsPage />);
+
+            expect(await screen.findByText('Every show')).toBeInTheDocument();
+            expect(listSchedule).not.toHaveBeenCalled();
+            expect(listPersonas).not.toHaveBeenCalled();
+        });
+
+        it('names the shows and presenters a scoped recording is for', async () => {
+            shows();
+            listSegments.mockResolvedValue({ segments: [segment({ slotIds: [SLOT], personaIds: [PERSONA] })] });
+            listVoices.mockResolvedValue({ voices: [] });
+
+            render(<SegmentsPage />);
+
+            expect(await screen.findByText('Breakfast')).toBeInTheDocument();
+            expect(await screen.findByText('Wayne')).toBeInTheDocument();
+            expect(screen.queryByText('Every show')).not.toBeInTheDocument();
+        });
+
+        it('offers no scope on something the station rendered itself', async () => {
+            listSegments.mockResolvedValue({ segments: [segment({ source: 'render', label: 'A link' })] });
+            listVoices.mockResolvedValue({ voices: [] });
+
+            render(<SegmentsPage />);
+            await screen.findByText('A link');
+
+            expect(screen.queryByText('Every show')).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Choose the shows A link is for' })).not.toBeInTheDocument();
+        });
+
+        it('saves the shows chosen and draws the row with them', async () => {
+            shows();
+            listSegments.mockResolvedValue({ segments: [segment()] });
+            listVoices.mockResolvedValue({ voices: [] });
+            scopeSegment.mockResolvedValue(segment({ slotIds: [SLOT] }));
+            const user = setupUser();
+            render(<SegmentsPage />);
+
+            await user.click(await screen.findByRole('button', { name: 'Choose the shows Top of hour is for' }));
+            await waitFor(() => expect(screen.getByLabelText('Shows', { selector: 'input:not([type=hidden])' })).not.toBeDisabled());
+            await user.click(screen.getByLabelText('Shows', { selector: 'input:not([type=hidden])' }));
+            await user.click(await screen.findByRole('option', { name: 'Breakfast' }));
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+
+            await waitFor(() => {
+                expect(scopeSegment).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111', { slotIds: [SLOT], personaIds: [] });
+            });
+            expect(await screen.findByText('Breakfast')).toBeInTheDocument();
+            expect(screen.queryByText('Every show')).not.toBeInTheDocument();
+        });
     });
 });

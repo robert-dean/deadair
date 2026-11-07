@@ -358,3 +358,111 @@ describe('SegmentRepository.padInLastBreaks', () => {
         expect(statements).toEqual([]);
     });
 });
+
+describe('the shelf, scoped to who is on', () => {
+    const shelfRow = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+        id: 'seg-1',
+        kind: 'ident',
+        state: 'ready',
+        label: 'An ident',
+        source: 'library',
+        audio_checksum: 'abc',
+        audio_ext: 'mp3',
+        pads: [],
+        show_scoped: false,
+        ...overrides,
+    });
+
+    it('answers only recordings scoped to nobody when it is not told who is on, which is what it always did', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).listRecordings('ident');
+
+        expect(statements[0]?.sql).toContain('"deadair"."segments"."show_scoped" = $');
+        expect(statements[0]?.sql).not.toContain('segment_scopes');
+        expect(statements[0]?.parameters).toContain(false);
+    });
+
+    it('treats an on-air with neither half as nobody on', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).listReady('ident', {});
+
+        expect(statements[0]?.sql).not.toContain('segment_scopes');
+    });
+
+    it('lets in a recording scoped to the slot OR to the presenter on air', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).listReady('ident', { slotId: 'slot-1', personaId: 'persona-1' });
+
+        const sql = statements[0]?.sql ?? '';
+        expect(sql).toContain('"show_scoped" = $');
+        expect(sql).toContain('exists (select 1 as "one" from "deadair"."segment_scopes"');
+        expect(sql).toContain('"deadair"."segment_scopes"."segment_id" = "deadair"."segments"."id"');
+        expect(sql).toMatch(/"slot_id" = \$\d+ or "deadair"\."segment_scopes"\."persona_id" = \$\d+/);
+        expect(statements[0]?.parameters).toEqual(expect.arrayContaining(['slot-1', 'persona-1']));
+    });
+
+    it('matches on the slot alone when nobody is presenting', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).listRecordings('sponsor', { slotId: 'slot-1' });
+
+        expect(statements[0]?.sql).toContain('"slot_id" = $');
+        expect(statements[0]?.sql).not.toContain('"persona_id" = $');
+    });
+
+    it("says which rows are the show's own", async () => {
+        const rows = [shelfRow(), shelfRow({ id: 'seg-2', show_scoped: true })];
+        const shelved = await new SegmentRepository(fakeDb(rows, []), identity()).listRecordings('ident', { slotId: 'slot-1' });
+
+        expect(shelved.map(segment => [segment.id, segment.forShow])).toEqual([
+            ['seg-1', false],
+            ['seg-2', true],
+        ]);
+    });
+});
+
+describe('SegmentRepository scopes', () => {
+    it('replaces the rows and sets the flag together', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).setScope('seg-1', {
+            slotIds: ['slot-1', 'slot-1'],
+            personaIds: ['persona-1'],
+        });
+
+        const writes = statements.filter(statement => !/^(begin|commit)/i.test(statement.sql));
+        expect(writes[0]?.sql).toContain('delete from "deadair"."segment_scopes"');
+        expect(writes[1]?.sql).toContain('insert into "deadair"."segment_scopes"');
+        // The duplicate slot is written once: the unique index would refuse the second.
+        expect(writes[1]?.parameters.filter(value => value === 'slot-1')).toHaveLength(1);
+        expect(writes[1]?.parameters).toContain('persona-1');
+        expect(writes[2]?.sql).toContain('update "deadair"."segments" set "show_scoped" = $');
+        expect(writes[2]?.parameters).toContain(true);
+    });
+
+    it('clears the flag for an empty scope, which is every show', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).setScope('seg-1', { slotIds: [], personaIds: [] });
+
+        const writes = statements.filter(statement => !/^(begin|commit)/i.test(statement.sql));
+        expect(writes.some(statement => statement.sql.startsWith('insert'))).toBe(false);
+        expect(writes.at(-1)?.parameters).toContain(false);
+    });
+
+    it('reads every recording asked about in one query, and leaves out one with no rows', async () => {
+        const statements: Statement[] = [];
+        const rows = [
+            { segment_id: 'seg-1', slot_id: 'slot-1', persona_id: null },
+            { segment_id: 'seg-1', slot_id: null, persona_id: 'persona-1' },
+        ];
+        const scopes = await new SegmentRepository(fakeDb(rows, statements), identity()).scopesOf(['seg-1', 'seg-2']);
+
+        expect(statements).toHaveLength(1);
+        expect(scopes.get('seg-1')).toEqual({ slotIds: ['slot-1'], personaIds: ['persona-1'] });
+        expect(scopes.has('seg-2')).toBe(false);
+    });
+
+    it('costs no query for no recordings', async () => {
+        const statements: Statement[] = [];
+        expect((await new SegmentRepository(fakeDb([], statements), identity()).scopesOf([])).size).toBe(0);
+        expect(statements).toEqual([]);
+    });
+});

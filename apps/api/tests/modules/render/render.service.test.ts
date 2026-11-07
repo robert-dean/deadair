@@ -8,10 +8,12 @@ import { SAMPLE_TEXT } from '../../../src/modules/render/voice.sample.store.js';
 import type { PadJoined, PadJoinRequest } from '../../../src/modules/render/pad.join.js';
 import type { Pad } from '../../../src/modules/render/pad.repository.js';
 import type { SegmentLibrary } from '../../../src/modules/render/segment.library.js';
-import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
+import type { Segment, SegmentRepository, SegmentScope } from '../../../src/modules/render/segment.repository.js';
 import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
 
 const ID = '11111111-1111-4111-8111-111111111111';
+const SLOT = '22222222-2222-4222-8222-222222222222';
+const PERSONA = '33333333-3333-4333-8333-333333333333';
 const CHECKSUM = 'a'.repeat(64);
 const BYTES = Buffer.from('a station ident');
 
@@ -63,6 +65,10 @@ interface ServiceOptions {
     join?: (request: PadJoinRequest) => Promise<PadJoined | undefined>;
     /** The production's joined row, for a beat's share. Absent is a production not joined yet. */
     joined?: Segment;
+    /** Which shows each recording is for, by id. Absent is every recording for every show. */
+    scopes?: Map<string, SegmentScope>;
+    /** What writing a scope does. Absent succeeds. */
+    setScope?: () => Promise<void>;
 }
 
 const service = (options: ServiceOptions = {}) => {
@@ -72,6 +78,8 @@ const service = (options: ServiceOptions = {}) => {
     // was asked about, which is the whole of what a case here checks.
     const copyOf = vi.fn(async (segment: Segment) => ({ segmentId: segment.id }));
     const list = vi.fn().mockResolvedValue(options.segments ?? []);
+    const scopesOf = vi.fn(async () => options.scopes ?? new Map<string, SegmentScope>());
+    const setScope = vi.fn(options.setScope ?? (async () => undefined));
     const read = vi.fn().mockResolvedValue(options.bytes);
     const scan = vi.fn().mockResolvedValue({ scanned: 1, imported: 1, skipped: 0 });
     const plan = vi.fn().mockResolvedValue(options.planned ?? PLANNED);
@@ -117,7 +125,7 @@ const service = (options: ServiceOptions = {}) => {
 
     return {
         service: new RenderService(
-            { findById, joinedOf, list, plan } as unknown as SegmentRepository,
+            { findById, joinedOf, list, plan, scopesOf, setScope } as unknown as SegmentRepository,
             { read } as unknown as SegmentStore,
             {
                 scan,
@@ -153,6 +161,8 @@ const service = (options: ServiceOptions = {}) => {
         ),
         findById,
         joinedOf,
+        scopesOf,
+        setScope,
         copyOf,
         named,
         join,
@@ -290,6 +300,65 @@ describe('RenderService.listSegments', () => {
         expect(segments.map(s => s.playable)).toEqual([true, false]);
         expect(segments[0]).not.toHaveProperty('audioChecksum');
         expect(segments[1]?.script).toBe('Good evening');
+    });
+
+    it('says which shows a recording is for, and says nothing for one that is for every show', async () => {
+        const unscoped: Segment = { ...READY, id: 'c' };
+        const { service: render, scopesOf } = service({
+            segments: [READY, unscoped, { id: 'b', kind: 'talkbreak', state: 'ready', label: 'a break', source: 'render', pads: [] }],
+            scopes: new Map([[ID, { slotIds: [SLOT], personaIds: [] }]]),
+        });
+
+        const { segments } = await render.listSegments();
+
+        // Only recordings are asked about: the station's own renders are never scoped.
+        expect(scopesOf).toHaveBeenCalledWith([ID, 'c']);
+        expect(segments[0]).toMatchObject({ slotIds: [SLOT] });
+        expect(segments[0]).not.toHaveProperty('personaIds');
+        expect(segments[1]).not.toHaveProperty('slotIds');
+        expect(segments[2]).not.toHaveProperty('slotIds');
+    });
+});
+
+describe('RenderService.scopeSegment', () => {
+    it('writes the scope, without repeats, and answers with it', async () => {
+        const { service: render, setScope } = service({ segment: READY });
+
+        const scoped = await render.scopeSegment(ID, { slotIds: [SLOT, SLOT], personaIds: [PERSONA] });
+
+        expect(setScope).toHaveBeenCalledWith(ID, { slotIds: [SLOT], personaIds: [PERSONA] });
+        expect(scoped).toMatchObject({ id: ID, slotIds: [SLOT], personaIds: [PERSONA] });
+    });
+
+    it('clears a scope with an empty one, which reads back as every show', async () => {
+        const { service: render, setScope } = service({ segment: READY });
+
+        const scoped = await render.scopeSegment(ID, { slotIds: [], personaIds: [] });
+
+        expect(setScope).toHaveBeenCalledWith(ID, { slotIds: [], personaIds: [] });
+        expect(scoped).not.toHaveProperty('slotIds');
+        expect(scoped).not.toHaveProperty('personaIds');
+    });
+
+    it('404s an id nobody has', async () => {
+        const { service: render, setScope } = service({ segment: undefined });
+
+        expect(await status(render.scopeSegment(ID, { slotIds: [SLOT], personaIds: [] }))).toBe(404);
+        expect(setScope).not.toHaveBeenCalled();
+    });
+
+    it('refuses something the station rendered, which no show draws from the shelf', async () => {
+        const { service: render, setScope } = service({ segment: { ...READY, source: 'render' } });
+
+        expect(await status(render.scopeSegment(ID, { slotIds: [SLOT], personaIds: [] }))).toBe(409);
+        expect(setScope).not.toHaveBeenCalled();
+    });
+
+    it('answers 400 for a show or presenter that does not exist', async () => {
+        const missing = Object.assign(new Error('insert violates foreign key constraint'), { code: '23503' });
+        const { service: render } = service({ segment: READY, setScope: async () => Promise.reject(missing) });
+
+        expect(await status(render.scopeSegment(ID, { slotIds: [SLOT], personaIds: [] }))).toBe(400);
     });
 });
 
@@ -1336,9 +1405,10 @@ describe('RenderService.deleteSegment', () => {
         const remove = vi.fn(async () => true);
         const discard = vi.fn(async () => undefined);
         const list = vi.fn(async () => []);
+        const scopesOf = vi.fn(async () => new Map());
 
         const render = new RenderService(
-            { findById, remove, list } as unknown as SegmentRepository,
+            { findById, remove, list, scopesOf } as unknown as SegmentRepository,
             {} as never,
             { discard } as never,
             {} as never,

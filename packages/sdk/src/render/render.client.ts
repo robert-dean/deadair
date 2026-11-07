@@ -26,6 +26,7 @@ import type {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SegmentScope,
     SegmentSourceList,
     SpeechPreviewRequest,
     VoiceList,
@@ -221,6 +222,19 @@ export class RenderClient {
     async deleteSegment(id: string): Promise<SegmentList> {
         const result = await this.fetch(`/segments/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return await parseJson<SegmentList>(result);
+    }
+
+    /**
+     * @name Scope segment
+     * @description Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show
+     */
+    async scopeSegment(id: string, body: SegmentScope): Promise<Segment> {
+        const result = await this.fetch(`/segments/${encodeURIComponent(id)}/scope`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Segment>(result);
     }
 
     /**

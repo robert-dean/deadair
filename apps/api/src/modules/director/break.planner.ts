@@ -19,7 +19,7 @@ import { isSyndicatedKind, SYNDICATED_KIND } from '#modules/podcasts/syndicated.
 import { isCarriedKind } from './carried.kind.js';
 import { SyndicatedSource } from '#modules/podcasts/syndicated.source.js';
 import { stationZone } from './clock.words.js';
-import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
+import { SegmentRepository, type OnAir, type Segment, type ShelvedSegment, type StrandedRelease } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { type StationLineup, type StationLineupItem, type StationLineupSegmentItem } from './station.lineup.js';
@@ -342,7 +342,13 @@ export class BreakPlanner {
         // to say them in. Without a speaker a written break could never be rendered and would be
         // skipped at every slot, which would cost the station the ident it could have had instead.
         const canWrite = this.writers.canWrite(TALK_BREAK_KIND) && this.speech.speaker() !== undefined;
-        const idents = await this.segments.listReady(IDENT_KIND);
+        // Who is on, for the shelf: the slot this running order was built for and whoever presents
+        // it. A running order is one broadcast (`putOnAir` builds a new one for the next show), so
+        // every break planted in it airs on this show and the slot on the LINEUP is the right one to
+        // draw against, without projecting the schedule forward. See "recordings for one show" in
+        // docs/internals/breaks.md.
+        const onAir = onAirOf(lineup.slotId, presenting?.id);
+        const idents = ownFirst(await this.segments.listReady(IDENT_KIND, onAir));
 
         if (!canWrite && idents.length === 0 && wanted.every(slot => slot.band === undefined)) {
             // Not a fault, and deliberately not a warning: a station with no idents recorded and
@@ -353,7 +359,14 @@ export class BreakPlanner {
             return programmes;
         }
 
-        const placements = await this.fill(wanted, idents, canWrite, await this.lastKindBefore(lineup, wanted[0]!.atIndex), segmentsOn(lineup));
+        const placements = await this.fill(
+            wanted,
+            idents,
+            canWrite,
+            await this.lastKindBefore(lineup, wanted[0]!.atIndex),
+            segmentsOn(lineup),
+            onAir,
+        );
         if (placements.length === 0) return programmes;
 
         if (!(await this.insert(lineup, placements))) return programmes;
@@ -390,7 +403,7 @@ export class BreakPlanner {
         const wanted = this.slotsFor(lineup, { ...rules, breakEveryMinutes: 0 }, clock, programmes, chattinessOf(undefined));
         if (wanted.length === 0) return 0;
 
-        const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup));
+        const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup), onAirOf(lineup.slotId, lineup.personaId));
         if (placements.length === 0) return 0;
 
         const introduced = await this.introduce(lineup, rules, placements, wanted, quiet);
@@ -1325,6 +1338,7 @@ export class BreakPlanner {
         canWrite: boolean,
         lastKind: string | undefined,
         onOrder: Set<string>,
+        onAir: OnAir,
     ): Promise<Placement[]> {
         const placements: Placement[] = [];
         let previousKind = lastKind;
@@ -1348,7 +1362,7 @@ export class BreakPlanner {
             // writes a clock, never once said what time it was. What makes a break a band's is that
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
-                const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder);
+                const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder, onAir);
                 if (planted !== undefined) placements.push(planted);
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
@@ -1409,6 +1423,7 @@ export class BreakPlanner {
         airsAt: number | undefined,
         topic: ClockBandSubject | undefined,
         onOrder: Set<string>,
+        onAir: OnAir,
     ): Promise<Placement | undefined> {
         // Somebody else's programme is neither written nor drawn off the shelf: the episode this
         // band's show means is decided by `SyndicatedSource`, the same question the podcasts
@@ -1455,7 +1470,7 @@ export class BreakPlanner {
 
         // Recordings first, for a kind that asks for it. See the note on the method.
         if (this.writers.yieldsToRecordings(kind)) {
-            const recorded = await this.shelf(kind, shelved, drawn, atIndex);
+            const recorded = await this.shelf(kind, shelved, drawn, atIndex, onAir);
             if (recorded !== undefined) return recorded;
         }
 
@@ -1478,7 +1493,7 @@ export class BreakPlanner {
             return { segmentId: segment.id, atIndex, kind, written: true };
         }
 
-        const recorded = await this.shelf(kind, shelved, drawn, atIndex);
+        const recorded = await this.shelf(kind, shelved, drawn, atIndex, onAir);
         if (recorded === undefined) this.logger.info('director: the station clock asks for a break nothing can produce', { kind });
         return recorded;
     }
@@ -1493,16 +1508,19 @@ export class BreakPlanner {
      * renders: otherwise the first one the station wrote would be drawn in place of every later one,
      * and would air in its presenter's voice as it was that day, in anybody's hour. See
      * `SegmentRepository.listRecordings`.
+     *
+     * The show's own recordings come first, and another show's never: see {@link ownFirst}.
      */
     private async shelf(
         kind: string,
         shelved: Map<string, readonly Segment[]>,
         drawn: Map<string, string>,
         atIndex: number,
+        onAir: OnAir,
     ): Promise<Placement | undefined> {
         if (!shelved.has(kind)) {
             const recordingsOnly = this.writers.yieldsToRecordings(kind);
-            shelved.set(kind, await (recordingsOnly ? this.segments.listRecordings(kind) : this.segments.listReady(kind)));
+            shelved.set(kind, ownFirst(await (recordingsOnly ? this.segments.listRecordings(kind, onAir) : this.segments.listReady(kind, onAir))));
         }
         const available = shelved.get(kind) ?? [];
         if (available.length === 0) return undefined;
@@ -1866,6 +1884,24 @@ function elapsedSinceLastOfKind(items: readonly StationLineupItem[], cursor: num
         elapsed += spacingLengthOf(item);
     }
     return elapsed;
+}
+
+/** Who is on air, for the shelf, with an absent half left out rather than set to `undefined`. */
+function onAirOf(slotId: string | undefined, personaId: string | undefined): OnAir {
+    return { ...(slotId === undefined ? {} : { slotId }), ...(personaId === undefined ? {} : { personaId }) };
+}
+
+/**
+ * The recordings a draw chooses from: the show's own where it has any, otherwise the station's.
+ *
+ * A preference rather than a weighting. An operator who recorded an ident for one show meant that
+ * show to sound like itself, and mixing it into a pool with the station-wide ones would air it a
+ * fraction of the time. The repository has already left out every other show's recordings, so what
+ * is not the show's own here is the station's.
+ */
+function ownFirst(shelf: readonly ShelvedSegment[]): ShelvedSegment[] {
+    const own = shelf.filter(segment => segment.forShow);
+    return own.length > 0 ? own : [...shelf];
 }
 
 /**

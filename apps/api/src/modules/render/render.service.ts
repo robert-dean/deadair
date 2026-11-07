@@ -36,6 +36,7 @@ import type {
     PadState,
     PadUse,
     SegmentScanResult,
+    SegmentScope as SegmentScopeWrite,
     Segment as SegmentView,
     VoiceList,
 } from './types/render.types.js';
@@ -54,7 +55,7 @@ import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type Sc
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { DEFAULT_KIND as DEFAULT_SEGMENT_KIND, labelFor, MAX_SEGMENT_BYTES, SegmentLibrary } from './segment.library.js';
 import { SegmentFactsRepository } from './segment.facts.repository.js';
-import { LIBRARY_SOURCE, SegmentRepository, type Segment } from './segment.repository.js';
+import { LIBRARY_SOURCE, SegmentRepository, type Segment, type SegmentScope } from './segment.repository.js';
 import {
     extensionForMime,
     isSegmentExtension,
@@ -325,7 +326,43 @@ export class RenderService {
     /** Everything the station can play that is not a record. */
     async listSegments(): Promise<SegmentList> {
         const segments = await this.segments.list();
-        return { segments: segments.map(toView) };
+        // Only a recording can carry a scope, so only recordings are asked about.
+        const scopes = await this.segments.scopesOf(segments.filter(segment => segment.source === LIBRARY_SOURCE).map(segment => segment.id));
+        return { segments: segments.map(segment => toView(segment, scopes.get(segment.id))) };
+    }
+
+    /**
+     * Set which shows and presenters a recording is for, replacing whatever it was for before.
+     *
+     * `library` only, on {@link deleteSegment}'s argument: what the station rendered itself is not on
+     * the shelf a show draws its recordings from, so a scope on it would be a setting that did nothing.
+     * An empty scope makes it a recording for every show again. The rows and the flag are written
+     * together, see `SegmentRepository.setScope`.
+     *
+     * @throws 404 for an id nobody has, 409 for a segment the station rendered, and 400 for a slot or a
+     * persona that does not exist, which the foreign keys find rather than a lookup per id.
+     */
+    async scopeSegment(id: string, write: SegmentScopeWrite): Promise<SegmentView> {
+        const segment = await this.segments.findById(id);
+        if (segment === undefined) throw httpError(404).withDetails({ message: `segment "${id}" does not exist` });
+        if (segment.source !== LIBRARY_SOURCE) {
+            throw httpError(409).withDetails({
+                message: `"${segment.label}" is something the station wrote and spoke rather than a recording it was given, so it is not drawn for any show and cannot be scoped to one`,
+            });
+        }
+
+        const scope: SegmentScope = { slotIds: [...new Set(write.slotIds)], personaIds: [...new Set(write.personaIds)] };
+        try {
+            await this.segments.setScope(id, scope);
+        } catch (error) {
+            if (isForeignKeyViolation(error)) {
+                throw httpError(400).withDetails({ message: 'a show or presenter in that scope does not exist' });
+            }
+            throw error;
+        }
+
+        this.logger.info('render: scoped a recording', { segment: id, slots: scope.slotIds.length, personas: scope.personaIds.length });
+        return toView(segment, scope);
     }
 
     /**
@@ -1234,8 +1271,17 @@ const sampleResponse = (body: Buffer, key: string, ext: SegmentExtension): Segme
 /** Whether a failure is the station being busy rather than anything wrong with the engine. */
 const isBusy = (error: unknown): boolean => isPluginError(error) && error.code === 'timeout';
 
-/** A row as the console reads it. The checksum stays here: it is a filename, not an answer. */
-const toView = (segment: Segment): SegmentView => ({
+/** Whether the database refused a row for naming something that does not exist. */
+const isForeignKeyViolation = (error: unknown): boolean =>
+    typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === '23503';
+
+/**
+ * A row as the console reads it. The checksum stays here: it is a filename, not an answer.
+ *
+ * A scope's lists are sent only when they hold something, so a recording for every show reads as no
+ * scope at all, which is what every client that predates scoping already assumes.
+ */
+const toView = (segment: Segment, scope?: SegmentScope): SegmentView => ({
     id: segment.id,
     kind: segment.kind,
     state: segment.state,
@@ -1249,6 +1295,8 @@ const toView = (segment: Segment): SegmentView => ({
     ...(segment.error === undefined ? {} : { error: segment.error }),
     ...(segment.voice === undefined ? {} : { voice: segment.voice }),
     ...(segment.delivery === undefined ? {} : { delivery: segment.delivery }),
+    ...(scope === undefined || scope.slotIds.length === 0 ? {} : { slotIds: scope.slotIds }),
+    ...(scope === undefined || scope.personaIds.length === 0 ? {} : { personaIds: scope.personaIds }),
 });
 
 /**

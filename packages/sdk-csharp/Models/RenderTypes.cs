@@ -71,6 +71,28 @@ public sealed record Segment
     [JsonPropertyName("delivery")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Delivery { get; init; }
+
+    /// <summary>The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped</summary>
+    [JsonPropertyName("slotIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<Guid>? SlotIds { get; init; }
+
+    /// <summary>The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air</summary>
+    [JsonPropertyName("personaIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<Guid>? PersonaIds { get; init; }
+}
+
+/// <summary>Which shows and presenters a recording is for. Both empty is every show</summary>
+public sealed record SegmentScope
+{
+    /// <summary>Schedule slot ids: the recording airs while one of these shows is on, whoever presents it</summary>
+    [JsonPropertyName("slotIds")]
+    public required List<Guid> SlotIds { get; init; }
+
+    /// <summary>Persona ids: the recording airs while one of these presenters is on, whichever show it is</summary>
+    [JsonPropertyName("personaIds")]
+    public required List<Guid> PersonaIds { get; init; }
 }
 
 /// <summary>Something for the station to say, before anything has said it</summary>

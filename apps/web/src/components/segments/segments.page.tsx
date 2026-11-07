@@ -5,6 +5,7 @@ import type { Segment } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { fetchSegmentAudio, useCreateSegment, useDeleteSegment, useScanSegments, useSegments } from '../../api/segments.queries';
+import { SegmentScopeCell, useScopeChoices } from './segment.scope';
 import { SegmentUploadCard } from './segment.upload.card';
 import { useVoices } from '../../api/voices.queries';
 import { ConfirmModal } from '../shared/confirm.modal';
@@ -65,6 +66,8 @@ export function SegmentsPage() {
 
     const rows = segments.data?.segments ?? [];
     const kinds = [...new Set(rows.map(segment => segment.kind))].sort();
+    // The names a scoped row's badges need, read only when some row has a scope to name.
+    const choices = useScopeChoices(rows.some(segment => (segment.slotIds?.length ?? 0) + (segment.personaIds?.length ?? 0) > 0));
 
     return (
         <Stack gap="lg">
@@ -141,7 +144,12 @@ export function SegmentsPage() {
                     kinds.map(kind => (
                         <Stack key={kind} gap="xs">
                             <Eyebrow>{kind}</Eyebrow>
-                            <SegmentTable segments={rows.filter(segment => segment.kind === kind)} onDelete={setDeleting} />
+                            <SegmentTable
+                                segments={rows.filter(segment => segment.kind === kind)}
+                                onDelete={setDeleting}
+                                slots={choices.slots}
+                                personas={choices.personas}
+                            />
                         </Stack>
                     ))
                 }
@@ -170,7 +178,17 @@ export function SegmentsPage() {
 }
 
 /** One kind's segments, with the state each is in and a way to hear the ones that have audio. */
-function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: (segment: Segment) => void }) {
+function SegmentTable({
+    segments,
+    onDelete,
+    slots,
+    personas,
+}: {
+    segments: Segment[];
+    onDelete?: (segment: Segment) => void;
+    slots: { value: string; label: string }[];
+    personas: { value: string; label: string }[];
+}) {
     const { t } = useTranslation('segments');
     const preview = useVoicePreview();
 
@@ -188,6 +206,7 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                         <Table.Th w={130}>{t('column.state')}</Table.Th>
                         <Table.Th w={110}>{t('column.voice')}</Table.Th>
                         <Table.Th w={90}>{t('column.length')}</Table.Th>
+                        <Table.Th w={160}>{t('column.scope')}</Table.Th>
                         <Table.Th w={44} />
                     </Table.Tr>
                 </Table.Thead>
@@ -257,6 +276,13 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                                 </Table.Td>
 
                                 <Table.Td className="da-num">{segment.durationMs === undefined ? '—' : formatDuration(segment.durationMs)}</Table.Td>
+                                <Table.Td>
+                                    {/* A recording only: the station's own renders are never drawn
+                                    for a show, so they have no scope to show or set. */}
+                                    {segment.source === 'library' ? (
+                                        <SegmentScopeCell segment={segment} slots={slots} personas={personas} />
+                                    ) : undefined}
+                                </Table.Td>
                                 <Table.Td>
                                     {/* Only for a recording the station was GIVEN. Anything it wrote and
                                     spoke for itself is named by the running order and recorded in

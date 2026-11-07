@@ -48,8 +48,30 @@ export const Segment = z.strictObject({
         .max(50)
         .optional()
         .describe("How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment"),
+    slotIds: z
+        .array(z.uuid())
+        .optional()
+        .describe(
+            'The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped',
+        ),
+    personaIds: z
+        .array(z.uuid())
+        .optional()
+        .describe(
+            'The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air',
+        ),
 });
 export type Segment = z.infer<typeof Segment>;
+
+/**
+ * Which shows and presenters a recording is for. Both empty is every show
+ * generated from [SegmentScope](../../../../data/contracts/render/render.types.ck)
+ */
+export const SegmentScope = z.strictObject({
+    slotIds: z.array(z.uuid()).max(200).describe('Schedule slot ids: the recording airs while one of these shows is on, whoever presents it'),
+    personaIds: z.array(z.uuid()).max(200).describe('Persona ids: the recording airs while one of these presenters is on, whichever show it is'),
+});
+export type SegmentScope = z.infer<typeof SegmentScope>;
 
 /**
  * Something for the station to say, before anything has said it

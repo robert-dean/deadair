@@ -265,6 +265,21 @@ public sealed class RenderClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Scope segment
+    /// Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show
+    /// </summary>
+    /// <exception cref="SdkException">On 400, 404, 409.</exception>
+    public async Task<Segment> ScopeSegmentAsync(Guid id, SegmentScope body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("segments", http.Segment(id), "scope"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Segment>(response);
+    }
+
+    /// <summary>
     /// Read segment sources
     /// The stored facts a written break was handed, the ones it said first
     /// </summary>

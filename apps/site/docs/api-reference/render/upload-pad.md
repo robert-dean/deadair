@@ -1,7 +1,7 @@
 ---
 title: 'Upload pad'
 sidebar_label: 'Upload pad'
-sidebar_position: 24
+sidebar_position: 25
 mdx:
     format: 'md'
 ---

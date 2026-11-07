@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Segment, SegmentCreate, SegmentList } from '@deadair/sdk';
+import type { Segment, SegmentCreate, SegmentList, SegmentScope } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -74,6 +74,24 @@ export function useDeleteSegment() {
     return useMutation({
         mutationFn: (id: string) => sdk.render.deleteSegment(id),
         onSuccess: (list: SegmentList) => queryClient.setQueryData(queryKeys.segments.list(), list),
+    });
+}
+
+/**
+ * Sets which shows and presenters a recording is for. An empty scope is every show.
+ *
+ * The answer is the one row, scope and all, so it is patched into the list in place rather than
+ * refetched: nothing else in the library moves when one recording is scoped.
+ */
+export function useScopeSegment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, scope }: { id: string; scope: SegmentScope }) => sdk.render.scopeSegment(id, scope),
+        onSuccess: (scoped: Segment) =>
+            queryClient.setQueryData(queryKeys.segments.list(), (list: SegmentList | undefined) =>
+                list === undefined ? list : { ...list, segments: list.segments.map(segment => (segment.id === scoped.id ? scoped : segment)) },
+            ),
     });
 }
 

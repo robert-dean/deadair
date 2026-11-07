@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { expressionBuilder, Kysely, sql, type Expression, type SqlBool } from 'kysely';
+import { expressionBuilder, Kysely, sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { DateTime } from 'luxon';
 import { isSpeechDelivery, type SpeechDelivery } from '@deadair/plugin-sdk';
 
@@ -359,6 +359,30 @@ export interface SyndicatedSegment {
     context: BreakContext;
 }
 
+/**
+ * Who is on air, as far as the shelf cares: the slot the running order was built for and the persona
+ * presenting it. Either may be absent, and both absent is a station with no schedule.
+ */
+export interface OnAir {
+    slotId?: string;
+    personaId?: string;
+}
+
+/**
+ * A recording off the shelf, and whether it is the show's own.
+ *
+ * `forShow` is true for a recording scoped to what is on air and false for one that airs on every
+ * show. A recording scoped to some OTHER show never comes back at all, so a caller has nothing to
+ * filter: it only has to prefer the first kind over the second.
+ */
+export type ShelvedSegment = Segment & { forShow: boolean };
+
+/** The shows and presenters one recording is scoped to. Both empty is every show. */
+export interface SegmentScope {
+    slotIds: string[];
+    personaIds: string[];
+}
+
 interface SegmentRow {
     id: string;
     kind: string;
@@ -482,6 +506,44 @@ function toSegment(row: SegmentRow): Segment {
             ? {}
             : { claimsTime: { from: millisOf(row.claimsTimeFrom)!, until: millisOf(row.claimsTimeUntil)! } }),
         ...(millisOf(row.claimsReadingUntil) === undefined ? {} : { claimsReadingUntil: millisOf(row.claimsReadingUntil)! }),
+    };
+}
+
+/** A shelf row, with whether it is the show's own. See {@link ShelvedSegment}. */
+function toShelved(row: SegmentRow & { showScoped: boolean | null }): ShelvedSegment {
+    // A scoped row that came back at all matched what is on air: {@link onAirOnly} saw to that.
+    return { ...toSegment(row), forShow: row.showScoped === true };
+}
+
+/**
+ * What may air on this show: anything scoped to nobody, and anything scoped to its slot or its
+ * presenter. Matching is OR, so a show's sponsor spot still plays the night a guest host sits in.
+ *
+ * A row whose `show_scoped` is set and whose scope rows name nothing on air never comes back, which
+ * is also what keeps a recording whose show was deleted (and its rows cascaded away) off the air.
+ */
+function onAirOnly(onAir: OnAir | undefined): (eb: ExpressionBuilder<DB, 'deadair.segments'>) => Expression<SqlBool> {
+    return eb => {
+        const unscoped = eb('deadair.segments.showScoped', '=', false);
+        const slotId = onAir?.slotId;
+        const personaId = onAir?.personaId;
+        if (slotId === undefined && personaId === undefined) return unscoped;
+
+        return eb.or([
+            unscoped,
+            eb.exists(
+                eb
+                    .selectFrom('deadair.segmentScopes')
+                    .select(sql<number>`1`.as('one'))
+                    .whereRef('deadair.segmentScopes.segmentId', '=', 'deadair.segments.id')
+                    .where(inner =>
+                        inner.or([
+                            ...(slotId === undefined ? [] : [inner('deadair.segmentScopes.slotId', '=', slotId)]),
+                            ...(personaId === undefined ? [] : [inner('deadair.segmentScopes.personaId', '=', personaId)]),
+                        ]),
+                    ),
+            ),
+        ]);
     };
 }
 
@@ -750,20 +812,21 @@ export class SegmentRepository extends DataRepository {
      * a past phone-in and air it on its own — half a conversation, with nobody it was half of. The
      * shelf is for the standalone things an operator recorded or the station wrote.
      */
-    async listReady(kind: string): Promise<Segment[]> {
+    async listReady(kind: string, onAir?: OnAir): Promise<ShelvedSegment[]> {
         const rows = await this.db
             .selectFrom('deadair.segments')
-            .select(SEGMENT_COLUMNS)
+            .select([...SEGMENT_COLUMNS, 'showScoped'])
             .where('kind', '=', kind)
             .where('state', '=', 'ready')
             .where('productionId', 'is', null)
             // Nor is an episode of somebody else's programme: it airs once, at its show's slot, and
             // a shelf draw would put last week's episode on again at random. See SYNDICATED_SOURCE.
             .where('source', '!=', SYNDICATED_SOURCE)
+            .where(onAirOnly(onAir))
             .orderBy('createdAt', 'asc')
             .execute();
 
-        return rows.map(toSegment);
+        return rows.map(toShelved);
     }
 
     /**
@@ -776,18 +839,75 @@ export class SegmentRepository extends DataRepository {
      * the presenter had on the day they were made. Measured on air — a re-voiced presenter kept
      * coming back in the old voice through jingles rendered the day before, and they aired inside
      * other presenters' hours too, since a shelf draw knows nothing of who is on.
+     *
+     * Both shelf reads take `onAir` and answer only what may air on that show: the recordings scoped
+     * to nobody, and the ones scoped to its slot or its presenter. Without `onAir` only the first.
      */
-    async listRecordings(kind: string): Promise<Segment[]> {
+    async listRecordings(kind: string, onAir?: OnAir): Promise<ShelvedSegment[]> {
         const rows = await this.db
             .selectFrom('deadair.segments')
-            .select(SEGMENT_COLUMNS)
+            .select([...SEGMENT_COLUMNS, 'showScoped'])
             .where('kind', '=', kind)
             .where('state', '=', 'ready')
             .where('source', '=', LIBRARY_SOURCE)
+            .where(onAirOnly(onAir))
             .orderBy('createdAt', 'asc')
             .execute();
 
-        return rows.map(toSegment);
+        return rows.map(toShelved);
+    }
+
+    /**
+     * The shows and presenters each of these recordings is scoped to, keyed by id.
+     *
+     * A recording with no rows is absent from the map, which is the same answer as an empty scope.
+     * One query for the whole list, because the console draws the library at once.
+     */
+    async scopesOf(ids: readonly string[]): Promise<Map<string, SegmentScope>> {
+        if (ids.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.segmentScopes')
+            .select(['segmentId', 'slotId', 'personaId'])
+            .where('segmentId', 'in', [...ids])
+            .orderBy('createdAt', 'asc')
+            .execute();
+
+        const scopes = new Map<string, SegmentScope>();
+        for (const row of rows) {
+            const scope = scopes.get(row.segmentId) ?? { slotIds: [], personaIds: [] };
+            if (row.slotId != null) scope.slotIds.push(row.slotId);
+            if (row.personaId != null) scope.personaIds.push(row.personaId);
+            scopes.set(row.segmentId, scope);
+        }
+        return scopes;
+    }
+
+    /**
+     * Replace one recording's scope with this one, rows and flag together.
+     *
+     * In one transaction, because the flag and the rows answer one question between them: rows
+     * written without the flag would be ignored by the shelf, and the flag set over no rows takes the
+     * recording off every show. An empty scope clears the flag, which is a recording for every show.
+     * Uses the caller's transaction where there is one, since Kysely refuses to open a second.
+     */
+    async setScope(id: string, scope: SegmentScope): Promise<void> {
+        const slotIds = [...new Set(scope.slotIds)];
+        const personaIds = [...new Set(scope.personaIds)];
+
+        const write = async (db: Kysely<DB>): Promise<void> => {
+            await db.deleteFrom('deadair.segmentScopes').where('segmentId', '=', id).execute();
+            const rows = [...slotIds.map(slotId => ({ segmentId: id, slotId })), ...personaIds.map(personaId => ({ segmentId: id, personaId }))];
+            if (rows.length > 0) await db.insertInto('deadair.segmentScopes').values(rows).execute();
+            await db
+                .updateTable('deadair.segments')
+                .set({ showScoped: rows.length > 0 })
+                .where('id', '=', id)
+                .execute();
+        };
+
+        if (this.db.isTransaction) await write(this.db);
+        else await this.db.transaction().execute(write);
     }
 
     /**

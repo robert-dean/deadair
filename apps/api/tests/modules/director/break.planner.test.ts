@@ -23,7 +23,7 @@ import { settingsConfig } from '../../utils/settings.config.js';
 import { StationLineup, type StationLineupSegmentItem } from '../../../src/modules/director/station.lineup.js';
 import { NO_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
-import type { PlannedSegment, Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
+import type { OnAir, PlannedSegment, Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SyndicatedAnswer } from '../../../src/modules/podcasts/syndicated.source.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -71,7 +71,9 @@ const build = (
         settings?: Record<string, string>;
         bands?: ClockBand[];
         /** The presenter whose chattiness scales the station's own spacing floor. */
-        presenting?: { chattiness?: string };
+        presenting?: { id?: string; chattiness?: string };
+        /** Which recordings belong to which shows, by segment id. Absent is a recording for every show. */
+        scopes?: Record<string, { slotIds?: string[]; personaIds?: string[] }>;
         /** What a `syndicated` band would carry. Nothing, by default: no station subscribes to anything. */
         carried?: SyndicatedAnswer;
         /** What a `narration` band is answered with. Declines by default, as `carried` does. */
@@ -83,10 +85,30 @@ const build = (
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would
     // have a band for `news` quietly filled with an ident and every case below pass for the wrong
     // reason.
-    const listReady = vi.fn(async (kind: string) => (options.idents ?? [ident('seg-1')]).filter(segment => segment.kind === kind));
+    //
+    // Scoped the way the repository scopes it, too: a recording scoped to the slot or the presenter
+    // on air comes back marked as the show's own, one scoped to anybody else does not come back.
+    const onTheShelf = (segments: Segment[], onAir: OnAir | undefined) =>
+        segments.flatMap(segment => {
+            const scope = options.scopes?.[segment.id];
+            if (scope === undefined) return [{ ...segment, forShow: false }];
+            const matches =
+                (onAir?.slotId !== undefined && (scope.slotIds ?? []).includes(onAir.slotId)) ||
+                (onAir?.personaId !== undefined && (scope.personaIds ?? []).includes(onAir.personaId));
+            return matches ? [{ ...segment, forShow: true }] : [];
+        });
+    const listReady = vi.fn(async (kind: string, onAir?: OnAir) =>
+        onTheShelf(
+            (options.idents ?? [ident('seg-1')]).filter(segment => segment.kind === kind),
+            onAir,
+        ),
+    );
     // Only what an operator recorded, as the repository's `source = 'library'` does.
-    const listRecordings = vi.fn(async (kind: string) =>
-        (options.idents ?? [ident('seg-1')]).filter(segment => segment.kind === kind && segment.source === 'library'),
+    const listRecordings = vi.fn(async (kind: string, onAir?: OnAir) =>
+        onTheShelf(
+            (options.idents ?? [ident('seg-1')]).filter(segment => segment.kind === kind && segment.source === 'library'),
+            onAir,
+        ),
     );
     let planned = 0;
     // What the alternation and the write window both read: a lineup item names a segment by id, so
@@ -602,7 +624,7 @@ describe('BreakPlanner writing its own breaks', () => {
 
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
 
-        expect(listReady).toHaveBeenCalledWith('ident');
+        expect(listReady).toHaveBeenCalledWith('ident', expect.anything());
         expect(plan).not.toHaveBeenCalled();
         expect(send).not.toHaveBeenCalled();
     });
@@ -615,7 +637,7 @@ describe('BreakPlanner writing its own breaks', () => {
 
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
 
-        expect(listReady).toHaveBeenCalledWith('ident');
+        expect(listReady).toHaveBeenCalledWith('ident', expect.anything());
         expect(plan).not.toHaveBeenCalled();
     });
 
@@ -1058,7 +1080,7 @@ describe('BreakPlanner carrying a programme', () => {
         expect(planted).toMatchObject({ kind: 'segment', segmentId: 'episode-12', segmentKind: 'syndicated', durationMs: HOUR });
         // Neither written nor drawn from the shelf.
         expect(plan).not.toHaveBeenCalled();
-        expect(listReady).not.toHaveBeenCalledWith('syndicated');
+        expect(listReady.mock.calls.map(([kind]) => kind)).not.toContain('syndicated');
     });
 
     // A reading is carried on exactly the same terms as an episode: planted first, with its own
@@ -1077,7 +1099,7 @@ describe('BreakPlanner carrying a programme', () => {
         expect(segmentsAt(lineup)).toEqual([6]);
         expect(planted).toMatchObject({ kind: 'segment', segmentId: 'chapter-4', segmentKind: 'narration', durationMs: 20 * 60_000 });
         expect(plan).not.toHaveBeenCalled();
-        expect(listReady).not.toHaveBeenCalledWith('narration');
+        expect(listReady.mock.calls.map(([kind]) => kind)).not.toContain('narration');
     });
 
     it('asks the readings source for a narration band and the podcasts source for a syndicated one', async () => {
@@ -2180,8 +2202,8 @@ describe('BreakPlanner filling a jingle', () => {
 
         expect(jinglesIn(lineup)).not.toContain('r-1');
         expect(plan.mock.calls.filter(([input]) => input.kind === 'jingle').length).toBeGreaterThan(0);
-        expect(listRecordings).toHaveBeenCalledWith('jingle');
-        expect(listReady).not.toHaveBeenCalledWith('jingle');
+        expect(listRecordings).toHaveBeenCalledWith('jingle', expect.anything());
+        expect(listReady.mock.calls.map(([kind]) => kind)).not.toContain('jingle');
     });
 
     it('draws nothing it rendered earlier even when it cannot write', async () => {
@@ -2390,5 +2412,97 @@ describe('landingFor', () => {
         lineup.insertSegments([{ segmentId: 'talk', atIndex: 1, segmentKind: TALK_BREAK_KIND }]);
 
         expect(landingFor(lineup.all(), 1)).toBeUndefined();
+    });
+});
+
+// A recording an operator scoped to one show: that show's own ident, its sponsor's spot.
+describe('BreakPlanner drawing a recording for the show on air', () => {
+    const sponsorBand: ClockBand[] = [{ at: 'interval', everyMs: 2 * TRACK_MINUTES * 60_000, kind: 'sponsor' } as ClockBand];
+
+    const onShow = async (count: number): Promise<StationLineup> => {
+        const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import', slotId: 'slot-1' });
+        lineup.append(Array.from({ length: count }, (_, index) => track(`t${index}`)));
+        return lineup;
+    };
+    const drawn = (lineup: StationLineup, kind: string): string[] =>
+        lineup.all().flatMap(item => (item.kind === 'segment' && item.segmentKind === kind ? [item.segmentId] : []));
+
+    it("draws the show's own recordings ahead of the station's", async () => {
+        const { planner, listRecordings } = build({
+            canWrite: true,
+            yields: ['sponsor'],
+            idents: [recorded('s-station', 'sponsor'), recorded('s-show', 'sponsor')],
+            scopes: { 's-show': { slotIds: ['slot-1'] } },
+            bands: sponsorBand,
+            presenting: { id: 'persona-1' },
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(listRecordings).toHaveBeenCalledWith('sponsor', { slotId: 'slot-1', personaId: 'persona-1' });
+        const spots = drawn(lineup, 'sponsor');
+        expect(spots.length).toBeGreaterThan(1);
+        expect(new Set(spots)).toEqual(new Set(['s-show']));
+    });
+
+    it("never draws another show's, and falls back to the station's", async () => {
+        const { planner } = build({
+            yields: ['sponsor'],
+            idents: [recorded('s-station', 'sponsor'), recorded('s-other', 'sponsor')],
+            scopes: { 's-other': { slotIds: ['slot-2'] } },
+            bands: sponsorBand,
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(new Set(drawn(lineup, 'sponsor'))).toEqual(new Set(['s-station']));
+    });
+
+    it("matches a presenter's own recording on whichever show they present", async () => {
+        const { planner } = build({
+            yields: ['sponsor'],
+            idents: [recorded('s-station', 'sponsor'), recorded('s-presenter', 'sponsor')],
+            scopes: { 's-presenter': { personaIds: ['persona-1'] } },
+            bands: sponsorBand,
+            presenting: { id: 'persona-1' },
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(new Set(drawn(lineup, 'sponsor'))).toEqual(new Set(['s-presenter']));
+    });
+
+    it("draws the show's own ident when nothing can write", async () => {
+        const { planner, listReady } = build({
+            canWrite: false,
+            idents: [ident('i-station'), ident('i-show')],
+            scopes: { 'i-show': { slotIds: ['slot-1'] } },
+            presenting: { id: 'persona-1' },
+        });
+        const lineup = await onShow(12);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(listReady).toHaveBeenCalledWith('ident', { slotId: 'slot-1', personaId: 'persona-1' });
+        const idents = drawn(lineup, 'ident');
+        expect(idents.length).toBeGreaterThan(0);
+        expect(new Set(idents)).toEqual(new Set(['i-show']));
+    });
+
+    it('asks for unscoped recordings alone when no show is on', async () => {
+        const { planner, listReady } = build({
+            canWrite: false,
+            idents: [ident('i-station'), ident('i-show')],
+            scopes: { 'i-show': { slotIds: ['slot-1'] } },
+        });
+        const lineup = await lineupOf(12);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(listReady).toHaveBeenCalledWith('ident', {});
+        expect(new Set(drawn(lineup, 'ident'))).toEqual(new Set(['i-station']));
     });
 });

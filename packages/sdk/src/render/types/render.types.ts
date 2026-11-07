@@ -38,6 +38,21 @@ export interface Segment {
     voice?: string;
     /** How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment */
     delivery?: string;
+    /** The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped */
+    slotIds?: string[];
+    /** The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air */
+    personaIds?: string[];
+}
+
+/**
+ * Which shows and presenters a recording is for. Both empty is every show
+ * generated from [SegmentScope](../../../../../apps/api/data/contracts/render/render.types.ck)
+ */
+export interface SegmentScope {
+    /** Schedule slot ids: the recording airs while one of these shows is on, whoever presents it */
+    slotIds: string[];
+    /** Persona ids: the recording airs while one of these presenters is on, whichever show it is */
+    personaIds: string[];
 }
 
 /**

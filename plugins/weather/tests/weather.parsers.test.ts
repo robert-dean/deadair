@@ -270,7 +270,37 @@ describe('the National Weather Service', () => {
                 windKph: 13,
                 precipitationChance: 40,
             },
+            hours: [],
         });
+    });
+
+    it('reads the rest of the hourly forecast as the outlook, inside the span asked for', () => {
+        const period = (startTime: string, extra: Record<string, unknown>) => ({
+            startTime,
+            temperature: 20,
+            windSpeed: '10 km/h',
+            icon: 'https://api.weather.gov/icons/land/day/rain,80?size=small',
+            shortForecast: 'Rain Showers Likely',
+            ...extra,
+        });
+        const hourly = {
+            properties: {
+                periods: [
+                    period('2026-08-29T09:00:00-04:00', { probabilityOfPrecipitation: { value: 80 } }),
+                    // The service sends `null` for a good share of hours, which is no figure, not zero.
+                    period('2026-08-29T10:00:00-04:00', { probabilityOfPrecipitation: { value: null } }),
+                    period('2026-08-29T11:00:00-04:00', { probabilityOfPrecipitation: { value: 30 } }),
+                    period('2026-08-29T12:00:00-04:00', { probabilityOfPrecipitation: { value: 10 } }),
+                ],
+            },
+        };
+
+        const read = parseNwsHourly(hourly, 3);
+
+        expect(read?.hours.map(hour => hour.at)).toEqual(['2026-08-29T09:00:00-04:00', '2026-08-29T10:00:00-04:00', '2026-08-29T11:00:00-04:00']);
+        expect(read?.hours[0]).toMatchObject({ condition: 'rain', temperatureC: 20, precipitationChance: 80 });
+        expect('precipitationChance' in read!.hours[1]!).toBe(false);
+        expect(parseNwsHourly(hourly)?.hours).toEqual([]);
     });
 
     it('folds day and night periods into calendar days', () => {

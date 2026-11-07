@@ -265,6 +265,18 @@ describe('the National Weather Service', () => {
         expect(host.calls[2]?.url).toContain('units=si');
     });
 
+    it('fills the outlook from the hourly forecast it already fetches, at no extra request', async () => {
+        await initialize({ engine: 'nws' });
+        queueJson(GEOCODED);
+        queueJson(POINTS);
+        queueJson(HOURLY);
+
+        const reading = await plugin.getWeather({ place: 'Atlanta', hours: 6 });
+
+        expect(host.calls).toHaveLength(3);
+        expect(reading?.hours?.[0]).toMatchObject({ at: '2026-08-29T09:00:00-04:00', condition: 'clear', temperatureC: 24 });
+    });
+
     it('says which service covers only the United States when it answers 404', async () => {
         await initialize({ engine: 'nws' });
         queueJson(GEOCODED);

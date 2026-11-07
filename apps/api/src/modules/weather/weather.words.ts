@@ -1,4 +1,4 @@
-import type { WeatherCondition, WeatherConditions, WeatherDay, WeatherReading } from '@deadair/plugin-sdk';
+import type { WeatherCondition, WeatherConditions, WeatherDay, WeatherHour, WeatherReading } from '@deadair/plugin-sdk';
 import { DEFAULT_UNITS, type StationUnits } from './weather.keys.js';
 
 /**
@@ -33,6 +33,8 @@ export interface SpokenWeather {
     units: StationUnits;
     current: SpokenConditions;
     days?: SpokenDay[];
+    /** The hours ahead, earliest first, when the reading carried an outlook. See `weather.outlook.ts`. */
+    hours?: SpokenHour[];
 }
 
 /** One moment's figures, converted, plus the words for the sky. */
@@ -58,6 +60,12 @@ export interface SpokenDay extends SpokenConditions {
     low?: number;
     sunrise?: string;
     sunset?: string;
+}
+
+/** One row of the hourly outlook, converted. */
+export interface SpokenHour extends SpokenConditions {
+    /** ISO-8601 with the place's offset, as the plugin gave it. When the row's period begins. */
+    at: string;
 }
 
 /** What a degree is called here, for a caller writing it down rather than saying it. */
@@ -116,6 +124,7 @@ export function spoken(reading: WeatherReading, units: StationUnits = DEFAULT_UN
         units,
         current: spokenConditions(reading.current, units),
         ...(reading.days === undefined || reading.days.length === 0 ? {} : { days: reading.days.map(day => spokenDay(day, units)) }),
+        ...(reading.hours === undefined || reading.hours.length === 0 ? {} : { hours: reading.hours.map(hour => spokenHour(hour, units)) }),
     };
 }
 
@@ -141,6 +150,10 @@ function spokenDay(day: WeatherDay, units: StationUnits): SpokenDay {
         ...only('sunrise', day.sunrise),
         ...only('sunset', day.sunset),
     };
+}
+
+function spokenHour(hour: WeatherHour, units: StationUnits): SpokenHour {
+    return { ...spokenConditions(hour, units), at: hour.at };
 }
 
 /** `undefined` means "not set", so the key is left off rather than written with nothing behind it. */

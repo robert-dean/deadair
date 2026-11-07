@@ -95,6 +95,18 @@ describe('spoken', () => {
         expect(spoken(READING).place).toBe('Atlanta, Georgia');
     });
 
+    it("converts the hourly outlook too, and keeps each row's time as the plugin wrote it", () => {
+        const said = spoken(
+            { ...READING, hours: [{ at: '2026-08-29T10:00:00-04:00', condition: 'rain', temperatureC: 10, precipitationChance: 60 }] },
+            'imperial',
+        );
+
+        expect(said.hours).toEqual([
+            { at: '2026-08-29T10:00:00-04:00', condition: 'rain', words: 'raining', temperature: 50, precipitationChance: 60 },
+        ]);
+        expect(spoken(READING).hours).toBeUndefined();
+    });
+
     it('defaults to metric for a station that has not said', () => {
         expect(spoken(READING).current.temperature).toBe(17);
     });

@@ -121,7 +121,22 @@ the inbox (`source = 'library'`, read through `SegmentRepository.listRecordings`
 renders. The shelf used to be `listReady`, which answers both, so the first jingles the station wrote became
 the recordings every later slot drew: the live station rendered eleven on one day and none after, and a
 presenter re-voiced the next day kept airing in the old voice through them, inside other presenters' hours
-too, since a shelf draw knows nothing of who is on.
+too, since a shelf draw then knew nothing of who was on.
+
+**A recording can belong to a show, and the shelf draws the show's own first.** An operator scopes a library
+recording to slots, to personas, or to both (`deadair.segment_scopes`, `PUT /segments/{id}/scope`), and one
+with no scope is the station's and airs on every show, which is every recording made before scoping existed.
+Matching is OR: a recording scoped to a slot matches while that slot is on whoever presents it, so a show's
+sponsor spot still plays the night a guest host sits in, and one scoped to a persona follows them to any
+show. Both shelf reads (`listRecordings` for a kind that yields to recordings, `listReady` for the rest and
+for the ident fallback) take the lineup's slot and the presenting persona, never return another show's
+recording, and mark the ones that are this show's own; the planner draws from those when there are any and
+from the station's otherwise (`ownFirst`), a preference rather than a weighting, because a show's own ident
+mixed into a pool of station-wide ones would air a fraction of the time. `segments.show_scoped` is what keeps
+a recording whose show was deleted off the air: the cascade takes its scope rows, and without the flag it
+would read as unscoped and air everywhere. The slot drawn against is the LINEUP's. A running order is one
+broadcast (`putOnAir` builds a new one for the next show), so a break planted an hour ahead still airs on the
+show it was planted for and nothing has to project the schedule forward to know whose ident it is.
 
 **A phrasing the station just used is recognised by its OPENING, or failing that by its refrain.**
 `recent` is a list of scripts and carries no template identity, so `wasHeard` has to recognise a

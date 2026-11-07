@@ -76,6 +76,8 @@ function harness(
         notebook?: { trait: readonly string[]; said: readonly string[] };
         /** One of that character's own stories, for the tests about the rung and the rest. */
         story?: PersonaStoryForPrompt;
+        /** The operator's talk direction, held until `endsAt`, for the tests about who hears it and when. */
+        direction?: { words: string; endsAt: string };
         /** The request this break was made for, for the one test about handing its context over. */
         request?: StoredBreakRequest;
         /** What a bulletin has to report, for the one test about handing the stories over. */
@@ -293,6 +295,15 @@ function harness(
 
     const floorWatch = { observe: vi.fn() };
 
+    // The table's own rule: a direction is read against an instant and holds while it ends after it.
+    const directions = {
+        direction: vi.fn(async (at?: string) =>
+            options.direction !== undefined && (at === undefined || Date.parse(options.direction.endsAt) > Date.parse(at))
+                ? options.direction
+                : undefined,
+        ),
+    };
+
     // The real builder over the same doubles, so every assertion about what a writer is handed
     // still goes through the code that hands it.
     const builder = new BreakRequestBuilder(
@@ -317,6 +328,7 @@ function harness(
         speech as never,
         config as never,
         logger as never,
+        directions as never,
     );
 
     const concerts = { nextDate: vi.fn(async (artist: string) => options.concerts?.[artist]) };
@@ -376,6 +388,7 @@ function harness(
         identity,
         speech,
         lyricLabels,
+        directions,
     };
 }
 
@@ -3237,5 +3250,57 @@ describe('WriteBreakJob resting the soundboard after a hit', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking [sfx:rimshot]' }));
+    });
+});
+
+describe('the talk direction', () => {
+    const AIRS = Date.parse('2026-11-07T21:20:00.000Z');
+    const direction = { words: "It's Sam's birthday tonight", endsAt: '2026-11-07T22:00:00.000Z' };
+    const asked = (writers: { write: { mock: { calls: unknown[][] } } }) => writers.write.mock.calls[0]![0] as BreakWriteRequest;
+
+    it('is handed to a talk break that airs while it holds, read against the air time rather than now', async () => {
+        const { job, writers, directions } = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: AIRS }), direction });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(directions.direction).toHaveBeenCalledWith('2026-11-07T21:20:00.000Z');
+        expect(asked(writers).direction).toBe("It's Sam's birthday tonight");
+    });
+
+    it('is not handed to a talk break that airs after it has ended, even while it holds now', async () => {
+        const later = Date.parse('2026-11-07T22:05:00.000Z');
+        const { job, writers } = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: later }), direction });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(asked(writers).direction).toBeUndefined();
+    });
+
+    it('is handed to a changeover', async () => {
+        const { job, writers } = harness({ lineup: await lineupWithBreak(), segment: planned({ kind: 'changeover', airsAt: AIRS }), direction });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(asked(writers).direction).toBe("It's Sam's birthday tonight");
+    });
+
+    it('is never read for news, the weather, the date, a welcome, a story or a dedication', async () => {
+        for (const kind of ['news', 'weather', 'almanac', 'welcome', 'story', 'dedication']) {
+            const { job, writers, directions } = harness({ lineup: await lineupWithBreak(), segment: planned({ kind, airsAt: AIRS }), direction });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(asked(writers).direction, kind).toBeUndefined();
+            expect(directions.direction, kind).not.toHaveBeenCalled();
+        }
+    });
+
+    it('costs a break nothing but its lean when the table cannot be read', async () => {
+        const { job, writers, directions } = harness({ lineup: await lineupWithBreak(), segment: planned({ airsAt: AIRS }), direction });
+        directions.direction.mockRejectedValueOnce(new Error('the table is gone'));
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(asked(writers).direction).toBeUndefined();
     });
 });

@@ -504,6 +504,9 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     allowsPreoccupation: true,
     // And the one with room for a character's now-and-then act. See `allowsOccasionalQuirk`.
     allowsOccasionalQuirk: true,
+    // The ordinary link is where a presenter with nothing in particular to say hears what the
+    // operator asked for tonight. See `hearsDirection`.
+    hearsDirection: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */

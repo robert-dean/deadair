@@ -9,13 +9,25 @@ import { breakPrompt, TALK_BREAK_SHAPE, type BreakPromptShape } from '../../../s
 import { DIRECTION_ECHO_WORDS, readAnswer, writeDecline } from '../../../src/modules/director/break.answer.guard.js';
 import { retryNudge, worthRetrying } from '../../../src/modules/director/break.retry.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
+import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.writer.js';
+import { WEATHER_SHAPE } from '../../../src/modules/director/model.weather.break.writer.js';
+import { ALMANAC_SHAPE } from '../../../src/modules/director/model.almanac.break.writer.js';
+import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
+import { STORY_SHAPE } from '../../../src/modules/director/story.break.writer.js';
+import { DEDICATION_SHAPE } from '../../../src/modules/director/model.dedication.writer.js';
+import { CHANGEOVER_SHAPE } from '../../../src/modules/director/model.changeover.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
 
 const hearing: BreakPromptShape = { ...TALK_BREAK_SHAPE, hearsDirection: true };
+const deaf: BreakPromptShape = { ...TALK_BREAK_SHAPE, hearsDirection: false };
 const user = (request: BreakWriteRequest, shape: BreakPromptShape) =>
     breakPrompt(request, {}, shape).find(message => message.role === 'user')?.content ?? '';
+const whole = (request: BreakWriteRequest, shape: BreakPromptShape) =>
+    breakPrompt(request, {}, shape)
+        .map(message => message.content)
+        .join('\n');
 
 describe('the talk direction in the prompt', () => {
     const request: BreakWriteRequest = { kind: 'talkbreak', previous, next, direction: "It's Sam's birthday tonight" };
@@ -30,7 +42,24 @@ describe('the talk direction in the prompt', () => {
     });
 
     it('says nothing of it to a shape that does not hear it', () => {
-        expect(user(request, TALK_BREAK_SHAPE)).not.toContain('Sam');
+        expect(user(request, deaf)).not.toContain('Sam');
+    });
+
+    it('is heard by the talk break and the changeover', () => {
+        expect(TALK_BREAK_SHAPE.hearsDirection).toBe(true);
+        expect(user(request, TALK_BREAK_SHAPE)).toContain("Sam's birthday");
+        expect(user({ kind: 'changeover', direction: request.direction! }, CHANGEOVER_SHAPE)).toContain("Sam's birthday");
+    });
+
+    it('never reaches a news, weather, date, welcome, story or dedication prompt, even on a request that carries it', () => {
+        const shapes = { NEWS_SHAPE, WEATHER_SHAPE, ALMANAC_SHAPE, WELCOME_SHAPE, STORY_SHAPE, DEDICATION_SHAPE };
+        for (const [name, shape] of Object.entries(shapes)) {
+            const prompt = whole({ ...request, stories: [{ headline: 'Bridge reopens.' }] }, shape);
+
+            expect(shape.hearsDirection, name).not.toBe(true);
+            expect(prompt, name).not.toContain('Sam');
+            expect(prompt, name).not.toContain('A note from the station');
+        }
     });
 
     it('says nothing when there is no direction', () => {

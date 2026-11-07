@@ -33,6 +33,9 @@ import { NEWS_KIND } from './news.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
+import { CHANGEOVER_KIND } from './changeover.writer.js';
+import { CHANGEOVER_SHAPE } from './model.changeover.writer.js';
+import { TalkDirectionRepository } from './talk.direction.repository.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
@@ -113,6 +116,23 @@ const STORY_MODES = new Map<string, 'offered' | 'told'>(
             [STORY_KIND, STORY_SHAPE.stories],
         ] as const
     ).flatMap(([kind, mode]) => (mode === undefined ? [] : [[kind, mode] as const])),
+);
+
+/**
+ * Which kinds of break are handed the operator's talk direction.
+ *
+ * {@link STORY_MODES}' shape and its reason: built from the shapes, so the builder holds no second
+ * opinion about `BreakPromptShape.hearsDirection`. A kind absent from here never reads the direction
+ * at all, so a bulletin, a forecast or the date cannot carry it even to a prompt that would not
+ * render it.
+ */
+const DIRECTION_KINDS = new Set<string>(
+    (
+        [
+            [TALK_BREAK_KIND, TALK_BREAK_SHAPE],
+            [CHANGEOVER_KIND, CHANGEOVER_SHAPE],
+        ] as const
+    ).flatMap(([kind, shape]) => (shape.hearsDirection === true ? [kind] : [])),
 );
 
 /**
@@ -284,6 +304,8 @@ export class BreakRequestBuilder {
         private readonly speech: SpeechService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        /** The operator's talk direction, for the kinds that hear one. See {@link direction}. */
+        private readonly directions: TalkDirectionRepository,
     ) {}
 
     /**
@@ -474,6 +496,8 @@ export class BreakRequestBuilder {
             ...preoccupation(persona, turn),
             // And the now-and-then quirk, if this is one of its times, on exactly those terms.
             ...occasionalQuirk(persona, turn),
+            // The operator's direction, if one still holds when this break AIRS. See `direction`.
+            ...(await this.direction(kind, airsAt ?? Date.now())),
             // What this break's words are worth at the one model slot. Absent for a planted break,
             // which is the gate's `air` default: it has a deadline like everything on air, and no
             // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency
@@ -949,6 +973,23 @@ export class BreakRequestBuilder {
      * guest is not presenting (a bulletin read by the newsreader), and nothing when the regular host
      * cannot be read, which costs the line and never the break.
      */
+    /**
+     * The operator's talk direction for a kind that hears one, read against the instant the break
+     * airs rather than now: a break written twenty minutes ahead of a direction's end, for a slot past
+     * it, does not hear it. Best-effort like every read here, so a table that cannot be read costs the
+     * break its lean and nothing else.
+     */
+    private async direction(kind: string, airsAt: number): Promise<{ direction?: string }> {
+        if (!DIRECTION_KINDS.has(kind)) return {};
+        try {
+            const held = await this.directions.direction(new Date(airsAt).toISOString());
+            return held === undefined ? {} : { direction: held.words };
+        } catch (error) {
+            this.logger.warn(`director: could not read the talk direction: ${errorText(error)}`);
+            return {};
+        }
+    }
+
     private async sittingIn(lineup: StationLineup, persona: Persona | undefined): Promise<{ sittingInFor?: SittingIn }> {
         const regularId = lineup.regularPersonaId;
         // The LEAD only: a guest host sits in for the regular one, and a co-host beside them is not

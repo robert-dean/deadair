@@ -82,6 +82,7 @@ import type {
     AlbumRef,
     ArtistEnrichment,
     ArtistRef,
+    EnrichmentUnanswered,
     ExternalId,
     ExternalLink,
     SourceDocument,
@@ -227,6 +228,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ExternalLink: IsJsonSafe<ExternalLink>;
     SourceDocument: IsJsonSafe<SourceDocument>;
     TrackEnrichment: IsJsonSafe<TrackEnrichment>;
+    EnrichmentUnanswered: IsJsonSafe<EnrichmentUnanswered>;
     ArtistEnrichment: IsJsonSafe<ArtistEnrichment>;
     AlbumEnrichment: IsJsonSafe<AlbumEnrichment>;
     TopicRef: IsJsonSafe<TopicRef>;
@@ -349,6 +351,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ExternalLink',
     'SourceDocument',
     'TrackEnrichment',
+    'EnrichmentUnanswered',
     'ArtistEnrichment',
     'AlbumEnrichment',
     'TopicRef',

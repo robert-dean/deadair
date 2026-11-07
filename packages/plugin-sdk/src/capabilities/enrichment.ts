@@ -277,12 +277,21 @@ export interface EnrichmentProvider {
      * one query that identifies twenty-five tracks costs a second, where
      * twenty-five `enrichTrack` calls cost twenty-five.
      *
-     * Index-aligned with `refs`: entry `i` is the answer about `refs[i]`, the
-     * returned array is the same length, and `{}` at a position is a miss
-     * exactly as it is for `enrichTrack`. A source that could only account for
-     * some of the batch returns `{}` for the rest rather than a short array.
+     * Index-aligned with `refs`: entry `i` is the answer about `refs[i]`, and
+     * the returned array is the same length. Each entry is one of two things:
+     *
+     * - an answer, where `{}` is a miss exactly as it is for `enrichTrack`:
+     *   the source looked and does not have this track;
+     * - {@link unanswered}, where the source never got an answer about this
+     *   ref at all: its lookup threw, or the call ran out of time before
+     *   reaching it.
+     *
+     * The difference is what the host does next. A miss is believed for a week;
+     * an unanswered ref is filed as a failure and asked again within the hour,
+     * as a throw from `enrichTrack` would be. So never return `{}` for a ref you
+     * did not actually look up: that tells the host the track is not there.
      */
-    enrichTracks?(refs: TrackRef[]): Promise<Partial<TrackEnrichment>[]>;
+    enrichTracks?(refs: TrackRef[]): Promise<TrackBatchAnswer[]>;
 
     /**
      * Optional, the way a music provider's `resolveStreamUrl` is: a source
@@ -311,6 +320,30 @@ export interface EnrichmentProvider {
      */
     enrichTopic?(topic: TopicRef): Promise<Partial<TopicEnrichment>>;
 }
+
+/**
+ * One entry of an {@link EnrichmentProvider.enrichTracks} answer that says
+ * "this ref was not answered", as opposed to `{}`, which says "not found".
+ *
+ * An object with a reason rather than `undefined`, because the batch is a
+ * JSON-safe payload and `undefined` in an array comes back from JSON as `null`.
+ * The reason is what the host files against the track, the way it files the
+ * message of a thrown `enrichTrack`. Build it with {@link unanswered}.
+ */
+export interface EnrichmentUnanswered {
+    /** Why there is no answer: the lookup's error, or that the budget ran out. */
+    unanswered: string;
+}
+
+/** What one position of an {@link EnrichmentProvider.enrichTracks} answer holds. */
+export type TrackBatchAnswer = Partial<TrackEnrichment> | EnrichmentUnanswered;
+
+/** The {@link EnrichmentUnanswered} entry for a ref a batch could not answer about. */
+export const unanswered = (reason: string): EnrichmentUnanswered => ({ unanswered: reason });
+
+/** Whether a batch entry is {@link unanswered} rather than an answer. */
+export const isUnanswered = (entry: unknown): entry is EnrichmentUnanswered =>
+    typeof entry === 'object' && entry !== null && typeof (entry as { unanswered?: unknown }).unanswered === 'string';
 
 /** How an enrichment plugin is asked about a subject that is not a record. */
 export interface TopicRef {

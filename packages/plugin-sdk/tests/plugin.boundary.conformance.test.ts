@@ -91,7 +91,7 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['TrackRef', trackRefFixture],
         ['Partial<TrackEnrichment>', trackEnrichmentFixture],
         ['TrackRef[]', trackRefBatchFixture],
-        ['Partial<TrackEnrichment>[]', trackEnrichmentBatchFixture],
+        ['TrackBatchAnswer[]', trackEnrichmentBatchFixture],
         ['ArtistRef', artistRefFixture],
         ['Partial<ArtistEnrichment>', artistEnrichmentFixture],
         ['AlbumRef', albumRefFixture],

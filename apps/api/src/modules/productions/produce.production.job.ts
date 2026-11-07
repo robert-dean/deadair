@@ -29,7 +29,8 @@ import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/s
 import { errorText } from '#modules/shared/error.text.js';
 import { stationLocation } from '#modules/shared/station.home.js';
 import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
-import { checkBeat, correctionNote, recordFaults, type RecordCheckInput } from './production.checks.js';
+import { checkBeat, correctionNote, directionFaults, recordFaults, type RecordCheckInput } from './production.checks.js';
+import { TalkDirectionRepository } from '#modules/director/talk.direction.repository.js';
 import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
@@ -220,6 +221,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         private readonly reader: SourceReader,
         /** What finds pages about a production's subject, for one asked to research itself. */
         private readonly researcher: TopicResearcher,
+        /** The operator's talk direction, which a banter hears. See {@link directionFor}. */
+        private readonly directions: TalkDirectionRepository,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -567,6 +570,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const airs = this.whenItAirs(claimed);
         // What the programme was handed, which is the only records a beat may name. See `recordFaults`.
         const handed = recordsHanded(claimed, casting, station);
+        // Read once, against the slot this airs in, for the reason the daypart is. See `directionFor`.
+        const direction = await this.directionFor(claimed, casting);
         let runIn: string | undefined;
         let previous: number | undefined;
         // Everything written so far, PER SPEAKER, for the spent-signature check. Per speaker because
@@ -638,6 +643,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(board.use === undefined ? {} : { padUse: board.use }),
                 ...(await this.remembers(claimed, speaker, mine.length === 0)),
                 station,
+                ...(direction === undefined ? {} : { direction }),
                 dayPart: airs.words,
                 cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...this.language(),
@@ -721,15 +727,21 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // named is one a listener waits for and never hears. Asked before the next turn is handed
             // these words as its run-in, which would otherwise answer the invented record. One
             // re-draft, on the check pass's own terms: an empty or failed one keeps the original.
-            const faults = recordFaults({
-                text: script,
-                ...handed,
-                // Answering somebody else, so a reaction at the top of it is a reply to them.
-                ...(previous !== undefined && previous !== at ? { answering: true } : {}),
-                ...this.language(),
-            });
+            //
+            // The direction read out is asked on the same terms and in the same re-draft: a banter is
+            // written `outlined` on most stations, so this is the only pass it gets.
+            const faults = [
+                ...recordFaults({
+                    text: script,
+                    ...handed,
+                    // Answering somebody else, so a reaction at the top of it is a reply to them.
+                    ...(previous !== undefined && previous !== at ? { answering: true } : {}),
+                    ...this.language(),
+                }),
+                ...directionFaults({ text: script, ...handed, ...(direction === undefined ? {} : { direction }) }),
+            ];
             if (faults.length > 0) {
-                this.logger.info('productions: a beat named a record nobody handed it, so it is being asked again', {
+                this.logger.info('productions: a beat named a record nobody handed it, or read out the talk direction, so it is being asked again', {
                     production: claimed.id,
                     beat: beat.ordinal,
                     faults,
@@ -804,6 +816,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         const airs = this.whenItAirs(claimed);
+        // The same direction the draft heard, so a re-draft is held to it and told it again.
+        const direction = await this.directionFor(claimed, casting);
         let redrafted = 0;
 
         for (const [index, beat] of beats.entries()) {
@@ -852,6 +866,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         .slice(0, index)
                         .flatMap((earlier, before) => (isVisitor(casting[plan.beats[before]?.speaker ?? 0]) ? [earlier.script ?? ''] : [])),
                 ],
+                ...(direction === undefined ? {} : { direction }),
                 ...this.language(),
             });
             if (problems.length === 0) continue;
@@ -898,6 +913,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // is not what was wrong with it.
                         ...(beat.pads.length === 0 ? {} : { pads: beat.pads.map(hit => hit.name) }),
                         station,
+                        ...(direction === undefined ? {} : { direction }),
                         dayPart: airs.words,
                         correction: correctionNote(problems),
                         cleanLanguage: speaksClean(advisoryPolicy(this.config)),
@@ -1385,6 +1401,28 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * an hour or two of the day rather than the whole of it, and costs one wrong word rather than a
      * programme.
      */
+    /**
+     * The operator's talk direction for a BANTER, when one holds at the slot it airs in, or nothing.
+     *
+     * A cast of presenters with nobody visiting, which is `CallSubject.banter`'s own test: a phone-in
+     * or a guest is somebody from outside the studio, and a note the station gave its presenters is
+     * not theirs to hear or to answer. Read against `scheduledFor` on `whenItAirs`' terms, so a banter
+     * commissioned for a slot past the direction's end does not hear it. Best-effort, so a table that
+     * cannot be read costs the banter its lean and nothing else.
+     */
+    private async directionFor(production: Production, casting: ProductionCast): Promise<string | undefined> {
+        if (coHostsOf(casting).length === 0 || guestOf(casting) !== undefined) return undefined;
+        try {
+            return (await this.directions.direction(new Date(production.scheduledFor ?? Date.now()).toISOString()))?.words;
+        } catch (error) {
+            this.logger.warn('productions: could not read the talk direction, so this banter is written without it', {
+                production: production.id,
+                error: errorText(error),
+            });
+            return undefined;
+        }
+    }
+
     private whenItAirs(production: Production): RoughTime {
         return dayPart(production.scheduledFor ?? Date.now(), stationZone(this.config));
     }

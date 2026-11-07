@@ -41,6 +41,7 @@ import { isVisitor, type CallSubject, type CastMember, type ShowRecord } from '.
 import type { OutlineBeat, ProductionOutline } from './production.js';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { homeRule } from '#modules/shared/station.home.js';
+import { directionNote } from '#modules/director/talk.direction.words.js';
 
 /** How many words of the previous beat are handed over as the run-in. */
 export const TAIL_WORDS = 40;
@@ -310,6 +311,13 @@ export interface BeatRequest {
     spent?: readonly string[];
     /** Whether this station is broadcast-clean. See {@link OutlineRequest.cleanLanguage}. */
     cleanLanguage?: boolean;
+    /**
+     * The operator's talk direction, when one holds at the slot this programme airs in. A BANTER
+     * only: the job sets it for a cast of presenters with no visitor, and the prompt renders it only
+     * there too, so a phone-in or a guest never hears it whatever the caller sends. A lean, worded by
+     * `directionNote` as the break prompt words it, and checked by `directionFaults`.
+     */
+    direction?: string;
     /** The station's language when it is not English. See `PromptSettings.language` in `break.prompt.ts`. */
     language?: string;
     /**
@@ -619,6 +627,11 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     }
 
     if (request.story !== undefined) parts.push(storyLines(request.story));
+
+    // The operator's direction, for presenters trading lines and nobody else: a caller or a guest is
+    // somebody from outside the studio, and a note the station gave its presenters is not theirs.
+    const direction = request.direction?.trim() ?? '';
+    if (banter && !caller && direction.length > 0) parts.push(directionNote(direction));
 
     // Verbatim, and last before the instruction, so it is the freshest thing in the model's context
     // when it starts writing. A summary here produces an introduction; the actual words produce a

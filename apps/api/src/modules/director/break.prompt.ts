@@ -65,6 +65,7 @@ import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './bre
 import type { ChartPlacing } from '#modules/playout/rundown.js';
 import { retryNudge } from './break.retry.js';
 import { spoken } from './talk.break.writer.js';
+import { directionNote } from './talk.direction.words.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -2281,23 +2282,10 @@ export const bareWords = (text: string): string =>
         .replace(/[^\p{L}\p{N}']+/gu, ' ')
         .trim();
 
-/**
- * The operator's talk direction, for a shape that hears one, or nothing.
- *
- * A LEAN, and the wording says so in each of its three clauses. It is offered rather than asked for,
- * on the played list's measured argument that a model handed material gets through it. It is a
- * direction to the presenter rather than something that happened, so nothing may be built on it as
- * fact or added to it. And it is never read out: the guard refuses a script that copies a run of it
- * (`read-out-direction`), while saying what it is about in the presenter's own words is the point.
- */
+/** The operator's talk direction, for a shape that hears one, or nothing. The wording is `directionNote`'s. */
 function directionLines(request: BreakWriteRequest, shape: BreakPromptShape): string[] {
     const direction = request.direction?.trim() ?? '';
     if (shape.hearsDirection !== true || direction.length === 0) return [];
 
-    return [
-        `A note from the station for tonight, for you rather than for the listener: "${direction}"\n` +
-            'Let it lean what you talk about and how, where this break gives you room. You do not have to mention it. ' +
-            'It is a direction, not news and not evidence: do not state it as a fact, do not add anything it does not say, ' +
-            'and do not read it out or quote it. If you touch on it, say it in your own words, as yourself.',
-    ];
+    return [directionNote(direction)];
 }

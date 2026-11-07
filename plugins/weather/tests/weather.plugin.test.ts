@@ -12,6 +12,7 @@ import {
     FAILURE_HOLD_MS,
     MAX_FAILURE_HOLD_MS,
     MAX_FORECAST_DAYS,
+    MAX_FORECAST_HOURS,
     NWS_HOST,
     OPENWEATHERMAP_HOST,
     OPEN_METEO_GEOCODING_HOST,
@@ -182,6 +183,34 @@ describe('Open-Meteo, the default', () => {
 
         expect(host.calls[1]?.url).not.toContain('forecast_days');
         expect(host.calls[1]?.url).not.toContain('daily=');
+    });
+
+    it('asks for the hourly outlook in the same request, as a span from the hour the place is in', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta', hours: 8 });
+
+        expect(host.calls).toHaveLength(2);
+        expect(host.calls[1]?.url).toContain('forecast_hours=8');
+        expect(host.calls[1]?.url).toContain('hourly=');
+    });
+
+    it('asks for no hourly block when nobody wanted an outlook, and caps one that asks for too much', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta' });
+        await plugin.getWeather({ place: 'Atlanta', hours: 500 });
+
+        expect(host.calls[1]?.url).not.toContain('hourly=');
+        expect(host.calls[1]?.url).not.toContain('forecast_hours');
+        // A different span is a different reading, so the cached one without an outlook is not
+        // handed to the caller that asked for one.
+        expect(host.calls[2]?.url).toContain(`forecast_hours=${MAX_FORECAST_HOURS}`);
     });
 
     it('will not ask for more days than any of these services is worth asking for', async () => {

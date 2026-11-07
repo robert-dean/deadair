@@ -21,6 +21,7 @@ import {
     MAX_CACHE_MINUTES,
     MAX_FAILURE_HOLD_MS,
     MAX_FORECAST_DAYS,
+    MAX_FORECAST_HOURS,
     PLACE_MISS_HOLD_MS,
     PLUGIN_ID,
     PLUGIN_VERSION,
@@ -213,9 +214,12 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
         const place = query.place.trim();
         if (place.length === 0) return undefined;
 
-        const days = Math.min(Math.max(0, Math.trunc(query.days ?? 0)), MAX_FORECAST_DAYS);
+        const span: Span = {
+            days: Math.min(Math.max(0, Math.trunc(query.days ?? 0)), MAX_FORECAST_DAYS),
+            hours: Math.min(Math.max(0, Math.trunc(query.hours ?? 0)), MAX_FORECAST_HOURS),
+        };
         const language = (query.language ?? 'en').toLowerCase();
-        const key = this.readingKey(place, days, language);
+        const key = this.readingKey(place, span, language);
 
         const cached = this.cachedReading(key);
         if (cached !== undefined) return cached;
@@ -243,7 +247,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
             return undefined;
         }
 
-        const asking = this.ask(host, key, place, days, language);
+        const asking = this.ask(host, key, place, span, language);
         this.inFlight.set(key, asking);
         try {
             return await asking;
@@ -253,7 +257,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
     }
 
     /** One question put to the service, with its answer or its failure remembered under `key`. */
-    private async ask(host: PluginHost, key: string, place: string, days: number, language: string): Promise<WeatherReading | undefined> {
+    private async ask(host: PluginHost, key: string, place: string, span: Span, language: string): Promise<WeatherReading | undefined> {
         const service: Service = { host, ...(this.userAgent === undefined ? {} : { userAgent: this.userAgent }) };
 
         try {
@@ -263,7 +267,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
                 return undefined;
             }
 
-            const reading = await this.read(service, point, days, language);
+            const reading = await this.read(service, point, span, language);
             if (reading === undefined) return undefined;
 
             this.readings.set(key, { at: Date.now(), reading });
@@ -321,8 +325,10 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
     }
 
     // The language is in the key because the place's NAME is: the same town read for a German station
-    // is a different reading to hand back.
-    private readingKey = (place: string, days: number, language: string): string => `${this.engine}|${place.toLowerCase()}|${days}|${language}`;
+    // is a different reading to hand back. The hours are in it for the days' reason: a reading fetched
+    // with no outlook handed to a caller that asked for one would read as a service that has none.
+    private readingKey = (place: string, span: Span, language: string): string =>
+        `${this.engine}|${place.toLowerCase()}|${span.days}|${span.hours}|${language}`;
 
     /**
      * Where a place is, asked once and then remembered.
@@ -354,15 +360,15 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
     }
 
     /** The dispatch, and the only place the key is read. */
-    private async read(service: Service, point: GeoPoint, days: number, language: string): Promise<WeatherReading | undefined> {
+    private async read(service: Service, point: GeoPoint, span: Span, language: string): Promise<WeatherReading | undefined> {
         switch (this.engine) {
             case 'openmeteo':
-                return await openMeteoRead(service, point, days);
+                return await openMeteoRead(service, point, span.days, span.hours);
             case 'openweathermap':
-                return await openWeatherRead(service, this.apiKey, point, days, language);
+                return await openWeatherRead(service, this.apiKey, point, span.days, language);
             case 'nws': {
                 const grid = await this.gridFor(service, point);
-                return grid === undefined ? undefined : await nwsRead(service, grid, point.name, days);
+                return grid === undefined ? undefined : await nwsRead(service, grid, point.name, span.days);
             }
             default:
                 return undefined;
@@ -381,6 +387,12 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
         this.grids.set(key, found);
         return found;
     }
+}
+
+/** How far ahead a reading looks, already clamped to what any engine is asked for. */
+interface Span {
+    days: number;
+    hours: number;
 }
 
 /**

@@ -176,6 +176,41 @@ describe('Open-Meteo forecasts', () => {
         expect(parseOpenMeteoForecast(null, 'London')).toBeUndefined();
     });
 
+    it('reads the columnar hourly block as rows, each with the offset on its time', () => {
+        const hourly = {
+            ...answer,
+            hourly: {
+                time: ['2026-08-29T09:00', '2026-08-29T10:00', 'later'],
+                weather_code: [3, 61, 0],
+                temperature_2m: [17.4, 16.2, 15],
+                apparent_temperature: [16.1],
+                precipitation_probability: [20, 80, 0],
+                wind_speed_10m: [14.8, 18.1, 10],
+            },
+        };
+
+        const hours = parseOpenMeteoForecast(hourly, 'London')?.hours ?? [];
+
+        // The third row has no time anybody can read, so it is dropped rather than placed.
+        expect(hours).toHaveLength(2);
+        expect(hours[0]).toEqual({
+            at: '2026-08-29T09:00:00+01:00',
+            condition: 'overcast',
+            description: 'overcast',
+            temperatureC: 17.4,
+            feelsLikeC: 16.1,
+            windKph: 14.8,
+            precipitationChance: 20,
+        });
+        expect(hours[1]).toMatchObject({ at: '2026-08-29T10:00:00+01:00', condition: 'rain', precipitationChance: 80 });
+        // A column shorter than the times leaves that row's figure absent rather than zero.
+        expect('feelsLikeC' in hours[1]!).toBe(false);
+    });
+
+    it('leaves the outlook off entirely when none was asked for', () => {
+        expect(parseOpenMeteoForecast(answer, 'London')?.hours).toBeUndefined();
+    });
+
     it('reports a measurement it did not get as absent rather than as zero', () => {
         const thin = { ...answer, current: { time: '2026-08-29T09:00', weather_code: 0 } };
         const reading = parseOpenMeteoForecast(thin, 'London');

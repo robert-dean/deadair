@@ -1,9 +1,9 @@
-import type { WeatherConditions, WeatherDay, WeatherReading } from '@deadair/plugin-sdk';
+import type { WeatherConditions, WeatherDay, WeatherHour, WeatherReading } from '@deadair/plugin-sdk';
 import { conditionFromWmoCode, describeWmoCode } from './weather.codes.js';
 import { fetchJson, type Service } from './weather.http.js';
 import { field, optional, percentage, reading, withOffset } from './weather.values.js';
 import type { GeoPoint } from './weather.geocode.js';
-import { MAX_FORECAST_DAYS, OPEN_METEO_HOST, REQUEST_TIMEOUT_MS } from './weather.manifest.js';
+import { MAX_FORECAST_DAYS, MAX_FORECAST_HOURS, OPEN_METEO_HOST, REQUEST_TIMEOUT_MS } from './weather.manifest.js';
 
 /**
  * Open-Meteo: the keyless one, and the default.
@@ -25,7 +25,7 @@ import { MAX_FORECAST_DAYS, OPEN_METEO_HOST, REQUEST_TIMEOUT_MS } from './weathe
  * capability asks for, so this arm names no unit parameter at all. Saying it
  * would be one more thing to keep in step with `capabilities/weather.ts`.
  */
-export async function openMeteoRead(service: Service, point: GeoPoint, days: number): Promise<WeatherReading | undefined> {
+export async function openMeteoRead(service: Service, point: GeoPoint, days: number, hours = 0): Promise<WeatherReading | undefined> {
     const url = new URL(`https://${OPEN_METEO_HOST}/v1/forecast`);
     url.searchParams.set('latitude', String(point.latitude));
     url.searchParams.set('longitude', String(point.longitude));
@@ -39,6 +39,16 @@ export async function openMeteoRead(service: Service, point: GeoPoint, days: num
     if (wanted > 0) {
         url.searchParams.set('daily', DAILY_FIELDS.join(','));
         url.searchParams.set('forecast_days', String(wanted));
+    }
+
+    // The outlook rides on the same request, which is the whole reason this arm stays at one.
+    // `forecast_hours` counts from the hour the place is IN rather than from midnight (checked against
+    // the live service on 2026-11-07: asked at 13:45, the first row was 13:00), so it is a span from
+    // now and never a day's worth of rows the caller then has to find its place in.
+    const span = Math.min(Math.max(0, Math.trunc(hours)), MAX_FORECAST_HOURS);
+    if (span > 0) {
+        url.searchParams.set('hourly', HOURLY_FIELDS.join(','));
+        url.searchParams.set('forecast_hours', String(span));
     }
 
     return parseOpenMeteoForecast(await fetchJson(service, url.toString(), { name: 'Open-Meteo', timeoutMs: REQUEST_TIMEOUT_MS }), point.name);
@@ -55,6 +65,13 @@ const DAILY_FIELDS = [
     'sunrise',
     'sunset',
 ] as const;
+
+/**
+ * The hourly rows. `precipitation_probability` is the chance across the hour BEFORE the row's time
+ * where the others are the instant, which for a station saying "in about three hours" is an hour of
+ * difference nobody hears.
+ */
+const HOURLY_FIELDS = ['temperature_2m', 'apparent_temperature', 'precipitation_probability', 'weather_code', 'wind_speed_10m'] as const;
 
 /**
  * Open-Meteo's JSON, as a reading.
@@ -87,8 +104,9 @@ export function parseOpenMeteoForecast(data: unknown, place: string): WeatherRea
     };
 
     const days = parseDaily(field(data, 'daily'), offset);
+    const hours = parseHourly(field(data, 'hourly'), offset);
 
-    return { place, observedAt, current: now, ...(days.length === 0 ? {} : { days }) };
+    return { place, observedAt, current: now, ...(days.length === 0 ? {} : { days }), ...(hours.length === 0 ? {} : { hours }) };
 }
 
 /** The columnar daily block, as rows. */
@@ -122,6 +140,42 @@ function parseDaily(daily: unknown, offset: number): WeatherDay[] {
             ...optional('precipitationChance', percentage(chances[index])),
             ...optional('sunrise', withOffset(sunrises[index], offset)),
             ...optional('sunset', withOffset(sunsets[index], offset)),
+        });
+    }
+
+    return rows;
+}
+
+/**
+ * The columnar hourly block, as rows, on the daily block's terms.
+ *
+ * A row whose time cannot be read is dropped rather than guessed at, because a row with no `at` is
+ * one nobody can say "in about three hours" about.
+ */
+function parseHourly(hourly: unknown, offset: number): WeatherHour[] {
+    const times = field(hourly, 'time');
+    if (!Array.isArray(times)) return [];
+
+    const codes = column(hourly, 'weather_code');
+    const temperatures = column(hourly, 'temperature_2m');
+    const feels = column(hourly, 'apparent_temperature');
+    const chances = column(hourly, 'precipitation_probability');
+    const winds = column(hourly, 'wind_speed_10m');
+
+    const rows: WeatherHour[] = [];
+    for (const [index, time] of times.entries()) {
+        const at = withOffset(time, offset);
+        if (at === undefined) continue;
+
+        const code = codes[index];
+        rows.push({
+            at,
+            condition: conditionFromWmoCode(code),
+            ...optional('description', describeWmoCode(code)),
+            ...optional('temperatureC', reading(temperatures[index])),
+            ...optional('feelsLikeC', reading(feels[index])),
+            ...optional('windKph', reading(winds[index])),
+            ...optional('precipitationChance', percentage(chances[index])),
         });
     }
 

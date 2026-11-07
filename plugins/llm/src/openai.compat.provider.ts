@@ -3,6 +3,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { APICallError } from 'ai';
 import type { LanguageModel, ProviderMetadata } from 'ai';
 import { hostFetch } from './llm.fetch.js';
+import { tokenFieldFetch } from './llm.tokens.js';
 import { PROBE_TIMEOUT_MS } from './llm.manifest.js';
 import type { ProviderArm } from './llm.provider.js';
 
@@ -83,7 +84,11 @@ export function openAiCompatibleArm(host: PluginHost, options: { baseUrl: string
         // the per-upstream rate limit, the redirect re-check and the body bounds all
         // apply to a model call exactly as they do to anything else. A plugin
         // reaching for global fetch here would quietly opt out of all four.
-        fetch: hostFetch(host),
+        //
+        // Wrapped once more so a model that refuses `max_tokens` in favour of
+        // `max_completion_tokens` (OpenAI's newer models) gets its cap under the name it takes.
+        // See `llm.tokens.ts`.
+        fetch: tokenFieldFetch(hostFetch(host)),
     });
 
     return {

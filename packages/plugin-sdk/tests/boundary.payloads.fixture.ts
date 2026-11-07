@@ -9,9 +9,11 @@ import type {
     ArtistRef,
     ExternalId,
     ExternalLink,
+    TrackBatchAnswer,
     TrackEnrichment,
     TrackRef,
 } from '../src/capabilities/enrichment.js';
+import { unanswered } from '../src/capabilities/enrichment.js';
 import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
@@ -639,7 +641,7 @@ export const trackEnrichmentFixture: Partial<TrackEnrichment> = {
  */
 export const trackRefBatchFixture: TrackRef[] = [trackRefFixture, { artist: 'Boards of Canada', title: 'Roygbiv' }];
 
-export const trackEnrichmentBatchFixture: Partial<TrackEnrichment>[] = [trackEnrichmentFixture, {}];
+export const trackEnrichmentBatchFixture: TrackBatchAnswer[] = [trackEnrichmentFixture, {}, unanswered('musicbrainz answered 503')];
 
 export const artistRefFixture: ArtistRef = {
     name: 'Radiohead',

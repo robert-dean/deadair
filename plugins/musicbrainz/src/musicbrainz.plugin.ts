@@ -16,8 +16,10 @@ import {
     type SimilarArtist,
     type SimilarityPluginInstance,
     type TagQuery,
+    type TrackBatchAnswer,
     type TrackEnrichment,
     type TrackRef,
+    unanswered,
 } from '@deadair/plugin-sdk';
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
@@ -471,13 +473,17 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      *    left: no album, no ISRC, or simply not found by the two above.
      *
      * The array returned is index-aligned with `refs` and the same length, per
-     * the SDK contract. A ref nothing could account for is `{}`, which the host
-     * stores as a miss on a short clock rather than as an answer.
+     * the SDK contract. A ref the per-track lookup searched for and did not find
+     * is `{}`, which the host stores as a miss. A ref whose lookup threw, or that
+     * the call ran out of time to reach, is `unanswered`, which the host files
+     * as a failure and asks about again within the hour: `{}` there would have
+     * claimed MusicBrainz does not have a track it was never asked about, and
+     * held the track back for a week over a 503.
      */
-    async enrichTracks(refs: TrackRef[]): Promise<Partial<TrackEnrichment>[]> {
+    async enrichTracks(refs: TrackRef[]): Promise<TrackBatchAnswer[]> {
         const host = this.host;
 
-        const answers: Partial<TrackEnrichment>[] = refs.map(() => ({}));
+        const answers: TrackBatchAnswer[] = refs.map(() => ({}));
         if (!this.client) return answers;
 
         // Positions rather than refs throughout: every answer has to find its
@@ -489,26 +495,31 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         outstanding = await this.resolveByRelease(refs, outstanding, answers);
         outstanding = await this.resolveByIsrcBatch(refs, outstanding, answers);
 
-        for (const index of outstanding) {
-            // Checked here rather than left to `optional`, which would let a
-            // ref start with far less time than it needs. Stopping early leaves
-            // those refs outstanding for the next pass, which is strictly
-            // better than losing the whole call's work to a timeout.
+        for (const [position, index] of outstanding.entries()) {
+            // Checked before each ref rather than left to the lookup, which
+            // would let a ref start with far less time than it needs: this is
+            // the tail, and the expensive part, two paced requests per ref where
+            // everything above answered many refs at once. Stopping early, with
+            // every ref not reached marked unanswered, is strictly better than
+            // a slow upstream spending the whole invocation here and the host
+            // abandoning the call with every answer above still in hand.
             if (host.remainingMs() < TAIL_MIN_MS) {
-                host.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: outstanding.length });
+                const unreached = outstanding.slice(position);
+                host.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: unreached.length });
+                for (const skipped of unreached) answers[skipped] = unanswered('MusicBrainz ran out of time before looking this track up');
                 break;
             }
 
             // The per-ref path is allowed to fail without taking the batch with
-            // it: the requests already spent on the other refs are real, and a
-            // miss here is recoverable next pass while losing them is not.
-            // This is the tail, and the expensive part: two paced requests per
-            // ref, where everything above answered many refs at once. `optional`
-            // sheds it as soon as the budget runs low, which is what stops a
-            // slow upstream from spending the whole invocation here and having
-            // the host abandon the call with every answer above still in hand.
-            const resolved = await this.optional('track', () => this.resolve(refs[index]!));
-            if (resolved) answers[index] = resolved;
+            // it: the requests already spent on the other refs are real. Its
+            // failure is that ref's alone, and marked as one rather than as `{}`.
+            try {
+                const resolved = await this.resolve(refs[index]!);
+                if (resolved) answers[index] = resolved;
+            } catch (error) {
+                host.logger.debug('musicbrainz could not look a track up', { reason: errorText(error) });
+                answers[index] = unanswered(errorText(error));
+            }
         }
 
         return answers;
@@ -531,7 +542,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * rather than by position: a pair it could not resolve is absent from the
      * response, so the array is not parallel to the one that was sent.
      */
-    private async resolveByListenBrainz(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+    private async resolveByListenBrainz(refs: TrackRef[], outstanding: number[], answers: TrackBatchAnswer[]): Promise<number[]> {
         // `authenticated` rather than merely existing: the client is now built
         // whether or not there is a token, because similarity uses an endpoint
         // that needs none, and the batching this path is for answers 401
@@ -592,7 +603,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * "album" is often a deluxe edition or a compilation whose contents do not
      * line up with the release MusicBrainz chose.
      */
-    private async resolveByRelease(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+    private async resolveByRelease(refs: TrackRef[], outstanding: number[], answers: TrackBatchAnswer[]): Promise<number[]> {
         const host = this.host;
 
         const groups = new Map<string, number[]>();
@@ -658,7 +669,7 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * recording are rare, and letting one document satisfy both would hide a
      * mismatch rather than fall through to the per-ref path that would catch it.
      */
-    private async resolveByIsrcBatch(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+    private async resolveByIsrcBatch(refs: TrackRef[], outstanding: number[], answers: TrackBatchAnswer[]): Promise<number[]> {
         const host = this.host;
 
         const withIsrc = outstanding.filter(index => refs[index]!.isrc);
@@ -763,10 +774,13 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         const group = await this.loadReleaseGroup(groupId);
         const chosen = selectReleaseFromGroup(group);
 
-        // Optional, not required: an identified record with no label on it is a
-        // good answer, and this is the request most likely to be the one that
-        // runs out of budget.
-        const release = await this.optional('release', () => this.loadRelease(chosen?.id));
+        // Required once there is a release to read. An identified record with no
+        // label on it was the answer this gave when the lookup failed, and the
+        // host keeps an answer for ninety days, so one 503 cost the label and the
+        // cover for a season. A throw is filed as a failure and asked again
+        // within the hour. A group with no release in it is still answered
+        // without one, since there is nothing more to ask.
+        const release = await this.loadRelease(chosen?.id);
 
         return mapAlbum(group, release ?? chosen, this.includeArtwork);
     }

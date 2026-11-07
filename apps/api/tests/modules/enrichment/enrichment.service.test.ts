@@ -6,7 +6,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
-import { PluginError, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
+import { PluginError, unanswered, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
 
 import {
     ENRICH_ALBUM_TIMEOUT_MS,
@@ -812,6 +812,22 @@ describe('enrichCatalogTrack', () => {
         );
     });
 
+    it('remembers a batch entry the provider left unanswered as a failure, and never as a miss', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks: vi.fn(async () => [unanswered('out of budget before this ref')]) })]);
+
+        await service.enrichCatalogTrack(catalogTrack);
+
+        expect(repository.recordTrackEnrichmentMiss).not.toHaveBeenCalled();
+        expect(repository.saveTrackEnrichment).not.toHaveBeenCalled();
+        expect(repository.recordTrackEnrichmentFailure).toHaveBeenCalledWith(
+            'track-1',
+            MUSICBRAINZ,
+            'out of budget before this ref',
+            ENRICHMENT_FAILURE_RETRY_MS,
+            ENRICHMENT_FAILURE_MAX_RETRY_MS,
+        );
+    });
+
     it('remembers a miss only for the provider that had nothing', async () => {
         service = build([
             record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: vi.fn(async () => ({ artist: 'Portishead' })) }),
@@ -919,6 +935,22 @@ describe('enrichBatch', () => {
         expect(results[0]!.misses).toEqual([]);
         expect(results[1]!.contributions).toEqual([]);
         expect(results[1]!.misses).toEqual([MUSICBRAINZ]);
+    });
+
+    // `{}` is "looked, not there", believed for a week. A ref the source never got an answer about
+    // (its lookup threw, or the call ran out of time before reaching it) says nothing about the
+    // record, so it is a failure on the short clock, as a throw from `enrichTrack` would be.
+    it('files an unanswered entry as that provider failing that track, not as a miss', async () => {
+        const enrichTracks = vi.fn(async () => [{ artist: 'Portishead' }, unanswered('musicbrainz answered 503')]);
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks })]);
+
+        const results = await service.enrichBatch([{ ref }, { ref: second }]);
+
+        expect(results[0]!.contributions).toHaveLength(1);
+        expect(results[0]!.failures).toEqual([]);
+        expect(results[1]!.contributions).toEqual([]);
+        expect(results[1]!.misses).toEqual([]);
+        expect(results[1]!.failures).toEqual([{ pluginId: MUSICBRAINZ, message: 'musicbrainz answered 503' }]);
     });
 
     it('only puts a ref in the chunk when that ref is waiting on that provider', async () => {

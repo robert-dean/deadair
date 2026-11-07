@@ -167,15 +167,25 @@ describe('enrichAlbum', () => {
         await expect(plugin.enrichAlbum({ name: 'Nothing', artist: 'Nobody' })).resolves.toEqual({});
     });
 
-    it('keeps the record when the pressing lookup fails, because a label is not the answer', async () => {
+    // An answer is kept for ninety days, so a record answered without its label because one
+    // request hit a 503 kept no label and no cover for a season. A throw is a failure the host
+    // asks about again within the hour.
+    it('fails when the pressing lookup fails, rather than answering without the label for a season', async () => {
         await initialize();
         host.queueResponse({ body: JSON.stringify(releaseGroup) });
         host.queueResponse({ status: 503, body: '' });
 
+        await expect(plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead', mbid: 'rg-1' })).rejects.toThrow();
+    });
+
+    it('answers without a pressing when the group has none to read', async () => {
+        await initialize();
+        host.queueResponse({ body: JSON.stringify({ ...releaseGroup, releases: [] }) });
+
         const enrichment = await plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead', mbid: 'rg-1' });
 
+        expect(host.calls).toHaveLength(1);
         expect(enrichment.name).toBe('Dummy');
-        expect(enrichment.label).toBeUndefined();
     });
 });
 

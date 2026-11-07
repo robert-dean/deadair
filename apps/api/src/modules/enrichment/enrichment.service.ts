@@ -4,10 +4,12 @@ import { Logger } from '@maroonedsoftware/logger';
 import {
     ENRICHMENT_MATCH_KEY_ARTIST_TITLE,
     ENRICHMENT_MATCH_KEY_ISRC,
+    isUnanswered,
     type AlbumEnrichment,
     type AlbumRef,
     type ArtistEnrichment,
     type ArtistRef,
+    type TrackBatchAnswer,
     type TrackEnrichment,
     type TrackRef,
 } from '@deadair/plugin-sdk';
@@ -493,6 +495,10 @@ export class EnrichmentService {
      * opinion: the entries cannot be aligned to the refs they are about, and
      * storing them anyway would file one track's facts against another. That is
      * far worse than being slow, so the chunk is re-asked one ref at a time.
+     *
+     * An entry the plugin marked `unanswered` is filed as a failure, exactly as
+     * a throw from `enrichTrack` about that ref would be: the source never
+     * looked, so a miss (believed for a week) would be a claim it did not make.
      */
     private async askInBulk(
         plugin: EnrichmentPlugin,
@@ -502,7 +508,7 @@ export class EnrichmentService {
         const pluginId = plugin.record.id;
         const refs = chunk.map(({ request }) => request.ref);
 
-        let answers: Partial<TrackEnrichment>[];
+        let answers: TrackBatchAnswer[];
         try {
             answers = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTracks', async () => plugin.instance.enrichTracks!(refs), {
                 timeoutMs: ENRICH_TRACK_BATCH_TIMEOUT_MS,
@@ -524,7 +530,18 @@ export class EnrichmentService {
             return;
         }
 
-        chunk.forEach(({ index }, position) => this.record(plugin, answers[position], accumulators[index]!));
+        let unanswered = 0;
+        chunk.forEach(({ index }, position) => {
+            const answer = answers[position];
+            if (isUnanswered(answer)) {
+                accumulators[index]!.failures.push({ pluginId, message: answer.unanswered });
+                unanswered++;
+                return;
+            }
+            this.record(plugin, answer, accumulators[index]!);
+        });
+
+        if (unanswered > 0) this.logger.warn('enrichment plugin left part of a batch unanswered', { pluginId, refs: refs.length, unanswered });
     }
 
     /** One `enrichTrack` call, recorded against the ref it was about. */

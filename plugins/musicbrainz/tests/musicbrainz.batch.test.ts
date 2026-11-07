@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { TrackRef } from '@deadair/plugin-sdk';
+import { isUnanswered, type TrackBatchAnswer, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
 
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
 import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
@@ -56,6 +56,13 @@ const json = (body: unknown) => fakeHostFetchResponse({ body: JSON.stringify(bod
 let host: FakePluginHost;
 let plugin: MusicBrainzPlugin;
 
+/** The batch's answers, for a test that expects every ref to have been looked up: an unanswered one fails it. */
+const answered = (answers: TrackBatchAnswer[]): Partial<TrackEnrichment>[] =>
+    answers.map(answer => {
+        if (isUnanswered(answer)) throw new Error(`unexpectedly unanswered: ${answer.unanswered}`);
+        return answer;
+    });
+
 /** Routes a request to the first matching pattern, so a test only scripts what it cares about. */
 const route = (routes: [RegExp, unknown][]): void => {
     host.setFetchImpl(async (url: string) => {
@@ -99,7 +106,7 @@ describe('enrichTracks: a record at a time', () => {
         await initialize();
         route(releaseRoutes);
 
-        const answers = await plugin.enrichTracks(dummy);
+        const answers = answered(await plugin.enrichTracks(dummy));
 
         expect(answers.map(answer => answer.title)).toEqual(dummy.map(track => track.title));
         // Three requests for five tracks: find the record, open it, read it.
@@ -111,7 +118,7 @@ describe('enrichTracks: a record at a time', () => {
         await initialize();
         route(releaseRoutes);
 
-        const [first] = await plugin.enrichTracks(dummy);
+        const [first] = answered(await plugin.enrichTracks(dummy));
 
         expect(first!.externalIds).toContainEqual({ source: 'musicbrainz-release-group', id: 'rg-1' });
     });
@@ -140,7 +147,7 @@ describe('enrichTracks: a record at a time', () => {
             ],
         ]);
 
-        const answers = await plugin.enrichTracks([dummy[4]!, dummy[0]!, dummy[1]!]);
+        const answers = answered(await plugin.enrichTracks([dummy[4]!, dummy[0]!, dummy[1]!]));
 
         expect(answers[0]!.externalIds).toContainEqual({ source: 'musicbrainz', id: 'rec-album' });
     });
@@ -172,7 +179,7 @@ describe('enrichTracks: a record at a time', () => {
             [/isrc\//, { recordings: [] }],
         ]);
 
-        const answers = await plugin.enrichTracks([...dummy, bonus]);
+        const answers = answered(await plugin.enrichTracks([...dummy, bonus]));
 
         expect(answers.at(-1)!.title).toBe('Sheared Times');
     });
@@ -203,7 +210,7 @@ describe('enrichTracks: a batch of ISRCs in one search', () => {
         // path overrun its deadline and lose the entire batch.
         route([[/recording\?/, pool]]);
 
-        const answers = await plugin.enrichTracks(singles);
+        const answers = answered(await plugin.enrichTracks(singles));
 
         expect(paths()).toEqual(['recording']);
         expect(host.calls[0]!.url).toContain('isrc%3AGBAAA9400001+OR+isrc%3AGBAAA9400002');
@@ -230,7 +237,7 @@ describe('enrichTracks: a batch of ISRCs in one search', () => {
         // is what a real search does: relevance order, not request order.
         route([[/recording\?/, { recordings: [...pool.recordings].reverse() }]]);
 
-        const answers = await plugin.enrichTracks(singles);
+        const answers = answered(await plugin.enrichTracks(singles));
 
         expect(answers.map(answer => answer.title)).toEqual(['Mysterons', 'Sour Times', 'Strangers']);
     });
@@ -289,9 +296,38 @@ describe('enrichTracks: the contract the host relies on', () => {
         ]);
         host.seedRemainingMs(0);
 
-        // Every optional step sheds, so nothing is answered — but the call
-        // returns the aligned array rather than failing the whole batch.
-        expect(await plugin.enrichTracks(dummy)).toEqual(dummy.map(() => ({})));
+        // Every step sheds, so nothing is looked up — but the call returns the
+        // aligned array rather than failing the whole batch, and says of every
+        // ref that it was not answered rather than that it was not found.
+        const answers = await plugin.enrichTracks(dummy);
+
+        expect(answers).toHaveLength(dummy.length);
+        expect(answers.every(isUnanswered)).toBe(true);
+    });
+
+    it('marks a ref whose own lookup threw as unanswered, and a ref it looked for and did not find as a miss', async () => {
+        await initialize();
+        const [found, missing, broken] = [
+            { artist: 'Portishead', title: 'Mysterons', isrc: 'GBAAA9400001' },
+            { artist: 'Portishead', title: 'Sour Times', isrc: 'GBAAA9400002' },
+            { artist: 'Portishead', title: 'Strangers', isrc: 'GBAAA9400003' },
+        ];
+        host.setFetchImpl(async (url: string) => {
+            // The batched ISRC search finds nothing, so all three reach the per-track tail.
+            if (url.includes('recording?') && url.includes('OR')) return json({ recordings: [] });
+            if (url.includes(broken!.isrc!)) return fakeHostFetchResponse({ status: 503, body: '' });
+            if (url.includes(`isrc/${found!.isrc!}`))
+                return json({ recordings: [{ id: 'rec-found', title: found!.title, 'artist-credit': credit }] });
+            if (url.includes('recording/rec-found')) return json({ id: 'rec-found', title: found!.title, 'artist-credit': credit });
+            return json({ recordings: [] });
+        });
+
+        const answers = await plugin.enrichTracks([found!, missing!, broken!]);
+
+        expect(isUnanswered(answers[0])).toBe(false);
+        expect(answers[0]).toMatchObject({ title: found!.title });
+        expect(answers[1]).toEqual({});
+        expect(isUnanswered(answers[2])).toBe(true);
     });
 });
 
@@ -396,6 +432,8 @@ describe('enrichTracks: staying inside the invocation budget', () => {
 
         expect(answers).toHaveLength(many.length);
         expect(host.calls.some(call => call.url.includes('/isrc/'))).toBe(false);
+        // Not reached is not "not found": every ref the tail never started on goes back unanswered.
+        expect(answers.every(isUnanswered)).toBe(true);
     });
 
     it('enters the tail when there is room for it', async () => {
@@ -459,7 +497,7 @@ describe('enrichTracks: the record a title track shares its name with', () => {
             [/release\/rel-single/, { id: 'rel-single', title: 'Back in Black', media: [{ tracks: [track('rec-back', 'Back in Black')] }] }],
         ]);
 
-        const answers = await plugin.enrichTracks(acdc);
+        const answers = answered(await plugin.enrichTracks(acdc));
 
         expect(paths()).toContain('release-group/rg-album');
         expect(paths()).not.toContain('release-group/rg-single');

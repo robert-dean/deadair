@@ -10,7 +10,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { TrackRef } from '@deadair/plugin-sdk';
+import { isUnanswered, type TrackBatchAnswer, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
 
 import { ListenBrainzRequestError } from '../src/listenbrainz.client.js';
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
@@ -58,6 +58,13 @@ const json = (body: unknown) => fakeHostFetchResponse({ body: JSON.stringify(bod
 
 let host: FakePluginHost;
 let plugin: MusicBrainzPlugin;
+
+/** The batch's answers, for a test that expects every ref to have been looked up: an unanswered one fails it. */
+const answered = (answers: TrackBatchAnswer[]): Partial<TrackEnrichment>[] =>
+    answers.map(answer => {
+        if (isUnanswered(answer)) throw new Error(`unexpectedly unanswered: ${answer.unanswered}`);
+        return answer;
+    });
 
 const route = (routes: [RegExp, unknown][]): void => {
     host.setFetchImpl(async (url: string) => {
@@ -195,7 +202,7 @@ describe('enrichTracks through ListenBrainz', () => {
         await initialize();
         route(listenBrainzRoutes);
 
-        const answers = await plugin.enrichTracks([refs[0]!]);
+        const answers = answered(await plugin.enrichTracks([refs[0]!]));
 
         expect(host.calls).toHaveLength(2);
         expect(host.calls.map(call => call.method)).toEqual(['POST', 'POST']);
@@ -221,7 +228,7 @@ describe('enrichTracks through ListenBrainz', () => {
             [/isrc\//, { recordings: [] }],
         ]);
 
-        const answers = await plugin.enrichTracks(refs);
+        const answers = answered(await plugin.enrichTracks(refs));
 
         // The first came from ListenBrainz, the second fell through to the web
         // service. Both are answered.
@@ -253,7 +260,7 @@ describe('enrichTracks through ListenBrainz', () => {
             return json({ id: 'rec-gb', title: 'Glory Box', 'artist-credit': [{ name: 'Portishead' }] });
         });
 
-        const answers = await plugin.enrichTracks([refs[0]!]);
+        const answers = answered(await plugin.enrichTracks([refs[0]!]));
 
         expect(answers[0]!.title).toBe('Glory Box');
     });
@@ -266,7 +273,7 @@ describe('enrichTracks through ListenBrainz', () => {
             throw new Error(`unrouted: ${url}`);
         });
 
-        const answers = await plugin.enrichTracks([refs[0]!]);
+        const answers = answered(await plugin.enrichTracks([refs[0]!]));
 
         expect(answers[0]!.externalIds).toContainEqual({ source: 'musicbrainz', id: RECORDING_MBID });
         expect(answers[0]!.year).toBeUndefined();

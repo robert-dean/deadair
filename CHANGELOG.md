@@ -9,6 +9,16 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.96.3] — 2026-11-07
+
+- Presenters are told about the phrases they keep repeating, not only single words. A presenter who said "dig this" or "real gone" in nearly every break was never warned, because short words were skipped and a two-word tic could only be named as two loose words. Worn two-word phrases are now named whole.
+
+  A presenter's first hour in the chair is checked too. The worn-words line read only their own recent breaks whenever there were any, and with fewer than three it named nothing. It now reads the station's recent breaks until the presenter's own are enough to judge.
+
+  With the weather offered in talk breaks, a talk break within half an hour of the weather break is no longer handed the reading, so the station stops saying the same temperature and wind twice in a few minutes.
+- Read one news story once when two newsrooms headline it differently. A bulletin taking turns between feeds read the BBC's and PBS's versions of the same event one after the other, because only an identical headline counted as the same story. A bulletin now recognises one event from the names and distinctive words two wordings share, and reads the version from the feed that comes first in the station's order. The station also remembers what each story it read was about, across restarts, so a later bulletin, a breaking bulletin or the breaking-news watch passes over a story it has already read under another newsroom's headline.
+- The speech server inside the `latest` and `full` images can be left off with `BUNDLED_TTS=off`, for an operator who already runs a speech server elsewhere and has pointed the speech plugin at it. The database and cache on `full` are unaffected, and `on` (the default) starts it again with the same voices.
+
 ## [0.96.2] — 2026-11-07
 
 - OpenAI's newer models no longer fail every capped call with "Unsupported parameter: 'max_tokens'". When a model refuses `max_tokens` and asks for `max_completion_tokens`, the request is sent again under the new name, and that model's later calls use it from the start. Local servers that only know `max_tokens` are sent exactly what they were before.
@@ -1967,7 +1977,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.3...HEAD
+[0.96.3]: https://github.com/robert-dean/deadair/compare/v0.96.2...v0.96.3
 [0.96.2]: https://github.com/robert-dean/deadair/compare/v0.96.1...v0.96.2
 [0.96.1]: https://github.com/robert-dean/deadair/compare/v0.96.0...v0.96.1
 [0.96.0]: https://github.com/robert-dean/deadair/compare/v0.95.3...v0.96.0

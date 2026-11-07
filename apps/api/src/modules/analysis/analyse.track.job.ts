@@ -26,7 +26,8 @@ export interface AnalyseTrackPayload {
  * hour after.
  *
  * The walk stays as the backfill, for everything this does not reach: the library at large, a record
- * fetched by a listener's request rather than ahead, and a measurement that failed and is due again.
+ * fetched on the spot by the audio route rather than ahead, and a measurement that failed and is due
+ * again.
  *
  * **Duplicates collapse on the track's own row rather than in the queue.** The queue runs one of
  * these at a time (see `job.mappings.ts`), and each one starts by asking the walk's own question of

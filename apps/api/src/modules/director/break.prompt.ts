@@ -372,6 +372,16 @@ export interface BreakPromptShape {
      * come up, and a quirk with a cadence was never a rule to be sent everywhere.
      */
     allowsOccasionalQuirk?: boolean;
+    /**
+     * Whether this kind of break hears the operator's talk direction (`BreakWriteRequest.direction`).
+     *
+     * On for the talk break and the changeover, and off everywhere else on
+     * {@link BreakPromptShape.allowsPreoccupation}'s argument one source further out: a bulletin, a
+     * forecast or the date handed a line about the evening will work it into the report, in the voice
+     * that reports facts. The welcome, a story and a dedication are off too: each already has its
+     * subject, and the direction is a lean for a presenter with nothing in particular to say.
+     */
+    hearsDirection?: boolean;
 }
 
 /**
@@ -1418,6 +1428,8 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    parts.push(...directionLines(request, shape));
+
     // What this character has said before tonight, which is the half of a presenter's memory that
     // outlives the broadcast. Placed ahead of the recent scripts rather than after them, because the
     // two are read very differently and running them together would confuse both: this one is
@@ -2265,3 +2277,24 @@ export const bareWords = (text: string): string =>
         .replace(/[‘’ʼ′]/g, "'")
         .replace(/[^\p{L}\p{N}']+/gu, ' ')
         .trim();
+
+/**
+ * The operator's talk direction, for a shape that hears one, or nothing.
+ *
+ * A LEAN, and the wording says so in each of its three clauses. It is offered rather than asked for,
+ * on the played list's measured argument that a model handed material gets through it. It is a
+ * direction to the presenter rather than something that happened, so nothing may be built on it as
+ * fact or added to it. And it is never read out: the guard refuses a script that copies a run of it
+ * (`read-out-direction`), while saying what it is about in the presenter's own words is the point.
+ */
+function directionLines(request: BreakWriteRequest, shape: BreakPromptShape): string[] {
+    const direction = request.direction?.trim() ?? '';
+    if (shape.hearsDirection !== true || direction.length === 0) return [];
+
+    return [
+        `A note from the station for tonight, for you rather than for the listener: "${direction}"\n` +
+            'Let it lean what you talk about and how, where this break gives you room. You do not have to mention it. ' +
+            'It is a direction, not news and not evidence: do not state it as a fact, do not add anything it does not say, ' +
+            'and do not read it out or quote it. If you touch on it, say it in your own words, as yourself.',
+    ];
+}

@@ -87,6 +87,12 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     notebook: 'timeless',
     story: 'timeless',
     preoccupation: 'timeless',
+    // The operator's talk direction, read against `airs_at` rather than now, so a direction that ends
+    // before the break airs is never heard and one that holds then is. A direction SET or CLEARED
+    // between the writing and the air is not chased: it is a lean on the subject rather than a claim,
+    // so a break written without it says nothing untrue, and "write it again" is there for one that
+    // must change. What would put this row in question is a kind that states the direction as fact.
+    direction: 'fetched-for-air',
     occasionalQuirk: 'timeless',
 
     // What the engine can perform and what is on the rack. Both are read at write time and both are

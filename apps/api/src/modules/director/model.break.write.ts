@@ -144,6 +144,10 @@ export async function writeWithModel(host: ModelWriteHost, ask: ModelWriteAsk): 
         ...homeGuard(config),
         ...stationGuard(config),
         ...speakerGuard(config, request),
+        // The operator's direction, where the shape heard one, so a script that reads it out is refused.
+        // In the common half rather than in each writer, because the shape is what decided the prompt
+        // offered it and the guard has to judge exactly what was offered. See `readOutDirectionIn`.
+        ...(shape.hearsDirection === true && request.direction !== undefined ? { direction: request.direction } : {}),
         ...ask.guard(messages),
         // Off the answer rather than the words: nothing in a sentence cut off at the ceiling says so.
         ...(result.finishReason === 'length' ? { stoppedShort: true } : {}),

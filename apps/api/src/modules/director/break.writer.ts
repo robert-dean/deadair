@@ -480,6 +480,18 @@ export interface BreakWriteRequest {
      */
     preoccupation?: string;
     /**
+     * The operator's talk direction, when one holds at the moment this break AIRS: a line such as
+     * "it's Sam's birthday tonight" that leans what the presenter talks about.
+     *
+     * A lean and never evidence. The prompt offers it to a shape with `hearsDirection` and tells the
+     * model not to read it out, add to it or state it as fact; the guard refuses a script that copies
+     * a run of it (`read-out-direction`). Read by the caller against `airsAt` rather than now, so a
+     * break written before a direction ends but airing after it does not hear it. Unread by every
+     * deterministic writer, for {@link BreakWriteRequest.preoccupation}'s reason: a phrasing has
+     * nowhere to put a subject. Absent when no direction holds, and on every kind that never hears one.
+     */
+    direction?: string;
+    /**
      * The one quirk with a cadence that came up for this break, from `PersonaSheet.quirks`, chosen by
      * the caller for {@link BreakWriteRequest.preoccupation}'s reason and unread by every
      * deterministic writer for the same one: a phrasing has nowhere to put an act.

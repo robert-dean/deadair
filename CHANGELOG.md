@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.96.2] — 2026-11-07
+
+- OpenAI's newer models no longer fail every capped call with "Unsupported parameter: 'max_tokens'". When a model refuses `max_tokens` and asks for `max_completion_tokens`, the request is sent again under the new name, and that model's later calls use it from the start. Local servers that only know `max_tokens` are sent exactly what they were before.
+
 ## [0.96.1] — 2026-11-06
 
 - Show links said over a record in the as-run log. A link talked over a record's intro or ending was never handed to the player as an item of its own, so the log never saw it and a morning of talk-ups read as records back to back with nothing said. Each one now appears as a break, with its own start and end inside the record it was said over.
@@ -1963,7 +1967,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.2...HEAD
+[0.96.2]: https://github.com/robert-dean/deadair/compare/v0.96.1...v0.96.2
 [0.96.1]: https://github.com/robert-dean/deadair/compare/v0.96.0...v0.96.1
 [0.96.0]: https://github.com/robert-dean/deadair/compare/v0.95.3...v0.96.0
 [0.95.3]: https://github.com/robert-dean/deadair/compare/v0.95.2...v0.95.3

@@ -772,6 +772,14 @@ names them. That last one asks and never refuses, deliberately — `dictionMarke
 counted in every answer, so the cheapest way to pass the character check is to say the marker list again, and
 a check that declined over it would be refusing the character for being itself.
 
+**It names worn PHRASES too, because a tic built from short words was invisible to it.** The word count skips
+anything under four letters and the grammar list, so "dig this", which handed over six of Frank's nine breaks on
+2026-11-07, never registered, and "real gone" could only ever be named as two loose words. Two words side by side
+are now counted the same way (scripts, not uses): two content words always, and a grammar word only beside one too
+short to be counted alone, so "dig this" is a phrase and "the groove" is just "groove". A phrase is named whole
+and its words are not named again beside it. On Frank's morning it names "real gone", "dig this", "gonna",
+"horn" and "makes".
+
 **A habit belongs to whoever has it, so the worn-word line reads the presenter's own breaks.** `recent` is
 the station's last six lines, whoever said them, and on a show with co-hosts one banter fills it with beats.
 Measured on 2026-10-29: Garth's newest talk break was handed a jingle, one of his own breaks and four banter
@@ -782,6 +790,10 @@ reads it when it is there. Replayed over his previous two weeks, it would have n
 "drumming" 20 and "sorry" 6. Of the same KIND, because the banter is a different format with different habits
 and mixed in it dilutes the share that names one. The spent-signature rule reads both lists, prompt and guard
 alike, and `repeatOf` still reads only `recent`, since that is the list the prompt quotes back.
+`own` wins only when it holds enough breaks to judge (`WORN_MIN_SCRIPTS`). Preferring it whenever it was
+non-empty silenced the line for a presenter's first hour in the chair: on 2026-11-07 Frank's third talk
+break read his two earlier ones, named nothing, and passed over a station list with "real gone" in four of
+his scripts.
 
 **The writers hear the mood the show is leaning into, as a lean.** A broadcast's mood stages
 (`schedule_slots.moods`, copied onto the running order) used to steer the draw and nothing else, so a
@@ -1146,6 +1158,14 @@ station makes most of and the setting decides whether a weather service is asked
 `WeatherSource` resolves no location for it and returns no `subject` — a location is a thing a weather
 BAND was pointed at — and its four declines drop to `debug` there: they exist for an operator whose
 clock asks every hour and hears silence every hour, and on a talk break nothing was passed over.
+
+**A talk break near the weather break is not offered the reading at all.** The prompt's "most breaks are
+better without it" did not hold next to a bulletin: on 2026-11-07 a talk break eight minutes after the weather
+said "clear here in Atlanta with a wind of 7 miles per hour" a second time. So `WeatherSource` asks
+`SegmentRepository.airsNear` whether a weather break is due within `WEATHER_SPACING_MS` (half an hour) either
+side of this one, judged on `airs_at` because both are written well ahead in the same pass, and answers nothing
+when one is. A failed row is not coming and does not count. A read that fails offers the reading as before,
+since one repeated figure is the cheaper mistake.
 
 **The stamp is conditional on the talk break and unconditional on the weather break, which is one
 argument read from both ends.** `ModelWeatherBreakWriter` stamps `claims_reading_until` always,

@@ -672,6 +672,31 @@ export class SegmentRepository extends DataRepository {
         return rows.some(row => row.hit === true);
     }
 
+    /**
+     * Whether a break of this kind is due to air within `withinMs` either side of `at`.
+     *
+     * What keeps a talk break from being handed the weather a few minutes from the weather break, and
+     * judged on `airs_at` rather than on when either was written, because both are written well ahead
+     * and in the same pass: on 2026-11-07 the two were written ten seconds apart and aired eight
+     * minutes apart, both saying "clear, wind of 7". A failed row is not coming, so it does not count.
+     */
+    async airsNear(kind: string, at: number, withinMs: number): Promise<boolean> {
+        if (withinMs <= 0) return false;
+
+        const row = await this.db
+            .selectFrom('deadair.segments')
+            .select('id')
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('kind', '=', kind)
+            .where('state', '!=', 'failed')
+            .where('airsAt', '>=', instant(at - withinMs))
+            .where('airsAt', '<=', instant(at + withinMs))
+            .limit(1)
+            .executeTakeFirst();
+
+        return row !== undefined;
+    }
+
     /** One segment, whatever state it is in. */
     async findById(id: string): Promise<Segment | undefined> {
         const row = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).where('id', '=', id).executeTakeFirst();

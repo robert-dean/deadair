@@ -17,10 +17,12 @@ import {
     MIN_WEATHER_MAX_AGE_MINUTES,
     WeatherSource,
     WEATHER_SOURCE_KEYS,
+    WEATHER_SPACING_MS,
 } from '../../../src/modules/director/weather.source.js';
 import type { WeatherService } from '../../../src/modules/weather/weather.service.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { TopicRepository } from '../../../src/modules/topics/topic.repository.js';
+import type { SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
 import { WEATHER_KIND } from '../../../src/modules/weather/weather.kind.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
@@ -57,6 +59,9 @@ interface Options {
     topics?: Topic[];
     topicsThrow?: boolean;
     settings?: Record<string, string>;
+    /** Whether a weather break is due near the moment asked about. */
+    weatherNearby?: boolean;
+    nearbyThrows?: boolean;
 }
 
 function harness(options: Options = {}) {
@@ -83,7 +88,13 @@ function harness(options: Options = {}) {
     const config = { get: (key: string, fallback?: unknown) => options.settings?.[key] ?? fallback } as unknown as AppConfig;
     const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
 
-    return { source: new WeatherSource(weather, topics, config, logger), read, logger };
+    const airsNear = vi.fn(async (_kind: string, _at: number, _withinMs: number) => {
+        if (options.nearbyThrows) throw new Error('the segments table is unreachable');
+        return options.weatherNearby ?? false;
+    });
+    const segments = { airsNear } as unknown as SegmentRepository;
+
+    return { source: new WeatherSource(weather, topics, segments, config, logger), read, logger, airsNear };
 }
 
 describe('which kinds it answers for', () => {
@@ -118,6 +129,30 @@ describe('the reading a talk break is offered', () => {
         expect(report?.reading).toEqual(READING);
         expect(report?.freshUntil).toBe(Date.parse(READING.observedAt) + DEFAULT_WEATHER_MAX_AGE_MINUTES * MINUTE);
         expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+    });
+
+    // Measured on 2026-11-07: a talk break eight minutes after the weather said "clear here in
+    // Atlanta with a wind of 7 miles per hour" a second time.
+    it('offers nothing when a weather break airs nearby, since the listener has just heard it', async () => {
+        const { source, read, airsNear } = harness({ ...on, weatherNearby: true });
+
+        expect(await source.readingFor(TALK_BREAK_KIND, undefined, NOW)).toBeUndefined();
+        expect(read).not.toHaveBeenCalled();
+        expect(airsNear).toHaveBeenCalledWith(WEATHER_KIND, NOW, WEATHER_SPACING_MS);
+    });
+
+    it('offers the reading as before when it cannot tell whether a weather break is near', async () => {
+        const { source, logger } = harness({ ...on, nearbyThrows: true });
+
+        expect((await source.readingFor(TALK_BREAK_KIND, undefined, NOW))?.reading).toEqual(READING);
+        expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('never asks on behalf of the weather break itself', async () => {
+        const { source, airsNear } = harness({ weatherNearby: true });
+
+        expect((await source.readingFor(WEATHER_KIND, undefined, NOW))?.reading).toEqual(READING);
+        expect(airsNear).not.toHaveBeenCalled();
     });
 
     it('is not fooled by the string a settings row holds for off', async () => {

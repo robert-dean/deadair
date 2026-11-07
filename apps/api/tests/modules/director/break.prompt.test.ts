@@ -589,6 +589,38 @@ describe('breakPrompt', () => {
             expect(overusedWords(once)).not.toContain('groove');
         });
 
+        // Frank's talk breaks on 2026-11-07, trimmed. "Dig this" handed over in most of them and
+        // "real gone" closed most of them, and neither was ever named: "dig" is under the word floor
+        // and "this" is grammar.
+        const frank = [
+            "That Bird was blowin' real gone on that alto sax, daddy-o. Dig this Ella Fitzgerald, gate.",
+            "That Basie groove was something special, gate. Dig this Blue Monk by Thelonious Monk, Jackson. It's got a heavy truth to it, real gone.",
+            "Glenn Miller had the joint jumpin'. Dig this Moanin' by Art Blakey, where the skins are real gone.",
+            "Clear skies in Atlanta. Dig this, cat, Charlie Parker blowin' A Night In Tunisia. The horn is real gone.",
+        ];
+
+        it('names a worn phrase built from short words, which the word count cannot see', () => {
+            const named = overusedWords(frank);
+
+            expect(named).toContain('dig this');
+            expect(named).toContain('real gone');
+        });
+
+        it('names a phrase whole and does not name its words again beside it', () => {
+            const named = overusedWords(frank);
+
+            expect(named).not.toContain('real');
+            expect(named).not.toContain('gone');
+            // "it's real" would share a word with "real gone", and the more worn of the two is the habit.
+            expect(named).not.toContain("it's real");
+        });
+
+        it('does not call two words of grammar side by side a phrase', () => {
+            const plain = ['That was a fine record.', 'That was another fine one.', 'That was the last of them.'];
+
+            expect(overusedWords(plain)).not.toContain('that was');
+        });
+
         it('says nothing at all from too few breaks to see a habit in', () => {
             // Below three, every content word trivially clears the share and the station would open
             // every second break complaining about a word it had said once.
@@ -628,6 +660,14 @@ describe('breakPrompt', () => {
 
         it('judges the habit on the station list when the presenter has said nothing lately', () => {
             expect(user(prompt({ kind: 'talkbreak', previous, next, recent: worn }))).toContain('"groove"');
+        });
+
+        // Measured on 2026-11-07: two of Frank's own breaks behind him named nothing, and the station's
+        // list (four of his breaks, "real gone" in all four) was never read.
+        it("falls back to the station list when the presenter's own is too short to judge", () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next, recent: worn, own: worn.slice(0, 2) }));
+
+            expect(said).toContain('"groove"');
         });
 
         it('names a habit from the presenter alone, with nothing else behind the station', () => {

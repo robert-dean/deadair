@@ -1486,7 +1486,14 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // fills it: Garth's "basement" was in 26 of his 99 talk breaks and this line never once named it,
     // while it named "just", "like" and "wayne" off a window that was mostly Wayne. See
     // `BreakWriteRequest.own`.
-    const worn = settings.language === undefined ? overusedWords(request.own ?? request.recent) : [];
+    //
+    // But only when that list is long enough to judge. Below `WORN_MIN_SCRIPTS` it names nothing, and
+    // preferring it anyway silenced the line exactly when a presenter is new to the chair: on
+    // 2026-11-07 Frank's third talk break of the morning had two of his own behind it, so the line
+    // read those two, named nothing, and ignored a station list holding four of his scripts with
+    // "real gone" in all four.
+    const habits = (request.own?.length ?? 0) >= WORN_MIN_SCRIPTS ? request.own : request.recent;
+    const worn = settings.language === undefined ? overusedWords(habits) : [];
     if (worn.length > 0) {
         parts.push(
             `You have leaned on ${worn.map(word => `"${word}"`).join(', ')} in nearly every recent break. Reach past ${worn.length === 1 ? 'it' : 'them'} ` +
@@ -2149,22 +2156,99 @@ export function overusedWords(recent: readonly string[] | undefined): string[] {
     const scripts = (recent ?? []).filter(script => script.trim().length > 0);
     if (scripts.length < WORN_MIN_SCRIPTS) return [];
 
-    const appearances = new Map<string, number>();
+    const words = new Map<string, number>();
+    const phrases = new Map<string, number>();
     for (const script of scripts) {
+        const said = bareWords(script).split(' ');
         // Distinct per script, so four uses in one break count once. See the note above.
-        for (const word of new Set(bareWords(script).split(' '))) {
+        for (const word of new Set(said)) {
             if (word.length < MIN_WORN_LENGTH || NOT_A_HABIT.has(word)) continue;
-            appearances.set(word, (appearances.get(word) ?? 0) + 1);
+            words.set(word, (words.get(word) ?? 0) + 1);
         }
+        const pairs = new Set<string>();
+        for (let at = 0; at + 1 < said.length; at++) {
+            if (isWornPhrase(said[at]!, said[at + 1]!)) pairs.add(`${said[at]} ${said[at + 1]}`);
+        }
+        for (const pair of pairs) phrases.set(pair, (phrases.get(pair) ?? 0) + 1);
     }
 
     const floor = Math.max(WORN_MIN_SCRIPTS, Math.ceil(scripts.length * WORN_SHARE));
-    return [...appearances.entries()]
-        .filter(([, count]) => count >= floor)
-        .sort(([leftWord, left], [rightWord, right]) => right - left || leftWord.localeCompare(rightWord))
-        .slice(0, MAX_WORN_WORDS)
-        .map(([word]) => word);
+    const ranked = (counts: Map<string, number>): string[] =>
+        [...counts.entries()]
+            .filter(([, count]) => count >= floor)
+            .sort(([leftWord, left], [rightWord, right]) => right - left || leftWord.localeCompare(rightWord))
+            .map(([text]) => text);
+
+    // A phrase is named whole and its words are not named again: "real gone" said in every break is
+    // one habit, and naming "real" and "gone" beside it spends two of the five places on it. Two
+    // phrases sharing a word ("it's real", "real gone") are one run, so only the more worn is kept.
+    const named: string[] = [];
+    const covered = new Set<string>();
+    for (const phrase of ranked(phrases)) {
+        const [first, second] = phrase.split(' ') as [string, string];
+        if (covered.has(first) || covered.has(second)) continue;
+        named.push(phrase);
+        covered.add(first);
+        covered.add(second);
+    }
+    for (const word of ranked(words)) if (!covered.has(word)) named.push(word);
+
+    return named.slice(0, MAX_WORN_WORDS);
 }
+
+/**
+ * Whether two words side by side are worth counting as a phrase a presenter leans on.
+ *
+ * The phrase exists for what the single-word count cannot see: a tic built from short words. "Dig this"
+ * opened the hand-over of six of Frank's nine breaks on 2026-11-07 and was invisible, since "dig" is
+ * under {@link MIN_WORN_LENGTH} and "this" is grammar. So the bar is lower per word, three letters.
+ *
+ * A pair of two content words is a phrase ("real gone"). A pair with grammar in it is one only when the
+ * other word is too short to be counted alone: "dig this" is, and "the groove" is not, because the word
+ * count already names "groove" and the article in front adds nothing a presenter can stop saying.
+ */
+function isWornPhrase(first: string, second: string): boolean {
+    if (first.length < MIN_PHRASE_WORD_LENGTH || second.length < MIN_PHRASE_WORD_LENGTH) return false;
+    const grammar = [first, second].filter(isGrammar).length;
+    if (grammar === 0) return true;
+    if (grammar === 2) return false;
+    const content = isGrammar(first) ? second : first;
+    return content.length < MIN_WORN_LENGTH;
+}
+
+/** A word {@link NOT_A_HABIT} lists, or one short enough to be grammar by the single-word rule's own floor. */
+const isGrammar = (word: string): boolean => NOT_A_HABIT.has(word) || PHRASE_GRAMMAR.has(word);
+
+/** The shortest word that can be half of a worn phrase. Three, so "dig" and "cat" count and "a" and "of" do not. */
+const MIN_PHRASE_WORD_LENGTH = 3;
+
+/**
+ * Three-letter grammar, which {@link NOT_A_HABIT} never needed to list because the single-word floor of four
+ * already kept it out. A phrase reads three-letter words, so these have to be said out loud here.
+ */
+const PHRASE_GRAMMAR = new Set([
+    'the',
+    'and',
+    'but',
+    'for',
+    'was',
+    'are',
+    'you',
+    'his',
+    'her',
+    'its',
+    'our',
+    'has',
+    'had',
+    'not',
+    'all',
+    'one',
+    'out',
+    'who',
+    'how',
+    'now',
+    "i'm",
+]);
 
 /** Whether either record came with anything to say about it. */
 const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined): boolean =>

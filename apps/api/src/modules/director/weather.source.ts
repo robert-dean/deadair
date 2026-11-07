@@ -12,6 +12,7 @@ import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakSubject } from './break.writer.js';
 import { numberInRange } from '#modules/shared/setting.numbers.js';
+import { SegmentRepository } from '#modules/render/segment.repository.js';
 
 /**
  * The reading a weather break is written from, fetched once and handed to whichever writer takes it.
@@ -93,6 +94,15 @@ export const WEATHER_SOURCE_KEYS = {
 export const DEFAULT_WEATHER_IN_TALK = false;
 
 /**
+ * How far either side of a weather break a talk break goes without being offered the reading.
+ *
+ * Half an hour, which is a few records: close enough that a listener who heard the weather still
+ * remembers it, and short enough that a station with a weather band every hour still has talk breaks
+ * between them that may notice the sky.
+ */
+export const WEATHER_SPACING_MS = 30 * 60_000;
+
+/**
  * How far ahead a weather break looks, when the operator has not said.
  *
  * One, which is today: the conditions now plus the day's high, which is what a station between two
@@ -156,6 +166,8 @@ export class WeatherSource {
     constructor(
         private readonly weather: WeatherService,
         private readonly topics: TopicRepository,
+        /** Whether a weather break airs close to a talk break that would otherwise be offered the reading. */
+        private readonly segments: SegmentRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -178,6 +190,13 @@ export class WeatherSource {
         // link rather than on the next restart.
         const offered = kind === TALK_BREAK_KIND && settingIsOn(this.config, WEATHER_SOURCE_KEYS.inTalk, DEFAULT_WEATHER_IN_TALK);
         if (kind !== WEATHER_KIND && !offered) return undefined;
+
+        // A talk break a few minutes from the weather break is not offered the reading, because the
+        // listener has just heard it or is about to. Offered anyway, the prompt's "most breaks are
+        // better without it" did not hold: on 2026-11-07 a talk break eight minutes after the weather
+        // said "clear here in Atlanta with a wind of 7 miles per hour" a second time. Answered as
+        // nothing rather than as one of the four declines, since nothing here is wrong.
+        if (offered && (await this.weatherAirsNear(airsAt))) return undefined;
 
         // Asked before anything else, so a station with no weather plugin costs nothing and says
         // nothing: `BreakPlanner` would not have planted this break if nothing could write the kind,
@@ -273,6 +292,21 @@ export class WeatherSource {
      * `debug`, where an operator who has switched this on and is wondering why they never hear it can
      * still find all four sentences, unchanged.
      */
+    /**
+     * Whether a weather break is due within {@link WEATHER_SPACING_MS} of this moment, either side.
+     *
+     * Best-effort: a read that fails offers the reading as before, since the cost of being wrong that
+     * way is one repeated figure and the cost of the other way is nothing at all.
+     */
+    private async weatherAirsNear(airsAt: number): Promise<boolean> {
+        try {
+            return await this.segments.airsNear(WEATHER_KIND, airsAt, WEATHER_SPACING_MS);
+        } catch (error) {
+            this.logger.warn(`director: could not tell whether a weather break airs nearby (${errorText(error)})`);
+            return false;
+        }
+    }
+
     private say(offered: boolean, message: string, detail?: Record<string, unknown>): void {
         if (offered) this.logger.debug(message, detail);
         else this.logger.info(message, detail);

@@ -27,6 +27,7 @@ import {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SegmentScope,
     SegmentSourceList,
     SpeechPreviewRequest,
     VoiceList,
@@ -250,6 +251,28 @@ RenderRouter.delete('/segments/:id', requirePolicy({ policy: 'platform.manage' }
 
     const service = ctx.container.get(RenderService);
     const result: SegmentList = await service.deleteSegment(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show
+ * from [render.ck](../../data/contracts/render/render.ck) `PUT /segments/{id}/scope`
+ */
+RenderRouter.put('/segments/:id/scope', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, SegmentScope);
+
+    const service = ctx.container.get(RenderService);
+    const result: Segment = await service.scopeSegment(id, body);
 
     ctx.status = 200;
     ctx.type = 'application/json';

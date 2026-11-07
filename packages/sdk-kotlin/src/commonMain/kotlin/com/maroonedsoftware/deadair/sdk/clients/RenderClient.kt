@@ -28,6 +28,7 @@ import com.maroonedsoftware.deadair.sdk.models.SegmentAudioQuery
 import com.maroonedsoftware.deadair.sdk.models.SegmentCreate
 import com.maroonedsoftware.deadair.sdk.models.SegmentList
 import com.maroonedsoftware.deadair.sdk.models.SegmentScanResult
+import com.maroonedsoftware.deadair.sdk.models.SegmentScope
 import com.maroonedsoftware.deadair.sdk.models.SegmentSourceList
 import com.maroonedsoftware.deadair.sdk.models.SpeechPreviewRequest
 import com.maroonedsoftware.deadair.sdk.models.VoiceList
@@ -227,6 +228,19 @@ class RenderClient(private val http: SdkHttp) {
     suspend fun deleteSegment(id: Uuid): SegmentList {
         val response = http.execute(HttpMethod.Delete) {
             path("segments", segment(id))
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Scope segment
+     * Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show
+     * @throws SdkError on 400, 404, 409
+     */
+    suspend fun scopeSegment(id: Uuid, body: SegmentScope): Segment {
+        val response = http.execute(HttpMethod.Put) {
+            path("segments", segment(id), "scope")
+            jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
     }

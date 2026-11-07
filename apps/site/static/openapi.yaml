@@ -5638,6 +5638,37 @@ paths:
                     description: 'Not found'
                 '409':
                     description: Conflict
+    '/segments/{id}/scope':
+        put:
+            operationId: scopeSegment
+            summary: 'Scope segment'
+            description: 'Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/SegmentScope'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Segment'
+                '400':
+                    description: 'Bad request'
+                '404':
+                    description: 'Not found'
+                '409':
+                    description: Conflict
     '/segments/{id}/sources':
         get:
             operationId: readSegmentSources
@@ -16026,8 +16057,39 @@ components:
                     type: string
                     maxLength: 50
                     description: "How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment"
+                slotIds:
+                    type: array
+                    items:
+                        type: string
+                        format: uuid
+                    description: 'The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped'
+                personaIds:
+                    type: array
+                    items:
+                        type: string
+                        format: uuid
+                    description: 'The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air'
             required: [id, kind, state, label, source, playable]
             description: 'One thing the station can play that is not a record'
+        SegmentScope:
+            type: object
+            properties:
+                slotIds:
+                    type: array
+                    items:
+                        type: string
+                        format: uuid
+                    maxItems: 200
+                    description: 'Schedule slot ids: the recording airs while one of these shows is on, whoever presents it'
+                personaIds:
+                    type: array
+                    items:
+                        type: string
+                        format: uuid
+                    maxItems: 200
+                    description: 'Persona ids: the recording airs while one of these presenters is on, whichever show it is'
+            required: [slotIds, personaIds]
+            description: 'Which shows and presenters a recording is for. Both empty is every show'
         SegmentCreate:
             type: object
             properties:

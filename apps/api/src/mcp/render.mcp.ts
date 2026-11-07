@@ -31,6 +31,7 @@ import {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SegmentScope,
     SegmentSourceList,
     VoiceList,
 } from '../modules/render/types/render.types.js';
@@ -52,6 +53,7 @@ const ReadScriptSummaryArgs = z.object({ query: ScriptHistorySummaryQuery.option
 const ReadScriptPerformanceArgs = z.object({ query: ScriptPerformanceQuery.optional() });
 const ListVoicesArgs = z.object({});
 const DeleteSegmentArgs = z.object({ id: z.uuid() });
+const ScopeSegmentArgs = z.object({ id: z.uuid(), body: SegmentScope });
 const ReadSegmentSourcesArgs = z.object({ id: z.uuid() });
 const ListPronunciationsArgs = z.object({ query: PronunciationQuery.optional() });
 const CreatePronunciationArgs = z.object({ body: PronunciationWrite });
@@ -279,6 +281,29 @@ export class DeleteSegmentMcpTool implements McpToolHandler {
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
         const { id } = await parseAndValidate(args, DeleteSegmentArgs);
         const result = await container.get(RenderService).deleteSegment(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [render.ck](../../data/contracts/render/render.ck) `PUT /segments/{id}/scope`
+ */
+@Injectable()
+export class ScopeSegmentMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'scope_segment',
+        description: 'Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show',
+        inputSchema: z.toJSONSchema(ScopeSegmentArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(Segment, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id, body } = await parseAndValidate(args, ScopeSegmentArgs);
+        const result = await container.get(RenderService).scopeSegment(id, body);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -667,6 +692,7 @@ export function registerRenderMcpCatalog(map: McpToolHandlerMap, container: Cont
     map.set('read_script_performance', container.get(ReadScriptPerformanceMcpTool));
     map.set('list_voices', container.get(ListVoicesMcpTool));
     map.set('delete_segment', container.get(DeleteSegmentMcpTool));
+    map.set('scope_segment', container.get(ScopeSegmentMcpTool));
     map.set('read_segment_sources', container.get(ReadSegmentSourcesMcpTool));
     map.set('list_pronunciations', container.get(ListPronunciationsMcpTool));
     map.set('create_pronunciation', container.get(CreatePronunciationMcpTool));
@@ -696,6 +722,7 @@ export function registerRenderMcpToolClasses(registry: Registry): void {
     registry.register(ReadScriptPerformanceMcpTool).useClass(ReadScriptPerformanceMcpTool).asSingleton();
     registry.register(ListVoicesMcpTool).useClass(ListVoicesMcpTool).asSingleton();
     registry.register(DeleteSegmentMcpTool).useClass(DeleteSegmentMcpTool).asSingleton();
+    registry.register(ScopeSegmentMcpTool).useClass(ScopeSegmentMcpTool).asSingleton();
     registry.register(ReadSegmentSourcesMcpTool).useClass(ReadSegmentSourcesMcpTool).asSingleton();
     registry.register(ListPronunciationsMcpTool).useClass(ListPronunciationsMcpTool).asSingleton();
     registry.register(CreatePronunciationMcpTool).useClass(CreatePronunciationMcpTool).asSingleton();

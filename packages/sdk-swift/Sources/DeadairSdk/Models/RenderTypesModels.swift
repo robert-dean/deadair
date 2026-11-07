@@ -28,8 +28,12 @@ public struct Segment: Codable, Equatable, Sendable {
     public var voice: String?
     /// How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment
     public var delivery: String?
+    /// The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped
+    public var slotIds: [UUID]?
+    /// The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air
+    public var personaIds: [UUID]?
 
-    public init(id: String, kind: String, state: SegmentState, label: String, source: String, playable: Bool, script: String? = nil, spokenScript: String? = nil, sourcePath: String? = nil, durationMs: Int? = nil, error: String? = nil, voice: String? = nil, delivery: String? = nil) {
+    public init(id: String, kind: String, state: SegmentState, label: String, source: String, playable: Bool, script: String? = nil, spokenScript: String? = nil, sourcePath: String? = nil, durationMs: Int? = nil, error: String? = nil, voice: String? = nil, delivery: String? = nil, slotIds: [UUID]? = nil, personaIds: [UUID]? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -43,6 +47,8 @@ public struct Segment: Codable, Equatable, Sendable {
         self.error = error
         self.voice = voice
         self.delivery = delivery
+        self.slotIds = slotIds
+        self.personaIds = personaIds
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -59,6 +65,8 @@ public struct Segment: Codable, Equatable, Sendable {
         case error = "error"
         case voice = "voice"
         case delivery = "delivery"
+        case slotIds = "slotIds"
+        case personaIds = "personaIds"
     }
 
     public init(from decoder: Decoder) throws {
@@ -76,6 +84,8 @@ public struct Segment: Codable, Equatable, Sendable {
         self.error = try container.decodeIfPresent(String.self, forKey: .error)
         self.voice = try container.decodeIfPresent(String.self, forKey: .voice)
         self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
+        self.slotIds = try container.decodeIfPresent([UUID].self, forKey: .slotIds)
+        self.personaIds = try container.decodeIfPresent([UUID].self, forKey: .personaIds)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -93,6 +103,38 @@ public struct Segment: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.error, forKey: .error)
         try container.encodeIfPresent(self.voice, forKey: .voice)
         try container.encodeIfPresent(self.delivery, forKey: .delivery)
+        try container.encodeIfPresent(self.slotIds, forKey: .slotIds)
+        try container.encodeIfPresent(self.personaIds, forKey: .personaIds)
+    }
+}
+
+/// Which shows and presenters a recording is for. Both empty is every show
+public struct SegmentScope: Codable, Equatable, Sendable {
+    /// Schedule slot ids: the recording airs while one of these shows is on, whoever presents it
+    public var slotIds: [UUID]
+    /// Persona ids: the recording airs while one of these presenters is on, whichever show it is
+    public var personaIds: [UUID]
+
+    public init(slotIds: [UUID], personaIds: [UUID]) {
+        self.slotIds = slotIds
+        self.personaIds = personaIds
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case slotIds = "slotIds"
+        case personaIds = "personaIds"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.slotIds = try container.decode([UUID].self, forKey: .slotIds)
+        self.personaIds = try container.decode([UUID].self, forKey: .personaIds)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.slotIds, forKey: .slotIds)
+        try container.encode(self.personaIds, forKey: .personaIds)
     }
 }
 

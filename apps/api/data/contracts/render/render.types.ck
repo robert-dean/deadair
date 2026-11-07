@@ -18,6 +18,13 @@ contract Segment: { # One thing the station can play that is not a record
     error?: string(max=2000) # Why it is `failed`
     voice?: string(max=100) # The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default
     delivery?: string(max=50) # How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment
+    slotIds?: array(uuid) # The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped
+    personaIds?: array(uuid) # The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air
+}
+
+contract SegmentScope: { # Which shows and presenters a recording is for. Both empty is every show
+    slotIds: array(uuid, max=200) # Schedule slot ids: the recording airs while one of these shows is on, whoever presents it
+    personaIds: array(uuid, max=200) # Persona ids: the recording airs while one of these presenters is on, whichever show it is
 }
 
 contract SegmentCreate: { # Something for the station to say, before anything has said it

@@ -1,7 +1,7 @@
 ---
 title: 'List pronunciations'
 sidebar_label: 'List pronunciations'
-sidebar_position: 17
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

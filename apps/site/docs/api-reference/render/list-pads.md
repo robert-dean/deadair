@@ -1,7 +1,7 @@
 ---
 title: 'List pads'
 sidebar_label: 'List pads'
-sidebar_position: 23
+sidebar_position: 24
 mdx:
     format: 'md'
 ---

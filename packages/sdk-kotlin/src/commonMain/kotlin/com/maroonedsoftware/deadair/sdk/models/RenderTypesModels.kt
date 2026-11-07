@@ -37,6 +37,19 @@ data class Segment(
     val voice: String? = null,
     /** How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment */
     val delivery: String? = null,
+    /** The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped */
+    val slotIds: List<Uuid>? = null,
+    /** The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air */
+    val personaIds: List<Uuid>? = null,
+)
+
+/** Which shows and presenters a recording is for. Both empty is every show */
+@Serializable
+data class SegmentScope(
+    /** Schedule slot ids: the recording airs while one of these shows is on, whoever presents it */
+    val slotIds: List<Uuid>,
+    /** Persona ids: the recording airs while one of these presenters is on, whichever show it is */
+    val personaIds: List<Uuid>,
 )
 
 /** Something for the station to say, before anything has said it */

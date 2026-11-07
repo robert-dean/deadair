@@ -1,7 +1,7 @@
 ---
 title: 'Set pronunciation state'
 sidebar_label: 'Set pronunciation state'
-sidebar_position: 22
+sidebar_position: 23
 mdx:
     format: 'md'
 ---

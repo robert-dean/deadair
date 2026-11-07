@@ -1,7 +1,7 @@
 ---
 title: 'Fetch pad'
 sidebar_label: 'Fetch pad'
-sidebar_position: 26
+sidebar_position: 27
 mdx:
     format: 'md'
 ---

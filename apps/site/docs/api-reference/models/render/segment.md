@@ -8,7 +8,7 @@ mdx:
 > One thing the station can play that is not a record
 
 <details>
-<summary>Attributes (13)</summary>
+<summary>Attributes (15)</summary>
 
 | Attribute      | Type                                                                        | Required | Description                                                                                                                                                                     |
 | -------------- | --------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -25,5 +25,7 @@ mdx:
 | `error`        | `string`                                                                    | No       | Why it is `failed`                                                                                                                                                              |
 | `voice`        | `string`                                                                    | No       | The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default                                                                     |
 | `delivery`     | `string`                                                                    | No       | How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment                                                        |
+| `slotIds`      | `string[]`                                                                  | No       | The shows this recording is for, as schedule slot ids. Absent or empty with no `personaIds` is every show. Only a recording an operator gave the station is ever scoped         |
+| `personaIds`   | `string[]`                                                                  | No       | The presenters this recording is for, whichever show they are on. A recording airs on a show when either list names what is on air                                              |
 
 </details>

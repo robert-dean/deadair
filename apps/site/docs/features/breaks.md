@@ -84,6 +84,8 @@ A jingle is a few seconds of the station saying its own name between two records
 
 If you have jingles recorded, drop them in the segment inbox's `jingle` folder, or upload them on the Segments page with the kind `jingle`, and the station plays those, never the same one twice running. With none recorded, it says one of its own lines, from **"What the station says in a jingle"** under Voice, Phrasings, and ends it on a sound from the presenter's soundboard if they have one. Those lines only ever say the station's name and the presenter's, never a record or the time of day, because a jingle is placed well before it airs. For a jingle at one rate in the morning and another at night, add a `jingle` rule to the format clock instead.
 
+A recording can belong to one show or one presenter. On the Segments page, the **For** column says **Every show** until you choose otherwise: the pencil beside it lets you pick shows, presenters, or both. A recording for a show plays only while that show is on, whoever presents it that night, and one for a presenter follows them onto any show. When the show on air has recordings of its own, the station plays those ahead of the ones for every show, and it never plays another show's. That holds for idents, jingles and any kind you book on the format clock, such as a show's sponsor spot. If you delete a show, the recordings that were only for it stop airing rather than spreading to every show; choose new shows for them, or clear the choice to make them for every show again. Through the API it is `PUT /api/segments/{id}/scope`.
+
 A listener who tunes in just before a jingle hears it as their welcome, and the station does not greet them a second time on top of it.
 
 ## When the show changes

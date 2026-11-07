@@ -1,7 +1,7 @@
 ---
 title: 'Update pad set'
 sidebar_label: 'Update pad set'
-sidebar_position: 32
+sidebar_position: 33
 mdx:
     format: 'md'
 ---

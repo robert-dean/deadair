@@ -173,6 +173,16 @@ public final class RenderClient: Sendable {
         return try http.decodeJSON(SegmentList.self, from: response)
     }
 
+    /// Scope segment
+    /// Sets which shows and presenters a recording is for. An empty scope makes it a recording for every show
+    /// - Throws: `SdkError` on 400, 404, 409
+    public func scopeSegment(id: UUID, body: SegmentScope) async throws -> Segment {
+        var request = try SdkRequest(method: "PUT", path: ["segments", http.segment(id), "scope"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Segment.self, from: response)
+    }
+
     /// Read segment sources
     /// The stored facts a written break was handed, the ones it said first
     public func readSegmentSources(id: UUID) async throws -> SegmentSourceList {

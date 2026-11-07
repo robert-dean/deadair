@@ -9,6 +9,17 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.97.0] — 2026-11-07
+
+- A recording in the library (an ident, a jingle, a sponsor spot) can be scoped to shows, to presenters, or to both. A show draws its own recordings ahead of the station-wide ones and never airs another show's, and a recording scoped to a presenter follows them onto any show. Recordings with no scope air on every show, as they always have. Scope one from the Segments page, or with `PUT /segments/{id}/scope`.
+- A timed talk direction. The operator types a line for the presenters ("it's Sam's birthday tonight", "we're snowed in, keep it cosy") and how many hours it lasts, from 1 to 24, on the console's Leans and rules tab, at `/direction`, or through the new MCP tools. Until it ends, talk breaks, changeovers and banter between co-hosts hear it as a lean, checked against when each one airs. News, the weather, the date, jingles and calls never hear it. It is never stated as fact or read out: a script that copies six words of it in a row is asked again, and one that names its subject is not. Breaks already written are not rewritten when it is set or cleared.
+- A weather plugin can answer with an hourly outlook. `WeatherQuery.hours` asks for the next that-many hours and `WeatherReading.hours` carries a row per period the service forecasts, each starting at `at`, an ISO-8601 instant with the place's own offset.
+- The weather plugin answers with an hourly outlook when one is asked for. Open-Meteo reads it in the same request as the current conditions and the days, the National Weather Service reads it out of the hourly forecast it already fetched for the current hour, and OpenWeatherMap reads it from the free three-hourly forecast, one request feeding both the days and the hours.
+- The station can say what the next few hours hold: "rain likely in about three hours, a 60% chance", "down to 4 degrees Celsius by midnight". Every distance is measured from when the break airs rather than from when the reading was fetched. Precipitation is "likely", with its figure, only at 50% or more, a possibility without one from 30%, and not mentioned below that. A temperature is mentioned only for a swing of 5°C or 8°F, and always with its unit.
+- A batch enrichment answer can now say a ref was not answered. `enrichTracks` entries may be `unanswered(reason)`, which the station files as a failure and asks again within the hour, where `{}` still means "not found" and is believed for a week. MusicBrainz uses it for a track whose lookup failed or that the call ran out of time to reach, so an upstream blip no longer holds a record's details back for seven days. Its album lookup now fails, rather than answering without the label and cover for ninety days, when the release request for the label fails.
+- A record fetched ahead of its slot is now measured as soon as its audio arrives, instead of waiting for the hourly measurement pass, so one cached in the hour before it airs is levelled and trimmed rather than going out at its raw level. The new `catalog.analyze_track` job runs one at a time, skips a record that is already measured, and sends nothing when no analyzer is in use. Every measurement, from the hourly pass or the new job, now counts against `analysis.concurrency` together, so the setting holds across both. The hourly pass stays as the backfill for the rest of the library.
+- A weather break no longer repeats what the last weather break about the same place said of the next few hours. Rain that has moved by an hour or less is the same news and is left out; rain that moved further, or a different forecast, is said.
+
 ## [0.96.5] — 2026-11-07
 
 - A mainly clear sky is clear. Open-Meteo's code 1 ("mainly clear") was reported as cloudy, so the weather writer was told "cloudy" and "mainly clear" in the same reading; OpenWeatherMap's "few clouds" had the same mapping. Both now read as clear, as the National Weather Service's few clouds already did.
@@ -1985,7 +1996,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.96.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.0...HEAD
+[0.97.0]: https://github.com/robert-dean/deadair/compare/v0.96.5...v0.97.0
 [0.96.5]: https://github.com/robert-dean/deadair/compare/v0.96.4...v0.96.5
 [0.96.4]: https://github.com/robert-dean/deadair/compare/v0.96.3...v0.96.4
 [0.96.3]: https://github.com/robert-dean/deadair/compare/v0.96.2...v0.96.3

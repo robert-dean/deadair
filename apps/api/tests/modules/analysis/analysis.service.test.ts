@@ -77,6 +77,7 @@ function build(options: HarnessOptions = {}) {
 
     const repository = {
         listTracksNeedingAnalysis: vi.fn(async () => options.pending ?? [track(1)]),
+        trackNeedingAnalysisFor: vi.fn(async () => (options.pending ?? [track(1)])[0]),
         recordAnalysis,
         recordFailure,
     };
@@ -594,5 +595,76 @@ describe('pacing', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+describe('measuring the track behind one binding', () => {
+    it('costs nothing, not even a query, with no analyzer', async () => {
+        const { service, repository, invoker } = build({ analyzers: [] });
+
+        expect(await service.analyseSource('source-1')).toBe('none');
+        expect(repository.trackNeedingAnalysisFor).not.toHaveBeenCalled();
+        expect(invoker.invoke).not.toHaveBeenCalled();
+    });
+
+    it('measures nothing with an analyzer that is quarantined', async () => {
+        const { service, registry, repository } = build();
+        // `asAnalysisPlugin` declines anything not active, which is how a quarantine reaches here.
+        (registry.list() as Array<{ status: string }>).forEach(record => (record.status = 'failed'));
+
+        expect(await service.analyseSource('source-1')).toBe('none');
+        expect(repository.trackNeedingAnalysisFor).not.toHaveBeenCalled();
+    });
+
+    it('asks for the track behind the binding at the version a reader trusts', async () => {
+        const { service, repository } = build();
+
+        await service.analyseSource('source-7');
+
+        expect(repository.trackNeedingAnalysisFor).toHaveBeenCalledWith('source-7', ANALYSIS_SCHEMA_VERSION);
+    });
+
+    it('measures and stores a track that is due', async () => {
+        const { service, analyzeTrack, recordAnalysis } = build({ hasLocalAudio: async () => true });
+
+        expect(await service.analyseSource('source-1')).toBe('measured');
+        expect(analyzeTrack).toHaveBeenCalledTimes(1);
+        expect(recordAnalysis).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.objectContaining({ complete: true }));
+    });
+
+    // What collapses a duplicate: the second job for a record the first one measured finds no work.
+    it('stops at the lookup for a track that is not due', async () => {
+        const { service, repository, analyzeTrack } = build();
+        repository.trackNeedingAnalysisFor.mockResolvedValueOnce(undefined);
+
+        expect(await service.analyseSource('source-1')).toBe('current');
+        expect(analyzeTrack).not.toHaveBeenCalled();
+    });
+
+    it('records a failure the way the walk does', async () => {
+        const { service, recordFailure } = build({
+            hasLocalAudio: async () => true,
+            analyze: async () => {
+                throw new Error('not audio');
+            },
+        });
+
+        expect(await service.analyseSource('source-1')).toBe('failed');
+        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.stringContaining('not audio'), undefined);
+    });
+
+    it('fetches nothing while nobody is listening when the copy is not here', async () => {
+        const { service, analyzeTrack, trackAudio } = build({ hasLocalAudio: async () => false, gateOpen: () => false });
+
+        expect(await service.analyseSource('source-1')).toBe('withheld');
+        expect(trackAudio.resolveBinding).not.toHaveBeenCalled();
+        expect(analyzeTrack).not.toHaveBeenCalled();
+    });
+
+    it('measures a local copy while nobody is listening, since that costs no download', async () => {
+        const { service, analyzeTrack } = build({ hasLocalAudio: async () => true, gateOpen: () => false });
+
+        expect(await service.analyseSource('source-1')).toBe('measured');
+        expect(analyzeTrack).toHaveBeenCalledTimes(1);
     });
 });

@@ -303,6 +303,45 @@ export class AnalysisService {
     }
 
     /**
+     * Measure the track behind one binding now, if it is due a measurement at all.
+     *
+     * The walk's handling of one track, reached without the walk: the cache-ahead step has just put
+     * this record's audio on disk, and waiting for the hourly pass to find it is what used to send a
+     * record cached in the last hour before its slot to air unlevelled. Everything that makes a walk
+     * safe still applies, because this is the same {@link measureOne}: the chosen analyzer (so a
+     * quarantined one measures nothing), the shared count of measurements in flight, the audience gate
+     * on a provider download, and the failure row with its retry wait.
+     *
+     * No pace, and that is not an oversight: the pace is the gap a WALK leaves between one track and
+     * the next, and this is one track. Its bytes are normally already here, so it is a decode rather
+     * than a provider download.
+     *
+     * Never throws. A station with no analyzer answers `'none'` having made no query.
+     *
+     * @param sourceId - A `track_sources.id`, the key the cache-ahead step fetched by.
+     * @returns `'measured'` or `'failed'` when the analyzer was asked, `'current'` when the track
+     * needed nothing (already measured, waiting out a failure, or not a track at all), `'withheld'`
+     * when it would have needed a download while nobody is listening, and `'none'` with no analyzer.
+     */
+    async analyseSource(sourceId: string): Promise<'measured' | 'failed' | 'current' | 'withheld' | 'none'> {
+        const analyzer = this.analyzer();
+        if (analyzer === undefined) return 'none';
+
+        const track = await this.repository.trackNeedingAnalysisFor(sourceId, ANALYSIS_SCHEMA_VERSION);
+        if (track === undefined) return 'current';
+
+        const summary: AnalysisPassSummary = { scanned: 0, measured: 0, failed: 0, incomplete: 0 };
+        const outcome = await this.measureOne(analyzer, track, summary, this.audience.gateOpen());
+        if (outcome === 'withheld') return 'withheld';
+
+        // `measureOne` answers `cheap` for a track whose URL could not be resolved without asking the
+        // analyzer anything, which leaves the summary untouched: that is a track still due, not one
+        // that failed, and the walk will find it.
+        if (summary.failed > 0) return 'failed';
+        return summary.measured > 0 ? 'measured' : 'current';
+    }
+
+    /**
      * Wait, unless the run is being stopped.
      *
      * Resolves on abort rather than rejecting: the caller's next move is to check

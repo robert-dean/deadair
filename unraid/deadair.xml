@@ -162,6 +162,10 @@
         Description="The whole cache as one URL instead, which is the shape a hosted Redis hands you: rediss://default:the-password@cache.example.com:6380/0. Fill this in and it is the WHOLE answer: the four fields above are not read at all, so there is no way for the two to half-disagree. It is also the only way to name a database index, if you are sharing one Redis between applications. rediss:// is TLS, redis:// is not, and anything in the password that is not a plain letter or digit has to be percent-encoded (@ is %40)."
         Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
+    <Config Name="Bundled voice" Target="BUNDLED_TTS" Default="on" Mode=""
+        Description="Whether the speech server inside this container starts (the latest and full tags carry one). Turn it off when you already run a speech server of your own, a Kokoro on a graphics card say, and have pointed the speech plugin at it under Plugins: it saves the memory a second copy of the model holds while it idles. off stops it on the next start, on brings it back with the same voices."
+        Type="Variable" Display="advanced" Required="false" Mask="false">on</Config>
+
     <Config Name="Proxy in front" Target="REAL_IP_FROM" Default="" Mode=""
         Description="Leave empty unless a tunnel or a reverse proxy sits in front of this station. When one does, every listener reaches the station as THAT, so they all share one rate limit and the listener count collapses to however many different players are tuned in. Naming the proxy here (an address or a CIDR, and 172.16.0.0/12 covers another container on this box) lets the station see who actually asked. Only name something you put there yourself: it means believing an address that arrives in a header."
         Type="Variable" Display="advanced" Required="false" Mask="false"></Config>

@@ -113,6 +113,7 @@ are worth knowing before you do:
 | **Runtime database user** and password | A second, non-owner role for the request path, so a request cannot alter the schema. Both have to be filled in for either to take effect. Empty runs everything as the owner, which is what happens today. |
 | **Cache user**, **Cache password**, **Cache over TLS** | Only if your Redis asks for authentication. Redis 6 and newer with ACLs wants a username and a password; an older one, or one with only `requirepass`, wants the password alone. A Redis on your own network usually wants neither. |
 | **Cache URL** | The whole cache as one URL, which is the shape a hosted Redis hands you. Fill it in and it is the **whole** answer: the four fields above it are not read at all. It is also the only way to name a database index. `rediss://` is TLS, `redis://` is not, and anything in the password that is not a letter or digit has to be percent-encoded. |
+| **Bundled voice** | Turn it `off` when you already run a speech server of your own, such as Kokoro on a graphics card, and have pointed the speech plugin at it under **Plugins**. The one inside the container then never starts, which saves the memory it holds while idle. The database and cache on `full` are unaffected. |
 | **Proxy in front** and **Proxy address header** | Only when a tunnel or a reverse proxy sits in front of the station. See below, because leaving it empty has a visible cost. |
 | **Apply migrations at start** | Leave on unless you apply the schema yourself. |
 

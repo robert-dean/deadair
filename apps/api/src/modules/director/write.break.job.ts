@@ -205,6 +205,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             chosen,
             handedFact,
             handedClaims,
+            outlookSaid,
         } = await this.builder.build({
             kind: segment.kind,
             turn: segment.id,
@@ -296,6 +297,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 ...(claimsPreviousItemId === undefined ? {} : { claimsPreviousItemId }),
                 ...(persona === undefined ? {} : { personaId: persona.id }),
                 ...(voice === undefined ? {} : { voice }),
+                // What a weather break was given of the next few hours, whichever writer won: the floor
+                // says one note and the model may say either, and nothing reads the script for which.
+                // Stamping what it was GIVEN errs toward not repeating, the cheap direction.
+                ...(outlookSaid === undefined ? {} : { outlookSaid }),
                 pads,
             }))
         ) {

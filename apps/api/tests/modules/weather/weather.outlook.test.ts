@@ -5,7 +5,17 @@
 import { describe, expect, it } from 'vitest';
 import type { WeatherCondition } from '@deadair/plugin-sdk';
 
-import { byClock, hoursAway, outlookNotes, outlookWindow } from '../../../src/modules/weather/weather.outlook.js';
+import {
+    byClock,
+    hoursAway,
+    keyOf,
+    outlookNotes,
+    outlookSaidOf,
+    outlookWindow,
+    sameNews,
+    unsaid,
+    type OutlookNote,
+} from '../../../src/modules/weather/weather.outlook.js';
 import type { SpokenHour, SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 
 /** 13:00 in Atlanta, in November. */
@@ -191,5 +201,57 @@ describe('the words for when', () => {
         expect(byClock('2026-11-08T03:00:00+13:00')).toBe('by three in the morning');
         expect(byClock('2026-11-07T21:00:00-05:00')).toBe('by nine this evening');
         expect(byClock('2026-11-07T23:30:00+05:30')).toBe('by midnight');
+    });
+});
+
+describe('the same news', () => {
+    const note = (at: string, extra: Partial<OutlookNote> = {}): OutlookNote => ({
+        kind: 'precipitation',
+        word: 'rain',
+        band: 'likely',
+        at,
+        text: 'Rain likely.',
+        ...extra,
+    });
+
+    it("rounds the onset to the place's own hour, half-hour offsets included", () => {
+        expect(keyOf(note('2026-11-07T15:40:00-05:00')).onset).toBe('2026-11-07T21:00:00.000Z');
+        expect(keyOf(note('2026-11-07T10:00:00+05:30')).onset).toBe('2026-11-07T04:30:00.000Z');
+    });
+
+    it('counts an onset moved by an hour as the same, and by two as news', () => {
+        const at3 = keyOf(note('2026-11-07T15:00:00-05:00'));
+        expect(sameNews(at3, keyOf(note('2026-11-07T16:00:00-05:00')))).toBe(true);
+        expect(sameNews(at3, keyOf(note('2026-11-07T17:00:00-05:00')))).toBe(false);
+    });
+
+    it('counts a different word or band as news', () => {
+        const rain = keyOf(note('2026-11-07T15:00:00-05:00'));
+        expect(sameNews(rain, keyOf(note('2026-11-07T15:00:00-05:00', { word: 'snow' })))).toBe(false);
+        expect(sameNews(rain, keyOf(note('2026-11-07T15:00:00-05:00', { band: 'possible' })))).toBe(false);
+    });
+
+    it('compares only with a stamp for the same place, and drops a stamp key that matched nothing', () => {
+        const given = note('2026-11-07T15:00:00-05:00');
+        const previous = {
+            place: 'Atlanta',
+            notes: [keyOf(given), keyOf(note('2026-11-07T15:00:00-05:00', { kind: 'temperature', word: 'down', band: 'swing' }))],
+        };
+
+        expect(unsaid([given], 'Atlanta', previous)).toEqual({ fresh: [], said: { place: 'Atlanta', notes: [keyOf(given)] } });
+        expect(unsaid([given], 'Boston', previous).fresh).toEqual([given]);
+    });
+
+    it('reads a stamp off a row without trusting it', () => {
+        const good = {
+            place: 'Atlanta',
+            notes: [{ kind: 'precipitation', word: 'rain', band: 'likely', onset: '2026-11-07T20:00:00.000Z' }, { kind: 'wind' }],
+        };
+
+        expect(outlookSaidOf(good)?.notes).toHaveLength(1);
+        expect(outlookSaidOf(JSON.stringify(good))?.place).toBe('Atlanta');
+        expect(outlookSaidOf('not json')).toBeUndefined();
+        expect(outlookSaidOf({ notes: [] })).toBeUndefined();
+        expect(outlookSaidOf(null)).toBeUndefined();
     });
 });

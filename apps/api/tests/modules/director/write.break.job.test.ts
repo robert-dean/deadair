@@ -16,6 +16,7 @@ import type { PersonaStoryForPrompt } from '../../../src/modules/personas/person
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
 import type { StationAlmanac } from '../../../src/modules/almanac/almanac.service.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
+import type { OutlookSaid } from '../../../src/modules/weather/weather.outlook.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
@@ -84,6 +85,8 @@ function harness(
         subject?: { key: string; label: string };
         /** What it is like outside, for the one test about handing a reading over. */
         weather?: SpokenWeather;
+        /** What `WeatherSource` says the break is to stamp of the next few hours. */
+        outlookSaid?: OutlookSaid;
         /** What the day is where the station is, for the tests about telling a presenter and holding the break to it. */
         occasion?: { words: string; validFrom: number; validUntil: number; mood?: string };
         /** What happened on the date, for the one test about handing the day over. */
@@ -256,7 +259,11 @@ function harness(
         readingFor: vi.fn(async (_kind: string, _context?: unknown) =>
             options.weather === undefined
                 ? undefined
-                : { reading: options.weather, ...(options.subject === undefined ? {} : { subject: options.subject }) },
+                : {
+                      reading: options.weather,
+                      ...(options.subject === undefined ? {} : { subject: options.subject }),
+                      ...(options.outlookSaid === undefined ? {} : { outlookSaid: options.outlookSaid }),
+                  },
         ),
     };
     // The third source, for the kind that reads the date out. `undefined` for every kind these
@@ -400,6 +407,24 @@ describe('WriteBreakJob', () => {
             pads: [],
         });
         expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+    });
+
+    it('stamps what a weather break was given of the next few hours with its words', async () => {
+        const outlookSaid: OutlookSaid = {
+            place: 'Atlanta',
+            notes: [{ kind: 'precipitation', word: 'rain', band: 'likely', onset: '2026-11-07T20:00:00.000Z' }],
+        };
+        const weather: SpokenWeather = {
+            place: 'Atlanta',
+            observedAt: '2026-11-07T19:00:00Z',
+            units: 'metric',
+            current: { condition: 'cloudy', words: 'cloudy' },
+        };
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), segment: planned({ kind: 'weather' }), weather, outlookSaid });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ outlookSaid }));
     });
 
     it('tells the floor watch who wrote the break and which writers its kind has', async () => {

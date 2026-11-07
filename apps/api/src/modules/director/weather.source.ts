@@ -6,7 +6,7 @@ import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { WeatherService } from '#modules/weather/weather.service.js';
 import { weatherLocations, type WeatherLocation } from '#modules/weather/weather.topic.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
-import { OUTLOOK_HOURS, outlookNotes, outlookWindow, type OutlookNote } from '#modules/weather/weather.outlook.js';
+import { OUTLOOK_HOURS, outlookNotes, outlookWindow, unsaid, type OutlookNote, type OutlookSaid } from '#modules/weather/weather.outlook.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
@@ -168,6 +168,12 @@ export interface WeatherReport {
      * say the same thing about the same hour, which is the reason everything else on this report is.
      */
     outlook?: OutlookNote[];
+    /**
+     * What this break is to stamp on its row as covered, so the next weather break about the same place
+     * leaves it out. Present on every weather break that had a reading, an empty list included, because
+     * a break that had nothing to say about the next few hours is the latest word on them too.
+     */
+    outlookSaid?: OutlookSaid;
 }
 
 /** The weather plugin's own ceiling on an outlook, restated for {@link MAX_WEATHER_DAYS}' reason. */
@@ -301,9 +307,19 @@ export class WeatherSource {
             const { hours: _hours, ...now } = fetched;
             const window = offered ? [] : outlookWindow(fetched, airsAt);
             const reading: SpokenWeather = window.length === 0 ? now : { ...now, hours: window };
-            const outlook = offered ? [] : outlookNotes(reading, airsAt);
+            if (offered) return { reading, freshUntil: fresh };
 
-            return { reading, freshUntil: fresh, ...(subject === undefined ? {} : { subject }), ...(outlook.length === 0 ? {} : { outlook }) };
+            // A note the last weather break about this place was already given is not news, and the
+            // outlook barely moves in an hour: said every time, it is one forecast read out hourly.
+            const { fresh: outlook, said } = unsaid(outlookNotes(reading, airsAt), fetched.place, await this.lastOutlookSaid(fetched.place, airsAt));
+
+            return {
+                reading,
+                freshUntil: fresh,
+                ...(subject === undefined ? {} : { subject }),
+                ...(outlook.length === 0 ? {} : { outlook }),
+                outlookSaid: said,
+            };
         } catch (error) {
             // `WeatherService` already swallows a plugin's failures, so reaching here means something
             // else went wrong. Absorbed for the same reason everything else is: a break the station
@@ -340,6 +356,20 @@ export class WeatherSource {
         } catch (error) {
             this.logger.warn(`director: could not tell whether a weather break airs nearby (${errorText(error)})`);
             return false;
+        }
+    }
+
+    /**
+     * What the last weather break about `place` was given of the next few hours. Best-effort on
+     * {@link weatherAirsNear}'s terms, but in the other direction: a read that fails says the outlook
+     * again, since a repeated forecast is the cheaper mistake than a break that leaves out rain.
+     */
+    private async lastOutlookSaid(place: string, airsAt: number): Promise<OutlookSaid | undefined> {
+        try {
+            return await this.segments.lastOutlookSaid(WEATHER_KIND, place, airsAt);
+        } catch (error) {
+            this.logger.warn(`director: could not read what the last weather break said about the next few hours (${errorText(error)})`);
+            return undefined;
         }
     }
 

@@ -1156,6 +1156,7 @@ export interface DeadairSegments {
   label: string;
   listenerLabel: string | null;
   loudnessLufs: number | null;
+  outlookSaid: Json | null;
   pads: Generated<Json>;
   personaId: string | null;
   productionId: string | null;

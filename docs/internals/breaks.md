@@ -1166,6 +1166,20 @@ part it gets wrong. The floor says the first note between now and the day. Only 
 a talk break asks for the same span, so it shares the plugin's cached reading, and is handed the reading
 without its rows.
 
+**An outlook the last weather break about the same place was given is not given again.** The next few
+hours barely move between two breaks an hour apart, and said every time they are one forecast read out as news
+every hour. So a weather break stamps `segments.outlook_said` with the place and a key per note (its kind, its
+word, its band, and the hour it is about rounded to the place's own hour), and `WeatherSource` reads the newest
+unfailed stamp for the same place inside the last twelve hours (`SegmentRepository.lastOutlookSaid`, passing
+over another location's) and leaves out any note that matches one. An onset that moved by an hour or less is
+the same news; a different word or band, or rain that moved further, is new. The stamp carries a matched key
+AS IT WAS, not the new one, so an onset creeping an hour a break never drifts out of being the same news, and a
+key that matched nothing is dropped, so rain that clears and comes back is said again. It stamps what the break
+was GIVEN, not what it said, because nothing reads the script for the outlook: the floor says one note where it
+was handed two, and the second is then taken as said. That errs toward silence, and a read of the last stamp
+that fails errs the other way and says the outlook, since a repeated forecast is cheaper than a break that
+leaves out rain. A weather break with nothing to say stamps an empty list, which is the latest word too.
+
 **The four ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
 named, a service that is down, and a reading that will be too old to be true when the break airs: one
 silence to the writer, and four different things for an operator to do. A station whose clock asks for

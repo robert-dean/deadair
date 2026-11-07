@@ -207,6 +207,121 @@ function temperatureNote(weather: SpokenWeather, window: readonly SpokenHour[], 
     return undefined;
 }
 
+/**
+ * A note as the next break compares it: what it is about, how sure, and the hour it is about.
+ *
+ * Not the sentence. "In about three hours" said at noon and "in about two hours" said at one are the
+ * same rain, and a key that held the words would call them different news. So it holds the parts
+ * that do not move with the clock, and the hour the note is ABOUT, rounded to the place's own hour.
+ */
+export interface OutlookKey {
+    kind: OutlookNote['kind'];
+    word: string;
+    band: OutlookNote['band'];
+    /** The hour the note is about, rounded to the place's local hour, as an ISO-8601 instant in UTC. */
+    onset: string;
+}
+
+/** What a weather break stamps on its row: the place its outlook was for, and the notes it covered. */
+export interface OutlookSaid {
+    place: string;
+    notes: OutlookKey[];
+}
+
+/**
+ * How far an onset may move and still be the same news. An hour: a forecast for rain at three that
+ * now says four has not told anybody anything new, and one that says six has.
+ */
+export const SAME_ONSET_MS = HOUR_MS;
+
+/** A note's key. See {@link OutlookKey}. */
+export function keyOf(note: OutlookNote): OutlookKey {
+    return { kind: note.kind, word: note.word, band: note.band, onset: new Date(localHour(note.at)).toISOString() };
+}
+
+/** Whether two keys are the same news: everything equal, and onsets no more than an hour apart. */
+export function sameNews(a: OutlookKey, b: OutlookKey): boolean {
+    const apart = Math.abs(Date.parse(a.onset) - Date.parse(b.onset));
+    return a.kind === b.kind && a.word === b.word && a.band === b.band && Number.isFinite(apart) && apart <= SAME_ONSET_MS;
+}
+
+/**
+ * The notes the last weather break about this place did not already cover, and what this break is to
+ * stamp.
+ *
+ * The stamp is everything known said: this break's new notes, plus the previous break's keys that
+ * matched one of this break's notes, kept AS THEY WERE. Carrying the old key rather than the new one
+ * is what stops an onset creeping an hour a break from never being news again, since every comparison
+ * is against the hour it was first given for. A previous key that matched nothing is the news having
+ * gone away and is dropped, so the same rain returning later is said again.
+ *
+ * @param previous - What the last weather break stamped, or `undefined` when there was none or it was
+ *   for somewhere else.
+ */
+export function unsaid(notes: readonly OutlookNote[], place: string, previous: OutlookSaid | undefined): { fresh: OutlookNote[]; said: OutlookSaid } {
+    const before = previous?.place === place ? previous.notes : [];
+    const fresh: OutlookNote[] = [];
+    const stamped: OutlookKey[] = [];
+
+    for (const note of notes) {
+        const key = keyOf(note);
+        const covered = before.find(old => sameNews(old, key));
+        if (covered === undefined) fresh.push(note);
+        stamped.push(covered ?? key);
+    }
+
+    return { fresh, said: { place, notes: stamped } };
+}
+
+/**
+ * A stamp read back off a row, or `undefined` for anything without the shape.
+ *
+ * A JSON column is text anything could have written, so every field is checked rather than cast, and a
+ * note that does not read is dropped rather than failing the whole stamp.
+ */
+export function outlookSaidOf(value: unknown): OutlookSaid | undefined {
+    const parsed = typeof value === 'string' ? safeParse(value) : value;
+    if (parsed === null || typeof parsed !== 'object') return undefined;
+
+    const { place, notes } = parsed as { place?: unknown; notes?: unknown };
+    if (typeof place !== 'string' || !Array.isArray(notes)) return undefined;
+
+    const keys = notes.filter(
+        (note): note is OutlookKey =>
+            note !== null &&
+            typeof note === 'object' &&
+            (note.kind === 'precipitation' || note.kind === 'temperature') &&
+            typeof note.word === 'string' &&
+            typeof note.band === 'string' &&
+            typeof note.onset === 'string',
+    );
+    return { place, notes: keys };
+}
+
+const safeParse = (text: string): unknown => {
+    try {
+        return JSON.parse(text);
+    } catch {
+        return undefined;
+    }
+};
+
+/**
+ * An instant rounded to the nearest hour on the place's own clock, as epoch millis.
+ *
+ * Rounded on the wall clock written in the string rather than on UTC, which differ for a place whose
+ * offset is a half hour: a row at 10:00 in Mumbai is on its hour and not on UTC's.
+ */
+function localHour(at: string): number {
+    const ms = Date.parse(at);
+    const clock = /T\d{2}:(\d{2}):?(\d{2})?/.exec(at);
+    if (!Number.isFinite(ms) || clock === null) return ms;
+
+    const intoHour = Number(clock[1]) * 60_000 + Number(clock[2] ?? 0) * 1_000;
+    const floor = ms - intoHour;
+    return intoHour >= HOUR_MS / 2 ? floor + HOUR_MS : floor;
+}
+
 /** "within the hour", "in about an hour", "in about three hours". Rounded to the nearest hour. */
 export function hoursAway(at: number, airsAt: number): string {
     const hours = Math.round((at - airsAt) / HOUR_MS);

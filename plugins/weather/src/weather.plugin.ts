@@ -365,7 +365,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
             case 'openmeteo':
                 return await openMeteoRead(service, point, span.days, span.hours);
             case 'openweathermap':
-                return await openWeatherRead(service, this.apiKey, point, span.days, language);
+                return await openWeatherRead(service, this.apiKey, point, span.days, language, span.hours);
             case 'nws': {
                 const grid = await this.gridFor(service, point);
                 return grid === undefined ? undefined : await nwsRead(service, grid, point.name, span.days, span.hours);

@@ -12,7 +12,12 @@ import { describe, expect, it } from 'vitest';
 import { parseGeocoding } from '../src/weather.geocode.js';
 import { parseOpenMeteoForecast } from '../src/openmeteo.provider.js';
 import { parseNwsForecast, parseNwsHourly, parseNwsPoints, windKph } from '../src/nws.provider.js';
-import { parseOpenWeatherCurrent, parseOpenWeatherForecast, parseOpenWeatherGeocoding } from '../src/openweathermap.provider.js';
+import {
+    parseOpenWeatherCurrent,
+    parseOpenWeatherForecast,
+    parseOpenWeatherGeocoding,
+    parseOpenWeatherHours,
+} from '../src/openweathermap.provider.js';
 
 describe('the Open-Meteo geocoder', () => {
     const answer = {
@@ -457,8 +462,31 @@ describe('OpenWeatherMap', () => {
         expect(days[1]).toMatchObject({ date: '2026-08-30', condition: 'clear', highC: 24 });
     });
 
+    it('reads the three-hourly list as the outlook, from the period under way to the end of the span', () => {
+        const entry = (hour: number, pop: number, id: number) => ({
+            dt: Date.UTC(2026, 7, 29, hour) / 1_000,
+            main: { temp: 10 + hour / 3, feels_like: 9 },
+            weather: [{ id, description: 'words' }],
+            wind: { speed: 5 },
+            pop,
+        });
+        const forecast = {
+            city: { timezone: 3_600 },
+            list: [entry(6, 0, 800), entry(9, 0.2, 803), entry(12, 0.7, 500), entry(15, 0.1, 800), entry(18, 0, 800)],
+        };
+
+        // Observed at 10:00 UTC: the 06:00 period ended at 09:00, the 09:00 one is under way, and a
+        // six-hour span ends at 16:00, so the 15:00 period is the last one in it.
+        const hours = parseOpenWeatherHours(forecast, Date.UTC(2026, 7, 29, 10) / 1_000, 6);
+
+        expect(hours.map(hour => hour.at)).toEqual(['2026-08-29T10:00:00+01:00', '2026-08-29T13:00:00+01:00', '2026-08-29T16:00:00+01:00']);
+        expect(hours[1]).toMatchObject({ condition: 'rain', temperatureC: 14, precipitationChance: 70, windKph: 18 });
+    });
+
     it('answers nothing for a shape it does not recognise', () => {
         expect(parseOpenWeatherCurrent({}, 'London')).toBeUndefined();
         expect(parseOpenWeatherForecast({}, 7)).toEqual([]);
+        expect(parseOpenWeatherHours({}, 1_800_000_000, 6)).toEqual([]);
+        expect(parseOpenWeatherHours({ list: [] }, undefined, 6)).toEqual([]);
     });
 });

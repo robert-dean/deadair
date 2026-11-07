@@ -322,6 +322,19 @@ describe('OpenWeatherMap', () => {
         expect(reading?.current.condition).toBe('clear');
     });
 
+    it('feeds the days and the outlook from one forecast request', async () => {
+        await initialize({ engine: 'openweathermap' }, 'a-key');
+        queueJson([{ name: 'Atlanta', lat: 33.749, lon: -84.388 }]);
+        queueJson({ dt: 1_800_000_000, timezone: 0, weather: [{ id: 800 }], main: { temp: 24 } });
+        queueJson({ city: { timezone: 0 }, list: [{ dt: 1_800_003_600, main: { temp: 20 }, weather: [{ id: 500 }], pop: 0.6 }] });
+
+        const reading = await plugin.getWeather({ place: 'Atlanta', days: 1, hours: 6 });
+
+        expect(host.calls.filter(call => call.url.includes('/data/2.5/forecast'))).toHaveLength(1);
+        expect(reading?.days).toHaveLength(1);
+        expect(reading?.hours?.[0]).toMatchObject({ condition: 'rain', precipitationChance: 60 });
+    });
+
     it('names the key when the service says 401, which the status alone does not', async () => {
         await initialize({ engine: 'openweathermap' }, 'wrong');
         host.queueResponse({ status: 401, body: '{}' });

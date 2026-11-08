@@ -1179,13 +1179,25 @@ refuses a script naming a temperature the station was never given. That matters 
 shape guards do: a plausible temperature is far easier for a model to write than a plausible news
 story, because it knows roughly what August in Atlanta is like and will fill one in without any sense
 of having invented anything. Three gaps in it are deliberate and are tests rather than comments — a
-spelled-out number gets through, a clock time, a date or a year is not read as a measurement, and
-outside English a figure with no minus sign in its digits is judged by its size, so a bare 5 stands for
-a reading of 5 or -5 while "-5" has to be exactly that. That last one is because a minus is as often a
-word as a mark, and refusing "minus 5" refused every true figure below freezing. English has its words
-read ("minus 5", "negative 5", "5 below"), so its sign is held to the reading either way. A hyphen after
-a digit or a letter is not a minus at all: "3-5 Grad" is a range, and it was refused as -5 until
-2026-11-04.
+number spelled out in English gets through, a clock time, a date or a year is not read as a measurement,
+and outside English and German a figure with no minus sign in its digits is judged by its size, so a
+bare 5 stands for a reading of 5 or -5 while "-5" has to be exactly that. That last one is because a
+minus is as often a word as a mark, and refusing "minus 5" refused every true figure below freezing.
+English has its words read ("minus 5", "negative 5", "5 below"), and German its "minus", so in those two
+a sign said is held to the reading; a German figure with no sign at all is still judged by its size. A
+hyphen after a digit or a letter is not a minus at all: "3-5 Grad" is a range, and it was refused as -5
+until 2026-11-04.
+
+**A German station has its number WORDS read too, but only the ones that are a measurement.** Off a
+reading of wind at 12 km/h, `gemma4` wrote "zwanzig Kilometer pro Stunde" in four or five breaks of
+twenty, and every one passed, because only digits were read. `german.numbers.ts` reads 0 to 999 with the
+compounds ("einundzwanzig", "hundertzwei"), a decimal said with "Komma", and "minus" and "plus", and
+`inventedFigure` compares each figure with the reading exactly as it does a digit. A word counts only
+when it says it is a figure: a unit after it (Grad, Prozent, Kilometer, km/h, Millimeter and the rest),
+one end of a range that has one ("drei bis fünf Grad"), or a sign said in words. Read anywhere, "in drei
+Stunden", "um zwölf", "Platz eins" and the article "ein" would each be a figure nobody measured, and the
+outlook's times are written in words on purpose. What that leaves through is a spelled-out figure with no
+unit ("es werden heute zwanzig"), which is a test too.
 
 **The reading says which of its lines are NOW and which are a FORECAST, in so many words.** A day's condition
 is the service's summary of the whole day, usually its worst hour, so in the morning the two routinely

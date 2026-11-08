@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { germanNumber } from '../../../src/modules/director/german.numbers.js';
 import { inventedFigure, mentionsWeather, unofferedWeather } from '../../../src/modules/director/weather.figures.js';
 import type { WeatherHour } from '@deadair/plugin-sdk';
 import { outlookNotes } from '../../../src/modules/weather/weather.outlook.js';
@@ -192,10 +193,18 @@ describe('on a station that does not broadcast in English', () => {
     });
 
     it('judges a figure with no sign in its digits by its size, which is the gap it deliberately has', () => {
-        // "Minus" is a word in every language, so reading it would mean a vocabulary per language.
-        expect(inventedFigure('Es sind minus 17 Grad.', READING, 'de')).toBeUndefined();
+        // Outside English and German the word for minus is not read, which would mean a vocabulary per language.
+        expect(inventedFigure('Il fait moins 17 degrés.', READING, 'fr')).toBeUndefined();
+        expect(inventedFigure('Il fait 5 degrés.', FREEZING, 'fr')).toBeUndefined();
+        expect(inventedFigure('Il fait -17 degrés.', READING, 'fr')).toBe('-17');
+        // A German figure with no sign at all is judged by its size too, because a model below
+        // freezing leaves the minus out routinely.
         expect(inventedFigure('Es sind 5 Grad.', FREEZING, 'de')).toBeUndefined();
-        expect(inventedFigure('Es sind -17 Grad.', READING, 'de')).toBe('-17');
+    });
+
+    it('reads "minus" before a German figure as its sign, and holds it to the reading', () => {
+        expect(inventedFigure('Es sind minus 5 Grad.', FREEZING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind minus 17 Grad.', READING, 'de')).toBe('minus 17');
     });
 
     it('still names a figure the reading never had', () => {
@@ -205,6 +214,99 @@ describe('on a station that does not broadcast in English', () => {
     it('takes a break offered a reading to have reported it, because the vocabulary is English', () => {
         expect(mentionsWeather('Ein wunderschöner Abend, bleiben Sie dran.', READING, 'de')).toBe(true);
         expect(mentionsWeather('A lovely evening, stay with us.', SUNNY)).toBe(false);
+    });
+});
+
+/** The reading behind the German breaks that said an invented wind speed in words. */
+const WINDY: SpokenWeather = {
+    place: 'Berlin',
+    observedAt: '2026-11-08T09:00:00+01:00',
+    units: 'metric',
+    current: { condition: 'cloudy', words: 'bewölkt', temperature: 8, wind: 12, humidity: 81 },
+    days: [{ date: '2026-11-08', condition: 'cloudy', words: 'bewölkt', high: 11, low: 3, precipitationChance: 30 }],
+};
+
+describe('German number words', () => {
+    it('refuses a wind speed nobody measured said in words, which is the break that was airing', () => {
+        expect(inventedFigure('Dazu weht der Wind mit zwanzig Kilometer pro Stunde.', WINDY, 'de')).toBe('zwanzig');
+        expect(inventedFigure('Wind mit zwanzig Kilometern pro Stunde.', WINDY, 'de')).toBe('zwanzig');
+        expect(inventedFigure('Böen bis fünfundzwanzig km/h.', WINDY, 'de')).toBe('fünfundzwanzig');
+    });
+
+    it('passes a true figure said in words', () => {
+        expect(inventedFigure('Der Wind weht mit zwölf Kilometern pro Stunde, bei acht Grad.', WINDY, 'de')).toBeUndefined();
+        expect(inventedFigure('Die Luftfeuchtigkeit liegt bei einundachtzig Prozent.', WINDY, 'de')).toBeUndefined();
+        expect(inventedFigure('Heute höchstens Elf Grad, nachts drei Grad, Regenrisiko dreißig Prozent.', WINDY, 'de')).toBeUndefined();
+    });
+
+    it('reads a sign in words and holds it to the reading, as it does a minus in digits', () => {
+        expect(inventedFigure('Es sind minus fünf Grad, gefühlt kälter, tagsüber minus zwei.', FREEZING, 'de')).toBeUndefined();
+        expect(inventedFigure('Die Tiefstwerte liegen bei minus sieben Grad.', FREEZING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind minus siebzehn Grad.', READING, 'de')).toBe('minus siebzehn');
+        expect(inventedFigure('Es sind minus drei Grad.', FREEZING, 'de')).toBe('minus drei');
+        // With no sign said, a figure is judged by its size, exactly as "5 Grad" is.
+        expect(inventedFigure('Es sind fünf Grad.', FREEZING, 'de')).toBeUndefined();
+    });
+
+    it('checks both ends of a range said in words', () => {
+        expect(inventedFigure('Heute drei bis elf Grad.', WINDY, 'de')).toBeUndefined();
+        expect(inventedFigure('Zwischen drei und acht Grad.', WINDY, 'de')).toBeUndefined();
+        expect(inventedFigure('Heute drei bis fünf Grad.', WINDY, 'de')).toBe('fünf');
+        expect(inventedFigure('Heute vier bis elf Grad.', WINDY, 'de')).toBe('vier');
+        expect(inventedFigure('Minus sieben bis minus zwei Grad.', FREEZING, 'de')).toBeUndefined();
+    });
+
+    it('reads a decimal said in words as one figure, as it reads "17,5"', () => {
+        expect(inventedFigure('Es sind siebzehn Komma zwei Grad.', READING, 'de')).toBeUndefined();
+        expect(inventedFigure('Es sind dreißig Komma fünf Grad.', READING, 'de')).toBe('dreißig Komma fünf');
+    });
+
+    it('names the invented figures in the order they were said, words and digits together', () => {
+        expect(inventedFigure('Wind mit zwanzig km/h und 40 Prozent Regen.', WINDY, 'de')).toBe('zwanzig');
+        expect(inventedFigure('Wind mit 20 km/h und vierzig Prozent Regen.', WINDY, 'de')).toBe('20');
+    });
+
+    it('leaves a number word that is not a measurement alone', () => {
+        // Times, counts, the article and ordinals are ordinary speech, and the outlook's times are
+        // written in words on purpose. None of these is a figure the reading could have carried.
+        const script =
+            'In drei Stunden, gegen zwanzig Uhr, kommt Regen. Seit zwei Tagen ist es grau, ' +
+            'ein Grund mehr für Platz eins der Charts am zwanzigsten November. Einen schönen Abend!';
+        expect(inventedFigure(script, WINDY, 'de')).toBeUndefined();
+    });
+
+    it('leaves a spelled-out figure with no unit alone, which is the gap it still has', () => {
+        expect(inventedFigure('Es werden heute zwanzig.', WINDY, 'de')).toBeUndefined();
+    });
+
+    it('reads number words only on a German station', () => {
+        expect(inventedFigure('Wind mit zwanzig Kilometer pro Stunde.', WINDY, 'de-AT')).toBe('zwanzig');
+        expect(inventedFigure('Wind mit zwanzig Kilometer pro Stunde.', WINDY, 'nl')).toBeUndefined();
+    });
+
+    it('knows the numbers from null to hundert and the compounds past it', () => {
+        const cases: [string, number][] = [
+            ['null', 0],
+            ['eins', 1],
+            ['zwo', 2],
+            ['zwölf', 12],
+            ['sechzehn', 16],
+            ['siebzehn', 17],
+            ['zwanzig', 20],
+            ['einundzwanzig', 21],
+            ['dreißig', 30],
+            ['dreissig', 30],
+            ['siebenundsechzig', 67],
+            ['neunundneunzig', 99],
+            ['hundert', 100],
+            ['einhundert', 100],
+            ['hundertzwei', 102],
+            ['hundertundzwanzig', 120],
+            ['Zweihundertfünfzig', 250],
+        ];
+        for (const [word, value] of cases) expect(germanNumber(word), word).toBe(value);
+        expect(germanNumber('einen')).toBeUndefined();
+        expect(germanNumber('zwölfundzwanzig')).toBeUndefined();
     });
 });
 

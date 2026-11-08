@@ -1355,7 +1355,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // licences, and rendering one block for both is what made "nothing about how the weather makes
     // anyone feel" a rule for a presenter linking two records.
     if (request.weather !== undefined && shape.weather !== undefined) {
-        parts.push(describeWeather(request.weather, request.weatherOutlook));
+        parts.push(describeWeather(request.weather, request.weatherOutlook, settings.language));
         parts.push(
             shape.weather === 'reported'
                 ? 'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written ' +
@@ -1800,9 +1800,20 @@ function describeDay(date: string, entries: readonly AlmanacEntry[]): string {
     return [`What happened on today's date (${date}), one line each. These were looked up; they are not yours to add to.`, ...lines].join('\n');
 }
 
-function describeWeather(weather: SpokenWeather, outlook: readonly OutlookNote[] = []): string {
+function describeWeather(weather: SpokenWeather, outlook: readonly OutlookNote[] = [], language?: string): string {
     const degrees = weather.units === 'imperial' ? 'Fahrenheit' : 'Celsius';
     const speed = weather.units === 'imperial' ? 'miles per hour' : 'kilometres per hour';
+
+    // The figures below are bare numbers with the unit named once, here, and a model writing in
+    // another language copies the bare number: a German station aired "Es sind -5." and "a high of
+    // minus two" with no "Grad" (discussion 868). Measured with the real writer on a Vienna reading,
+    // 20 breaks each: `gemma4` left the unit off 30 of 60 temperatures and `gemma4:26b` 12 of 60,
+    // nearly all of them the high and the low. English is left alone, because "a high of 71" is how
+    // an English station says it and that station was never short of a unit.
+    const unitRule =
+        language === undefined
+            ? ''
+            : ` In ${languageName(language)} a temperature is never a bare number: say every one with its unit, the high and the low included.`;
 
     // The day lines are FORECASTS and the sky line is the sky now, and the model has to be told which
     // is which. A day's condition is the service's summary of the whole day, usually its worst hour, so
@@ -1810,7 +1821,7 @@ function describeWeather(weather: SpokenWeather, outlook: readonly OutlookNote[]
     // "Atlanta's got a clear sky ... Today's overcast", two skies in two sentences.
     const days = weather.days ?? [];
     const lines = [
-        `The weather in ${weather.place}. Temperatures are in ${degrees} and wind in ${speed}; say the numbers as they are written.`,
+        `The weather in ${weather.place}. Temperatures are in ${degrees} and wind in ${speed}; say the numbers as they are written.${unitRule}`,
         ...(days.length === 0
             ? []
             : [

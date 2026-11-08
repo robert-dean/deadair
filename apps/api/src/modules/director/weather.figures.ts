@@ -1,5 +1,6 @@
 import type { WeatherCondition } from '@deadair/plugin-sdk';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import { germanFigures } from './german.numbers.js';
 
 /**
  * What a script said about the sky, judged against the reading it was written from.
@@ -38,11 +39,14 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
  *
  * Three things about how it judges are deliberate.
  *
- * **Only digits are checked, not words.** A model writing "seventeen" has said a true thing and a
- * model writing "22" has not, and catching the spelled-out form would mean a number vocabulary in
- * eleven languages to catch a shape no model actually produces — every captured break that reported
- * a figure reported it in digits. What it costs is an invented figure spelled out, which is a real
- * gap and a much smaller one than refusing "seventeen degrees" for not being in the list.
+ * **Digits are checked everywhere, and words only in German.** A model writing "seventeen" has said a
+ * true thing and a model writing "22" has not, and catching the spelled-out form in every language
+ * would mean a number vocabulary in eleven of them. English models report a figure in digits, so an
+ * English break that spells one out still gets through. A German one does not: `gemma4` wrote
+ * "zwanzig Kilometer pro Stunde" off a reading of 12 in a quarter of its breaks, so a German number
+ * word that is a measurement (one with a unit after it, one end of such a range, or one with a sign
+ * said in words) is read and compared exactly as a digit is. See `german.numbers.ts` for why a word
+ * with no unit is still left alone.
  *
  * **The permitted set is every figure in the reading**, not only the ones the prompt emphasised: the
  * humidity, each day's high and low, each hour of the outlook, and the percentages. A model that mentioned the humidity when
@@ -57,15 +61,17 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
  * **A hyphen after a digit or a letter is not a minus.** "3-5 degrees" is a range and "mid-30s" is a
  * figure of 30, and both ends are still checked.
  *
- * **A minus is as often a word as a mark, and only English has its words read.** "minus 5", "negative
- * 5" and "5 below" are -5 here, and a bare 5 is a 5, so a reading of -5 refuses "5 degrees" and a reading
- * of 5 refuses "minus 5". "5 below average" reads as -5 too, which costs nothing: a weather break may
- * not compare, and either answer refuses or passes a comparison nobody measured.
+ * **A minus is as often a word as a mark, and only English and German have their words read.** "minus
+ * 5", "negative 5" and "5 below" are -5 in English, "minus 5" and "minus fünf" are -5 in German, and a
+ * bare 5 is a 5, so a reading of -5 refuses "5 degrees" and a reading of 5 refuses "minus 5". "5 below
+ * average" reads as -5 too, which costs nothing: a weather break may not compare, and either answer
+ * refuses or passes a comparison nobody measured.
  *
- * Outside English the word for minus is not read, on the same bargain as the spelled-out number above,
- * so a figure with no sign in its digits stands for a reading of 5 or of -5, and only "-5" has to be
- * exactly that. What it costs is the wrong sign said in words or not said at all. The other way refused
- * every true figure below freezing on a station whose only fallback is to drop the break (discussion 868).
+ * Outside those two the word for minus is not read, so a figure with no sign in its digits stands for a
+ * reading of 5 or of -5, and only "-5" has to be exactly that. That is also true of a German figure with
+ * no sign at all: "5 Grad" passes a reading of -5 everywhere but English. What it costs is the sign not
+ * said, which a model below freezing does routinely, and refusing it refused every true figure below
+ * freezing on a station whose only fallback is to drop the break (discussion 868).
  */
 export function inventedFigure(script: string, weather: SpokenWeather, language?: string): string | undefined {
     const measured = measuredFigures(weather);
@@ -150,8 +156,10 @@ export function mentionsWeather(script: string, weather: SpokenWeather, language
 /** A number as a script wrote it, and as the station compares it. */
 interface StatedFigure {
     text: string;
+    /** Where it sits in the script, so figures read two ways are still named in the order they were said. */
+    index: number;
     value: number;
-    /** Whether it says which side of zero it is on, in its digits or, in English, in words. */
+    /** Whether it says which side of zero it is on, in its digits or, in English and German, in words. */
     signed: boolean;
 }
 
@@ -161,19 +169,31 @@ interface StatedFigure {
  * Shared by both questions for the same reason as {@link withoutTimes}. Outside English a decimal is
  * as likely to be written with a comma as a point: "17,5 Grad" is one figure, and read as two it is a
  * 5 nobody measured. U+2212 is the minus a model writes when it is being careful about typography.
+ * On a German station the figures said in words are read beside the digits (`german.numbers.ts`).
  */
 function statedFigures(script: string, language?: string): StatedFigure[] {
-    return [...script.matchAll(language === undefined ? ENGLISH_FIGURE : OTHER_FIGURE)].map(([text]) => {
-        const digits = /\d+(?:[.,]\d+)?/.exec(text)?.[0] ?? '';
+    const digits = [...script.matchAll(figurePattern(language))].map(match => {
+        const text = match[0];
+        const number = /\d+(?:[.,]\d+)?/.exec(text)?.[0] ?? '';
         const negative = !/^\d/.test(text) || /below$/i.test(text);
-        return { text, signed: negative, value: Math.round(Number(digits.replace(',', '.')) * (negative ? -1 : 1)) };
+        return { text, index: match.index, signed: negative, value: Math.round(Number(number.replace(',', '.')) * (negative ? -1 : 1)) };
     });
+    if (!readsGerman(language)) return digits;
+
+    const words = germanFigures(script).map(figure => ({ ...figure, value: Math.round(figure.value) }));
+    return [...digits, ...words].sort((a, b) => a.index - b.index);
 }
+
+/** Whether the station's language is German, in any of its regional tags. */
+const readsGerman = (language?: string): boolean => language?.toLowerCase().split(/[-_]/)[0] === 'de';
 
 /** A minus sign, which a hyphen straight after a letter or a digit is not. */
 const MINUS_SIGN = '(?<![\\p{L}\\p{N}])[-\\u2212]';
 const ENGLISH_FIGURE = new RegExp(`(?:${MINUS_SIGN}|\\b(?:minus|negative)\\s+)?\\d+(?:\\.\\d+)?(?:\\s+(?:degrees?\\s+)?below\\b)?`, 'giu');
+const GERMAN_FIGURE = new RegExp(`(?:${MINUS_SIGN}|(?<!\\p{L})minus\\s+)?\\d+(?:[.,]\\d+)?`, 'giu');
 const OTHER_FIGURE = new RegExp(`(?:${MINUS_SIGN})?\\d+(?:[.,]\\d+)?`, 'gu');
+
+const figurePattern = (language?: string): RegExp => (language === undefined ? ENGLISH_FIGURE : readsGerman(language) ? GERMAN_FIGURE : OTHER_FIGURE);
 
 /** Whether the reading carried this figure. See {@link inventedFigure} on what a missing sign means. */
 const isMeasured = ({ value, signed }: StatedFigure, measured: ReadonlySet<number>, language?: string): boolean =>

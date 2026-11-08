@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.97.1] — 2026-11-08
+
+- A German station's weather breaks are refused for a figure said in words that the reading never had ("zwanzig Kilometer pro Stunde" off a wind of 12), and "minus" before a German figure is read as its sign. True figures in words ("minus fünf Grad", "zwölf Kilometer pro Stunde", "drei bis elf Grad") still pass, and a number word that is not a measurement ("in drei Stunden", "Platz eins") is left alone.
+- On a station that broadcasts in a language other than English, the weather break now says every temperature with its unit. The model was handed bare figures with the unit named once, and in German it copied them bare: "Es sind -5." and "a high of minus two" with no "Grad". English stations are unchanged.
+
 ## [0.97.0] — 2026-11-07
 
 - A recording in the library (an ident, a jingle, a sponsor spot) can be scoped to shows, to presenters, or to both. A show draws its own recordings ahead of the station-wide ones and never airs another show's, and a recording scoped to a presenter follows them onto any show. Recordings with no scope air on every show, as they always have. Scope one from the Segments page, or with `PUT /segments/{id}/scope`.
@@ -1996,7 +2001,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.1...HEAD
+[0.97.1]: https://github.com/robert-dean/deadair/compare/v0.97.0...v0.97.1
 [0.97.0]: https://github.com/robert-dean/deadair/compare/v0.96.5...v0.97.0
 [0.96.5]: https://github.com/robert-dean/deadair/compare/v0.96.4...v0.96.5
 [0.96.4]: https://github.com/robert-dean/deadair/compare/v0.96.3...v0.96.4

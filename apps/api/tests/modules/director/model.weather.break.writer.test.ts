@@ -16,6 +16,7 @@ import type { BreakWriteRequest } from '../../../src/modules/director/break.writ
 import { ModelWeatherBreakWriter, WEATHER_MAX_WORDS } from '../../../src/modules/director/model.weather.break.writer.js';
 import { MODEL_WRITER_KEYS } from '../../../src/modules/director/model.talk.break.writer.js';
 import { WEATHER_KIND } from '../../../src/modules/weather/weather.kind.js';
+import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 
@@ -97,6 +98,26 @@ describe('what the model is shown', () => {
         expect(shown).toContain('Celsius');
         expect(shown).toContain('- Temperature now: 17');
         expect(shown).toContain("- Today's forecast: clear, high 24, low 12, 40% chance of rain");
+    });
+
+    it('is told on a non-English station that a temperature always carries its unit', async () => {
+        // A German station aired "Es sind -5." and "a high of minus two" with no "Grad": the figures
+        // are bare numbers, and a model writing German copied them bare.
+        const { writer, converse } = build('In Wien sind es minus fünf Grad.', { ...enabled, [STREAM_KEYS.language]: 'de' });
+
+        await writer.write(request());
+
+        expect(userTurn(converse)).toContain(
+            'In German a temperature is never a bare number: say every one with its unit, the high and the low included.',
+        );
+    });
+
+    it('is not given the unit rule on an English station, where "a high of 71" is how it is said', async () => {
+        const { writer, converse } = build("It's 17 and raining in Atlanta.");
+
+        await writer.write(request());
+
+        expect(userTurn(converse)).not.toContain('never a bare number');
     });
 
     it('is given the next few hours as finished sentences, and told to keep their timing', async () => {

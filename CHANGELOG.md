@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.97.2] — 2026-11-09
+
+- The weather no longer hands the model a "feels like" that only repeats the temperature, which a German station aired as "8 Grad, und das fühlt sich ebenso, wie 8 Grad fühlen". A day with no chance of rain is now given as "no rain expected" rather than "0% chance of rain", which came out as "aber leider keine Regenwahrscheinlichkeit".
+
 ## [0.97.1] — 2026-11-08
 
 - A German station's weather breaks are refused for a figure said in words that the reading never had ("zwanzig Kilometer pro Stunde" off a wind of 12), and "minus" before a German figure is read as its sign. True figures in words ("minus fünf Grad", "zwölf Kilometer pro Stunde", "drei bis elf Grad") still pass, and a number word that is not a measurement ("in drei Stunden", "Platz eins") is left alone.
@@ -2001,7 +2005,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.2...HEAD
+[0.97.2]: https://github.com/robert-dean/deadair/compare/v0.97.1...v0.97.2
 [0.97.1]: https://github.com/robert-dean/deadair/compare/v0.97.0...v0.97.1
 [0.97.0]: https://github.com/robert-dean/deadair/compare/v0.96.5...v0.97.0
 [0.96.5]: https://github.com/robert-dean/deadair/compare/v0.96.4...v0.96.5

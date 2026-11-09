@@ -100,6 +100,34 @@ describe('what the model is shown', () => {
         expect(shown).toContain("- Today's forecast: clear, high 24, low 12, 40% chance of rain");
     });
 
+    it('is not given a feels-like that only repeats the temperature', async () => {
+        // "8 Grad heißt es jetzt, und das fühlt sich ebenso, wie 8 Grad fühlen."
+        const { writer, converse } = build("It's 17 and raining.");
+
+        await writer.write(request({ weather: { ...READING, current: { ...READING.current, feelsLike: 17 } } }));
+
+        expect(userTurn(converse)).not.toContain('Feels like now');
+    });
+
+    it('is given a feels-like that differs from the temperature', async () => {
+        const { writer, converse } = build("It's 17 and raining.");
+
+        await writer.write(request({ weather: { ...READING, current: { ...READING.current, feelsLike: 14 } } }));
+
+        expect(userTurn(converse)).toContain('- Feels like now: 14');
+    });
+
+    it('is told a dry day is dry rather than handed a 0% chance of rain', async () => {
+        // "aber leider keine Regenwahrscheinlichkeit" was the 0% translated rather than said.
+        const { writer, converse } = build("It's 17 and raining.");
+
+        await writer.write(request({ weather: { ...READING, days: [{ ...READING.days![0]!, precipitationChance: 0 }] } }));
+
+        const shown = userTurn(converse);
+        expect(shown).toContain("- Today's forecast: clear, high 24, low 12, no rain expected");
+        expect(shown).not.toContain('0% chance');
+    });
+
     it('is told on a non-English station that a temperature always carries its unit', async () => {
         // A German station aired "Es sind -5." and "a high of minus two" with no "Grad": the figures
         // are bare numbers, and a model writing German copied them bare.

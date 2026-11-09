@@ -175,6 +175,10 @@ curl -fsSL https://deadair.radio/install.sh | sh
 
 [deploy/README.md](deploy/README.md) has the rest, including doing it by hand.
 
+## One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/Deadair/)
+
 ## The console
 
 A broadcast desk rather than a player. It deliberately does not play the mount: the listener surface

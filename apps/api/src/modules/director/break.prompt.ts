@@ -1832,7 +1832,12 @@ function describeWeather(weather: SpokenWeather, outlook: readonly OutlookNote[]
     ];
 
     if (weather.current.temperature !== undefined) lines.push(`- Temperature now: ${weather.current.temperature}`);
-    if (weather.current.feelsLike !== undefined) lines.push(`- Feels like now: ${weather.current.feelsLike}`);
+    // Only when it differs. A feels-like equal to the temperature is a line with nothing in it, and a
+    // model handed one says it anyway: a German station aired "8 Grad heißt es jetzt, und das fühlt
+    // sich ebenso, wie 8 Grad fühlen" (discussion 868).
+    if (weather.current.feelsLike !== undefined && weather.current.feelsLike !== weather.current.temperature) {
+        lines.push(`- Feels like now: ${weather.current.feelsLike}`);
+    }
     if (weather.current.wind !== undefined) lines.push(`- Wind now: ${weather.current.wind}`);
     if (weather.current.humidity !== undefined) lines.push(`- Humidity now: ${weather.current.humidity}%`);
 
@@ -1844,7 +1849,13 @@ function describeWeather(weather: SpokenWeather, outlook: readonly OutlookNote[]
         const figures = [
             day.high === undefined ? undefined : `high ${day.high}`,
             day.low === undefined ? undefined : `low ${day.low}`,
-            day.precipitationChance === undefined ? undefined : `${day.precipitationChance}% chance of rain`,
+            // A dry day said as what a presenter says. Handed "0% chance of rain", a German station aired
+            // "aber leider keine Regenwahrscheinlichkeit", which is the figure translated rather than said.
+            day.precipitationChance === undefined
+                ? undefined
+                : day.precipitationChance === 0
+                  ? 'no rain expected'
+                  : `${day.precipitationChance}% chance of rain`,
         ].filter(part => part !== undefined);
 
         lines.push(`- ${when}: ${[day.words, ...figures].join(', ')}`);

@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.27.1] — 2026-11-10
+
+- Catch back up to the station after the stream stalls. Each stall used to leave the app that much further behind for the rest of the session (up to about 30 seconds on HLS, with no limit on MP3); once it is more than eight seconds behind, the app now jumps back to live when the next record starts, never during a break.
+
 ## [0.27.0] — 2026-11-01
 
 - Add an optional lock that asks for your fingerprint, face or screen lock before the operator's controls appear on the phone, and again after five minutes away. Listening is not affected.
@@ -304,7 +308,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.27.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.27.1...HEAD
+[0.27.1]: https://github.com/robert-dean/deadair/compare/android-v0.27.0...android-v0.27.1
 [0.27.0]: https://github.com/robert-dean/deadair/compare/android-v0.26.2...android-v0.27.0
 [0.26.2]: https://github.com/robert-dean/deadair/compare/android-v0.26.1...android-v0.26.2
 [0.26.1]: https://github.com/robert-dean/deadair/compare/android-v0.26.0...android-v0.26.1

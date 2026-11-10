@@ -13,6 +13,7 @@ import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.Reading
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingMount
+import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.widget.WidgetPlayback
@@ -99,6 +100,9 @@ class PlaybackConductor(
             schedule = ::schedule,
             wantsPlay = { player.playWhenReady },
             reconnect = {
+                // A mount reconnects at the live edge; HLS prepares the position it was holding,
+                // so whatever it had lost is still lost.
+                if (current?.format != StreamFormat.HLS) drift.reset()
                 player.prepare()
                 player.play()
             },
@@ -106,16 +110,11 @@ class PlaybackConductor(
             // The same item set again, which ExoPlayer treats as a new source and so a new
             // connection, made on whatever network is the default now. Not `stop()` and
             // `prepare()`: `LivePlayer.stop` is the listener's stop and drops `playWhenReady`.
-            restart = {
-                player.currentMediaItem?.let { item ->
-                    player.setMediaItem(item)
-                    player.prepare()
-                    player.play()
-                }
-            },
+            restart = ::restart,
             // The live edge of the same item: the playlist has slid past the position the player
             // was holding, and preparing that position again is what failed.
             toLiveEdge = {
+                drift.reset()
                 player.seekToDefaultPosition()
                 player.prepare()
                 player.play()
@@ -140,14 +139,56 @@ class PlaybackConductor(
                     // the poll and the lock screen loses its bar; a record released a session ago
                     // must not greet the next one.
                     aired(null)
+                    drift.reset()
                 }
                 reportPlayback()
             }
 
             // The home-screen widget draws a warming-up state between the two, so it needs both
-            // halves; nothing else here cares which of them moved.
-            override fun onIsPlayingChanged(isPlaying: Boolean) = reportPlayback()
+            // halves. `drift` counts the time between them that the listener wanted audio.
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                drift.onPlaying(isPlaying, player.playWhenReady, SystemClock.elapsedRealtime())
+                reportPlayback()
+            }
         }
+
+    /**
+     * Time this connection has lost to silences, which nothing else ever gives back: HLS plays at
+     * a pinned 1.0 and a mount has no live edge. Spent at the next record change; see [catchUp].
+     */
+    private val drift = LiveDrift()
+
+    /** The `startedAt` of the item last released to the listener's ears, to tell a new one. */
+    private var heardStartedAt: Long? = null
+
+    /** Whether anything has been released this session, since an item may have no `startedAt`. */
+    private var heardAny = false
+
+    /**
+     * The same item set again, which ExoPlayer treats as a new source and so a new connection,
+     * made on whatever network is the default now. Not `stop()` and `prepare()`: `LivePlayer.stop`
+     * is the listener's stop and drops `playWhenReady`.
+     */
+    private fun restart() {
+        val item = player.currentMediaItem ?: return
+        drift.reset()
+        player.setMediaItem(item)
+        player.prepare()
+        player.play()
+    }
+
+    /**
+     * A new record has reached the listener's ears (the gate released it): if this connection has
+     * fallen far enough behind, go back to live now, losing the record's opening seconds rather
+     * than staying that far behind for the rest of the session. HLS seeks to the playlist's live
+     * edge; a mount has none, so it reconnects, and Icecast starts it at the encoder.
+     */
+    private fun catchUp(isRecord: Boolean) {
+        if (!player.isPlaying) return
+        val behind = drift.onRecordHeard(isRecord, SystemClock.elapsedRealtime()) ?: return
+        playbackLog.note("${behind}ms behind at a record change, back to live")
+        if (current?.format == StreamFormat.HLS) player.seekToDefaultPosition() else restart()
+    }
 
     /**
      * Tell the widget what this phone is doing, which is something only the service knows.
@@ -174,6 +215,18 @@ class PlaybackConductor(
     private fun aired(reading: Reading?) {
         graph.onAired(reading)
         onHeard(reading)
+        val track = reading?.nowPlaying?.track
+        val startedAt = track?.startedAt
+        if (reading == null) {
+            heardAny = false
+            heardStartedAt = null
+        } else if (!heardAny || startedAt != heardStartedAt) {
+            // The first reading of a session is where the listener came in, not a change.
+            val changed = heardAny
+            heardAny = true
+            heardStartedAt = startedAt
+            if (changed) catchUp(track?.kind == NowPlayingTrackKind.RECORD)
+        }
     }
     private val metadataListener =
         object : Player.Listener {
@@ -310,6 +363,7 @@ class PlaybackConductor(
         current = choice
         policy.cancel()
         gate.cancel()
+        drift.reset()
         player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, words)))
         if (wasPlaying) {
             player.prepare()

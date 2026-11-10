@@ -219,6 +219,26 @@ seconds further behind the live edge, and no ICY title, so with the display dark
 moves on the thirty-second poll as described above. Accepted, because a handover that cuts the
 stream is worse than a title that changes late.
 
+**A listener who fell behind is brought back to live at the next record, because nothing else ever
+would.** HLS plays at a pinned 1.0 (ExoPlayer's catch-up time-stretch is audible on music), so a
+stall is never made up: the player resumes where it stopped and stays that much further behind.
+The station's playlist now lists fifteen two-second segments, so the behind-live jump that used to
+come after six seconds of stalls comes after about thirty, and a phone on a fading wifi drifted
+quietly to most of that. A mount has no live edge to compare with at all and drifted without limit.
+`LiveDrift` counts the time the player wanted audio and was not playing (stalls, rebuffers, a call
+suppressing it), from the first moment the connection played, and `PlaybackConductor` asks it each
+time the gate releases a new item to the listener's ears. Past eight seconds, a RECORD starting is
+the moment to jump: HLS seeks to the default live position, a mount reconnects. It costs the
+record's opening seconds, which is the cut a listener notices least, and never a break's words. The
+live offset is not the measure because `LivePlayer` answers none while it draws a record's bar,
+which is exactly when this asks. A reconnect after an error resets the count on a mount (Icecast
+starts it at the encoder) and keeps it on HLS (preparing again resumes the position it held); a
+restart, a seek to the live edge, a format change and the listener's Stop all reset it. Each jump
+writes a line to the journal. Measured on the emulator against the live MP3 mount (2026-11-09):
+mobile data off and wlan0 dropped through `iptables` for twenty seconds kept the socket and
+resumed it 24.2 seconds behind; at the next ICY title the journal read `24137ms behind at a record
+change, back to live` and the reconnect played 864ms later. The HLS seek has not been seen yet.
+
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
 window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
 two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go

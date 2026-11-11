@@ -1887,7 +1887,7 @@ function elapsedSinceLastOfKind(items: readonly StationLineupItem[], cursor: num
 }
 
 /** Who is on air, for the shelf, with an absent half left out rather than set to `undefined`. */
-function onAirOf(slotId: string | undefined, personaId: string | undefined): OnAir {
+export function onAirOf(slotId: string | undefined, personaId: string | undefined): OnAir {
     return { ...(slotId === undefined ? {} : { slotId }), ...(personaId === undefined ? {} : { personaId }) };
 }
 

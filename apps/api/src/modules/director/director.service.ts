@@ -47,7 +47,7 @@ import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
 import { PRODUCTION_SHELF_LIFE_MS, productionExpired, productionLanding, standingCall } from './production.shelf.js';
-import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
+import { BreakPlanner, expiryFor, onAirOf, type AirClock } from './break.planner.js';
 import { editionHeadlines, ReadLog } from './bulletin.source.js';
 import { readsNames, signatureOf } from './story.signature.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
@@ -2886,6 +2886,13 @@ export class DirectorService {
      * write-and-render cycle, which is worth having and is not worth waiting for when the operator
      * has recorded something.
      *
+     * Canned means RECORDED: `listRecordings`, never `listReady`. The station's own spoken warm-ups
+     * are `ready` rows of this kind too, so reading `listReady` made the first one it ever rendered
+     * the "recording" every later wait replayed, in whatever voice the presenter had that day and in
+     * every other presenter's hour as well. That is the jingle shelf's bug (see
+     * `SegmentRepository.listRecordings`), found again here. Scoped to who is on air for the same
+     * reason the planner's shelf is.
+     *
      * **Never fatal.** Swallowed exactly as {@link plantBreaks} is, and more so: this is the one
      * thing in the pass whose entire purpose is to make a failure more bearable, so it must not be
      * able to cause one.
@@ -2903,7 +2910,8 @@ export class DirectorService {
             // listener is hearing now; only once it is behind us is there a gap to fill again.
             if (lineup.all().some(item => item.kind === 'segment' && item.segmentKind === WARMUP_KIND && !isPast(item.state))) return;
 
-            const canned = await inScope(this.container, scope => scope.get(SegmentRepository).listReady(WARMUP_KIND));
+            const onAir = onAirOf(lineup.slotId, lineup.personaId);
+            const canned = await inScope(this.container, scope => scope.get(SegmentRepository).listRecordings(WARMUP_KIND, onAir));
             if (canned.length > 0) {
                 const chosen = canned[Math.floor(Math.random() * canned.length)]!;
                 // At the head of what has not been committed, which is where the gap is. The same

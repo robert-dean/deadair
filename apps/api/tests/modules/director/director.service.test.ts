@@ -333,8 +333,11 @@ function build(options: Options = {}) {
         findById: vi.fn(async (id: string) => library.get(id)),
         markFailed: vi.fn(async () => {}),
         // What the operator has recorded for a kind. Only the warm-up reads this off the director's
-        // own pass; the ident path goes through the planner's stub above.
-        listReady: vi.fn(async (kind: string) => (kind === WARMUP_KIND ? (options.cannedWarmUps ?? []) : [])),
+        // own pass; the ident path goes through the planner's stub above. Filtered on `source` the
+        // way the real query is, so a station-rendered row in `cannedWarmUps` is one it must not see.
+        listRecordings: vi.fn(async (kind: string, _onAir?: unknown) =>
+            kind === WARMUP_KIND ? (options.cannedWarmUps ?? []).filter(segment => segment.source === 'library') : [],
+        ),
         // Answers with what it was asked to reopen, which is what the real one returns: the rows it
         // actually moved back to `planned`.
         reopenClaims: vi.fn(async (itemIds: readonly string[]) =>
@@ -5392,6 +5395,22 @@ describe('DirectorService holding a listener while it warms up', () => {
         expect(warmUpsIn(lineup)).toHaveLength(1);
     });
 
+    // The station's own spoken warm-up is a `ready` row of this kind as well, and reading it as a
+    // recording replayed the first one ever rendered on every later wait: in the voice the presenter
+    // had that day, and in every other presenter's hour too. Only what the operator recorded is canned.
+    it('does not replay a warm-up the station rendered itself as if it were a recording', async () => {
+        const { director, lineup, rundown, seedCatalogued, segmentStub } = cold({
+            cannedWarmUps: [{ id: 'warm-1', kind: WARMUP_KIND, state: 'ready', label: 'Warming up', source: 'render' }],
+        });
+        await seedCatalogued();
+
+        await director.start();
+        await wake(rundown);
+
+        expect(warmUpsIn(lineup)).toHaveLength(0);
+        expect(segmentStub.listRecordings).toHaveBeenCalledWith(WARMUP_KIND, expect.any(Object));
+    });
+
     // The running order IS the memory: one still to come or on air means the gap is covered, so
     // nothing needs to remember what it planted. Without this the pass plants one every few seconds.
     it('plants one at a time rather than a pile', async () => {
@@ -5480,7 +5499,7 @@ describe('DirectorService holding a listener while it warms up', () => {
     // the very records it was covering for.
     it('never costs the pass that keeps the station on air', async () => {
         const { director, rundown, seedCatalogued, segmentStub } = cold();
-        segmentStub.listReady.mockRejectedValue(new Error('the pool is gone'));
+        segmentStub.listRecordings.mockRejectedValue(new Error('the pool is gone'));
         await seedCatalogued();
 
         await expect(director.start()).resolves.toBeUndefined();

@@ -324,6 +324,24 @@ describe('SegmentRepository.airsNear', () => {
     });
 });
 
+// Whether the record a break is about to back-announce was already introduced by name, read off the
+// stamp a break gets only when its words named the record coming up.
+describe('SegmentRepository.introduced', () => {
+    it('asks for a live row of the kind that claimed the line', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).introduced('talkbreak', 'item-7');
+
+        expect(statements[0]?.sql).toContain('"claims_item_id" = $');
+        expect(statements[0]?.sql).toContain('"state" != $');
+        expect(statements[0]?.parameters).toEqual(expect.arrayContaining(['a-station', 'talkbreak', 'failed', 'item-7']));
+    });
+
+    it('answers from whether a row came back', async () => {
+        expect(await new SegmentRepository(fakeDb([{ id: 'seg-1' }], []), identity()).introduced('talkbreak', 'item-7')).toBe(true);
+        expect(await new SegmentRepository(fakeDb([], []), identity()).introduced('talkbreak', 'item-7')).toBe(false);
+    });
+});
+
 describe('SegmentRepository.lastOutlookSaid', () => {
     it('asks for the newest stamped, unfailed rows of the kind before the moment, inside half a day', async () => {
         const statements: Statement[] = [];

@@ -137,6 +137,8 @@ function harness(
         subjects?: Map<string, string>;
         /** Each record's lyric, keyed by track id, for the guard. */
         lyricTexts?: Map<string, string>;
+        /** Whether a talk break already introduced the record just finished by name. */
+        introduced?: boolean;
     } = {},
 ) {
     const segments = {
@@ -152,6 +154,7 @@ function harness(
             return options.padInLastBreaks ?? false;
         }),
         lastSpokenBy: vi.fn(async () => options.heard ?? new Map<string, number>()),
+        introduced: vi.fn(async (_kind: string, _itemId: string) => options.introduced ?? false),
         markFailed: vi.fn(async () => {}),
         // Read only for an order that carries a programme, which none of these do unless a test says.
         findByIds: vi.fn(
@@ -602,6 +605,47 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(lyricLabels.subjectsForTracks).toHaveBeenCalledWith(['t-solid', 't-pink'], { withholdExplicit: false });
+        });
+
+        // On 2026-11-11 the break into a record and the break out of it both said what it was about,
+        // nine minutes apart and in different words, which the repeat guard cannot see.
+        it('does not show the record just finished its subject again once a break introduced it', async () => {
+            const lineup = await withTrackIds();
+            const { job, writers, segments } = harness({
+                lineup,
+                subjects: new Map([
+                    ['t-solid', 'Holding on to somebody through anything.'],
+                    ['t-pink', 'Watching the night sky arrive for everyone.'],
+                ]),
+                introduced: true,
+                settings: on,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.introduced).toHaveBeenCalledWith('talkbreak', lineup.all()[0]!.id);
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    previous: expect.not.objectContaining({ about: expect.anything() }),
+                    next: expect.objectContaining({ about: 'Watching the night sky arrive for everyone.' }),
+                }),
+                'model',
+            );
+        });
+
+        it('shows the record just finished its subject when nothing introduced it', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                subjects: new Map([['t-solid', 'Holding on to somebody through anything.']]),
+                settings: on,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ previous: expect.objectContaining({ about: 'Holding on to somebody through anything.' }) }),
+                'model',
+            );
         });
 
         it('shows nothing with the switch stored as the string false', async () => {

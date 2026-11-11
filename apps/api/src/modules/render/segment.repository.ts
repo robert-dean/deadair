@@ -769,6 +769,30 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * Whether a break of this kind has already introduced the record at this line by name.
+     *
+     * Read off `claims_item_id`, which is stamped only when the words actually named the record coming
+     * up, so it is a statement about what was SAID rather than about where the break sits. A failed row
+     * was never heard, so it does not count. Asked by the break that back-announces the same record,
+     * which has nothing new to say about what the record means: on 2026-11-11 Tiffani introduced Tainted
+     * Love as "about needing to get away from a relationship that is totally messed up" and back-announced
+     * it nine minutes later as "about needing to run away from a relationship that is totally dysfunctional".
+     */
+    async introduced(kind: string, itemId: string): Promise<boolean> {
+        const row = await this.db
+            .selectFrom('deadair.segments')
+            .select('id')
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('kind', '=', kind)
+            .where('state', '!=', 'failed')
+            .where('claimsItemId', '=', itemId)
+            .limit(1)
+            .executeTakeFirst();
+
+        return row !== undefined;
+    }
+
+    /**
      * What the last weather break about `place` was told of the next few hours, or `undefined`.
      *
      * The newest written row of `kind` that airs before `before` and inside {@link OUTLOOK_LOOKBACK_MS}

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.97.4] — 2026-11-11
+
+- A talk break that back-announces a record is no longer told what the record is about when the break before it already introduced that record by name. Handed the same subject twice, the presenter said it twice, nine minutes apart and in different words, which the repeat check cannot catch.
+
 ## [0.97.3] — 2026-11-11
 
 - A station coming back on air after nobody was listening starts on the record the console shows, instead of first playing up to twelve seconds of the record the last listener left on (and any talk-over that was speaking then), with their titles on the mount. Liquidsoap now plays out what the crossfade and the voice were holding, unheard, as soon as the station stands down.
@@ -2009,7 +2013,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.4...HEAD
+[0.97.4]: https://github.com/robert-dean/deadair/compare/v0.97.3...v0.97.4
 [0.97.3]: https://github.com/robert-dean/deadair/compare/v0.97.2...v0.97.3
 [0.97.2]: https://github.com/robert-dean/deadair/compare/v0.97.1...v0.97.2
 [0.97.1]: https://github.com/robert-dean/deadair/compare/v0.97.0...v0.97.1

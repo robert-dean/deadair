@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.97.3] — 2026-11-11
+
+- A station coming back on air after nobody was listening starts on the record the console shows, instead of first playing up to twelve seconds of the record the last listener left on (and any talk-over that was speaking then), with their titles on the mount. Liquidsoap now plays out what the crossfade and the voice were holding, unheard, as soon as the station stands down.
+
 ## [0.97.2] — 2026-11-09
 
 - The weather no longer hands the model a "feels like" that only repeats the temperature, which a German station aired as "8 Grad, und das fühlt sich ebenso, wie 8 Grad fühlen". A day with no chance of rain is now given as "no rain expected" rather than "0% chance of rain", which came out as "aber leider keine Regenwahrscheinlichkeit".
@@ -2005,7 +2009,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.3...HEAD
+[0.97.3]: https://github.com/robert-dean/deadair/compare/v0.97.2...v0.97.3
 [0.97.2]: https://github.com/robert-dean/deadair/compare/v0.97.1...v0.97.2
 [0.97.1]: https://github.com/robert-dean/deadair/compare/v0.97.0...v0.97.1
 [0.97.0]: https://github.com/robert-dean/deadair/compare/v0.96.5...v0.97.0

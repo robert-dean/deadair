@@ -721,6 +721,9 @@ export class BreakRequestBuilder {
      *
      * A station that speaks clean (`speaksClean`) is shown no subject for a record with an explicit copy,
      * since its writer is told to keep it clean in the same prompt. The lyric lines still reach the guard.
+     *
+     * Nor is the record just finished, when a talk break already introduced it by name
+     * ({@link SegmentRepository.introduced}): that break was handed the same subject and said it.
      */
     private async aboutTheRecords(kind: string, neighbours: Neighbours): Promise<Partial<Pick<BreakWriteRequest, 'lyricLines'>>> {
         if (kind !== TALK_BREAK_KIND || !settingIsOn(this.config, ABOUT_THE_RECORD_KEYS.enabled, ABOUT_THE_RECORD_DEFAULT)) return {};
@@ -734,9 +737,14 @@ export class BreakRequestBuilder {
                 this.lyricLabels.subjectsForTracks(ids, { withholdExplicit: speaksClean(advisoryPolicy(this.config)) }),
                 this.lyrics.textForDerivation(ids),
             ]);
+            // The record just finished is not shown its subject when the break before it already
+            // introduced it by name, because that break was shown the same subject and said it: a back
+            // announcement handed it again says the same thing in other words, which the repeat guard
+            // cannot catch. Its words still reach the guard below.
+            const told = neighbours.previous === undefined ? false : await this.segments.introduced(kind, neighbours.previous.itemId);
             for (const side of sides) {
                 const about = subjects.get(side.track.trackId!);
-                if (about !== undefined) side.track = { ...side.track, about };
+                if (about !== undefined && !(told && side === neighbours.previous)) side.track = { ...side.track, about };
             }
             const lines = ids.flatMap(id => (words.has(id) ? lyricLines(words.get(id)!) : []));
             return lines.length === 0 ? {} : { lyricLines: lines };

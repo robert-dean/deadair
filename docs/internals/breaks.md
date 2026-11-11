@@ -386,6 +386,16 @@ with the lyric. `BreakRequestBuilder.aboutTheRecords` stamps it on `BreakTrack.a
 `describe` renders it behind `withFacts` as "What it is about", beside a line asking for no quoting.
 A writer cannot quote a line it was never shown, which is why the subject travels and the lyric does not.
 
+**A record is told what it is about once: on its way in.** The record just finished is shown no subject
+when a talk break already introduced it by name (`SegmentRepository.introduced`, read off
+`claims_item_id`, so a break counts only when its words named the record). Shown it again, the back
+announcement said the same thing in other words. On 2026-11-11 Tiffani brought Tainted Love in as "about
+needing to get away from a relationship that is totally messed up" and took it out nine minutes later as
+"about needing to run away from a relationship that is totally dysfunctional", and the repeat guard passed
+it, since `repeatOf` matches a run of words and a reworded idea shares none. Its lyric still reaches the
+guard. A back announcement written before the intro has been written still sees the subject, since there
+is no stamp yet to read; both are usually written well ahead, intro first.
+
 **A signed-in app can read the words, and that changes nothing above.** Since 2026-10-10
 `LyricsReadService` serves them read-only: `/catalog/tracks/{id}/lyrics` (the source the station believes,
 in `lyrics.providerOrder`, timed lines before plain, one source's fields never mixed with another's),

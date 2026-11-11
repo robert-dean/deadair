@@ -39,6 +39,14 @@ it. The count is polled from Icecast, which is the truth, off whichever stats en
 `/admin/` is a role decision an operator can tighten) or `/status-json.xsl` on a 2.4 (which 2.5 deprecates).
 Whichever answers is cached, so the other is probed once per re-probe rather than once per poll.
 
+**A stand-down drains the programme rather than leaving it where it stopped.** A source the gate has
+not selected is not pulled, so whatever sits between the queue and the gate (the cross's end buffer,
+up to `MAX_BLEND_MS`, and a talk-over mid-sentence) used to wait out the off-air spell and air first
+for the next listener, blended into the record the console was showing, with both titles on the mount.
+`/control/offair` now plays the two out at zero gain with their metadata dropped until they run dry,
+bounded at fifteen seconds; a lapsed lease is not drained, because it may still hold whole records.
+`stream/offair.check.py` measures it, and `stream/README.md` has the rest.
+
 **Background work that would fetch a record follows the same gate.** The hourly measurement walk
 (`AnalysisService.analysePending`) measures copies the station already holds whatever the audience, but while
 `gateOpen()` is false it stops at the first track that would need a provider download. Off air the station

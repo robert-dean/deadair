@@ -336,6 +336,18 @@ ten times between 2026-10-08 and 2026-10-10. Built like the fadeskip check, with
 python3 stream/warmup.check.py
 ```
 
+`offair.check.liq` checks what a stand-down leaves for the next listener. A record airs through a
+twelve-second cross with a talk-over starting on it, the station stands down the way `/control/offair`
+does, and a new record is pushed when the lease is taken again. The return should carry the new record
+and nothing else, with only its title reaching the mount. A second run leaves the drain out and expects
+twelve seconds of the old record blended into the new one, with the old talk-over's and the old
+record's titles on the mount first: that is what the station did before the drain. Built like the
+fadeskip check, with no dev stack:
+
+```
+python3 stream/offair.check.py
+```
+
 `voice.check.liq` measures where the voice leaves the compressor. It levels speech to an aim the way
 the stamp does, runs the shared compressor at two aims, and checks that the voice comes out at its aim
 both times. The speech is synthesised unless you pass a real segment, which is how the makeup was
@@ -724,6 +736,19 @@ with the wall clock. A source inside the streaming graph is ticked by its clock;
 only decides whether anyone hears the result. So an item left in the queue plays out to an empty
 mount, and a station left to "warm up" works through its whole lineup at one provider fetch and one
 download per track, which is precisely the cost this gate exists to avoid.
+
+**What is ABOVE the queue does stop, and that one is measured.** `cross` and the voice queue sit
+between the queue and the gate, and with the gate shut nothing pulls them: the cross keeps the
+outgoing record's end buffer (up to twelve seconds) and a talk-over keeps its place, however long the
+station is down. A drop and a skip do not clear them, because a skip lands when the source is next
+pulled. So the next listener used to hear the tail of the record the last one left on, blended into
+the record the console said was airing, with both titles going over the mount. After
+`/control/offair` the cross and the voice are therefore played out at zero gain with their metadata
+dropped until they run dry (fifteen seconds at most), which `offair.check.py` measures. Its smaller
+graph also saw the QUEUE hold still behind a shut gate (`remainingMs` unchanged across twenty
+seconds), which is the opposite of the paragraph above. Which of the two the full graph does is not
+settled, and nothing depends on it: a queue that was being consumed has nothing left to drain, and
+the hand-back clears one that was not.
 
 The first listener therefore waits a second or two while the head of the running order is resolved
 and fetched. Buying that back means freezing the source in `radio.liq` (a separate clock, or

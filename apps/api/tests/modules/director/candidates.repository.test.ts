@@ -9,7 +9,7 @@ import type { DatabaseConnection, Dialect, Driver, QueryResult } from 'kysely';
 import { KyselyDefaultPlugins } from '@maroonedsoftware/kysely';
 import { describe, expect, it } from 'vitest';
 
-import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
+import { CandidatesRepository, namedRecordKey } from '../../../src/modules/director/candidates.repository.js';
 import type { DB } from '../../../src/modules/data/db.js';
 
 interface Captured {
@@ -208,5 +208,72 @@ describe('suspensions in the candidate reads', () => {
         const sql = captured.statements[0]?.sql ?? '';
         expect(sql).toContain('as "rating"');
         expect(sql).toContain('as "suspended"');
+    });
+});
+
+/** {@link fakeDb}, answering every statement with these rows. */
+function fakeDbAnswering(rows: readonly Record<string, unknown>[], captured: Captured = { statements: [] }): Kysely<DB> {
+    const postgres = new PostgresDialect({ pool: {} as never });
+    const connection: DatabaseConnection = {
+        executeQuery: async compiled => {
+            captured.statements.push({ sql: compiled.sql, parameters: compiled.parameters });
+            return { rows: [...rows] } as QueryResult<never>;
+        },
+        streamQuery: () => {
+            throw new Error('nothing here streams');
+        },
+    };
+    const driver: Driver = Object.assign(new DummyDriver(), { acquireConnection: async () => connection });
+    return new Kysely<DB>({
+        dialect: {
+            createAdapter: () => postgres.createAdapter(),
+            createIntrospector: inner => postgres.createIntrospector(inner),
+            createQueryCompiler: () => postgres.createQueryCompiler(),
+            createDriver: () => driver,
+        },
+        plugins: [...KyselyDefaultPlugins],
+    });
+}
+
+// The batch twin of `findByName`, and it must land on the SAME row: the period is judged by this
+// row's year before a record is chosen and by `findByName`'s after, and a disagreement between the two
+// is a refill that names records only to drop them.
+describe('CandidatesRepository.findManyByName', () => {
+    it('reads oldest first with the release year, and answers the first row for each name asked', async () => {
+        const captured: Captured = { statements: [] };
+        const rows = [
+            { trackId: 'old', title: 'Billie Jean', titleKey: 'billie jean', artist: 'Michael Jackson', artistKey: 'michael jackson', year: 2008 },
+            { trackId: 'new', title: 'Billie Jean', titleKey: 'billie jean', artist: 'Michael Jackson', artistKey: 'michael jackson', year: 1982 },
+            // Both keys were asked for, but never as this PAIR: the IN lists are a cross product.
+            { trackId: 'cross', title: 'Thriller', titleKey: 'thriller', artist: 'Prince', artistKey: 'prince', year: 1984 },
+            { trackId: 'undated', title: 'Kiss', titleKey: 'kiss', artist: 'Prince', artistKey: 'prince', year: undefined },
+        ];
+        const repo = new CandidatesRepository(fakeDbAnswering(rows, captured));
+
+        const found = await repo.findManyByName([
+            { title: 'Billie Jean', artist: 'Michael Jackson' },
+            { title: 'Thriller', artist: 'Michael Jackson' },
+            { title: 'Kiss', artist: 'Prince' },
+        ]);
+
+        expect(captured.statements[0]?.sql).toMatch(/order by "deadair"\."tracks"\."created_at" asc/);
+        expect(captured.statements[0]?.sql).toContain('least(');
+        expect(found.get(namedRecordKey('Billie Jean', 'Michael Jackson'))).toEqual({
+            trackId: 'old',
+            title: 'Billie Jean',
+            artist: 'Michael Jackson',
+            year: 2008,
+        });
+        expect(found.has(namedRecordKey('Thriller', 'Prince'))).toBe(false);
+        expect(found.has(namedRecordKey('Thriller', 'Michael Jackson'))).toBe(false);
+        expect(found.get(namedRecordKey('Kiss', 'Prince'))).toEqual({ trackId: 'undated', title: 'Kiss', artist: 'Prince' });
+    });
+
+    it('asks nothing for names that normalize to empty', async () => {
+        const captured: Captured = { statements: [] };
+        const found = await new CandidatesRepository(fakeDb(captured)).findManyByName([{ title: '!!!', artist: 'Prince' }]);
+
+        expect(found.size).toBe(0);
+        expect(captured.statements).toHaveLength(0);
     });
 });

@@ -88,6 +88,18 @@ const withinEra = (era: EraWindow) => {
     return sql<boolean>`(${released} is null or (${sql.join(bounds, sql` and `)}))`;
 };
 
+/** The catalog row a named record lands on, as {@link CandidatesRepository.findManyByName} answers it. */
+export interface NamedMatch {
+    trackId: string;
+    title: string;
+    artist: string;
+    /** The year the period is judged by (`releasedYear`). Absent when neither the track nor its album has one. */
+    year?: number;
+}
+
+/** The key {@link CandidatesRepository.findManyByName} answers under, for a title and a lead artist. */
+export const namedRecordKey = (title: string, artist: string): string => `${normalizeKey(artist)}\u0000${normalizeKey(title)}`;
+
 /** Whether a window actually bounds anything. Neither end set is no period at all. */
 export const bindsAnything = (era: EraWindow | undefined): era is EraWindow => era !== undefined && (era.from !== undefined || era.to !== undefined);
 
@@ -720,6 +732,68 @@ export class CandidatesRepository extends DataRepository {
             .executeTakeFirst();
 
         return row;
+    }
+
+    /**
+     * {@link findByName} for a batch of named records at once, with each match's release year.
+     *
+     * The same match, deliberately: exact normalized title and lead artist, oldest row first. That
+     * is the row `PickResolver.identify` will land a name-only pick on, so it is the row whose year
+     * the period is judged by. Answering anything else here would let a record through as dated
+     * one way and drop it at the resolver as dated another, which is how a refill on an '80s show
+     * named twenty-four records and kept three (2026-11-11): a similarity source named "Billie
+     * Jean" with no year, it passed every check that came before the resolver, and the only copy
+     * the catalog holds is dated 2008.
+     *
+     * Keyed by {@link namedRecordKey}. A record the catalog does not hold is absent, and a match
+     * with no year anywhere carries none.
+     */
+    async findManyByName(records: readonly { title: string; artist: string }[]): Promise<Map<string, NamedMatch>> {
+        const matches = new Map<string, NamedMatch>();
+        const wanted = new Set<string>();
+        const titleKeys = new Set<string>();
+        const artistKeys = new Set<string>();
+        for (const record of records) {
+            const titleKey = normalizeKey(record.title);
+            const artistKey = normalizeKey(record.artist);
+            if (!titleKey || !artistKey) continue;
+            wanted.add(`${artistKey}\u0000${titleKey}`);
+            titleKeys.add(titleKey);
+            artistKeys.add(artistKey);
+        }
+        if (wanted.size === 0) return matches;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select([
+                'deadair.tracks.id as trackId',
+                'deadair.tracks.title',
+                'deadair.tracks.titleKey',
+                'deadair.artists.name as artist',
+                'deadair.artists.artistKey',
+            ])
+            .select(releasedYear.as('year'))
+            .where('deadair.tracks.titleKey', 'in', [...titleKeys])
+            .where('deadair.artists.artistKey', 'in', [...artistKeys])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .orderBy('deadair.tracks.createdAt', 'asc')
+            .execute();
+
+        for (const row of rows) {
+            const key = `${row.artistKey}\u0000${row.titleKey}`;
+            // Oldest first, so the first row seen for a pair is the one `findByName` answers.
+            if (!wanted.has(key) || matches.has(key)) continue;
+            matches.set(key, {
+                trackId: row.trackId,
+                title: row.title,
+                artist: row.artist,
+                // `== null`: the driver answers `undefined` for SQL NULL. See the note in CLAUDE.md.
+                ...(row.year == null ? {} : { year: Number(row.year) }),
+            });
+        }
+        return matches;
     }
 
     /**

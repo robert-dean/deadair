@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import type { ArtistTrack } from '@deadair/plugin-sdk';
 import { SimilarityService } from '#modules/similarity/similarity.service.js';
-import { withinPeriod, type EraWindow } from './candidates.repository.js';
+import { CandidatesRepository, namedRecordKey, withinPeriod, type EraWindow } from './candidates.repository.js';
 import { artistKey, creditKey, isArtistHeld, songKey, spacingKeys } from './rotation.keys.js';
 import type { TrackPick } from './set.generator.js';
 
@@ -45,7 +45,39 @@ export interface NeighbourWalk {
 
 @Injectable()
 export class SimilarPicker {
-    constructor(private readonly similarity: SimilarityService) {}
+    constructor(
+        private readonly similarity: SimilarityService,
+        // Optional so a walk with no catalog to ask (a test, mostly) judges the period by the source's
+        // year alone, which is what every walk did before this was here. See `datedByCatalog`.
+        private readonly catalog?: CandidatesRepository,
+    ) {}
+
+    /**
+     * The source's records, each dated by the catalog row the resolver will match it to.
+     *
+     * Only with a period to judge, and only the records the catalog holds: the rest keep the source's
+     * year, or none. The CATALOG's year wins where both exist, because it is the one `PickResolver`
+     * drops by. A similarity source that names records without a year (Deezer's top tracks carry none)
+     * let every one of them past {@link eligibleOf} as undated, and the resolver then found "Billie
+     * Jean" dated 2008 and "Ordinary World" 1993 and dropped them, so an '80s refill on 2026-11-11 named
+     * twenty-four and kept three. Dropping them HERE instead is what lets the walk name another.
+     *
+     * A failed read answers the records as they came, which is the walk as it was.
+     */
+    private async datedByCatalog(tracks: readonly ArtistTrack[], walk: NeighbourWalk): Promise<readonly ArtistTrack[]> {
+        if (walk.era === undefined || this.catalog === undefined || tracks.length === 0) return tracks;
+        try {
+            const held = await this.catalog.findManyByName(tracks);
+            return tracks.map(track => {
+                const row = held.get(namedRecordKey(track.title, track.artist));
+                if (row === undefined) return track;
+                const { year: _sourceYear, ...rest } = track;
+                return row.year === undefined ? rest : { ...rest, year: row.year };
+            });
+        } catch {
+            return tracks;
+        }
+    }
 
     /**
      * Up to `want` records by the neighbours of `seed`, one per neighbour, best neighbour first.
@@ -69,9 +101,12 @@ export class SimilarPicker {
             if (isArtistHeld(walk.takenArtists, artistKey([neighbour.name]), creditKey(neighbour.name))) continue;
             for (const key of spacingKeys(neighbour.name)) walk.takenArtists.add(key);
 
-            const tracks = await this.similarity.topTracks(
-                { name: neighbour.name, ...(neighbour.mbid === undefined ? {} : { mbid: neighbour.mbid }) },
-                TRACKS_PER_ARTIST,
+            const tracks = await this.datedByCatalog(
+                await this.similarity.topTracks(
+                    { name: neighbour.name, ...(neighbour.mbid === undefined ? {} : { mbid: neighbour.mbid }) },
+                    TRACKS_PER_ARTIST,
+                ),
+                walk,
             );
 
             const chosen = freshestFirst(eligibleOf(tracks, walk), entry => walk.freshness(entry.song));
@@ -105,7 +140,7 @@ export class SimilarPicker {
             if (isArtistHeld(walk.takenArtists, artistKey([artist]), creditKey(artist))) continue;
             for (const key of spacingKeys(artist)) walk.takenArtists.add(key);
 
-            const tracks = await this.similarity.topTracks({ name: artist }, TRACKS_PER_ARTIST);
+            const tracks = await this.datedByCatalog(await this.similarity.topTracks({ name: artist }, TRACKS_PER_ARTIST), walk);
             const chosen = freshestFirst(eligibleOf(tracks, walk), entry => walk.freshness(entry.song));
             if (chosen === undefined) continue;
 
@@ -147,9 +182,12 @@ export class SimilarPicker {
         if (want <= 0) return into;
 
         if (this.similarity.canNameSimilarTracks()) {
-            const tracks = await this.similarity.similarTracks(
-                { artist: anchor.artist, title: anchor.title },
-                Math.max(SIMILAR_TRACKS_PER_RECORD, want * TRACKS_PER_ARTIST),
+            const tracks = await this.datedByCatalog(
+                await this.similarity.similarTracks(
+                    { artist: anchor.artist, title: anchor.title },
+                    Math.max(SIMILAR_TRACKS_PER_RECORD, want * TRACKS_PER_ARTIST),
+                ),
+                walk,
             );
             while (into.length < target) {
                 const eligible = eligibleOf(tracks, walk).filter(

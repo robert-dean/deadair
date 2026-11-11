@@ -6,7 +6,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { SimilarityStoreRepository } from '#modules/similarity/similarity.store.repository.js';
 import { advisoryPolicy } from './advisory.policy.js';
 import type { BriefReach } from './brief.acts.js';
-import { CandidatesRepository } from './candidates.repository.js';
+import { CandidatesRepository, namedRecordKey, type NamedMatch } from './candidates.repository.js';
 import { PickResolver, type ScreenCandidate } from './pick.resolver.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { FRESH_FLOOR } from './rotation.rules.js';
@@ -127,14 +127,40 @@ export class Shortlist {
                     ...(row.year === undefined ? {} : { year: row.year }),
                 });
             }
+            // A record a source named that the catalog DOES hold, under a row the library read above
+            // left out (outside the period, or past the length bounds), is listed as that row, so
+            // the screen judges it as the resolver will. Listed by name it passed as undated, the
+            // model chose it, and the resolver matched it to the very row the library read had
+            // refused: on 2026-11-11 that was most of an '80s refill. See `findManyByName`.
+            // A failed read lists them by name, as before this existed, rather than costing the list.
+            const held = await this.candidates.findManyByName([...stored.values()].flat()).catch((error: unknown) => {
+                this.logger.debug(
+                    `director: the shortlist lists a source's records by name, because the catalog could not be read (${errorText(error)})`,
+                );
+                return new Map<string, NamedMatch>();
+            });
             for (const [key, records] of stored) {
                 for (const record of records) {
-                    add(key, {
-                        title: record.title,
-                        artist: record.artist,
-                        ...(record.album === undefined ? {} : { album: record.album }),
-                        ...(record.year === undefined ? {} : { year: record.year }),
-                    });
+                    const row = held.get(namedRecordKey(record.title, record.artist));
+                    add(
+                        key,
+                        row === undefined
+                            ? {
+                                  title: record.title,
+                                  artist: record.artist,
+                                  ...(record.album === undefined ? {} : { album: record.album }),
+                                  ...(record.year === undefined ? {} : { year: record.year }),
+                              }
+                            : {
+                                  // The row's own strings, because a pick carrying an id is taken on
+                                  // trust as that row's: see `PickResolver.identify`.
+                                  title: row.title,
+                                  artist: row.artist,
+                                  trackId: row.trackId,
+                                  ...(record.album === undefined ? {} : { album: record.album }),
+                                  ...(row.year === undefined ? {} : { year: row.year }),
+                              },
+                    );
                 }
             }
             for (const [key, own] of byArtist) byArtist.set(key, freshestFirst(own));

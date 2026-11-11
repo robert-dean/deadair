@@ -1,6 +1,6 @@
 {
     "name": "@deadair/api",
-    "version": "0.97.3",
+    "version": "0.97.4",
     "private": true,
     "license": "MIT",
     "type": "module",

@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-lastfm",
-    "version": "0.97.3",
+    "version": "0.97.4",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

@@ -1065,6 +1065,38 @@ def warm_up_step() =
   end
 end
 
+# ── The drain after a stand-down ─────────────────────────────────────────────────────────────
+# What the programme is still holding when `/control/offair` hands the lease back, played out to
+# nobody so that none of it is waiting for the next listener.
+#
+# **A source the gate below has not selected is not pulled, so everything under it STOPS.** Not
+# just the queue: `cross` keeps the outgoing record's end buffer (up to MAX_BLEND_MS, twelve
+# seconds), and a talk-over that was speaking at the stand-down keeps its place on the voice queue.
+# Neither is cleared by dropping and skipping, because a skip takes effect when the source is next
+# pulled and nothing pulls it until the lease is taken again. So the next listener, minutes or days
+# later, heard the tail of the record the LAST listener left on, blended into the record the console
+# said was playing, and the mount was labelled with both on the way. Measured by
+# stream/offair.check.py: twelve seconds of the old record crossfading into the new one, and the
+# old record's and the old talk-over's titles on the mount before the new one's.
+#
+# So for a short while after a stand-down the programme's two leaves are pulled at zero gain with
+# their metadata dropped (`playout_drain_sink`, beside the gate), until both have run dry. After a
+# drop and a skip the queue has nothing left, so dry is the cross's tail and nothing more, and the
+# local bed underneath is never reached. Only after `/control/offair`, never on a lapsed lease: a
+# lapse leaves the queue as it was (an API that died, a slow tick), and draining there would play
+# out whole records nobody heard. The bound is a ceiling for a source that never runs dry, above the
+# longest blend the app stamps. A lease taken again inside it wins, since the gate tries the
+# programme first.
+#
+# Must stay above MAX_BLEND_MS in apps/api/src/modules/playout/crossfade.ts.
+playout_drain_s = 15.
+playout_drain_left = ref(0.)
+thread.run(every=lease_tick, fun () -> playout_drain_left := max(0., playout_drain_left() - lease_tick))
+
+# What the stand-down does to the voice queue, filled in once the queue exists (step 3): the handler
+# that calls it is registered before it is defined.
+voice_stand_down = ref(fun () -> ())
+
 # ── Starve reporting ─────────────────────────────────────────────────────────────────────────
 # Tell the app the moment its running order stops producing audio, and the moment it starts again.
 #
@@ -1532,6 +1564,11 @@ def control_offair(req) =
     lease_left := 0.
     drop_queued()
     playout_queue.skip()
+    stand_down_voice = voice_stand_down()
+    stand_down_voice()
+    # Play out what the cross and the voice are still holding, unheard. See the drain beside the
+    # warm-up.
+    playout_drain_left := playout_drain_s
     # An armed cue belongs to a record that is no longer going to air. Left alone it would sit
     # there until something else armed over it, and the reading would keep claiming the DJ was
     # about to speak.
@@ -1668,6 +1705,16 @@ bed = fallback(track_sensitive=false, [playout_bed, music, station_id])
 #    itself, and voice and bed are mixed before the encoder so the buffering that separates the
 #    decoder from the listener applies to both and cancels.
 voice = request.queue(id="voice", prefetch=1)
+
+# The stand-down's half of the voice: drop anything waiting and end what is speaking, so the drain
+# beside the gate plays it out unheard. Pending first and destroyed last, as `drop_queued` does it
+# and for the same reason.
+voice_stand_down := fun () -> begin
+  q = list.rev(voice.queue())
+  list.iter(fun (r) -> voice.remove(r), q)
+  list.iter(fun (r) -> request.destroy(r), q)
+  voice.skip()
+end
 
 # Fire the armed cue when the item it belongs to has been playing long enough.
 #
@@ -1963,7 +2010,21 @@ programme =
 # connection that drops mid-show gives the gate its full weight back at once, so whatever is
 # underneath plays until the encoder returns or the drop window hands back. The 40ms fade is for the
 # first frame of a connection, which otherwise starts on whatever sample the encoder was at.
-gated = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_programme()}, programme)]), blank()])
+#
+# Between the two, the drain after a stand-down (see beside the warm-up): the programme's leaves at
+# zero gain and with no metadata, so what they were holding is used up without reaching the mount.
+# Its own branch rather than `programme` muted, because `programme` falls back to the local bed and
+# the drain must stop where the stand-down's own audio does.
+def playout_draining() =
+  playout_drain_left() > 0. and not driving() and (playout_bed.is_ready() or voice_bus.is_ready())
+end
+playout_drain_sink = amplify(0., override=null, source.drop.metadata(add(normalize=false, [playout_bed, voice_bus])))
+
+gated =
+  fallback(
+    track_sensitive=false,
+    [switch(track_sensitive=false, [({on_programme()}, programme), ({playout_draining()}, playout_drain_sink)]), blank()]
+  )
 live_bus = fade.in(duration=0.04, live_meter)
 
 live_fade_s = max(0.01, env_float("LIVE_FADE_MS", 300.) / 1000.)

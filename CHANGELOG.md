@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.97.5] — 2026-11-11
+
+- A refill that adds only a record or two no longer holds the next one off for thirteen minutes. The wait was cleared only once the running order was back to eight records, so when the rotation had little left to choose from, the couple of records a refill found ran out first and the station went quiet until the wait expired. The station now asks again as soon as a refill lands and the order is still short.
+- The holding message a listener hears while the station fetches its first records is now spoken in the current presenter's voice. The station treated any warm-up it had ever rendered as a recording, so the first one it made was replayed on every later wait, in whatever voice the presenter had that day and in every other presenter's hour too. Only warm-ups an operator recorded are replayed now; otherwise the station writes and speaks a fresh one.
+
 ## [0.97.4] — 2026-11-11
 
 - A talk break that back-announces a record is no longer told what the record is about when the break before it already introduced that record by name. Handed the same subject twice, the presenter said it twice, nine minutes apart and in different words, which the repeat check cannot catch.
@@ -2013,7 +2018,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.5...HEAD
+[0.97.5]: https://github.com/robert-dean/deadair/compare/v0.97.4...v0.97.5
 [0.97.4]: https://github.com/robert-dean/deadair/compare/v0.97.3...v0.97.4
 [0.97.3]: https://github.com/robert-dean/deadair/compare/v0.97.2...v0.97.3
 [0.97.2]: https://github.com/robert-dean/deadair/compare/v0.97.1...v0.97.2

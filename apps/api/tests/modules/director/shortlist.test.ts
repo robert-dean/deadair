@@ -10,7 +10,12 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { drawFromShortlist, PER_ACT, PER_NEIGHBOUR, Shortlist, SHORTLIST_MAX, type ShortlistEntry } from '../../../src/modules/director/shortlist.js';
 import type { BriefReach } from '../../../src/modules/director/brief.acts.js';
-import type { CandidateTrack, CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
+import {
+    namedRecordKey,
+    type CandidateTrack,
+    type CandidatesRepository,
+    type NamedMatch,
+} from '../../../src/modules/director/candidates.repository.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 import type { SimilarityStoreRepository, StoredRecord } from '../../../src/modules/similarity/similarity.store.repository.js';
@@ -38,6 +43,10 @@ interface Options {
     refused?: string[];
     aired?: Record<string, number>;
     failing?: boolean;
+    /** What the catalog holds for a source's records, by `artist: title`. */
+    held?: Record<string, { trackId: string; title: string; artist: string; year?: number }>;
+    /** The catalog lookup for a source's records fails. */
+    heldFails?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -45,6 +54,15 @@ function build(options: Options = {}) {
         byArtists: vi.fn(async () => {
             if (options.failing) throw new Error('the database is down');
             return options.library ?? [owned('Raining Blood', 'Slayer', 't1'), owned('South of Heaven', 'Slayer', 't2')];
+        }),
+        findManyByName: vi.fn(async (records: readonly { title: string; artist: string }[]) => {
+            if (options.heldFails) throw new Error('the database is down');
+            const found = new Map<string, NamedMatch>();
+            for (const record of records) {
+                const row = options.held?.[`${record.artist}: ${record.title}`];
+                if (row !== undefined) found.set(namedRecordKey(record.title, record.artist), row);
+            }
+            return found;
         }),
     };
     const store = {
@@ -185,5 +203,48 @@ describe('drawFromShortlist', () => {
         expect(drawFromShortlist(LIST, 1, 0, () => 0.24 / 3.75)[0]?.title).toBe('One');
         expect(drawFromShortlist(LIST, 1, 0, () => 0.26 / 3.75)[0]?.title).toBe('Two');
         expect(drawFromShortlist(LIST, 1, 0, () => 3.3 / 3.75)[0]?.title).toBe('Five');
+    });
+});
+
+// A source names records without a year more often than not, and an undated record passed every
+// check before the resolver. When the catalog holds the song under a row the library read left out
+// (outside the period, say), the model chose it from the list and the resolver dropped it: on
+// 2026-11-11 that was most of an '80s refill.
+describe('Shortlist listing what a source named', () => {
+    it('lists a record the catalog holds as that catalog row, so the screen judges its year', async () => {
+        const { shortlist, screen } = build({
+            library: [],
+            stored: { mayhem: [named('Freezing Moon', 'Mayhem'), named('Deathcrush', 'Mayhem')] },
+            held: { 'Mayhem: Freezing Moon': { trackId: 't9', title: 'Freezing Moon', artist: 'Mayhem', year: 1994 } },
+        });
+
+        await shortlist.build(inputs(1), { acts: [REACH.acts[0]!], neighbours: [] });
+
+        const offered = screen.mock.calls[0]![0];
+        expect(offered.find(entry => entry.title === 'Freezing Moon')).toEqual(
+            expect.objectContaining({ trackId: 't9', title: 'Freezing Moon', artist: 'Mayhem', year: 1994 }),
+        );
+        // What the catalog does not hold is still offered by name, as before.
+        expect(offered.find(entry => entry.title === 'Deathcrush')?.trackId).toBeUndefined();
+    });
+
+    it('takes the catalog row’s own strings, since a pick carrying an id is taken on trust as that row', async () => {
+        const { shortlist, screen } = build({
+            library: [],
+            stored: { mayhem: [named('freezing moon', 'MAYHEM')] },
+            held: { 'MAYHEM: freezing moon': { trackId: 't9', title: 'Freezing Moon', artist: 'Mayhem' } },
+        });
+
+        await shortlist.build(inputs(1), { acts: [REACH.acts[0]!], neighbours: [] });
+
+        expect(screen.mock.calls[0]![0]).toEqual([expect.objectContaining({ trackId: 't9', title: 'Freezing Moon', artist: 'Mayhem' })]);
+    });
+
+    it('still lists by name when the catalog cannot be read', async () => {
+        const { shortlist } = build({ heldFails: true });
+
+        const list = await shortlist.build(inputs(3), REACH);
+
+        expect(list?.map(entry => entry.title)).toContain('Freezing Moon');
     });
 });

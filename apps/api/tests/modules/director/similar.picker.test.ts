@@ -9,6 +9,7 @@ import { SimilarPicker, type NeighbourWalk } from '../../../src/modules/director
 import type { SimilarityService } from '../../../src/modules/similarity/similarity.service.js';
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
+import { namedRecordKey, type CandidatesRepository, type NamedMatch } from '../../../src/modules/director/candidates.repository.js';
 
 interface Options {
     /** Records like one record. Absent is a plugin that answers about artists only. */
@@ -16,6 +17,8 @@ interface Options {
     similar?: SimilarArtist[];
     /** Records per neighbour, by neighbour name. A neighbour missing here names one record of its own. */
     tracks?: Record<string, ArtistTrack[]>;
+    /** The catalog's year for a record, by `artist: title`. Absent is no catalog handed over at all. */
+    catalogYears?: Record<string, number | undefined>;
 }
 
 function build(options: Options = {}) {
@@ -31,7 +34,23 @@ function build(options: Options = {}) {
         similarTracks,
         canNameSimilarTracks: () => options.like !== undefined,
     } as unknown as SimilarityService;
-    return { picker: new SimilarPicker(similarity), similarTo, topTracks, similarTracks };
+    const findManyByName = vi.fn(async (records: readonly { title: string; artist: string }[]) => {
+        const found = new Map<string, NamedMatch>();
+        for (const record of records) {
+            const label = `${record.artist}: ${record.title}`;
+            if (!(label in (options.catalogYears ?? {}))) continue;
+            const year = options.catalogYears![label];
+            found.set(namedRecordKey(record.title, record.artist), {
+                trackId: label,
+                title: record.title,
+                artist: record.artist,
+                ...(year === undefined ? {} : { year }),
+            });
+        }
+        return found;
+    });
+    const catalog = options.catalogYears === undefined ? undefined : ({ findManyByName } as unknown as CandidatesRepository);
+    return { picker: new SimilarPicker(similarity, catalog), similarTo, topTracks, similarTracks, findManyByName };
 }
 
 const walk = (overrides: Partial<NeighbourWalk> = {}): NeighbourWalk => ({
@@ -281,5 +300,65 @@ describe('SimilarPicker.pickFromArtists', () => {
         const picks = await picker.pickFromArtists(['Mastodon', 'Kreator'], 2, walk({ era: { to: 1999 } }));
 
         expect(picks).toEqual([{ title: 'Pleasure to Kill', artist: 'Kreator' }]);
+    });
+});
+
+// Deezer's top tracks carry no year, so every one passed the period as undated and the resolver then
+// dropped the ones the catalog dates outside it. Judged here by the catalog's year, the walk names
+// something else instead: on 2026-11-11 an '80s refill named twenty-four and kept three.
+describe('SimilarPicker dating records by the catalog', () => {
+    const EIGHTIES = { from: 1979, to: 1989 };
+
+    it('skips a record the catalog dates outside the period, and names the next', async () => {
+        const { picker } = build({
+            tracks: {
+                'Duran Duran': [
+                    { title: 'Ordinary World', artist: 'Duran Duran' },
+                    { title: 'Rio', artist: 'Duran Duran' },
+                ],
+            },
+            catalogYears: { 'Duran Duran: Ordinary World': 1993, 'Duran Duran: Rio': 1982 },
+        });
+
+        const picks = await picker.pickFromArtists(['Duran Duran'], 1, walk({ era: EIGHTIES }));
+
+        expect(picks).toEqual([{ title: 'Rio', artist: 'Duran Duran' }]);
+    });
+
+    it('takes the catalog’s year over the source’s, since the catalog’s is the one the resolver drops by', async () => {
+        const { picker } = build({
+            tracks: { 'Michael Jackson': [{ title: 'Billie Jean', artist: 'Michael Jackson', year: 1982 }] },
+            catalogYears: { 'Michael Jackson: Billie Jean': 2008 },
+        });
+
+        expect(await picker.pickFromArtists(['Michael Jackson'], 1, walk({ era: EIGHTIES }))).toEqual([]);
+    });
+
+    it('leaves a record the catalog does not hold, or holds undated, to the source’s year', async () => {
+        const { picker } = build({
+            tracks: {
+                Prince: [
+                    { title: 'Kiss', artist: 'Prince' },
+                    { title: 'Cream', artist: 'Prince', year: 1991 },
+                ],
+                Madonna: [{ title: 'Holiday', artist: 'Madonna' }],
+            },
+            catalogYears: { 'Prince: Kiss': undefined },
+        });
+
+        const picks = await picker.pickFromArtists(['Prince', 'Madonna'], 2, walk({ era: EIGHTIES }));
+
+        expect(picks).toEqual([
+            { title: 'Kiss', artist: 'Prince' },
+            { title: 'Holiday', artist: 'Madonna' },
+        ]);
+    });
+
+    it('does not ask the catalog when the broadcast has no period', async () => {
+        const { picker, findManyByName } = build({ catalogYears: {} });
+
+        await picker.pickFromArtists(['Prince'], 1, walk());
+
+        expect(findManyByName).not.toHaveBeenCalled();
     });
 });

@@ -504,6 +504,16 @@ owns for want of a tag costs the hour; `deadair.tracks.year` is filled at INGEST
 (Spotify's `album.release_date`, Subsonic's `year`) as well as by enrichment, and never overwritten, which is
 what stops that eligibility being a loophole big enough to swallow the feature.
 
+**A record a SOURCE names is dated by the catalog row it will land on**, not left undated. The similarity
+store's top tracks come from Deezer with no year at all, and the act walk (`SimilarPicker`) and the model's
+shortlist both treated every one as eligible, so the resolver was the first thing to see "Billie Jean" (the
+catalog's only copy dated 2008) or "Ordinary World" (1993) and drop it. On 2026-11-11 an '80s refill named
+twenty-four records that way and kept three, and since the top-up runs before the resolver nothing replaced
+them. `CandidatesRepository.findManyByName` answers the row `findByName` would (exact keys, oldest first) with
+its `releasedYear`: the walk judges the period by that year, and the shortlist lists the record AS that row,
+id and strings, so the screen judges it as the resolver will. A record the catalog does not hold keeps the
+source's year, or none, and is still eligible.
+
 **It is sent to the model WITH a prose brief** rather than instead of one, unlike the `music` line it
 replaces: a range and a style are not competing claims and a number cannot be split the difference on.
 

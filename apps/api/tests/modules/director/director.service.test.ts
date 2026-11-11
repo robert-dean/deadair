@@ -4605,6 +4605,32 @@ describe('DirectorService asking for a refill', () => {
         expect(jobs.send.mock.calls.length).toBeGreaterThan(1);
     });
 
+    // A starved rotation answers with a record or two rather than nothing. The guard used to clear
+    // only once the order was back over its low-water mark, so a batch of two left it holding the
+    // next ask for the whole planning window, and on 2026-11-11 the two records ran out first.
+    it('asks again straight away after a refill too small to fill the order', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+            const refills = () => vi.mocked(jobs.send).mock.calls.filter(call => call[0] === 'director.extend_lineup').length;
+            await seed();
+            await director.start();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(refills()).toBe(1);
+
+            await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS * 2);
+
+            expect(refills()).toBe(2);
+
+            // And the new send is guarded like any other: one shortfall, one job.
+            await vi.advanceTimersByTimeAsync(Math.floor(EXTEND_GUARD_MS / 2));
+            expect(refills()).toBe(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     // The guard used to run out at five minutes while a refill may plan for twelve, and since the
     // warm tick re-asks the moment it runs out, every slow refill was joined by a second one for the
     // same shortfall: two jobs on the model, both appending the same hour.

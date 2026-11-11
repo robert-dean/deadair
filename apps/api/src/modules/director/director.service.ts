@@ -230,8 +230,9 @@ const EXTEND_BELOW = 8;
  * its own and pg-boss has given up on it by then: whatever it was going to add has
  * either arrived or never will.
  *
- * The long window costs nothing when a refill lands, because an order that grew
- * clears it, and an honest "nothing" shortens it to {@link EMPTY_REFILL_RETRY_MS}.
+ * The long window costs nothing when a refill lands, because a batch with anything
+ * in it clears it (even one too small to lift the order back over `EXTEND_BELOW`),
+ * and an honest "nothing" shortens it to {@link EMPTY_REFILL_RETRY_MS}.
  * What waits it out is a refill that never answered at all.
  */
 export const EXTEND_GUARD_MS = PLANNING_TIME_LIMIT_MS + 60_000;
@@ -1684,6 +1685,12 @@ export class DirectorService {
             return;
         }
 
+        // The refill has answered, so nothing is planning any more and the guard has nothing left to
+        // wait for. Cleared whatever the batch held rather than only once the order is back over
+        // `EXTEND_BELOW`: on 2026-11-11 a starved rotation answered with two records, the guard held
+        // the next ask for the rest of its thirteen minutes, and the two records ran out at eight.
+        // The commit below re-asks at once if the order is still short, and sets the guard again.
+        this.extendDueAt = undefined;
         this.lineup.append(tracks);
         // Breaks are NOT planted here. The next pass walks the whole tail and plants every slot
         // it finds in one write, so doing it now would buy a boundary's latency and a second

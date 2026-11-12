@@ -49,8 +49,8 @@ Each of these adds one thing to a station that is already on air, and none depen
 - [Keep records off the air](./house-rules.md): a dislike for one record or artist, a never-play rule
   for a whole genre or live recordings, and keeping the station clean.
 - [News and weather in the breaks](./news-and-weather.md): headlines from your own feeds, a forecast
-  for where the station is, a bulletin at the top of the hour, breaking news as it happens, and a
-  longer news programme made fresh each evening.
+  for where the station is, a bulletin at the top of the hour, the date and a piece of trivia between
+  records, breaking news as it happens, and a longer news programme made fresh each evening.
 - [Carry a podcast](./carry-a-podcast.md): subscribe to a show and give its newest episode a time on
   the clock.
 - [Read a book on air](./read-a-book.md): a chapter every night, read in the station's own voice from

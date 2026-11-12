@@ -25,6 +25,7 @@ import { ChangeoverSource } from './changeover.source.js';
 import type { OutlookSaid } from '#modules/weather/weather.outlook.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
+import { TriviaSource } from './trivia.source.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import type { BreakTrack, BreakWriteRequest, PlayedRecord, SittingIn } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone, weekday } from './clock.words.js';
@@ -284,6 +285,8 @@ export class BreakRequestBuilder {
         /** The bulletin's opposite number, for the kind of break that says what it is like outside. */
         private readonly weather: WeatherSource,
         private readonly almanac: AlmanacSource,
+        /** Claims about the station's own music, for the kind of break that passes one on. */
+        private readonly trivia: TriviaSource,
         /** The two programmes either side of a scheduled changeover, for the break that marks one. */
         private readonly changeovers: ChangeoverSource,
         private readonly personas: PersonaRepository,
@@ -398,6 +401,10 @@ export class BreakRequestBuilder {
         // below still reads as one: each source refuses every kind it was not asked about.
         const history = await this.almanac.entriesFor(kind, airsAt ?? Date.now());
 
+        // And the claims a trivia break passes on, which need neither a context nor an instant: a
+        // sourced claim about a record is as true at midnight as at noon. Refused for every other kind.
+        const trivia = await this.trivia.factsFor(kind);
+
         // The fourth, for the kind that marks a change of programme, and the only one that needs the
         // persona: whether the host who just finished is somebody else is a comparison against the
         // character this break will be written under. See `ChangeoverSource`.
@@ -442,6 +449,7 @@ export class BreakRequestBuilder {
             // The day and its entries together, which is one answer rather than a substrate and a
             // policy — see `BreakWriteRequest.almanac`.
             ...(history?.almanac === undefined ? {} : { almanac: history.almanac }),
+            ...(trivia?.trivia === undefined ? {} : { trivia: trivia.trivia }),
             ...(changeover === undefined ? {} : { changeover }),
             // What the format clock asked this break to be ABOUT, resolved out of the context above
             // by the thing that owns the kind's substrate. A writer reads it here rather than
@@ -518,7 +526,12 @@ export class BreakRequestBuilder {
             request,
             ...(chosen === undefined ? {} : { chosen }),
             ...(handedFact === undefined ? {} : { handedFact }),
-            handedClaims: facts.withhold ? [] : handedClaims,
+            // A trivia break's claims are the break rather than notes on it, so they are kept as its
+            // evidence whoever is presenting: a presenter at `never` declines notes, not the kind.
+            handedClaims: [
+                ...(facts.withhold ? [] : handedClaims),
+                ...(trivia?.trivia ?? []).map(fact => ({ factId: fact.factId, text: fact.claim })),
+            ],
             // What a weather break is to stamp as covered of the next few hours. Not on the request
             // for `handedFact`'s reason: no writer needs it, and the job writes it with the words.
             ...(forecast?.outlookSaid === undefined ? {} : { outlookSaid: forecast.outlookSaid }),

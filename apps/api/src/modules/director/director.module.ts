@@ -21,6 +21,9 @@ import { WeatherSource } from './weather.source.js';
 import { AlmanacBreakWriter } from './almanac.break.writer.js';
 import { ModelAlmanacBreakWriter } from './model.almanac.break.writer.js';
 import { AlmanacSource, SaidLog } from './almanac.source.js';
+import { TriviaSource } from './trivia.source.js';
+import { TriviaBreakWriter } from './trivia.break.writer.js';
+import { ModelTriviaBreakWriter } from './model.trivia.break.writer.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { ModelDedicationWriter } from './model.dedication.writer.js';
 import { DedicationWriter } from './dedication.writer.js';
@@ -223,6 +226,8 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WeatherBreakWriter).useClass(WeatherBreakWriter).asScoped();
         registry.register(ModelAlmanacBreakWriter).useClass(ModelAlmanacBreakWriter).asScoped();
         registry.register(AlmanacBreakWriter).useClass(AlmanacBreakWriter).asScoped();
+        registry.register(ModelTriviaBreakWriter).useClass(ModelTriviaBreakWriter).asScoped();
+        registry.register(TriviaBreakWriter).useClass(TriviaBreakWriter).asScoped();
         registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
         registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
         registry.register(WarmUpWriter).useClass(WarmUpWriter).asScoped();
@@ -260,6 +265,10 @@ export const DirectorModule: ServerKitModule = {
         // unlike the bulletin: a day that has run out of entries is the station working correctly
         // rather than a subject that matches nothing, and the source says so in the log.
         registry.register(AlmanacSource).useClass(AlmanacSource).asScoped();
+        // Claims about the station's own music, scoped with the fact repository it reads. No log beside
+        // it: the store's own `last_used_at` is what keeps a claim from being said twice, and the
+        // writers stamp it. See `TriviaSource`.
+        registry.register(TriviaSource).useClass(TriviaSource).asScoped();
         // The fourth, scoped with the persona repository it reads. It fetches nothing: the request
         // carried the facts, and this only decides whether the host who finished is somebody else.
         registry.register(ChangeoverSource).useClass(ChangeoverSource).asScoped();
@@ -311,6 +320,12 @@ export const DirectorModule: ServerKitModule = {
                             // the station was never given is refused outright.
                             container.get(ModelAlmanacBreakWriter),
                             container.get(AlmanacBreakWriter),
+                            // The tenth kind, a piece of trivia about the station's own music,
+                            // ranked the same way, and its floor is the almanac's: it reads a stored
+                            // claim out word for word, and the claim carries the article that
+                            // supports it. The model above is held to the years it was shown.
+                            container.get(ModelTriviaBreakWriter),
+                            container.get(TriviaBreakWriter),
                             // The fifth kind, ranked the same way and inverted underneath: the
                             // floor here is not a pool of phrasings but the operator's own prose,
                             // because a story is already written down. So a station with no model

@@ -127,6 +127,18 @@ export interface TemplateInputs {
      */
     almanacDate?: string;
     /**
+     * The claim a trivia break passes on, as the store holds it with a full stop if it had none.
+     *
+     * {@link almanac}'s sibling and the same shape. NOT one of the English values, unlike the almanac's
+     * report: there is no frame around it, so it is whatever language the article it came from was in.
+     */
+    trivia?: string;
+    /**
+     * What that claim is about, from the catalog's own names: `Dummy, by Portishead`. English, for the
+     * "by", so it is dropped on a station broadcasting in another language.
+     */
+    triviaAbout?: string;
+    /**
      * What this break is ABOUT, in the operator's own word for it: `Technology`, `Atlanta`.
      *
      * The subject a band on the format clock asked for, when it asked for one. Absent for a break
@@ -287,6 +299,10 @@ const VALUES: Record<string, Resolver> = {
     // speakable from the writer for the kind, and a date is not a title.
     'almanac.report': inputs => inputs.almanac,
     'almanac.date': inputs => inputs.almanacDate,
+    // Trivia's pair, out of `SPOKEN_VALUES` for the same reasons: the claim arrives as a sentence, and
+    // the subject is already the catalog's own names joined, which `spoken` would strip again.
+    'trivia.report': inputs => inputs.trivia,
+    'trivia.about': inputs => inputs.triviaAbout,
     // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
     // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
     greeting: inputs => inputs.greeting,
@@ -351,7 +367,7 @@ const SPOKEN_VALUES = new Set(
  * values the station writes in English itself.
  *
  * The time, the part of the day, the day and the greeting are English phrasings ("just after nine",
- * "this morning", "Friday", "good morning"), and the weather report, the almanac report and its date are English
+ * "this morning", "Friday", "good morning"), and the weather report, the almanac report and its date and what a trivia claim is about are English
  * sentences the floors build. Dropped rather than translated, so a German phrasing that names one of
  * them simply does not fit, which is the renderer's ordinary way of saying a template does not apply.
  * What is left is names, titles, headlines and the place, which are whatever language they were
@@ -366,6 +382,7 @@ function withoutEnglishValues(inputs: TemplateInputs): TemplateInputs {
         weather: _weather,
         almanac: _almanac,
         almanacDate: _almanacDate,
+        triviaAbout: _triviaAbout,
         ...rest
     } = inputs;
     return rest;

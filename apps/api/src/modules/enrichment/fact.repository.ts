@@ -110,6 +110,24 @@ export interface ClaimForTrack {
     level: FactSubjectType;
 }
 
+/**
+ * A claim offered to a break whose whole subject is the claim, with what it is about.
+ *
+ * {@link ClaimForTrack}'s sibling for the trivia break, and the difference is the NAME. A talk break's
+ * claim arrives beside the record it is about, so the writer already knows the subject; a trivia
+ * break's arrives on its own, about a record that may not be anywhere near the running order, and a
+ * presenter handed "It was recorded in a single afternoon" with no subject has nothing to say.
+ */
+export interface TriviaClaim {
+    id: string;
+    claim: string;
+    level: FactSubjectType;
+    /** The catalog's own name for the subject: a track's title, an album's name, an artist's name. */
+    name: string;
+    /** Whoever made it, for a track or an album. Absent for an artist, who is the subject already. */
+    artist?: string;
+}
+
 /** A claim on its way out, as the reader wants it. */
 export interface StoredFact {
     id: string;
@@ -408,6 +426,83 @@ export class FactRepository extends DataRepository {
         }
 
         return found;
+    }
+
+    /**
+     * Claims worth a break of their own, from anywhere in the music this station has played.
+     *
+     * The trivia break's substrate. `findFactsForTracks` asks about the two records either side of a
+     * link; this asks about everything the station has ever put on air, because a trivia break is
+     * about a record that is NOT necessarily playing. Three things narrow it, and each is a question
+     * about what the station should be heard saying rather than about what is true.
+     *
+     * - **Played, not merely held.** A subject qualifies through a track in `play_history`. A library
+     *   can hold a provider's whole catalogue, and a trivia break about an artist this station has never
+     *   played is a fact about somebody else's radio station.
+     * - **Not kept off air.** A track, record or artist the operator disliked (`rating < 0`) or has
+     *   suspended is left out, so the station does not bring up in conversation what it has been told
+     *   not to play.
+     * - **Rested.** The same cooldown the talk break applies, inside the query for its reason: a
+     *   resting claim is not one ranked low, it is one that must not be offered at all.
+     *
+     * The order prefers anything but a `summary`, since an article's opening sentence ("X is an English
+     * band formed in Bristol") is true and is not trivia; a station whose store holds only summaries
+     * still gets them. Then coldest first, then RANDOM, because a store with hundreds of never-said
+     * claims would otherwise hand over the same oldest six every time and the spread across the
+     * library is the point of the kind.
+     *
+     * `maxChars` drops a claim too long to say as one, `MAX_FACT_CHARS`'s rule for the talk break.
+     */
+    async findTrivia(cooldownMs: number, limit: number, maxChars: number): Promise<TriviaClaim[]> {
+        if (limit <= 0) return [];
+        const cooldownSeconds = Math.max(0, Math.round(cooldownMs / 1000));
+
+        const rows = await sql<{ factId: string; claim: string; level: number; name: string; artist: string | null }>`
+            with heard as (
+                select distinct t.id as track_id, t.album_id, t.artist_id
+                  from deadair.play_history ph
+                  join deadair.tracks t on t.id = ph.track_id
+                 where t.merged_into_id is null
+                   and t.rating >= 0
+                   and (t.suspended_until is null or t.suspended_until <= now())
+            ),
+            candidates as (
+                select f.id as fact_id, f.claim, f.category, f.last_used_at, 0 as level, t.title as name, ar.name as artist
+                  from deadair.facts f
+                  join deadair.tracks t on t.id = f.track_id
+                  join deadair.artists ar on ar.id = t.artist_id
+                 where f.track_id in (select track_id from heard)
+                   and ar.rating >= 0 and (ar.suspended_until is null or ar.suspended_until <= now())
+                union all
+                select f.id, f.claim, f.category, f.last_used_at, 1, al.name, ar.name
+                  from deadair.facts f
+                  join deadair.albums al on al.id = f.album_id and al.merged_into_id is null
+                  join deadair.artists ar on ar.id = al.artist_id
+                 where f.album_id in (select album_id from heard where album_id is not null)
+                   and al.rating >= 0 and (al.suspended_until is null or al.suspended_until <= now())
+                   and ar.rating >= 0 and (ar.suspended_until is null or ar.suspended_until <= now())
+                union all
+                select f.id, f.claim, f.category, f.last_used_at, 2, a.name, null
+                  from deadair.facts f
+                  join deadair.artists a on a.id = f.artist_id and a.merged_into_id is null
+                 where f.artist_id in (select artist_id from heard)
+                   and a.rating >= 0 and (a.suspended_until is null or a.suspended_until <= now())
+            )
+            select fact_id, claim, level, name, artist
+              from candidates
+             where (last_used_at is null or last_used_at < now() - make_interval(secs => ${cooldownSeconds}))
+               and length(claim) <= ${maxChars}
+             order by (category = 'summary'), last_used_at asc nulls first, random()
+             limit ${limit}
+        `.execute(this.db);
+
+        return rows.rows.map(row => ({
+            id: row.factId,
+            claim: row.claim,
+            level: FACT_SUBJECTS[row.level] ?? 'artist',
+            name: row.name,
+            ...(nullable(row.artist) === undefined ? {} : { artist: row.artist! }),
+        }));
     }
 
     /**

@@ -80,6 +80,7 @@ import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { ALMANAC_KEYS, DEFAULT_LEAN } from '#modules/almanac/almanac.keys.js';
 import { ALMANAC_BREAK_KEYS, ALMANAC_TEMPLATES } from '#modules/director/almanac.break.writer.js';
 import { ALMANAC_SOURCE_KEYS, DEFAULT_DATE_IN_TALK } from '#modules/director/almanac.source.js';
+import { TRIVIA_BREAK_KEYS, TRIVIA_TEMPLATES } from '#modules/director/trivia.break.writer.js';
 import {
     BREAK_WORD_KEYS,
     DEFAULT_STORY_WORDS,
@@ -1491,6 +1492,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the weather above, with {{almanac.report}} for the entry itself and {{almanac.date}} ' +
             'for the day it is about. The entry is read as it was published and this decides only what is said around it, which is why every ' +
             "line has to carry {{almanac.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
+    },
+    {
+        group: 'phrasings',
+        key: TRIVIA_BREAK_KEYS.templates,
+        label: 'How the station passes on a piece of trivia',
+        type: 'text',
+        default: TRIVIA_TEMPLATES.join('\n'),
+        help:
+            'One phrasing per line, in the same syntax as the date above, with {{trivia.report}} for the fact itself and {{trivia.about}} for ' +
+            'the record or artist it is about. The fact is read exactly as the station stored it, with its source, and this decides only what ' +
+            'is said around it, which is why every line has to carry {{trivia.report}} outside its [[optional]] parts and after a full stop. ' +
+            "Used for a trivia band on the format clock when no model is writing the breaks. Empty restores the station's own.",
     },
     {
         group: 'bulletins',

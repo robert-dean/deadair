@@ -161,6 +161,12 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // that ignored the offer has claimed nothing about the date.
     almanac: 'claims-time',
 
+    // Sourced claims about records the station has played. What a claim says about a record is as
+    // true at the slot as at the write, and none of them is about "today", so there is no window to
+    // stamp. What can change in between is the operator disliking the artist, which the store read
+    // has already answered at the write and which a break minutes later is not worth a guard for.
+    trivia: 'timeless',
+
     // The show that ended, the show starting and who presented the first. All three are facts about
     // the moment the clock changed the station over, which has already happened by the time the
     // request exists, so nothing can overtake them before the break airs. A recast after that moment

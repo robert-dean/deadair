@@ -102,8 +102,9 @@ Everything the station says outside a talk break is phrased under Voice, Phrasin
 | How the station introduces the news | `{{news.headlines}}` (the whole read), `{{news.topic}}` (a band's subject, such as Technology), `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
 | How the station gives the weather | `{{weather.report}}`, `{{weather.place}}`, `{{news.topic}}`, `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
 | How the station reads the date out | `{{almanac.report}}`, `{{almanac.date}}`, `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
+| How the station passes on a piece of trivia | `{{trivia.report}}` (the fact, as stored), `{{trivia.about}}` (the record or artist it is about), `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
 
-`{{greeting}}` is "good morning", "good evening" and so on, and is empty in the small hours, where `{{clock.daypart}}` says "tonight". Like the three `{{clock.…}}` values, it and the weather and This Day reports are written in English, so on a station in another language they are never filled.
+`{{greeting}}` is "good morning", "good evening" and so on, and is empty in the small hours, where `{{clock.daypart}}` says "tonight". Like the three `{{clock.…}}` values, it, the weather and This Day reports and `{{trivia.about}}` are written in English, so on a station in another language they are never filled. `{{trivia.report}}` is the fact in whatever language its source was written in, so it is always filled.
 
 ## What a script can carry
 

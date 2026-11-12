@@ -24,6 +24,7 @@ import { BreakFloorWatch } from './break.floor.watch.js';
 import { resolveWriterOrder } from './writer.order.js';
 import { MODEL_WRITER } from './model.talk.break.writer.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
+import { TRIVIA_KIND } from './trivia.kind.js';
 import { isTrackItem, type StationLineup, type StationLineupItem } from './station.lineup.js';
 import { songKey } from './rotation.keys.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
@@ -315,7 +316,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // settled. See `spend`.
         await this.spend(segmentId, chosen, { ...result.written, script });
         // Beside the story and on the same terms: settled now, and only now.
-        await this.keepSources(segmentId, result.writer === DETERMINISTIC_WRITER ? [] : handedClaims, script, neighbours);
+        // A floor reads no note, so it keeps none; the trivia floor is the exception, because the claim
+        // it reads out word for word IS its break, and its source is what an operator wants to see.
+        const keeps = result.writer !== DETERMINISTIC_WRITER || segment.kind === TRIVIA_KIND;
+        await this.keepSources(segmentId, keeps ? handedClaims : [], script, neighbours);
 
         // Last, and deliberately: a render that ran before the script was committed would claim a
         // segment with nothing to say and fail it. If this send fails the row survives as a written
@@ -632,7 +636,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      *
      * Called where {@link spend} is and for its reasons: only once `writeScript` has won, and on every
      * write including one handed nothing, so a rewrite takes the last write's sources with it. A break
-     * the floor wrote is handed nothing here, because the station's own phrasings never read a note.
+     * the floor wrote is handed nothing here, because the station's own phrasings never read a note,
+     * except a trivia break's, whose floor reads its claim out whole.
      *
      * `told` is the station's read-back (`mentionsFact`), never the model's word for it, and a claim
      * the read-back cannot judge counts as not said: what this feeds is a source shown as the thing the

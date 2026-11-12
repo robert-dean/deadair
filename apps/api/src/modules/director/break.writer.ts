@@ -38,6 +38,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { OutlookNote } from '#modules/weather/weather.outlook.js';
 import type { StationAlmanac } from '#modules/almanac/almanac.service.js';
+import type { TriviaFact } from './trivia.source.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakRetry } from './break.retry.js';
 import type { WriteFault } from './break.answer.guard.js';
@@ -658,6 +659,14 @@ export interface BreakWriteRequest {
      * the reason could only repeat it.
      */
     almanac?: StationAlmanac;
+    /**
+     * Sourced claims about the music this station plays, for a break whose whole subject is one of them.
+     *
+     * {@link almanac}'s shape and its rule: in the order the station reaches for them, each with what it
+     * is about, and absent when there is nothing to say, in which case a writer for the kind must
+     * DECLINE rather than fill the slot. Only a `trivia` break is given any. See `TriviaSource`.
+     */
+    trivia?: TriviaFact[];
     /**
      * The programme that has just ended and the one starting, for a break marking the change.
      *

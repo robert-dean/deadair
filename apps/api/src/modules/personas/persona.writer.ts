@@ -527,7 +527,8 @@ const REWORDED = ['diction', 'samples', 'dictionMarkers', 'catchphrases', 'avoid
  * the weather and almanac reports. Outside English a phrasing naming one never fits. See `withoutEnglishValues`
  * in `break.templates.ts`, which is where the station leaves them out.
  */
-const ENGLISH_ONLY_VALUE = /\{\{\s*(?:clock\.rough|clock\.daypart|clock\.weekday|greeting|weather\.report|almanac\.report|almanac\.date)\s*\}\}/;
+const ENGLISH_ONLY_VALUE =
+    /\{\{\s*(?:clock\.rough|clock\.daypart|clock\.weekday|greeting|weather\.report|almanac\.report|almanac\.date|trivia\.about)\s*\}\}/;
 
 /**
  * The prompt that rewrites a character's own wording in `language` (`undefined` is English), keeping the

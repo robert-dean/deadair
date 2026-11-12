@@ -64,6 +64,8 @@ export const TEMPLATE_VOCABULARY: readonly string[] = [
     'weather.place',
     'almanac.report',
     'almanac.date',
+    'trivia.report',
+    'trivia.about',
     'greeting',
     'outgoing.name',
     'outgoing.show',

@@ -47,6 +47,19 @@ for the next listener, blended into the record the console was showing, with bot
 bounded at fifteen seconds; a lapsed lease is not drained, because it may still hold whole records.
 `stream/offair.check.py` measures it, and `stream/README.md` has the rest.
 
+**A stall in the streaming loop is dropped, not caught up, once it passes eight seconds.** The drain
+did not close #972: a listener back after two hours still heard the record before the one the Desk
+showed, 53 seconds behind it for the rest of the session. That was not stale audio but delay. When
+something holds Liquidsoap's streaming loop it produces what it missed afterwards as fast as it can,
+for any stall under sixty seconds by default; Icecast relays that burst as it arrives and a player
+buffers it, so every listener connected through it, including one that reconnected after Icecast
+dropped the source at its ten-second `source-timeout`, stays that far behind while the console reads
+the caught-up clock. The live station logged stalls of 54.6s caught up exactly that way.
+`settings.clock.max_latency` in `radio.liq` (`CLOCK_MAX_LATENCY_S`, 8s) makes the clock jump to now
+and reconnect the outputs instead, so a long stall is a gap heard once. `stream/latency.check.py`
+measures both. What holds the loop in the first place is not known, and this does not answer it:
+the stalls cluster around a segment or a record being opened on a busy box.
+
 **Background work that would fetch a record follows the same gate.** The hourly measurement walk
 (`AnalysisService.analysePending`) measures copies the station already holds whatever the audience, but while
 `gateOpen()` is false it stops at the first track that would need a provider download. Off air the station

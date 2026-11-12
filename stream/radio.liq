@@ -86,6 +86,27 @@ settings.log.file.path.set(environment.get("LOG_FILE", default="/streamlogs/liqu
 # per track) rather than one sitting just over a threshold.
 settings.clock.leak_warning := 100
 
+# How far the streaming clock may fall behind before it drops the backlog instead of catching up.
+#
+# When something holds the streaming loop (a busy box, a slow decoder open), Liquidsoap's default is
+# to produce everything it missed afterwards as fast as it can, for any stall under sixty seconds.
+# On an Icecast mount that is a BURST: Icecast relays it as it arrives, a listener's player buffers
+# it, and from then on that listener is the length of the stall behind the station for the rest of
+# the session, while the console (which reads this clock, now caught up) names the next record.
+# A stall past Icecast's `source-timeout` (10s) has also dropped the source, so the players that
+# reconnect arrive in the middle of the burst and take it on as delay from their first second. The
+# live station logged stalls of 54.6s caught up that way, and a listener reported their audio 53s
+# behind the Desk after returning to a station that had been off air (#958, #972).
+#
+# Above this, the clock is set to now and the outputs reconnect: the stall is heard as a gap, once,
+# instead of carried as delay. Under Icecast's ten seconds, so a stall long enough to have dropped
+# the source never bursts into the listeners who come back. The cost is a reconnect for a stall
+# between this and ten seconds that Icecast had not yet acted on, and a connected live encoder is
+# reset with the rest (it is an active source). Short stalls, the half-second jitter the log shows
+# every few minutes, are still caught up, which a player's own buffer absorbs.
+# stream/latency.check.py measures both behaviours.
+settings.clock.max_latency := max(1., env_float("CLOCK_MAX_LATENCY_S", 8.))
+
 # The image runs as root so the bundled helpers can write their logs. Liquidsoap's init refuses
 # root by default; allow it for this local/personal container.
 settings.init.allow_root := true

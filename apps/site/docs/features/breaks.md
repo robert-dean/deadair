@@ -4,7 +4,7 @@ sidebar_position: 3
 description: How the station decides what to say between records, why a model can never make it go silent, and where every word it wrote is kept.
 ---
 
-A break is anything the station says between records: a link, a welcome for somebody just tuned in, a news bulletin, the weather, something that happened on today's date, a presenter's story. Every kind has more than one writer, and the last in line cannot fail. A slow or missing model costs the station a better sentence. It never costs it the break.
+A break is anything the station says between records: a link, a welcome for somebody just tuned in, a news bulletin, the weather, something that happened on today's date, a piece of trivia about the music, a presenter's story. Every kind has more than one writer, and the last in line cannot fail. A slow or missing model costs the station a better sentence. It never costs it the break.
 
 ![What it said: every break written, and every one declined](/img/console/voice.said.webp)
 *Fig. 1. What it said.*
@@ -13,11 +13,11 @@ A break is anything the station says between records: a link, a welcome for some
 
 Each kind of break has a model writer in front and the station's own phrasings behind it. If the model declines, answers with nothing, fails or takes too long, the phrasings write the break. That floor needs no model and no network, so it cannot fail.
 
-The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather, stories and the line marking a change of show. Connecting a model is covered in [Models and voices](./models-and-voices.md).
+The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather, the date, trivia, stories and the line marking a change of show. Connecting a model is covered in [Models and voices](./models-and-voices.md).
 
 With the model on, "Who is asked first" (Settings, Words) can turn the pair round. Asking the phrasings first airs your own words, the headlines as published and your stories as written, and asks the model only where those have nothing to say. Every kind of break follows it. A block on the schedule, or a show started from **Desk → Plan**, can choose otherwise under **Who writes the breaks first**, and leaving it on **The station's setting** follows this one.
 
-The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md), and [writing phrasings](./characters.md#writing-phrasings) for every placeholder. The words around everything else it says (a welcome, a jingle, a change of show, the news, the weather and the date) belong to the station rather than to a character, and are under Voice, Phrasings, in the same syntax.
+The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md), and [writing phrasings](./characters.md#writing-phrasings) for every placeholder. The words around everything else it says (a welcome, a jingle, a change of show, the news, the weather, the date and trivia) belong to the station rather than to a character, and are under Voice, Phrasings, in the same syntax.
 
 There is one model slot, and a break has priority on it over background work. A break that waits too long for it gives up and lets the floor write. Breaks are written as their slot nears, up to eight items ahead, and a station off the air writes nothing.
 
@@ -69,6 +69,20 @@ A band on the format clock set to **This day** reads out something that happened
 A day is mostly general history, so **"What the station picks out of the day"** under Settings, Bulletins decides what a music station does with it. The default puts the musicians first and keeps the rest behind them; "Music only" is stricter and will skip the slot on a thin day. Nothing is read out twice in the same day, and the date is the one the break AIRS on, in your station's own timezone, so a break written at ten to midnight is about tomorrow. A model naming a year it was not given is declined, exactly as one naming a temperature it was not given is.
 
 A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Bulletins, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
+
+## Trivia
+
+A band on the format clock whose sort of break is `trivia` passes on one fact about the music the station plays. It is never something the model remembers: every fact comes from what the station already knows about its records, each one taken from a published article with the passage that says so (Wikipedia, with the bundled plugin). So trivia needs no plugin of its own, and it gets better the longer the station has been looking its records up.
+
+What a trivia break may talk about is narrower than the library:
+
+- **Only music the station has played.** A fact qualifies through a record in the play history, so a library holding a whole catalogue does not turn into trivia about artists you never put on air.
+- **Nothing you have kept off air.** A record, album or artist you have disliked or suspended is left out.
+- **Not the same fact twice in a week.** Trivia shares the week's rest that a fact said on an ordinary link takes, so a fact one break used is not offered to the next. An article's opening sentence ("X is an English band formed in Bristol") is used only when nothing more interesting is left.
+
+Without a model, the station reads one fact out word for word inside one of its own phrasings, from **"How the station passes on a piece of trivia"** under Voice, Phrasings. With one, the presenter is shown six and picks the one a listener would most enjoy, says it in their own voice and hands back to the music. Either way it may not add to the fact: a model naming a year it was not given is declined, the way one naming a temperature it was not given is. When there is nothing left to say, the slot is passed over and the log says why.
+
+What a trivia break said, and the fact behind it with its source, is shown under What it said like any other break's.
 
 ## Upcoming shows
 

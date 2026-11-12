@@ -1448,6 +1448,47 @@ something in it (which town, in whose units) and a date is not a choice at all, 
 format clock names `almanac` and no subject. What an operator does choose is the lean and the
 phrasings, which are two settings rather than a row they have to create.
 
+## Trivia
+
+**A trivia break is the date's shape over a different substrate, and the substrate is the point.** The
+obvious build is a model saying something interesting it remembers, and that is the one build this station
+refuses: a claim with no source is indistinguishable on air from one with a source (§ "A claim needs its
+evidence"). So `trivia` reads `deadair.facts`, every row of which already carries the URL and the quote that
+support it, and needs no plugin, no setting and no topic of its own. `TriviaSource` reads it once,
+`TriviaBreakWriter` frames the first claim word for word (the almanac floor's rule, and the only reason a
+deterministic writer may handle a factual claim), and `ModelTriviaBreakWriter` is shown six and passes one on in
+the presenter's voice.
+
+**What it may talk about is narrower than the library, and each cut is about air rather than truth.**
+`FactRepository.findTrivia` reaches a subject only through a track in `play_history`, because a library can
+hold a provider's whole catalogue and trivia about an artist the station has never played is a fact about
+somebody else's radio station. It leaves out a track, album or artist the operator disliked (`rating < 0`) or
+suspended, so the station does not bring up in conversation what it was told not to play. It applies the talk
+break's own `FACT_COOLDOWN_MS` and `MAX_FACT_CHARS` inside the query, one store under one rest, so a claim a
+link said this week is not offered as trivia. And it puts a `summary` last, since an article's opening sentence
+is true and is not trivia, then coldest first, then `random()`, because a store with hundreds of never-said
+claims would otherwise hand over the same oldest six every time.
+
+**Spent by the writer, from the store's own column.** `SaidLog`'s lesson again: the source reads unstamped and
+the writer that put a claim in a script calls `markUsed` on that one. The floor rests the claim it framed. The
+model binding rests what `mentionsFact` reads back as said, with the record coming up excluded because a
+hand-back names it anyway, and rests nothing when the read-back cannot tell, `entriesUsed`'s rule: guessing
+all six spends a week of material on one break. There is no in-memory log beside it because `last_used_at`
+already is one, and it outlives a restart.
+
+**The guard is the almanac's.** `AnswerGuard.years`, filled by `permittedYears` from every year the prompt
+showed, which includes the claims: the most plausible invention here is the year a record came out, said
+beside a claim that never named one. `showsFacts: false` keeps the notes on the record coming up out of the
+prompt, because they are claims of the same kind and a model shown both braids them into one story nobody can
+trace. Other figures are held only by the prompt's rule to keep them as written; there is no general
+figure guard, and `inventedFigure` is the weather's.
+
+**Its sources are kept whichever writer won.** `WriteBreakJob.keepSources` gives a floor-written break no
+sources, since a phrasing reads no note; a trivia floor is the exception, because the claim IS its break. A
+presenter at `trivia: 'never'` still gets the kind, since that rung withholds notes on a link and a band on the
+clock is the operator asking for this outright. The claims are `timeless` in `break.freshness.ts`: nothing
+about a record goes stale between the write and the slot, and none of them says "today".
+
 ## The format clock, and what a break is about
 
 **The format clock is ROWS, and what a break is ABOUT is the operator's own word.** `rotation.clockBands` was

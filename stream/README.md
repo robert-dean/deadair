@@ -348,6 +348,18 @@ fadeskip check, with no dev stack:
 python3 stream/offair.check.py
 ```
 
+`latency.check.liq` checks what the streaming clock does with a stall. A tone plays, a synchronous
+handler holds the streaming loop for twenty seconds, and the run counts the frames the tone produced
+against forty seconds of wall time. With the cap `radio.liq` sets (`settings.clock.max_latency`,
+`CLOCK_MAX_LATENCY_S`, 8s) the clock resets and the stall is dropped: about twenty seconds of audio.
+A second run at Liquidsoap's own sixty seconds expects all forty, the backlog produced as fast as the
+clock could go, which on an Icecast mount is the burst that left a listener 53 seconds behind the
+Desk. Built like the fadeskip check, with no dev stack:
+
+```
+python3 stream/latency.check.py
+```
+
 `voice.check.liq` measures where the voice leaves the compressor. It levels speech to an aim the way
 the stamp does, runs the shared compressor at two aims, and checks that the voice comes out at its aim
 both times. The speech is synthesised unless you pass a real segment, which is how the makeup was

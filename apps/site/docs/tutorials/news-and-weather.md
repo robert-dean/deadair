@@ -1,6 +1,6 @@
 ---
 title: News and weather
-description: Give the station news bulletins read from feeds you choose, and weather reports for where it is, on the hour or whenever you want them.
+description: Give the station news bulletins read from feeds you choose, weather reports for where it is, and the date and trivia between records, on the hour or whenever you want them.
 ---
 
 # News and weather
@@ -116,6 +116,19 @@ technology bulletin at half past; on a `weather` band it reports somewhere other
 station is. Both lists come from **Voice → Subjects**, where you can add categories and locations of
 your own.
 
+Two more sorts of break go on the clock the same way, and neither needs a feed or a subject:
+
+- `almanac` reads out something that happened on today's date. It needs the **Wikipedia** plugin
+  switched on with a **Contact address**. Under **How often**, try **once a day at** `10:15`.
+- `trivia` passes on one fact about the music the station plays, such as where a record was made or
+  who played on it. Every fact comes from an article the station has already read about its records,
+  with the sentence behind it, so a fresh station has little to say at first and more each day as its
+  records are looked up. Under **How often**, try **every** with **Minutes apart** set to `120`,
+  which spaces it out rather than tying it to a time.
+
+Their phrasings, for when no model is writing the breaks, are under **Voice → Phrasings**: **How the
+station reads the date out** and **How the station passes on a piece of trivia**.
+
 ## 6. Break in for breaking news (optional)
 
 A bulletin on the hour can be an hour late for a story that matters. The station can watch a feed and
@@ -221,6 +234,11 @@ read but not change, so it tells you what to set and where.
   or its reading would have been older than **How old a reading may be (minutes)** by the time it
   aired. The National Weather Service may refuse requests with no **Contact address**, and only
   covers the United States.
+- **A `trivia` band is always silent.** The station has no facts yet about anything it has played, or
+  every one has been said in the last week. Facts come from the **Wikipedia** plugin as records are
+  looked up, so a new station needs time; a record, album or artist you have disliked or suspended is
+  never brought up. **Voice → What it said** lists each trivia break with the fact it used and its
+  source.
 - **The presenter never mentions the weather between records.** That is the default. Switch on **Let
   the presenter mention the weather between records**, and check a model is writing the breaks.
 

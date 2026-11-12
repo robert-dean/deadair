@@ -21,7 +21,7 @@ The second is off by default: "Let a model find trivia in the articles" under Se
 
 ## How a claim reaches air
 
-Only a model speaks a claim; the station's own phrasings never carry a fact. When a break is written, the sourced claims about the records either side are offered first, and the enrichment plugins' own notes fill any room left. A claim that has been used rests for a week, so a listener does not hear the same line every evening. Nothing retires: a fact said fifty times is still true. When the station knows nothing about a record, the model is told so: see [Breaks](./breaks.md).
+On an ordinary link only a model speaks a claim; the station's own phrasings never carry one there. The exception is a [trivia break](./breaks.md#trivia), whose whole subject is one claim: without a model, the station reads that claim out word for word. When a link is written, the sourced claims about the records either side are offered first, and the enrichment plugins' own notes fill any room left. A claim that has been used rests for a week, on a link or in a trivia break alike, so a listener does not hear the same line every evening. Nothing retires: a fact said fifty times is still true. When the station knows nothing about a record, the model is told so: see [Breaks](./breaks.md).
 
 ## What a break promises
 

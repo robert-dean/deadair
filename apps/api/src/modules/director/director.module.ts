@@ -23,6 +23,7 @@ import { ModelAlmanacBreakWriter } from './model.almanac.break.writer.js';
 import { AlmanacSource, SaidLog } from './almanac.source.js';
 import { TriviaSource } from './trivia.source.js';
 import { TriviaBreakWriter } from './trivia.break.writer.js';
+import { ModelTriviaBreakWriter } from './model.trivia.break.writer.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { ModelDedicationWriter } from './model.dedication.writer.js';
 import { DedicationWriter } from './dedication.writer.js';
@@ -225,6 +226,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WeatherBreakWriter).useClass(WeatherBreakWriter).asScoped();
         registry.register(ModelAlmanacBreakWriter).useClass(ModelAlmanacBreakWriter).asScoped();
         registry.register(AlmanacBreakWriter).useClass(AlmanacBreakWriter).asScoped();
+        registry.register(ModelTriviaBreakWriter).useClass(ModelTriviaBreakWriter).asScoped();
         registry.register(TriviaBreakWriter).useClass(TriviaBreakWriter).asScoped();
         registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
         registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
@@ -318,9 +320,11 @@ export const DirectorModule: ServerKitModule = {
                             // the station was never given is refused outright.
                             container.get(ModelAlmanacBreakWriter),
                             container.get(AlmanacBreakWriter),
-                            // The tenth kind, a piece of trivia about the station's own music, and
-                            // its floor is the almanac's: it reads a stored claim out word for word,
-                            // and the claim carries the article that supports it.
+                            // The tenth kind, a piece of trivia about the station's own music,
+                            // ranked the same way, and its floor is the almanac's: it reads a stored
+                            // claim out word for word, and the claim carries the article that
+                            // supports it. The model above is held to the years it was shown.
+                            container.get(ModelTriviaBreakWriter),
                             container.get(TriviaBreakWriter),
                             // The fifth kind, ranked the same way and inverted underneath: the
                             // floor here is not a pool of phrasings but the operator's own prose,

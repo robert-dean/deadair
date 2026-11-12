@@ -21,6 +21,7 @@ import { WeatherSource } from './weather.source.js';
 import { AlmanacBreakWriter } from './almanac.break.writer.js';
 import { ModelAlmanacBreakWriter } from './model.almanac.break.writer.js';
 import { AlmanacSource, SaidLog } from './almanac.source.js';
+import { TriviaSource } from './trivia.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { ModelDedicationWriter } from './model.dedication.writer.js';
 import { DedicationWriter } from './dedication.writer.js';
@@ -260,6 +261,10 @@ export const DirectorModule: ServerKitModule = {
         // unlike the bulletin: a day that has run out of entries is the station working correctly
         // rather than a subject that matches nothing, and the source says so in the log.
         registry.register(AlmanacSource).useClass(AlmanacSource).asScoped();
+        // Claims about the station's own music, scoped with the fact repository it reads. No log beside
+        // it: the store's own `last_used_at` is what keeps a claim from being said twice, and the
+        // writers stamp it. See `TriviaSource`.
+        registry.register(TriviaSource).useClass(TriviaSource).asScoped();
         // The fourth, scoped with the persona repository it reads. It fetches nothing: the request
         // carried the facts, and this only decides whether the host who finished is somebody else.
         registry.register(ChangeoverSource).useClass(ChangeoverSource).asScoped();

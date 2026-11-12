@@ -15,6 +15,7 @@ import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { PersonaStoryForPrompt } from '../../../src/modules/personas/persona.story.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
 import type { StationAlmanac } from '../../../src/modules/almanac/almanac.service.js';
+import type { TriviaFact } from '../../../src/modules/director/trivia.source.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { OutlookSaid } from '../../../src/modules/weather/weather.outlook.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
@@ -93,6 +94,7 @@ function harness(
         occasion?: { words: string; validFrom: number; validUntil: number; mood?: string };
         /** What happened on the date, for the one test about handing the day over. */
         almanac?: StationAlmanac;
+        trivia?: TriviaFact[];
         /** The programmes either side of a changeover, for the one test about handing them over. */
         changeover?: BreakChangeover;
         /** What this broadcast has played, for the tests about the writer's memory of the show. */
@@ -273,6 +275,9 @@ function harness(
     };
     // The third source, for the kind that reads the date out. `undefined` for every kind these
     // assertions are about, exactly as the two above are.
+    const trivia = {
+        factsFor: vi.fn(async (kind: string) => (kind !== 'trivia' || options.trivia === undefined ? undefined : { trivia: options.trivia })),
+    };
     const almanac = {
         entriesFor: vi.fn(async (_kind: string, _airsAt?: number) => (options.almanac === undefined ? undefined : { almanac: options.almanac })),
     };
@@ -323,6 +328,7 @@ function harness(
         bulletin as never,
         weather as never,
         almanac as never,
+        trivia as never,
         changeovers as never,
         personas as never,
         pads as never,
@@ -2504,6 +2510,29 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(sources.replaceForSegment).toHaveBeenCalledWith('seg-1', []);
+        });
+
+        it('keeps a trivia break’s claims as its evidence, even under a presenter who declines notes', async () => {
+            // The claims are the break rather than notes on it, so `never` withholds the neighbours'
+            // facts and not these.
+            const { job, sources, writers } = harness({
+                lineup: withIds(),
+                persona: never,
+                segment: planned({ kind: 'trivia' }),
+                trivia: [
+                    { factId: 'fact-t', claim: 'Dummy was recorded in Bath over ten months.', about: 'Dummy, by Portishead' },
+                    { factId: 'fact-u', claim: 'Massive Attack formed in Bristol in 1988.', about: 'Massive Attack' },
+                ],
+                written: byModel('Dummy took Portishead ten months in Bath. Here is Nick Drake.'),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ kind: 'trivia', trivia: expect.any(Array) }), expect.anything());
+            expect(sources.replaceForSegment).toHaveBeenCalledWith('seg-1', [
+                { factId: 'fact-t', claim: 'Dummy was recorded in Bath over ten months.', told: true },
+                { factId: 'fact-u', claim: 'Massive Attack formed in Bristol in 1988.', told: false },
+            ]);
         });
 
         it('keeps nothing when the words were lost to another writer', async () => {

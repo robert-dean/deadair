@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.98.0] — 2026-11-12
+
+- A band on the format clock can now ask for `trivia`: one fact about the music the station plays, passed on between records. Every fact comes from what the station already knows about its records, each with the published passage that supports it, never from a model's memory. Only music the station has played is used, nothing the operator has disliked or suspended, and the same fact is not offered twice in a week. Without a model the station reads the fact out inside its own phrasings, which are under Voice, Phrasings as "How the station passes on a piece of trivia"; with one, the presenter picks one of six and says it in their own voice, and an answer naming a year the station was never given is declined.
+- A show with a period (an '80s show, say) no longer loses most of each refill to records outside it. The lists of an artist's top tracks the station picks from carry no release year, so every record on them passed as undated until the very last check, which then found the catalog's copy dated after the period and dropped it. Those records are now dated by the catalog copy the station would play, before anything is chosen, so a record outside the period is passed over and another is picked in its place.
+
 ## [0.97.5] — 2026-11-11
 
 - A refill that adds only a record or two no longer holds the next one off for thirteen minutes. The wait was cleared only once the running order was back to eight records, so when the rotation had little left to choose from, the couple of records a refill found ran out first and the station went quiet until the wait expired. The station now asks again as soon as a refill lands and the order is still short.
@@ -2018,7 +2023,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.97.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.98.0...HEAD
+[0.98.0]: https://github.com/robert-dean/deadair/compare/v0.97.5...v0.98.0
 [0.97.5]: https://github.com/robert-dean/deadair/compare/v0.97.4...v0.97.5
 [0.97.4]: https://github.com/robert-dean/deadair/compare/v0.97.3...v0.97.4
 [0.97.3]: https://github.com/robert-dean/deadair/compare/v0.97.2...v0.97.3

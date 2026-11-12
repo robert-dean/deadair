@@ -2535,6 +2535,25 @@ describe('WriteBreakJob', () => {
             ]);
         });
 
+        it('keeps the claim a trivia floor read out, which is the one break the floor writes from a claim', async () => {
+            const { job, sources } = harness({
+                lineup: withIds(),
+                segment: planned({ kind: 'trivia' }),
+                trivia: [{ factId: 'fact-t', claim: 'Dummy was recorded in Bath over ten months.', about: 'Dummy, by Portishead' }],
+                written: {
+                    written: { script: 'Did you know? Dummy was recorded in Bath over ten months.', label: 'Trivia: Dummy, by Portishead' },
+                    writer: 'deterministic',
+                    attempts: [],
+                },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(sources.replaceForSegment).toHaveBeenCalledWith('seg-1', [
+                { factId: 'fact-t', claim: 'Dummy was recorded in Bath over ten months.', told: true },
+            ]);
+        });
+
         it('keeps nothing when the words were lost to another writer', async () => {
             const { job, segments, sources } = harness({ lineup: withIds(), facts: known, written: byModel('New Malden.') });
             segments.writeScript.mockResolvedValueOnce(false);

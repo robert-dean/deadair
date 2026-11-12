@@ -122,6 +122,26 @@ Anybody signed in to a listener app can ask for a record: **Request** on the app
 
 The format clock is a list of rules about what the station says inside the hour, each written as a sentence: say a news bulletin every hour at half past, say the weather once a day at 07:00, say what happened on today's date mid-morning, pass on a piece of trivia about the music every couple of hours (`trivia`), say an ident every so many minutes. A rule can also commission a short programme: `callin` for a phone-in, `visit` for a guest dropping by the studio, `banter` for a show's co-hosts trading lines (see [phone-ins](./phone-ins.md)). When two rules want the same boundary, the higher one in the list wins. A `podcast` rule about one of the station's [own shows](./podcasts.md#on-the-format-clock) has that show's next episode made ahead of time, which is how a news show becomes a scheduled edition, and a sort of break you wrote yourself under Voice, Kinds of break is named here like any other ([kinds of break you write](./breaks.md#kinds-of-break-you-write)).
 
+### What a rule can say
+
+A rule names what to say by one word, written after **Say a** as the **Sort of break**. The box suggests every word this station can produce right now. A word missing from the suggestions is one nothing here can make yet: the rule is saved, and the list marks it as one nothing can produce.
+
+| Word | What the station says | What it needs |
+| --- | --- | --- |
+| `talkbreak` | An ordinary link between two records, about the music either side of it. | A voice. Without a band, **Minutes between breaks** under Settings, Breaks spaces them. |
+| `news` | A short bulletin from the station's feeds. Can be about one news category. See [bulletins](./breaks.md#bulletins). | A news plugin, such as the bundled RSS one, with feeds. |
+| `weather` | The weather where the station is, or at a location you name. See [the weather](./breaks.md#the-weather). | A weather plugin, and Where the station is under Settings, Station. |
+| `almanac` | Something that happened on today's date, or a day that comes round every year. See [this day in history](./breaks.md#this-day-in-history). | A plugin that answers dates, such as the bundled Wikipedia one with a contact address. |
+| `trivia` | One fact about music the station has played, from a published article. See [trivia](./breaks.md#trivia). | Records the station has looked up, which the Wikipedia plugin does over time. |
+| `story` | One of the presenter's own stories, told rather than referred to. See [the stories](./characters.md#the-stories). | A presenter with at least one story written down. |
+| `jingle` | The station saying its own name. See [jingles](./breaks.md#jingles). | Recordings of kind `jingle`, or a voice to say the station's own lines. |
+| `ident` | A recorded ident. | Recordings uploaded on the Segments page with the kind `ident`. |
+| `callin`, `visit`, `banter` | A phone-in, a guest in the studio, or a show's co-hosts trading lines. See [phone-ins](./phone-ins.md). | A model and a voice. |
+| `podcast` | A longer programme in one voice, made ahead of time. About one of the station's [own shows](./podcasts.md#shows-the-station-makes), it is that show's next episode. See [other productions](./phone-ins.md#other-productions). | A model and a voice. |
+| `syndicated` | The newest episode of a podcast the station carries. See [putting a show on the clock](./podcasts.md#putting-a-show-on-the-clock). | The Podcasts plugin and a subscribed show, named under **About**. |
+| `narration` | The next piece of a book or column the station reads out. See [putting a series on the clock](./narrations.md#putting-a-series-on-the-clock). | A narration plugin and a series, named under **About**. |
+| your own word | A [kind of break you wrote](./breaks.md#kinds-of-break-you-write) under Voice, Kinds of break. | The kind switched on, and a model writing the breaks. |
+
 A rule runs every day unless you pick days for it under **on**: a news edition Monday to Friday, a different one at the weekend. The list shows the days under the time, such as "Mon–Fri", and the days are on the station's own clock.
 
 A rule can be about a subject, such as a news category or a weather location. A bulletin asked for a category it cannot fill declines the slot rather than air the wrong story under the right name. A category marked off air is kept out of every bulletin, which is how a publisher's deals desk stays off your news. Edits apply from the next boundary.

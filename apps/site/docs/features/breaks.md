@@ -64,11 +64,11 @@ A presenter can also mention the weather on an ordinary link, which is a separat
 
 ## This day in history
 
-A band on the format clock set to **This day** reads out something that happened on today's date. The entries come from whichever plugin can answer — the bundled Wikipedia one does, once it has a contact address — and the station reads them as they were published: the break frames a line with the year and whether it is a birth, a death, an event or a day that comes round every year, and adds nothing else.
+A band on the format clock whose sort of break is `almanac` reads out something that happened on today's date. The entries come from whichever plugin can answer — the bundled Wikipedia one does, once it has a contact address — and the station reads them as they were published: the break frames a line with the year and whether it is a birth, a death, an event or a day that comes round every year, and adds nothing else.
 
 A day is mostly general history, so **"What the station picks out of the day"** under Settings, Bulletins decides what a music station does with it. The default puts the musicians first and keeps the rest behind them; "Music only" is stricter and will skip the slot on a thin day. Nothing is read out twice in the same day, and the date is the one the break AIRS on, in your station's own timezone, so a break written at ten to midnight is about tomorrow. A model naming a year it was not given is declined, exactly as one naming a temperature it was not given is.
 
-A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Bulletins, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
+A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Bulletins, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so an `almanac` band has one fewer entry to use.
 
 ## Trivia
 
@@ -117,7 +117,7 @@ The kinds above are the station's own. You can add kinds of your own on **Voice 
 **New kind of break** asks for:
 
 - **Name**, which is what the console calls it and is never read out.
-- **On the format clock as**, the word a band names it by: lowercase words joined by hyphens, such as `poem`. It cannot change once saved, and it cannot be one the station already uses, such as `news` or `talk`.
+- **On the format clock as**, the word a band names it by: lowercase words joined by hyphens, such as `poem`. It cannot change once saved, and it cannot be one the station already uses, such as `news` or `talkbreak` ([the full list](./programme.md#what-a-rule-can-say)).
 - **What it is for**, written to the presenter: what to cover, and when to say nothing. It is read before every one of these the station writes.
 - **Rules of its own**, one per line, optional.
 - **While writing one, the presenter sees**: the record that has just finished, the rest of the show's records, what the station knows about them, and their own notebook. Each is a tick, so a kind that should not talk about the music can be shown none of it.

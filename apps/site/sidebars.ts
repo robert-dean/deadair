@@ -49,6 +49,7 @@ const sidebars: SidebarsConfig = {
                 'features/events',
             ],
         },
+        'glossary',
         'licensing',
         'help',
     ],

@@ -72,6 +72,11 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                         onChange={setKind}
                         style={{ flex: '0 0 16rem' }}
                     />
+                    {kind.trim() === BED_KIND ? (
+                        <Alert variant="light" icon={<IconInfoCircle size={16} />} style={{ flex: 1 }}>
+                            {t('uploadCard.kind.bed')}
+                        </Alert>
+                    ) : undefined}
                     {unfamiliar ? (
                         <Alert variant="light" color="yellow" icon={<IconInfoCircle size={16} />} style={{ flex: 1 }}>
                             <Trans t={t} i18nKey="uploadCard.kind.unfamiliar" values={{ kind: kind.trim() }} components={{ strong: <strong /> }} />
@@ -166,14 +171,22 @@ interface Staged {
     label: string;
 }
 
+/**
+ * The kind of a music bed: never an item on the format clock, always something under a break. The
+ * API's `BED_KIND`, which keeps it out of the clock's kinds, so saying so here is a description of
+ * the station rather than a warning.
+ */
+export const BED_KIND = 'bed';
+
 /** What a recording is when nobody says. `SegmentLibrary`'s own default kind. */
 const DEFAULT_KIND = 'ident';
 
 /**
- * Kinds the station draws from the library by itself: an ident between talk breaks, and a jingle
- * between records. The API's `IDENT_KIND` and `JINGLE_KIND`.
+ * Kinds the station draws from the library by itself: an ident between talk breaks, a jingle
+ * between records, and a music bed under a break. The API's `IDENT_KIND`, `JINGLE_KIND` and
+ * `BED_KIND`.
  */
-const STATION_KINDS = ['ident', 'jingle'];
+const STATION_KINDS = ['ident', 'jingle', BED_KIND];
 
 /** What the store serves, as the dropzone's filter. Kept in step with `SEGMENT_CONTENT_TYPES`. */
 const ACCEPTED = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/flac', 'audio/mp4', 'audio/x-m4a'];

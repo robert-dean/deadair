@@ -239,3 +239,109 @@ def with_gain(samples: np.ndarray, gain_db: float = 0.0) -> np.ndarray:
         return samples
 
     return (samples.astype(np.float32, copy=False) * np.float32(10.0 ** (gain_db / 20.0))).astype(np.float32, copy=False)
+
+
+# The longest a bed may run before the first word or after the last.
+#
+# Five seconds either side, which is already a long intro for a link. Past that
+# the bed has stopped being under the words and become a record of its own, and
+# a record is an item in the running order rather than something a break carries.
+MAX_BED_EDGE_MS = 5000
+
+# The seam where a looped bed meets its own start.
+#
+# A bed shorter than the break comes round again, and two ends of a file butted
+# together click wherever the waveform was not at zero. Fifty milliseconds of
+# crossfade is long enough to hide that and short enough not to smear a beat.
+BED_LOOP_SEAM_MS = 50
+
+# The shortest fade either end of a bed gets, whatever the lead-in and tail are.
+#
+# A bed that starts or stops at full level with no ramp is a click; this is the
+# floor under the edges a caller chose, not a fade anybody would hear as one.
+BED_MIN_FADE_MS = 20
+
+
+def looped_to(bed: np.ndarray, frames: int, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
+    """A bed made exactly `frames` long: cut where it is longer, looped where it is shorter.
+
+    Looped with a short crossfade at each seam (see BED_LOOP_SEAM_MS) rather than
+    butted, so a two-bar loop under a long link does not click once a bar. A bed
+    too short to hold a seam is simply tiled, since it is a sound nobody would
+    loop on purpose and the crossfade would be longer than the sound.
+    """
+    if frames <= 0 or bed.size == 0:
+        return np.zeros((max(frames, 0), bed.shape[1] if bed.ndim == 2 else 1), dtype=np.float32)
+
+    bed = bed.astype(np.float32, copy=False)
+    if bed.shape[0] >= frames:
+        return bed[:frames].copy()
+
+    seam = int(BED_LOOP_SEAM_MS * sample_rate / 1000)
+    if bed.shape[0] <= seam * 2:
+        repeats = -(-frames // bed.shape[0])
+        return np.tile(bed, (repeats, 1))[:frames].copy()
+
+    # Written into one buffer of the final length rather than grown by concatenation, which
+    # copied everything built so far on every pass: a short bed under a long break was quadratic.
+    ramp = np.linspace(0.0, 1.0, seam, dtype=np.float32)[:, None]
+    out = np.empty((frames, bed.shape[1]), dtype=np.float32)
+    out[: bed.shape[0]] = bed
+    at = bed.shape[0]
+    while at < frames:
+        # The tail of what is there fades out while the head of the next pass fades in over the
+        # same `seam` frames, so each pass adds the bed's length less one seam.
+        out[at - seam : at] = out[at - seam : at] * (1.0 - ramp) + bed[:seam] * ramp
+        take = min(bed.shape[0] - seam, frames - at)
+        out[at : at + take] = bed[seam : seam + take]
+        at += take
+
+    return out
+
+
+def lay_bed(
+    voice: np.ndarray,
+    bed: np.ndarray,
+    lead_ms: int = 0,
+    tail_ms: int = 0,
+    gain_db: float = 0.0,
+    sample_rate: int = SAMPLE_RATE,
+) -> np.ndarray:
+    """The joined words laid over a bed that runs under the whole of them.
+
+    A SPAN rather than an anchor, which is the whole difference from
+    `place_overlay`: an overlay is a sound at a moment and a bed is a sound for
+    the duration, so this one is told how long to run before the first word
+    (`lead_ms`) and after the last (`tail_ms`) and fills everything between.
+    The answer is longer than the words by exactly those two, and the words land
+    `lead_ms` in, unmoved and unducked: the bed is turned down by `gain_db`
+    instead, because a bed is quiet by being mixed quiet and a duck would pump
+    on every pause.
+
+    The bed fades in across the lead-in and out across the tail, so a break with
+    a bed opens and closes on music rather than on a cut, and each fade is at
+    least BED_MIN_FADE_MS so an edge of zero is not a click.
+    """
+    if lead_ms < 0 or lead_ms > MAX_BED_EDGE_MS:
+        raise ValueError(f"a bed lead-in of {lead_ms}ms is outside 0..{MAX_BED_EDGE_MS}")
+    if tail_ms < 0 or tail_ms > MAX_BED_EDGE_MS:
+        raise ValueError(f"a bed tail of {tail_ms}ms is outside 0..{MAX_BED_EDGE_MS}")
+    if voice.size == 0 or bed.size == 0:
+        return voice
+    if voice.shape[1] != bed.shape[1]:
+        raise ValueError("the bed and the words do not agree about how many channels they have")
+
+    lead = int(lead_ms * sample_rate / 1000)
+    tail = int(tail_ms * sample_rate / 1000)
+    total = lead + voice.shape[0] + tail
+
+    under = looped_to(bed, total, sample_rate) * np.float32(10.0 ** (gain_db / 20.0))
+
+    floor = int(BED_MIN_FADE_MS * sample_rate / 1000)
+    fade_in = min(max(lead, floor), total)
+    fade_out = min(max(tail, floor), total)
+    under[:fade_in] *= np.linspace(0.0, 1.0, fade_in, dtype=np.float32)[:, None]
+    under[total - fade_out :] *= np.linspace(1.0, 0.0, fade_out, dtype=np.float32)[:, None]
+
+    under[lead : lead + voice.shape[0]] += voice.astype(np.float32, copy=False)
+    return under

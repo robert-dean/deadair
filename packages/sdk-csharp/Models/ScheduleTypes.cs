@@ -380,10 +380,20 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
+    /// <summary>Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had</summary>
+    [JsonPropertyName("beds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Beds { get; init; }
+
     /// <summary>Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no</summary>
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
+
+    /// <summary>The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this</summary>
+    [JsonPropertyName("festivalId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? FestivalId { get; init; }
 
     /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
     [JsonPropertyName("requestShow")]
@@ -571,10 +581,20 @@ public sealed record ScheduleSlotInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
+    /// <summary>Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had</summary>
+    [JsonPropertyName("beds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Beds { get; init; }
+
     /// <summary>Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no</summary>
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
+
+    /// <summary>The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this</summary>
+    [JsonPropertyName("festivalId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? FestivalId { get; init; }
 
     /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
     [JsonPropertyName("requestShow")]

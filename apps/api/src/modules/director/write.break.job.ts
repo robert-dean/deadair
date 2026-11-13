@@ -5,6 +5,9 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { ConcertService } from '#modules/concerts/concert.service.js';
+import type { Festival } from '#modules/schedule/festival.rules.js';
+import { breakFestivalOf, festivalSlotOf, type BreakFestival } from './break.festival.js';
+import { FestivalBill } from './festival.bill.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { padCue, padPlacementsIn, padsIn, withoutPads } from '#modules/render/pad.cues.js';
 import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
@@ -105,6 +108,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly candidates: CandidatesRepository,
         /** When an artist is next nearby. See {@link withConcert}. */
         private readonly concerts: ConcertService,
+        /** The festival the show is built around. See {@link festivalFor}. */
+        private readonly festivals: FestivalBill,
         private readonly activity: ActivityRecorder,
         // Outlives this job, which is scoped: whether the model has been failing for an hour is a run
         // across many writes. See `BreakFloorWatch`.
@@ -157,7 +162,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
 
         // A break with no position genuinely has no neighbours, which is a shape every writer
         // already answers for: it is the same pair a break at the head of an order is handed.
-        const neighbours: Neighbours = await this.withConcert(lineup, segmentId, await this.withoutCollections(found ?? {}));
+        let neighbours: Neighbours = await this.withConcert(lineup, segmentId, await this.withoutCollections(found ?? {}));
 
         // Claimed rather than read, so two runs cannot both write the same break: only one
         // `planned → writing` wins and the loser stops here. That is what makes a duplicate send
@@ -171,6 +176,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             this.logger.info('director: nothing to write for this break', { job: this.context.id, segment: segmentId });
             return;
         }
+
+        // After the claim, because it reads the instant the break airs off the row, as the occasion
+        // does: a break written on the festival's last night and heard after midnight is handed nothing.
+        const festival = segment.kind === TALK_BREAK_KIND ? await this.festivalFor(lineup, segment.airsAt) : undefined;
+        if (festival !== undefined) neighbours = withFestivalSlots(neighbours, festival.row);
 
         // Off the ROW rather than recomputed. The band that placed this break stamped what it was
         // placed for; `ripen` re-offers whatever is still planned and knows nothing about the
@@ -219,6 +229,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // What this break's words are worth at the one model slot, judged by `priorityForUrgency`
             // alone. Absent for a planted break, which is the gate's `air` default.
             ...(asked === undefined ? {} : { priority: priorityForUrgency(asked.urgency) }),
+            ...(segment.bedSegmentId === undefined ? {} : { bedded: true }),
+            ...(festival === undefined ? {} : { festival: festival.told }),
         });
 
         // Which writer is asked first: the show's choice where it made one, the station's otherwise.
@@ -779,6 +791,18 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     }
 
     /**
+     * The festival the show on air is built around, as this break may talk about it, or nothing: no
+     * festival, one that cannot be read, or one that is over by the time the break is heard. A break
+     * with no slot is judged as heard now.
+     */
+    private async festivalFor(lineup: StationLineup, airsAt: number | undefined): Promise<{ row: Festival; told: BreakFestival } | undefined> {
+        const row = await this.festivals.of(lineup.rules.festivalId);
+        if (row === undefined) return undefined;
+        const told = breakFestivalOf(row, airsAt ?? Date.now(), stationZone(this.config));
+        return told === undefined ? undefined : { row, told };
+    }
+
+    /**
      * Leave the reason where an operator will look for it, rather than in a log line that scrolls.
      *
      * From `writing`, because this is only ever reached for a break this job has claimed.
@@ -938,4 +962,20 @@ function programmeTrack(segment: Segment): BreakTrack {
         ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
         programme: summary === undefined ? {} : { summary },
     };
+}
+
+/**
+ * The neighbours with their place on the festival's bill, for each whose artist is on it. A programme is
+ * left alone, since its artist is a publisher rather than an act. Both sides, unlike a concert: a bill is
+ * stored and costs nothing to read, and "that was Wet Leg, who play Saturday" is the link it is for.
+ */
+export function withFestivalSlots(neighbours: Neighbours, festival: Festival): Neighbours {
+    const placed = (side: Neighbours['next']): Neighbours['next'] => {
+        if (side === undefined || side.track.programme !== undefined) return side;
+        const slot = festivalSlotOf(festival, side.track.artist);
+        return slot === undefined ? side : { ...side, track: { ...side.track, festival: slot } };
+    };
+    const previous = placed(neighbours.previous);
+    const next = placed(neighbours.next);
+    return { ...(previous === undefined ? {} : { previous }), ...(next === undefined ? {} : { next }) };
 }

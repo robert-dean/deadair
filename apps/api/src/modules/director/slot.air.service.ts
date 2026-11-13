@@ -22,7 +22,12 @@ import type { PutOnAirInput } from './types/director.types.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The rules that change which records are chosen, as opposed to how the show around them behaves. */
-const CHOICE_RULES = ['repeatWindowDays', 'artistCooldownMinutes', 'maxPerArtist'] as const satisfies readonly (keyof StationLineupRules)[];
+const CHOICE_RULES = [
+    'repeatWindowDays',
+    'artistCooldownMinutes',
+    'maxPerArtist',
+    'festivalId',
+] as const satisfies readonly (keyof StationLineupRules)[];
 
 /**
  * Apply a slot, as it is saved now, to the show on air.

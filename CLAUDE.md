@@ -145,7 +145,7 @@ plugins/*             bundled plugins: spotify, navidrome, jellyfin, emby, plex,
                       read by the host and never said), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), ticketmaster
-                      (when the artists on a show are next playing nearby), podcast (the
+                      (when the artists on a show are next playing nearby, and festivals looked up by name), podcast (the
                       shows the station carries, read from their feeds), telegram, discord and
                       slack (the station on chat platforms: commands answered, what airs announced;
                       the last two over a socket the plugin holds), kokoro, chatterbox,

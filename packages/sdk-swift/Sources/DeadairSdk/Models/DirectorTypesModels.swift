@@ -831,8 +831,12 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var chartOrder: PutOnAirInputChartOrder?
     /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says
     public var chartPositions: Bool?
+    /// Whether the breaks the station writes during this broadcast air over a music bed from the library: one scoped to the slot or host on air, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps every break dry
+    public var beds: Bool?
     /// Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no
     public var concerts: Bool?
+    /// The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival
+    public var festivalId: UUID?
     /// An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends
     public var albumId: UUID?
     /// Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker
@@ -880,13 +884,15 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, concerts: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: PutOnAirInputWriterOrder? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, festivalId: UUID? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: PutOnAirInputWriterOrder? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
         self.chartOrder = chartOrder
         self.chartPositions = chartPositions
+        self.beds = beds
         self.concerts = concerts
+        self.festivalId = festivalId
         self.albumId = albumId
         self.routeFrom = routeFrom
         self.routeTo = routeTo
@@ -919,7 +925,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case chartId = "chartId"
         case chartOrder = "chartOrder"
         case chartPositions = "chartPositions"
+        case beds = "beds"
         case concerts = "concerts"
+        case festivalId = "festivalId"
         case albumId = "albumId"
         case routeFrom = "routeFrom"
         case routeTo = "routeTo"
@@ -953,7 +961,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.chartId = try container.decodeIfPresent(String.self, forKey: .chartId)
         self.chartOrder = try container.decodeIfPresent(PutOnAirInputChartOrder.self, forKey: .chartOrder)
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
+        self.beds = try container.decodeIfPresent(Bool.self, forKey: .beds)
         self.concerts = try container.decodeIfPresent(Bool.self, forKey: .concerts)
+        self.festivalId = try container.decodeIfPresent(UUID.self, forKey: .festivalId)
         self.albumId = try container.decodeIfPresent(UUID.self, forKey: .albumId)
         self.routeFrom = try container.decodeIfPresent(String.self, forKey: .routeFrom)
         self.routeTo = try container.decodeIfPresent(String.self, forKey: .routeTo)
@@ -987,7 +997,9 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
+        try container.encodeIfPresent(self.beds, forKey: .beds)
         try container.encodeIfPresent(self.concerts, forKey: .concerts)
+        try container.encodeIfPresent(self.festivalId, forKey: .festivalId)
         try container.encodeIfPresent(self.albumId, forKey: .albumId)
         try container.encodeIfPresent(self.routeFrom, forKey: .routeFrom)
         try container.encodeIfPresent(self.routeTo, forKey: .routeTo)

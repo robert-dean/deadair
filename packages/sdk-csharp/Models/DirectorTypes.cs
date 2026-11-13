@@ -725,10 +725,20 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
+    /// <summary>Whether the breaks the station writes during this broadcast air over a music bed from the library: one scoped to the slot or host on air, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps every break dry</summary>
+    [JsonPropertyName("beds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Beds { get; init; }
+
     /// <summary>Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no</summary>
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
+
+    /// <summary>The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival</summary>
+    [JsonPropertyName("festivalId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? FestivalId { get; init; }
 
     /// <summary>An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends</summary>
     [JsonPropertyName("albumId")]

@@ -74,6 +74,7 @@ describe('packOfSchedule', () => {
                     nextDate: '2026-11-06',
                     coHosts: [{ personaId: HOST_B, days: [5] }],
                     guestHosts: [{ personaId: HOST_B, everyN: 7 }],
+                    festivalId: '55555555-5555-4555-8555-555555555555',
                 }),
             ],
             ground(),
@@ -87,7 +88,8 @@ describe('packOfSchedule', () => {
             coHosts: [{ personaKey: 'peter', days: [5] }],
             guestHosts: [{ personaKey: 'peter', everyN: 7 }],
         });
-        for (const gone of ['id', 'enabled', 'nextDate', 'personaId', 'sourceStationPlaylistId']) expect(entry).not.toHaveProperty(gone);
+        for (const gone of ['id', 'enabled', 'nextDate', 'personaId', 'sourceStationPlaylistId', 'festivalId'])
+            expect(entry).not.toHaveProperty(gone);
     });
 });
 

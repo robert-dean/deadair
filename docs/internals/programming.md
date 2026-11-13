@@ -78,12 +78,30 @@ avoid, since the resolver would drop its record), and asks `SimilarPicker.pickFr
 of each remaining act's provider top tracks, one per act, until it has `rotation.briefArtistMix` of the batch
 (0.4). Provider top tracks rather than the library, because the neglected acts are the ones the library is
 thinnest on (that day Behemoth, Morbid Angel, Mastodon and Queensrÿche held one playable record each, which
-the repeat window rules out after a single airing). It is the one binding registered ahead of
-`ModelSetGenerator`: behind it, it would fill only what the model left, which on a model that answers in full
+the repeat window rules out after a single airing). It is one of two bindings registered ahead of
+`ModelSetGenerator` (the other is `FestivalSetGenerator`, below): behind it, it would fill only what the model left, which on a model that answers in full
 is nothing, and the neglected acts would starve again. Ahead of it, the model is asked for the rest, with
 these records in its avoid list, and is likelier to finish inside its time. No brief, a share of 0, a brief
 naming nobody free to air, or no plugin able to name an artist's records (said once) all step aside. It does
 not declare `ignoresBrief`: everything it names is in the brief.
+
+**A festival show plays its bill, and the bill goes FIRST in the chain.** A slot or a broadcast can name a
+festival (`director.md`), and `SetInputs.festivalId` carries it into every refill from the order's rules.
+`FestivalSetGenerator` (`rotation.festivalMix`, 0.6) is the brief's binding read off a list instead of prose:
+it reads the festival once per scope through `FestivalBill`, orders the bill never-aired first and then by
+oldest airing, ties in the operator's order, skips an act the cooldown holds (`heldByCooldown`, shared with
+`BriefArtistSetGenerator`), and asks `SimilarPicker.pickFromArtists` for the freshest top track of each, one
+per act, until it has its share. Provider top tracks rather than the library, because a festival's undercard
+is exactly what a library is thinnest on, and `PickResolver` takes in what it has never held. **Headliners
+are not favoured**: the neglect order reaches every act in turn, and weighting the top of the poster would
+make a festival show the five acts the station plays anyway. It sits ahead of the brief's acts and the model,
+for the brief's binding's reason, at a larger share because a festival show is made of its bill where a
+brief's acts are part of what it asks for; the model is asked for the rest and told, in its user turn, the
+festival's name and its bill in the operator's order (`festivalLine`; the plain prompt only, since a shortlist
+is built from the brief's acts). It plays the bill whether the festival is still to come, on or over: a
+record names nothing, and what the presenter may SAY about the dates is `breaks.md`'s business. A show naming
+no festival, one since removed, a read that fails, a share of 0 or no plugin able to name an artist's records
+(said once) all step aside, leaving the chain exactly as it was.
 
 **Under a brief that names its acts, the similarity walk seeds from the four off air longest.** It used to seed
 from this broadcast's four most recent artists, which is safe (they are the brief's own results) and was a rut:

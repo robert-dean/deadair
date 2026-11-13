@@ -63,6 +63,8 @@ import { BriefArtists } from './brief.artists.js';
 import { BriefActs } from './brief.acts.js';
 import { Shortlist } from './shortlist.js';
 import { BriefArtistSetGenerator } from './brief.artist.set.generator.js';
+import { FestivalBill } from './festival.bill.js';
+import { FestivalSetGenerator } from './festival.set.generator.js';
 import { SimilarPicker } from './similar.picker.js';
 import { TagSetGenerator } from './tag.set.generator.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
@@ -130,6 +132,9 @@ export const DirectorModule: ServerKitModule = {
         registry.register(SimilarSetGenerator).useClass(SimilarSetGenerator).asScoped();
         registry.register(TagSetGenerator).useClass(TagSetGenerator).asScoped();
         registry.register(BriefArtistSetGenerator).useClass(BriefArtistSetGenerator).asScoped();
+        // Scoped, so a refill or a break reads its show's festival once and the next one reads it fresh.
+        registry.register(FestivalBill).useClass(FestivalBill).asScoped();
+        registry.register(FestivalSetGenerator).useClass(FestivalSetGenerator).asScoped();
         // A SINGLETON among scoped generators, and only because it holds one boolean. The draw
         // below discovers that the advisory policy has left the station nothing to play, and a feed
         // producer writes on edges — so the flag saying "already said this" has to outlive the
@@ -186,8 +191,13 @@ export const DirectorModule: ServerKitModule = {
                     // model left, which on a model that answers in full is nothing. Ahead of it they
                     // get their share every refill and the model is asked for fewer records. See
                     // `BriefArtistSetGenerator`.
+                    //
+                    // A festival show's bill goes ahead of even those, for its share: the show is made
+                    // of its bill, and the brief's acts and the model have the rest of the hour. See
+                    // `FestivalSetGenerator`.
                     new SetGeneratorChain(
                         [
+                            container.get(FestivalSetGenerator),
                             container.get(BriefArtistSetGenerator),
                             container.get(ModelSetGenerator),
                             container.get(ChartSetGenerator),

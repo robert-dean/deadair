@@ -409,6 +409,28 @@ export interface DeadairFacts {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairFestivalActs {
+  artist: string;
+  day: DateTime | null;
+  festivalId: string;
+  headliner: Generated<boolean>;
+  position: number;
+}
+
+export interface DeadairFestivals {
+  createdAt: Generated<DateTime>;
+  endsOn: DateTime;
+  id: Generated<string>;
+  name: string;
+  place: string | null;
+  sourceEventId: string | null;
+  sourcePluginId: string | null;
+  startsOn: DateTime;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  url: string | null;
+}
+
 export interface DeadairGenreSteers {
   createdAt: Generated<DateTime>;
   endsAt: DateTime;
@@ -1027,6 +1049,7 @@ export interface DeadairScheduleSlotHosts {
 export interface DeadairScheduleSlots {
   artistCooldownMinutes: number | null;
   avoidMoods: string[] | null;
+  beds: boolean | null;
   breaks: boolean | null;
   brief: Generated<string>;
   callins: boolean | null;
@@ -1039,6 +1062,7 @@ export interface DeadairScheduleSlots {
   endsOn: DateTime | null;
   eraFrom: number | null;
   eraTo: number | null;
+  festivalId: string | null;
   id: Generated<string>;
   label: Generated<string>;
   live: Generated<boolean>;
@@ -1143,6 +1167,7 @@ export interface DeadairSegments {
   airsAt: DateTime | null;
   audioChecksum: string | null;
   audioExt: string | null;
+  bedSegmentId: string | null;
   claimsItemId: string | null;
   claimsPreviousItemId: string | null;
   claimsReadingUntil: DateTime | null;
@@ -1471,6 +1496,8 @@ export interface DB {
   "deadair.eventDestinations": DeadairEventDestinations;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
+  "deadair.festivalActs": DeadairFestivalActs;
+  "deadair.festivals": DeadairFestivals;
   "deadair.genreSteers": DeadairGenreSteers;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.invitations": DeadairInvitations;

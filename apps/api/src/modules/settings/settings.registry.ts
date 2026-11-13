@@ -115,6 +115,7 @@ import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { DEFAULT_TAG_MIX, TAG_GENERATOR_KEYS } from '#modules/director/tag.set.generator.js';
 import { BRIEF_ARTIST_KEYS, DEFAULT_BRIEF_ARTIST_MIX } from '#modules/director/brief.artist.set.generator.js';
+import { DEFAULT_FESTIVAL_MIX, FESTIVAL_KEYS } from '#modules/director/festival.set.generator.js';
 import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js';
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
@@ -183,6 +184,7 @@ import {
     PADS_KEY,
 } from '#modules/render/pad.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
+import { BED_LEVEL_BOUNDS, BED_LEVEL_KEY } from '#modules/render/bed.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
     DEFAULT_DIALOGUE_KINDS,
@@ -1038,6 +1040,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: FESTIVAL_KEYS.mix,
+        label: "How much of a festival show comes from the festival's bill",
+        type: 'number',
+        default: DEFAULT_FESTIVAL_MIX,
+        // The similar mix's range, for its reason: one more copy of the same `readMix` behind it.
+        unit: 'fraction',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        control: 'slider',
+        help: "When a show is built around a festival, a share between 0 and 1 of each hour taken from the acts on its bill, starting with the ones played least recently, including acts your library does not hold yet. The rest of the hour follows the show's brief. 0 turns it off and leaves the bill to the model. Needs a similarity plugin that can list an artist's top tracks.",
+    },
+    {
+        group: 'rotation',
         key: 'rotation.providersNote',
         label: 'Which similarity source is asked first',
         type: 'note',
@@ -1770,6 +1786,17 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         max: PAD_LEVEL_BOUNDS.max,
         control: 'slider',
         help: 'How loud an overlaid hit plays against the speech it lands on, judged from how loud the sound measured rather than how loud whoever made it mastered it. Six under is audible as a second thing and never louder than what is being said. A short sound the analyzer could not put a figure on plays as it is, and so does every hit on a station with no analyzer.',
+    },
+    {
+        group: 'render',
+        key: BED_LEVEL_KEY,
+        label: 'Sit a music bed under the words by (dB)',
+        type: 'number',
+        default: BED_LEVEL_BOUNDS.default,
+        min: BED_LEVEL_BOUNDS.min,
+        max: BED_LEVEL_BOUNDS.max,
+        control: 'slider',
+        help: 'How loud a music bed plays under a break, judged from how loud the bed measured. Eighteen under is there without ever getting in the way of a word. Beds are recordings of the kind bed in the library; a show with beds of its own airs those, and a show with none airs the ones scoped to nobody. A bed nobody has measured is taken to be mastered like a streaming record.',
     },
     {
         group: 'render',

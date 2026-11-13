@@ -21,6 +21,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { advisoryPolicy, demandsClean } from './advisory.policy.js';
 import { ACT_SEPARATOR, artistKey, creditKey, sameAct } from './rotation.keys.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
+import { FestivalBill } from './festival.bill.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 import { BriefActs } from './brief.acts.js';
@@ -323,6 +324,8 @@ export class ModelSetGenerator extends SetGenerator {
         // Whether the search can take a style as tags, so the prompt says so only when it can. See
         // `MusicSearchTool.tagsParameter`, which asks the same question.
         private readonly similarity: SimilarityService,
+        // The festival the show is built around, read once per refill. See `FestivalBill`.
+        private readonly festivals: FestivalBill,
     ) {
         super();
     }
@@ -351,6 +354,7 @@ export class ModelSetGenerator extends SetGenerator {
         // Before the conversation, because it may ask the providers (a few, capped) and the model's
         // budget is for the model.
         const reach = await this.briefActs.reach(inputs.brief, inputs.signal);
+        const festival = await this.festivals.of(inputs.festivalId);
         // In the operator's order; the first is what the request names, and the rest are who to ask
         // when it fails before answering. See `modelList`.
         const models = modelList(this.config, MODEL_GENERATOR_KEYS.model);
@@ -387,6 +391,7 @@ export class ModelSetGenerator extends SetGenerator {
                                   ? {}
                                   : { daysAgo: Math.max(0, Math.floor(-artist.lastAiredAt.diffNow('days').days)) }),
                           })),
+                          ...(festival === undefined ? {} : { festival: { name: festival.name, acts: festival.acts.map(act => act.artist) } }),
                       },
                       {
                           station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

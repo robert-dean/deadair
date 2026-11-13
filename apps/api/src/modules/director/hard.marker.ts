@@ -24,10 +24,11 @@ export const HARD_MARKER_KEYS = {
 } as const;
 
 /**
- * The kind of recording a wait is filled with: an instrumental bed, uploaded like any other recording. The
- * station plays it from its start until the marker's time, so its length is the longest wait it can fill.
+ * The kind of recording a wait is filled with: a show's music bed, the same recordings a break can air
+ * over (see `BED_KIND` in `segment.repository.ts`). The station plays one from its start until the
+ * marker's time, so its length is the longest wait it can fill.
  */
-export const BED_KIND = 'bed';
+export { BED_KIND } from '#modules/render/segment.repository.js';
 
 /**
  * How much longer than the wait a bed has to be. The wait is measured against the projection, which is minutes

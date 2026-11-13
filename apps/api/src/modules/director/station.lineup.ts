@@ -385,6 +385,24 @@ export interface StationLineupRules {
      */
     concerts?: boolean;
     /**
+     * Whether the breaks the station writes for this broadcast air over a music bed.
+     *
+     * Absent is YES, where the other show rules here are mostly no, because a bed is something an
+     * operator already chose by putting one in the library and scoping it: a station with no beds
+     * has nothing for this to switch on, and one that has them meant them to be heard. False keeps
+     * this broadcast's breaks dry whatever the library holds. Read by `BreakPlanner`, when it plants.
+     */
+    beds?: boolean;
+    /**
+     * The festival this broadcast is built around, by its id in `deadair.festivals`.
+     *
+     * A show rule rather than a column of its own, because it is read where the other rules are (the set
+     * chain and `WriteBreakJob`) and travels with them through `reprogramme`. The id rather than the
+     * festival itself, so an operator's correction to the bill or the dates reaches the show on air at
+     * its next refill and its next break. A festival removed since reads as none.
+     */
+    festivalId?: string;
+    /**
      * Whether one record may be blended into the next.
      *
      * Off for a `setlist` and a `feature` without anybody setting it, by the same

@@ -2,6 +2,7 @@
 // never as an exception and never as a segment stuck `planned` forever: a break that cannot be
 // written must cost the station that break and nothing else.
 
+import type { Festival } from '../../../src/modules/schedule/festival.rules.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
@@ -56,6 +57,8 @@ function harness(
         lineup?: StationLineup;
         /** The next show the concert service knows of, by artist. */
         concerts?: Record<string, { artist: string; venue: string; city?: string; startsOn: string }>;
+        /** The festivals the station holds, by id. */
+        festivals?: Record<string, Festival>;
         written?: unknown;
         wrote?: boolean;
         historyThrows?: boolean;
@@ -348,6 +351,7 @@ function harness(
     );
 
     const concerts = { nextDate: vi.fn(async (artist: string) => options.concerts?.[artist]) };
+    const festivals = { of: vi.fn(async (id: string | undefined) => (id === undefined ? undefined : options.festivals?.[id])) };
     const candidates = {
         albumTitlesAcrossArtists: vi.fn(async () => {
             if (options.spanning === 'throws') throw new Error('the catalog is away');
@@ -368,6 +372,7 @@ function harness(
         sources as never,
         candidates as never,
         concerts as never,
+        festivals as never,
         activity as never,
         floorWatch as never,
         jobs as never,
@@ -381,6 +386,7 @@ function harness(
         job,
         candidates,
         concerts,
+        festivals,
         floorWatch,
         segments,
         pads,
@@ -760,6 +766,19 @@ describe('WriteBreakJob', () => {
             const { job, writers } = harness({
                 lineup: await withTrackIds(),
                 segment: planned({ kind: 'news' }),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
+        });
+
+        it('says nothing to a link laid over a music bed, which never airs over a record', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                segment: planned({ bedSegmentId: 'bed-1' }),
                 vocalMarkers: { 't-pink': sung },
                 settings: { [TALK_UP_KEYS.enabled]: 'true' },
             });
@@ -1941,6 +1960,71 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(concerts.nextDate).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('a festival show', () => {
+        const festival = (over: Partial<Festival> = {}): Festival => ({
+            id: 'f1',
+            name: 'Shaky Knees',
+            startsOn: '2999-05-07',
+            endsOn: '2999-05-09',
+            place: 'Piedmont Park, Atlanta',
+            acts: [
+                { artist: 'Foo Fighters', headliner: true },
+                { artist: 'Nick Drake', day: '2999-05-08', headliner: false },
+            ],
+            ...over,
+        });
+
+        const onFestival = (kind = 'talkbreak'): StationLineup => {
+            const lineup = new StationLineup({
+                name: 'Festival weekend',
+                mode: 'rotation',
+                onEnd: 'extend',
+                source: 'director',
+                rules: { festivalId: 'f1' },
+            });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            lineup.insertSegment('seg-1', 1, undefined, kind);
+            return lineup;
+        };
+
+        it('hands the writer the festival from its row, and marks the record whose artist is on the bill', async () => {
+            const { job, writers } = harness({ lineup: onFestival(), festivals: { f1: festival() } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    festival: expect.objectContaining({
+                        name: 'Shaky Knees',
+                        dates: 'Tuesday, May 7 to Thursday, May 9',
+                        place: 'Piedmont Park, Atlanta',
+                        on: false,
+                        headliners: ['Foo Fighters'],
+                    }),
+                    next: expect.objectContaining({ festival: { day: 'Wednesday, May 8' } }),
+                    previous: expect.not.objectContaining({ festival: expect.anything() }),
+                }),
+                'model',
+            );
+        });
+
+        it('hands nothing once the festival is over', async () => {
+            const { job, writers } = harness({ lineup: onFestival(), festivals: { f1: festival({ startsOn: '2001-05-07', endsOn: '2001-05-09' }) } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ festival: expect.anything() }), 'model');
+        });
+
+        it('leaves a kind that is not a talk break alone', async () => {
+            const { job, festivals } = harness({ lineup: onFestival('news'), segment: planned({ kind: 'news' }), festivals: { f1: festival() } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(festivals.of).not.toHaveBeenCalled();
         });
     });
 

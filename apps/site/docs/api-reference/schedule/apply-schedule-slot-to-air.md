@@ -1,7 +1,7 @@
 ---
 title: 'Apply schedule slot to air'
 sidebar_label: 'Apply schedule slot to air'
-sidebar_position: 18
+sidebar_position: 23
 mdx:
     format: 'md'
 ---

@@ -11,6 +11,7 @@ import { registerClockMcpCatalog, registerClockMcpToolClasses } from './clock.mc
 import { registerDirectionMcpCatalog, registerDirectionMcpToolClasses } from './direction.mcp.js';
 import { registerDirectorMcpCatalog, registerDirectorMcpToolClasses } from './director.mcp.js';
 import { registerEventsMcpCatalog, registerEventsMcpToolClasses } from './events.mcp.js';
+import { registerFestivalsMcpCatalog, registerFestivalsMcpToolClasses } from './festivals.mcp.js';
 import { registerHistoryMcpCatalog, registerHistoryMcpToolClasses } from './history.mcp.js';
 import { registerLanguagesMcpCatalog, registerLanguagesMcpToolClasses } from './languages.mcp.js';
 import { registerMessagingMcpCatalog, registerMessagingMcpToolClasses } from './messaging.mcp.js';
@@ -86,6 +87,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerDirectionMcpCatalog(map, container);
     registerDirectorMcpCatalog(map, container);
     registerEventsMcpCatalog(map, container);
+    registerFestivalsMcpCatalog(map, container);
     registerHistoryMcpCatalog(map, container);
     registerLanguagesMcpCatalog(map, container);
     registerMessagingMcpCatalog(map, container);
@@ -135,6 +137,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerDirectionMcpToolClasses(registry);
     registerDirectorMcpToolClasses(registry);
     registerEventsMcpToolClasses(registry);
+    registerFestivalsMcpToolClasses(registry);
     registerHistoryMcpToolClasses(registry);
     registerLanguagesMcpToolClasses(registry);
     registerMessagingMcpToolClasses(registry);

@@ -699,6 +699,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { chartPositions: false } } });
     });
 
+    it('binds dry breaks as a rule of the broadcast', async () => {
+        const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', beds: false });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { beds: false } } });
+    });
+
     it('binds a setlist asking its host to talk as a rule of the broadcast, which is how a countdown gets a host', async () => {
         const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
 
@@ -1574,6 +1582,23 @@ describe('DirectorConsoleService editing the running order', () => {
 
         expect(await statusOf(service.addSegmentToOrder({ segmentId: 'seg-1' }))).toBe(422);
         expect(director.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it('refuses a music bed, which never airs on its own', async () => {
+        const { service, director } = build({ order: onAirWith(2), segments: [{ ...READY, kind: 'bed', source: 'library' }] });
+
+        expect(await statusOf(service.addSegmentToOrder({ segmentId: 'seg-1' }))).toBe(422);
+        expect(director.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it('refuses to ride a record with a break laid over a bed, and puts it in a gap', async () => {
+        const { service, director } = build({ order: onAirWith(2), segments: [{ ...READY, bedSegmentId: 'bed-1' }] });
+
+        expect(await statusOf(service.addSegmentToOrder({ segmentId: 'seg-1', overAtMs: 5_000 }))).toBe(422);
+        expect(director.applyEdit).not.toHaveBeenCalled();
+
+        const after = await service.addSegmentToOrder({ segmentId: 'seg-1', atIndex: 1 });
+        expect(after.items.map(item => item.kind)).toEqual(['track', 'segment', 'track']);
     });
 
     it('refuses a segment the library does not hold', async () => {

@@ -61,3 +61,50 @@ describe('ConcertService.nextDate', () => {
         await expect(service([good, blank, failed]).nextDate('Queen', '2026-11-01', '2027-01-30')).resolves.toEqual(SHOW);
     });
 });
+
+describe('ConcertService.findFestivals', () => {
+    const listing = { id: 'G5v', name: 'Shaky Knees', startsOn: '2027-05-07', endsOn: '2027-05-09', acts: ['Wet Leg'] };
+    const lister = (id: string, findFestivals?: (query: { name: string; from?: string }) => Promise<(typeof listing)[]>): PluginRecord =>
+        ({
+            id,
+            status: 'active',
+            manifest: { id, name: `Plugin ${id}`, capabilities: ['concerts'] } as unknown as PluginManifest,
+            instance: { getConcerts: async () => [], ...(findFestivals === undefined ? {} : { findFestivals }) },
+        }) as unknown as PluginRecord;
+
+    it('asks every plugin that can list festivals, and says which one each answer came from', async () => {
+        const findFestivals = vi.fn(async () => [listing]);
+
+        const found = await service([lister('a', findFestivals), lister('b')]).findFestivals('Shaky Knees', '2027-01-01');
+
+        expect(findFestivals).toHaveBeenCalledWith({ name: 'Shaky Knees', from: '2027-01-01' });
+        expect(found).toEqual({ listings: [{ ...listing, pluginId: 'a' }], unanswered: [] });
+    });
+
+    it('names a plugin that could not answer rather than failing the lookup', async () => {
+        const found = await service([
+            lister('a', async () => {
+                throw new Error('down');
+            }),
+            lister('b', async () => [listing]),
+        ]).findFestivals('Shaky Knees', '2027-01-01');
+
+        expect(found.unanswered).toEqual(['Plugin a']);
+        expect(found.listings.map(entry => entry.pluginId)).toEqual(['b']);
+    });
+
+    it('keeps what a plugin got right and drops what it did not, rather than failing the lookup', async () => {
+        const found = await service([
+            lister('a', async () => [
+                { ...listing, url: 'javascript:alert(1)', endsOn: '2027-05-01', acts: ['Wet Leg', 7, ' '] as never },
+                { id: 'no-date', name: 'Undated' } as never,
+                'nonsense' as never,
+            ]),
+        ]).findFestivals('Shaky Knees', '2027-01-01');
+
+        expect(found.unanswered).toEqual([]);
+        expect(found.listings).toEqual([
+            { id: 'G5v', name: 'Shaky Knees', startsOn: '2027-05-07', endsOn: '2027-05-07', acts: ['Wet Leg'], pluginId: 'a' },
+        ]);
+    });
+});

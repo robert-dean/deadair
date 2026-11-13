@@ -262,6 +262,13 @@ export interface BreakRequestInput {
     context?: BreakWriteRequest['context'];
     /** What a requested break's words are worth at the model slot. Absent for a planted break. */
     priority?: BreakWriteRequest['priority'];
+    /**
+     * Whether the break airs over a music bed. A bedded break is never talked over a record, so it is
+     * offered no talk-up or talk-out budget to aim at. Absent is no bed.
+     */
+    bedded?: boolean;
+    /** The festival the show is built around, as this break may talk about it. See `break.festival.ts`. */
+    festival?: BreakWriteRequest['festival'];
 }
 
 /**
@@ -319,7 +326,7 @@ export class BreakRequestBuilder {
     async build(
         input: BreakRequestInput,
     ): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string; handedClaims: HandedClaim[]; outlookSaid?: OutlookSaid }> {
-        const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority } = input;
+        const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority, bedded } = input;
 
         const zone = stationZone(this.config);
         // Gated on the setting rather than on `airsAt` alone: an hour phrasing is only as true as
@@ -432,6 +439,7 @@ export class BreakRequestBuilder {
             ...(occasion === undefined
                 ? {}
                 : { occasion: { words: occasion.words, validFrom: occasion.validFrom, validUntil: occasion.validUntil } }),
+            ...(input.festival === undefined ? {} : { festival: input.festival }),
             ...(mood === undefined ? {} : { mood }),
             // The same instant a fourth time, and the only one of the four nothing is TOLD. The three
             // above are the moment as words, which is what a model can use; this is the moment as a
@@ -458,8 +466,9 @@ export class BreakRequestBuilder {
             ...(subject === undefined ? {} : { subject }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
-            ...(await this.talkUp(lineup, kind, neighbours.next)),
-            ...(await this.talkOut(lineup, kind, neighbours.previous)),
+            // Neither for a break laid over a bed, which the director never talks over a record.
+            ...(bedded === true ? {} : await this.talkUp(lineup, kind, neighbours.next)),
+            ...(bedded === true ? {} : await this.talkOut(lineup, kind, neighbours.previous)),
             ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(kind, turn)),

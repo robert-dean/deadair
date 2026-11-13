@@ -169,6 +169,8 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 ...(mood === undefined ? {} : { mood }),
                 // Not staged: an avoided mood holds for the whole broadcast.
                 ...(lineup.avoidMoods === undefined ? {} : { avoidMoods: lineup.avoidMoods }),
+                // Off the order's rules, for the brief's reason: every refill of the show reads it.
+                ...(lineup.rules.festivalId === undefined ? {} : { festivalId: lineup.rules.festivalId }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is

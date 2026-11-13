@@ -1,7 +1,7 @@
 ---
 title: 'Import occasions'
 sidebar_label: 'Import occasions'
-sidebar_position: 6
+sidebar_position: 11
 mdx:
     format: 'md'
 ---

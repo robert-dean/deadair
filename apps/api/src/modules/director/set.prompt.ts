@@ -219,6 +219,14 @@ export interface SetPromptRequest {
      * judges every record named.
      */
     namedArtists?: readonly { name: string; daysAgo?: number }[];
+    /**
+     * The festival this show is built around, and the acts on its bill in the operator's order.
+     *
+     * `FestivalSetGenerator` has already taken its share from the bill by then, so this is for the
+     * rest of the hour: the model is told what the show is for, and the resolver still judges every
+     * record named. Only the plain prompt carries it; a shortlist is built from the brief's acts.
+     */
+    festival?: { name: string; acts: readonly string[] };
 }
 
 /** How many of the brief's own acts are listed. More than any brief names; a bound, not a budget. */
@@ -578,6 +586,23 @@ function namedArtistsLine(named: SetPromptRequest['namedArtists']): string | und
     );
 }
 
+/** How many of a festival's acts are listed. A bound on a long bill rather than a budget. */
+const MAX_FESTIVAL_ACTS = 60;
+
+/**
+ * The festival a show is built around, as one line naming it and its bill. The bill in the operator's
+ * order, because the festival's own binding has already worked through it by neglect, and what the model
+ * needs is what the show is for rather than which act is owed a turn.
+ */
+export function festivalLine(festival: SetPromptRequest['festival']): string | undefined {
+    if (festival === undefined || festival.acts.length === 0) return undefined;
+    return (
+        `This show is built around ${festival.name}. These acts are on its bill, and records by them are what the show is for: ` +
+        'choose them first, spread across as many of them as you can, and fill the rest with records that sit well beside them.\n' +
+        festival.acts.slice(0, MAX_FESTIVAL_ACTS).join('; ')
+    );
+}
+
 function userPrompt(request: SetPromptRequest): string {
     const lines = [`Choose ${request.count} records for the station to play next.`];
 
@@ -595,6 +620,9 @@ function userPrompt(request: SetPromptRequest): string {
 
     const named = namedArtistsLine(request.namedArtists);
     if (named !== undefined) lines.push('', named);
+
+    const festival = festivalLine(request.festival);
+    if (festival !== undefined) lines.push('', festival);
 
     if (request.lean !== undefined && request.lean.length > 0) {
         lines.push(

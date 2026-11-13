@@ -11,11 +11,13 @@ import {
     type Concert,
     type ConcertQuery,
     type ConcertsPluginInstance,
+    type FestivalListing,
+    type FestivalQuery,
     type PluginConnectionResult,
     type PluginHost,
 } from '@deadair/plugin-sdk';
 
-import { concertsIn } from './ticketmaster.events.js';
+import { concertsIn, festivalsIn } from './ticketmaster.events.js';
 import {
     DEFAULT_CACHE_HOURS,
     DEFAULT_RADIUS_KM,
@@ -114,6 +116,30 @@ export class TicketmasterPlugin extends Plugin implements ConcertsPluginInstance
             this.holdAfter(host, error);
             throw error;
         }
+    }
+
+    /**
+     * Festivals by name, soonest first, for an operator about to add one. Never cached and never held
+     * off after a failure: an operator asked, once, and a refusal is theirs to read.
+     */
+    async findFestivals(query: FestivalQuery): Promise<FestivalListing[]> {
+        const host = this.host;
+        const name = query.name.trim();
+        if (name.length === 0 || this.apiKey.length === 0) return [];
+
+        const from = query.from ?? new Date().toISOString().slice(0, 10);
+        const body = await this.fetchEvents(
+            host,
+            new URLSearchParams({
+                apikey: this.apiKey,
+                keyword: name,
+                classificationName: 'festival',
+                startDateTime: `${from}T00:00:00Z`,
+                sort: 'date,asc',
+                size: String(PAGE_SIZE),
+            }),
+        );
+        return festivalsIn(body);
     }
 
     /** Whether the key works: one real search, since a bad key fails nowhere else. */

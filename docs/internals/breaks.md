@@ -134,7 +134,9 @@ show. Both shelf reads (`listRecordings` for a kind that yields to recordings, `
 for the ident fallback) take the lineup's slot and the presenting persona, never return another show's
 recording, and mark the ones that are this show's own; the planner draws from those when there are any and
 from the station's otherwise (`ownFirst`), a preference rather than a weighting, because a show's own ident
-mixed into a pool of station-wide ones would air a fraction of the time. `segments.show_scoped` is what keeps
+mixed into a pool of station-wide ones would air a fraction of the time. Music beds follow the same scope and
+the same own-first rule through a third read, `listBeds`, though a bed is never drawn as a break: see
+[`render.md`](render.md) § "Beds". `segments.show_scoped` is what keeps
 a recording whose show was deleted off the air: the cascade takes its scope rows, and without the flag it
 would read as unscoped and air everywhere. The slot drawn against is the LINEUP's. A running order is one
 broadcast (`putOnAir` builds a new one for the next show), so a break planted an hour ahead still airs on the
@@ -240,7 +242,9 @@ asks `talkUpRunways` for the runway of the record DIRECTLY after each ready talk
 link would talk over the record after the jingle), and `talkUpAt` (`director/talk.up.ts`) answers
 where in that record to start, or nothing. Nothing is a link in the gap, exactly as before: an
 instrumental, a record with no timed lyrics, a runway under 2.5s, a link that does not fit. **A link is
-never trimmed or rendered again to make it fit**; it simply airs where it always did.
+never trimmed or rendered again to make it fit**; it simply airs where it always did. A link laid over a music
+bed is never a candidate, for this or for the talk-out below, and its writer is offered neither budget: a
+record is a bed already (`render.md` § "Beds").
 
 **A talked-up link waiting for its record is the same cue when it comes round again.** A link in front
 of a record that is not in the batch has nothing to ride on yet, so the hand-over holds it
@@ -632,6 +636,30 @@ dates", "next show") is refused, and with one handed, a sentence about it must c
 The words were measured on 2026-10-31 against 3,230 written breaks of the previous thirty days, of which one
 said "on tour", which is why that phrase is left out, and none used the others. English only, and retryable on
 `invented-home`'s argument, since the fix is a deletion.
+
+**A festival show's talk breaks may talk about its festival, from the row and from nothing else.** A show
+built around a festival (`director.md`) has `StationLineupRules.festivalId`, and `WriteBreakJob.festivalFor`
+reads it through `FestivalBill` after the claim, because it is judged at the instant the break will be HEARD
+(`segment.airsAt`, now for a break with no slot), as the occasion is. A talk break alone, as with a concert.
+`breakFestivalOf` (`break.festival.ts`) hands `BreakWriteRequest.festival` only while the festival is still
+to come or on at that instant, on the station's calendar: a festival over by the slot is handed nothing,
+since "it's this weekend" about last weekend is the claim this exists to prevent, and the show still plays
+its bill. What it carries is the stored name, the dates SAID AS DATES ("Friday, May 7 to Sunday, May 9",
+never "this weekend", which would go stale inside the write-ahead), the place, whether it is on, and up to
+three headliners. `withFestivalSlots` marks each neighbour whose artist is on the bill, matched as whole
+acts (`artistCreditsOverlap`), with their day when the bill gives one; both sides, unlike a concert, because
+a bill is stored and costs nothing, and "that was Wet Leg, who play Saturday" is the link the show is for.
+The prompt shows the festival beside the occasion, as material the presenter may use rather than a script
+(`festivalLines`, not for a bulletin), and the slot as a line under the record (`festivalSlotLine`, behind
+`withFacts` with the concert). `invented-festival` is the answer side, read only in a sentence that names
+the festival (whole words, a leading "the" dropped): a month and day that is not one of the festival's own
+days is refused, and so is a record's artist put at the festival when they are not on the bill. English
+only, and retryable on `invented-concert`'s argument, since the fix is a deletion. The model writer alone is
+handed it; a phrasing has no `{{festival}}`, so the floor says nothing about one. `festival` is
+`fetched-for-air` in `break.freshness.ts`, and the exposure left is the operator editing the dates after
+the words were written. Applying a slot that drops its festival clears it from the rules at once, but the breaks already
+written for the next few slots keep their lines until they air, which is a changed brief's exposure too:
+only a `recast` writes breaks again.
 
 ## What the prompt says, and what it left out
 
@@ -1612,7 +1640,7 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
-**A band at a time of day is a MARKER, and it is soft or hard** (`clock_bands.hard`, migration 0138). A soft
+**A band at a time of day is a MARKER, and it is soft or hard** (`clock_bands.hard`, migration 0142). A soft
 marker is what every band always was: the first boundary at or after its time, up to ten minutes late, and
 dropped past that. Measured on the live station over the fortnight to 2026-11-13, that put the half-past news
 on air a median of four minutes twenty late, anywhere from thirty seconds to ten minutes, and the five-past
@@ -1664,9 +1692,11 @@ the wait's boundary has a break beside it the cut is taken instead. A wait plant
 the bed, as a fill running to the time, and the marker behind it with `hardAt`, both against the time rather
 than the projection. The bed is drawn own-first and never the one drawn last, and it is chosen BEFORE the
 marker is planted, because a marker planted where it waits with nothing in front of it would air early. The
-shelf is read only when a band is hard. `bed` is a free-text kind like any other, uploaded on the Segments
-page; until a station has one, a hard marker never waits, and lands by cutting or soft. A separate piece of
-work proposes the same kind for beds played UNDER a show's breaks, and the two are meant to share it.
+shelf is read only when a band is hard, through `listBeds`: the same music beds a show's breaks air over
+([`render.md`](render.md) § "Beds"), kept off `listReady` so a band can never draw one as a break, and scoped to the show on
+air the same way. Until a station has a bed, a hard marker never waits, and lands by cutting or soft. A bed
+under a break is mixed into the break's audio at render; a bed a marker waits behind airs as an item of its
+own and is cut at hand-over, because only the hand-over knows how long the wait really is.
 
 **Where the pusher's start comes from, and the one way a marker is still early.** The record in front of a
 cut is measured from the item on air: its observed start plus its length, or the player's own reading of

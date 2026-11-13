@@ -251,6 +251,17 @@ export class ModelTalkBreakWriter extends BreakWriter {
                     reactions: offeredReactions(settings, TALK_BREAK_SHAPE),
                     // Only the shows this break was handed may be announced.
                     shows: [request.previous?.concert, request.next?.concert].filter(show => show !== undefined),
+                    // And what it was told about the show's festival, held against the records either side.
+                    ...(request.festival === undefined
+                        ? {}
+                        : {
+                              festival: {
+                                  told: request.festival,
+                                  neighbours: [request.previous?.artist, request.next?.artist].filter(
+                                      (artist): artist is string => artist !== undefined && artist.length > 0,
+                                  ),
+                              },
+                          }),
                     // The dates this break was actually handed, from the same two records the prompt was
                     // built from. Unconditional, like `cues` and for the same reason: an EMPTY permitted set
                     // is the statement a factless break makes rather than a question left unasked, and it is

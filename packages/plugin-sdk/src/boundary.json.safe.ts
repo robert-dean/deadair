@@ -38,7 +38,7 @@
 
 import type { AlmanacDay, AlmanacEntry, AlmanacQuery, AlmanacSubject } from './capabilities/almanac.js';
 import type { AnalysisRef, TrackAnalysis, TrackBeats, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
-import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
+import type { AudioBed, AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { AudioTranscode } from './capabilities/transcode.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type {
@@ -70,7 +70,7 @@ import type {
     MessagingSender,
     OutboundMessage,
 } from './capabilities/messaging.js';
-import type { Concert, ConcertQuery } from './capabilities/concerts.js';
+import type { Concert, ConcertQuery, FestivalListing, FestivalQuery } from './capabilities/concerts.js';
 import type { LyricLine, LyricWord, TrackLyrics } from './capabilities/lyrics.js';
 import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
@@ -245,6 +245,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     AnalysisRef: IsJsonSafe<AnalysisRef>;
     AudioJoin: IsJsonSafe<AudioJoin>;
     AudioOverlay: IsJsonSafe<AudioOverlay>;
+    AudioBed: IsJsonSafe<AudioBed>;
     AudioTranscode: IsJsonSafe<AudioTranscode>;
     TrackCuePoints: IsJsonSafe<TrackCuePoints>;
     TrackLoudness: IsJsonSafe<TrackLoudness>;
@@ -281,6 +282,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     WeatherReading: IsJsonSafe<WeatherReading>;
     ConcertQuery: IsJsonSafe<ConcertQuery>;
     Concert: IsJsonSafe<Concert>;
+    FestivalQuery: IsJsonSafe<FestivalQuery>;
+    FestivalListing: IsJsonSafe<FestivalListing>;
     AlmanacQuery: IsJsonSafe<AlmanacQuery>;
     AlmanacSubject: IsJsonSafe<AlmanacSubject>;
     AlmanacEntry: IsJsonSafe<AlmanacEntry>;
@@ -369,6 +372,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'AnalysisRef',
     'AudioJoin',
     'AudioOverlay',
+    'AudioBed',
     'AudioTranscode',
     'TrackCuePoints',
     'TrackLoudness',
@@ -405,6 +409,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'WeatherReading',
     'ConcertQuery',
     'Concert',
+    'FestivalQuery',
+    'FestivalListing',
     'AlmanacQuery',
     'AlmanacSubject',
     'AlmanacEntry',

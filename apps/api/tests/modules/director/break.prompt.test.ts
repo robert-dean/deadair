@@ -1447,6 +1447,39 @@ describe('breakPrompt', () => {
         });
     });
 
+    describe('the festival a show is built around', () => {
+        const festival = {
+            name: 'Shaky Knees',
+            startsOn: '2027-05-07',
+            endsOn: '2027-05-09',
+            dates: 'Friday, May 7 to Sunday, May 9',
+            place: 'Piedmont Park, Atlanta',
+            on: false,
+            headliners: ['Foo Fighters'],
+            acts: ['Foo Fighters', 'Wet Leg'],
+        };
+
+        it("tells the presenter the stored facts, and a record's place on the bill", () => {
+            const said = user(
+                prompt({ kind: 'talkbreak', previous: { ...previous, artist: 'Wet Leg', festival: { day: 'Saturday, May 8' } }, festival }),
+            );
+
+            expect(said).toContain('This show is built around a festival: Shaky Knees at Piedmont Park, Atlanta.');
+            expect(said).toContain('It runs Friday, May 7 to Sunday, May 9.');
+            expect(said).toContain('- On the bill at Shaky Knees: Wet Leg play it on Saturday, May 8');
+        });
+
+        it('says nothing on a show built around none', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/festival/i);
+        });
+
+        it('leaves it out of a bulletin', () => {
+            const said = user(breakPrompt({ kind: 'news', festival, stories: [{ headline: 'Bridge reopens.' }] }, {}, NEWS_SHAPE));
+
+            expect(said).not.toContain('Shaky Knees');
+        });
+    });
+
     describe('a station that has to stay clean', () => {
         it('says nothing about language when the station has no such policy', () => {
             expect(system(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/broadcast-clean/i);

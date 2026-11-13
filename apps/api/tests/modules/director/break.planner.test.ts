@@ -110,6 +110,13 @@ const build = (
             onAir,
         ),
     );
+    // A music bed is an operator's recording too, read through its own door.
+    const listBeds = vi.fn(async (onAir?: OnAir) =>
+        onTheShelf(
+            (options.idents ?? []).filter(segment => segment.kind === 'bed' && segment.source === 'library'),
+            onAir,
+        ),
+    );
     let planned = 0;
     // What the alternation and the write window both read: a lineup item names a segment by id, so
     // anything about it — its kind, whether anybody has written it — is a lookup rather than a
@@ -228,6 +235,7 @@ const build = (
             {
                 listReady,
                 listRecordings,
+                listBeds,
                 plan,
                 markFailed,
                 findByIds,
@@ -251,6 +259,7 @@ const build = (
         readingFor,
         listReady,
         listRecordings,
+        listBeds,
         plan,
         markFailed,
         presenting,
@@ -931,15 +940,6 @@ describe('BreakPlanner against the clock', () => {
             await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
             expect(await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine())).toBe(0);
             expect(segmentsAt(lineup)).toEqual([6, 7]);
-        });
-
-        it('reads no beds for a clock with no hard band', async () => {
-            const { planner, listReady } = build({ settings: utc(), bands: [at(31, 'news')], canWrite: true });
-            const lineup = await lineupOf(20);
-
-            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
-
-            expect(listReady).not.toHaveBeenCalledWith('bed', expect.anything());
         });
 
         it('is planted once, however often the walk runs, since the projection now puts it on its time', async () => {
@@ -2646,5 +2646,116 @@ describe('BreakPlanner drawing a recording for the show on air', () => {
 
         expect(listReady).toHaveBeenCalledWith('ident', {});
         expect(new Set(drawn(lineup, 'ident'))).toEqual(new Set(['i-station']));
+    });
+});
+
+// A show's own sound: the music bed a written break is laid over, chosen when the break is planted.
+describe('BreakPlanner choosing a music bed for the show on air', () => {
+    const onShow = async (count: number): Promise<StationLineup> => {
+        const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import', slotId: 'slot-1' });
+        lineup.append(Array.from({ length: count }, (_, index) => track(`t${index}`)));
+        return lineup;
+    };
+    const bedsPlanned = (plan: ReturnType<typeof build>['plan']): (string | undefined)[] => plan.mock.calls.map(([input]) => input.bedSegmentId);
+
+    it("lays every break it writes over the show's own bed", async () => {
+        const { planner, plan, listBeds } = build({
+            canWrite: true,
+            idents: [ident('seg-1'), recorded('bed-station', 'bed'), recorded('bed-show', 'bed')],
+            scopes: { 'bed-show': { slotIds: ['slot-1'] } },
+            presenting: { id: 'persona-1' },
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(listBeds).toHaveBeenCalledWith({ slotId: 'slot-1', personaId: 'persona-1' });
+        const beds = bedsPlanned(plan);
+        expect(beds.length).toBeGreaterThan(0);
+        expect(new Set(beds)).toEqual(new Set(['bed-show']));
+    });
+
+    it("falls back to the station's bed, and never takes another show's", async () => {
+        const { planner, plan } = build({
+            canWrite: true,
+            idents: [ident('seg-1'), recorded('bed-station', 'bed'), recorded('bed-other', 'bed')],
+            scopes: { 'bed-other': { slotIds: ['slot-2'] } },
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(new Set(bedsPlanned(plan))).toEqual(new Set(['bed-station']));
+    });
+
+    it('plants a break with no bed on a station that has none, and reads the beds once a pass', async () => {
+        const { planner, plan, listBeds } = build({ canWrite: true });
+        const lineup = await onShow(20);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(plan.mock.calls.length).toBeGreaterThan(1);
+        expect(bedsPlanned(plan).every(bed => bed === undefined)).toBe(true);
+        expect(listBeds).toHaveBeenCalledTimes(1);
+    });
+
+    it('plants every break dry on a show that asked for no beds, without reading them', async () => {
+        const { planner, plan, listBeds } = build({ canWrite: true, idents: [ident('seg-1'), recorded('bed-1', 'bed')] });
+        const lineup = new StationLineup({
+            name: 'Afternoons',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            slotId: 'slot-1',
+            rules: { beds: false },
+        });
+        lineup.append(Array.from({ length: 16 }, (_, index) => track(`t${index}`)));
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(plan.mock.calls.length).toBeGreaterThan(0);
+        expect(bedsPlanned(plan).every(bed => bed === undefined)).toBe(true);
+        expect(listBeds).not.toHaveBeenCalled();
+    });
+
+    it('still plants the break when the beds cannot be read', async () => {
+        const { planner, plan, listBeds } = build({ canWrite: true });
+        listBeds.mockRejectedValue(new Error('database away'));
+        const lineup = await onShow(12);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }));
+        expect(bedsPlanned(plan).every(bed => bed === undefined)).toBe(true);
+    });
+
+    it('lays a break written for a band over the show bed', async () => {
+        const { planner, plan } = build({
+            canWrite: true,
+            idents: [recorded('bed-1', 'bed')],
+            bands: [{ at: 'interval', everyMs: 2 * TRACK_MINUTES * 60_000, kind: 'news' } as ClockBand],
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        const news = plan.mock.calls.filter(([input]) => input.kind === 'news');
+        expect(news.length).toBeGreaterThan(0);
+        expect(news.every(([input]) => input.bedSegmentId === 'bed-1')).toBe(true);
+    });
+
+    it('leaves a recording drawn off the shelf without a bed', async () => {
+        const { planner, plan } = build({
+            canWrite: true,
+            yields: ['jingle'],
+            idents: [recorded('j-1', 'jingle'), recorded('bed-1', 'bed')],
+            bands: [{ at: 'interval', everyMs: 2 * TRACK_MINUTES * 60_000, kind: 'jingle' } as ClockBand],
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        // Every jingle came off the shelf, so nothing was planned and no bed was chosen for one.
+        expect(plan.mock.calls.filter(([input]) => input.kind === 'jingle')).toHaveLength(0);
     });
 });

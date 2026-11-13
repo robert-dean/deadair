@@ -1,6 +1,6 @@
 ---
 title: 'SlotGuestHost'
-sidebar_position: 10
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

@@ -35,6 +35,7 @@
  */
 
 import { concertLine } from './break.concert.js';
+import { festivalLines, festivalSlotLine } from './break.festival.js';
 import { withoutCues, type LlmMessage, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import { padOffer, withoutPads, type PadUseNote } from '#modules/render/pad.cues.js';
 import { MAX_REACTIONS } from '#modules/render/speakable.script.js';
@@ -1126,9 +1127,13 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // station carries whole. Said so in the heading, because a model told "the record" introduces an
     // hour of a podcast as though it were a song.
     if (previous)
-        parts.push(`${previous.programme === undefined ? 'The record' : 'The programme'} that has just finished:\n${describe(previous, withFacts)}`);
+        parts.push(
+            `${previous.programme === undefined ? 'The record' : 'The programme'} that has just finished:\n${describe(previous, withFacts, request.festival?.name)}`,
+        );
     if (request.next)
-        parts.push(`${request.next.programme === undefined ? 'The record' : 'The programme'} coming up next:\n${describe(request.next, withFacts)}`);
+        parts.push(
+            `${request.next.programme === undefined ? 'The record' : 'The programme'} coming up next:\n${describe(request.next, withFacts, request.festival?.name)}`,
+        );
 
     // Both absent is a legitimate moment — the top of an order with nothing behind it, and every
     // welcome, which is written BEFORE it is placed and so has no neighbours to be given.
@@ -1581,6 +1586,11 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The festival the show is built around, as material rather than as a script: the presenter may
+    // talk about it, from the stored dates and nothing else, and is not asked to in every break. Not
+    // for a bulletin, on the occasion's reason; only a talk break is handed one anyway.
+    if (request.festival && shape.voice !== 'lean') parts.push(festivalLines(request.festival));
+
     // The mood the show is leaning into for this stretch, as context for the register and nothing
     // more. Said as a lean because it is one: the draw only makes a fitting record more likely, so
     // the record either side may be in another mood entirely, and a presenter calling it a sad song
@@ -1638,7 +1648,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
  * "Notes" rather than "facts", because the rule in the system turn already calls them that and the
  * two have to name the same thing for either to mean anything.
  */
-function describe(track: BreakTrack, withFacts: boolean): string {
+function describe(track: BreakTrack, withFacts: boolean, festivalName?: string): string {
     if (track.programme !== undefined) return describeProgramme(track, withFacts);
 
     // The title as it is READ rather than as it is filed. Shown the catalogue entry, a model reads it
@@ -1667,6 +1677,7 @@ function describe(track: BreakTrack, withFacts: boolean): string {
         if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
         if (track.chart) lines.push(`- Chart: ${spokenPlacing(track.chart)}`);
         if (track.concert) lines.push(concertLine(track.artist, track.concert));
+        if (track.festival && festivalName) lines.push(festivalSlotLine(track.artist, festivalName, track.festival));
         // Said as why it is on, as a chart position is: a deep cut is a choice the station made.
         if (track.deepCut) lines.push('- Deep cut: an album track this station has not played in months');
         // The one connection to another record a break may state, because the station planned it.

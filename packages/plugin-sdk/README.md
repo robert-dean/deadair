@@ -900,6 +900,20 @@ a fact about that artist, so a tribute night or a similarly named band must be d
 **Answer only with what is on.** Leave out anything cancelled, postponed or undated. **An empty list is
 the ordinary answer.** A service that refused throws, for a `weather` plugin's reason.
 
+A concert plugin may also list festivals by name, for an operator adding one to the station's Festivals:
+
+```ts
+async findFestivals(query: FestivalQuery): Promise<FestivalListing[]> {
+    const listings = await this.searchFestivals(query.name, query.from);
+    return listings.map(toFestivalListing); // id, name, startsOn, endsOn, venue, city, url, acts
+}
+```
+
+It is optional, and it is asked only when somebody looks a festival up, never on air. What it answers is
+shown to the operator, who edits it before it is kept, so unlike `getConcerts` it may carry what you are
+unsure of. Leave out what is not on, and leave the festival's own name out of `acts`, since services list
+the festival among its performers. A refusal throws, and the console names the plugin that could not answer.
+
 ## Saying what it is like outside
 
 A `weather` plugin has one method, and the caller supplies the place:
@@ -1513,6 +1527,14 @@ you are making is one item in somebody's running order. Answer `unsupported`
 rather than failing where the thing behind you cannot join what it was given; a
 station that asks has somewhere to go, since a programme whose parts were not
 joined simply airs as its parts.
+
+A join may also carry `overlays` (a sound at a MOMENT, anchored to a boundary
+between two parts) and a `bed` (a sound for a SPAN, running under every part from
+`leadMs` before the first to `tailMs` after the last). Loop a bed that is shorter
+than what it runs under, cut one that is longer, fade it in and out across its
+edges, and leave the parts where they are: what you answer is longer than the
+parts by exactly `leadMs + tailMs`. The station asks for edges of a second or two,
+and the bundled mixer refuses one past five seconds.
 
 `transcode(request)` is what `transcode` requires: one URL, a bitrate and a
 channel count in, a smaller copy out, as a `mime` and a stream. The station asks

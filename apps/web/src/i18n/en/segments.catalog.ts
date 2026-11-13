@@ -96,6 +96,7 @@ export const segments = {
             description: 'What sort of element it is. It is also the folder the file is filed under.',
             unfamiliar:
                 'The station holds nothing of this kind yet, so <strong>{{kind}}</strong> will appear in the format clock as an hour you can schedule around once this is ready.',
+            bed: 'A music bed runs quietly under a break the station speaks, and never airs on its own. Scope it to a show to give that show its own sound; a bed scoped to nobody plays under every show that has none of its own.',
         },
         drop: 'Drop audio here, or click to choose',
         dropHint:

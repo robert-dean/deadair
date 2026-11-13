@@ -208,6 +208,17 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
                               duckDb: overlay.duckDb ?? 0,
                           })),
                       }),
+                // The same rule again: only a join that asked for a bed names one.
+                ...(request.bed === undefined
+                    ? {}
+                    : {
+                          bed: {
+                              url: request.bed.url,
+                              gainDb: request.bed.gainDb ?? 0,
+                              leadMs: request.bed.leadMs ?? 0,
+                              tailMs: request.bed.tailMs ?? 0,
+                          },
+                      }),
             }),
             timeoutMs: JOIN_TIMEOUT_MS,
         });

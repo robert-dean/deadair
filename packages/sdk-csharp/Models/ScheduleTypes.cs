@@ -460,6 +460,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ResumePlaylist { get; init; }
 
+    /// <summary>Whether a playlist slot plays its playlist in a shuffled order rather than the playlist's own. The order is drawn afresh each time the block opens, so an operator's takeover that ends inside the block draws it again. A slot that shuffles does not pick its playlist up where it left off, whatever resumePlaylist says. Absent is no. Ignored for a chart or a slot with no playlist</summary>
+    [JsonPropertyName("shufflePlaylist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ShufflePlaylist { get; init; }
+
     /// <summary>Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot</summary>
     [JsonPropertyName("enabled")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -640,6 +645,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("resumePlaylist")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ResumePlaylist { get; init; }
+
+    /// <summary>Whether a playlist slot plays its playlist in a shuffled order rather than the playlist's own. The order is drawn afresh each time the block opens, so an operator's takeover that ends inside the block draws it again. A slot that shuffles does not pick its playlist up where it left off, whatever resumePlaylist says. Absent is no. Ignored for a chart or a slot with no playlist</summary>
+    [JsonPropertyName("shufflePlaylist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ShufflePlaylist { get; init; }
 
     /// <summary>Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot</summary>
     [JsonPropertyName("enabled")]

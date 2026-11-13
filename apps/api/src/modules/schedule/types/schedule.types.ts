@@ -358,6 +358,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist",
         ),
+    shufflePlaylist: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether a playlist slot plays its playlist in a shuffled order rather than the playlist's own. The order is drawn afresh each time the block opens, so an operator's takeover that ends inside the block draws it again. A slot that shuffles does not pick its playlist up where it left off, whatever resumePlaylist says. Absent is no. Ignored for a chart or a slot with no playlist",
+        ),
     enabled: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -548,6 +554,12 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist",
+        ),
+    shufflePlaylist: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether a playlist slot plays its playlist in a shuffled order rather than the playlist's own. The order is drawn afresh each time the block opens, so an operator's takeover that ends inside the block draws it again. A slot that shuffles does not pick its playlist up where it left off, whatever resumePlaylist says. Absent is no. Ignored for a chart or a slot with no playlist",
         ),
     enabled: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

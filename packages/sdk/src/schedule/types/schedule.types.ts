@@ -189,6 +189,8 @@ export interface ScheduleSlot {
     live?: boolean;
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     resumePlaylist?: boolean;
+    /** Whether a playlist slot plays its playlist in a shuffled order rather than the playlist's own. The order is drawn afresh each time the block opens, so an operator's takeover that ends inside the block draws it again. A slot that shuffles does not pick its playlist up where it left off, whatever resumePlaylist says. Absent is no. Ignored for a chart or a slot with no playlist */
+    shufflePlaylist?: boolean;
     /** Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot */
     enabled?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
@@ -263,6 +265,8 @@ export interface ScheduleSlotInput {
     live?: boolean;
     /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
     resumePlaylist?: boolean;
+    /** Whether a playlist slot plays its playlist in a shuffled order rather than the playlist's own. The order is drawn afresh each time the block opens, so an operator's takeover that ends inside the block draws it again. A slot that shuffles does not pick its playlist up where it left off, whatever resumePlaylist says. Absent is no. Ignored for a chart or a slot with no playlist */
+    shufflePlaylist?: boolean;
     /** Whether this slot runs. False keeps it without it ever going on air, and leaves it out of overlap until it is turned back on. Absent on a write leaves it as it is, and is on for a new slot */
     enabled?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';

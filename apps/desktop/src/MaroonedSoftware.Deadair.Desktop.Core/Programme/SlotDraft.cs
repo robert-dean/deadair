@@ -107,6 +107,7 @@ public sealed record SlotDraft
                 GuestHosts = slot.GuestHosts,
                 CoHosts = slot.CoHosts,
                 ResumePlaylist = slot.ResumePlaylist,
+                ShufflePlaylist = slot.ShufflePlaylist,
                 Live = slot.Live,
                 Breaks = slot.Breaks,
                 ChartPositions = slot.ChartPositions,
@@ -224,6 +225,7 @@ public sealed record SlotDraft
             GuestHosts = Kept.GuestHosts,
             CoHosts = Kept.CoHosts,
             ResumePlaylist = Kept.ResumePlaylist,
+            ShufflePlaylist = Kept.ShufflePlaylist,
             Live = Kept.Live,
             Breaks = Kept.Breaks,
             ChartPositions = Kept.ChartPositions,
@@ -338,6 +340,9 @@ public sealed record SlotPassthrough
 
     /// <summary>Whether a playlist slot picks its playlist up where it left off; set on the web console.</summary>
     public bool? ResumePlaylist { get; init; }
+
+    /// <summary>Carried through untouched: the console owns the switch, and an older desktop build must not drop it on save.</summary>
+    public bool? ShufflePlaylist { get; init; }
 
     /// <summary>Whether the special is a booked live show; set on the web console.</summary>
     public bool? Live { get; init; }

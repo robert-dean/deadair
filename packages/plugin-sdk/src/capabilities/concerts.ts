@@ -54,6 +54,38 @@ export interface Concert {
     url?: string;
 }
 
+/** What a festival lookup is asked: a festival by name, for an operator about to add it. */
+export interface FestivalQuery {
+    /** The festival's name, as somebody typed it: `Shaky Knees`. A keyword, not an exact match. */
+    name: string;
+    /** The earliest date to answer with, as `YYYY-MM-DD`. Absent means today. */
+    from?: string;
+}
+
+/**
+ * One festival as a ticket service lists it, for an operator to check and then keep.
+ *
+ * Unlike a {@link Concert}, this is not said on air as it stands: the station
+ * shows it to an operator, who edits it and saves it as the station's own row,
+ * and only that row is ever read out. So a listing may carry what a plugin is
+ * unsure of, and the bill is whoever the service lists as performing, in its order.
+ */
+export interface FestivalListing {
+    /** The service's own id for the listing, kept as where an imported festival came from. */
+    id: string;
+    name: string;
+    /** The first day, as `YYYY-MM-DD` on the venue's own calendar. */
+    startsOn: string;
+    /** The last day, inclusive. The same as {@link startsOn} when the service gives no end. */
+    endsOn: string;
+    venue?: string;
+    city?: string;
+    /** The service's page for it. Never read out. */
+    url?: string;
+    /** Who is on the bill, as the service lists them, without the festival's own name. */
+    acts: string[];
+}
+
 /** What makes a plugin a concert source. */
 export interface ConcertsProvider {
     /**
@@ -63,4 +95,10 @@ export interface ConcertsProvider {
      * REFUSED throws instead, for `getWeather`'s reason.
      */
     getConcerts(query: ConcertQuery): Promise<Concert[]>;
+    /**
+     * Festivals matching a name, soonest first, or an empty list. Optional: a plugin that cannot
+     * list festivals leaves it out, and the console's lookup then has nothing from it. Asked only
+     * when an operator looks one up, never on air.
+     */
+    findFestivals?(query: FestivalQuery): Promise<FestivalListing[]>;
 }

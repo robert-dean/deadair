@@ -1,6 +1,6 @@
 ---
 title: 'OccasionCalendarMonths'
-sidebar_position: 2
+sidebar_position: 7
 mdx:
     format: 'md'
 ---

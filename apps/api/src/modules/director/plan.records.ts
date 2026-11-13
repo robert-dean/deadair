@@ -44,6 +44,8 @@ export interface PlanRequest {
     mood?: LyricMood;
     /** The moods the broadcast steers away from, read off the running order beside its mood. */
     avoidMoods?: readonly LyricMood[];
+    /** The festival the broadcast is built around, read off the order's rules. See `SetInputs.festivalId`. */
+    festivalId?: string;
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
     /**
@@ -191,6 +193,7 @@ export const planRecords = async (
             ...(request.era === undefined ? {} : { era: request.era }),
             ...(request.mood === undefined ? {} : { mood: request.mood }),
             ...(request.avoidMoods === undefined || request.avoidMoods.length === 0 ? {} : { avoidMoods: request.avoidMoods }),
+            ...(request.festivalId === undefined ? {} : { festivalId: request.festivalId }),
             avoidSongKeys: request.avoidSongKeys,
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
             ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),

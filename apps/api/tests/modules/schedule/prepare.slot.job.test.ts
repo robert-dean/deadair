@@ -101,6 +101,14 @@ function build(options: Options = {}) {
 }
 
 describe('PrepareSlotJob', () => {
+    it('hands the generator the festival the slot is built around', async () => {
+        const { run, generate } = build({ slot: { ...glam, festivalId: 'f1' } });
+
+        await run();
+
+        expect(generate.mock.calls[0]![0].festivalId).toBe('f1');
+    });
+
     it("chooses the show's opening records from its own brief and period, and keeps them for tonight", async () => {
         const { run, prepared, generate, recorded } = build();
 

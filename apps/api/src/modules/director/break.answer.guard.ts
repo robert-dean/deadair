@@ -8,6 +8,7 @@
  */
 import { DECLINE_QUOTE_MARK } from '#modules/render/script.performance.js';
 import { inventedConcertSentence } from './break.concert.js';
+import { inventedFestivalSentence, type BreakFestival } from './break.festival.js';
 import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
 import {
     isSpeechDelivery,
@@ -675,6 +676,11 @@ export interface AnswerGuard {
      * `inventedConcertSentence`.
      */
     shows?: readonly BreakConcert[];
+    /**
+     * The festival this break was handed and the artists of the records either side, which is what a
+     * sentence naming the festival is held to. Absent asks nothing. See `inventedFestivalSentence`.
+     */
+    festival?: { told: BreakFestival; neighbours: readonly string[] };
     /**
      * The operator's talk direction this break heard, which may lean it and may never be read out.
      * Absent asks nothing, which is every break whose shape does not hear one. See
@@ -1605,6 +1611,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'invented-home':
         'the model called somewhere here that is not where the station is, which a listener there hears as the station not knowing its own town',
     'invented-concert': 'the model announced a show or a date it was not handed, which sends a listener to a venue for nothing',
+    'invented-festival': "the model gave the show's festival a date that is not one of its days, or put an artist on its bill who is not on it",
     'station-sign-off': 'the model said a line to the station by name, as though the station were the listener',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
@@ -1648,6 +1655,7 @@ export type WriteFault =
     | 'unoffered-weather'
     | 'invented-home'
     | 'invented-concert'
+    | 'invented-festival'
     | 'station-sign-off'
     | 'character-trimmed';
 
@@ -1748,6 +1756,13 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // A show nobody confirmed sends a listener to a venue for nothing. English only, like the home check.
     const show = guard.shows === undefined || guard.language !== undefined ? undefined : inventedConcertSentence(speakable, guard.shows);
     if (show !== undefined) return reasoned('invented-concert', show);
+    // The festival's own version of it: a date that is not one of its days, or a record's artist put on
+    // a bill they are not on. English only, on the concert's reason.
+    const fest =
+        guard.festival === undefined || guard.language !== undefined
+            ? undefined
+            : inventedFestivalSentence(speakable, guard.festival.told, guard.festival.neighbours);
+    if (fest !== undefined) return reasoned('invented-festival', fest);
     // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
     // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
     if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');

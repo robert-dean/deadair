@@ -57,7 +57,7 @@ export function packOfSchedule(wire: readonly WireSlot[], ground: Pick<ScheduleG
         name: 'Schedule',
         slots: wire.map(slot => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars -- what is left out is the point
-            const { id, nextDate, enabled, personaId, sourceStationPlaylistId, coHosts, guestHosts, ...rest } = slot;
+            const { id, nextDate, enabled, personaId, sourceStationPlaylistId, coHosts, guestHosts, festivalId, ...rest } = slot;
             const host = personaId === undefined ? undefined : keys.get(personaId);
             const playlist = sourceStationPlaylistId === undefined ? undefined : names.get(sourceStationPlaylistId);
             const carriedCoHosts = people(coHosts);
@@ -142,7 +142,9 @@ export function planSchedulePack(pack: SchedulePack, ground: ScheduleGround): Sc
 
 /** An entry with its keys and names swapped back for this station's ids, and what could not be. */
 function inputOf(entry: Record<string, unknown>, ground: ScheduleGround) {
-    const { personaKey, stationPlaylistName, coHosts, guestHosts, ...rest } = entry;
+    // A festival is this station's own row and a file never names one; an id in a hand-made file is dropped.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- what is left out is the point
+    const { personaKey, stationPlaylistName, coHosts, guestHosts, festivalId, ...rest } = entry;
     const cleared: { kind: string; message: string }[] = [];
     const input: Record<string, unknown> = { ...rest };
 

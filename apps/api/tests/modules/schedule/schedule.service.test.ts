@@ -13,6 +13,7 @@ import { ScheduleService } from '../../../src/modules/schedule/schedule.service.
 import type { ScheduleRepository } from '../../../src/modules/schedule/schedule.repository.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
+import type { FestivalRepository } from '../../../src/modules/schedule/festival.repository.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import type { ScheduleSlotInput } from '../../../src/modules/schedule/types/schedule.types.js';
 import type { PersonaKind } from '../../../src/modules/personas/persona.js';
@@ -35,6 +36,7 @@ function build(
         airing?: string;
         settings?: Record<string, string>;
         personas?: Record<string, { kinds: PersonaKind[]; label: string }>;
+        festivals?: readonly string[];
     } = {},
 ) {
     const slots = {
@@ -70,7 +72,11 @@ function build(
         find: vi.fn(async (id: string) => (options.personas?.[id] === undefined ? undefined : { id, ...options.personas[id] })),
     } as unknown as PersonaRepository;
 
-    return new ScheduleService(slots, director, personas, config, logger);
+    const festivals = {
+        find: vi.fn(async (id: string) => (options.festivals?.includes(id) ? { id } : undefined)),
+    } as unknown as FestivalRepository;
+
+    return new ScheduleService(slots, director, personas, festivals, config, logger);
 }
 
 describe('ScheduleService.current', () => {
@@ -282,6 +288,23 @@ describe('ScheduleService.update', () => {
         const { slots } = await service.update('countdown', body({ mode: 'setlist', breaks: true }));
 
         expect(slots[0]).toMatchObject({ mode: 'setlist', breaks: true });
+    });
+
+    it('stores the festival a slot is built around, and hands it back', async () => {
+        const festival = '0a0b0c0d-0000-4000-8000-0000000000f1';
+        const service = build({ slots: [slot('weekend', 12 * 60, 18 * 60)], festivals: [festival] });
+
+        const { slots } = await service.update('weekend', body({ festivalId: festival }));
+
+        expect(slots[0]).toMatchObject({ festivalId: festival });
+    });
+
+    it('refuses a festival the station does not hold, rather than letting the key answer a 500', async () => {
+        const service = build({ slots: [slot('weekend', 12 * 60, 18 * 60)] });
+
+        await expect(service.update('weekend', body({ festivalId: '0a0b0c0d-0000-4000-8000-0000000000f2' }))).rejects.toMatchObject({
+            statusCode: 400,
+        });
     });
 
     it('stores a request show and hands it back the same way', async () => {

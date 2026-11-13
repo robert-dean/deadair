@@ -102,6 +102,12 @@ export interface SetInputs {
      * generator for the same reason. See `director/mood.lean.ts`.
      */
     avoidMoods?: readonly LyricMood[];
+    /**
+     * The festival this broadcast is built around, by its id, from the order's rules or the slot. Read
+     * through `FestivalBill`, once per refill, by `FestivalSetGenerator` and the model. Absent is no
+     * festival, and a festival removed since reads as none.
+     */
+    festivalId?: string;
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

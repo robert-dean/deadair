@@ -65,6 +65,8 @@ interface Options {
     mode?: StationLineupMode;
     /** What the operator asked this broadcast to play. Absent is a station programming itself. */
     brief?: string;
+    /** The festival the broadcast's rules name. */
+    festivalId?: string;
     existing?: RundownTrack[];
     /** What the generator names. Defaults to twenty tracks, more than any ask here. */
     picks?: TrackPick[];
@@ -91,6 +93,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
         onEnd: 'extend',
         source: 'director',
         ...(options.brief === undefined ? {} : { brief: options.brief }),
+        ...(options.festivalId === undefined ? {} : { rules: { festivalId: options.festivalId } }),
         ...(options.moods === undefined ? {} : { moods: options.moods }),
         ...(options.avoidMoods === undefined ? {} : { avoidMoods: options.avoidMoods }),
         ...(options.slotId === undefined ? {} : { slotId: options.slotId }),
@@ -179,6 +182,14 @@ describe('ExtendLineupJob', () => {
         await job.run({ count: 10 });
 
         expect(generate.mock.calls[0]![0]!.count).toBeGreaterThan(10);
+    });
+
+    it('hands the generator the festival the broadcast is built around, off its rules', async () => {
+        const { job, generate } = build({ festivalId: 'f1' });
+
+        await job.run({ count: 5 });
+
+        expect(generate.mock.calls[0]![0]!.festivalId).toBe('f1');
     });
 
     it('passes the operator’s brief on every refill, not just the first', async () => {

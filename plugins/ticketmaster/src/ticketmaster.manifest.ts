@@ -53,7 +53,8 @@ export const ticketmasterManifest: PluginManifest = {
     version: PLUGIN_VERSION,
     capabilities: [PLUGIN_CAPABILITY_CONCERTS],
     apiVersion: '^1.0.0',
-    description: "Says when the artists on a show are next playing near the station, from Ticketmaster's listings.",
+    description:
+        "Says when the artists on a show are next playing near the station, from Ticketmaster's listings, and looks festivals up by name for the Festivals tab.",
     permissions: {
         // Five a second is the key's published default.
         network: [

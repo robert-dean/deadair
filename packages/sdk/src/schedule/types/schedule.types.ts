@@ -159,6 +159,8 @@ export interface ScheduleSlot {
     chartPositions?: boolean;
     /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
     concerts?: boolean;
+    /** The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this */
+    festivalId?: string;
     /** Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away */
     requestShow?: boolean;
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
@@ -237,6 +239,8 @@ export interface ScheduleSlotInput {
     chartPositions?: boolean;
     /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
     concerts?: boolean;
+    /** The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this */
+    festivalId?: string;
     /** Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away */
     requestShow?: boolean;
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */

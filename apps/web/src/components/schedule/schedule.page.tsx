@@ -15,6 +15,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
+import { FestivalsPanel } from './festivals.panel';
 import { OccasionsPanel } from './occasions.panel';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, stationClockAt, weekdayOf } from './schedule.day';
@@ -104,9 +105,10 @@ export const PROGRAMME_TABS = [
     programmeTab('requests'),
     programmeTab('rules'),
     programmeTab('occasions'),
+    programmeTab('festivals'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function programmeTab<TKey extends 'today' | 'week' | 'specials' | 'sustaining' | 'requests' | 'rules' | 'occasions'>(key: TKey) {
+function programmeTab<TKey extends 'today' | 'week' | 'specials' | 'sustaining' | 'requests' | 'rules' | 'occasions' | 'festivals'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -397,6 +399,9 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             {/* What a date means here, and what a presenter knows about it. See the panel. */}
             {tab === 'occasions' ? <OccasionsPanel /> : undefined}
 
+            {/* The festivals a slot can name. See the panel. */}
+            {tab === 'festivals' ? <FestivalsPanel /> : undefined}
+
             {/* The other half of "what happens when", and the reason Today is a tab rather than the
                 day grid: a band is a rule about every hour and has no place on a week. */}
             {tab === 'today' ? <ClockPanel /> : undefined}
@@ -551,6 +556,8 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
+        // And its festival, or a drag would turn a festival weekend back into an ordinary show.
+        ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),

@@ -55,6 +55,8 @@ interface Options {
     preemptedTimes?: number;
     mode?: StationLineupMode;
     brief?: string;
+    /** The festival the broadcast's rules name. */
+    festivalId?: string;
     existing?: RundownTrack[];
     picks?: TrackPick[];
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
@@ -69,6 +71,7 @@ function build(options: Options = {}) {
         onEnd: 'extend',
         source: 'director',
         ...(options.brief === undefined ? {} : { brief: options.brief }),
+        ...(options.festivalId === undefined ? {} : { rules: { festivalId: options.festivalId } }),
     });
 
     const lineups = {
@@ -199,6 +202,14 @@ describe('ReplanLineupJob', () => {
         await job.run({ count: 2 });
 
         expect(generate.mock.calls[0]![0]!.queuedArtistKeys).toEqual(new Set([artistKey(['Survivor'])]));
+    });
+
+    it('hands the generator the festival the broadcast is built around, off its rules', async () => {
+        const { job, generate } = build({ festivalId: 'f1' });
+
+        await job.run({ count: 2 });
+
+        expect(generate.mock.calls[0]![0]!.festivalId).toBe('f1');
     });
 
     it('programmes against the brief the broadcast is already carrying', async () => {

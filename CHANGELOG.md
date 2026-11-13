@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.101.0] — 2026-11-13
+
+- The band editor on the schedule page has an "On the dot" switch for a band at a time of day, which makes it a hard marker, and the clock list tags a hard band "on the dot".
+- A rule on the format clock at a time of day can now be switched to On the dot, and it then airs exactly at its time instead of when the record playing at that time finishes. When the music runs late, that record is faded out over about three seconds to end on the time, by at most "Seconds a hard marker may cut" (two minutes). When the music runs early, the station waits for the time rather than airing ahead of it, playing a recording of kind `bed` and fading it out on the time, for at most "Seconds a hard marker may wait" (a minute) and only with a bed half a minute longer than the wait. Both settings are under Settings, Breaks, and zero switches either half off. Where it could do either it takes whichever moves the music less; where it can do neither the rule airs late, as before, and the log says why. Clock files carry the switch.
+- The format clock's description no longer says a record is never cut off mid-way, since a band set to On the dot can fade one out to start on time.
+
 ## [0.100.0] — 2026-11-13
 
 - The library has a `bed` kind for music beds: recordings that run under a break rather than airing as one. A bed comes in through the same doors as any recording (the `bed/` inbox folder, an upload, an address) and is scoped to shows with the same picker, but it is never offered on the format clock and a band can never draw one as a break. The upload card says what a bed is for when that kind is chosen.
@@ -2049,7 +2055,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.100.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.101.0...HEAD
+[0.101.0]: https://github.com/robert-dean/deadair/compare/v0.100.0...v0.101.0
 [0.100.0]: https://github.com/robert-dean/deadair/compare/v0.99.0...v0.100.0
 [0.99.0]: https://github.com/robert-dean/deadair/compare/v0.98.1...v0.99.0
 [0.98.1]: https://github.com/robert-dean/deadair/compare/v0.98.0...v0.98.1

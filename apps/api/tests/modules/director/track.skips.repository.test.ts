@@ -54,7 +54,7 @@ describe('TrackSkipsRepository.record', () => {
             expect.arrayContaining(['main', songKey('Song', ['The Band']), artistKey(['The Band']), 12_346, 'actor-1']),
         );
         expect(sweep?.sql).toContain('delete from "deadair"."track_skips"');
-        expect(sweep?.sql).toContain("'120 days'");
+        expect(sweep?.sql).toContain("'400 days'");
     });
 });
 

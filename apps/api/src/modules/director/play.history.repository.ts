@@ -23,13 +23,32 @@ export interface PlayHistoryEntry {
 }
 
 /**
- * How long a station may run before its history is trimmed.
+ * The furthest back any ROTATION rule reads: the deep-cut lean's "never aired here", the smart
+ * shuffle's longest horizon, the artist-return range and the route walk all stop here.
  *
- * Far past the longest window any rule reads, so pruning can never take a row a
- * rotation still cares about. It exists so a station left running for a year
- * does not carry a table nobody will ever query.
+ * It was also how long rows were kept, and the two came apart when the station's own chart needed a
+ * year of history ({@link PLAY_HISTORY_KEPT_DAYS}). Keeping more rows must not change what the
+ * rotation does with them: a deep cut is still a record not aired in these 120 days, and a smart
+ * shuffle setting is still bounded by them, so the readers keep this number and only the sweep
+ * moved.
  */
 export const PLAY_HISTORY_RETENTION_DAYS = 120;
+
+/**
+ * How long a station may run before its history is trimmed.
+ *
+ * Far past the longest window any reader uses, so pruning can never take a row something still
+ * cares about. It exists so a station left running for years does not carry a table nobody will
+ * ever query.
+ *
+ * The longest reader is the station's own chart (`charts/station.chart.ts`), which ranks every week
+ * of the last year to work out a record's peak, its weeks on the chart and the favourites: fifty-two
+ * weeks back from an edition that can itself be a fortnight old is 378 days. Rows were kept for
+ * {@link PLAY_HISTORY_RETENTION_DAYS} before the chart existed. At the live station's rate of about
+ * six hundred records a week, a year is some thirty thousand rows on three indexes, which is nothing.
+ * `track_skips` is swept to the same age, since the chart reads both.
+ */
+export const PLAY_HISTORY_KEPT_DAYS = 400;
 
 /** Writes between retention sweeps. A track boundary is not the moment to delete a year of rows. */
 const PRUNE_EVERY = 50;
@@ -378,13 +397,13 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
-     * Drop anything older than the retention window.
+     * Drop anything older than {@link PLAY_HISTORY_KEPT_DAYS}.
      *
      * Deliberately NOT scoped to a station, unlike the two reads above: retention is one number for
      * the install, and a sweep that ran per station would leave every other station's rows to
      * whichever station happened to be airing.
      */
-    async prune(days = PLAY_HISTORY_RETENTION_DAYS): Promise<number> {
+    async prune(days = PLAY_HISTORY_KEPT_DAYS): Promise<number> {
         const result = await this.db
             .deleteFrom('deadair.playHistory')
             .where('airedAt', '<', sql<DateTime>`now() - ${sql.lit(`${Math.floor(days)} days`)}::interval`)

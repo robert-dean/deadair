@@ -8,6 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { qualifyChartId, splitChartId } from './chart.ids.js';
+import { STATION_CHART_QUALIFIER, StationChartSource } from './station.chart.source.js';
 import type { ChartPage, ChartQuery, StationChart, StationChartList } from './types/charts.types.js';
 import { clampLimit } from '#modules/shared/limit.clamp.js';
 
@@ -32,6 +33,15 @@ import { clampLimit } from '#modules/shared/limit.clamp.js';
  * spacing already live. Keeping that boundary is what stops a chart plugin from
  * being able to put a record on air that the operator forbade.
  *
+ * ## The station's own charts sit on the same menu
+ *
+ * `StationChartSource` offers a weekly chart and a favourites list worked out from what the station
+ * itself aired and was asked for, under the `station` qualifier where a plugin id would be. They are
+ * listed LAST, after every plugin's, so whatever a caller picked by taking the first chart on the
+ * menu before they existed it still picks. {@link hasCharts} still answers for plugins alone: it
+ * gates the model's chart tool and the refill's chart share, and neither should start doing
+ * something on a station that installed nothing because the station has a history.
+ *
  * ## A plugin that cannot answer contributes nothing
  *
  * Every call into a plugin is caught and logged rather than thrown, the same
@@ -46,9 +56,14 @@ export class ChartsService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly station: StationChartSource,
     ) {}
 
-    /** Whether anything can answer at all, for a caller deciding whether to offer the feature. */
+    /**
+     * Whether a chart PLUGIN can answer, for a caller deciding whether to offer the feature.
+     *
+     * The station's own charts are always there and deliberately do not count; see the class comment.
+     */
     hasCharts(): boolean {
         return this.plugins().length > 0;
     }
@@ -146,6 +161,8 @@ export class ChartsService {
             }
         }
 
+        // Last, so the menu's first entry is whatever it was before the station had charts of its own.
+        charts.push(...this.station.charts());
         return charts;
     }
 
@@ -210,6 +227,15 @@ export class ChartsService {
         if (!address) {
             this.logger.info(`charts: "${qualifiedId}" is not a chart id (expected "pluginId:chartId")`);
             return [];
+        }
+
+        if (address.pluginId === STATION_CHART_QUALIFIER) {
+            try {
+                return await this.station.fetch(address.chartId, clampLimit(limit, MAX_CHART_ENTRIES), date);
+            } catch (error) {
+                this.logger.warn(`charts: the station's own chart could not be read (${qualifiedId}: ${errorText(error)})`);
+                return [];
+            }
         }
 
         const plugin = this.plugins().find(candidate => candidate.record.id === address.pluginId);

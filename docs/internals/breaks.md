@@ -593,7 +593,7 @@ intro-only one with an optional rank never fires there.
 names a pick `deepCut` when the deep-cut lean drew it (`programming.md`), `PickResolver` copies it beside
 `chart` as the other field taken from the pick, and `describe` shows `- Deep cut: an album track this station
 has not played in months` behind `withFacts`. "In months" rather than a figure, because the claim the lean
-can actually back is "not inside the 120 days of history kept", and a number would invite the model to state
+can actually back is "not inside the 120 days of history the rotation reads", and a number would invite the model to state
 one. No switch of its own and no floor variable: it is material, and the floor says nothing it was not
 built to.
 

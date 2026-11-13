@@ -167,9 +167,9 @@ reason #37 gives against ranking by play counts.
 `rotation.deepCuts` (on) stamps `deepCut` on a sampled record that has a `track_number`, is not liked for
 itself (a record liked for itself is a favourite, which the like already draws), sits on an album that
 `CandidatesRepository.albumsWithLikes` says the operator likes (the album rated, or any live record on it
-rated), and whose song key has not aired in the whole retention; `weightOf` multiplies it by `DEEP_CUT_LEAN`.
+rated), and whose song key has not aired in the rotation's whole horizon; `weightOf` multiplies it by `DEEP_CUT_LEAN`.
 Three decisions. **No track number, no deep cut**: without its place on the album nothing says it is not the
-single. **"Never aired" reads the retention**, which means the smart shuffle's `lastAiredSince` is asked for
+single. **"Never aired" reads the rotation's 120 days** (`PLAY_HISTORY_RETENTION_DAYS`; rows are kept longer, for the station's own chart), which means the smart shuffle's `lastAiredSince` is asked for
 120 days whenever this is on, and that is free for the shuffle: an airing older than its horizon weighs
 exactly like an absent one, so one read serves both (`historyDaysForLeans`). **Likes again, never plays**,
 and the album lookup is asked only about records that could qualify, over an index added for it

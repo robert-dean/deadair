@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
 import type { RundownItem } from '#modules/playout/rundown.js';
-import { PLAY_HISTORY_RETENTION_DAYS } from './play.history.repository.js';
+import { PLAY_HISTORY_KEPT_DAYS } from './play.history.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
 
 /** One record an operator cut short with Skip. */
@@ -48,7 +48,7 @@ export class TrackSkipsRepository extends DataRepository {
 
         await this.db
             .deleteFrom('deadair.trackSkips')
-            .where('skippedAt', '<', sql<DateTime>`now() - ${sql.lit(`${PLAY_HISTORY_RETENTION_DAYS} days`)}::interval`)
+            .where('skippedAt', '<', sql<DateTime>`now() - ${sql.lit(`${PLAY_HISTORY_KEPT_DAYS} days`)}::interval`)
             .execute();
     }
 

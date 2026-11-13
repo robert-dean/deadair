@@ -15,6 +15,7 @@ import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import type { StationChartSource } from '../../../src/modules/charts/station.chart.source.js';
 
 const LASTFM = 'deadair.lastfm';
 const APPLE = 'deadair.apple';
@@ -68,10 +69,24 @@ function record(id: string, overrides: Partial<PluginRecord> = {}, options: Inst
     };
 }
 
-const build = (records: PluginRecord[], rows: Record<string, string> = {}): ChartsService => {
+/**
+ * The station's own charts, stubbed: none on the menu unless a test asks, so every plugin case here
+ * reads the menu exactly as it did before the station had charts of its own.
+ */
+const stationSource = (
+    charts: ReturnType<StationChartSource['charts']> = [],
+    fetch = vi.fn(async (): Promise<ChartEntry[]> => []),
+): StationChartSource => ({ charts: () => charts, fetch }) as unknown as StationChartSource;
+
+const build = (
+    records: PluginRecord[],
+    rows: Record<string, string> = {},
+    station: StationChartSource = stationSource(),
+    logger: Logger = stubLogger(),
+): ChartsService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
-    return new ChartsService(registry, new PluginInvoker(registry, stubPluginLog().log), settingsConfig(rows).config, stubLogger());
+    return new ChartsService(registry, new PluginInvoker(registry, stubPluginLog().log), settingsConfig(rows).config, logger, station);
 };
 
 beforeEach(() => {
@@ -298,5 +313,44 @@ describe('fetching one', () => {
         const fetchChart = vi.fn(async () => [entry(1, 'One', 'A'), entry(2, 'Two', 'B'), entry(3, 'Three', 'C')]);
         const service = build([record(LASTFM, {}, { fetchChart })]);
         expect(await service.fetchChart(`${LASTFM}:top-100`, 2)).toHaveLength(2);
+    });
+});
+
+describe("ChartsService and the station's own charts", () => {
+    const own = [{ id: 'station:top-40', pluginId: 'station', name: 'deadair Top 40' }];
+
+    it('lists them after every plugin, so the first chart on the menu is the one it always was', async () => {
+        const service = build([record(LASTFM)], {}, stationSource(own));
+
+        const ids = (await service.listCharts()).map(chart => chart.id);
+
+        expect(ids).toEqual([qualifyChartId(LASTFM, 'top-100'), 'station:top-40']);
+    });
+
+    it('does not count them as something that can answer, so the tool and the chart share stay off with no plugin', () => {
+        expect(build([], {}, stationSource(own)).hasCharts()).toBe(false);
+    });
+
+    it('reads a station chart from the station, with the edition date and a clamped limit, and asks no plugin', async () => {
+        const fetch = vi.fn(async (): Promise<ChartEntry[]> => [entry(1, 'Glory Box', 'Portishead')]);
+        const plugin = record(LASTFM);
+        const service = build([plugin], {}, stationSource(own, fetch));
+
+        const entries = await service.fetchChart('station:top-40', 1000, '2026-11-02');
+
+        expect(entries).toEqual([entry(1, 'Glory Box', 'Portishead')]);
+        expect(fetch).toHaveBeenCalledWith('top-40', MAX_CHART_ENTRIES, '2026-11-02');
+        expect((plugin.instance as unknown as { fetchChart: ReturnType<typeof vi.fn> }).fetchChart).not.toHaveBeenCalled();
+    });
+
+    it('answers nothing, and says why, when the station cannot read its own history', async () => {
+        const logger = stubLogger();
+        const fetch = vi.fn(async (): Promise<ChartEntry[]> => {
+            throw new Error('connection refused');
+        });
+        const service = build([], {}, stationSource(own, fetch), logger);
+
+        expect(await service.fetchChart('station:top-40', 40)).toEqual([]);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('connection refused'));
     });
 });

@@ -259,7 +259,7 @@ export interface RundownItem {
     link?: { fromSongKey: string; reason: string };
     /**
      * Drawn as a deep cut: an album track off an album the operator likes, not aired here in the
-     * history the station keeps. Set on {@link chart}'s rule and read by the break writer only.
+     * history the rotation reads. Set on {@link chart}'s rule and read by the break writer only.
      */
     deepCut?: true;
     /**

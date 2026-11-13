@@ -112,6 +112,58 @@
             "mcp__ccd_session_mgmt__get_session",
             "mcp__visualize__read_me",
             "mcp__visualize__show_widget"
+        ],
+        "ask": [
+            "Bash(pnpm rebuild:data*)",
+            "Bash(pnpm migrate:down*)",
+            "Bash(pnpm db:reset*)",
+            "Bash(pnpm flush:sessions*)",
+            "Bash(pnpm --filter @deadair/api rebuild:data*)",
+            "Bash(pnpm --filter @deadair/api migrate:down*)",
+            "Bash(docker compose down -v*)",
+            "Bash(docker compose down --volumes*)",
+            "Bash(docker compose rm*)",
+            "Bash(git push --force*)",
+            "Bash(git push -f*)",
+            "Bash(git push * --force*)",
+            "Bash(git push * -f*)",
+            "Bash(git push origin main*)",
+            "Bash(git push origin HEAD:main*)",
+            "Bash(git reset --hard*)",
+            "Bash(git clean -f*)",
+            "Bash(git clean -d*)"
         ]
+    },
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Edit|Write|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/generated.guard.sh"
+                    },
+                    {
+                        "type": "command",
+                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ratchet.guard.sh"
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "Edit|Write|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/codegen.reminder.sh"
+                    }
+                ]
+            }
+        ]
+    },
+    "attribution": {
+        "commit": "",
+        "pr": ""
     }
 }

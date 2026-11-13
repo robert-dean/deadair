@@ -89,7 +89,7 @@ that fails there goes upstream too.
 
 Codegen does not wire itself up. After adding a **new** `.ck` operation file:
 
-- Register the router in [routes.setup.ts](apps/api/src/routes/routes.setup.ts). It is a
+- Register the router in [routes.setup.ts](../../../apps/api/src/routes/routes.setup.ts). It is a
   hand-written import list; a generated router that is not in it is dead code.
 - Make sure every service named in `options { services: { ... } }` exists and is registered in its
   module's DI container. The generated router calls `ctx.container.get(SomeService)` and then the

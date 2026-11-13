@@ -18,6 +18,11 @@ The reasoning behind each rule — the measured failure, the fix that was chosen
 you are changing the thing they describe**: most of their paragraphs exist because the obvious fix
 was shipped first and was wrong.
 
+The short form of the must-know rules is in `.claude/rules/`, one file per area, each loaded
+automatically when a file its `paths:` matches is touched: settings, the database, migrations,
+contracts, plugins, the running order and tests. They state the rule and point at the section that
+argues it; they replace none of it.
+
 | Working on | Read |
 | --- | --- |
 | `apps/api/src/**` (lifecycle, config, settings, DI, connections) | [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) |
@@ -221,7 +226,9 @@ picked up by adding its own `vitest.config.ts` as usual.
 
 ## Adding to these files
 
-A new rule goes in the scoped file that covers the thing it is about, not here. This file grows only
+A new rule goes in the scoped file that covers the thing it is about, not here, and if it is one a
+session must know before its first edit there, as one line in the matching `.claude/rules/` file
+too. This file grows only
 when a rule genuinely applies everywhere — there are five, and that number should be hard to move.
 The reason is measurable: this file was 153KB and was loaded into every session whatever the task
 was, which is a standing cost paid by every question anybody asks about any part of the tree.

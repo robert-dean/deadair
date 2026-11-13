@@ -234,7 +234,7 @@ loud, so mixing each one at unity put it wherever its maker left it: twelve deci
 landed on, or lost under them. `padGainDb` (`render/pad.level.ts`) turns the pad's measured `loudnessLufs`
 into a gain against `ASSUMED_SPEECH_LUFS`, and the two shapes of hit get different targets on purpose. An
 OVERLAY sits `render.padLevelDb` under the words (six by default, which is a sound clearly heard as a second
-thing and never louder than what is being said; the eighteen a music bed sits at is a drop nobody hears) and
+thing and never louder than what is being said; eighteen under is where a music bed sits, which is a sound felt rather than heard, and a drop nobody hears; see § "Beds") and
 rides `AudioOverlay.gainDb`. A STING is a part between two takes with nothing underneath it, so it is levelled
 TO the words rather than under them and rides the part's own `gainDb` in `AudioJoin.parts`. Three bounds:
 the figure is against the assumed speech level rather than a measured take, because the takes are spoken and
@@ -372,7 +372,10 @@ when it has none, another show's never (the recording rule in `BreakPlanner.ownF
 last break of the pass had where there is another. Only breaks the station WRITES get one (the station's own
 talk breaks, written bands, a programme's introduction). A recording off the shelf was produced already, a
 requested break may be an interruption spoken over a record, and a production is one programme rather than
-breaks. A read that fails plants the breaks without a bed.
+breaks. A read that fails plants the breaks without a bed. Because the choice is made at planting, switching a
+show's beds off (`StationLineupRules.beds`) dries the breaks planted from then on, and the ones already in the
+order (about an hour of them) keep the bed they were planted with. `addSegmentToOrder` refuses a bed outright,
+and refuses a bedded break as a talk-over, for the two reasons above and below.
 
 **A bedded break is never talked over a record**, because a record is a bed already and music over music is
 the one mix nobody wants. The director's talk-up and talk-out candidates both skip a row with a bed, and

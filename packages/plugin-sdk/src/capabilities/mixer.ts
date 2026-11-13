@@ -129,10 +129,13 @@ export interface AudioBed {
      */
     gainDb?: number;
 
-    /** How long the bed runs before the first word, in milliseconds. Absent is none. */
+    /**
+     * How long the bed runs before the first word, in milliseconds. Absent is none. The bundled
+     * mixer refuses anything past five seconds, past which a bed has become a record of its own.
+     */
     leadMs?: number;
 
-    /** How long the bed runs after the last word, in milliseconds. Absent is none. */
+    /** How long the bed runs after the last word, in milliseconds. Absent is none, and the same bound. */
     tailMs?: number;
 }
 

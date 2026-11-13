@@ -233,6 +233,9 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
 
             const base = resolvePlayoutBaseUrl(this.config);
             const joined = await this.mixer.join(segment.label, [this.signer.sign(storedAudioUrl(base, voice.checksum, voice.ext))], 0, {
+                // The words are finished audio, already trimmed where they were spoken or joined: a
+                // second trim could take a drop at the edge of a padded break, or a breath, with it.
+                trim: false,
                 bed: {
                     url: this.signer.sign(storedAudioUrl(base, bed.audioChecksum, bed.audioExt)),
                     gainDb: bedGainDb(bed.loudnessLufs, bedLevelDb(this.config)),

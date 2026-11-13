@@ -681,6 +681,8 @@ describe('RenderSegmentJob laying a break over its bed', () => {
         expect(urls[0]).toContain('/abc/mp3');
         expect(gapMs).toBe(0);
         expect(options.bed).toEqual(expect.objectContaining({ leadMs: 1500, tailMs: 1500 }));
+        // The finished words are not trimmed a second time.
+        expect((options as unknown as { trim: boolean }).trim).toBe(false);
         expect(options.bed.url).toContain('bed-sum');
         // Eighteen under the assumed speech level, from a bed measured at -14.
         expect(options.bed.gainDb).toBeCloseTo(-26.5 - 18 + 14, 1);

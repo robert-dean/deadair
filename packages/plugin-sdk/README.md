@@ -1519,7 +1519,8 @@ between two parts) and a `bed` (a sound for a SPAN, running under every part fro
 `leadMs` before the first to `tailMs` after the last). Loop a bed that is shorter
 than what it runs under, cut one that is longer, fade it in and out across its
 edges, and leave the parts where they are: what you answer is longer than the
-parts by exactly the two edges.
+parts by exactly `leadMs + tailMs`. The station asks for edges of a second or two,
+and the bundled mixer refuses one past five seconds.
 
 `transcode(request)` is what `transcode` requires: one URL, a bitrate and a
 channel count in, a smaller copy out, as a `mime` and a stream. The station asks

@@ -215,7 +215,9 @@ class JoinBed(BaseModel):
     url: str
     # How far under its own master the bed is mixed, in decibels. The caller
     # holds the measurement and so the opinion, exactly as for an overlay.
-    gainDb: float = 0.0
+    # Bounded so a request cannot ask for a bed that `with_headroom` would then
+    # scale the whole join down to nothing to make room for.
+    gainDb: float = Field(default=0.0, ge=-60.0, le=24.0)
     leadMs: int = 0
     tailMs: int = 0
 

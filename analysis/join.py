@@ -282,16 +282,21 @@ def looped_to(bed: np.ndarray, frames: int, sample_rate: int = SAMPLE_RATE) -> n
         repeats = -(-frames // bed.shape[0])
         return np.tile(bed, (repeats, 1))[:frames].copy()
 
+    # Written into one buffer of the final length rather than grown by concatenation, which
+    # copied everything built so far on every pass: a short bed under a long break was quadratic.
     ramp = np.linspace(0.0, 1.0, seam, dtype=np.float32)[:, None]
-    out = bed.copy()
-    while out.shape[0] < frames:
-        # The tail of what is there fades out while the head of the next pass
-        # fades in over the same `seam` frames, so each pass adds the bed's
-        # length less one seam.
-        tail = out[-seam:] * (1.0 - ramp) + bed[:seam] * ramp
-        out = np.concatenate([out[:-seam], tail, bed[seam:]], axis=0)
+    out = np.empty((frames, bed.shape[1]), dtype=np.float32)
+    out[: bed.shape[0]] = bed
+    at = bed.shape[0]
+    while at < frames:
+        # The tail of what is there fades out while the head of the next pass fades in over the
+        # same `seam` frames, so each pass adds the bed's length less one seam.
+        out[at - seam : at] = out[at - seam : at] * (1.0 - ramp) + bed[:seam] * ramp
+        take = min(bed.shape[0] - seam, frames - at)
+        out[at : at + take] = bed[seam : seam + take]
+        at += take
 
-    return out[:frames]
+    return out
 
 
 def lay_bed(

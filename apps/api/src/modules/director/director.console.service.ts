@@ -24,7 +24,7 @@ import { cannotPresent } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
-import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { BED_KIND, SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { ratingFromColumn } from '#modules/catalog/rating.js';
 import { isPlaylistSource, isStationPlaylistSource, minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
 import { resumeAfter, resumeIndex, shuffledOrder } from './playlist.resume.js';
@@ -1618,7 +1618,8 @@ export class DirectorConsoleService {
     /**
      * Put a segment into the running order at a position.
      *
-     * @throws 404 when the segment does not exist, and 422 when it has no audio.
+     * @throws 404 when the segment does not exist, and 422 when it has no audio, when it is a music
+     *   bed, or when a break laid over a bed is asked to ride a record.
      *   Refused at the door rather than planted and skipped when it comes round: an
      *   operator who asks for a specific ident should be told it cannot play, not
      *   watch the order accept it and the station quietly pass over it.
@@ -1628,6 +1629,16 @@ export class DirectorConsoleService {
         if (segment === undefined) throw httpError(404).withDetails({ message: 'no such segment' });
         if (segment.state !== 'ready') {
             throw httpError(422).withDetails({ message: `that segment is ${segment.state} and has no audio to play yet` });
+        }
+        // A bed runs under a break and never airs on its own: put in by hand it would play its whole
+        // length at its own master between two records. See `BED_KIND`.
+        if (segment.kind === BED_KIND) {
+            throw httpError(422).withDetails({ message: 'a music bed runs under a break and never airs on its own' });
+        }
+        // And a break already laid over one never rides a record, which is music over music. See
+        // `Segment.bedSegmentId`.
+        if (input.overAtMs !== undefined && segment.bedSegmentId !== undefined) {
+            throw httpError(422).withDetails({ message: 'a break laid over a music bed airs between records, never over one' });
         }
 
         return await this.editOrder({

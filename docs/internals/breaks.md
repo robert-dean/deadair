@@ -134,7 +134,9 @@ show. Both shelf reads (`listRecordings` for a kind that yields to recordings, `
 for the ident fallback) take the lineup's slot and the presenting persona, never return another show's
 recording, and mark the ones that are this show's own; the planner draws from those when there are any and
 from the station's otherwise (`ownFirst`), a preference rather than a weighting, because a show's own ident
-mixed into a pool of station-wide ones would air a fraction of the time. `segments.show_scoped` is what keeps
+mixed into a pool of station-wide ones would air a fraction of the time. Music beds follow the same scope and
+the same own-first rule through a third read, `listBeds`, though a bed is never drawn as a break: see
+[`render.md`](render.md) § "Beds". `segments.show_scoped` is what keeps
 a recording whose show was deleted off the air: the cascade takes its scope rows, and without the flag it
 would read as unscoped and air everywhere. The slot drawn against is the LINEUP's. A running order is one
 broadcast (`putOnAir` builds a new one for the next show), so a break planted an hour ahead still airs on the
@@ -240,7 +242,9 @@ asks `talkUpRunways` for the runway of the record DIRECTLY after each ready talk
 link would talk over the record after the jingle), and `talkUpAt` (`director/talk.up.ts`) answers
 where in that record to start, or nothing. Nothing is a link in the gap, exactly as before: an
 instrumental, a record with no timed lyrics, a runway under 2.5s, a link that does not fit. **A link is
-never trimmed or rendered again to make it fit**; it simply airs where it always did.
+never trimmed or rendered again to make it fit**; it simply airs where it always did. A link laid over a music
+bed is never a candidate, for this or for the talk-out below, and its writer is offered neither budget: a
+record is a bed already (`render.md` § "Beds").
 
 **A talked-up link waiting for its record is the same cue when it comes round again.** A link in front
 of a record that is not in the batch has nothing to ride on yet, so the hand-over holds it

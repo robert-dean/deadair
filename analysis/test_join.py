@@ -372,3 +372,13 @@ def test_a_bed_edge_outside_the_band_is_refused():
 def test_a_bed_that_disagrees_about_channels_is_refused():
     with pytest.raises(ValueError):
         lay_bed(tone(1.0, channels=2), tone(1.0, channels=1))
+
+
+def test_a_short_bed_under_a_long_break_loops_to_exactly_the_length_asked():
+    # Five minutes over a four-second bed: the shape a bed is usually asked for, and the one a
+    # buffer grown by concatenation made quadratic.
+    frames = 300 * SAMPLE_RATE
+    looped = looped_to(tone(4.0, freq=220.0, channels=2), frames)
+
+    assert looped.shape == (frames, 2)
+    assert float(np.max(np.abs(looped[-SAMPLE_RATE:]))) > 0.4

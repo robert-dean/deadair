@@ -318,3 +318,8 @@ def test_join_refuses_a_bed_edge_outside_the_band() -> None:
     bed = app.JoinBed(url="https://example.invalid/bed.flac", leadMs=app.MAX_BED_EDGE_MS + 1)
     with pytest.raises(AnalysisError):
         _join(["https://example.invalid/a.flac"], 0, False, [], None, bed)
+
+
+def test_a_bed_gain_outside_the_band_is_refused_by_the_model() -> None:
+    with pytest.raises(Exception):
+        app.JoinBed(url="https://example.invalid/bed.flac", gainDb=-200.0)

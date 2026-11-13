@@ -125,7 +125,7 @@ export const schedule = {
             title: 'Sound',
             bedsLabel: 'Music under the breaks',
             bedsDescription:
-                "Breaks the station writes during this show air over a music bed: one of this show's beds, or else one that plays on every show. Untick to keep this show's breaks dry.",
+                "Breaks the station writes during this show air over a music bed: one of this show's beds, or else one that plays on every show. Untick to keep this show's breaks dry; breaks already planned keep theirs.",
             saveFirst: 'Save the show first, then come back to give it its own jingles, idents and beds.',
             kind: {
                 jingle: 'Jingles',

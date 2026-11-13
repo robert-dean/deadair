@@ -2568,7 +2568,14 @@ describe('BreakPlanner choosing a music bed for the show on air', () => {
 
     it('plants every break dry on a show that asked for no beds, without reading them', async () => {
         const { planner, plan, listBeds } = build({ canWrite: true, idents: [ident('seg-1'), recorded('bed-1', 'bed')] });
-        const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import', slotId: 'slot-1', rules: { beds: false } });
+        const lineup = new StationLineup({
+            name: 'Afternoons',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            slotId: 'slot-1',
+            rules: { beds: false },
+        });
         lineup.append(Array.from({ length: 16 }, (_, index) => track(`t${index}`)));
 
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
@@ -2589,7 +2596,22 @@ describe('BreakPlanner choosing a music bed for the show on air', () => {
         expect(bedsPlanned(plan).every(bed => bed === undefined)).toBe(true);
     });
 
-    it('lays a written band over the bed and leaves a recording drawn off the shelf without one', async () => {
+    it('lays a break written for a band over the show bed', async () => {
+        const { planner, plan } = build({
+            canWrite: true,
+            idents: [recorded('bed-1', 'bed')],
+            bands: [{ at: 'interval', everyMs: 2 * TRACK_MINUTES * 60_000, kind: 'news' } as ClockBand],
+        });
+        const lineup = await onShow(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        const news = plan.mock.calls.filter(([input]) => input.kind === 'news');
+        expect(news.length).toBeGreaterThan(0);
+        expect(news.every(([input]) => input.bedSegmentId === 'bed-1')).toBe(true);
+    });
+
+    it('leaves a recording drawn off the shelf without a bed', async () => {
         const { planner, plan } = build({
             canWrite: true,
             yields: ['jingle'],

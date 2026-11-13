@@ -411,7 +411,14 @@ export class BreakPlanner {
         const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup), onAirOf(lineup.slotId, lineup.personaId));
         if (placements.length === 0) return 0;
 
-        const introduced = await this.introduce(lineup, rules, placements, wanted, quiet, this.bedsFor(onAirOf(lineup.slotId, lineup.personaId), lineup));
+        const introduced = await this.introduce(
+            lineup,
+            rules,
+            placements,
+            wanted,
+            quiet,
+            this.bedsFor(onAirOf(lineup.slotId, lineup.personaId), lineup),
+        );
         if (!(await this.insert(lineup, introduced))) return 0;
 
         this.logger.info('director: put a programme into the running order', {

@@ -133,7 +133,7 @@ export class MixerService {
         label: string,
         urls: readonly string[],
         gapMs: number,
-        options: { overlays?: readonly AudioOverlay[]; gainsDb?: readonly (number | undefined)[]; bed?: AudioBed } = {},
+        options: { overlays?: readonly AudioOverlay[]; gainsDb?: readonly (number | undefined)[]; bed?: AudioBed; trim?: boolean } = {},
     ): Promise<JoinedAudio | undefined> {
         const mixer = this.mixer();
         if (mixer === undefined) return undefined;
@@ -151,6 +151,8 @@ export class MixerService {
             ...(options.overlays === undefined || options.overlays.length === 0 ? {} : { overlays: [...options.overlays] }),
             // And a bed only where one was asked for, on the same argument.
             ...(options.bed === undefined ? {} : { bed: options.bed }),
+            // And the trim only where a caller turned it off: absent is the plugin's own default, yes.
+            ...(options.trim === undefined ? {} : { trim: options.trim }),
         };
 
         try {

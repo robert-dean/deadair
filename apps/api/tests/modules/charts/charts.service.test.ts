@@ -355,6 +355,29 @@ describe("ChartsService and the station's own charts", () => {
     });
 });
 
+describe("a plugin cannot speak for the station's own history", () => {
+    it('takes a station record off anything a plugin answers', async () => {
+        const fetchChart = vi.fn(async () => [{ ...entry(1, 'Glory Box', 'Portishead'), station: { plays: 99, requests: 99, liked: true } }]);
+        const service = build([record(LASTFM, {}, { fetchChart })]);
+
+        expect(await service.fetchChart(qualifyChartId(LASTFM, 'top-100'), 10)).toEqual([entry(1, 'Glory Box', 'Portishead')]);
+    });
+
+    it("keeps the station's own record on the station's own chart", async () => {
+        const own = { ...entry(1, 'Glory Box', 'Portishead'), station: { plays: 9, requests: 2, liked: true } };
+        const service = build(
+            [],
+            {},
+            stationSource(
+                [],
+                vi.fn(async () => [own]),
+            ),
+        );
+
+        expect(await service.fetchChart('station:top-40', 40)).toEqual([own]);
+    });
+});
+
 describe('ChartsService.readChart', () => {
     it("carries last week's position onto the page, where the source gave one", async () => {
         const fetchChart = vi.fn(async (): Promise<ChartEntry[]> => [

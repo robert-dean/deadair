@@ -288,6 +288,22 @@ export interface ChartPlacing {
     weeksOn?: number;
     /** Its position in the edition before, where the source tracks it and the record was on it. */
     lastWeek?: number;
+    /**
+     * Why the station's OWN chart placed it: what the record did here over the time that chart
+     * covers. Only `StationChartSource` sets it, and `ChartsService` strips it off anything a plugin
+     * answers, so a placing carrying it is a claim the station's own history makes.
+     */
+    station?: StationChartRecord;
+}
+
+/** What a record did on this station over the time the station's own chart covers. */
+export interface StationChartRecord {
+    /** How many times it aired. */
+    plays: number;
+    /** How many listener requests were made for it, the declined ones left out. */
+    requests: number;
+    /** Whether the station likes it, at track, release or artist level. */
+    liked: boolean;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */

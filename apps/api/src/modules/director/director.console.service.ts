@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { stationCover } from '#modules/art/art.source.token.js';
-import type { ChartEntry } from '@deadair/plugin-sdk';
+import type { HostChartEntry } from '#modules/charts/station.chart.source.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError, IsHttpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
@@ -1210,7 +1210,7 @@ export class DirectorConsoleService {
      *
      * @throws 422 when the id names no chart, or when nothing could read one.
      */
-    private async readChart(chartId: string): Promise<{ address: { pluginId: string }; entries: ChartEntry[] }> {
+    private async readChart(chartId: string): Promise<{ address: { pluginId: string }; entries: HostChartEntry[] }> {
         const address = splitChartId(chartId);
         if (address === undefined) {
             throw httpError(422).withDetails({ message: 'that is not a chart id; it names a plugin and one of its charts, as `plugin:chart`' });

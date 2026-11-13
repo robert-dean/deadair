@@ -61,8 +61,8 @@ describe('StationChartSource', () => {
         expect(repository.editionWeek).toHaveBeenCalledWith(expect.any(String), '2026-11-04');
         expect(repository.history).toHaveBeenCalledWith('main', expect.any(String), WEEK, 52);
         expect(entries).toEqual([
-            { rank: 1, title: 'Glory Box', artist: 'Portishead', peak: 1, weeksOn: 2, lastWeek: 2 },
-            { rank: 2, title: 'Roads', artist: 'Portishead', peak: 1, weeksOn: 2, lastWeek: 1 },
+            { rank: 1, title: 'Glory Box', artist: 'Portishead', peak: 1, weeksOn: 2, lastWeek: 2, station: { plays: 5, requests: 0, liked: false } },
+            { rank: 2, title: 'Roads', artist: 'Portishead', peak: 1, weeksOn: 2, lastWeek: 1, station: { plays: 3, requests: 0, liked: false } },
         ]);
     });
 

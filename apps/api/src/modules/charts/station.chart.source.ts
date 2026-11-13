@@ -8,6 +8,13 @@ import { qualifyChartId } from './chart.ids.js';
 import { StationChartRepository } from './station.chart.repository.js';
 import { favouritesEdition, HISTORY_WEEKS, STATION_CHART_SIZE, weeklyEdition, type StationChartEntry } from './station.chart.js';
 import type { StationChart } from './types/charts.types.js';
+import type { StationChartRecord } from '#modules/playout/rundown.js';
+
+/**
+ * A chart entry as the host hands it on: the plugin SDK's shape, plus what the station's own chart
+ * knows about why a record is on it. Never set on a plugin's entry; see `ChartsService.fetchChart`.
+ */
+export type HostChartEntry = ChartEntry & { station?: StationChartRecord };
 
 /**
  * The qualifier the station's own charts are offered under, where a plugin's id would be.
@@ -72,7 +79,7 @@ export class StationChartSource {
      * `[]` for an id this does not offer, on `ChartsService.fetchChart`'s rule that every way of
      * having no answer is one outcome.
      */
-    async fetch(chartId: string, limit: number, date?: string): Promise<ChartEntry[]> {
+    async fetch(chartId: string, limit: number, date?: string): Promise<HostChartEntry[]> {
         if (!this.offers(chartId) || limit <= 0) return [];
 
         const zone = stationZone(this.config);
@@ -87,12 +94,16 @@ export class StationChartSource {
     }
 }
 
-/** A station chart entry as the plugin SDK spells one, so nothing downstream can tell where it came from. */
-export const toChartEntry = (entry: StationChartEntry): ChartEntry => ({
+/**
+ * A station chart entry as the plugin SDK spells one, so everything downstream reads it as it reads
+ * a plugin's, plus the station's own counts behind the placing for the presenter.
+ */
+export const toChartEntry = (entry: StationChartEntry): HostChartEntry => ({
     rank: entry.rank,
     title: entry.title,
     artist: entry.artist,
     ...(entry.peak === undefined ? {} : { peak: entry.peak }),
     ...(entry.weeksOn === undefined ? {} : { weeksOn: entry.weeksOn }),
     ...(entry.lastWeek === undefined ? {} : { lastWeek: entry.lastWeek }),
+    station: { plays: entry.plays, requests: entry.requests, liked: entry.liked },
 });

@@ -8,7 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { qualifyChartId, splitChartId } from './chart.ids.js';
-import { STATION_CHART_QUALIFIER, StationChartSource } from './station.chart.source.js';
+import { STATION_CHART_QUALIFIER, StationChartSource, type HostChartEntry } from './station.chart.source.js';
 import type { ChartPage, ChartQuery, StationChart, StationChartList } from './types/charts.types.js';
 import { clampLimit } from '#modules/shared/limit.clamp.js';
 
@@ -223,7 +223,7 @@ export class ChartsService {
      * throw them away. It is also clamped here, since a caller's limit reaches
      * a third party's API as a page size.
      */
-    async fetchChart(qualifiedId: string, limit: number, date?: string): Promise<ChartEntry[]> {
+    async fetchChart(qualifiedId: string, limit: number, date?: string): Promise<HostChartEntry[]> {
         const address = splitChartId(qualifiedId);
         if (!address) {
             this.logger.info(`charts: "${qualifiedId}" is not a chart id (expected "pluginId:chartId")`);
@@ -254,7 +254,10 @@ export class ChartsService {
                 }),
             );
 
-            return (entries ?? []).filter(entry => entry?.title?.trim() && entry.artist?.trim()).slice(0, clampLimit(limit, MAX_CHART_ENTRIES));
+            return (entries ?? [])
+                .filter(entry => entry?.title?.trim() && entry.artist?.trim())
+                .slice(0, clampLimit(limit, MAX_CHART_ENTRIES))
+                .map(withoutStationRecord);
         } catch (error) {
             this.logger.info(`charts: a chart could not be fetched (${qualifiedId}: ${errorText(error)})`);
             return [];
@@ -273,6 +276,19 @@ export class ChartsService {
         return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.charts);
     }
 }
+
+/**
+ * A plugin's entry with anything claiming to be the station's own record taken off.
+ *
+ * `station` is a claim about what aired HERE, which a presenter reads out as a fact, and only the
+ * host's own chart may make it. A plugin is code somebody else wrote and its answer is an object at
+ * run time whatever its type says, so the field is removed rather than trusted to be absent.
+ */
+const withoutStationRecord = (entry: ChartEntry): ChartEntry => {
+    if (!('station' in entry)) return entry;
+    const { station: _ignored, ...rest } = entry as HostChartEntry;
+    return rest;
+};
 
 /**
  * How many entries a chart may be asked for.

@@ -23,7 +23,7 @@
 import { withinPeriod, type EraWindow } from './candidates.repository.js';
 import { songKey } from './rotation.keys.js';
 import type { TrackPick } from './set.generator.js';
-import type { ChartPlacing } from '#modules/playout/rundown.js';
+import type { ChartPlacing, StationChartRecord } from '#modules/playout/rundown.js';
 
 /** One entry of a chart as the host reads it. The plugin SDK's `ChartEntry`, narrowed to what is used here. */
 export interface ChartEntryLike {
@@ -34,6 +34,8 @@ export interface ChartEntryLike {
     peak?: number;
     weeksOn?: number;
     lastWeek?: number;
+    /** What the record did here, on the station's own chart only. See {@link ChartPlacing.station}. */
+    station?: StationChartRecord;
 }
 
 /**
@@ -124,6 +126,16 @@ const placingOf = (entry: ChartEntryLike, name: string | undefined): ChartPlacin
     ...(isPosition(entry.peak) ? { peak: entry.peak } : {}),
     ...(isPosition(entry.weeksOn) ? { weeksOn: entry.weeksOn } : {}),
     ...(isPosition(entry.lastWeek) ? { lastWeek: entry.lastWeek } : {}),
+    ...(entry.station === undefined ? {} : { station: stationRecordOf(entry.station) }),
 });
+
+/** The counts as whole numbers no lower than nothing, so a presenter never reads out "minus one requests". */
+const stationRecordOf = (record: StationChartRecord): StationChartRecord => ({
+    plays: count(record.plays),
+    requests: count(record.requests),
+    liked: record.liked === true,
+});
+
+const count = (value: number): number => (Number.isInteger(value) && value > 0 ? value : 0);
 
 const isPosition = (value: number | undefined): value is number => value !== undefined && Number.isInteger(value) && value > 0;

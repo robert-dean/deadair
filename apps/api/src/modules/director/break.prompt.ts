@@ -63,7 +63,7 @@ import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { homeRule } from '#modules/shared/station.home.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './break.writer.js';
-import type { ChartPlacing } from '#modules/playout/rundown.js';
+import type { ChartPlacing, StationChartRecord } from '#modules/playout/rundown.js';
 import { retryNudge } from './break.retry.js';
 import { spoken } from './talk.break.writer.js';
 import { directionNote } from './talk.direction.words.js';
@@ -1695,7 +1695,26 @@ function spokenPlacing(chart: ChartPlacing): string {
     if (chart.weeksOn !== undefined)
         parts.push(chart.weeksOn === 1 ? 'it is new on the chart' : `it has been on the chart for ${chart.weeksOn} weeks`);
     if (chart.lastWeek !== undefined) parts.push(movement(chart.rank, chart.lastWeek));
+    if (chart.station !== undefined) parts.push(...stationReasons(chart.station));
     return `${parts.join('; ')}.`;
+}
+
+/**
+ * Why the station's own chart placed a record, from what it did here.
+ *
+ * True by construction, since the station counted it, which is what makes it the most sayable thing
+ * on the line: "you asked for this one three times" is a countdown host's best material. Said over
+ * "the time this chart covers" rather than "this week", on {@link spokenPlacing}'s rule, because the
+ * favourites cover a year and the edition's date is not on the placing. A zero is left out rather
+ * than said: "nobody asked for it" is true and is not a reason anything is on.
+ */
+function stationReasons(record: StationChartRecord): string[] {
+    const times = (count: number) => (count === 1 ? 'once' : `${count} times`);
+    const reasons: string[] = [];
+    if (record.plays > 0) reasons.push(`in the time this chart covers it aired ${times(record.plays)} on this station`);
+    if (record.requests > 0) reasons.push(`listeners asked for it ${times(record.requests)}`);
+    if (record.liked) reasons.push('the station likes it');
+    return reasons;
 }
 
 /**

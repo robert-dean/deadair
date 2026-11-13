@@ -81,6 +81,16 @@ describe('chartPicks', () => {
         expect(blank!.chart).toEqual({ rank: 2 });
     });
 
+    it("carries the station's own record onto the placing, as whole counts no lower than nothing", () => {
+        const [counted, odd] = chartPicks([
+            { ...entry(1, 'Glory Box', 'Portishead'), station: { plays: 9, requests: 2, liked: true } },
+            { ...entry(2, 'Roads', 'Portishead'), station: { plays: -1, requests: 1.5, liked: false } },
+        ]);
+
+        expect(counted!.chart).toEqual({ rank: 1, station: { plays: 9, requests: 2, liked: true } });
+        expect(odd!.chart).toEqual({ rank: 2, station: { plays: 0, requests: 0, liked: false } });
+    });
+
     it('drops records outside the period, and keeps one whose year is unknown', () => {
         const dated = [entry(1, 'Anthem', 'A', 1994), entry(2, 'Newer', 'B', 2024), entry(3, 'Undated', 'C')];
 

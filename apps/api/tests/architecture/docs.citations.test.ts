@@ -96,7 +96,9 @@ function resolves({ doc, target }: Citation): boolean {
 }
 
 function ignoredOutputs(candidates: Citation[]): Set<Citation> {
-    const paths = candidates.flatMap(c => ancestors(c.doc).map(dir => path.join(dir, c.target)));
+    // Each path is asked about twice, the second time as a folder: a `dist/` pattern matches a path
+    // that is not on disk only when it ends in a slash, and a fresh checkout has no build output.
+    const paths = candidates.flatMap(c => ancestors(c.doc).flatMap(dir => [path.join(dir, c.target), `${path.join(dir, c.target)}/`]));
     if (paths.length === 0) return new Set();
     let out = '';
     try {
@@ -106,7 +108,9 @@ function ignoredOutputs(candidates: Citation[]): Set<Citation> {
         out = (error as { stdout?: string }).stdout ?? '';
     }
     const ignored = new Set(out.trim().split('\n').filter(Boolean));
-    return new Set(candidates.filter(c => ancestors(c.doc).some(dir => ignored.has(path.join(dir, c.target)))));
+    return new Set(
+        candidates.filter(c => ancestors(c.doc).some(dir => ignored.has(path.join(dir, c.target)) || ignored.has(`${path.join(dir, c.target)}/`))),
+    );
 }
 
 describe('paths cited in the Claude-facing docs', () => {

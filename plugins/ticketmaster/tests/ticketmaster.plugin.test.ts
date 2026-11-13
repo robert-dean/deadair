@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
-import { concertsIn, normalArtist } from '../src/ticketmaster.events.js';
+import { concertsIn, festivalsIn, normalArtist } from '../src/ticketmaster.events.js';
 import { TicketmasterPlugin } from '../src/ticketmaster.plugin.js';
 import { ticketmasterManifest } from '../src/ticketmaster.manifest.js';
 
@@ -135,5 +135,82 @@ describe('manifest', () => {
     it('declares the one capability and needs a key', () => {
         expect(ticketmasterManifest.capabilities).toEqual(['concerts']);
         expect(ticketmasterManifest.configSchema?.safeParse({}).success).toBe(false);
+    });
+});
+
+describe('festivalsIn', () => {
+    const festival = (overrides: { id?: string; name?: string; start?: string; end?: string; status?: string; acts?: string[] } = {}) => ({
+        id: overrides.id ?? 'G5v',
+        name: overrides.name ?? 'Shaky Knees Music Festival',
+        url: 'https://www.ticketmaster.com/event/G5v',
+        dates: {
+            start: { localDate: overrides.start ?? '2027-05-07' },
+            ...(overrides.end === undefined ? {} : { end: { localDate: overrides.end } }),
+            status: { code: overrides.status ?? 'onsale' },
+        },
+        _embedded: {
+            attractions: (overrides.acts ?? ['Shaky Knees', 'Foo Fighters', 'Wet Leg', 'Foo Fighters']).map(name => ({ name })),
+            venues: [{ name: 'Piedmont Park', city: { name: 'Atlanta' } }],
+        },
+    });
+
+    it('reads the dates, the place and the bill, without the festival itself or an act listed twice', () => {
+        expect(festivalsIn(page(festival({ end: '2027-05-09' })))).toEqual([
+            {
+                id: 'G5v',
+                name: 'Shaky Knees Music Festival',
+                startsOn: '2027-05-07',
+                endsOn: '2027-05-09',
+                venue: 'Piedmont Park',
+                city: 'Atlanta',
+                url: 'https://www.ticketmaster.com/event/G5v',
+                acts: ['Foo Fighters', 'Wet Leg'],
+            },
+        ]);
+    });
+
+    it('takes the first day as the last when the service gives no end, or an end before the start', () => {
+        expect(festivalsIn(page(festival()))[0]?.endsOn).toBe('2027-05-07');
+        expect(festivalsIn(page(festival({ end: '2027-05-01' })))[0]?.endsOn).toBe('2027-05-07');
+    });
+
+    it("keeps a one-word act that only appears inside the festival's name", () => {
+        expect(festivalsIn(page(festival({ name: 'Live at the Park', acts: ['Live', 'Wet Leg'] })))[0]?.acts).toEqual(['Live', 'Wet Leg']);
+    });
+
+    it('leaves off a page link that is not a web page', () => {
+        const listed = { ...festival(), url: 'javascript:alert(1)' };
+        expect(festivalsIn(page(listed))[0]).not.toHaveProperty('url');
+    });
+
+    it('leaves out a festival that is not on, and sorts soonest first', () => {
+        const found = festivalsIn(
+            page(festival({ id: 'b', start: '2027-09-01' }), festival({ id: 'off', status: 'cancelled' }), festival({ id: 'a' })),
+        );
+        expect(found.map(listing => listing.id)).toEqual(['a', 'b']);
+    });
+});
+
+describe('findFestivals', () => {
+    it('asks for festivals by name from the date given, and answers what came back', async () => {
+        queueJson(page({ id: 'G5v', name: 'Shaky Knees', dates: { start: { localDate: '2027-05-07' }, status: { code: 'onsale' } }, _embedded: {} }));
+
+        const found = await plugin.findFestivals({ name: 'Shaky Knees', from: '2027-01-01' });
+
+        expect(found.map(listing => listing.name)).toEqual(['Shaky Knees']);
+        const asked = new URL(host.calls[0]!.url);
+        expect(asked.searchParams.get('keyword')).toBe('Shaky Knees');
+        expect(asked.searchParams.get('classificationName')).toBe('festival');
+        expect(asked.searchParams.get('startDateTime')).toBe('2027-01-01T00:00:00Z');
+    });
+
+    it('asks nothing for an empty name', async () => {
+        expect(await plugin.findFestivals({ name: '  ' })).toEqual([]);
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('throws a refusal to the operator who asked', async () => {
+        queueJson({ fault: 'no' }, 401);
+        await expect(plugin.findFestivals({ name: 'Shaky Knees' })).rejects.toThrow(/401/);
     });
 });

@@ -1,7 +1,7 @@
 ---
 title: 'Create schedule slot'
 sidebar_label: 'Create schedule slot'
-sidebar_position: 14
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

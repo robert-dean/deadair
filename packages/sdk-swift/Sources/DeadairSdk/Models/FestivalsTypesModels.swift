@@ -37,6 +37,68 @@ public struct FestivalAct: Codable, Equatable, Sendable {
     }
 }
 
+/// A festival as a ticket service lists it, for an operator to check and then add. Nothing here is said on air until it is saved as a festival
+public struct FestivalListing: Codable, Equatable, Sendable {
+    /// The plugin that listed it, to send back as `sourcePluginId`
+    public var pluginId: String
+    /// Its own id for the listing, to send back as `sourceEventId`
+    public var eventId: String
+    public var name: String
+    public var startsOn: String
+    public var endsOn: String
+    /// The venue and the town, as the service gives them
+    public var place: String?
+    public var url: String?
+    /// Who the service lists as performing, in its order
+    public var acts: [String]
+
+    public init(pluginId: String, eventId: String, name: String, startsOn: String, endsOn: String, place: String? = nil, url: String? = nil, acts: [String]) {
+        self.pluginId = pluginId
+        self.eventId = eventId
+        self.name = name
+        self.startsOn = startsOn
+        self.endsOn = endsOn
+        self.place = place
+        self.url = url
+        self.acts = acts
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pluginId = "pluginId"
+        case eventId = "eventId"
+        case name = "name"
+        case startsOn = "startsOn"
+        case endsOn = "endsOn"
+        case place = "place"
+        case url = "url"
+        case acts = "acts"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.eventId = try container.decode(String.self, forKey: .eventId)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.startsOn = try container.decode(String.self, forKey: .startsOn)
+        self.endsOn = try container.decode(String.self, forKey: .endsOn)
+        self.place = try container.decodeIfPresent(String.self, forKey: .place)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
+        self.acts = try container.decode([String].self, forKey: .acts)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.eventId, forKey: .eventId)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.startsOn, forKey: .startsOn)
+        try container.encode(self.endsOn, forKey: .endsOn)
+        try container.encodeIfPresent(self.place, forKey: .place)
+        try container.encodeIfPresent(self.url, forKey: .url)
+        try container.encode(self.acts, forKey: .acts)
+    }
+}
+
 /// A music festival the station can build a show around: its dates, where it is, and who is on the bill. What a presenter says about it is read from here, so its dates are the ones an operator typed or checked
 public struct Festival: Codable, Equatable, Sendable {
     public var id: UUID
@@ -54,7 +116,7 @@ public struct Festival: Codable, Equatable, Sendable {
     public var acts: [FestivalAct]
     /// Where the festival stands on the station's calendar today: still to come, on now, or finished. A finished festival is never talked about
     public var state: FestivalState
-    /// The plugin a festival was imported from. Absent for one an operator typed
+    /// The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent
     public var sourcePluginId: String?
 
     public init(id: UUID, name: String, startsOn: String, endsOn: String, place: String? = nil, url: String? = nil, acts: [FestivalAct], state: FestivalState, sourcePluginId: String? = nil) {
@@ -122,14 +184,20 @@ public struct FestivalInput: Codable, Equatable, Sendable {
     public var url: String?
     /// Who is on the bill, in the order they should be listed. A name given twice is kept once
     public var acts: [FestivalAct]
+    /// The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent
+    public var sourcePluginId: String?
+    /// That plugin's own id for the listing, sent with `sourcePluginId` when adding an imported festival
+    public var sourceEventId: String?
 
-    public init(name: String, startsOn: String, endsOn: String, place: String? = nil, url: String? = nil, acts: [FestivalAct]) {
+    public init(name: String, startsOn: String, endsOn: String, place: String? = nil, url: String? = nil, acts: [FestivalAct], sourcePluginId: String? = nil, sourceEventId: String? = nil) {
         self.name = name
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.place = place
         self.url = url
         self.acts = acts
+        self.sourcePluginId = sourcePluginId
+        self.sourceEventId = sourceEventId
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -139,6 +207,8 @@ public struct FestivalInput: Codable, Equatable, Sendable {
         case place = "place"
         case url = "url"
         case acts = "acts"
+        case sourcePluginId = "sourcePluginId"
+        case sourceEventId = "sourceEventId"
     }
 
     public init(from decoder: Decoder) throws {
@@ -149,6 +219,8 @@ public struct FestivalInput: Codable, Equatable, Sendable {
         self.place = try container.decodeIfPresent(String.self, forKey: .place)
         self.url = try container.decodeIfPresent(String.self, forKey: .url)
         self.acts = try container.decode([FestivalAct].self, forKey: .acts)
+        self.sourcePluginId = try container.decodeIfPresent(String.self, forKey: .sourcePluginId)
+        self.sourceEventId = try container.decodeIfPresent(String.self, forKey: .sourceEventId)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -159,6 +231,37 @@ public struct FestivalInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.place, forKey: .place)
         try container.encodeIfPresent(self.url, forKey: .url)
         try container.encode(self.acts, forKey: .acts)
+        try container.encodeIfPresent(self.sourcePluginId, forKey: .sourcePluginId)
+        try container.encodeIfPresent(self.sourceEventId, forKey: .sourceEventId)
+    }
+}
+
+/// What looking a festival up found, soonest first
+public struct FestivalLookup: Codable, Equatable, Sendable {
+    public var listings: [FestivalListing]
+    /// The plugins that were asked and could not answer, so an empty list is not read as nothing being on
+    public var unanswered: [String]?
+
+    public init(listings: [FestivalListing], unanswered: [String]? = nil) {
+        self.listings = listings
+        self.unanswered = unanswered
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case listings = "listings"
+        case unanswered = "unanswered"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.listings = try container.decode([FestivalListing].self, forKey: .listings)
+        self.unanswered = try container.decodeIfPresent([String].self, forKey: .unanswered)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.listings, forKey: .listings)
+        try container.encodeIfPresent(self.unanswered, forKey: .unanswered)
     }
 }
 

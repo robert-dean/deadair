@@ -26,6 +26,15 @@ public final class FestivalsClient: Sendable {
         return try http.decodeJSON(FestivalList.self, from: response)
     }
 
+    /// Look up a festival
+    /// Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved
+    public func lookUpAFestival(query: LookUpAFestivalQuery) async throws -> FestivalLookup {
+        var request = SdkRequest(method: "GET", path: ["festivals", "lookup"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(FestivalLookup.self, from: response)
+    }
+
     /// Change a festival
     /// Replaces a festival and its whole bill. A show naming it plays and talks about the new one from its next refill and its next break
     /// - Throws: `SdkError` on 404
@@ -43,5 +52,18 @@ public final class FestivalsClient: Sendable {
         let request = try SdkRequest(method: "DELETE", path: ["festivals", http.segment(id)])
         let response = try await http.execute(request)
         return try http.decodeJSON(FestivalList.self, from: response)
+    }
+}
+
+/// Query parameters for GET /festivals/lookup.
+public struct LookUpAFestivalQuery: Encodable, Equatable, Sendable {
+    public var name: String
+
+    public init(name: String) {
+        self.name = name
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name = "name"
     }
 }

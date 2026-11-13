@@ -1,7 +1,7 @@
 ---
 title: 'Import schedule'
 sidebar_label: 'Import schedule'
-sidebar_position: 19
+sidebar_position: 20
 mdx:
     format: 'md'
 ---

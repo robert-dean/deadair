@@ -12,6 +12,25 @@ export interface FestivalAct {
 }
 
 /**
+ * A festival as a ticket service lists it, for an operator to check and then add. Nothing here is said on air until it is saved as a festival
+ * generated from [FestivalListing](../../../../../apps/api/data/contracts/schedule/festivals.types.ck)
+ */
+export interface FestivalListing {
+    /** The plugin that listed it, to send back as `sourcePluginId` */
+    pluginId: string;
+    /** Its own id for the listing, to send back as `sourceEventId` */
+    eventId: string;
+    name: string;
+    startsOn: string;
+    endsOn: string;
+    /** The venue and the town, as the service gives them */
+    place?: string;
+    url?: string;
+    /** Who the service lists as performing, in its order */
+    acts: string[];
+}
+
+/**
  * A music festival the station can build a show around: its dates, where it is, and who is on the bill. What a presenter says about it is read from here, so its dates are the ones an operator typed or checked
  * generated from [Festival](../../../../../apps/api/data/contracts/schedule/festivals.types.ck)
  */
@@ -31,7 +50,7 @@ export interface Festival {
     acts: FestivalAct[];
     /** Where the festival stands on the station's calendar today: still to come, on now, or finished. A finished festival is never talked about */
     state: 'upcoming' | 'on' | 'over';
-    /** The plugin a festival was imported from. Absent for one an operator typed */
+    /** The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent */
     sourcePluginId?: string;
 }
 
@@ -48,6 +67,20 @@ export interface FestivalInput {
     url?: string;
     /** Who is on the bill, in the order they should be listed. A name given twice is kept once */
     acts: FestivalAct[];
+    /** The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent */
+    sourcePluginId?: string;
+    /** That plugin's own id for the listing, sent with `sourcePluginId` when adding an imported festival */
+    sourceEventId?: string;
+}
+
+/**
+ * What looking a festival up found, soonest first
+ * generated from [FestivalLookup](../../../../../apps/api/data/contracts/schedule/festivals.types.ck)
+ */
+export interface FestivalLookup {
+    listings: FestivalListing[];
+    /** The plugins that were asked and could not answer, so an empty list is not read as nothing being on */
+    unanswered?: string[];
 }
 
 /**

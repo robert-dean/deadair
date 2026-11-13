@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { FestivalInput, FestivalList } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -28,4 +28,9 @@ export function useChangeFestival() {
 
 export function useRemoveFestival() {
     return useFestivalWrite((id: string) => sdk.schedule.removeAFestival(id));
+}
+
+/** Looks festivals up by name with the concert plugins. A question asked once, so a mutation rather than a query. */
+export function useLookUpFestival() {
+    return useMutation({ mutationFn: (name: string) => sdk.schedule.lookUpAFestival({ name }) });
 }

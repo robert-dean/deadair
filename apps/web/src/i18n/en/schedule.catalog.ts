@@ -283,6 +283,18 @@ export const schedule = {
         },
         edit: 'Edit {{name}}',
         remove: 'Remove {{name}}',
+        lookup: {
+            label: 'Look it up',
+            description:
+                'Find a festival with a ticket plugin, such as Ticketmaster, and start from what it lists. Check everything before you add it: the host says what you save.',
+            search: 'Look up',
+            use: 'Start from this',
+            using: 'Started from a ticket listing. The service does not say who headlines, so move them into Headliners.',
+            none: 'Nothing found. You can still add it by hand.',
+            unanswered: 'Could not ask: {{plugins}}',
+            failed: 'The lookup did not work',
+            failedFallback: 'Add it by hand instead.',
+        },
         form: {
             addTitle: 'Add a festival',
             editTitle: 'Edit {{name}}',

@@ -5,10 +5,12 @@ package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.FestivalInput
 import com.maroonedsoftware.deadair.sdk.models.FestivalList
+import com.maroonedsoftware.deadair.sdk.models.FestivalLookup
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import kotlinx.serialization.Serializable
 
 /** Operations declared in `festivals.ck`. */
 class FestivalsClient(private val http: SdkHttp) {
@@ -31,6 +33,18 @@ class FestivalsClient(private val http: SdkHttp) {
         val response = http.execute(HttpMethod.Post) {
             path("festivals")
             jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Look up a festival
+     * Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved
+     */
+    suspend fun lookUpAFestival(query: LookUpAFestivalQuery): FestivalLookup {
+        val response = http.execute(HttpMethod.Get) {
+            path("festivals", "lookup")
+            params(query)
         }
         return http.decodeJson(response)
     }
@@ -60,3 +74,8 @@ class FestivalsClient(private val http: SdkHttp) {
         return http.decodeJson(response)
     }
 }
+
+@Serializable
+data class LookUpAFestivalQuery(
+    val name: String,
+)

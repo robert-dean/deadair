@@ -1,7 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type { PackImportPlan } from '../topics/types/topics.types.js';
-import type { FestivalInput, FestivalList } from './types/festivals.types.js';
+import type { FestivalInput, FestivalList, FestivalLookup } from './types/festivals.types.js';
 import type { OccasionImportPlan, OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from './types/occasions.types.js';
 import type {
     ScheduleImportResult,
@@ -38,6 +38,18 @@ export class ScheduleClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<FestivalList>(result);
+    }
+
+    /**
+     * @name Look up a festival
+     * @description Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved
+     */
+    async lookUpAFestival(query: { name: string }): Promise<FestivalLookup> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/festivals/lookup${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<FestivalLookup>(result);
     }
 
     /**

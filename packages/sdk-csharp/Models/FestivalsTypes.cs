@@ -29,6 +29,40 @@ public sealed record FestivalAct
     public bool? Headliner { get; init; }
 }
 
+/// <summary>A festival as a ticket service lists it, for an operator to check and then add. Nothing here is said on air until it is saved as a festival</summary>
+public sealed record FestivalListing
+{
+    /// <summary>The plugin that listed it, to send back as `sourcePluginId`</summary>
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    /// <summary>Its own id for the listing, to send back as `sourceEventId`</summary>
+    [JsonPropertyName("eventId")]
+    public required string EventId { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("startsOn")]
+    public required string StartsOn { get; init; }
+
+    [JsonPropertyName("endsOn")]
+    public required string EndsOn { get; init; }
+
+    /// <summary>The venue and the town, as the service gives them</summary>
+    [JsonPropertyName("place")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Place { get; init; }
+
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+
+    /// <summary>Who the service lists as performing, in its order</summary>
+    [JsonPropertyName("acts")]
+    public required List<string> Acts { get; init; }
+}
+
 /// <summary>A music festival the station can build a show around: its dates, where it is, and who is on the bill. What a presenter says about it is read from here, so its dates are the ones an operator typed or checked</summary>
 public sealed record Festival
 {
@@ -65,7 +99,7 @@ public sealed record Festival
     [JsonPropertyName("state")]
     public required FestivalState State { get; init; }
 
-    /// <summary>The plugin a festival was imported from. Absent for one an operator typed</summary>
+    /// <summary>The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent</summary>
     [JsonPropertyName("sourcePluginId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourcePluginId { get; init; }
@@ -99,6 +133,28 @@ public sealed record FestivalInput
     /// <summary>Who is on the bill, in the order they should be listed. A name given twice is kept once</summary>
     [JsonPropertyName("acts")]
     public required List<FestivalAct> Acts { get; init; }
+
+    /// <summary>The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent</summary>
+    [JsonPropertyName("sourcePluginId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourcePluginId { get; init; }
+
+    /// <summary>That plugin's own id for the listing, sent with `sourcePluginId` when adding an imported festival</summary>
+    [JsonPropertyName("sourceEventId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceEventId { get; init; }
+}
+
+/// <summary>What looking a festival up found, soonest first</summary>
+public sealed record FestivalLookup
+{
+    [JsonPropertyName("listings")]
+    public required List<FestivalListing> Listings { get; init; }
+
+    /// <summary>The plugins that were asked and could not answer, so an empty list is not read as nothing being on</summary>
+    [JsonPropertyName("unanswered")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Unanswered { get; init; }
 }
 
 /// <summary>Every festival on the station, soonest first</summary>

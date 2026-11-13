@@ -1,4 +1,4 @@
-import type { Festival, FestivalAct, FestivalInput } from '@deadair/sdk';
+import type { Festival, FestivalAct, FestivalInput, FestivalListing } from '@deadair/sdk';
 
 /**
  * What the festival form holds. The bill is two boxes of text, one act per line, because a lineup is
@@ -15,6 +15,8 @@ export interface FestivalDraft {
     url: string;
     headliners: string;
     acts: string;
+    /** Where a festival started from, when it was looked up: sent once, with the first save. */
+    source?: { pluginId: string; eventId: string };
 }
 
 export const BLANK_FESTIVAL: FestivalDraft = { name: '', startsOn: '', endsOn: '', place: '', url: '', headliners: '', acts: '' };
@@ -65,6 +67,24 @@ export function inputOfFestivalDraft(draft: FestivalDraft): FestivalInput {
         ...(place === '' ? {} : { place }),
         ...(url === '' ? {} : { url }),
         acts: [...actsOfLines(draft.headliners, true), ...actsOfLines(draft.acts, false)],
+        ...(draft.source === undefined ? {} : { sourcePluginId: draft.source.pluginId, sourceEventId: draft.source.eventId }),
+    };
+}
+
+/**
+ * A looked-up festival as the form holds it, to be checked before it is saved. The service says who is
+ * on the bill and not who headlines, so every act starts in the second box.
+ */
+export function draftOfListing(listing: FestivalListing): FestivalDraft {
+    return {
+        name: listing.name,
+        startsOn: listing.startsOn,
+        endsOn: listing.endsOn,
+        place: listing.place ?? '',
+        url: listing.url ?? '',
+        headliners: '',
+        acts: listing.acts.join('\n'),
+        source: { pluginId: listing.pluginId, eventId: listing.eventId },
     };
 }
 

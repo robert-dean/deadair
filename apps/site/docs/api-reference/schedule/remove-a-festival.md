@@ -1,7 +1,7 @@
 ---
 title: 'Remove a festival'
 sidebar_label: 'Remove a festival'
-sidebar_position: 4
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

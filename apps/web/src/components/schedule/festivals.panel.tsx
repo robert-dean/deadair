@@ -2,17 +2,17 @@ import { useState } from 'react';
 import { ActionIcon, Badge, Button, Card, Group, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { IconPencil, IconTrash } from '@tabler/icons-react';
-import type { Festival } from '@deadair/sdk';
+import type { Festival, FestivalListing } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
-import { useAddFestival, useChangeFestival, useFestivals, useRemoveFestival } from '../../api/festivals.queries';
+import { useAddFestival, useChangeFestival, useFestivals, useLookUpFestival, useRemoveFestival } from '../../api/festivals.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatCivilDate } from '../../i18n/format.locale';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
-import { BLANK_FESTIVAL, canSaveFestival, draftOfFestival, inputOfFestivalDraft, type FestivalDraft } from './festivals.edits';
+import { BLANK_FESTIVAL, canSaveFestival, draftOfFestival, draftOfListing, inputOfFestivalDraft, type FestivalDraft } from './festivals.edits';
 
 /** The colour a festival's state is drawn in: on now is the live tally, still to come is quiet, over is spent. */
 const STATE_COLOR = { on: 'red', upcoming: 'blue', over: 'gray' } as const satisfies Record<Festival['state'], string>;
@@ -140,6 +140,12 @@ function FestivalForm({ editing, onDone }: { editing: Festival | undefined; onDo
         <Card padding="lg">
             <Stack gap="sm">
                 <Eyebrow>{editing === undefined ? t('festivals.form.addTitle') : t('festivals.form.editTitle', { name: editing.name })}</Eyebrow>
+                {editing === undefined ? <FestivalLookup onUse={listing => setDraft(draftOfListing(listing))} /> : undefined}
+                {draft.source === undefined ? undefined : (
+                    <Text size="xs" c="dimmed">
+                        {t('festivals.lookup.using')}
+                    </Text>
+                )}
                 {write.isError ? (
                     <ErrorAlert title={t('festivals.failed')}>{apiErrorMessage(write.error, t('festivals.failedFallback'))}</ErrorAlert>
                 ) : undefined}
@@ -219,5 +225,70 @@ function FestivalForm({ editing, onDone }: { editing: Festival | undefined; onDo
                 </Group>
             </Stack>
         </Card>
+    );
+}
+
+/**
+ * Looks a festival up with the concert plugins, to start the form from what a ticket service lists. Nothing
+ * is saved until the form is: the listing is somebody else's, and what airs is what the operator keeps.
+ */
+function FestivalLookup({ onUse }: { onUse: (listing: FestivalListing) => void }) {
+    const { t } = useTranslation('schedule');
+    const lookup = useLookUpFestival();
+    const [name, setName] = useState('');
+    const found = lookup.data;
+
+    return (
+        <Stack gap="xs">
+            <Group align="flex-end" gap="sm" wrap="wrap">
+                <TextInput
+                    label={t('festivals.lookup.label')}
+                    description={t('festivals.lookup.description')}
+                    maxLength={120}
+                    value={name}
+                    onChange={event => setName(event.currentTarget.value)}
+                    onKeyDown={event => {
+                        if (event.key === 'Enter' && name.trim().length >= 2) lookup.mutate(name.trim());
+                    }}
+                    style={{ flex: 1, minWidth: 240 }}
+                />
+                <Button variant="default" disabled={name.trim().length < 2} loading={lookup.isPending} onClick={() => lookup.mutate(name.trim())}>
+                    {t('festivals.lookup.search')}
+                </Button>
+            </Group>
+            {lookup.isError ? (
+                <ErrorAlert title={t('festivals.lookup.failed')}>{apiErrorMessage(lookup.error, t('festivals.lookup.failedFallback'))}</ErrorAlert>
+            ) : undefined}
+            {found !== undefined && found.listings.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                    {t('festivals.lookup.none')}
+                </Text>
+            ) : undefined}
+            {found?.unanswered === undefined ? undefined : (
+                <Text size="xs" c="dimmed">
+                    {t('festivals.lookup.unanswered', { plugins: found.unanswered.join(', ') })}
+                </Text>
+            )}
+            {found?.listings.map(listing => (
+                <Group key={`${listing.pluginId}:${listing.eventId}`} justify="space-between" wrap="wrap" gap="sm">
+                    <Stack gap={0} style={{ flex: 1, minWidth: 240 }}>
+                        <Text size="sm" fw={500}>
+                            {listing.name}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                            {listing.place === undefined
+                                ? festivalDates(listing, t)
+                                : t('festivals.datesAndPlace', { dates: festivalDates(listing, t), place: listing.place })}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                            {t('festivals.bill', { count: listing.acts.length })}
+                        </Text>
+                    </Stack>
+                    <Button size="xs" variant="light" onClick={() => onUse(listing)}>
+                        {t('festivals.lookup.use')}
+                    </Button>
+                </Group>
+            ))}
+        </Stack>
     );
 }

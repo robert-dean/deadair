@@ -7,7 +7,7 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { FestivalService } from '#src/modules/schedule/festival.service.js';
-import { FestivalInput, FestivalList } from '../modules/schedule/types/festivals.types.js';
+import { FestivalInput, FestivalList, FestivalLookup } from '../modules/schedule/types/festivals.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -19,6 +19,9 @@ function requireMcpContainer(context: McpToolContext): Container {
 
 const ListFestivalsArgs = z.object({});
 const AddAFestivalArgs = z.object({ body: FestivalInput });
+const LookUpAFestivalArgs = z.object({
+    query: z.object({ name: z.string().min(2).max(120).describe("The festival's name, as a keyword") }).optional(),
+});
 const ChangeAFestivalArgs = z.object({ id: z.uuid(), body: FestivalInput });
 const RemoveAFestivalArgs = z.object({ id: z.uuid() });
 
@@ -63,6 +66,29 @@ export class AddAFestivalMcpTool implements McpToolHandler {
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
         const { body } = await parseAndValidate(args, AddAFestivalArgs);
         const result = await container.get(FestivalService).add(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [festivals.ck](../../data/contracts/schedule/festivals.ck) `GET /festivals/lookup`
+ */
+@Injectable()
+export class LookUpAFestivalMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'look_up_a_festival',
+        description: 'Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved',
+        inputSchema: z.toJSONSchema(LookUpAFestivalArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(FestivalLookup, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { query = await parseAndValidate({}, LookUpAFestivalArgs.shape.query.unwrap()) } = await parseAndValidate(args, LookUpAFestivalArgs);
+        const result = await container.get(FestivalService).lookup(query);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -118,6 +144,7 @@ export class RemoveAFestivalMcpTool implements McpToolHandler {
 export function registerFestivalsMcpCatalog(map: McpToolHandlerMap, container: Container): void {
     map.set('list_festivals', container.get(ListFestivalsMcpTool));
     map.set('add_a_festival', container.get(AddAFestivalMcpTool));
+    map.set('look_up_a_festival', container.get(LookUpAFestivalMcpTool));
     map.set('change_a_festival', container.get(ChangeAFestivalMcpTool));
     map.set('remove_a_festival', container.get(RemoveAFestivalMcpTool));
 }
@@ -126,6 +153,7 @@ export function registerFestivalsMcpCatalog(map: McpToolHandlerMap, container: C
 export function registerFestivalsMcpToolClasses(registry: Registry): void {
     registry.register(ListFestivalsMcpTool).useClass(ListFestivalsMcpTool).asSingleton();
     registry.register(AddAFestivalMcpTool).useClass(AddAFestivalMcpTool).asSingleton();
+    registry.register(LookUpAFestivalMcpTool).useClass(LookUpAFestivalMcpTool).asSingleton();
     registry.register(ChangeAFestivalMcpTool).useClass(ChangeAFestivalMcpTool).asSingleton();
     registry.register(RemoveAFestivalMcpTool).useClass(RemoveAFestivalMcpTool).asSingleton();
 }

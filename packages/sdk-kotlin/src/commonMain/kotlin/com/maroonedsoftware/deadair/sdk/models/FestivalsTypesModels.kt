@@ -19,6 +19,23 @@ data class FestivalAct(
     val headliner: Boolean? = null,
 )
 
+/** A festival as a ticket service lists it, for an operator to check and then add. Nothing here is said on air until it is saved as a festival */
+@Serializable
+data class FestivalListing(
+    /** The plugin that listed it, to send back as `sourcePluginId` */
+    val pluginId: String,
+    /** Its own id for the listing, to send back as `sourceEventId` */
+    val eventId: String,
+    val name: String,
+    val startsOn: String,
+    val endsOn: String,
+    /** The venue and the town, as the service gives them */
+    val place: String? = null,
+    val url: String? = null,
+    /** Who the service lists as performing, in its order */
+    val acts: List<String>,
+)
+
 /** A music festival the station can build a show around: its dates, where it is, and who is on the bill. What a presenter says about it is read from here, so its dates are the ones an operator typed or checked */
 @Serializable
 data class Festival(
@@ -37,7 +54,7 @@ data class Festival(
     val acts: List<FestivalAct>,
     /** Where the festival stands on the station's calendar today: still to come, on now, or finished. A finished festival is never talked about */
     val state: FestivalState,
-    /** The plugin a festival was imported from. Absent for one an operator typed */
+    /** The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent */
     val sourcePluginId: String? = null,
 )
 
@@ -56,6 +73,18 @@ data class FestivalInput(
     val url: String? = null,
     /** Who is on the bill, in the order they should be listed. A name given twice is kept once */
     val acts: List<FestivalAct>,
+    /** The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent */
+    val sourcePluginId: String? = null,
+    /** That plugin's own id for the listing, sent with `sourcePluginId` when adding an imported festival */
+    val sourceEventId: String? = null,
+)
+
+/** What looking a festival up found, soonest first */
+@Serializable
+data class FestivalLookup(
+    val listings: List<FestivalListing>,
+    /** The plugins that were asked and could not answer, so an empty list is not read as nothing being on */
+    val unanswered: List<String>? = null,
 )
 
 /** Every festival on the station, soonest first */

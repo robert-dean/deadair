@@ -18,6 +18,7 @@ const listFestivals = vi.fn();
 const addAFestival = vi.fn();
 const changeAFestival = vi.fn();
 const removeAFestival = vi.fn();
+const lookUpAFestival = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -26,6 +27,7 @@ vi.mock('../../../src/api/client', () => ({
             addAFestival: (body: unknown) => addAFestival(body),
             changeAFestival: (id: string, body: unknown) => changeAFestival(id, body),
             removeAFestival: (id: string) => removeAFestival(id),
+            lookUpAFestival: (query: unknown) => lookUpAFestival(query),
         },
     },
 }));
@@ -84,6 +86,54 @@ describe('FestivalsPanel', () => {
             place: 'Piedmont Park, Atlanta',
             acts: [{ artist: 'Foo Fighters', headliner: true }, { artist: 'Wet Leg', day: '2027-05-08' }, { artist: 'The Struts' }],
         });
+    });
+
+    it('looks one up, starts the form from it, and sends where it came from with the first save', async () => {
+        const user = setupUser();
+        listFestivals.mockResolvedValue({ festivals: [] });
+        addAFestival.mockResolvedValue(answer);
+        lookUpAFestival.mockResolvedValue({
+            listings: [
+                {
+                    pluginId: 'deadair.ticketmaster',
+                    eventId: 'G5v',
+                    name: 'Shaky Knees',
+                    startsOn: '2027-05-07',
+                    endsOn: '2027-05-09',
+                    place: 'Piedmont Park, Atlanta',
+                    acts: ['Foo Fighters', 'Wet Leg'],
+                },
+            ],
+            unanswered: ['Another service'],
+        });
+        render(<FestivalsPanel />);
+
+        await user.type(await screen.findByRole('textbox', { name: 'Look it up' }), 'Shaky');
+        await user.click(screen.getByRole('button', { name: 'Look up' }));
+        expect(await screen.findByText('Could not ask: Another service')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Start from this' }));
+
+        expect(lookUpAFestival).toHaveBeenCalledWith({ name: 'Shaky' });
+        expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Shaky Knees');
+        expect(screen.getByRole('textbox', { name: 'Everyone else on the bill' })).toHaveValue('Foo Fighters\nWet Leg');
+
+        await user.click(screen.getByRole('button', { name: 'Add festival' }));
+        await waitFor(() => expect(addAFestival).toHaveBeenCalled());
+        expect(addAFestival.mock.calls[0]![0]).toEqual(
+            expect.objectContaining({ name: 'Shaky Knees', sourcePluginId: 'deadair.ticketmaster', sourceEventId: 'G5v' }),
+        );
+    });
+
+    it('says so when nothing is found', async () => {
+        const user = setupUser();
+        listFestivals.mockResolvedValue({ festivals: [] });
+        lookUpAFestival.mockResolvedValue({ listings: [] });
+        render(<FestivalsPanel />);
+
+        await user.type(await screen.findByRole('textbox', { name: 'Look it up' }), 'Nowhere Fest');
+        await user.click(screen.getByRole('button', { name: 'Look up' }));
+
+        expect(await screen.findByText('Nothing found. You can still add it by hand.')).toBeInTheDocument();
     });
 
     it('removes one', async () => {

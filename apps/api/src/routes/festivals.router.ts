@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { FestivalService } from '#src/modules/schedule/festival.service.js';
-import { FestivalInput, FestivalList } from '../modules/schedule/types/festivals.types.js';
+import { FestivalInput, FestivalList, FestivalLookup } from '../modules/schedule/types/festivals.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -31,6 +31,26 @@ FestivalsRouter.post('/festivals', requirePolicy({ policy: 'platform.manage' }),
 
     const service = ctx.container.get(FestivalService);
     const result: FestivalList = await service.add(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved
+ * from [festivals.ck](../../data/contracts/schedule/festivals.ck) `GET /festivals/lookup`
+ */
+FestivalsRouter.get('/festivals/lookup', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const query = await parseAndValidate(
+        ctx.query,
+        z.strictObject({
+            name: z.string().min(2).max(120).describe("The festival's name, as a keyword"),
+        }),
+    );
+
+    const service = ctx.container.get(FestivalService);
+    const result: FestivalLookup = await service.lookup(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

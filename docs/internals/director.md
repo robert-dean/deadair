@@ -126,6 +126,10 @@ and reads as none on an order that still names it. A schedule file never carries
 row. A client's `PUT` replaces the slot, so the web console's editor and the desktop's `SlotDraft` both send it
 back untouched; an older desktop build saving a festival slot drops the tie, which leaves an ordinary show
 rather than a wrong one.
+A festival can also be LOOKED UP (`GET /festivals/lookup`): `ConcertService.findFestivals` asks every
+`concerts` plugin with the optional `findFestivals` (Ticketmaster's lists festivals by keyword), and the
+console fills its form from a listing. The import is a starting point, kept as the row's
+`source_plugin_id`/`source_event_id` and never read again; what airs is the row as the operator saved it.
 
 **A guest host sits in on some nights of a slot, and which nights is a pure function of the date**
 (migration 0077, `director/slot.visits.ts`). `schedule_slot_hosts` holds the people on a slot besides

@@ -48,6 +48,20 @@ public sealed class FestivalsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Look up a festival
+    /// Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved
+    /// </summary>
+    public async Task<FestivalLookup> LookUpAFestivalAsync(LookUpAFestivalQuery query, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("festivals", "lookup"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<FestivalLookup>(response);
+    }
+
+    /// <summary>
     /// Change a festival
     /// Replaces a festival and its whole bill. A show naming it plays and talks about the new one from its next refill and its next break
     /// </summary>
@@ -75,4 +89,11 @@ public sealed class FestivalsClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<FestivalList>(response);
     }
+}
+
+/// <summary>The query parameters declared on GET /festivals/lookup.</summary>
+public sealed record LookUpAFestivalQuery
+{
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
 }

@@ -14,7 +14,8 @@ contract Festival: {
     url?: string(min=1, max=2000) # The festival's own page. Kept as where the facts came from, and never read out
     acts: array(FestivalAct, max=300) # Who is on the bill, in the order they should be listed. A name given twice is kept once
     state: readonly enum(upcoming, on, over) # Where the festival stands on the station's calendar today: still to come, on now, or finished. A finished festival is never talked about
-    sourcePluginId?: readonly string # The plugin a festival was imported from. Absent for one an operator typed
+    sourcePluginId?: string(min=1, max=200) # The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent
+    sourceEventId?: writeonly string(min=1, max=200) # That plugin's own id for the listing, sent with `sourcePluginId` when adding an imported festival
 }
 
 # One act on a festival's bill
@@ -27,4 +28,22 @@ contract FestivalAct: {
 # Every festival on the station, soonest first
 contract FestivalList: {
     festivals: array(Festival)
+}
+
+# A festival as a ticket service lists it, for an operator to check and then add. Nothing here is said on air until it is saved as a festival
+contract FestivalListing: {
+    pluginId: string # The plugin that listed it, to send back as `sourcePluginId`
+    eventId: string # Its own id for the listing, to send back as `sourceEventId`
+    name: string
+    startsOn: string(regex=/^\d{4}-\d{2}-\d{2}$/)
+    endsOn: string(regex=/^\d{4}-\d{2}-\d{2}$/)
+    place?: string # The venue and the town, as the service gives them
+    url?: string
+    acts: array(string) # Who the service lists as performing, in its order
+}
+
+# What looking a festival up found, soonest first
+contract FestivalLookup: {
+    listings: array(FestivalListing)
+    unanswered?: array(string) # The plugins that were asked and could not answer, so an empty list is not read as nothing being on
 }

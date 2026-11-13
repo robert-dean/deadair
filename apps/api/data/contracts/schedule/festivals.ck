@@ -42,6 +42,24 @@ operation /festivals: {
     }
 }
 
+# Before `/festivals/{id}`, for the reason `/occasions/order` comes before `/occasions/{id}`.
+
+operation /festivals/lookup: {
+    get: { # Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved
+        name: Look up a festival
+        service: FestivalService.lookup
+        # Manage rather than view, by the floor: the words go to somebody else's service.
+        query: {
+            name: string(min=2, max=120) # The festival's name, as a keyword
+        }
+        response: {
+            200: {
+                application/json: FestivalLookup
+            }
+        }
+    }
+}
+
 operation /festivals/{id}: {
     params: {
         id: uuid

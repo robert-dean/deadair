@@ -6485,6 +6485,26 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/FestivalList'
+    '/festivals/lookup':
+        get:
+            operationId: lookup
+            summary: 'Look up a festival'
+            description: 'Looks festivals up by name with the concert plugins that can list them, for an operator about to add one. Nothing is saved'
+            parameters:
+                - name: name
+                  in: query
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 2
+                      maxLength: 120
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/FestivalLookup'
     '/festivals/{id}':
         put:
             operationId: changeAFestival
@@ -17328,8 +17348,15 @@ components:
                     description: "Where the festival stands on the station's calendar today: still to come, on now, or finished. A finished festival is never talked about"
                 sourcePluginId:
                     type: string
-                    readOnly: true
-                    description: 'The plugin a festival was imported from. Absent for one an operator typed'
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The plugin a festival was imported from, from `GET /festivals/lookup`. Absent for one an operator typed. Kept as it was when a festival is changed, whatever is sent'
+                sourceEventId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    writeOnly: true
+                    description: "That plugin's own id for the listing, sent with `sourcePluginId` when adding an imported festival"
             required: [id, name, startsOn, endsOn, acts, state]
             description: 'A music festival the station can build a show around: its dates, where it is, and who is on the bill. What a presenter says about it is read from here, so its dates are the ones an operator typed or checked'
         FestivalAct:
@@ -17358,6 +17385,49 @@ components:
                         '$ref': '#/components/schemas/Festival'
             required: [festivals]
             description: 'Every festival on the station, soonest first'
+        FestivalListing:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    description: 'The plugin that listed it, to send back as `sourcePluginId`'
+                eventId:
+                    type: string
+                    description: 'Its own id for the listing, to send back as `sourceEventId`'
+                name:
+                    type: string
+                startsOn:
+                    type: string
+                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                endsOn:
+                    type: string
+                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                place:
+                    type: string
+                    description: 'The venue and the town, as the service gives them'
+                url:
+                    type: string
+                acts:
+                    type: array
+                    items:
+                        type: string
+                    description: 'Who the service lists as performing, in its order'
+            required: [pluginId, eventId, name, startsOn, endsOn, acts]
+            description: 'A festival as a ticket service lists it, for an operator to check and then add. Nothing here is said on air until it is saved as a festival'
+        FestivalLookup:
+            type: object
+            properties:
+                listings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/FestivalListing'
+                unanswered:
+                    type: array
+                    items:
+                        type: string
+                    description: 'The plugins that were asked and could not answer, so an empty list is not read as nothing being on'
+            required: [listings]
+            description: 'What looking a festival up found, soonest first'
         Occasion:
             type: object
             properties:

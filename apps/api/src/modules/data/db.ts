@@ -1060,6 +1060,7 @@ export interface DeadairScheduleSlots {
   endsOn: DateTime | null;
   eraFrom: number | null;
   eraTo: number | null;
+  festivalId: string | null;
   id: Generated<string>;
   label: Generated<string>;
   live: Generated<boolean>;

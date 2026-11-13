@@ -212,6 +212,15 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void AFestivalSlotStillNamesItsFestivalAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var festival = Guid.Parse("0a0b0c0d-0000-4000-8000-0000000000f1");
+        var input = SlotDraft.From(Slot() with { FestivalId = festival }).ToInput()!;
+
+        Assert.Equal(festival, input.FestivalId);
+    }
+
+    [Fact]
     public void ARequestShowIsStillOneAfterASave_ThoughTheEditorDoesNotDrawIt()
     {
         var input = SlotDraft.From(Slot() with { RequestShow = true }).ToInput()!;

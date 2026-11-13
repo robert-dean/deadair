@@ -385,6 +385,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
 
+    /// <summary>The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this</summary>
+    [JsonPropertyName("festivalId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? FestivalId { get; init; }
+
     /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
     [JsonPropertyName("requestShow")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -575,6 +580,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
+
+    /// <summary>The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this</summary>
+    [JsonPropertyName("festivalId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? FestivalId { get; init; }
 
     /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
     [JsonPropertyName("requestShow")]

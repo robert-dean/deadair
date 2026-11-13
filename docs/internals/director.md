@@ -110,6 +110,23 @@ with the existing tail covering a show past midnight. Five things here are not o
 - **The browser cannot evaluate a rule** without copying Easter and two calendars, so a slot answers
   `nextDate` as an occasion does, and the console reads the list and its state from that.
 
+**A slot can name a festival, and the festival rides the order's RULES rather than a column of its own**
+(migrations 0138 and 0139). `deadair.festivals` holds a festival's name, its first and last day, its place and
+its bill (`festival_acts`, in the operator's order, with an act's day and whether they headline), typed or
+checked by an operator, so everything said about one is a stored fact rather than a service's answer at break
+time. `schedule_slots.festival_id` names one, usually on a special covering the run-up and the weekend, and
+`slotInput` copies it to `PutOnAirInput.festivalId` and `rulesAskedFor` onto `StationLineupRules.festivalId`.
+On the rules because that is where the set chain and `WriteBreakJob` already read a show's choices, and because
+`reprogramme` carries rules whole, so applying a slot that gained or lost a festival changes the show on air
+(`festivalId` is one of `slot.air.service.ts`'s `CHOICE_RULES`, so the planned records are chosen again). The id
+rather than the festival, so a corrected bill or date reaches the show at its next refill and its next break. A
+festival named on a slot is refused at the save when the station does not hold it, unlike a host or a playlist,
+since it is one read in this database; a festival removed later clears the slot through `on delete set null`
+and reads as none on an order that still names it. A schedule file never carries one: it is this station's own
+row. A client's `PUT` replaces the slot, so the web console's editor and the desktop's `SlotDraft` both send it
+back untouched; an older desktop build saving a festival slot drops the tie, which leaves an ordinary show
+rather than a wrong one.
+
 **A guest host sits in on some nights of a slot, and which nights is a pure function of the date**
 (migration 0077, `director/slot.visits.ts`). `schedule_slot_hosts` holds the people on a slot besides
 its host, as rows with foreign keys on `caller_hosts`' argument: a guest on fixed weekdays, or at

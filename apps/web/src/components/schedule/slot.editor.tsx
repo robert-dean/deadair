@@ -194,6 +194,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             // Sent whatever the mode, since a feature that is silent today may be given a host later and
             // the field is only hidden there, not cleared. Nothing at all for the station's own.
             ...writerOrderInput(values.writerOrder),
+            // Kept as it was: no box here names a festival yet, and PUT replaces the row.
+            ...(slot?.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
             mode: values.mode,
             onEnd: values.onEnd,
         };

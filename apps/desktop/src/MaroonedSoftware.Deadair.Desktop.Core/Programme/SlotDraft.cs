@@ -112,6 +112,7 @@ public sealed record SlotDraft
                 Breaks = slot.Breaks,
                 ChartPositions = slot.ChartPositions,
                 Concerts = slot.Concerts,
+                FestivalId = slot.FestivalId,
                 RequestShow = slot.RequestShow,
                 RequestFollowOn = slot.RequestFollowOn,
                 RepeatWindowDays = slot.RepeatWindowDays,
@@ -230,6 +231,7 @@ public sealed record SlotDraft
             Breaks = Kept.Breaks,
             ChartPositions = Kept.ChartPositions,
             Concerts = Kept.Concerts,
+            FestivalId = Kept.FestivalId,
             RequestShow = Kept.RequestShow,
             RequestFollowOn = Kept.RequestFollowOn,
             RepeatWindowDays = Kept.RepeatWindowDays,
@@ -355,6 +357,9 @@ public sealed record SlotPassthrough
 
     /// <summary>Whether the host may mention an artist's next local show; null is no.</summary>
     public bool? Concerts { get; init; }
+
+    /// <summary>The festival the slot is built around; set on the web console.</summary>
+    public Guid? FestivalId { get; init; }
 
     /// <summary>Whether each request placed in the slot is followed by records that sound like it; null is no.</summary>
     public bool? RequestShow { get; init; }

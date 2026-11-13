@@ -50,7 +50,7 @@ writing the breaks or the voice is switched off, and nothing airs until both are
 
 ## 3. Put it on the format clock
 
-Open **Programme → Today**, find **Format clock** and press **Add band**.
+Open **Programme → Today**, find **Format clock** and press **New band**.
 
 1. Write `poem` as the **Sort of break**.
 2. Choose **every hour at** and set **Minutes past the hour** to `45`.

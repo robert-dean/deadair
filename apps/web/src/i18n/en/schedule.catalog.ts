@@ -509,7 +509,7 @@ export const schedule = {
     clock: {
         title: 'Format clock',
         description:
-            'What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so nothing is ever cut off mid-record. Where two rules want one boundary, the higher one takes it. The clock belongs to the station rather than to a broadcast, so every show follows it and an edit here changes all of them.',
+            'What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so a record is never cut off mid-way, unless the band is on the dot. Where two rules want one boundary, the higher one takes it. The clock belongs to the station rather than to a broadcast, so every show follows it and an edit here changes all of them.',
         addBand: 'New band',
         export: 'Export',
         exportFailedTitle: 'The format clock could not be exported',

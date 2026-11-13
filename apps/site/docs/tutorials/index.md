@@ -35,9 +35,15 @@ station can do the rest by being asked. Each page shows both where both exist.
    up once and aired every week.
 6. [A holiday special](./holiday-special.md): a Halloween night that takes over from the weekly
    schedule for its hours and comes back every year.
-7. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
+7. [A show for a festival](./festival-show.md): a festival's dates and bill, and a special that plays
+   the acts on it and talks about it until it is over.
+8. [Give a show its own sound](./show-sound.md): its own jingles and idents, and a music bed under
+   every break its host speaks.
+9. [Make the news start on the dot](./on-the-dot.md): a band that waits for its time behind a bed
+   when the records run early, and fades a record out when they run late.
+10. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
-8. [Teach the presenter to say a name](./say-a-name.md): a name the station says wrongly, fixed and
+11. [Teach the presenter to say a name](./say-a-name.md): a name the station says wrongly, fixed and
    heard before it airs.
 
 ## Grow the station

@@ -59,7 +59,7 @@ with two, so name the show even if you have only one.
 
 ## 4. Give it a time
 
-Open **Programme → Today** and find **Format clock**. Press **Add band**.
+Open **Programme → Today** and find **Format clock**. Press **New band**.
 
 1. In **New band**, after **Say a**, write `syndicated` as the **Sort of break**.
 2. Under **How often**, choose **once a day at** and set **Time of day**, for example `21:00`. A

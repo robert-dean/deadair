@@ -51,7 +51,7 @@ The format clock is what the station says inside every hour, whatever show is on
 station, so a band added here applies to every show.
 
 1. Open **Programme → Today** and find **Format clock**.
-2. Press **Add band**. In **New band**, after **Say a**, write `news` as the **Sort of break**.
+2. Press **New band**. In **New band**, after **Say a**, write `news` as the **Sort of break**.
 3. Under **How often**, choose **every hour at** and set **Minutes past the hour** to `0`.
 4. Save.
 

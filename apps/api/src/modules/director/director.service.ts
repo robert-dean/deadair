@@ -3564,6 +3564,14 @@ export class DirectorService {
                     detail: `A break was passed over at its slot because it is ${segment?.state ?? 'no longer in the library'}.`,
                     data: { segmentId: item.segmentId, state: segment?.state ?? 'gone' },
                 });
+                // A bed a hard marker was waiting behind. Without it the marker follows the record in
+                // front straight away, which is before its time, and nothing at this point can wait instead.
+                if (item.fillTo !== undefined) {
+                    this.logger.warn('director: the bed a hard marker was waiting behind is not there, so the marker may air early', {
+                        segment: item.segmentId,
+                        markerAt: new Date(item.fillTo).toISOString(),
+                    });
+                }
                 skipped.push(item.id);
                 continue;
             }

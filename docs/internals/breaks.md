@@ -1668,6 +1668,18 @@ shelf is read only when a band is hard. `bed` is a free-text kind like any other
 page; until a station has one, a hard marker never waits, and lands by cutting or soft. A separate piece of
 work proposes the same kind for beds played UNDER a show's breaks, and the two are meant to share it.
 
+**Where the pusher's start comes from, and the one way a marker is still early.** The record in front of a
+cut is measured from the item on air: its observed start plus its length, or the player's own reading of
+what is left when that says it ends SOONER (`nextStartsAt`). The earlier is taken because the observed start
+is when this process first saw the item, which after a restart is the restart, minutes into the record; a
+start read that late cut the next record minutes short and put the marker early, and an earlier start can
+only make it play longer. What nothing at hand-over can do is lengthen anything: when the order reaches a
+marker sooner than the planner sized it for (a record taken out or skipped in front of it, a break dropped
+by its claim check, a bed missing), the record in front ends before the time or the bed runs out, and the
+marker airs early. That is reported rather than silent: the pusher warns with how early (`earlyByMs`), and
+the director warns when the bed itself is skipped. Re-planting a longer bed when the order moves is the fix
+that would close it, and is not built.
+
 **A fill is a recording that runs to an instant and no further** (`StationLineupSegmentItem.fillTo`). It is
 what waiting is made of: planted in front of a hard marker the order reaches early, handed over with `endBy`
 and `fill`, and cut by the pusher at whatever is left, down to a tenth of a second when the order has caught

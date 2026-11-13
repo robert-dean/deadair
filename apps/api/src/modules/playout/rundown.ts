@@ -866,11 +866,6 @@ export class Rundown {
     }
 
     /**
-     * What is on air, with the playhead projected from the last reading. Projected
-     * on read rather than on a timer, so it is never served stale and nothing
-     * pulses through the listeners every couple of seconds.
-     */
-    /**
      * The pusher cut a prepared record short as it handed it over (`end.by.ts`). Kept on the rundown's
      * own copy so everything that reads the record's length while it airs (the next hand-over's start,
      * above all) reads the length the player was actually given. A record this rundown no longer holds is
@@ -880,6 +875,12 @@ export class Rundown {
         const item = this.prepared.get(id);
         if (item !== undefined) this.prepared.set(id, { ...item, cutAtMs });
     }
+
+    /**
+     * What is on air, with the playhead projected from the last reading. Projected
+     * on read rather than on a timer, so it is never served stale and nothing
+     * pulses through the listeners every couple of seconds.
+     */
 
     nowPlaying(): NowPlaying | undefined {
         const item = this.airing === undefined ? undefined : this.prepared.get(this.airing.id);

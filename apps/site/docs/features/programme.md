@@ -156,6 +156,7 @@ A rule at a time of day normally airs when the record playing at that time finis
 - **When the music runs late**, the record playing at that time is faded out over about three seconds, ending on the time. It is cut by at most **Seconds a hard marker may cut** under Settings, Breaks (two minutes unless you change it), and only once it has played for half a minute. Past either limit the rule airs when the record ends, as it would without the switch.
 - **When the music runs early**, the station waits for the time rather than airing ahead of it, playing a recording of kind `bed` until then and fading it out on the time. It waits at most **Seconds a hard marker may wait** (a minute unless you change it), and only with a bed at least half a minute longer than the wait. With no bed that long it fades out the record in its way instead, or airs late.
 - Where it could do either, it takes whichever moves the music less. Zero in either setting switches that half off.
+- The plan is made a few minutes ahead. If the music then reaches the rule sooner than planned, because a record just before it was skipped or taken out, the station cannot stretch what is left, and the rule airs that much early. The log says so when it happens.
 
 A `bed` recording is not the same thing as the station's own fallback [bed](../glossary.md#bed), which is what the audio chain plays when nothing is coming from the running order.
 

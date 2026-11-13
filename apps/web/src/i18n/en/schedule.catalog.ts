@@ -492,7 +492,7 @@ export const schedule = {
         note: "Times are on the station's own clock. Unless it is on the dot, a band takes the first boundary at or after its time, so a bulletin at half past is read when the record playing then finishes, never before it. The sort of break is free text: write anything you have recordings of and the station will play them.",
         hardLabel: 'On the dot',
         hardDescription:
-            'A hard marker airs exactly at its time and never before it: when the music runs early the station waits for the time, and when it runs late the record in the way is faded to make room. Off, it airs when the record playing at that time finishes.',
+            'A hard marker airs exactly at its time: when the music runs early the station waits for the time behind a bed recording, and when it runs late the record in the way is faded to make room. A record skipped just before it can still make it early. Off, it airs when the record playing at that time finishes.',
         inForceLabel: 'In force',
         inForceDescription: 'Switched off keeps the rule without the station acting on it.',
         savingNote: "Saving changes nothing already planned. The band claims its next boundary on the station's next pass.",

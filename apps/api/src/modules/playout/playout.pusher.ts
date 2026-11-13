@@ -30,7 +30,7 @@ import {
 } from './gain.js';
 import { DEFAULT_HANDOVER, HANDOVER_SETTING_KEY } from './crossfade.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { cutToEndBy } from './end.by.js';
+import { cutToEndBy, earlyByMs, nextStartsAt } from './end.by.js';
 import { heldBy, PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
 import { resolvePublicUrl, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -525,7 +525,19 @@ export class PlayoutPusher {
                 };
                 // A record in front of a hard marker is cut here, against what is on air now, so it
                 // ends on the marker's time. See `end.by.ts`.
-                const item = cutToEndBy(pulled.item, this.rundown.nowPlaying(), this.previousBlendMs, Date.now());
+                const onAirNow = this.rundown.nowPlaying();
+                const item = cutToEndBy(pulled.item, onAirNow, this.previousBlendMs, Date.now());
+                // The order arrived earlier than the planner sized this for, and nothing here can make
+                // it longer: the hard marker behind it will air early. Said where an operator looks.
+                const early = earlyByMs(item, nextStartsAt(onAirNow, this.previousBlendMs, Date.now()));
+                if (early !== undefined) {
+                    this.logger.warn('playout: a hard marker will air early, because the order reached it sooner than it was planned for', {
+                        item: item.id,
+                        title: item.title,
+                        earlyBySeconds: Math.round(early / 1000),
+                        endBy: new Date(item.endBy!).toISOString(),
+                    });
+                }
                 const landed = await this.control.push(annotateUri(itemAnnotations(item, context), pulled.url));
                 if (landed && item.cutAtMs !== undefined) {
                     this.rundown.noteCut(item.id, item.cutAtMs);

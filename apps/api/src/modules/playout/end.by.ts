@@ -30,18 +30,47 @@ export const FILL_LEAST_MS = 100;
 /**
  * When the item handed over now will start: just after the one on air ends, or now when nothing is.
  *
- * `undefined` when the item on air has no length anybody knows, which is an unmeasured record with no
- * duration or a break whose audio was never measured. Then there is nothing to cut against, and the
- * record plays to its end.
+ * Two readings of when the item on air ends, and the EARLIER is taken. Its observed start plus its length
+ * is the steady one, but the start is when this process first SAW it on air: after a restart that is the
+ * restart, minutes into the record, and the next item would be thought to start minutes later than it
+ * will, cut minutes short, and the marker behind it would air early. The player's own `remainingMs` does
+ * not have that problem and is jumpy instead. An earlier start can only make the next item play longer,
+ * which puts any error on the late side, where this file wants it.
+ *
+ * `undefined` when neither says, which is an item on air with no length anybody knows and no reading of
+ * what is left. Then there is nothing to cut against, and the record plays to its end.
  */
 export function nextStartsAt(onAir: NowPlaying | undefined, blendIntoMs: number, now: number): number | undefined {
     if (onAir === undefined) return now;
     const cues = playedCues(onAir.item);
     const length = cues === undefined ? onAir.item.durationMs : cues.cueOutMs - cues.cueInMs;
-    if (length === undefined || !Number.isFinite(length) || length <= 0) return undefined;
+    const byLength = length === undefined || !Number.isFinite(length) || length <= 0 ? undefined : onAir.startedAt + length;
+    const byReading = onAir.remainingMs === undefined || !Number.isFinite(onAir.remainingMs) ? undefined : now + onAir.remainingMs;
+    const ends = byLength === undefined ? byReading : byReading === undefined ? byLength : Math.min(byLength, byReading);
+    if (ends === undefined) return undefined;
     // Never in the past: an item on air longer than its length says (a reading that came late) is
     // ending now, not a moment ago.
-    return Math.max(now, onAir.startedAt + length - Math.max(0, blendIntoMs));
+    return Math.max(now, ends - Math.max(0, blendIntoMs));
+}
+
+/**
+ * How early the item after this one will air against the instant it was meant to wait for, or `undefined`
+ * when it will not be early (or nothing can say).
+ *
+ * The planner sizes a cut or a wait against a projection minutes ahead of air, and the order can arrive
+ * EARLIER than that said: a record taken out or skipped in front of the marker, a break dropped by its
+ * claim check, a bed missing. A record that now ends before its instant, or a bed that runs out before it,
+ * puts the marker behind it on air early, and nothing here can lengthen either. This says by how much, so
+ * the pusher can say so where an operator will see it rather than the station quietly breaking the one
+ * promise a hard marker makes.
+ */
+export function earlyByMs(item: RundownItem, startsAt: number | undefined): number | undefined {
+    if (item.endBy === undefined || startsAt === undefined) return undefined;
+    const cues = playedCues(item);
+    const length = cues === undefined ? item.durationMs : cues.cueOutMs - cues.cueInMs;
+    if (length === undefined || !Number.isFinite(length)) return undefined;
+    const early = item.endBy - (startsAt + length);
+    return early > END_BY_GUARD_MS ? early : undefined;
 }
 
 /**
@@ -56,6 +85,8 @@ export function cutToEndBy(item: RundownItem, onAir: NowPlaying | undefined, ble
     if (item.endBy === undefined || !Number.isFinite(item.endBy)) return item;
     const startsAt = nextStartsAt(onAir, blendIntoMs, now);
     if (startsAt === undefined) return item;
+    // One that ends before its instant anyway is left alone: nothing here can make it longer, and
+    // `earlyByMs` is how the pusher says so.
 
     const cueIn = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? item.cueInMs : 0;
     const cutAtMs = cueIn + (item.endBy - startsAt) + END_BY_GUARD_MS;

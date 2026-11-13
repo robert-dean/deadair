@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { cutToEndBy, END_BY_GUARD_MS, FILL_LEAST_MS, nextStartsAt } from '../../../src/modules/playout/end.by.js';
+import { cutToEndBy, earlyByMs, END_BY_GUARD_MS, FILL_LEAST_MS, nextStartsAt } from '../../../src/modules/playout/end.by.js';
 import type { NowPlaying, RundownItem } from '../../../src/modules/playout/rundown.js';
 
 const NINE = Date.UTC(2026, 10, 13, 9, 0);
@@ -40,8 +40,25 @@ describe('nextStartsAt', () => {
         expect(nextStartsAt(onAir, 0, NINE)).toBe(NINE);
     });
 
-    it('is unknown when the item on air has no length anybody measured', () => {
+    it('is unknown when the item on air has no length anybody measured and no reading of what is left', () => {
         expect(nextStartsAt({ item: record('unmeasured', { durationMs: undefined }), startedAt: NINE - MINUTE }, 0, NINE)).toBeUndefined();
+    });
+
+    // After a restart the item on air is first SEEN minutes into it, so its start reads minutes late. The
+    // player's own reading of what is left is earlier, and the earlier answer is the one taken, since an
+    // earlier start can only make the next item play longer and the marker late rather than early.
+    it("takes the player's reading of what is left when it says the item ends sooner", () => {
+        const seenLate: NowPlaying = { ...onAir, startedAt: NINE - 3 * MINUTE, remainingMs: MINUTE };
+        expect(nextStartsAt(seenLate, 0, NINE - 3 * MINUTE)).toBe(NINE - 2 * MINUTE);
+    });
+
+    it('keeps the length when the reading says the item ends later', () => {
+        expect(nextStartsAt({ ...onAir, remainingMs: 5 * MINUTE }, 0, NINE - 5 * MINUTE)).toBe(NINE - 2 * MINUTE);
+    });
+
+    it('goes by the reading alone when the item has no length', () => {
+        const unmeasured: NowPlaying = { item: record('unmeasured', { durationMs: undefined }), startedAt: NINE - MINUTE, remainingMs: 30_000 };
+        expect(nextStartsAt(unmeasured, 0, NINE)).toBe(NINE + 30_000);
     });
 });
 
@@ -102,5 +119,24 @@ describe('cutToEndBy and a fill', () => {
     it('plays whole only when its recording runs out before the instant, which the planner does not choose', () => {
         const short = bed(NINE + 10 * MINUTE);
         expect(cutToEndBy(short, onAir, 0, now)).toBe(short);
+    });
+});
+
+// The order can reach a hard marker sooner than it was planned for, and nothing at hand-over can lengthen
+// what is in front of it. That is said rather than left silent.
+describe('earlyByMs', () => {
+    it('says how early the marker will be when the record ends before its instant', () => {
+        expect(earlyByMs(record('short', { durationMs: MINUTE, endBy: NINE }), NINE - 2 * MINUTE)).toBe(MINUTE);
+    });
+
+    it('says nothing for a record cut to end on its instant', () => {
+        expect(
+            earlyByMs(record('cut', { durationMs: 4 * MINUTE, cutAtMs: 2 * MINUTE + END_BY_GUARD_MS, endBy: NINE }), NINE - 2 * MINUTE),
+        ).toBeUndefined();
+    });
+
+    it('says nothing for a record with nothing to end by, or no known start', () => {
+        expect(earlyByMs(record('plain'), NINE)).toBeUndefined();
+        expect(earlyByMs(record('next', { endBy: NINE }), undefined)).toBeUndefined();
     });
 });

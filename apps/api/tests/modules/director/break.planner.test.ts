@@ -860,6 +860,88 @@ describe('BreakPlanner against the clock', () => {
             expect(plan).toHaveBeenCalledWith(expect.objectContaining({ airsAt: Date.UTC(2026, 7, 13, 9, 35) }));
         });
 
+        // When the order comes up early, the marker waits for its time at the boundary before it, behind a
+        // bed that runs to the time. A band at :31 meets 09:30 a minute early and 09:35 four minutes late.
+        const bed = (id: string, seconds: number): Segment => ({ ...recorded(id, 'bed'), durationMs: seconds * 1000 });
+        const kindsAt = (lineup: StationLineup): [number, string | undefined, number | undefined, number | undefined][] =>
+            lineup.all().flatMap((item, index) => (item.kind === 'segment' ? [[index, item.segmentKind, item.fillTo, item.hardAt]] : []));
+
+        it('waits for its time behind a bed when the order reaches it early', async () => {
+            const { planner, plan } = build({ settings: utc(), bands: [hard(31)], canWrite: true, idents: [ident('seg-1'), bed('bed-1', 180)] });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            const nineThirtyOne = Date.UTC(2026, 7, 13, 9, 31);
+            expect(kindsAt(lineup)).toEqual([
+                [6, 'bed', nineThirtyOne, undefined],
+                [7, 'news', undefined, nineThirtyOne],
+            ]);
+            expect(lineup.all()[6]).toMatchObject({ segmentId: 'bed-1' });
+            expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'news', airsAt: nineThirtyOne }));
+        });
+
+        it('does not wait with no bed long enough, and lands soft when it cannot cut either', async () => {
+            const { planner } = build({ settings: utc(), bands: [hard(31)], canWrite: true, idents: [ident('seg-1'), bed('bed-1', 80)] });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(kindsAt(lineup)).toEqual([[7, 'news', undefined, undefined]]);
+        });
+
+        it('does not wait longer than the station allows', async () => {
+            const { planner } = build({
+                settings: { ...utc(), 'rotation.hardMarkerMaxWaitSeconds': '30' },
+                bands: [hard(31)],
+                canWrite: true,
+                idents: [ident('seg-1'), bed('bed-1', 180)],
+            });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(kindsAt(lineup)).toEqual([[7, 'news', undefined, undefined]]);
+        });
+
+        it('takes whichever of waiting and cutting moves the order less', async () => {
+            const generous = { ...utc(), 'rotation.hardMarkerMaxWaitSeconds': '300', 'rotation.hardMarkerMaxCutSeconds': '300' };
+            const beds = [ident('seg-1'), bed('bed-1', 300)];
+
+            // :32 waits two minutes or cuts three: it waits.
+            const early = build({ settings: generous, bands: [hard(32)], canWrite: true, idents: beds });
+            const first = await lineupOf(20);
+            await early.planner.plant(first, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+            expect(kindsAt(first).map(([index, kind]) => [index, kind])).toEqual([
+                [6, 'bed'],
+                [7, 'news'],
+            ]);
+
+            // :33 waits three minutes or cuts two: it cuts.
+            const late = build({ settings: generous, bands: [hard(33)], canWrite: true, idents: beds });
+            const second = await lineupOf(20);
+            await late.planner.plant(second, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+            expect(kindsAt(second)).toEqual([[7, 'news', undefined, Date.UTC(2026, 7, 13, 9, 33)]]);
+        });
+
+        it('plants a wait once, however often the walk runs', async () => {
+            const { planner } = build({ settings: utc(), bands: [hard(31)], canWrite: true, idents: [ident('seg-1'), bed('bed-1', 180)] });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+            expect(await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine())).toBe(0);
+            expect(segmentsAt(lineup)).toEqual([6, 7]);
+        });
+
+        it('reads no beds for a clock with no hard band', async () => {
+            const { planner, listReady } = build({ settings: utc(), bands: [at(31, 'news')], canWrite: true });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(listReady).not.toHaveBeenCalledWith('bed', expect.anything());
+        });
+
         it('is planted once, however often the walk runs, since the projection now puts it on its time', async () => {
             const { planner } = build({ settings: utc(), bands: [hard(33)], canWrite: true });
             const lineup = await lineupOf(20);

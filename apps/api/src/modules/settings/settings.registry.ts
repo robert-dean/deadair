@@ -33,7 +33,7 @@ import {
 import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
 import { LISTENING_PROFILE_DEFAULT, LISTENING_PROFILE_KEY } from '#modules/catalog/listening.profile.service.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
-import { DEFAULT_HARD_MARKERS, HARD_MARKER_CUT_RANGE, HARD_MARKER_KEYS } from '#modules/director/hard.marker.js';
+import { DEFAULT_HARD_MARKERS, HARD_MARKER_CUT_RANGE, HARD_MARKER_KEYS, HARD_MARKER_WAIT_RANGE } from '#modules/director/hard.marker.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import {
@@ -1159,6 +1159,21 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'A band on the format clock switched to On the dot airs exactly at its time. When the music runs late, the record playing at that ' +
             'time is faded out early to make room, by at most this many seconds; if it would take more, the band airs when the record ends, ' +
             'as any other band does. Zero never cuts a record.',
+    },
+    {
+        group: 'breaks',
+        key: HARD_MARKER_KEYS.maxWaitSeconds,
+        label: 'Seconds a hard marker may wait',
+        type: 'number',
+        default: DEFAULT_HARD_MARKERS.maxWaitSeconds,
+        dependsOn: ROTATION_KEYS.breaks,
+        min: HARD_MARKER_WAIT_RANGE.min,
+        max: HARD_MARKER_WAIT_RANGE.max,
+        help:
+            'When the music runs early, a band switched to On the dot waits for its time rather than airing ahead of it, playing a bed ' +
+            'until then: a recording of the bed kind, uploaded like any other. It waits at most this many seconds, and only when a bed ' +
+            'is at least half a minute longer than the wait; otherwise it fades out the record in its way, or airs late. Where both are ' +
+            'possible, the station takes whichever moves the music less. Zero never waits.',
     },
     {
         group: 'breaks',

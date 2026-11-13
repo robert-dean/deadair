@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { canLandOnTime, HARD_MIN_PLAY_MS, resolveHardMarkers } from '../../../src/modules/director/hard.marker.js';
+import { canLandOnTime, FILL_SLACK_MS, HARD_MIN_PLAY_MS, resolveHardMarkers, waitBefore } from '../../../src/modules/director/hard.marker.js';
 import type { StationLineupItem } from '../../../src/modules/director/station.lineup.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -19,7 +19,7 @@ const record = (id: string): StationLineupItem => ({
 const talk = (id: string): StationLineupItem => ({ id, kind: 'segment', state: 'planned', segmentId: id });
 
 describe('canLandOnTime', () => {
-    const rules = { maxCutMs: 2 * MINUTE };
+    const rules = { maxCutMs: 2 * MINUTE, maxWaitMs: MINUTE };
     // The record in front starts at 08:57 and would end at 09:01, so the boundary is a minute past nine.
     const items = [record('a'), record('b')];
     const projected = [NINE - 3 * MINUTE, NINE + MINUTE];
@@ -29,7 +29,7 @@ describe('canLandOnTime', () => {
     });
 
     it('does not when the cut would take more than the limit', () => {
-        expect(canLandOnTime(items, projected, 1, NINE, { maxCutMs: 30_000 })).toBe(false);
+        expect(canLandOnTime(items, projected, 1, NINE, { maxCutMs: 30_000, maxWaitMs: MINUTE })).toBe(false);
     });
 
     it('does not cut speech', () => {
@@ -48,20 +48,52 @@ describe('canLandOnTime', () => {
 });
 
 describe('resolveHardMarkers', () => {
-    it('takes two minutes when nothing is set', () => {
-        expect(resolveHardMarkers(settingsConfig().config)).toEqual({ maxCutMs: 120_000 });
+    it('takes two minutes of cut and one of wait when nothing is set', () => {
+        expect(resolveHardMarkers(settingsConfig().config)).toEqual({ maxCutMs: 120_000, maxWaitMs: 60_000 });
+    });
+
+    it('reads the wait on its own', () => {
+        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxWaitSeconds': '90' }).config)).toMatchObject({ maxWaitMs: 90_000 });
+        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxWaitSeconds': '999' }).config)).toMatchObject({ maxWaitMs: 300_000 });
     });
 
     it('reads the setting as the string it is stored as', () => {
-        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': '45' }).config)).toEqual({ maxCutMs: 45_000 });
+        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': '45' }).config)).toMatchObject({ maxCutMs: 45_000 });
     });
 
     it('clamps a stored figure to its range rather than refusing it', () => {
-        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': '9000' }).config)).toEqual({ maxCutMs: 300_000 });
-        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': '-5' }).config)).toEqual({ maxCutMs: 0 });
+        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': '9000' }).config)).toMatchObject({ maxCutMs: 300_000 });
+        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': '-5' }).config)).toMatchObject({ maxCutMs: 0 });
     });
 
     it('takes the default for a value nobody can read', () => {
-        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': 'soon' }).config)).toEqual({ maxCutMs: 120_000 });
+        expect(resolveHardMarkers(settingsConfig({ 'rotation.hardMarkerMaxCutSeconds': 'soon' }).config)).toMatchObject({ maxCutMs: 120_000 });
+    });
+});
+
+describe('waitBefore', () => {
+    const rules = { maxCutMs: 2 * MINUTE, maxWaitMs: MINUTE };
+    // The boundary before nine is at 08:59:20, forty seconds early; the one after is at 09:03.
+    const projected = [NINE - 4 * MINUTE, NINE - 40_000, NINE + 3 * MINUTE];
+    const long = 40_000 + FILL_SLACK_MS;
+
+    it('is the wait at the boundary before the time, with a bed long enough to fill it', () => {
+        expect(waitBefore(projected, 2, NINE, 0, rules, long)).toBe(40_000);
+    });
+
+    it('is nothing without a bed long enough, to spare', () => {
+        expect(waitBefore(projected, 2, NINE, 0, rules, long - 1)).toBeUndefined();
+    });
+
+    it('is nothing when the wait is longer than the station allows', () => {
+        expect(waitBefore(projected, 2, NINE, 0, { ...rules, maxWaitMs: 30_000 }, long)).toBeUndefined();
+    });
+
+    it('is nothing at a boundary the walk may no longer plant at', () => {
+        expect(waitBefore(projected, 2, NINE, 2, rules, long)).toBeUndefined();
+    });
+
+    it('is nothing when the boundary before is already on the time, which is a cut of nothing instead', () => {
+        expect(waitBefore([NINE - 4 * MINUTE, NINE, NINE + 3 * MINUTE], 2, NINE, 0, rules, long)).toBeUndefined();
     });
 });

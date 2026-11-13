@@ -10,7 +10,7 @@ import { brokenClaim, reasonFor, type BrokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
 import { ClockBandRepository } from './clock.band.repository.js';
-import { canLandOnTime, resolveHardMarkers } from './hard.marker.js';
+import { BED_KIND, canLandOnTime, FILL_SLACK_MS, resolveHardMarkers, waitBefore } from './hard.marker.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { CHATTINESS_SPACING, chattinessOf, type PersonaChattiness } from '#modules/personas/persona.sheet.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
@@ -329,6 +329,13 @@ export class BreakPlanner {
         // above, so a station with its breaks off does not pay for it; the band read does happen
         // there, because a programme is still carried with the station's own talking switched off.
         const presenting = await this.personas.presenting(lineup.personaId);
+        // The beds a hard marker could wait behind, read only when a band is hard. Own first, on the
+        // shelf's rule, and only the ones whose length is known, since a wait is filled by length.
+        const beds = bands.some(band => isAnchored(band) && band.hard === true)
+            ? ownFirst(await this.segments.listReady(BED_KIND, onAirOf(lineup.slotId, presenting?.id))).filter(
+                  bed => bed.durationMs !== undefined && bed.durationMs > 0,
+              )
+            : [];
         const wanted = this.slotsFor(
             lineup,
             rules,
@@ -336,6 +343,7 @@ export class BreakPlanner {
             bands.filter(band => !isCarriedKind(band.kind)),
             chattinessOf(presenting),
             quiet,
+            Math.max(0, ...beds.map(bed => bed.durationMs ?? 0)),
         );
         if (wanted.length === 0) return programmes;
 
@@ -367,6 +375,7 @@ export class BreakPlanner {
             await this.lastKindBefore(lineup, wanted[0]!.atIndex),
             segmentsOn(lineup),
             onAir,
+            beds,
         );
         if (placements.length === 0) return programmes;
 
@@ -688,7 +697,7 @@ export class BreakPlanner {
      */
     private async insert(lineup: StationLineup, placements: readonly Placement[]): Promise<boolean> {
         const result = lineup.insertSegments(
-            placements.map(({ segmentId, atIndex, kind, over, durationMs, pinned, hardAt }) => ({
+            placements.map(({ segmentId, atIndex, kind, over, durationMs, pinned, hardAt, fillTo }) => ({
                 segmentId,
                 atIndex,
                 segmentKind: kind,
@@ -696,6 +705,7 @@ export class BreakPlanner {
                 ...(durationMs === undefined ? {} : { durationMs }),
                 ...(pinned ? { pinned } : {}),
                 ...(hardAt === undefined ? {} : { hardAt }),
+                ...(fillTo === undefined ? {} : { fillTo }),
             })),
         );
         if (result.ok) return true;
@@ -745,6 +755,9 @@ export class BreakPlanner {
         chattiness: PersonaChattiness,
         // The last index a quiet spell covers. Absent is not quiet. See `quietThrough`.
         quiet?: number,
+        // The longest bed the station holds, which is the longest wait a hard marker can fill. Zero is
+        // none, and then a hard marker never waits. See `hard.marker.ts`.
+        longestBedMs = 0,
     ): Slot[] {
         const items = lineup.all();
         const committed = lineup.committedThrough();
@@ -784,7 +797,7 @@ export class BreakPlanner {
         // the end of the order, which is a slot the walk can reach and the clock cannot describe.
         // `band` is what claimed the slot: an operator's band, or a kind the station's own rules plant
         // exactly as if one had asked for it (a jingle). Absent is the station's own talk break.
-        const claim = (atIndex: number, band?: Pick<ClockBand, 'kind' | 'topic'>, airsAt?: number, hardAt?: number): void => {
+        const claim = (atIndex: number, band?: Pick<ClockBand, 'kind' | 'topic'>, airsAt?: number, hardAt?: number, waits?: number): void => {
             if (taken.has(atIndex)) return;
             taken.add(atIndex);
             slots.push({
@@ -793,6 +806,7 @@ export class BreakPlanner {
                 ...(band?.topic === undefined ? {} : { topic: band.topic }),
                 ...(airsAt === undefined ? {} : { airsAt }),
                 ...(hardAt === undefined ? {} : { hardAt }),
+                ...(waits === undefined ? {} : { waits }),
             });
         };
         // Read once per walk, and only matters to a hard band.
@@ -810,13 +824,21 @@ export class BreakPlanner {
             // topped up continuously and a later pass asks again against a longer order.
             if (at === undefined) continue;
 
-            // A HARD marker lands on its time by cutting the record in front of this boundary to end
-            // on it, when that record can take the cut. One that cannot lands soft, below, and says
-            // so: an operator who asked for the news on the dot should be able to find out why it
-            // was not. See `hard.marker.ts`.
-            const onTime = band.hard === true && canLandOnTime(items, projected, at, target, hardRules);
+            // A HARD marker lands on its time one of two ways, and takes whichever moves the order less:
+            // it WAITS at the boundary before its time, behind a bed that runs to the time, or it CUTS the
+            // record in front of this boundary to end on the time. One that can do neither lands soft,
+            // below, and says so: an operator who asked for the news on the dot should be able to find
+            // out why it was not. See `hard.marker.ts`.
+            const programme = isCarriedKind(band.kind);
+            const free = (index: number): boolean =>
+                (programme || (!isBreakAt(items, index) && !isBreakAt(items, index - 1))) && !blockedBy(taken).has(index);
+            const cut = band.hard === true && canLandOnTime(items, projected, at, target, hardRules) ? projected[at]! - target : undefined;
+            const wait = band.hard === true ? waitBefore(projected, at, target, nearest, hardRules, longestBedMs) : undefined;
+            const waits = wait !== undefined && free(at - 1) && (cut === undefined || wait <= cut || !free(at)) ? wait : undefined;
+            const onTime = waits !== undefined || cut !== undefined;
+            const land = waits === undefined ? at : at - 1;
             if (band.hard === true && !onTime) {
-                this.logger.info('director: a hard marker cannot land on its time here, so it airs at the boundary after it', {
+                this.logger.info('director: a hard marker can neither wait for its time nor cut to it here, so it airs at the boundary after it', {
                     kind: band.kind,
                     at: new Date(target).toISOString(),
                     boundary: new Date(projected[at]!).toISOString(),
@@ -843,14 +865,13 @@ export class BreakPlanner {
             // operator the one thing they scheduled. What still applies is `servedAlready`, which is
             // what stops the same occurrence being planted twice, and `blockedBy(taken)`, which keeps
             // two claims of THIS pass out of one gap.
-            const programme = isCarriedKind(band.kind);
 
             // Already a break here. Left alone rather than doubled, exactly as the spacing walk
             // leaves one alone — and correct even when it is somebody else's kind, because two
             // breaks in one gap is worse than a bulletin the DJ introduced. A programme on either
             // side is not a break, for the reason above read the other way: the news at the top of
             // the hour a programme ends on is exactly where the news goes.
-            if (!programme && isBreakAt(items, at)) continue;
+            if (!programme && isBreakAt(items, land)) continue;
 
             // An occurrence this order already serves, which is the question the line above only
             // LOOKS like it asks. That one asks whether the boundary THIS pass chose is free, and
@@ -872,7 +893,7 @@ export class BreakPlanner {
             // anchored means — so the occurrence is dropped rather than shifted, on the same terms
             // it is dropped when the boundary itself is taken. `taken` is the same question asked
             // about this pass, where the slot is a promise rather than a row.
-            if ((!programme && isBreakAt(items, at - 1)) || blockedBy(taken).has(at)) continue;
+            if ((!programme && isBreakAt(items, land - 1)) || blockedBy(taken).has(land)) continue;
 
             // The PROJECTED time rather than the target, and the difference is what the break will
             // SAY. A band asked for 14:14 and the boundary that can take it airs at 14:17, so words
@@ -882,7 +903,8 @@ export class BreakPlanner {
             //
             // A hard marker on its time is the exception, and the reason it exists: it airs AT the
             // target, so that is what it says, and what the record in front of it is cut to.
-            if (onTime) claim(at, band, target, target);
+            if (waits !== undefined) claim(land, band, target, target, waits);
+            else if (onTime) claim(at, band, target, target);
             else claim(at, band, projected[at]!);
         }
 
@@ -1361,8 +1383,12 @@ export class BreakPlanner {
         lastKind: string | undefined,
         onOrder: Set<string>,
         onAir: OnAir,
+        // The beds a hard marker that waits is filled with. See `plant`.
+        beds: readonly ShelvedSegment[] = [],
     ): Promise<Placement[]> {
         const placements: Placement[] = [];
+        // The bed last drawn this pass, so two waits planted together are two different beds.
+        let previousBed: string | undefined;
         let previousKind = lastKind;
         // Chosen per slot rather than once per pass, so two idents planted together are two
         // different recordings where the library has them.
@@ -1374,7 +1400,7 @@ export class BreakPlanner {
         // `previousIdent`'s rule, kept per kind because a band can name any kind.
         const drawn = new Map<string, string>();
 
-        for (const { atIndex, band, topic, airsAt, hardAt } of wanted) {
+        for (const { atIndex, band, topic, airsAt, hardAt, waits } of wanted) {
             // A slot the operator's clock placed is filled with EXACTLY the kind they named, and
             // never handed to the alternation below. That looks like it should have an exception
             // for `talkbreak`, which the station's own rule also plants, and it must not have one:
@@ -1384,8 +1410,19 @@ export class BreakPlanner {
             // writes a clock, never once said what time it was. What makes a break a band's is that
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
+                // A hard marker that waits for its time goes in behind a bed that runs to it. Chosen first,
+                // because a marker planted where it waits with nothing in front of it would air early: no
+                // bed long enough, and the slot is left for the next pass to plan again.
+                const bed = waits === undefined ? undefined : bedFor(beds, waits, previousBed);
+                if (waits !== undefined && bed === undefined) continue;
                 const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder, onAir);
-                if (planted !== undefined) placements.push(hardAt === undefined ? planted : { ...planted, hardAt });
+                if (planted === undefined) continue;
+                placements.push(hardAt === undefined ? planted : { ...planted, hardAt });
+                // Listed AFTER the marker at the same index, which `insertSegments` puts in front of it.
+                if (bed !== undefined && hardAt !== undefined) {
+                    previousBed = bed.id;
+                    placements.push({ segmentId: bed.id, atIndex, kind: BED_KIND, written: false, fillTo: hardAt });
+                }
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
                 continue;
@@ -1636,6 +1673,11 @@ interface Slot {
      * of the slot is cut to end on it at hand-over. See `hard.marker.ts`.
      */
     hardAt?: number;
+    /**
+     * How long a HARD marker on its time waits behind a bed, when it lands at the boundary before its time
+     * rather than cutting the record after it. The bed is chosen by it: one long enough to fill it.
+     */
+    waits?: number;
 }
 
 /** One break, and where it goes. `written` distinguishes a row to write from an ident off the shelf. */
@@ -1659,6 +1701,8 @@ interface Placement {
     pinned?: true;
     /** A hard marker's time, carried onto the order. See `StationLineupSegmentItem.hardAt`. */
     hardAt?: number;
+    /** A fill's end, carried onto the order. See `StationLineupSegmentItem.fillTo`. */
+    fillTo?: number;
 }
 
 /**
@@ -1946,4 +1990,15 @@ function choose(available: readonly Segment[], previous: string | undefined): Se
     const others = available.filter(segment => segment.id !== previous);
     const pool = others.length > 0 ? others : available;
     return pool[Math.floor(Math.random() * pool.length)]!;
+}
+
+/**
+ * A bed long enough to fill a wait with {@link FILL_SLACK_MS} to spare, avoiding the one drawn last, or
+ * nothing when the station holds none that long. `beds` is already own-first. Random among the ones that fit,
+ * on {@link choose}'s argument.
+ */
+function bedFor(beds: readonly ShelvedSegment[], waitMs: number, previous: string | undefined): ShelvedSegment | undefined {
+    const long = beds.filter(bed => (bed.durationMs ?? 0) >= waitMs + FILL_SLACK_MS);
+    if (long.length === 0) return undefined;
+    return choose(long, previous) as ShelvedSegment;
 }

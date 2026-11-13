@@ -408,6 +408,28 @@ export interface DeadairFacts {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairFestivalActs {
+  artist: string;
+  day: DateTime | null;
+  festivalId: string;
+  headliner: Generated<boolean>;
+  position: number;
+}
+
+export interface DeadairFestivals {
+  createdAt: Generated<DateTime>;
+  endsOn: DateTime;
+  id: Generated<string>;
+  name: string;
+  place: string | null;
+  sourceEventId: string | null;
+  sourcePluginId: string | null;
+  startsOn: DateTime;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  url: string | null;
+}
+
 export interface DeadairGenreSteers {
   createdAt: Generated<DateTime>;
   endsAt: DateTime;
@@ -1470,6 +1492,8 @@ export interface DB {
   "deadair.eventDestinations": DeadairEventDestinations;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
+  "deadair.festivalActs": DeadairFestivalActs;
+  "deadair.festivals": DeadairFestivals;
   "deadair.genreSteers": DeadairGenreSteers;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.invitations": DeadairInvitations;

@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type { PackImportPlan } from '../topics/types/topics.types.js';
+import type { FestivalInput, FestivalList } from './types/festivals.types.js';
 import type { OccasionImportPlan, OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from './types/occasions.types.js';
 import type {
     ScheduleImportResult,
@@ -16,6 +17,50 @@ import type {
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List festivals
+     * @description Every festival on this station, soonest first, each saying whether it is still to come, on now or over
+     */
+    async listFestivals(): Promise<FestivalList> {
+        const result = await this.fetch(`/festivals`, { method: 'GET' });
+        return await parseJson<FestivalList>(result);
+    }
+
+    /**
+     * @name Add a festival
+     * @description Adds a festival. A show names it from the schedule, and nothing is said about it until one does
+     */
+    async addAFestival(body: FestivalInput): Promise<FestivalList> {
+        const result = await this.fetch(`/festivals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<FestivalList>(result);
+    }
+
+    /**
+     * @name Change a festival
+     * @description Replaces a festival and its whole bill. A show naming it plays and talks about the new one from its next refill and its next break
+     */
+    async changeAFestival(id: string, body: FestivalInput): Promise<FestivalList> {
+        const result = await this.fetch(`/festivals/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<FestivalList>(result);
+    }
+
+    /**
+     * @name Remove a festival
+     * @description Removes a festival. A show that named it carries on as the show it otherwise is
+     */
+    async removeAFestival(id: string): Promise<FestivalList> {
+        const result = await this.fetch(`/festivals/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<FestivalList>(result);
+    }
 
     /**
      * @name List occasions

@@ -6456,6 +6456,82 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PartyGuestSession'
+    '/festivals':
+        get:
+            operationId: listFestivals
+            summary: 'List festivals'
+            description: 'Every festival on this station, soonest first, each saying whether it is still to come, on now or over'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/FestivalList'
+        post:
+            operationId: addAFestival
+            summary: 'Add a festival'
+            description: 'Adds a festival. A show names it from the schedule, and nothing is said about it until one does'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/Festival'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/FestivalList'
+    '/festivals/{id}':
+        put:
+            operationId: changeAFestival
+            summary: 'Change a festival'
+            description: 'Replaces a festival and its whole bill. A show naming it plays and talks about the new one from its next refill and its next break'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/Festival'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/FestivalList'
+                '404':
+                    description: 'Not found'
+        delete:
+            operationId: removeAFestival
+            summary: 'Remove a festival'
+            description: 'Removes a festival. A show that named it carries on as the show it otherwise is'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/FestivalList'
+                '404':
+                    description: 'Not found'
     '/occasions':
         get:
             operationId: listOccasions
@@ -17205,6 +17281,79 @@ components:
                     description: "When it stops working, which is when the party's pass does"
             required: [accessToken, expiresAt]
             description: "A guest's way in: send it as a bearer token on the request routes"
+        Festival:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 120
+                    description: 'Said on air as written: `Shaky Knees`, `the Newport Folk Festival`'
+                startsOn:
+                    type: string
+                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                    description: "The first day, as `YYYY-MM-DD` on the festival's own calendar"
+                endsOn:
+                    type: string
+                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                    description: 'The last day, inclusive. The same as `startsOn` for a one-day festival'
+                place:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Where it is, as a presenter would say it: `Piedmont Park, Atlanta`. Absent says nothing about where'
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: "The festival's own page. Kept as where the facts came from, and never read out"
+                acts:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/FestivalAct'
+                    maxItems: 300
+                    description: 'Who is on the bill, in the order they should be listed. A name given twice is kept once'
+                state:
+                    type: string
+                    enum: [upcoming, 'on', over]
+                    readOnly: true
+                    description: "Where the festival stands on the station's calendar today: still to come, on now, or finished. A finished festival is never talked about"
+                sourcePluginId:
+                    type: string
+                    readOnly: true
+                    description: 'The plugin a festival was imported from. Absent for one an operator typed'
+            required: [id, name, startsOn, endsOn, acts, state]
+            description: 'A music festival the station can build a show around: its dates, where it is, and who is on the bill. What a presenter says about it is read from here, so its dates are the ones an operator typed or checked'
+        FestivalAct:
+            type: object
+            properties:
+                artist:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'As the station credits them, which is the name said on air and the name the station looks their records up by'
+                day:
+                    type: string
+                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                    description: "The day they play, as `YYYY-MM-DD`, when the bill says. Inside the festival's dates"
+                headliner:
+                    type: boolean
+                    description: 'Whether they top the bill. Absent is no'
+            required: [artist]
+            description: "One act on a festival's bill"
+        FestivalList:
+            type: object
+            properties:
+                festivals:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/Festival'
+            required: [festivals]
+            description: 'Every festival on the station, soonest first'
         Occasion:
             type: object
             properties:

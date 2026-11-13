@@ -1,7 +1,7 @@
 ---
 title: 'Delete schedule slot'
 sidebar_label: 'Delete schedule slot'
-sidebar_position: 17
+sidebar_position: 21
 mdx:
     format: 'md'
 ---

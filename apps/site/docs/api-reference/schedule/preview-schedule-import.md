@@ -1,7 +1,7 @@
 ---
 title: 'Preview schedule import'
 sidebar_label: 'Preview schedule import'
-sidebar_position: 14
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

@@ -1,7 +1,7 @@
 ---
 title: 'Add an occasion'
 sidebar_label: 'Add an occasion'
-sidebar_position: 2
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

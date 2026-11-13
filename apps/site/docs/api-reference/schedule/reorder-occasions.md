@@ -1,7 +1,7 @@
 ---
 title: 'Reorder occasions'
 sidebar_label: 'Reorder occasions'
-sidebar_position: 3
+sidebar_position: 7
 mdx:
     format: 'md'
 ---

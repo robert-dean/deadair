@@ -1052,6 +1052,7 @@ export interface DeadairScheduleSlots {
   requestFollowOn: number | null;
   requestShow: boolean | null;
   resumePlaylist: Generated<boolean>;
+  shufflePlaylist: Generated<boolean>;
   sourceChartId: string | null;
   sourceChartOrder: "countdown" | "ranked" | "unordered" | null;
   sourcePlaylistId: string | null;

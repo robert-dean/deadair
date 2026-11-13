@@ -94,7 +94,7 @@ Back under **Settings → Bulletins**, two weather settings are worth knowing:
 
 ## 5. Put them on the format clock
 
-Open **Programme → Today** and find **Format clock**. Press **Add band**.
+Open **Programme → Today** and find **Format clock**. Press **New band**.
 
 For the news:
 
@@ -102,7 +102,7 @@ For the news:
 2. Under **How often**, choose **every hour at** and set **Minutes past the hour** to `0`.
 3. Save.
 
-Then press **Add band** again for the weather:
+Then press **New band** again for the weather:
 
 1. Write `weather` as the **Sort of break**.
 2. Choose **every hour at** and set **Minutes past the hour** to `30`.
@@ -158,7 +158,7 @@ put it on the clock, and the station makes a fresh edition each time.
    presenter if you want other than the station's defaults. Save.
 2. Open **Voice → Subjects**. Under **Own shows**, add one: give it a label and pick
    `The Evening News` as the **Show**. Save.
-3. Open **Programme → Today**, **Format clock**, and press **Add band**. Write `podcast` as the
+3. Open **Programme → Today**, **Format clock**, and press **New band**. Write `podcast` as the
    **Sort of break**, choose **once a day at** and `18:00`, and pick **Mon** to **Fri** under
    **on**. Under **About**, pick the subject from step 2. Save.
 

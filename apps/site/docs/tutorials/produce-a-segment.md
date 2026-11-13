@@ -56,7 +56,7 @@ When every beat has been spoken it goes into the running order and shows **in th
 ![Productions: what the station is making, and how far along each one is](/img/console/voice.productions.webp)
 *Fig. 2. Voice → Productions.*
 
-**To make them regularly,** add a band to the format clock instead (Programme → Today → **Add band**)
+**To make them regularly,** add a band to the format clock instead (Programme → Today → **New band**)
 with `podcast` as the **Sort of break**. One is commissioned ahead of every time the band comes round.
 See [Make a show](./make-a-show.md#3-give-the-hour-a-shape-optional).
 

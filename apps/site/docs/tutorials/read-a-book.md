@@ -64,7 +64,7 @@ minute or two.
 ## 4. Put it on the clock
 
 1. Open **Programme → Today** and find **Format clock**.
-2. Press **Add band**. In **New band**, after **Say a**, write `narration` as the **Sort of break**.
+2. Press **New band**. In **New band**, after **Say a**, write `narration` as the **Sort of break**.
 3. Under **How often**, choose **once a day at** and set **Time of day** to `21:00`.
 4. Under **About**, pick the series you just made.
 5. Save.

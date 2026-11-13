@@ -311,6 +311,17 @@ because the skip lands a frame or more later; the next track's `on_track` restor
 python3 stream/fadeskip.check.py
 ```
 
+`cut.check.liq` checks a record cut short for a hard marker (`deadair_cut`, and `liq_cue_out` at the cut):
+that it stays at full level until its fade, falls across the last three seconds, is silent after the cut,
+and that the next item starts at full level on it. The first version stamped the next item's side of the
+boundary a hard join and never faded at all, because `cross` buffers the shorter of the two stamps; the app
+stamps the fade on both sides now. `cut.check.py` writes the tones, runs it in the pinned image and needs no
+dev stack:
+
+```
+python3 stream/cut.check.py
+```
+
 `duck.check.liq` measures where the duck lands the bed under the voice. The bed is one tone at about
 -30 LUFS for ten seconds and -8 for ten more, and a voice at -15 speaks over each half. It reports the
 gap between the voice and the bed under it, which is what a listener hears as "the music is too loud

@@ -38,6 +38,15 @@ import { errorText } from '#modules/shared/error.text.js';
  * instead of standing its clock down over an id it has never seen.
  */
 
+/**
+ * How long a record cut short for a hard marker takes to fade out, ending exactly where it was cut.
+ *
+ * Long enough to be heard as a fade rather than a cut (a DJ's fader takes about this long), short enough
+ * that the cut point can be chosen to the second without the fade starting audibly early. `radio.liq`
+ * holds no copy of it: the mixer reads the length off the record's own end buffer, which is stamped with it.
+ */
+export const CUT_FADE_MS = 3_000;
+
 export interface RundownItem {
     /**
      * The running order's own id for this item: the one stored in
@@ -222,6 +231,16 @@ export interface RundownItem {
     introEndMs?: number;
     outroStartMs?: number;
     cueOutMs?: number;
+    /**
+     * Where the director has cut this record short, as a position in the file in milliseconds, so the
+     * player stops reading there rather than at `cueOutMs` and fades the last {@link CUT_FADE_MS} out.
+     *
+     * Set only for a record in the way of a hard marker (`clock_bands.hard`): the time the marker is
+     * due falls inside it, and the marker cannot wait. Absent is every other record, which plays to its
+     * own end. A cut at or past where the record ends anyway, or at or before where it starts, is not a
+     * cut and is ignored; see `playedCues` in `annotate.ts`.
+     */
+    cutAtMs?: number;
 
     /**
      * How loud the record is, and how close it already runs to its ceiling.

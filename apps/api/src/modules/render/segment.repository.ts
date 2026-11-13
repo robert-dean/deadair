@@ -472,6 +472,21 @@ export const LIBRARY_SOURCE = 'library';
 export const SYNDICATED_SOURCE = 'syndicated';
 
 /**
+ * The kind of a MUSIC BED: a recording that runs under a break rather than airing as one.
+ *
+ * A library kind like any other, so it arrives through the same three doors (the inbox folder
+ * `media/segments/inbox/bed/`, the upload, the URL), is measured as any recording is, and is scoped
+ * to shows with the same picker. What makes it different is that it is never an ITEM: kept off the
+ * shelf a band draws from ({@link SegmentRepository.listReady}) and out of {@link
+ * SegmentRepository.readyKinds}, or the format clock would offer "bed" as an hour an operator can
+ * schedule around and the planner would air one on its own between two records. The pad's argument
+ * for not being a `segments.kind`, answered the other way round: a bed has an inbox, a checksum
+ * identity and a show scope, all of which a segment already has, so it is a kind that is fenced
+ * off rather than a table of its own. Drawn instead by {@link SegmentRepository.listBeds}.
+ */
+export const BED_KIND = 'bed';
+
+/**
  * Rows read back as `undefined` rather than `null` (see the note in CLAUDE.md), so every optional
  * column is compared with `== null` and dropped rather than passed through. `audioExt` is
  * validated rather than cast: it is the second half of a filesystem path, and a row edited by hand
@@ -882,6 +897,8 @@ export class SegmentRepository extends DataRepository {
             .selectFrom('deadair.segments')
             .select([...SEGMENT_COLUMNS, 'showScoped'])
             .where('kind', '=', kind)
+            // A bed is never a break, so a band that names `bed` draws nothing. See BED_KIND.
+            .where('kind', '!=', BED_KIND)
             .where('state', '=', 'ready')
             .where('productionId', 'is', null)
             // Nor is an episode of somebody else's programme: it airs once, at its show's slot, and
@@ -920,6 +937,17 @@ export class SegmentRepository extends DataRepository {
             .execute();
 
         return rows.map(toShelved);
+    }
+
+    /**
+     * The music beds that may run under a break on this show. See {@link BED_KIND}.
+     *
+     * {@link listRecordings}' question asked of beds, with its answer: only what an operator gave the
+     * station, only what is ready, and only what is scoped to nobody or to the show or presenter on
+     * air, with `forShow` saying which are the show's own so the caller can prefer them.
+     */
+    async listBeds(onAir?: OnAir): Promise<ShelvedSegment[]> {
+        return this.listRecordings(BED_KIND, onAir);
     }
 
     /**
@@ -999,6 +1027,8 @@ export class SegmentRepository extends DataRepository {
             // And an episode is not a shelf kind either: `syndicated` is offered on the format clock
             // because a podcast plugin can carry it, never because an episode happens to be held.
             .where('source', '!=', SYNDICATED_SOURCE)
+            // Nor is a bed: it runs under a break, and a band of beds would air one on its own.
+            .where('kind', '!=', BED_KIND)
             .execute();
 
         return rows.map(row => row.kind);

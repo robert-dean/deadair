@@ -514,3 +514,32 @@ describe('SegmentRepository scopes', () => {
         expect(statements).toEqual([]);
     });
 });
+
+describe('music beds', () => {
+    it('are never drawn as a break, whatever a band names', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).listReady('bed');
+
+        expect(statements[0]?.sql).toContain('"kind" != $');
+        expect(statements[0]?.parameters).toContain('bed');
+    });
+
+    it('never make the format clock offer a bed as an hour', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).readyKinds();
+
+        expect(statements[0]?.sql).toContain('"kind" != $');
+        expect(statements[0]?.parameters).toContain('bed');
+    });
+
+    it("are read as an operator's recordings, scoped to the show on air", async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).listBeds({ slotId: 'slot-1' });
+
+        const sql = statements[0]?.sql ?? '';
+        expect(sql).toContain('"kind" = $');
+        expect(sql).toContain('"source" = $');
+        expect(sql).toContain('"slot_id" = $');
+        expect(statements[0]?.parameters).toEqual(expect.arrayContaining(['bed', 'library', 'slot-1']));
+    });
+});

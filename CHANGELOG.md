@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.99.0] — 2026-11-13
+
+- A schedule block that plays a playlist can play it in a shuffled order. Switch on **Shuffle the playlist** in the slot editor, beside the resume switch. Each time the block opens, the station draws a fresh order for the playlist, rather than playing it in the order the provider lists it. The records are the same; only the order changes. A shuffled slot does not pick its playlist up where it left off, and a takeover that ends inside the block draws the order again.
+- A changeover no longer thanks the station's own host for a show they never presented. When the host of the show that just ended has been deleted by the time the changeover is written, the break now thanks nobody by name, as it already did for a co-host the roster no longer has.
+- The MCP endpoint's HTTP layer moves to hono 4.13.18 and @hono/node-server 2.1.8 for seven security advisories, among them middleware skipped on some paths and a crash on a reset socket during a WebSocket upgrade.
+
 ## [0.98.1] — 2026-11-12
 
 - A listener no longer ends up far behind the Desk after the audio chain stalls. When something held Liquidsoap's streaming loop, it used to produce everything it had missed (up to a minute of it) as one burst afterwards, and every player that received the burst stayed that far behind for the rest of the session, hearing the previous record while the Desk named the next. A stall longer than eight seconds is now dropped instead: it is heard once as a gap and the stream comes back in step. `CLOCK_MAX_LATENCY_S` moves the threshold.
@@ -2027,7 +2033,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.98.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.99.0...HEAD
+[0.99.0]: https://github.com/robert-dean/deadair/compare/v0.98.1...v0.99.0
 [0.98.1]: https://github.com/robert-dean/deadair/compare/v0.98.0...v0.98.1
 [0.98.0]: https://github.com/robert-dean/deadair/compare/v0.97.5...v0.98.0
 [0.97.5]: https://github.com/robert-dean/deadair/compare/v0.97.4...v0.97.5

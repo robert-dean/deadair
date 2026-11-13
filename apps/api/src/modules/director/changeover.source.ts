@@ -94,7 +94,11 @@ export class ChangeoverSource {
     async changeoverFor(kind: string, context: BreakContext | undefined, presenting: Persona | undefined): Promise<BreakChangeover | undefined> {
         if (kind !== CHANGEOVER_KIND) return undefined;
 
-        const outgoing = await this.personas.presenting(nonEmptyText(context?.[CHANGEOVER_CONTEXT.outgoingPersonaId]));
+        // A broadcast that named nobody was presented by the station's own host, so `presenting` stands
+        // that host in. One that named a host the roster no longer has was NOT presented by the default,
+        // so `find` answers nobody rather than thanking the default for a show it never did.
+        const outgoingId = nonEmptyText(context?.[CHANGEOVER_CONTEXT.outgoingPersonaId]);
+        const outgoing = outgoingId === undefined ? await this.personas.presenting(undefined) : await this.personas.find(outgoingId);
         const outgoingShow = nonEmptyText(context?.[CHANGEOVER_CONTEXT.outgoingShow]);
         const incomingShow = nonEmptyText(context?.[CHANGEOVER_CONTEXT.incomingShow]);
         // `find` rather than `presenting`: a co-host is somebody the show named, never the station's

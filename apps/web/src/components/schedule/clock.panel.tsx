@@ -203,6 +203,11 @@ export function ClockPanel() {
                                                             {daysOf(band)}
                                                         </Text>
                                                     )}
+                                                    {band.at === 'clock' && band.hard === true ? (
+                                                        <Text size="xs" c="dimmed">
+                                                            {t('clock.hard')}
+                                                        </Text>
+                                                    ) : undefined}
                                                 </Table.Td>
                                                 <Table.Td>
                                                     <RowOpener>

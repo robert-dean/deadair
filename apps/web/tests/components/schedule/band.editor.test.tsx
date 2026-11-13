@@ -69,6 +69,41 @@ describe('BandEditor on chosen days', () => {
     });
 });
 
+// A hard marker is a band at a time of day that airs exactly on its time. The station keeps a stored `hard`
+// when a save leaves it out, so the editor has to send `false` to make one soft again.
+describe('BandEditor and a hard marker', () => {
+    it('opens on a hard band switched on and sends it back hard', async () => {
+        const user = setupUser();
+        const onSubmit = open(band({ hard: true }));
+
+        expect((await screen.findByRole('switch', { name: /On the dot/ })) as HTMLInputElement).toHaveProperty('checked', true);
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ hard: true }));
+    });
+
+    it('sends false, not nothing, when it is switched off', async () => {
+        const user = setupUser();
+        const onSubmit = open(band({ hard: true }));
+
+        await user.click(await screen.findByRole('switch', { name: /On the dot/ }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ hard: false }));
+    });
+
+    it('offers no switch to an interval band, which has no time to hit', async () => {
+        const user = setupUser();
+        const onSubmit = open(band({ at: 'interval', hour: undefined, minute: undefined, everyMs: 1_200_000 }));
+
+        await screen.findByRole('button', { name: 'Save' });
+        expect(screen.queryByRole('switch', { name: /On the dot/ })).toBeNull();
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('hard');
+    });
+});
+
 describe('daysOf', () => {
     it('says nothing for every day, and leaves the time to whenOf', () => {
         expect(daysOf(band({ days: [] }))).toBeUndefined();
@@ -102,7 +137,7 @@ describe('BandEditor holding an edit', () => {
         const onClose = vi.fn();
         open(band(), onClose);
 
-        await user.click(await screen.findByRole('switch'));
+        await user.click(await screen.findByRole('switch', { name: /In force/ }));
         await user.keyboard('{Escape}');
 
         expect(onClose).not.toHaveBeenCalled();

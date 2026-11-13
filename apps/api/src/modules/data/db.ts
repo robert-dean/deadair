@@ -1026,6 +1026,7 @@ export interface DeadairScheduleSlotHosts {
 export interface DeadairScheduleSlots {
   artistCooldownMinutes: number | null;
   avoidMoods: string[] | null;
+  beds: boolean | null;
   breaks: boolean | null;
   brief: Generated<string>;
   callins: boolean | null;

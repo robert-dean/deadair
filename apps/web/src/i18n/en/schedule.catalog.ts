@@ -121,6 +121,22 @@ export const schedule = {
         withCoHosts: '{{host}} with {{coHosts}}',
     },
     slot: {
+        sound: {
+            title: 'Sound',
+            bedsLabel: 'Music under the breaks',
+            bedsDescription:
+                "Breaks the station writes during this show air over a music bed: one of this show's beds, or else one that plays on every show. Untick to keep this show's breaks dry.",
+            saveFirst: 'Save the show first, then come back to give it its own jingles, idents and beds.',
+            kind: {
+                jingle: 'Jingles',
+                ident: 'Idents',
+                bed: 'Music beds',
+            },
+            noneInLibrary: 'None in the library yet',
+            everyShow: 'every show',
+            note: "Saved as you choose. A show with recordings of its own plays only those; a show with none plays the ones marked every show. Choosing one marked every show makes it this show's alone. Add recordings on the Segments page.",
+            saveFailed: 'That recording could not be given to this show',
+        },
         enabledLabel: 'On the schedule',
         enabledDescription: 'Turn this off to keep the slot without it going on the air.',
         editTitle: 'Edit slot',

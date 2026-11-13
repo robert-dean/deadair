@@ -260,6 +260,8 @@ export interface ScheduleSlot {
     chartPositions?: boolean;
     /** Whether the host may mention an artist's next local show. Absent is no; see `StationLineupRules.concerts`. */
     concerts?: boolean;
+    /** Whether the show's written breaks air over a music bed. Absent is yes; see `StationLineupRules.beds`. */
+    beds?: boolean;
     /**
      * The days this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *

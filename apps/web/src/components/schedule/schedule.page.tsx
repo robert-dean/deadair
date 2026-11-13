@@ -551,6 +551,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
+        ...(slot.beds === undefined ? {} : { beds: slot.beds }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),

@@ -364,6 +364,15 @@ export interface StationLineupRules {
      */
     concerts?: boolean;
     /**
+     * Whether the breaks the station writes for this broadcast air over a music bed.
+     *
+     * Absent is YES, where the other show rules here are mostly no, because a bed is something an
+     * operator already chose by putting one in the library and scoping it: a station with no beds
+     * has nothing for this to switch on, and one that has them meant them to be heard. False keeps
+     * this broadcast's breaks dry whatever the library holds. Read by `BreakPlanner`, when it plants.
+     */
+    beds?: boolean;
+    /**
      * Whether one record may be blended into the next.
      *
      * Off for a `setlist` and a `feature` without anybody setting it, by the same

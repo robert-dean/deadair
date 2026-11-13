@@ -725,6 +725,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
+    /// <summary>Whether the breaks the station writes during this broadcast air over a music bed from the library: one scoped to the slot or host on air, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps every break dry</summary>
+    [JsonPropertyName("beds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Beds { get; init; }
+
     /// <summary>Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no</summary>
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -263,6 +263,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot\'s chart without its positions read out',
         ),
+    beds: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had",
+        ),
     concerts: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -467,6 +473,12 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot\'s chart without its positions read out',
+        ),
+    beds: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had",
         ),
     concerts: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

@@ -350,8 +350,9 @@ export class BreakPlanner {
         // docs/internals/breaks.md.
         const onAir = onAirOf(lineup.slotId, presenting?.id);
         const idents = ownFirst(await this.segments.listReady(IDENT_KIND, onAir));
-        // The show's music beds, for every break this pass writes. Read only if one is planted.
-        const beds = this.bedsFor(onAir);
+        // The show's music beds, for every break this pass writes. Read only if one is planted, and
+        // never on a show that asked for its breaks dry.
+        const beds = this.bedsFor(onAir, lineup);
 
         if (!canWrite && idents.length === 0 && wanted.every(slot => slot.band === undefined)) {
             // Not a fault, and deliberately not a warning: a station with no idents recorded and
@@ -410,7 +411,7 @@ export class BreakPlanner {
         const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup), onAirOf(lineup.slotId, lineup.personaId));
         if (placements.length === 0) return 0;
 
-        const introduced = await this.introduce(lineup, rules, placements, wanted, quiet, this.bedsFor(onAirOf(lineup.slotId, lineup.personaId)));
+        const introduced = await this.introduce(lineup, rules, placements, wanted, quiet, this.bedsFor(onAirOf(lineup.slotId, lineup.personaId), lineup));
         if (!(await this.insert(lineup, introduced))) return 0;
 
         this.logger.info('director: put a programme into the running order', {
@@ -1557,7 +1558,9 @@ export class BreakPlanner {
      * beats are one programme rather than breaks. A bed never costs a break, so a read that fails is
      * logged and the pass plants its breaks without one.
      */
-    private bedsFor(onAir: OnAir): BedPicker {
+    private bedsFor(onAir: OnAir, lineup: StationLineup): Pick<BedPicker, 'next'> {
+        // Absent is yes: see `StationLineupRules.beds`.
+        if (lineup.rules.beds === false) return NO_BEDS;
         return new BedPicker(this.segments, onAir, error =>
             this.logger.warn(`director: could not read the show's music beds, so this pass plants its breaks without one (${errorText(error)})`),
         );

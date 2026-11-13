@@ -380,6 +380,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
+    /// <summary>Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had</summary>
+    [JsonPropertyName("beds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Beds { get; init; }
+
     /// <summary>Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no</summary>
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -570,6 +575,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("chartPositions")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
+
+    /// <summary>Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had</summary>
+    [JsonPropertyName("beds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Beds { get; init; }
 
     /// <summary>Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no</summary>
     [JsonPropertyName("concerts")]

@@ -88,7 +88,10 @@ describe('moving a band', () => {
     it('keeps the days it is on', async () => {
         const user = setupUser();
         listClockBands.mockResolvedValue(
-            clock([band({ id: 'weekdays', kind: 'podcast', hour: 18, minute: 0, days: [1, 2, 3, 4, 5] }), band({ id: 'news', position: 1 })], ['news', 'podcast']),
+            clock(
+                [band({ id: 'weekdays', kind: 'podcast', hour: 18, minute: 0, days: [1, 2, 3, 4, 5] }), band({ id: 'news', position: 1 })],
+                ['news', 'podcast'],
+            ),
         );
 
         render(<ClockPanel />);

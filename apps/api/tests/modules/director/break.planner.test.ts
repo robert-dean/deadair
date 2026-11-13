@@ -2566,6 +2566,18 @@ describe('BreakPlanner choosing a music bed for the show on air', () => {
         expect(listBeds).toHaveBeenCalledTimes(1);
     });
 
+    it('plants every break dry on a show that asked for no beds, without reading them', async () => {
+        const { planner, plan, listBeds } = build({ canWrite: true, idents: [ident('seg-1'), recorded('bed-1', 'bed')] });
+        const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import', slotId: 'slot-1', rules: { beds: false } });
+        lineup.append(Array.from({ length: 16 }, (_, index) => track(`t${index}`)));
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        expect(plan.mock.calls.length).toBeGreaterThan(0);
+        expect(bedsPlanned(plan).every(bed => bed === undefined)).toBe(true);
+        expect(listBeds).not.toHaveBeenCalled();
+    });
+
     it('still plants the break when the beds cannot be read', async () => {
         const { planner, plan, listBeds } = build({ canWrite: true });
         listBeds.mockRejectedValue(new Error('database away'));

@@ -228,6 +228,21 @@ describe('AnalyzerPlugin.join', () => {
         ]);
     });
 
+    it('forwards a bed with every field filled, and sends none for a join that asked for none', async () => {
+        const { plugin, calls } = await started();
+        await plugin.join({ ...REQUEST, bed: { url: 'http://api.test/segments/bed/audio', gainDb: -18, leadMs: 1500 } });
+        await plugin.join(REQUEST);
+
+        const [withBed, without] = calls.filter(candidate => candidate.url.endsWith('/join'));
+        expect(JSON.parse((withBed?.init?.body as string) ?? '{}').bed).toEqual({
+            url: 'http://api.test/segments/bed/audio',
+            gainDb: -18,
+            leadMs: 1500,
+            tailMs: 0,
+        });
+        expect(JSON.parse((without?.init?.body as string) ?? '{}')).not.toHaveProperty('bed');
+    });
+
     it('passes a caller that asked for no trim through as it is', async () => {
         const { plugin, calls } = await started();
         await plugin.join({ ...REQUEST, trim: false });

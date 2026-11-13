@@ -34,6 +34,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from join import (
+    MAX_BED_EDGE_MS,
     MAX_GAP_MS,
     MAX_OFFSET_MS,
     MAX_OVERLAYS,
@@ -41,6 +42,7 @@ from join import (
     duration_ms,
     join_offsets,
     join_samples,
+    lay_bed,
     place_overlay,
     trim_to_cues,
     with_gain,
@@ -202,6 +204,22 @@ class JoinOverlay(BaseModel):
     duckDb: float = 0.0
 
 
+class JoinBed(BaseModel):
+    """A sound that runs UNDER the whole of the joined parts. See `lay_bed`.
+
+    A span rather than an anchor: the caller says how long it runs before the
+    first word and after the last, and it is looped or cut to fill what lies
+    between.
+    """
+
+    url: str
+    # How far under its own master the bed is mixed, in decibels. The caller
+    # holds the measurement and so the opinion, exactly as for an overlay.
+    gainDb: float = 0.0
+    leadMs: int = 0
+    tailMs: int = 0
+
+
 class JoinRequest(BaseModel):
     """Several files to be made into one. See `join.py` for why the station wants it."""
 
@@ -210,6 +228,8 @@ class JoinRequest(BaseModel):
     # them. Every existing caller sends none, and gets exactly what it got before
     # this field existed.
     overlays: list[JoinOverlay] = []
+    # Absent is no bed, which is what every caller got before this field existed.
+    bed: JoinBed | None = None
     # 200ms by default: a beat between two turns rather than a pause. The caller
     # holds the real opinion -- this is only what a caller that said nothing gets.
     gapMs: int = 200
@@ -662,7 +682,14 @@ def _beats_of(signal: np.ndarray | None, sounding_ms: int) -> dict:
     return {} if found is None else found.as_data()
 
 
-def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay], gains: list[float] | None = None) -> tuple[bytes, int]:
+def _join(
+    urls: list[str],
+    gap_ms: int,
+    trim: bool,
+    overlays: list[JoinOverlay],
+    gains: list[float] | None = None,
+    bed: JoinBed | None = None,
+) -> tuple[bytes, int]:
     """Fetch every part, join them, and answer with one FLAC and how long it runs.
 
     The parts are downloaded and probed BEFORE any of them is decoded, because
@@ -695,6 +722,10 @@ def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay],
         # nobody asked for and say nothing.
         if overlay.afterIndex < 0 or overlay.afterIndex > len(urls) - 2:
             raise AnalysisError("undecodable", f"there is no join {overlay.afterIndex} in {len(urls)} parts", status=400)
+    if bed is not None:
+        for name, value in (("lead-in", bed.leadMs), ("tail", bed.tailMs)):
+            if value < 0 or value > MAX_BED_EDGE_MS:
+                raise AnalysisError("undecodable", f"a bed {name} of {value}ms is outside 0..{MAX_BED_EDGE_MS}", status=400)
 
     paths: list[str] = []
     try:
@@ -711,9 +742,16 @@ def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay],
             overlay_paths.append(path)
             paths.append(path)
 
+        # The bed too, and at the same channel count, for the overlays' reason.
+        bed_path: str | None = None
+        if bed is not None:
+            bed_path, _ = _download(bed.url)
+            paths.append(bed_path)
+
         channels = max(_probe(path).channels for path in paths)
         parts = [_decode(path, channels).samples for path in paths[: len(urls)]]
         overlay_samples = [_decode(path, channels).samples for path in overlay_paths]
+        bed_samples = None if bed_path is None else _decode(bed_path, channels).samples
     finally:
         # Always, and all of them: a join that failed half way through has the
         # same claim on the container's disk as one that worked.
@@ -743,9 +781,14 @@ def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay],
                 at = boundaries[overlay.afterIndex] + int(overlay.offsetMs * SAMPLE_RATE / 1000)
                 joined = place_overlay(joined, samples, at, overlay.gainDb, overlay.duckDb)
 
+        # Last, under everything: a drop lands on the words, and the bed runs
+        # under the words and the drop alike.
+        if bed is not None and bed_samples is not None:
+            joined = lay_bed(joined, bed_samples, bed.leadMs, bed.tailMs, bed.gainDb)
+
         # Only where something was summed or turned up. An ordinary join is
-        # bit-identical to one made before overlays or part gains existed.
-        if overlays or any(gain != 0.0 for gain in gains):
+        # bit-identical to one made before overlays, part gains or beds existed.
+        if overlays or bed is not None or any(gain != 0.0 for gain in gains):
             joined = with_headroom(joined)
     except ValueError as error:
         raise AnalysisError("undecodable", str(error), status=400) from error
@@ -1007,12 +1050,14 @@ async def join(request: JoinRequest) -> Response:
         return _error(AnalysisError("unfetchable", "a part was given with no url", status=400))
     if any(len(overlay.url.strip()) == 0 for overlay in request.overlays):
         return _error(AnalysisError("unfetchable", "an overlay was given with no url", status=400))
+    if request.bed is not None and len(request.bed.url.strip()) == 0:
+        return _error(AnalysisError("unfetchable", "a bed was given with no url", status=400))
 
     async with _slots:
         loop = asyncio.get_running_loop()
         try:
             gains = [part.gainDb for part in request.parts]
-            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim, request.overlays, gains)
+            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim, request.overlays, gains, request.bed)
         except AnalysisError as error:
             return _error(error)
         except Exception as error:  # noqa: BLE001 - the boundary; nothing above this catches

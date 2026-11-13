@@ -283,3 +283,38 @@ def test_decode_reads_one_pipe_and_still_reports_ffmpegs_error(monkeypatch: pyte
     assert "capture_output" not in seen
     assert raised.value.code == "undecodable"
     assert "Invalid data" in str(raised.value)
+
+
+def test_join_lays_a_bed_under_the_words_and_lengthens_by_its_edges(monkeypatch: pytest.MonkeyPatch) -> None:
+    _spy_trim(monkeypatch)
+    paths = iter(["/no/such/a", "/no/such/bed"])
+    monkeypatch.setattr(app, "_download", lambda url: (next(paths), True))
+    monkeypatch.setattr(app, "_probe", lambda path: Probed(channels=1, tags={}))
+    monkeypatch.setattr(
+        app,
+        "_decode",
+        lambda path, channels: Decoded(samples=np.full((app.SAMPLE_RATE, channels), 0.25, dtype=np.float32), duration_ms=1000),
+    )
+
+    encoded: list[np.ndarray] = []
+
+    def encode(samples: np.ndarray, channels: int) -> bytes:
+        encoded.append(samples)
+        return b"fLaC"
+
+    monkeypatch.setattr(app, "_encode_flac", encode)
+
+    bed = app.JoinBed(url="https://example.invalid/bed.flac", gainDb=-6.0, leadMs=500, tailMs=500)
+    _, length_ms = _join(["https://example.invalid/a.flac"], 0, False, [], None, bed)
+
+    assert length_ms == 2000
+    joined = encoded[0]
+    # Under the words, the bed at its gain on top of them.
+    middle = joined[app.SAMPLE_RATE]
+    assert float(middle[0]) == pytest.approx(0.25 + 0.25 * 10 ** (-6 / 20), rel=1e-3)
+
+
+def test_join_refuses_a_bed_edge_outside_the_band() -> None:
+    bed = app.JoinBed(url="https://example.invalid/bed.flac", leadMs=app.MAX_BED_EDGE_MS + 1)
+    with pytest.raises(AnalysisError):
+        _join(["https://example.invalid/a.flac"], 0, False, [], None, bed)

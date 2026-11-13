@@ -95,6 +95,45 @@ export interface AudioJoin {
      * one waiting politely for their own sentence to finish.
      */
     overlays?: AudioOverlay[];
+
+    /**
+     * A sound that runs UNDER the whole join, from before the first word to after
+     * the last: a music bed.
+     *
+     * Absent is no bed, and every caller that sends none gets exactly what it got
+     * before this field existed.
+     *
+     * Its own field rather than an {@link AudioOverlay} with a long offset, because
+     * an overlay is a sound at a MOMENT, anchored to a join, and a bed is a sound
+     * for a SPAN. What comes back is longer than the parts by
+     * {@link AudioBed.leadMs} and {@link AudioBed.tailMs}.
+     */
+    bed?: AudioBed;
+}
+
+/**
+ * One bed to lay under a join. See {@link AudioJoin.bed}.
+ *
+ * Looped where it is shorter than what it runs under and cut where it is longer,
+ * and faded in across the lead-in and out across the tail, so a caller says only
+ * how far either side of the words it runs and how loud.
+ */
+export interface AudioBed {
+    /** Complete and fetchable exactly as a part's url is. */
+    url: string;
+
+    /**
+     * What to do to the bed, in decibels. Absent leaves it alone, which is almost
+     * never what a caller wants: a bed is quiet by being mixed quiet, and the words
+     * over it are not ducked.
+     */
+    gainDb?: number;
+
+    /** How long the bed runs before the first word, in milliseconds. Absent is none. */
+    leadMs?: number;
+
+    /** How long the bed runs after the last word, in milliseconds. Absent is none. */
+    tailMs?: number;
 }
 
 /**

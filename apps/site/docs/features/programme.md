@@ -59,6 +59,8 @@ A rotation block, or a show you start from **Desk → Plan**, can set its own **
 
 A block that talks (any block but a feature), or a show started from **Desk → Plan**, can also say **Who writes the breaks first**: the model with the phrasings underneath, or the phrasings with the model underneath. **The station's setting** follows Settings, Words. See [Breaks](./breaks.md).
 
+The station has two charts of its own, listed under **Charts** after any plugin's and named after the station: a weekly **Top 40** and its **Favourites**. The Top 40 is the last complete week, Monday to Sunday in the station's time zone. A record scores a point each time it aired, three for each listener request made for it and one off for each skip, and a record you like gets half as much again. Anything you dislike or have suspended never charts, and a record needs two points to place. The Favourites ranks the records you like by the same points over the last year. Neither needs a plugin, and a block playing one as a countdown is the station's own chart show: the presenter says each record's position, where it was the week before, and how many times it aired and was asked for.
+
 A chart played inside a scheduled block is cut to fit the time the block has left, keeping the top of the chart, so a countdown ends on number one. Number one may start just before the block ends and finish a few minutes into the next show, up to **Let a record run into the next show for (minutes)**.
 
 ## How a pick is made

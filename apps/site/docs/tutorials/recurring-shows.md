@@ -73,6 +73,17 @@ of it as fits in four hours, and counts down to number one. Number one may start
 finish a few minutes into the next show. Turn on **Say each record's chart position** as well if you
 want the presenter to give the position, and the record's highest one where the chart says.
 
+### A countdown of your own station
+
+The station keeps a chart of its own: **<station name> Top 40**, near the bottom of the **Charts**
+group. It ranks last week's records by how many times they aired, how many times listeners asked for
+them and how many times they were skipped, with a lift for the ones you like. Choose it as **Playing
+from** in a slot set up as above and the show counts down your own week, no plugin needed, with the
+presenter saying where each record was the week before and how many of your listeners asked for it.
+It covers the last complete Monday-to-Sunday week, so a Saturday show and a Sunday repeat play the
+same chart. A slot holds about fourteen records an hour, so a full forty needs about three hours.
+**<station name> Favourites** is the same thing for the records you like, over the last year.
+
 ### A countdown from a range of years
 
 The charts the plugins publish are this week's. For "the biggest records of 1980 to 1989", play a

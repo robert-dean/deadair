@@ -571,7 +571,13 @@ it is number 7 on Top 100`, with the peak and the run only where the source gave
 rather than as a `Rank:` field because a model files a bare field with the year as trivia it may skip, and on
 a countdown the position is the content. The "knows nothing beyond what is listed" paragraph forbids "chart
 placings beyond any listed above" rather than chart placings outright, or the prompt argues with its own
-listing. No "this week": the edition's date is not something the station holds. There is no guard behind it
+listing. No "this week": the edition's date is not something the station holds. Where the source gave last
+week's position, the line says how the record moved from the two positions alone ("up from number 12 on the
+chart before"), never the distance, which would be a figure the placing does not carry and the answer guard
+would refuse. On the station's own chart it also says why the record is there, from what it did here: how many
+times it aired and was asked for "in the time this chart covers" (the favourites cover a year), and whether
+the station likes it, a zero left out. Those counts are true by construction and are the countdown host's best
+material, and `withoutShownFigures` counts them, and last week's position, as figures the break was shown. There is no guard behind it
 yet: an invented position for a record that has none is refused by the prompt alone, as it was before this
 existed, and an `invented-chart` check wants measuring against `script_history` before it refuses anything,
 since "number one" is also something a presenter says about a fan. The floor reaches it through

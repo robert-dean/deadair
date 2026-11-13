@@ -322,13 +322,44 @@ and must not count toward quarantine the way a failed upstream call does. The tr
 apply exactly as they do when the console lists one.
 
 **A chart pick carries where the chart placed it, and nothing else in a pick does.** `chartPicks` sets
-`TrackPick.chart` (rank, the chart's name from `ChartsService.nameOf`, and the peak and the run only where the
-source gave a positive whole number), `PickResolver` copies it onto the record it resolves to as the one field
+`TrackPick.chart` (rank, the chart's name from `ChartsService.nameOf`, and the peak, the run and last week's
+position only where the source gave a positive whole number, plus the station's own counts on the station's own
+chart; see below), `PickResolver` copies it onto the record it resolves to as the one field
 taken from the PICK rather than the matched row, and it rides `station_lineup.items` inside the track, so a
 restart keeps it. Both chart paths set it: a chart aired whole and `ChartSetGenerator`'s share of a refill. It
 is a fact about the edition the station read and is never updated; a chart that moves on afterwards does not
 move a record already in the order. It decides nothing about what airs. What reads it is the break writer
 (`breaks.md`), and whether a show says it is `StationLineupRules.chartPositions`, absent meaning yes.
+
+**The station has charts of its own, ranked from what it did and never stored** (`charts/station.chart.ts`).
+Every other chart is a plugin's published document; `StationChartSource` adds a weekly Top 40 and a Favourites
+list to the same menu under the `station` qualifier (`station:top-40`, `station:favourites`), named after the
+station, so a slot, the Desk, a refill's chart share and the model's chart tool all reach them with no path of
+their own, and a countdown of the station's records is an ordinary chart slot. The points are one per play
+(`play_history`, so a record handed over and retracted never counts), three per listener request by when it was
+made (declined ones excluded) and one off per skip, and a record the station likes, by the same
+`effectiveRating` the draw reads (`catalog/effective.rating.ts`, moved out of the director so the two cannot
+disagree), gets half again. Four things are deliberate. **A request outweighs a play** because plays are the
+station's own choice, and plays alone would make the chart a report on the rotation rules. **A like is a lift,
+not a count**: a rating is one flag with no date, so "likes this week" is not a fact the station holds, and
+multiplying leaves a liked record nobody heard at nothing. **A dislike or a suspension keeps a record off
+here**, not downstream: the resolver would drop it anyway, and a placed record dropped late leaves the countdown
+with a number missing that the presenter then reads out. **Every position is a different number**: ties go to
+more requests, then the most recent play, then the song key. A record needs two points to chart. The week is
+Monday to Monday in the station's zone (Postgres's `date_trunc('week', … at time zone …)`, so no boundary is
+worked out in Node), and the edition aired is the last COMPLETE week, so a Saturday show and its Sunday repeat
+agree and no countdown is of a week still being played; a `date` names the week it falls in, clamped to that
+one. Last week's position, the peak and the weeks on are DERIVED by ranking each of the 52 weeks before an
+edition by the same rules, rather than recorded when an edition airs, because a stored edition is a second
+account of what aired beside `play_history` that drifts the first time a rule here changes; the cost is that an
+earlier week is judged by today's ratings. That is also why `play_history` and `track_skips` are now kept for
+`PLAY_HISTORY_KEPT_DAYS` (400) while every rotation reader still stops at `PLAY_HISTORY_RETENTION_DAYS` (120):
+keeping more rows must not move the deep-cut lean or the smart shuffle. The station's charts are listed LAST,
+so a caller that took the first chart on the menu still takes the one it did, and `ChartsService.hasCharts`
+still answers for plugins alone, so the chart tool and the chart share stay off on a station that installed
+none. `ChartsService` strips the `station` counts off anything a plugin answers, since only the station may
+claim what aired here. `scripts/station.chart.smoke.ts` holds the SQL to the week boundaries against a real
+database.
 
 **A chart airing inside a slot is cut to the time the slot has left, from the top.** A hundred-record chart
 in a four-hour block played ranks 100 down to about 45 and was cut off by the next changeover, so the part of

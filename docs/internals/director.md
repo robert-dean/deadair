@@ -32,7 +32,9 @@ restart. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
 
 **A broadcast starts from one of three sources, and only the third chooses its copies.** A provider's
-playlist and a chart are read at the moment of going on air, as `sourceTracks` says. A playlist the station
+playlist and a chart are read at the moment of going on air, as `sourceTracks` says. The station's own
+charts (`station:top-40`, `station:favourites`; `programming.md`) are charts here like any plugin's: a
+countdown of what the station aired is a chart slot, and nothing on this side knows the difference. A playlist the station
 OWNS (`PutOnAirInput.stationPlaylistId`, `POST /playout/station-playlist`) names library records rather
 than copies, so `stationPlaylistTracks` picks each record's copy with `bindingsFor` under the advisory
 policy (the choice `addTrackToOrder` makes for one record), leaves placeholders out, and then refuses on the

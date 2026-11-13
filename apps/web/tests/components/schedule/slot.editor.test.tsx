@@ -1127,6 +1127,27 @@ describe('SlotEditor', () => {
             expect(readSlotPlaylistPosition).not.toHaveBeenCalled();
         });
 
+        it('offers shuffling beside a playlist, and sends it only when it is switched on', async () => {
+            listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+            listPersonas.mockResolvedValue(PERSONAS);
+            const onSubmit = vi.fn();
+            const user = setupUser();
+
+            render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+            await screen.findByRole('combobox', { name: 'Playing from' });
+            expect(screen.queryByRole('switch', { name: /Shuffle the playlist/ })).toBeNull();
+
+            await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Late night');
+            await user.click(screen.getByRole('combobox', { name: 'Playing from' }));
+            await user.click(await screen.findByRole('option', { name: `${offered.name} — ${offered.pluginName}` }));
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+            expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('shufflePlaylist');
+
+            await user.click(screen.getByRole('switch', { name: /Shuffle the playlist/ }));
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+            expect(onSubmit.mock.calls[1]?.[0].shufflePlaylist).toBe(true);
+        });
+
         it('shows the record it will open on next, and starts it from the top when asked', async () => {
             listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
             listPersonas.mockResolvedValue(PERSONAS);

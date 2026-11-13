@@ -41,6 +41,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
 import { BLANK_RULE, datesIn, inputOfRule, ruleDraftOf, type RuleDraft } from './occasions.edits';
 import { ResumePlaylistField } from './playlist.resume.field';
+import { ShufflePlaylistField } from './playlist.shuffle.field';
 import { RuleFields, RuleKindField } from './rule.fields';
 import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
 import { isSpecial } from './schedule.specials';
@@ -174,6 +175,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             // Sent only when it is ON, and only beside a playlist: absent is no, and nothing else has a
             // place to pick up from.
             ...(values.resumePlaylist && mixesInto(source) ? { resumePlaylist: true } : {}),
+            // Sent only when ON and beside a playlist, for the same reason: absent is no.
+            ...(values.shufflePlaylist && mixesInto(source) ? { shufflePlaylist: true } : {}),
             // Absent leaves the switch where it is, so it is sent only when somebody moved it or it is off.
             ...(values.enabled ? (slot?.enabled === false ? { enabled: true } : {}) : { enabled: false }),
             // Sent as `true` only for a setlist, the one mode it changes. A rotation slot that was
@@ -441,6 +444,10 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                                 />
                             ) : undefined}
 
+                            {mixesInto(splitSource(form.values.source)) ? (
+                                <ShufflePlaylistField input={form.getInputProps('shufflePlaylist', { type: 'checkbox' })} />
+                            ) : undefined}
+
                             {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
 
                             <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
@@ -639,6 +646,8 @@ interface FormValues {
     mixInSimilar: boolean;
     /** Ticked sends `resumePlaylist: true`; unticked sends nothing, which is no. Drawn only for a playlist. See `ResumePlaylistField`. */
     resumePlaylist: boolean;
+    /** Ticked sends `shufflePlaylist: true`; unticked sends nothing, which is no. Drawn only for a playlist. See `ShufflePlaylistField`. */
+    shufflePlaylist: boolean;
     /** Off keeps the slot without it ever going on air. */
     enabled: boolean;
     /** A special's first and last date as `YYYY-MM-DD`, null until picked. Unused on a weekly slot. */
@@ -704,6 +713,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         resumePlaylist: slot?.resumePlaylist === true,
+        shufflePlaylist: slot?.shufflePlaylist === true,
         enabled: slot?.enabled !== false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,

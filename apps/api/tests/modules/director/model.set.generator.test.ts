@@ -34,6 +34,7 @@ import { StationIdentity } from '../../../src/modules/shared/station.identity.js
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { DateTime } from 'luxon';
+import type { Festival } from '../../../src/modules/schedule/festival.rules.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 
@@ -82,6 +83,7 @@ interface Options {
     aired?: string[];
     /** The acts the brief names, longest off air first. */
     namedArtists?: BriefArtist[];
+    festivals?: Record<string, Festival>;
     /** The screened list the model is handed. Absent is a brief the list cannot serve. */
     shortlist?: ShortlistEntry[];
 }
@@ -206,6 +208,7 @@ function build(options: Options = {}) {
             shortlist as unknown as Shortlist,
             listening as unknown as ListeningProfileService,
             { canNameTagged: () => false } as never,
+            { of: vi.fn(async (id: string | undefined) => (id === undefined ? undefined : options.festivals?.[id])) } as never,
         ),
         rules,
         converse,
@@ -354,6 +357,36 @@ describe('ModelSetGenerator', () => {
         const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
         const user = request.messages.find(message => message.role === 'user')?.content ?? '';
         expect(user).toContain('Kreator (not played lately); Metallica (played 2 days ago)');
+    });
+
+    it("names the festival a show is built around and its bill, in the bill's order", async () => {
+        const festival: Festival = {
+            id: 'f1',
+            name: 'Shaky Knees',
+            startsOn: '2027-05-07',
+            endsOn: '2027-05-09',
+            acts: [
+                { artist: 'Foo Fighters', headliner: true },
+                { artist: 'Wet Leg', headliner: false },
+            ],
+        };
+        const { generator, converse } = build({ enabled: true, festivals: { f1: festival } });
+
+        await generator.generate(inputs(5, { festivalId: 'f1' }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const user = request.messages.find(message => message.role === 'user')?.content ?? '';
+        expect(user).toContain('This show is built around Shaky Knees.');
+        expect(user).toContain('Foo Fighters; Wet Leg');
+    });
+
+    it('says nothing about a festival when the show names none, or names one that is gone', async () => {
+        const { generator, converse } = build({ enabled: true });
+
+        await generator.generate(inputs(5, { festivalId: 'gone' }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        expect(request.messages.find(message => message.role === 'user')?.content ?? '').not.toContain('built around');
     });
 
     it('skips an avoid key it cannot split rather than showing it mangled', async () => {

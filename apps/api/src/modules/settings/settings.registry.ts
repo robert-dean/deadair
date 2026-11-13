@@ -114,6 +114,7 @@ import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { DEFAULT_TAG_MIX, TAG_GENERATOR_KEYS } from '#modules/director/tag.set.generator.js';
 import { BRIEF_ARTIST_KEYS, DEFAULT_BRIEF_ARTIST_MIX } from '#modules/director/brief.artist.set.generator.js';
+import { DEFAULT_FESTIVAL_MIX, FESTIVAL_KEYS } from '#modules/director/festival.set.generator.js';
 import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js';
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
@@ -1034,6 +1035,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         step: 0.05,
         control: 'slider',
         help: "When a show's brief names artists, a share between 0 and 1 of each hour taken from them, starting with the ones played least recently. Without it, the station tends to play the first few artists a brief names and rarely reaches the rest. 0 turns it off and leaves the whole brief to the model. Needs a similarity plugin that can list an artist's top tracks.",
+    },
+    {
+        group: 'rotation',
+        key: FESTIVAL_KEYS.mix,
+        label: "How much of a festival show comes from the festival's bill",
+        type: 'number',
+        default: DEFAULT_FESTIVAL_MIX,
+        // The similar mix's range, for its reason: one more copy of the same `readMix` behind it.
+        unit: 'fraction',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        control: 'slider',
+        help: "When a show is built around a festival, a share between 0 and 1 of each hour taken from the acts on its bill, starting with the ones played least recently, including acts your library does not hold yet. The rest of the hour follows the show's brief. 0 turns it off and leaves the bill to the model. Needs a similarity plugin that can list an artist's top tracks.",
     },
     {
         group: 'rotation',

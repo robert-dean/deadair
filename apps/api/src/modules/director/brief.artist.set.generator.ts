@@ -102,7 +102,7 @@ export class BriefArtistSetGenerator extends SetGenerator {
         }
 
         const named = await this.briefArtists.named(inputs.brief);
-        const free = named.filter(artist => !held(artist, inputs));
+        const free = named.filter(artist => !heldByCooldown(artist, inputs));
         if (free.length === 0) {
             this.logger.debug('director: the brief names no act that is free to air', { named: named.length });
             return [];
@@ -154,7 +154,7 @@ export class BriefArtistSetGenerator extends SetGenerator {
  * Whether the cooldown holds this act: aired inside it, or queued inside it, or one the caller has
  * already said to avoid. The resolver would drop its record; naming one wastes a slot of the share.
  */
-function held(artist: BriefArtist, inputs: SetInputs): boolean {
+export function heldByCooldown(artist: BriefArtist, inputs: SetInputs): boolean {
     const cooldownMinutes = inputs.rules.artistCooldownMinutes;
     if (cooldownMinutes > 0 && artist.lastAiredAt !== undefined && -artist.lastAiredAt.diffNow('minutes').minutes < cooldownMinutes) return true;
 
@@ -165,7 +165,7 @@ function held(artist: BriefArtist, inputs: SetInputs): boolean {
 }
 
 /** The mix as a fraction between 0 and 1. See the chart binding for why a non-number is 0. */
-function readMix(value: unknown): number {
+export function readMix(value: unknown): number {
     const mix = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(mix) || mix <= 0) return 0;
     return Math.min(mix, 1);

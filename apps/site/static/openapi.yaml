@@ -10777,6 +10777,9 @@ components:
                         minimum: 0
                         maximum: 6
                     description: "For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day"
+                hard:
+                    type: boolean
+                    description: 'For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time'
                 everyMs:
                     type: integer
                     minimum: 60000

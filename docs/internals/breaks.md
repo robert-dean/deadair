@@ -1612,9 +1612,26 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
+**A band at a time of day is a MARKER, and it is soft or hard** (`clock_bands.hard`, migration 0138). A soft
+marker is what every band always was: the first boundary at or after its time, up to ten minutes late, and
+dropped past that. Measured on the live station over the fortnight to 2026-11-13, that put the half-past news
+on air a median of four minutes twenty late, anywhere from thirty seconds to ten minutes, and the five-past
+weather about three and a half minutes late; about a third of occurrences never aired at all. A HARD marker
+airs at its time exactly and never before it. See § "Hard markers" below for how. A save that does not
+mention `hard` keeps what is stored (`keepingHard`), and only an explicit `false` makes a band soft: `PUT`
+replaces the row, and a console built before the field existed would otherwise make the news soft by moving
+it. A clock file carries the flag, and a hard band and a soft one at the same time are the same rule to an
+import, so a file never adds the second.
+
 **A clock moves between stations as a file too** (`director/clock.pack.ts`, `deadair.clock`), and a band carries its subject whole, so the file works on a station that has never heard of the category. An import appends after the last band here and everything arrives switched off. Position is precedence, so anything else would change which of this station's own rules wins a boundary, and a switched-off band cannot contest one until an operator turns it on knowing where it sits. A band whose subject is not carried whole is dropped rather than added without one, on the cascade's own argument.
 
 **Topics move between stations as a file** (`topics/topic.pack.ts`, `deadair.topics`). A row is its kind, key, label and config, identified by kind and key. An import only adds: a key this station holds is left exactly as it is, and a label never overwrites one an operator here chose. A topic has no switch and needs none, because it does nothing until a band points at it. A kind this station has not registered is added and flagged in the preview, on `TopicsService`'s own rule that such a row is inert.
+
+## Hard markers
+
+A hard marker is a clock band with `hard` set. It airs at its time exactly, and never before it. Nothing in
+the director acts on the flag yet, so a hard band still lands as a soft one does; the sections that follow
+are added as each half is built.
 
 ## Kinds an operator writes
 

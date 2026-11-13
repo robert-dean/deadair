@@ -80,6 +80,7 @@ export class ClockBandRepository extends DataRepository {
                 'deadair.clockBands.hour as hour',
                 'deadair.clockBands.minute as minute',
                 'deadair.clockBands.days as days',
+                'deadair.clockBands.hard as hard',
                 'deadair.clockBands.everyMinutes as everyMinutes',
                 'deadair.clockBands.position as position',
                 'deadair.clockBands.enabled as enabled',
@@ -142,6 +143,8 @@ function columnsOf(draft: ClockBandDraft) {
         // Every day for an interval band, which has no day to be on. Sent as JSON text, as
         // `ScheduleRepository` sends a slot's days, since the driver would otherwise write an array.
         days: sql<string>`${JSON.stringify(draft.at === 'clock' ? weekdaysIn(draft.days) : [])}::jsonb`,
+        // A spacing rule has no time to hit, so only a `clock` band can be hard.
+        hard: draft.at === 'clock' && draft.hard === true,
         everyMinutes: draft.at === 'interval' ? Math.max(1, Math.round(draft.everyMs / 60_000)) : null,
         position: draft.position ?? 0,
         enabled: draft.enabled ?? true,
@@ -158,6 +161,7 @@ interface BandRow {
     hour: number | null;
     minute: number | null;
     days: unknown;
+    hard: boolean;
     everyMinutes: number | null;
     position: number;
     enabled: boolean;
@@ -190,6 +194,7 @@ function toBand(row: BandRow): ClockBand {
         minute: row.minute ?? 0,
         ...(row.hour == null ? {} : { hour: row.hour }),
         ...(days.length === 0 ? {} : { days }),
+        ...(row.hard ? { hard: true } : {}),
         kind: row.kind,
         ...subject,
     };

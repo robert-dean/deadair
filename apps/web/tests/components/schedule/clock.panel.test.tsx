@@ -88,7 +88,10 @@ describe('moving a band', () => {
     it('keeps the days it is on', async () => {
         const user = setupUser();
         listClockBands.mockResolvedValue(
-            clock([band({ id: 'weekdays', kind: 'podcast', hour: 18, minute: 0, days: [1, 2, 3, 4, 5] }), band({ id: 'news', position: 1 })], ['news', 'podcast']),
+            clock(
+                [band({ id: 'weekdays', kind: 'podcast', hour: 18, minute: 0, days: [1, 2, 3, 4, 5] }), band({ id: 'news', position: 1 })],
+                ['news', 'podcast'],
+            ),
         );
 
         render(<ClockPanel />);
@@ -97,5 +100,17 @@ describe('moving a band', () => {
 
         await waitFor(() => expect(updateClockBand).toHaveBeenCalled());
         expect(updateClockBand.mock.calls[0]).toEqual(['weekdays', expect.objectContaining({ days: [1, 2, 3, 4, 5], position: 1 })]);
+    });
+
+    it('keeps a hard marker hard', async () => {
+        const user = setupUser();
+        listClockBands.mockResolvedValue(clock([band({ id: 'top', minute: 0, hard: true }), band({ id: 'news', position: 1 })], ['news']));
+
+        render(<ClockPanel />);
+        const [down] = await screen.findAllByRole('button', { name: 'Move down' });
+        await user.click(down!);
+
+        await waitFor(() => expect(updateClockBand).toHaveBeenCalled());
+        expect(updateClockBand.mock.calls[0]).toEqual(['top', expect.objectContaining({ hard: true, position: 1 })]);
     });
 });

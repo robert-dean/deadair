@@ -12,6 +12,7 @@ contract ClockBand: {
     hour?: int(min=0, max=23) # For a `clock` band: the hour it happens at. Absent means every hour, which is the common case
     minute?: int(min=0, max=59) # For a `clock` band: minutes past the hour
     days?: array(int(min=0, max=6)) # For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day
+    hard?: boolean # For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time
     everyMs?: int(min=60000) # For an `interval` band: how far apart, in milliseconds
     position: int(min=0) # Where this sits in the operator's own order, which is what settles a boundary two rules both want
     enabled: boolean # A rule turned off without being lost
@@ -38,6 +39,7 @@ contract ClockPackRow: {
     hour?: int(min=0, max=23)
     minute?: int(min=0, max=59)
     days?: array(int(min=0, max=6))
+    hard?: boolean
     everyMs?: int(min=60000)
     topic?: ClockPackTopic
 }

@@ -36,6 +36,23 @@ describe('packOfClock', () => {
     });
 });
 
+describe('a hard marker in a file', () => {
+    it('travels hard and arrives hard', () => {
+        const hard: ClockBandRecord = { id: 'h', at: 'clock', minute: 0, hard: true, kind: 'news', position: 0, enabled: true };
+        const file = packOfClock([hard], []);
+        expect(file.bands).toEqual([{ kind: 'news', at: 'clock', minute: 0, hard: true }]);
+
+        const reading = planClockPack(file, [], []);
+        expect(reading.adding[0]?.shape).toEqual({ at: 'clock', minute: 0, hard: true, kind: 'news' });
+        expect(reading.adding[0]?.words).toBe('news: every hour at :00, on the dot');
+    });
+
+    it('is the same rule as a soft one at the same time, so it is not added twice', () => {
+        const soft: ClockBandRecord = { id: 's', at: 'clock', minute: 0, kind: 'news', position: 0, enabled: true };
+        expect(planClockPack(fileOf([{ kind: 'news', at: 'clock', minute: 0, hard: true }]), [soft], []).skipped).toHaveLength(1);
+    });
+});
+
 describe('planClockPack', () => {
     it('adds after the last band here, in the order of the file', () => {
         const reading = planClockPack(

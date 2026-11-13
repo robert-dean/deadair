@@ -46,6 +46,17 @@ export interface AnchoredBand {
      * should not have to tick seven boxes to say so.
      */
     days?: readonly number[];
+    /**
+     * A HARD marker: it airs at its time exactly and never before it. Absent is a SOFT marker, which is
+     * what every band was before this existed and still is by default: the first boundary at or after its
+     * time, up to ten minutes late (`BAND_LATENESS_MS` in `break.planner.ts`).
+     *
+     * When the order comes up early a hard marker waits for its time, filled for exactly the gap; when it
+     * runs late, the record playing across the time is cut to end on it. Which, and by how much, is decided
+     * twice: roughly when the slot is planted, against the projection, and exactly at hand-over, against
+     * what is on air. See `docs/internals/breaks.md` § "Hard markers".
+     */
+    hard?: boolean;
     kind: string;
     /** What this one is ABOUT. See {@link ClockBandSubject}. */
     topic?: ClockBandSubject;

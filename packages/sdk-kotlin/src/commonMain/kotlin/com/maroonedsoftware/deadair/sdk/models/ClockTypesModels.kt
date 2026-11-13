@@ -19,6 +19,8 @@ data class ClockBand(
     val minute: Long? = null,
     /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
     val days: List<Long>? = null,
+    /** For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time */
+    val hard: Boolean? = null,
     /** For an `interval` band: how far apart, in milliseconds */
     val everyMs: Long? = null,
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */
@@ -44,6 +46,8 @@ data class ClockBandInput(
     val minute: Long? = null,
     /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
     val days: List<Long>? = null,
+    /** For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time */
+    val hard: Boolean? = null,
     /** For an `interval` band: how far apart, in milliseconds */
     val everyMs: Long? = null,
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */
@@ -103,6 +107,7 @@ data class ClockPackRow(
     val hour: Long? = null,
     val minute: Long? = null,
     val days: List<Long>? = null,
+    val hard: Boolean? = null,
     val everyMs: Long? = null,
     val topic: ClockPackTopic? = null,
 )

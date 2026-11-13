@@ -40,6 +40,11 @@ public sealed record ClockBand
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<long>? Days { get; init; }
 
+    /// <summary>For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time</summary>
+    [JsonPropertyName("hard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Hard { get; init; }
+
     /// <summary>For an `interval` band: how far apart, in milliseconds</summary>
     [JsonPropertyName("everyMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -89,6 +94,11 @@ public sealed record ClockBandInput
     [JsonPropertyName("days")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<long>? Days { get; init; }
+
+    /// <summary>For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time</summary>
+    [JsonPropertyName("hard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Hard { get; init; }
 
     /// <summary>For an `interval` band: how far apart, in milliseconds</summary>
     [JsonPropertyName("everyMs")]
@@ -189,6 +199,10 @@ public sealed record ClockPackRow
     [JsonPropertyName("days")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<long>? Days { get; init; }
+
+    [JsonPropertyName("hard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Hard { get; init; }
 
     [JsonPropertyName("everyMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -142,6 +142,17 @@ if [ -f "$HOOKS/ratchet.guard.sh" ]; then
     expect_silent 'removes an exemption' ratchet.guard.sh "$(ratchet "const EXEMPT_X = ['a', 'b'];" "const EXEMPT_X = ['a'];")"
     expect_silent 'edits only a comment' ratchet.guard.sh "$(ratchet "// old words" "// new words")"
     expect_silent 'ordinary test edit' ratchet.guard.sh "$(ratchet "expect(a).toBe(1);" "expect(a).toBe(2);" "$ROOT/apps/api/tests/modules/director/director.service.test.ts")"
+    real="$ROOT/apps/api/tests/architecture/settings.reads.test.ts"
+    cites="$ROOT/apps/api/tests/architecture/docs.citations.test.ts"
+    expect_ratchet_ask 'real file: grows the ratchet' "$(ratchet "new Set<string>(['apps/api/src/server/setup.server.ts: PORT'])" "new Set<string>(['apps/api/src/server/setup.server.ts: PORT', 'apps/api/src/x.ts: y'])" "$real")"
+    expect_ratchet_ask 'real file: adds a Map exemption' "$(ratchet "const EXEMPT_CITATIONS = new Map<string, string>([" "const EXEMPT_CITATIONS = new Map<string, string>([
+    ['CLAUDE.md -> nowhere.md', 'because']," "$cites")"
+    expect_ratchet_ask 'real file: narrows the receiver' "$(ratchet "const RECEIVER = /(config|boot|store|settings)\$/i;" "const RECEIVER = /(config)\$/i;" "$real")"
+    expect_silent 'real file: shrinks the ratchet' ratchet.guard.sh "$(ratchet "new Set<string>(['apps/api/src/server/setup.server.ts: PORT'])" "new Set<string>([])" "$real")"
+    expect_silent 'real file: rewords a comment' ratchet.guard.sh "$(ratchet "// No setting is read as a boolean" "// No setting is ever read as a boolean" "$real")"
+    expect_silent 'real file: removes an exemption' ratchet.guard.sh "$(ratchet "    ['CLAUDE.md -> docs/todo/', 'history: where the Ideas discussions lived until 2026-09-11'],
+" "" "$cites")"
+    expect_silent 'a new guard file' ratchet.guard.sh "$(jq -nc --arg f "$ROOT/apps/api/tests/architecture/brand.new.test.ts" '{tool_name:"Write",tool_input:{file_path:$f,content:"const KNOWN_X = [\"a\"];"}}')"
     expect_silent 'source file edit' ratchet.guard.sh "$(ratchet "a" "b" "$ROOT/apps/api/src/modules/director/director.service.ts")"
 fi
 

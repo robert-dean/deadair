@@ -77,8 +77,8 @@ expect_silent 'hand-written oauth router' generated.guard.sh "$(g apps/api/src/r
 expect_silent 'hand-written types file' generated.guard.sh "$(g apps/api/src/modules/plugins/types/plugin.record.ts)"
 expect_silent 'hand-written mcp tool' generated.guard.sh "$(g apps/api/src/mcp/call.api.tool.ts)"
 expect_silent 'routes.setup.ts' generated.guard.sh "$(g apps/api/src/routes/routes.setup.ts)"
-expect_silent 'SDK index' generated.guard.sh "$(g packages/sdk/src/index.ts)"
-expect_silent 'SDK options' generated.guard.sh "$(g packages/sdk/src/sdk-options.ts)"
+expect_ask 'SDK barrel' "$(g packages/sdk/src/index.ts)" '@deadair/sdk build'
+expect_ask 'SDK runtime options' "$(g packages/sdk/src/sdk-options.ts)" '@deadair/sdk build'
 expect_silent 'Swift Package.swift' generated.guard.sh "$(g packages/sdk-swift/Package.swift)"
 expect_silent 'C# project file' generated.guard.sh "$(g packages/sdk-csharp/DeadairSdk.csproj)"
 expect_silent 'API reference index' generated.guard.sh "$(g apps/site/docs/api-reference/index.md)"

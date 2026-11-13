@@ -80,7 +80,6 @@ case "$p" in
         generated "the SQL migrations in apps/api/data/migrations/" "pnpm build:data (migrate:up, then build:datatypes) against a database migrated from this branch" ;;
     */apps/api/src/mcp/*.mcp.ts | */apps/api/src/mcp/mcp.tools.ts)
         generated "the .ck contracts in apps/api/data/contracts/" "$CONTRACTS" ;;
-    */packages/sdk/src/index.ts | */packages/sdk/src/sdk-options.ts) ;;
     */packages/sdk/src/*)
         generated "the .ck contracts in apps/api/data/contracts/" "$CONTRACTS, then pnpm --filter @deadair/sdk build" ;;
     */packages/sdk-kotlin/src/* | */packages/sdk-csharp/Clients/* | */packages/sdk-csharp/Models/* | */packages/sdk-csharp/Runtime/* | */packages/sdk-csharp/DeadairSdk.cs | */packages/sdk-swift/Sources/*)

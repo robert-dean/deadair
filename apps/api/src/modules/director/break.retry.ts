@@ -105,6 +105,8 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     'invented-home',
     // The same kind of mistake about a show: told which sentence, the fix is a deletion.
     'invented-concert',
+    // And about the show's festival, on the same terms.
+    'invented-festival',
     // A sound break with one phrase the wrong way round. Not the substrate kind of mistake, though it
     // is about the records: the model named the right record on the right side and joined its two
     // halves backwards, so told which words (`BreakRetry.said`) the fix is to turn them round.
@@ -167,6 +169,8 @@ const NUDGES: Record<string, string> = {
         'That called somewhere here that is not where the station is. Say the same break again without it: the only place that is here is the one you were told, and if you were told none, do not say where you are.',
     'invented-concert':
         'That announced a show or a date you were not given. Say the same break again without it, or with only the venue and date you were told.',
+    'invented-festival':
+        'That gave the festival a date you were not given, or put somebody on its bill who is not on it. Say the same break again with only the dates and the acts you were told, or without the festival.',
     'swapped-credit':
         'That said a record the wrong way round, naming the artist as the song. Say the same break again with the title first and the artist after it: the title "by" the artist.',
     'station-sign-off':

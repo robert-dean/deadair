@@ -633,6 +633,30 @@ The words were measured on 2026-10-31 against 3,230 written breaks of the previo
 said "on tour", which is why that phrase is left out, and none used the others. English only, and retryable on
 `invented-home`'s argument, since the fix is a deletion.
 
+**A festival show's talk breaks may talk about its festival, from the row and from nothing else.** A show
+built around a festival (`director.md`) has `StationLineupRules.festivalId`, and `WriteBreakJob.festivalFor`
+reads it through `FestivalBill` after the claim, because it is judged at the instant the break will be HEARD
+(`segment.airsAt`, now for a break with no slot), as the occasion is. A talk break alone, as with a concert.
+`breakFestivalOf` (`break.festival.ts`) hands `BreakWriteRequest.festival` only while the festival is still
+to come or on at that instant, on the station's calendar: a festival over by the slot is handed nothing,
+since "it's this weekend" about last weekend is the claim this exists to prevent, and the show still plays
+its bill. What it carries is the stored name, the dates SAID AS DATES ("Friday, May 7 to Sunday, May 9",
+never "this weekend", which would go stale inside the write-ahead), the place, whether it is on, and up to
+three headliners. `withFestivalSlots` marks each neighbour whose artist is on the bill, matched as whole
+acts (`artistCreditsOverlap`), with their day when the bill gives one; both sides, unlike a concert, because
+a bill is stored and costs nothing, and "that was Wet Leg, who play Saturday" is the link the show is for.
+The prompt shows the festival beside the occasion, as material the presenter may use rather than a script
+(`festivalLines`, not for a bulletin), and the slot as a line under the record (`festivalSlotLine`, behind
+`withFacts` with the concert). `invented-festival` is the answer side, read only in a sentence that names
+the festival (whole words, a leading "the" dropped): a month and day that is not one of the festival's own
+days is refused, and so is a record's artist put at the festival when they are not on the bill. English
+only, and retryable on `invented-concert`'s argument, since the fix is a deletion. The model writer alone is
+handed it; a phrasing has no `{{festival}}`, so the floor says nothing about one. `festival` is
+`fetched-for-air` in `break.freshness.ts`, and the exposure left is the operator editing the dates after
+the words were written. Applying a slot that drops its festival clears it from the rules at once, but the breaks already
+written for the next few slots keep their lines until they air, which is a changed brief's exposure too:
+only a `recast` writes breaks again.
+
 ## What the prompt says, and what it left out
 
 **The station has two sentences of its own above every show and every persona.** `station.identity` (who

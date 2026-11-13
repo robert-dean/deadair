@@ -194,6 +194,13 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     mood: 'fetched-for-air',
     moment: 'not-spoken',
 
+    // The show's festival, read for the instant the break is HEARD rather than now (`breakFestivalOf`), so
+    // a festival over by the slot is handed nothing, and "on now" against "still to come" is decided for
+    // that instant. Its dates are stored and said as dates, never as "this weekend", so they stay true
+    // whatever the gap. The one exposure is an operator correcting the dates after the words were written,
+    // which is the operator's own edit and as large as the write-ahead.
+    festival: 'fetched-for-air',
+
     // When it airs, what it is worth at the model slot, and what asked for it. The first two are
     // scheduling. `context` is read by the writer for its kind and by nothing else, and no writer
     // reads it today: what a writer would say out of it is resolved into `subject` above before it

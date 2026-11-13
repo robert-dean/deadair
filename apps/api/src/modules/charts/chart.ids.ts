@@ -50,3 +50,12 @@ export function splitChartId(qualified: string): ChartAddress | undefined {
 
     return { pluginId, chartId };
 }
+
+/**
+ * The qualifier the station's own charts are offered under, where a plugin's id would be.
+ *
+ * Not a plugin id anything ships: bundled plugins are all `deadair.<name>`. A third-party plugin
+ * that named itself `station` would lose its charts to these, which is the right way round: the
+ * station's own document is the one an operator scheduled.
+ */
+export const STATION_CHART_QUALIFIER = 'station';

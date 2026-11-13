@@ -1399,7 +1399,16 @@ const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefine
 function withoutShownFigures(script: string, guard: AnswerGuard): string {
     const figures = new Set(
         (guard.names ?? []).flatMap(record => [
-            ...(record?.chart === undefined ? [] : [record.chart.rank, record.chart.peak, record.chart.weeksOn].filter(value => value !== undefined)),
+            ...(record?.chart === undefined
+                ? []
+                : [
+                      record.chart.rank,
+                      record.chart.peak,
+                      record.chart.weeksOn,
+                      record.chart.lastWeek,
+                      record.chart.station?.plays,
+                      record.chart.station?.requests,
+                  ].filter(value => value !== undefined)),
             ...(record?.facts ?? []).flatMap(fact => [...fact.matchAll(/(?<![\d.,])\d+(?![\d]|[.,]\d)/g)].map(match => Number(match[0]))),
         ]),
     );

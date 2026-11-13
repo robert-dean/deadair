@@ -4,6 +4,7 @@ import { isRecurrence, overlap, type ScheduleSlot, type StationDate } from '#mod
 import { occasionRuleFields } from './occasion.rule.js';
 import type { ScheduleSlotDraft } from './schedule.repository.js';
 import { ScheduleSlotInput, type ScheduleSlot as WireSlot, type SchedulePack } from './types/schedule.types.js';
+import { STATION_CHART_QUALIFIER } from '#modules/charts/chart.ids.js';
 
 /** What says, in the file itself, what this is. The contract refuses anything else before this is reached. */
 export const SCHEDULE_PACK_FORMAT = 'deadair.schedule';
@@ -195,11 +196,14 @@ function isOver(draft: ScheduleSlotDraft, today: StationDate): boolean {
 const pad = (value: number, width = 2): string => String(value).padStart(width, '0');
 const stamp = (date: StationDate): string => `${pad(date.year, 4)}-${pad(date.month)}-${pad(date.day)}`;
 
-/** The plugin a slot's records come from, when it names one. */
+/** The plugin a slot's records come from, when it names one. The station's own charts name none. */
 function pluginOf(draft: ScheduleSlotDraft): string | undefined {
     const source = draft.source;
     if (source === undefined) return undefined;
-    if ('chartId' in source) return source.chartId.split(':')[0];
+    if ('chartId' in source) {
+        const pluginId = source.chartId.split(':')[0];
+        return pluginId === STATION_CHART_QUALIFIER ? undefined : pluginId;
+    }
     return 'pluginId' in source ? source.pluginId : undefined;
 }
 

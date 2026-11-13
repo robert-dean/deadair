@@ -70,15 +70,25 @@ describe('chartPicks', () => {
         expect(picks.every(pick => pick.chart?.name === 'Top 100')).toBe(true);
     });
 
-    it('passes on a peak and a run only where the source gave a real one', () => {
+    it("passes on a peak, a run and last week's position only where the source gave a real one", () => {
         const [placed, blank] = chartPicks([
-            { ...entry(1, 'Glory Box', 'Portishead'), peak: 1, weeksOn: 12 },
-            { ...entry(2, 'Windowlicker', 'Aphex Twin'), peak: 0, weeksOn: 2.5 },
+            { ...entry(1, 'Glory Box', 'Portishead'), peak: 1, weeksOn: 12, lastWeek: 3 },
+            { ...entry(2, 'Windowlicker', 'Aphex Twin'), peak: 0, weeksOn: 2.5, lastWeek: 0 },
         ]);
 
-        expect(placed!.chart).toEqual({ rank: 1, peak: 1, weeksOn: 12 });
+        expect(placed!.chart).toEqual({ rank: 1, peak: 1, weeksOn: 12, lastWeek: 3 });
         // A "peak of zero" read out on air is worse than no peak at all.
         expect(blank!.chart).toEqual({ rank: 2 });
+    });
+
+    it("carries the station's own record onto the placing, as whole counts no lower than nothing", () => {
+        const [counted, odd] = chartPicks([
+            { ...entry(1, 'Glory Box', 'Portishead'), station: { plays: 9, requests: 2, liked: true } },
+            { ...entry(2, 'Roads', 'Portishead'), station: { plays: -1, requests: 1.5, liked: false } },
+        ]);
+
+        expect(counted!.chart).toEqual({ rank: 1, station: { plays: 9, requests: 2, liked: true } });
+        expect(odd!.chart).toEqual({ rank: 2, station: { plays: 0, requests: 0, liked: false } });
     });
 
     it('drops records outside the period, and keeps one whose year is unknown', () => {

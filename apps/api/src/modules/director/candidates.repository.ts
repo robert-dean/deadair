@@ -2,7 +2,8 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
-import { creditedDislikeExists, noCreditedDislike } from '#modules/catalog/credited.dislike.js';
+import { noCreditedDislike } from '#modules/catalog/credited.dislike.js';
+import { effectiveRating } from '#modules/catalog/effective.rating.js';
 import { releasedYear } from '#modules/shared/release.year.js';
 import { ADVISORY_DEFAULT, advisoryRank, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import type { TrackLengthBounds } from './track.length.js';
@@ -27,7 +28,7 @@ export interface CandidateTrack {
     artist: string;
     /** The credit as written on the release, for display. */
     credit: string;
-    /** How the station feels about this work once its record and its artist are taken into account: -1, 0 or 1. See {@link effectiveRating}. */
+    /** How the station feels about this work once its record and its artist are taken into account: -1, 0 or 1. See `catalog/effective.rating.ts`. */
     rating: number;
     /** The release this track came from, when the catalog has one. Absent for a single with no album row. */
     album?: string;
@@ -161,41 +162,6 @@ const SAMPLE_CEILING = 500;
 
 /** How many rows one sample asks for, for `count` picks. See {@link SAMPLE_MULTIPLIER}. */
 export const sampleSize = (count: number): number => Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
-
-/**
- * How the station feels about one work, as one number: `-1`, `0` or `1`.
- *
- * An opinion is held at three levels and inherits DOWNWARD in both directions, which is why this is
- * not a plain `least()` over the three columns:
- *
- * - **A dislike anywhere wins, absolutely.** Disliking an artist stops the station playing them,
- *   whatever any one of their songs says. That is an instruction rather than a preference, and it
- *   is why the veto is taken first.
- * - **Otherwise the strongest like wins.** Liking an artist means play more of them, and liking one
- *   song means play that song more; neither should need the other two levels to agree before it
- *   counts for anything.
- *
- * The `least()` this replaces got the first half right and silently swallowed the second: a liked
- * song on an unrated record by an unrated artist came out as `0`, so {@link weightOf} never doubled
- * anything unless all three levels had been rated the same way. Liking a record did nothing at all,
- * which made the whole positive half of the console's rating control decorative.
- *
- * An album is `coalesce(…, 0)` because `tracks.album_id` is nullable: a single ingested outside any
- * release has no record to have an opinion about, and that is "no opinion" rather than a missing
- * one.
- *
- * A fourth term folds into the `least()` alone: a track any credited artist is disliked on, lead or
- * guest, veto's the same way the three stored columns do. It is not a fourth column because there is
- * no fourth rating to read: `noCreditedDislike`'s doc comment says why the like half, `greatest()`,
- * does not gain the same term: a guest's like is not more of the guest, so it must not raise a
- * record it only appears on.
- */
-const RATING_COLUMNS = [sql.ref('deadair.tracks.rating'), sql`coalesce(${sql.ref('deadair.albums.rating')}, 0)`, sql.ref('deadair.artists.rating')];
-
-const effectiveRating = () => sql<number>`case
-    when least(${sql.join(RATING_COLUMNS)}, case when ${creditedDislikeExists(sql.ref('deadair.tracks.id'))} then -1 else 0 end) = -1 then -1
-    else greatest(${sql.join(RATING_COLUMNS)})
-end`;
 
 /**
  * What the station holds against a record, as {@link CandidatesRepository.standingsFor} answers: the

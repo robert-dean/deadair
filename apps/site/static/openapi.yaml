@@ -10474,6 +10474,10 @@ components:
                     type: integer
                     minimum: 0
                     description: 'How many editions it has appeared in, where the source tracks it'
+                lastWeek:
+                    type: integer
+                    minimum: 1
+                    description: 'Its position in the edition before this one, where the source tracks it. Absent when the source does not publish it or the record was not on that edition'
             required: [rank, title, artist]
             description: "One record's place in a chart"
         ChartQuery:

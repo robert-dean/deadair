@@ -72,6 +72,11 @@ public sealed record ChartRecord
     [JsonPropertyName("weeksOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? WeeksOn { get; init; }
+
+    /// <summary>Its position in the edition before this one, where the source tracks it. Absent when the source does not publish it or the record was not on that edition</summary>
+    [JsonPropertyName("lastWeek")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? LastWeek { get; init; }
 }
 
 public sealed record ChartQuery

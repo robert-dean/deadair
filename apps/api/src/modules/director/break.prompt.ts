@@ -63,7 +63,7 @@ import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { homeRule } from '#modules/shared/station.home.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './break.writer.js';
-import type { ChartPlacing } from '#modules/playout/rundown.js';
+import type { ChartPlacing, StationChartRecord } from '#modules/playout/rundown.js';
 import { retryNudge } from './break.retry.js';
 import { spoken } from './talk.break.writer.js';
 import { directionNote } from './talk.direction.words.js';
@@ -1684,7 +1684,7 @@ function describe(track: BreakTrack, withFacts: boolean): string {
  *
  * Said as the REASON the record is on, because it is: on a countdown the position is the content,
  * and a model shown a bare "Rank: 7" files it with the year as trivia it may skip. The peak and the
- * run are added only where the source gave them, on `describe`'s rule that a blank field is an
+ * run, and where it stood on the edition before, are added only where the source gave them, on `describe`'s rule that a blank field is an
  * invitation to fill it in. No "this week": the edition's date is not something the station holds.
  */
 function spokenPlacing(chart: ChartPlacing): string {
@@ -1694,7 +1694,42 @@ function spokenPlacing(chart: ChartPlacing): string {
     if (chart.peak !== undefined && chart.peak === chart.rank) parts.push('that is the highest it has been');
     if (chart.weeksOn !== undefined)
         parts.push(chart.weeksOn === 1 ? 'it is new on the chart' : `it has been on the chart for ${chart.weeksOn} weeks`);
+    if (chart.lastWeek !== undefined) parts.push(movement(chart.rank, chart.lastWeek));
+    if (chart.station !== undefined) parts.push(...stationReasons(chart.station));
     return `${parts.join('; ')}.`;
+}
+
+/**
+ * Why the station's own chart placed a record, from what it did here.
+ *
+ * True by construction, since the station counted it, which is what makes it the most sayable thing
+ * on the line: "you asked for this one three times" is a countdown host's best material. Said over
+ * "the time this chart covers" rather than "this week", on {@link spokenPlacing}'s rule, because the
+ * favourites cover a year and the edition's date is not on the placing. A zero is left out rather
+ * than said: "nobody asked for it" is true and is not a reason anything is on.
+ */
+function stationReasons(record: StationChartRecord): string[] {
+    const times = (count: number) => (count === 1 ? 'once' : `${count} times`);
+    const reasons: string[] = [];
+    if (record.plays > 0) reasons.push(`in the time this chart covers it aired ${times(record.plays)} on this station`);
+    if (record.requests > 0) reasons.push(`listeners asked for it ${times(record.requests)}`);
+    if (record.liked) reasons.push('the station likes it');
+    return reasons;
+}
+
+/**
+ * How a record moved since the edition before, said from its two positions and nothing else.
+ *
+ * The positions and never the distance between them: "up five places" is a figure the placing does
+ * not carry, so `withoutShownFigures` in the answer guard would refuse the break that said it, and a
+ * model handed the subtraction gets it wrong often enough to matter on a countdown. "Up from number
+ * twelve" is the same news in numbers the guard can check. A record with no position the edition
+ * before says nothing here, since a source that does not publish one leaves every entry without it
+ * and "new" is `weeksOn`'s to say.
+ */
+function movement(rank: number, lastWeek: number): string {
+    if (lastWeek === rank) return 'it is at the same position as on the chart before';
+    return lastWeek > rank ? `it is up from number ${lastWeek} on the chart before` : `it is down from number ${lastWeek} on the chart before`;
 }
 
 /**

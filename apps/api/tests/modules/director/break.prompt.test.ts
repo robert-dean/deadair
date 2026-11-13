@@ -947,6 +947,28 @@ describe('breakPrompt', () => {
             expect(said).not.toContain('no chart placings,');
         });
 
+        it('says how a record moved from the positions alone, never the distance between them', () => {
+            const placed = (rank: number, lastWeek: number) =>
+                user(prompt({ kind: 'talkbreak', next: { ...previous, chart: { rank, name: 'Top 40', weeksOn: 4, lastWeek } } }));
+
+            expect(placed(3, 12)).toContain('it has been on the chart for 4 weeks; it is up from number 12 on the chart before.');
+            expect(placed(9, 2)).toContain('it is down from number 2 on the chart before.');
+            expect(placed(5, 5)).toContain('it is at the same position as on the chart before.');
+            expect(user(prompt({ kind: 'talkbreak', next: { ...previous, chart: { rank: 5, name: 'Top 40' } } }))).not.toContain('chart before');
+        });
+
+        it("says why the station's own chart placed a record, leaving out what is nothing", () => {
+            const placed = (station: { plays: number; requests: number; liked: boolean }) =>
+                user(prompt({ kind: 'talkbreak', next: { ...previous, chart: { rank: 4, name: 'deadair Top 40', station } } }));
+
+            expect(placed({ plays: 9, requests: 3, liked: true })).toContain(
+                '- Chart: it is here because it is number 4 on deadair Top 40; in the time this chart covers it aired 9 times on this station; ' +
+                    'listeners asked for it 3 times; the station likes it.',
+            );
+            expect(placed({ plays: 1, requests: 1, liked: false })).toContain('it aired once on this station; listeners asked for it once.');
+            expect(placed({ plays: 5, requests: 0, liked: false })).not.toContain('asked for it');
+        });
+
         it('asks for the position of the record coming up on a chart show, and only that one', () => {
             const chart = { rank: 7, name: 'Top 100' };
 

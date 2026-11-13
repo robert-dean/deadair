@@ -64,8 +64,10 @@ public struct ChartRecord: Codable, Equatable, Sendable {
     public var peak: Int?
     /// How many editions it has appeared in, where the source tracks it
     public var weeksOn: Int?
+    /// Its position in the edition before this one, where the source tracks it. Absent when the source does not publish it or the record was not on that edition
+    public var lastWeek: Int?
 
-    public init(rank: Int, title: String, artist: String, featuring: [String]? = nil, album: String? = nil, year: Int? = nil, peak: Int? = nil, weeksOn: Int? = nil) {
+    public init(rank: Int, title: String, artist: String, featuring: [String]? = nil, album: String? = nil, year: Int? = nil, peak: Int? = nil, weeksOn: Int? = nil, lastWeek: Int? = nil) {
         self.rank = rank
         self.title = title
         self.artist = artist
@@ -74,6 +76,7 @@ public struct ChartRecord: Codable, Equatable, Sendable {
         self.year = year
         self.peak = peak
         self.weeksOn = weeksOn
+        self.lastWeek = lastWeek
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -85,6 +88,7 @@ public struct ChartRecord: Codable, Equatable, Sendable {
         case year = "year"
         case peak = "peak"
         case weeksOn = "weeksOn"
+        case lastWeek = "lastWeek"
     }
 
     public init(from decoder: Decoder) throws {
@@ -97,6 +101,7 @@ public struct ChartRecord: Codable, Equatable, Sendable {
         self.year = try container.decodeIfPresent(Int.self, forKey: .year)
         self.peak = try container.decodeIfPresent(Int.self, forKey: .peak)
         self.weeksOn = try container.decodeIfPresent(Int.self, forKey: .weeksOn)
+        self.lastWeek = try container.decodeIfPresent(Int.self, forKey: .lastWeek)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -109,6 +114,7 @@ public struct ChartRecord: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.year, forKey: .year)
         try container.encodeIfPresent(self.peak, forKey: .peak)
         try container.encodeIfPresent(self.weeksOn, forKey: .weeksOn)
+        try container.encodeIfPresent(self.lastWeek, forKey: .lastWeek)
     }
 }
 

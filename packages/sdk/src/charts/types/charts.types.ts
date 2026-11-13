@@ -29,6 +29,8 @@ export interface ChartRecord {
     peak?: number;
     /** How many editions it has appeared in, where the source tracks it */
     weeksOn?: number;
+    /** Its position in the edition before this one, where the source tracks it. Absent when the source does not publish it or the record was not on that edition */
+    lastWeek?: number;
 }
 
 /**

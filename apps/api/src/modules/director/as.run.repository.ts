@@ -9,8 +9,8 @@ import { isRenderItem } from '#modules/render/segment.source.js';
 /**
  * How long the as-run log is kept.
  *
- * Longer than `PLAY_HISTORY_RETENTION_DAYS`, because the two answer different questions: that table
- * is the memory the rotation steers off and nothing reads it past a few weeks, while this one is
+ * Longer than `PLAY_HISTORY_KEPT_DAYS`, because the two answer different questions: that table
+ * is the memory the rotation steers off and the station's own chart is ranked from, while this one is
  * what an operator asks "what was on air last March" of. A year and a little, so the same week last
  * year is still there, and bounded so a station left running for a decade is not carrying all of it.
  */

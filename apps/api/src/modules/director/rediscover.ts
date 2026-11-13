@@ -21,7 +21,7 @@
  *
  * The second thing a long memory does is play the album track. A record on an album the operator
  * liked (the album itself, or another record on it), that is not liked for itself, has a known place
- * on that album, and has not aired in the whole of the history the station keeps, is a deep cut: the
+ * on that album, and has not aired in the whole of the history the rotation reads, is a deep cut: the
  * draw leans toward it, and it carries the fact to the break writer so the presenter can say so. A
  * record with no track number is never called one, because without its place on the album there is
  * nothing to say it is not the single.
@@ -132,7 +132,7 @@ export const mayBeDeepCut = (track: DeepCutCandidate): track is DeepCutCandidate
 
 /**
  * A record on an album the operator likes, with a known place on it, not liked for itself, and never
- * aired in the history the station keeps.
+ * aired in the history the rotation reads.
  *
  * @param likedAlbums - From `CandidatesRepository.albumsWithLikes`.
  * @param aired - Whether its song key aired inside the retention.

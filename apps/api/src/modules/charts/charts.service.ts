@@ -8,6 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { qualifyChartId, splitChartId } from './chart.ids.js';
+import { STATION_CHART_QUALIFIER, StationChartSource, type HostChartEntry } from './station.chart.source.js';
 import type { ChartPage, ChartQuery, StationChart, StationChartList } from './types/charts.types.js';
 import { clampLimit } from '#modules/shared/limit.clamp.js';
 
@@ -32,6 +33,15 @@ import { clampLimit } from '#modules/shared/limit.clamp.js';
  * spacing already live. Keeping that boundary is what stops a chart plugin from
  * being able to put a record on air that the operator forbade.
  *
+ * ## The station's own charts sit on the same menu
+ *
+ * `StationChartSource` offers a weekly chart and a favourites list worked out from what the station
+ * itself aired and was asked for, under the `station` qualifier where a plugin id would be. They are
+ * listed LAST, after every plugin's, so whatever a caller picked by taking the first chart on the
+ * menu before they existed it still picks. {@link hasCharts} still answers for plugins alone: it
+ * gates the model's chart tool and the refill's chart share, and neither should start doing
+ * something on a station that installed nothing because the station has a history.
+ *
  * ## A plugin that cannot answer contributes nothing
  *
  * Every call into a plugin is caught and logged rather than thrown, the same
@@ -46,9 +56,14 @@ export class ChartsService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly station: StationChartSource,
     ) {}
 
-    /** Whether anything can answer at all, for a caller deciding whether to offer the feature. */
+    /**
+     * Whether a chart PLUGIN can answer, for a caller deciding whether to offer the feature.
+     *
+     * The station's own charts are always there and deliberately do not count; see the class comment.
+     */
     hasCharts(): boolean {
         return this.plugins().length > 0;
     }
@@ -85,8 +100,7 @@ export class ChartsService {
                 ...(entry.featuring === undefined ? {} : { featuring: entry.featuring }),
                 ...(entry.album === undefined ? {} : { album: entry.album }),
                 ...(entry.year === undefined ? {} : { year: entry.year }),
-                ...(entry.peak === undefined ? {} : { peak: entry.peak }),
-                ...(entry.weeksOn === undefined ? {} : { weeksOn: entry.weeksOn }),
+                ...chartFigures(entry),
             })),
         };
     }
@@ -125,6 +139,10 @@ export class ChartsService {
         const charts: StationChart[] = [];
 
         for (const plugin of this.plugins()) {
+            // A plugin that called itself `station` would put its charts under the station's own
+            // ids, where `fetchChart` answers with the station's: two menu entries that read the same
+            // and play one of them. Its charts are left off rather than shown and never reachable.
+            if (plugin.record.id === STATION_CHART_QUALIFIER) continue;
             let offered;
             try {
                 offered = await this.pluginInvoker.invoke(plugin.record.id, 'charts.listCharts', async () => plugin.instance.listCharts());
@@ -146,6 +164,8 @@ export class ChartsService {
             }
         }
 
+        // Last, so the menu's first entry is whatever it was before the station had charts of its own.
+        charts.push(...this.station.charts());
         return charts;
     }
 
@@ -205,11 +225,20 @@ export class ChartsService {
      * throw them away. It is also clamped here, since a caller's limit reaches
      * a third party's API as a page size.
      */
-    async fetchChart(qualifiedId: string, limit: number, date?: string): Promise<ChartEntry[]> {
+    async fetchChart(qualifiedId: string, limit: number, date?: string): Promise<HostChartEntry[]> {
         const address = splitChartId(qualifiedId);
         if (!address) {
             this.logger.info(`charts: "${qualifiedId}" is not a chart id (expected "pluginId:chartId")`);
             return [];
+        }
+
+        if (address.pluginId === STATION_CHART_QUALIFIER) {
+            try {
+                return await this.station.fetch(address.chartId, clampLimit(limit, MAX_CHART_ENTRIES), date);
+            } catch (error) {
+                this.logger.warn(`charts: the station's own chart could not be read (${qualifiedId}: ${errorText(error)})`);
+                return [];
+            }
         }
 
         const plugin = this.plugins().find(candidate => candidate.record.id === address.pluginId);
@@ -227,7 +256,10 @@ export class ChartsService {
                 }),
             );
 
-            return (entries ?? []).filter(entry => entry?.title?.trim() && entry.artist?.trim()).slice(0, clampLimit(limit, MAX_CHART_ENTRIES));
+            return (entries ?? [])
+                .filter(entry => entry?.title?.trim() && entry.artist?.trim())
+                .slice(0, clampLimit(limit, MAX_CHART_ENTRIES))
+                .map(withoutStationRecord);
         } catch (error) {
             this.logger.info(`charts: a chart could not be fetched (${qualifiedId}: ${errorText(error)})`);
             return [];
@@ -246,6 +278,34 @@ export class ChartsService {
         return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.charts);
     }
 }
+
+/**
+ * The three optional figures of an entry, each only where it is a positive whole number.
+ *
+ * They come from somebody else's service, and the contract holds a position to `int(min=1)`: a
+ * plugin answering a `lastWeek` of 0 or a peak of 2.5 failed the whole page's response validation
+ * rather than losing the one field. `chartPicks` makes the same judgement for what a presenter reads.
+ */
+export const chartFigures = (entry: Pick<ChartEntry, 'peak' | 'weeksOn' | 'lastWeek'>): Pick<ChartEntry, 'peak' | 'weeksOn' | 'lastWeek'> => ({
+    ...(isPosition(entry.peak) ? { peak: entry.peak } : {}),
+    ...(isPosition(entry.weeksOn) ? { weeksOn: entry.weeksOn } : {}),
+    ...(isPosition(entry.lastWeek) ? { lastWeek: entry.lastWeek } : {}),
+});
+
+const isPosition = (value: number | undefined): value is number => value !== undefined && Number.isInteger(value) && value > 0;
+
+/**
+ * A plugin's entry with anything claiming to be the station's own record taken off.
+ *
+ * `station` is a claim about what aired HERE, which a presenter reads out as a fact, and only the
+ * host's own chart may make it. A plugin is code somebody else wrote and its answer is an object at
+ * run time whatever its type says, so the field is removed rather than trusted to be absent.
+ */
+const withoutStationRecord = (entry: ChartEntry): ChartEntry => {
+    if (!('station' in entry)) return entry;
+    const { station: _ignored, ...rest } = entry as HostChartEntry;
+    return rest;
+};
 
 /**
  * How many entries a chart may be asked for.

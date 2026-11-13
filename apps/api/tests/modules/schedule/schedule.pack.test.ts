@@ -187,6 +187,13 @@ describe('planSchedulePack', () => {
         expect(chart.notices).toEqual([]);
     });
 
+    it("never says the station's own chart needs a plugin", () => {
+        const own = planSchedulePack(fileOf([row({ sourceChartId: 'station:top-40' })]), ground());
+
+        expect(own.adding).toHaveLength(1);
+        expect(own.notices).toEqual([]);
+    });
+
     it('drops a one-off special that is over, and keeps a yearly one and one on a rule', () => {
         const special = { days: [], startsOn: '2020-10-31', endsOn: '2020-10-31' };
         const reading = planSchedulePack(

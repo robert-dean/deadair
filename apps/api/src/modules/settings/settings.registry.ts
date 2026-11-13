@@ -833,7 +833,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: SMART_SHUFFLE_KEYS.enabled,
         help:
             'A record that has just aired starts at a quarter of its usual chance of being drawn and warms up evenly until this many days ' +
-            'have passed, when it is back to full. A fortnight suits most libraries. Play history is kept for 120 days, so that is the longest this can be.',
+            'have passed, when it is back to full. A fortnight suits most libraries. The rotation reads 120 days of play history, so that is the longest this can be.',
     },
     {
         group: 'rotation',
@@ -855,7 +855,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: ARTIST_RETURN_DAYS_RANGE.min,
         max: ARTIST_RETURN_DAYS_RANGE.max,
         dependsOn: REDISCOVER_KEYS.artistReturn,
-        help: 'Three weeks suits most libraries. Play history is kept for 120 days, so that is the longest this can be.',
+        help: 'Three weeks suits most libraries. The rotation reads 120 days of play history, so that is the longest this can be.',
     },
     {
         group: 'rotation',
@@ -865,7 +865,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: DEFAULT_DEEP_CUTS,
         help:
             'A record from an album you have liked, or with another record on it you have liked, that has not aired in the 120 days of ' +
-            'history the station keeps is drawn half again as often, and the presenter can mention that it is an album track. A record ' +
+            'history the rotation reads is drawn half again as often, and the presenter can mention that it is an album track. A record ' +
             'you liked for itself is a favourite rather than a deep cut, and one with no track number is never called one. It shapes the ' +
             'draw from your own library only, and it is a lean and never a refusal.',
     },

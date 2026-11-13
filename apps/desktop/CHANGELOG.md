@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.18.1] — 2026-11-13
+
+- A schedule slot can name the festival it is built around (`festivalId`), and a broadcast put on air can name one too. The festival rides the show's rules, so applying a slot that gained or lost one changes the show on air, and a festival that is removed clears the slots naming it. A schedule file never carries one. The web console and the desktop app keep a slot's festival when they save it.
+
 ## [0.18.0] — 2026-11-03
 
 - The programme shows a special that comes round by a rule, with the date it next runs, and saving one in the desktop editor keeps its rule.
@@ -200,7 +204,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.1...HEAD
+[0.18.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.0...desktop-v0.18.1
 [0.18.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.5...desktop-v0.18.0
 [0.17.5]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.4...desktop-v0.17.5
 [0.17.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.3...desktop-v0.17.4

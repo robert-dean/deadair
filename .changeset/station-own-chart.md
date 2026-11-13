@@ -1,5 +1,0 @@
----
-'@deadair/api': minor
----
-
-The station has charts of its own beside every chart plugin's: a weekly Top 40 (`station:top-40`) and its Favourites (`station:favourites`), both named after the station. The Top 40 covers the last complete Monday-to-Sunday week in the station's time zone. A record scores a point for each time it aired, three for each listener request made for it and one off for each skip, and a record the station likes gets half as much again. Disliked and suspended records never chart, and a record needs two points to place. Each entry's peak and weeks on the chart are worked out from the year before it. The Favourites ranks the liked records over the last year. Both are on the chart menu, so a schedule slot naming one and played as a countdown airs the station's own countdown. Play history and skips are now kept for 400 days rather than 120, so a year of weeks can be ranked. The rotation still reads only the last 120 days, so deep cuts and the smart shuffle behave as before.

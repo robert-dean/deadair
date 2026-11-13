@@ -1664,8 +1664,9 @@ the wait's boundary has a break beside it the cut is taken instead. A wait plant
 the bed, as a fill running to the time, and the marker behind it with `hardAt`, both against the time rather
 than the projection. The bed is drawn own-first and never the one drawn last, and it is chosen BEFORE the
 marker is planted, because a marker planted where it waits with nothing in front of it would air early. The
-shelf is read only when a band is hard. `bed` is the kind a show's own instrumental beds are uploaded as, so
-an operator who has recorded beds for their shows has already given the station what it waits with.
+shelf is read only when a band is hard. `bed` is a free-text kind like any other, uploaded on the Segments
+page; until a station has one, a hard marker never waits, and lands by cutting or soft. A separate piece of
+work proposes the same kind for beds played UNDER a show's breaks, and the two are meant to share it.
 
 **A fill is a recording that runs to an instant and no further** (`StationLineupSegmentItem.fillTo`). It is
 what waiting is made of: planted in front of a hard marker the order reaches early, handed over with `endBy`

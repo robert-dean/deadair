@@ -394,3 +394,24 @@ describe('ChartsService.readChart', () => {
         ]);
     });
 });
+
+describe('what a plugin cannot spoil', () => {
+    it("leaves a plugin called station off the menu, so the station's own ids answer only for the station", async () => {
+        const service = build(
+            [record('station'), record(LASTFM)],
+            {},
+            stationSource([{ id: 'station:top-40', pluginId: 'station', name: 'deadair Top 40' }]),
+        );
+
+        expect((await service.listCharts()).map(chart => chart.id)).toEqual([qualifyChartId(LASTFM, 'top-100'), 'station:top-40']);
+    });
+
+    it('passes on a peak, a run and last week only where each is a positive whole number', async () => {
+        const fetchChart = vi.fn(async (): Promise<ChartEntry[]> => [{ ...entry(1, 'Glory Box', 'Portishead'), peak: 2.5, weeksOn: 3, lastWeek: 0 }]);
+        const service = build([record(LASTFM, {}, { fetchChart })]);
+
+        const page = await service.readChart(qualifyChartId(LASTFM, 'top-100'), {});
+
+        expect(page.records).toEqual([{ rank: 1, title: 'Glory Box', artist: 'Portishead', weeksOn: 3 }]);
+    });
+});

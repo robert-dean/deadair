@@ -4,7 +4,7 @@ import type { ChartEntry } from '@deadair/plugin-sdk';
 import { stationZone } from '#modules/director/clock.words.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { qualifyChartId } from './chart.ids.js';
+import { qualifyChartId, STATION_CHART_QUALIFIER } from './chart.ids.js';
 import { StationChartRepository } from './station.chart.repository.js';
 import { favouritesEdition, HISTORY_WEEKS, STATION_CHART_SIZE, weeklyEdition, type StationChartEntry } from './station.chart.js';
 import type { StationChart } from './types/charts.types.js';
@@ -16,14 +16,7 @@ import type { StationChartRecord } from '#modules/playout/rundown.js';
  */
 export type HostChartEntry = ChartEntry & { station?: StationChartRecord };
 
-/**
- * The qualifier the station's own charts are offered under, where a plugin's id would be.
- *
- * Not a plugin id anything ships: bundled plugins are all `deadair.<name>`. A third-party plugin
- * that named itself `station` would lose its charts to these, which is the right way round: the
- * station's own document is the one an operator scheduled.
- */
-export const STATION_CHART_QUALIFIER = 'station';
+export { STATION_CHART_QUALIFIER } from './chart.ids.js';
 
 /** The weekly chart. */
 export const STATION_TOP_CHART = 'top-40';

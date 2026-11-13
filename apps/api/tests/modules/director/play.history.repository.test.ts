@@ -10,7 +10,7 @@ import { KyselyDefaultPlugins } from '@maroonedsoftware/kysely';
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 
-import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { PLAY_HISTORY_KEPT_DAYS, PLAY_HISTORY_RETENTION_DAYS, PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import type { DB } from '../../../src/modules/data/db.js';
 
 interface Captured {
@@ -115,11 +115,33 @@ describe('PlayHistoryRepository.lastAiredByArtist', () => {
         expect(query!.parameters).toEqual(['main', 'kreator', 'sodom']);
     });
 
+    it("reads only the rotation's horizon, not every row the station keeps for its chart", async () => {
+        const captured: Captured = { queries: [] };
+
+        await new PlayHistoryRepository(fakeDb([], captured)).lastAiredByArtist(['kreator'], 'main');
+
+        expect(captured.queries[0]!.sql).toContain(`'${PLAY_HISTORY_RETENTION_DAYS} days'`);
+        expect(PLAY_HISTORY_RETENTION_DAYS).toBe(120);
+    });
+
     it('asks nothing for no artists', async () => {
         const captured: Captured = { queries: [] };
         const repository = new PlayHistoryRepository(fakeDb([], captured));
 
         expect(await repository.lastAiredByArtist([], 'main')).toEqual(new Map());
         expect(captured.queries).toHaveLength(0);
+    });
+});
+
+describe('PlayHistoryRepository.prune', () => {
+    it('keeps a year and more for the station chart, longer than the rotation reads', async () => {
+        const captured: Captured = { queries: [] };
+
+        await new PlayHistoryRepository(fakeDb([], captured)).prune();
+
+        expect(captured.queries[0]!.sql).toContain(`'${PLAY_HISTORY_KEPT_DAYS} days'`);
+        // The chart ranks 52 weeks back from an edition up to a fortnight old.
+        expect(PLAY_HISTORY_KEPT_DAYS).toBeGreaterThanOrEqual(52 * 7 + 14);
+        expect(PLAY_HISTORY_KEPT_DAYS).toBeGreaterThan(PLAY_HISTORY_RETENTION_DAYS);
     });
 });

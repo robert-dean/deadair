@@ -100,9 +100,7 @@ export class ChartsService {
                 ...(entry.featuring === undefined ? {} : { featuring: entry.featuring }),
                 ...(entry.album === undefined ? {} : { album: entry.album }),
                 ...(entry.year === undefined ? {} : { year: entry.year }),
-                ...(entry.peak === undefined ? {} : { peak: entry.peak }),
-                ...(entry.weeksOn === undefined ? {} : { weeksOn: entry.weeksOn }),
-                ...(entry.lastWeek === undefined ? {} : { lastWeek: entry.lastWeek }),
+                ...chartFigures(entry),
             })),
         };
     }
@@ -141,6 +139,10 @@ export class ChartsService {
         const charts: StationChart[] = [];
 
         for (const plugin of this.plugins()) {
+            // A plugin that called itself `station` would put its charts under the station's own
+            // ids, where `fetchChart` answers with the station's: two menu entries that read the same
+            // and play one of them. Its charts are left off rather than shown and never reachable.
+            if (plugin.record.id === STATION_CHART_QUALIFIER) continue;
             let offered;
             try {
                 offered = await this.pluginInvoker.invoke(plugin.record.id, 'charts.listCharts', async () => plugin.instance.listCharts());
@@ -276,6 +278,21 @@ export class ChartsService {
         return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.charts);
     }
 }
+
+/**
+ * The three optional figures of an entry, each only where it is a positive whole number.
+ *
+ * They come from somebody else's service, and the contract holds a position to `int(min=1)`: a
+ * plugin answering a `lastWeek` of 0 or a peak of 2.5 failed the whole page's response validation
+ * rather than losing the one field. `chartPicks` makes the same judgement for what a presenter reads.
+ */
+export const chartFigures = (entry: Pick<ChartEntry, 'peak' | 'weeksOn' | 'lastWeek'>): Pick<ChartEntry, 'peak' | 'weeksOn' | 'lastWeek'> => ({
+    ...(isPosition(entry.peak) ? { peak: entry.peak } : {}),
+    ...(isPosition(entry.weeksOn) ? { weeksOn: entry.weeksOn } : {}),
+    ...(isPosition(entry.lastWeek) ? { lastWeek: entry.lastWeek } : {}),
+});
+
+const isPosition = (value: number | undefined): value is number => value !== undefined && Number.isInteger(value) && value > 0;
 
 /**
  * A plugin's entry with anything claiming to be the station's own record taken off.

@@ -11,7 +11,7 @@ import { ArtRepository } from '#modules/art/art.repository.js';
 import { breakPicture, breakPictureKeys, breakPicturesFrom, type BreakPictures } from './break.picture.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { ChartsService, MAX_CHART_ENTRIES } from '#modules/charts/charts.service.js';
-import { splitChartId } from '#modules/charts/chart.ids.js';
+import { splitChartId, STATION_CHART_QUALIFIER } from '#modules/charts/chart.ids.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
@@ -1055,15 +1055,16 @@ export class DirectorConsoleService {
             return (await this.tracks.inAlbumOrder(input.albumId)).name ?? 'An album';
         }
 
-        const plugin = pluginOf(input);
-        if (plugin === undefined) return 'The station';
-
         if (input.chartId !== undefined) {
             // Never fatal: this is a label. A menu that could not be read is a broadcast named after
-            // its plugin, which is what every imported one is already called.
+            // its plugin, which is what every imported one is already called. Asked before the plugin,
+            // because the station's own charts have no plugin and are still named on the menu.
             const named = await this.charts.nameOf(input.chartId);
             if (named !== undefined) return named;
         }
+
+        const plugin = pluginOf(input);
+        if (plugin === undefined) return 'The station';
 
         return `From ${this.plugins.get(plugin)?.manifest?.name ?? plugin}`;
     }
@@ -1131,7 +1132,8 @@ export class DirectorConsoleService {
         // reads from the console exactly like a chart service that carried nothing.
         const tracks = await this.resolver.resolve(picks, NO_RULES, {
             era,
-            preference: [address.pluginId],
+            // The station's own chart names no provider, so the ordinary provider order chooses.
+            preference: address.pluginId === STATION_CHART_QUALIFIER ? [] : [address.pluginId],
             discoveries: picks.length,
             keepOrder: true,
             broadcast,
@@ -2102,9 +2104,19 @@ export function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRule
  */
 const broadcastOf = (input: PutOnAirInput): PickBroadcast => ({ mode: input.mode ?? 'rotation' });
 
+/**
+ * The plugin a chart id names, or `undefined` for the station's own charts, which no plugin serves.
+ * The `station` qualifier sits where a plugin id would, and read as one it stamped a broadcast with a
+ * `sourcePluginId` nothing installed has, and asked the resolver to prefer a provider that is not one.
+ */
+const chartPluginOf = (chartId: string): string | undefined => {
+    const pluginId = splitChartId(chartId)?.pluginId;
+    return pluginId === STATION_CHART_QUALIFIER ? undefined : pluginId;
+};
+
 /** The plugin behind whichever source was named, or `undefined` for a broadcast the station fills itself. */
 function pluginOf(input: PutOnAirInput): string | undefined {
-    if (input.chartId !== undefined) return splitChartId(input.chartId)?.pluginId;
+    if (input.chartId !== undefined) return chartPluginOf(input.chartId);
     // No one plugin: each of its records airs from whichever provider serves a copy.
     if (input.stationPlaylistId !== undefined || input.albumId !== undefined) return undefined;
     return input.pluginId;

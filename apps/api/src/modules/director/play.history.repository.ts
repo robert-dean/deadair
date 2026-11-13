@@ -193,9 +193,13 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
-     * When each of these artists last aired, by lead artist key. An artist the history has no row
-     * for is absent, which is retention's answer as much as "never": rows past
-     * {@link PLAY_HISTORY_RETENTION_DAYS} are pruned.
+     * When each of these artists last aired, by lead artist key, within the rotation's
+     * {@link PLAY_HISTORY_RETENTION_DAYS}. An artist with no airing inside it is absent, the same
+     * answer as "never".
+     *
+     * Bounded here rather than by the prune, which it used to rely on: rows are now kept for
+     * {@link PLAY_HISTORY_KEPT_DAYS} for the station's own chart, and without the bound an act last
+     * heard five months ago would stop sorting with the never-aired ones at the head of a brief.
      *
      * For ordering the acts a brief names by how long they have been off air. Keyed on the lead, as
      * every history read is, so a guest spot does not count as the act having aired. No keys asks
@@ -210,6 +214,7 @@ export class PlayHistoryRepository extends DataRepository {
             // `play_history_artist_idx` leads with the station and then `artist_key`.
             .where('stationKey', '=', stationKey)
             .where('artistKey', 'in', [...artistKeys])
+            .where('airedAt', '>', sql<DateTime>`now() - ${sql.lit(`${PLAY_HISTORY_RETENTION_DAYS} days`)}::interval`)
             .groupBy('artistKey')
             .execute();
 

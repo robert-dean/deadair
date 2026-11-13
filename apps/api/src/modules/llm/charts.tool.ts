@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { ChartsService } from '#modules/charts/charts.service.js';
+import { ChartsService, chartFigures } from '#modules/charts/charts.service.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 import { limitArgument } from '#modules/shared/limit.clamp.js';
 import { nonEmptyText } from '#modules/shared/text.value.js';
@@ -169,9 +169,7 @@ export class ChartsTool implements ToolSource {
                 ...(entry.featuring === undefined ? {} : { featuring: entry.featuring }),
                 ...(entry.album === undefined ? {} : { album: entry.album }),
                 ...(entry.year === undefined ? {} : { year: entry.year }),
-                ...(entry.peak === undefined ? {} : { peak: entry.peak }),
-                ...(entry.weeksOn === undefined ? {} : { weeksOn: entry.weeksOn }),
-                ...(entry.lastWeek === undefined ? {} : { lastWeek: entry.lastWeek }),
+                ...chartFigures(entry),
             })),
         };
     }

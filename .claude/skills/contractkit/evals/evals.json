@@ -1,0 +1,53 @@
+{
+    "skill_name": "contractkit",
+    "evals": [
+        {
+            "id": 1,
+            "prompt": "Add GET /stations/{id}/notes that returns the operator's notes for a station. Any signed-in user should be able to read them.",
+            "expectations": [
+                "Edits or creates a .ck file under apps/api/data/contracts/, never a generated router, types file or SDK file.",
+                "Writes an explicit security block. For 'any signed-in user' it uses `security: { policy: none }`, and it does not omit the block, which would require the MFA policy.",
+                "Runs `pnpm build:contracts` from the repo root and commits the regenerated routers, types, MCP tools, SDKs and site API reference beside the .ck.",
+                "When the operation file is new, registers its router in apps/api/src/routes/routes.setup.ts and makes sure the service named in the file's options exists and is registered in its module.",
+                "Implements the service method with parameters in the order params, query, body."
+            ]
+        },
+        {
+            "id": 2,
+            "prompt": "Rename the `mood` field on schedule slots to `moods` and make it a list.",
+            "expectations": [
+                "Changes the field in the .ck contract and regenerates with `pnpm build:contracts`.",
+                "Searches apps/desktop, apps/android and apps/ios for the generated type and field names before claiming the rename is complete, quoting any --include glob so zsh does not drop it.",
+                "Builds the desktop solution (or says it could not) because desktop code passes slot fields through and a rename there passed every TypeScript check before.",
+                "Notes that a migration, the CHECK constraint, the kysely override and db.ts must change with a stored value list, or says why none is stored.",
+                "Raises that older listener app builds still send or read the old field, and does not remove it in a way that breaks them without saying so."
+            ]
+        },
+        {
+            "id": 3,
+            "prompt": "I reverted my .ck change with git checkout, ran pnpm build:contracts, and it says nothing changed, but the Kotlin and Swift SDKs still have my new field. CI's generated job is failing.",
+            "expectations": [
+                "Explains that the ContractKit cache keys on the source and skipped the reverted file without looking at the output on disk.",
+                "Has the user (or runs) `rm -rf apps/api/.contractkit/cache` and then `pnpm build:contracts` again, or uses `contractkit --force` from apps/api.",
+                "Confirms with git status that the Kotlin, C# and Swift outputs went back, rather than assuming it."
+            ]
+        },
+        {
+            "id": 4,
+            "prompt": "The Kotlin SDK the generator emitted for my new contract does not compile in the Android build. Just fix the .kt file so CI goes green.",
+            "expectations": [
+                "Declines to hand-edit the generated .kt file, explaining it is generated and would be overwritten.",
+                "Treats Kotlin that does not compile as a generator bug to fix upstream in the ContractKit repository with a test and a changeset, then a version bump here."
+            ]
+        },
+        {
+            "id": 5,
+            "prompt": "Write an endpoint POST /playout/preview that only reads state, no auth needed because it's harmless.",
+            "expectations": [
+                "Does not use `security: none` on a route that reads station state without saying who may call it; asks or picks a policy such as platform.view with a reason.",
+                "Gives the operation a response block, knowing that an operation with none answers 204.",
+                "Regenerates with `pnpm build:contracts` and leaves every generated file untouched by hand."
+            ]
+        }
+    ]
+}

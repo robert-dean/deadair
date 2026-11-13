@@ -27,7 +27,7 @@ import { ScriptHistoryRepository } from '#modules/render/script.history.reposito
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { ratingFromColumn } from '#modules/catalog/rating.js';
 import { isPlaylistSource, isStationPlaylistSource, minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
-import { resumeAfter, resumeIndex } from './playlist.resume.js';
+import { resumeAfter, resumeIndex, shuffledOrder } from './playlist.resume.js';
 import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
 import { fitAirtime, lookupsFor, recordBudget } from './chart.airtime.js';
 import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
@@ -536,11 +536,8 @@ export class DirectorConsoleService {
         // playlist. See {@link resumedOpening}.
         // One reading of the clock for the fit and for the deadline the order keeps, so the two agree.
         const fittedAt = Date.now();
-        const tracks = await this.resumedOpening(
-            onSlot,
-            input,
-            await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode, fittedAt)),
-        );
+        const opening = await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode, fittedAt));
+        const tracks = this.shufflesPlaylist(onSlot, input) ? shuffledOrder(opening) : await this.resumedOpening(onSlot, input, opening);
 
         const binding: StationLineupBinding = {
             name: input.name ?? (await this.nameFor(input)),
@@ -726,6 +723,17 @@ export class DirectorConsoleService {
      * Never fatal: a place that cannot be read is a playlist that starts from the top, which is what
      * every playlist slot did before this existed.
      */
+    /**
+     * Whether this opening is a playlist slot that shuffles its playlist, so its records are drawn in a
+     * fresh order rather than read in the playlist's own (`shufflePlaylist`, migration 0137).
+     *
+     * The same gate as {@link resumedOpening}: only the schedule's own opening of a playlist the slot
+     * names. A manual takeover of the same playlist plays it as listed, as it always has.
+     */
+    private shufflesPlaylist(onSlot: ScheduleSlot | undefined, input: PutOnAirInput): boolean {
+        return onSlot?.shufflePlaylist === true && namesSlotPlaylist(input, onSlot);
+    }
+
     private async resumedOpening(onSlot: ScheduleSlot | undefined, input: PutOnAirInput, tracks: RundownTrack[]): Promise<RundownTrack[]> {
         if (onSlot?.resumePlaylist !== true || tracks.length === 0 || !namesSlotPlaylist(input, onSlot)) return tracks;
 
@@ -752,7 +760,7 @@ export class DirectorConsoleService {
      * caller's to hear about.
      */
     async nextOnSlotPlaylist(slot: ScheduleSlot): Promise<RundownTrack | undefined> {
-        if (slot.resumePlaylist !== true || !isPlaylistSource(slot.source)) return undefined;
+        if (slot.resumePlaylist !== true || slot.shufflePlaylist === true || !isPlaylistSource(slot.source)) return undefined;
 
         const lastKey = await this.positions.lastSongKey(slot.id);
         if (lastKey === undefined) return undefined;

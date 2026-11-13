@@ -290,8 +290,8 @@ export interface ScheduleSlot {
     /**
      * Whether a playlist slot airs its playlist in a shuffled order rather than the playlist's own.
      *
-     * Absent is no, and only `true` is ever stored on a slot read back. Shuffled once, when the block
-     * opens, and never again while it is on (migration 0137). Overrides {@link resumePlaylist} at the
+     * Absent is no, and only `true` is ever stored on a slot read back. Drawn each time the block
+     * opens, including a takeover ending inside it (migration 0137). Overrides {@link resumePlaylist} at the
      * opening without clearing it: where a playlist got to means nothing in an order drawn fresh each
      * time. Means nothing for a chart or for a slot with no playlist.
      */

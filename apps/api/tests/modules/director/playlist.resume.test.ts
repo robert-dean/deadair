@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { playlistKeyOf, resumeAfter, resumeIndex } from '../../../src/modules/director/playlist.resume.js';
+import { playlistKeyOf, resumeAfter, resumeIndex, shuffledOrder } from '../../../src/modules/director/playlist.resume.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 
 const record = (title: string, artist = 'Portishead') => ({ title, artist });
@@ -41,5 +41,33 @@ describe('resumeAfter', () => {
 
     it('leaves an empty playlist empty', () => {
         expect(resumeAfter([], playlistKeyOf(record('Roads')))).toEqual([]);
+    });
+});
+
+describe('a slot that shuffles its playlist', () => {
+    it('airs every record exactly once, in a different order', () => {
+        const shuffled = shuffledOrder(playlist, () => 0.5);
+
+        expect([...shuffled].sort((a, b) => a.title.localeCompare(b.title))).toEqual([...playlist].sort((a, b) => a.title.localeCompare(b.title)));
+        expect(shuffled).not.toEqual(playlist);
+    });
+
+    it('draws the same order from the same numbers, so the draw can be tested', () => {
+        const rolls = [0, 0.99, 0.3, 0.7];
+        const pick = () => rolls.shift() ?? 0;
+
+        const first = shuffledOrder(playlist, pick);
+        expect(first.map(record => record.title)).toEqual(['Strangers', 'Sour Times', 'Glory Box', 'Roads', 'Mysterons']);
+    });
+
+    it('leaves the playlist it was given as it was', () => {
+        const before = playlist.map(record => record.title);
+        shuffledOrder(playlist, () => 0.2);
+
+        expect(playlist.map(record => record.title)).toEqual(before);
+    });
+
+    it('is an empty list when the playlist is', () => {
+        expect(shuffledOrder([], () => 0.5)).toEqual([]);
     });
 });

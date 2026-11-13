@@ -904,6 +904,15 @@ end
 def playout_transition(a, b) =
   blend = playout_cross_duration(a.metadata)
   stamped = a.metadata[playout_handover_key] == "1"
+  # A record the app cut short for a hard marker (`deadair_cut`, see CUT_KEY in annotate.ts). Its cue
+  # out is the cut, and the boundary is stamped with the fade's own length on BOTH sides (`cross`
+  # buffers the shorter of the two, so a hard join stamped on the next item leaves nothing to fade),
+  # so fading the WHOLE buffer ends the fade exactly on the cut (rule 3 above, read the other way).
+  # Nothing rides it: whatever comes next, a marker or a fill, starts at full level straight after,
+  # and is not faded in, because a fade-in would put the marker's first word behind its time.
+  # Measured in the pinned image over two tones: the cut record falls from full to -30 dB across its
+  # last three seconds and the next starts at full level on the cut. See stream/cut.check.liq.
+  cut = a.metadata["deadair_cut"] == "1"
   # Never fade a record into speech, whatever blend the OUTGOING item was stamped with. That
   # stamp is decided before a break can be injected behind it: the app stamps `a`'s blend at
   # commit time, off what was next at that moment, and a break landed later at `committedThrough`
@@ -911,6 +920,13 @@ def playout_transition(a, b) =
   # adjacent record-then-speech pairs would blend under the old rule, median 2.8 s of a record
   # fading under a voice that was never in the mix when the blend was decided.
   if
+    cut
+  then
+    log(label="deadair", "cut: faded out over #{blend}s")
+    # The cast drops the fade's own methods, which would otherwise have to unify with `b.source`'s.
+    faded = (fade.out(type="log", curve=6.4, duration=blend, a.source) : source)
+    sequence([faded, b.source])
+  elsif
     b.metadata["deadair_speech"] == "1"
   then
     sequence([a.source, b.source])

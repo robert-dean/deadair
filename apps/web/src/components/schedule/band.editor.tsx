@@ -83,6 +83,9 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
             ...(values.topicId.length === 0 ? {} : { topicId: values.topicId }),
             // Only for a band at a time of day, and only when some are chosen: none is every day.
             ...(values.when === 'interval' || values.days.length === 0 ? {} : { days: values.days.map(Number) }),
+            // Sent either way for a band at a time of day: the station keeps a stored `hard` when a save
+            // leaves it out, so switching it off has to say so.
+            ...(values.when === 'interval' ? {} : { hard: values.hard }),
             position: values.position,
             enabled: values.enabled,
         });
@@ -200,6 +203,16 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                         {t('band.note')}
                     </Text>
 
+                    {/* A spacing rule has no time to hit, so only a band at a time of day can be hard. */}
+                    {form.values.when === 'interval' ? undefined : (
+                        <Switch
+                            label={t('band.hardLabel')}
+                            description={t('band.hardDescription')}
+                            checked={form.values.hard}
+                            onChange={event => form.setFieldValue('hard', event.currentTarget.checked)}
+                        />
+                    )}
+
                     <Switch
                         label={t('band.inForceLabel')}
                         description={t('band.inForceDescription')}
@@ -279,6 +292,8 @@ interface FormValues {
     when: 'hourly' | 'daily' | 'interval';
     /** The weekdays chosen, as the chips' string values. Empty is every day. */
     days: string[];
+    /** A hard marker: airs at its time exactly. Read only for a band at a time of day. */
+    hard: boolean;
     minute: number;
     time: string;
     everyMinutes: number;
@@ -306,6 +321,7 @@ function valuesOf(target?: BandTarget): FormValues {
         topicId: band?.topicId ?? '',
         when,
         days: (band?.days ?? []).map(String),
+        hard: band?.hard === true,
         // Half past for a new hourly band, which is where a bulletin usually goes and is well clear
         // of the top of the hour a station tends to name itself at.
         minute: band?.minute ?? 30,

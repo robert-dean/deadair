@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { producibleKinds, type StationCapability } from '../../../src/modules/director/clock.service.js';
+import type { ClockBandRecord } from '../../../src/modules/director/clock.bands.js';
+import { keepingHard, producibleKinds, type StationCapability } from '../../../src/modules/director/clock.service.js';
 
 const station = (over: Partial<StationCapability> = {}): StationCapability => ({
     writable: [],
@@ -50,5 +51,40 @@ describe('producibleKinds', () => {
 
     it('answers nothing for a station that can neither write nor play anything', () => {
         expect(producibleKinds(station())).toEqual([]);
+    });
+});
+
+// `PUT` replaces the row, and a console that predates hard markers never sends the field. A reorder from one
+// must not make the news soft, and a console that knows the field must still be able to.
+describe('keepingHard', () => {
+    const stored = (hard: boolean): ClockBandRecord => ({
+        id: 'b',
+        at: 'clock',
+        minute: 0,
+        kind: 'news',
+        position: 0,
+        enabled: true,
+        ...(hard ? { hard } : {}),
+    });
+    const save = { kind: 'news', at: 'clock' as const, minute: 0, position: 1, enabled: true };
+
+    it('keeps a stored hard marker hard when the save does not mention it', () => {
+        expect(keepingHard(save, stored(true)).hard).toBe(true);
+    });
+
+    it('lets an explicit false make it soft', () => {
+        expect(keepingHard({ ...save, hard: false }, stored(true)).hard).toBe(false);
+    });
+
+    it('leaves a soft band soft', () => {
+        expect(keepingHard(save, stored(false)).hard).toBeUndefined();
+    });
+
+    it('never makes an interval band hard, which has no time to hit', () => {
+        expect(keepingHard({ kind: 'ident', at: 'interval', everyMs: 600_000, position: 0, enabled: true }, stored(true)).hard).toBeUndefined();
+    });
+
+    it('answers the save unchanged for a band nobody holds any more', () => {
+        expect(keepingHard(save, undefined)).toEqual(save);
     });
 });

@@ -29,6 +29,12 @@ export const ClockBand = z.strictObject({
         .array(z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6)))
         .optional()
         .describe("For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day"),
+    hard: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time',
+        ),
     everyMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000))
         .optional()
@@ -72,6 +78,12 @@ export const ClockBandInput = z.strictObject({
         .array(z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6)))
         .optional()
         .describe("For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day"),
+    hard: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time',
+        ),
     everyMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000))
         .optional()
@@ -150,6 +162,7 @@ export const ClockPackRow = z.strictObject({
     hour: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(23)).optional(),
     minute: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(59)).optional(),
     days: z.array(z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6))).optional(),
+    hard: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).optional(),
     everyMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000)).optional(),
     topic: ClockPackTopic.optional(),
 });

@@ -16,6 +16,8 @@ export interface ClockBand {
     minute?: number;
     /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
     days?: number[];
+    /** For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time */
+    hard?: boolean;
     /** For an `interval` band: how far apart, in milliseconds */
     everyMs?: number;
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */
@@ -39,6 +41,8 @@ export interface ClockBandInput {
     minute?: number;
     /** For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day */
     days?: number[];
+    /** For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time */
+    hard?: boolean;
     /** For an `interval` band: how far apart, in milliseconds */
     everyMs?: number;
     /** Where this sits in the operator's own order, which is what settles a boundary two rules both want */
@@ -103,6 +107,7 @@ export interface ClockPackRow {
     hour?: number;
     minute?: number;
     days?: number[];
+    hard?: boolean;
     everyMs?: number;
     topic?: ClockPackTopic;
 }

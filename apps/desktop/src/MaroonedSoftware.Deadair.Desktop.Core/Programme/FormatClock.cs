@@ -68,6 +68,15 @@ public sealed record BandDraft
     /// </remarks>
     public IReadOnlyList<long>? Days { get; init; }
 
+    /// <summary>
+    /// Whether a band at a time of day is a hard marker, as the band had it. Null is never said, which the
+    /// station reads as "keep what is stored".
+    /// </summary>
+    /// <remarks>
+    /// Carried through rather than edited here, for the days' reason: this editor has no switch for it yet.
+    /// </remarks>
+    public bool? Hard { get; init; }
+
     public long Position { get; init; }
 
     public bool Enabled { get; init; } = true;
@@ -96,6 +105,7 @@ public sealed record BandDraft
             EveryMinutes = Math.Round((band.EveryMs ?? (90 * 60_000)) / 60_000d).ToString(CultureInfo.InvariantCulture),
             TopicId = band.TopicId,
             Days = band.Days is { Count: > 0 } days ? days : null,
+            Hard = band.Hard,
             Position = band.Position,
             Enabled = band.Enabled,
         };
@@ -158,6 +168,7 @@ public sealed record BandDraft
                     Hour = minutes / 60,
                     Minute = minutes % 60,
                     Days = days,
+                    Hard = Hard,
                     TopicId = topic,
                     Position = Position,
                     Enabled = Enabled,
@@ -169,6 +180,7 @@ public sealed record BandDraft
                     At = ClockBandAt.Clock,
                     Minute = Whole(Minute)!.Value,
                     Days = days,
+                    Hard = Hard,
                     TopicId = topic,
                     Position = Position,
                     Enabled = Enabled,
@@ -224,6 +236,7 @@ public static class FormatClock
             Minute = band.Minute,
             EveryMs = band.EveryMs,
             Days = band.Days,
+            Hard = band.Hard,
             TopicId = band.TopicId,
             Position = position ?? band.Position,
             Enabled = band.Enabled,

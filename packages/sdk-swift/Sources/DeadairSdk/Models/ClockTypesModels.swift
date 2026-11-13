@@ -14,6 +14,8 @@ public struct ClockBand: Codable, Equatable, Sendable {
     public var minute: Int?
     /// For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day
     public var days: [Int]?
+    /// For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time
+    public var hard: Bool?
     /// For an `interval` band: how far apart, in milliseconds
     public var everyMs: Int?
     /// Where this sits in the operator's own order, which is what settles a boundary two rules both want
@@ -25,13 +27,14 @@ public struct ClockBand: Codable, Equatable, Sendable {
     /// That subject's name, so a list can be drawn without a second call
     public var topicLabel: String?
 
-    public init(id: String, kind: String, at: ClockBandAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, everyMs: Int? = nil, position: Int, enabled: Bool, topicId: String? = nil, topicLabel: String? = nil) {
+    public init(id: String, kind: String, at: ClockBandAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, hard: Bool? = nil, everyMs: Int? = nil, position: Int, enabled: Bool, topicId: String? = nil, topicLabel: String? = nil) {
         self.id = id
         self.kind = kind
         self.at = at
         self.hour = hour
         self.minute = minute
         self.days = days
+        self.hard = hard
         self.everyMs = everyMs
         self.position = position
         self.enabled = enabled
@@ -46,6 +49,7 @@ public struct ClockBand: Codable, Equatable, Sendable {
         case hour = "hour"
         case minute = "minute"
         case days = "days"
+        case hard = "hard"
         case everyMs = "everyMs"
         case position = "position"
         case enabled = "enabled"
@@ -61,6 +65,7 @@ public struct ClockBand: Codable, Equatable, Sendable {
         self.hour = try container.decodeIfPresent(Int.self, forKey: .hour)
         self.minute = try container.decodeIfPresent(Int.self, forKey: .minute)
         self.days = try container.decodeIfPresent([Int].self, forKey: .days)
+        self.hard = try container.decodeIfPresent(Bool.self, forKey: .hard)
         self.everyMs = try container.decodeIfPresent(Int.self, forKey: .everyMs)
         self.position = try container.decode(Int.self, forKey: .position)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
@@ -76,6 +81,7 @@ public struct ClockBand: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.hour, forKey: .hour)
         try container.encodeIfPresent(self.minute, forKey: .minute)
         try container.encodeIfPresent(self.days, forKey: .days)
+        try container.encodeIfPresent(self.hard, forKey: .hard)
         try container.encodeIfPresent(self.everyMs, forKey: .everyMs)
         try container.encode(self.position, forKey: .position)
         try container.encode(self.enabled, forKey: .enabled)
@@ -96,6 +102,8 @@ public struct ClockBandInput: Codable, Equatable, Sendable {
     public var minute: Int?
     /// For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day
     public var days: [Int]?
+    /// For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time
+    public var hard: Bool?
     /// For an `interval` band: how far apart, in milliseconds
     public var everyMs: Int?
     /// Where this sits in the operator's own order, which is what settles a boundary two rules both want
@@ -105,12 +113,13 @@ public struct ClockBandInput: Codable, Equatable, Sendable {
     /// What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds
     public var topicId: String?
 
-    public init(kind: String, at: ClockBandAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, everyMs: Int? = nil, position: Int, enabled: Bool, topicId: String? = nil) {
+    public init(kind: String, at: ClockBandAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, hard: Bool? = nil, everyMs: Int? = nil, position: Int, enabled: Bool, topicId: String? = nil) {
         self.kind = kind
         self.at = at
         self.hour = hour
         self.minute = minute
         self.days = days
+        self.hard = hard
         self.everyMs = everyMs
         self.position = position
         self.enabled = enabled
@@ -123,6 +132,7 @@ public struct ClockBandInput: Codable, Equatable, Sendable {
         case hour = "hour"
         case minute = "minute"
         case days = "days"
+        case hard = "hard"
         case everyMs = "everyMs"
         case position = "position"
         case enabled = "enabled"
@@ -136,6 +146,7 @@ public struct ClockBandInput: Codable, Equatable, Sendable {
         self.hour = try container.decodeIfPresent(Int.self, forKey: .hour)
         self.minute = try container.decodeIfPresent(Int.self, forKey: .minute)
         self.days = try container.decodeIfPresent([Int].self, forKey: .days)
+        self.hard = try container.decodeIfPresent(Bool.self, forKey: .hard)
         self.everyMs = try container.decodeIfPresent(Int.self, forKey: .everyMs)
         self.position = try container.decode(Int.self, forKey: .position)
         self.enabled = try container.decode(Bool.self, forKey: .enabled)
@@ -149,6 +160,7 @@ public struct ClockBandInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.hour, forKey: .hour)
         try container.encodeIfPresent(self.minute, forKey: .minute)
         try container.encodeIfPresent(self.days, forKey: .days)
+        try container.encodeIfPresent(self.hard, forKey: .hard)
         try container.encodeIfPresent(self.everyMs, forKey: .everyMs)
         try container.encode(self.position, forKey: .position)
         try container.encode(self.enabled, forKey: .enabled)
@@ -301,15 +313,17 @@ public struct ClockPackRow: Codable, Equatable, Sendable {
     public var hour: Int?
     public var minute: Int?
     public var days: [Int]?
+    public var hard: Bool?
     public var everyMs: Int?
     public var topic: ClockPackTopic?
 
-    public init(kind: String, at: ClockPackRowAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, everyMs: Int? = nil, topic: ClockPackTopic? = nil) {
+    public init(kind: String, at: ClockPackRowAt, hour: Int? = nil, minute: Int? = nil, days: [Int]? = nil, hard: Bool? = nil, everyMs: Int? = nil, topic: ClockPackTopic? = nil) {
         self.kind = kind
         self.at = at
         self.hour = hour
         self.minute = minute
         self.days = days
+        self.hard = hard
         self.everyMs = everyMs
         self.topic = topic
     }
@@ -320,6 +334,7 @@ public struct ClockPackRow: Codable, Equatable, Sendable {
         case hour = "hour"
         case minute = "minute"
         case days = "days"
+        case hard = "hard"
         case everyMs = "everyMs"
         case topic = "topic"
     }
@@ -331,6 +346,7 @@ public struct ClockPackRow: Codable, Equatable, Sendable {
         self.hour = try container.decodeIfPresent(Int.self, forKey: .hour)
         self.minute = try container.decodeIfPresent(Int.self, forKey: .minute)
         self.days = try container.decodeIfPresent([Int].self, forKey: .days)
+        self.hard = try container.decodeIfPresent(Bool.self, forKey: .hard)
         self.everyMs = try container.decodeIfPresent(Int.self, forKey: .everyMs)
         self.topic = try container.decodeIfPresent(ClockPackTopic.self, forKey: .topic)
     }
@@ -342,6 +358,7 @@ public struct ClockPackRow: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.hour, forKey: .hour)
         try container.encodeIfPresent(self.minute, forKey: .minute)
         try container.encodeIfPresent(self.days, forKey: .days)
+        try container.encodeIfPresent(self.hard, forKey: .hard)
         try container.encodeIfPresent(self.everyMs, forKey: .everyMs)
         try container.encodeIfPresent(self.topic, forKey: .topic)
     }

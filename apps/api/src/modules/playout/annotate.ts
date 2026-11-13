@@ -20,7 +20,7 @@ import { isRenderItem } from '#modules/render/segment.source.js';
 import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
 import { blendFor, type MeasuredCuePoints } from './crossfade.js';
 import { duckBedLufsFor, gainFor, type DuckSettings, programmeGainFor, speechAimLufs, speechGainFor, type MeasuredLoudness } from './gain.js';
-import type { RundownItem } from './rundown.js';
+import { CUT_FADE_MS, type RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
 export const ITEM_KEY = 'deadair_item';
@@ -47,6 +47,13 @@ export const SPEECH_KEY = 'deadair_speech';
  * this says, and a record going into speech cold.
  */
 export const HANDOVER_KEY = 'deadair_handover';
+
+/**
+ * The metadata key saying this record was cut short for a hard marker, `"1"` or absent as {@link SPEECH_KEY}
+ * is. Must match `radio.liq`, which fades the record's end buffer out and starts the next item straight
+ * after it rather than blending the two: a cut record is going OUT, and nothing should ride it.
+ */
+export const CUT_KEY = 'deadair_cut';
 
 /**
  * The metadata key carrying where a voice is aimed, in LUFS. Must match `radio.liq`.
@@ -211,6 +218,7 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
         ...(artwork ? { [ARTWORK_KEY]: artwork } : {}),
         ...(isRenderItem(item) ? { [SPEECH_KEY]: '1' } : {}),
         ...cueAnnotations(item),
+        ...(cutOf(item) === undefined ? {} : { [CUT_KEY]: '1' }),
         ...gainAnnotations(item, context),
         ...crossAnnotations(item, context),
     };
@@ -420,12 +428,58 @@ function cueAnnotations(item: RundownItem): Record<string, string> {
  * them: both present, finite, and a forward span. Anything that reports where the player is in the
  * file reads them through here, so it can never assume a cue the player was not handed.
  */
-export function playedCues(item: Pick<RundownItem, 'cueInMs' | 'cueOutMs'>): { cueInMs: number; cueOutMs: number } | undefined {
+export function playedCues(
+    item: Pick<RundownItem, 'cueInMs' | 'cueOutMs' | 'cutAtMs' | 'durationMs'>,
+): { cueInMs: number; cueOutMs: number } | undefined {
+    const cut = cutOf(item);
     const { cueInMs, cueOutMs } = item;
-    if (cueInMs === undefined || cueOutMs === undefined) return undefined;
-    if (!Number.isFinite(cueInMs) || !Number.isFinite(cueOutMs)) return undefined;
-    if (cueInMs < 0 || cueOutMs <= cueInMs) return undefined;
-    return { cueInMs, cueOutMs };
+    const measured =
+        cueInMs === undefined ||
+        cueOutMs === undefined ||
+        !Number.isFinite(cueInMs) ||
+        !Number.isFinite(cueOutMs) ||
+        cueInMs < 0 ||
+        cueOutMs <= cueInMs
+            ? undefined
+            : { cueInMs, cueOutMs };
+
+    // A cut moves only where the player stops. An unmeasured record cut short still has to start at the
+    // top of the file, which is where it would have started anyway.
+    if (cut !== undefined) return { cueInMs: measured?.cueInMs ?? 0, cueOutMs: cut };
+    return measured;
+}
+
+/**
+ * How long a cut item fades out over, or `undefined` when it is not cut.
+ *
+ * {@link CUT_FADE_MS}, or half of what is left of the item when that is less. Half rather than all of it:
+ * measured in the pinned image, a one-second fill stamped to fade over its whole length was never faded at
+ * all, while a two-second one fading over its last second fell cleanly to nothing on the cut. Never less
+ * than {@link HARD_JOIN_MS}, the least the player can be told to buffer.
+ */
+export function cutFadeOf(item: Pick<RundownItem, 'cueInMs' | 'cueOutMs' | 'cutAtMs' | 'durationMs'>): number | undefined {
+    const cut = cutOf(item);
+    if (cut === undefined) return undefined;
+    const start = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? item.cueInMs : 0;
+    return Math.max(HARD_JOIN_MS, Math.min(CUT_FADE_MS, Math.round((cut - start) / 2)));
+}
+
+/**
+ * Where a record cut short for a hard marker stops, or `undefined` when it plays to its own end.
+ *
+ * A cut is honoured only when it is one: inside the audio the player would otherwise read. One at or past
+ * the record's end (measured, or its whole length) changes nothing, and one at or before where it starts
+ * would air nothing, which is dead air rather than a short record. A cut shorter than its own fade is
+ * still a cut; the fade then begins before the record does and the record simply starts quiet.
+ */
+export function cutOf(item: Pick<RundownItem, 'cueInMs' | 'cueOutMs' | 'cutAtMs' | 'durationMs'>): number | undefined {
+    const { cutAtMs } = item;
+    if (cutAtMs === undefined || !Number.isFinite(cutAtMs)) return undefined;
+    const start = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? item.cueInMs : 0;
+    const end = item.cueOutMs !== undefined && Number.isFinite(item.cueOutMs) ? item.cueOutMs : item.durationMs;
+    if (cutAtMs <= start) return undefined;
+    if (end !== undefined && cutAtMs >= end) return undefined;
+    return Math.round(cutAtMs);
 }
 
 /** Milliseconds as the seconds Liquidsoap expects, without a trailing `.000`. */
@@ -551,11 +605,13 @@ export function duckAnnotations(targetLufs: number, trimDb: number, duck: DuckSe
 function crossAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
     const out = blendOutOf(item, context);
     const into = context.previousBlendMs ?? 0;
+    const cut = cutOf(item) !== undefined;
 
     return {
         liq_cross_end_duration: seconds(out === 0 ? HARD_JOIN_MS : out),
         liq_cross_start_duration: seconds(into === 0 ? HARD_JOIN_MS : into),
-        ...(context.handover && out > 0 ? { [HANDOVER_KEY]: '1' } : {}),
+        // A fade out is not a handover: nothing comes in under a cut record to take its bass.
+        ...(context.handover && out > 0 && !cut ? { [HANDOVER_KEY]: '1' } : {}),
     };
 }
 
@@ -571,6 +627,12 @@ export function blendOutOf(item: RundownItem, context: AnnotationContext): numbe
     // A link said over this record's end owns the seconds a blend would have taken: it ends at the
     // record's end and the next record starts straight after. See `talk.out.ts`.
     if (item.voice?.endOf === true) return 0;
+    // A record cut short fades out over the boundary's buffer and is never blended into the next item:
+    // `radio.liq` fades the buffer and plays the next item after it. The buffer is still this long on
+    // BOTH sides, because `cross` buffers the shorter of the two stamps; measured in the pinned image, a
+    // cut whose successor was stamped a hard join buffered a tenth of a second and never faded at all.
+    const fade = cutFadeOf(item);
+    if (fade !== undefined) return fade;
     return blendFor(item, context.next, context);
 }
 

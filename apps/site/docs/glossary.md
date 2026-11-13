@@ -30,7 +30,8 @@ with co-hosts gets one every half hour or so. See
 ### Bed
 
 What the audio chain plays on its own when the station is not feeding it the running order. The
-check-up and the as-run log both say when the bed was on air.
+check-up and the as-run log both say when the bed was on air. Not the same as a recording of the kind
+`bed`, which the station plays from its running order while it waits for a [hard marker](#hard-marker).
 
 ### Blend
 
@@ -140,6 +141,13 @@ A host who sits in for a block's usual host on some nights, and says whose show 
 [guest hosts](./features/programme.md#guest-hosts).
 
 ## H
+
+### Hard marker
+
+A rule on the [format clock](#format-clock) switched to **On the dot**: it airs exactly at its time,
+fading out the record in its way when the music runs late and waiting behind a `bed` recording when it
+runs early. A rule without the switch is a soft marker and airs when the record playing at its time
+finishes. See [on the dot](./features/programme.md#on-the-dot).
 
 ### Handed over
 

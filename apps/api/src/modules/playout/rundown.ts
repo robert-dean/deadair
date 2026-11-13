@@ -38,6 +38,15 @@ import { errorText } from '#modules/shared/error.text.js';
  * instead of standing its clock down over an id it has never seen.
  */
 
+/**
+ * How long a record cut short for a hard marker takes to fade out, ending exactly where it was cut.
+ *
+ * Long enough to be heard as a fade rather than a cut (a DJ's fader takes about this long), short enough
+ * that the cut point can be chosen to the second without the fade starting audibly early. `radio.liq`
+ * holds no copy of it: the mixer reads the length off the record's own end buffer, which is stamped with it.
+ */
+export const CUT_FADE_MS = 3_000;
+
 export interface RundownItem {
     /**
      * The running order's own id for this item: the one stored in
@@ -222,6 +231,29 @@ export interface RundownItem {
     introEndMs?: number;
     outroStartMs?: number;
     cueOutMs?: number;
+    /**
+     * Where the director has cut this record short, as a position in the file in milliseconds, so the
+     * player stops reading there rather than at `cueOutMs` and fades the last {@link CUT_FADE_MS} out.
+     *
+     * Set only for a record in the way of a hard marker (`clock_bands.hard`): the time the marker is
+     * due falls inside it, and the marker cannot wait. Absent is every other record, which plays to its
+     * own end. A cut at or past where the record ends anyway, or at or before where it starts, is not a
+     * cut and is ignored; see `playedCues` in `annotate.ts`.
+     */
+    cutAtMs?: number;
+    /**
+     * The instant, as epoch milliseconds, this record has to have finished by, because a HARD marker
+     * airs right after it at that time (`clock_bands.hard`). The director sets it when it prepares the
+     * record; the pusher turns it into {@link cutAtMs} as it hands the record over, against when the
+     * item on air actually started and how long it runs (`end.by.ts`). Absent on every other record.
+     */
+    endBy?: number;
+    /**
+     * This item is a FILL: a recording that exists to take up the time before a hard marker the order
+     * reached early, so it is cut at {@link endBy} however little of it that leaves, down to almost
+     * nothing when the order has caught up, and never played whole. A record is never a fill.
+     */
+    fill?: true;
 
     /**
      * How loud the record is, and how close it already runs to its ceiling.
@@ -834,10 +866,22 @@ export class Rundown {
     }
 
     /**
+     * The pusher cut a prepared record short as it handed it over (`end.by.ts`). Kept on the rundown's
+     * own copy so everything that reads the record's length while it airs (the next hand-over's start,
+     * above all) reads the length the player was actually given. A record this rundown no longer holds is
+     * ignored.
+     */
+    noteCut(id: string, cutAtMs: number): void {
+        const item = this.prepared.get(id);
+        if (item !== undefined) this.prepared.set(id, { ...item, cutAtMs });
+    }
+
+    /**
      * What is on air, with the playhead projected from the last reading. Projected
      * on read rather than on a timer, so it is never served stale and nothing
      * pulses through the listeners every couple of seconds.
      */
+
     nowPlaying(): NowPlaying | undefined {
         const item = this.airing === undefined ? undefined : this.prepared.get(this.airing.id);
         if (!this.airing || !item) return undefined;

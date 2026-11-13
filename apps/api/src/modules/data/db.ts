@@ -314,6 +314,7 @@ export interface DeadairClockBands {
   days: Generated<Json>;
   enabled: Generated<boolean>;
   everyMinutes: number | null;
+  hard: Generated<boolean>;
   hour: number | null;
   id: Generated<string>;
   kind: string;

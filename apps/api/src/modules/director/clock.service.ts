@@ -90,7 +90,8 @@ export class ClockService {
      * a fault, and the answer to it is the same as the answer to any other read: here is the clock.
      */
     async update(id: string, input: ClockBandInput): Promise<ClockBandList> {
-        await this.bands.update(id, await this.draftOf(input));
+        const stored = input.hard === undefined ? (await this.bands.list()).find(band => band.id === id) : undefined;
+        await this.bands.update(id, await this.draftOf(keepingHard(input, stored)));
         return await this.list();
     }
 
@@ -160,6 +161,7 @@ export class ClockService {
                       minute: input.minute ?? 0,
                       ...(input.hour === undefined ? {} : { hour: input.hour }),
                       ...(input.days === undefined || input.days.length === 0 ? {} : { days: input.days }),
+                      ...(input.hard === true ? { hard: true } : {}),
                       kind: input.kind,
                   };
 
@@ -258,6 +260,20 @@ async function subjectFor(topics: TopicRepository, input: ClockBandInput): Promi
     return held === undefined ? {} : { topic: { id: held.id, key: held.key, label: held.label } };
 }
 
+/**
+ * A rewrite that does not mention `hard` keeps the stored one, and only an explicit `false` makes a band soft
+ * again.
+ *
+ * `PUT` replaces the row, and a console built before hard markers existed (an older desktop build, a browser
+ * tab opened before the release) sends every field it knows on a reorder or a save and never this one, so
+ * without this a reorder from one of them would quietly turn the nine o'clock news soft. `keepingRecurrence`
+ * on a slot is the same bargain for the same builds.
+ */
+export function keepingHard(input: ClockBandInput, stored: ClockBandRecord | undefined): ClockBandInput {
+    if (input.hard !== undefined || input.at !== 'clock') return input;
+    return stored !== undefined && stored.at === 'clock' && stored.hard === true ? { ...input, hard: true } : input;
+}
+
 /** `undefined` for the half this band does not have, because the contract's fields are optional. */
 const forTheWire = (band: ClockBandRecord): ClockBand => ({
     id: band.id,
@@ -270,6 +286,7 @@ const forTheWire = (band: ClockBandRecord): ClockBand => ({
               minute: band.minute,
               ...(band.hour === undefined ? {} : { hour: band.hour }),
               ...(band.days === undefined ? {} : { days: [...band.days] }),
+              ...(band.hard === true ? { hard: true } : {}),
           }
         : { everyMs: band.everyMs }),
     ...(band.topic === undefined ? {} : { topicId: band.topic.id, topicLabel: band.topic.label }),

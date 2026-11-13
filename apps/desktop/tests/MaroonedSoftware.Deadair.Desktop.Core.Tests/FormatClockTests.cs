@@ -96,6 +96,17 @@ public class FormatClockTests
         Assert.Null(BandDraft.From(Band("y", "news", minute: 30)).ToInput()!.Days);
     }
 
+    // Nor has it a switch for a hard marker, so a hard band it saves or moves must stay hard.
+    [Fact]
+    public void AHardMarkerStaysHardThroughAnEditAndAMove()
+    {
+        var hard = Band("x", "news", ClockBandAt.Clock, minute: 0) with { Hard = true };
+
+        Assert.True(BandDraft.From(hard).ToInput()!.Hard);
+        Assert.True(FormatClock.BodyOf(hard, position: 3).Hard);
+        Assert.Null(BandDraft.From(Band("y", "news", minute: 30)).ToInput()!.Hard);
+    }
+
     [Fact]
     public void ANewBandGoesAtTheEndOfTheList() =>
         Assert.Equal(8, BandDraft.From(null, FormatClock.NextPosition([Band("a", "news", position: 7), Band("b", "ident", position: 2)])).Position);

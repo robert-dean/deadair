@@ -51,6 +51,7 @@ export function packOfClock(bands: readonly ClockBandRecord[], topics: readonly 
                       minute: band.minute,
                       ...(band.hour === undefined ? {} : { hour: band.hour }),
                       ...(band.days === undefined || band.days.length === 0 ? {} : { days: [...band.days] }),
+                      ...(band.hard === true ? { hard: true } : {}),
                   }
                 : { everyMs: band.everyMs }),
             ...(band.topic === undefined
@@ -107,6 +108,7 @@ export function planClockPack(pack: ClockPack, held: readonly ClockBandRecord[],
                       minute: row.data.minute ?? 0,
                       ...(row.data.hour === undefined ? {} : { hour: row.data.hour }),
                       ...(row.data.days === undefined || row.data.days.length === 0 ? {} : { days: row.data.days }),
+                      ...(row.data.hard === true ? { hard: true } : {}),
                       kind,
                   };
         const topic = row.data.topic;
@@ -156,5 +158,5 @@ function wordsFor(band: ClockBand, subject: string | undefined): string {
 
     const minute = String(band.minute).padStart(2, '0');
     const when = band.hour === undefined ? `every hour at :${minute}` : `at ${String(band.hour).padStart(2, '0')}:${minute}`;
-    return `${what}: ${when}${band.days === undefined ? '' : ` on ${band.days.length === 1 ? '1 day' : `${band.days.length} days`} a week`}`;
+    return `${what}: ${when}${band.days === undefined ? '' : ` on ${band.days.length === 1 ? '1 day' : `${band.days.length} days`} a week`}${band.hard === true ? ', on the dot' : ''}`;
 }

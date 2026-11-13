@@ -49,8 +49,29 @@ export function projectAirTimes(items: readonly StationLineupItem[], anchorAt: n
 
     let at = anchorAt;
     for (let index = Math.max(0, from); index < items.length; index++) {
+        const item = items[index]!;
+        // A hard marker the order reaches late airs on its time all the same, because the record in
+        // front of it is cut to end there (`playout/end.by.ts`). So it is projected AT its time, and so
+        // is everything behind it. Only when there is a record in front that started before the time,
+        // since that is the only thing the cut can take seconds from.
+        const previous = items[index - 1];
+        const previousAt = times[index - 1];
+        if (
+            !isTrackItem(item) &&
+            item.hardAt !== undefined &&
+            at > item.hardAt &&
+            previous !== undefined &&
+            isTrackItem(previous) &&
+            previousAt !== undefined &&
+            previousAt < item.hardAt
+        ) {
+            at = item.hardAt;
+        }
         times[index] = at;
-        at += lengthOf(items[index]!);
+        // A fill runs to its instant and no further, however long its recording is: it is cut there at
+        // hand-over. One the order reaches after its instant is cut to nothing.
+        if (!isTrackItem(item) && item.fillTo !== undefined) at = Math.max(at, item.fillTo);
+        else at += lengthOf(item);
     }
 
     return times;

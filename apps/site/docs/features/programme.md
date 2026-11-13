@@ -146,11 +146,22 @@ A rule names what to say by one word, written after **Say a** as the **Sort of b
 | `narration` | The next piece of a book or column the station reads out. See [putting a series on the clock](./narrations.md#putting-a-series-on-the-clock). | A narration plugin and a series, named under **About**. |
 | your own word | A [kind of break you wrote](./breaks.md#kinds-of-break-you-write) under Voice, Kinds of break. | The kind switched on, and a model writing the breaks. |
 
-A music bed (a recording of the kind `bed`) is never offered here: it runs under the station's own breaks rather than airing as one. See [music beds](./breaks.md#music-beds).
+A music bed (a recording of the kind `bed`) is never offered here: it runs under the station's own breaks rather than airing as one. See [music beds](./breaks.md#music-beds). The same beds are what the station waits behind for a rule switched to **On the dot** (below).
 
 A rule runs every day unless you pick days for it under **on**: a news edition Monday to Friday, a different one at the weekend. The list shows the days under the time, such as "Mon–Fri", and the days are on the station's own clock.
 
 A rule can be about a subject, such as a news category or a weather location. A bulletin asked for a category it cannot fill declines the slot rather than air the wrong story under the right name. A category marked off air is kept out of every bulletin, which is how a publisher's deals desk stays off your news. Edits apply from the next boundary.
+
+### On the dot
+
+A rule at a time of day normally airs when the record playing at that time finishes, so the half-past news can be a few minutes late. Switch **On the dot** on in the band editor and it airs exactly at its time instead, never before it. The clock list shows such a rule as "on the dot" under its time. Rules on an interval have no time to hit and do not offer the switch.
+
+- **When the music runs late**, the record playing at that time is faded out over about three seconds, ending on the time. It is cut by at most **Seconds a hard marker may cut** under Settings, Breaks (two minutes unless you change it), and only once it has played for half a minute. Past either limit the rule airs when the record ends, as it would without the switch.
+- **When the music runs early**, the station waits for the time rather than airing ahead of it, playing one of the show's [music beds](./breaks.md#music-beds) until then and fading it out on the time. It waits at most **Seconds a hard marker may wait** (a minute unless you change it), and only with a bed at least half a minute longer than the wait. With no bed that long it fades out the record in its way instead, or airs late.
+- Where it could do either, it takes whichever moves the music less. Zero in either setting switches that half off.
+- The plan is made a few minutes ahead. If the music then reaches the rule sooner than planned, because a record just before it was skipped or taken out, the station cannot stretch what is left, and the rule airs that much early. The log says so when it happens.
+
+A `bed` recording is not the same thing as the station's own fallback [bed](../glossary.md#bed), which is what the audio chain plays when nothing is coming from the running order.
 
 ## In the console
 

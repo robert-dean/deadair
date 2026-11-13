@@ -7,11 +7,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
     blendOutOf,
+    CUT_KEY,
+    cutFadeOf,
+    cutOf,
     DUCK_BED_KEY,
     DUCK_GAIN_KEY,
     DUCK_MIN_KEY,
     duckAnnotations,
     itemAnnotations,
+    playedCues,
     VOICE_AIM_KEY,
     voiceAnnotations,
     type AnnotationContext,
@@ -26,7 +30,7 @@ import {
     speechGainFor,
 } from '../../../src/modules/playout/gain.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
-import type { RundownItem } from '../../../src/modules/playout/rundown.js';
+import { CUT_FADE_MS, type RundownItem } from '../../../src/modules/playout/rundown.js';
 
 const context = (levelingEnabled: boolean): AnnotationContext => ({
     targetLufs: DEFAULT_TARGET_LUFS,
@@ -431,5 +435,74 @@ describe('blendOutOf: a record carrying a link over its end', () => {
 
     it('still blends a record carrying a talk-over of its start', () => {
         expect(blendOutOf(measured('a', { segmentId: 'seg-1', atMs: 2_000 }), blending(measured('b')))).toBe(8_000);
+    });
+});
+
+// A record in the way of a hard marker is cut short: the player stops reading at the cut and fades the
+// last few seconds out. `cut.check.liq` measures the fade in the pinned image; this pins what is stamped.
+describe('a record cut short for a hard marker', () => {
+    const measured = (over: Partial<RundownItem> = {}): RundownItem => ({
+        ...record(-9),
+        cueInMs: 1_000,
+        introEndMs: 8_000,
+        outroStartMs: 200_000,
+        cueOutMs: 210_000,
+        ...over,
+    });
+    const blending = (next: RundownItem): AnnotationContext => ({ ...context(true), crossfade: true, handover: true, next });
+
+    it('stops reading at the cut, keeping where it starts', () => {
+        expect(playedCues(measured({ cutAtMs: 120_000 }))).toEqual({ cueInMs: 1_000, cueOutMs: 120_000 });
+        const stamped = itemAnnotations(measured({ cutAtMs: 120_000 }), context(true));
+        expect(stamped.liq_cue_out).toBe('120');
+        expect(stamped[CUT_KEY]).toBe('1');
+    });
+
+    it('starts an unmeasured record at the top of the file and still cuts it', () => {
+        expect(playedCues({ durationMs: 240_000, cutAtMs: 90_000 })).toEqual({ cueInMs: 0, cueOutMs: 90_000 });
+    });
+
+    it('stamps the fade on the boundary instead of a blend, and never a handover', () => {
+        const cut = measured({ cutAtMs: 120_000 });
+        expect(blendOutOf(cut, blending(measured({ id: 'b' })))).toBe(CUT_FADE_MS);
+        const stamped = itemAnnotations(cut, blending(measured({ id: 'b' })));
+        expect(stamped.liq_cross_end_duration).toBe(String(CUT_FADE_MS / 1000));
+        expect(stamped).not.toHaveProperty('deadair_handover');
+    });
+
+    it('is not a cut at or past where the record ends anyway', () => {
+        expect(cutOf(measured({ cutAtMs: 210_000 }))).toBeUndefined();
+        expect(cutOf({ durationMs: 200_000, cutAtMs: 250_000 })).toBeUndefined();
+        expect(itemAnnotations(measured({ cutAtMs: 300_000 }), context(true))).not.toHaveProperty(CUT_KEY);
+    });
+
+    it('is not a cut at or before where the record starts, which would air nothing', () => {
+        expect(cutOf(measured({ cutAtMs: 1_000 }))).toBeUndefined();
+        expect(cutOf(measured({ cutAtMs: Number.NaN }))).toBeUndefined();
+    });
+
+    it('leaves a record with no cut exactly as it was', () => {
+        expect(cutOf(measured())).toBeUndefined();
+        expect(playedCues(measured())).toEqual({ cueInMs: 1_000, cueOutMs: 210_000 });
+    });
+});
+
+// How long a cut item fades over: three seconds, or half of what is left of it when that is less, since a
+// fill can be cut to almost nothing and the player cannot fade a buffer as long as the track.
+describe('cutFadeOf', () => {
+    it('is three seconds for a record cut well into it', () => {
+        expect(cutFadeOf({ cueInMs: 1_000, cueOutMs: 200_000, cutAtMs: 90_000 })).toBe(CUT_FADE_MS);
+    });
+
+    it('is half of what is left of a short one', () => {
+        expect(cutFadeOf({ durationMs: 120_000, cutAtMs: 2_000 })).toBe(1_000);
+    });
+
+    it('never asks the player to buffer less than a hard join', () => {
+        expect(cutFadeOf({ durationMs: 120_000, cutAtMs: 100 })).toBe(100);
+    });
+
+    it('is nothing for an item that is not cut', () => {
+        expect(cutFadeOf({ durationMs: 120_000 })).toBeUndefined();
     });
 });

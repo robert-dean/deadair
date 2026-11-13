@@ -1640,9 +1640,83 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
+**A band at a time of day is a MARKER, and it is soft or hard** (`clock_bands.hard`, migration 0142). A soft
+marker is what every band always was: the first boundary at or after its time, up to ten minutes late, and
+dropped past that. Measured on the live station over the fortnight to 2026-11-13, that put the half-past news
+on air a median of four minutes twenty late, anywhere from thirty seconds to ten minutes, and the five-past
+weather about three and a half minutes late; about a third of occurrences never aired at all. A HARD marker
+airs at its time exactly and never before it. See § "Hard markers" below for how. A save that does not
+mention `hard` keeps what is stored (`keepingHard`), and only an explicit `false` makes a band soft: `PUT`
+replaces the row, and a console built before the field existed would otherwise make the news soft by moving
+it. A clock file carries the flag, and a hard band and a soft one at the same time are the same rule to an
+import, so a file never adds the second.
+
 **A clock moves between stations as a file too** (`director/clock.pack.ts`, `deadair.clock`), and a band carries its subject whole, so the file works on a station that has never heard of the category. An import appends after the last band here and everything arrives switched off. Position is precedence, so anything else would change which of this station's own rules wins a boundary, and a switched-off band cannot contest one until an operator turns it on knowing where it sits. A band whose subject is not carried whole is dropped rather than added without one, on the cascade's own argument.
 
 **Topics move between stations as a file** (`topics/topic.pack.ts`, `deadair.topics`). A row is its kind, key, label and config, identified by kind and key. An import only adds: a key this station holds is left exactly as it is, and a label never overwrites one an operator here chose. A topic has no switch and needs none, because it does nothing until a band points at it. A kind this station has not registered is added and flagged in the preview, on `TopicsService`'s own rule that such a row is inert.
+
+## Hard markers
+
+A hard marker is a clock band with `hard` set. It airs at its time exactly, and never before it.
+
+**When the order runs late, the record in the way is cut, and it is decided twice.** The planner's anchored
+walk takes the same boundary a soft marker would, the first at or after the time, and asks `canLandOnTime`
+(`director/hard.marker.ts`) whether the record in front of it can be cut to end on the time: it has to be a
+record (speech is never cut), play at least thirty seconds first, and lose no more than
+`rotation.hardMarkerMaxCutSeconds` (two minutes by default; zero never cuts). If it can, the slot is claimed
+with the TARGET as its `airsAt`, so the words are about the moment they are heard, and the planted item
+carries `hardAt`. If it cannot, the marker lands soft and the log says why, because an operator who asked
+for the news on the dot should be able to find out why it was not. That first decision is made against the
+projection, which is a lower bound and minutes ahead of air. The second is exact: when the director prepares
+the record in front of a `hardAt` item it sets `RundownItem.endBy`, and the pusher, which with a lead of one
+hands that record over while exactly one item is airing, turns it into a cut point from that item's observed
+start, its length and the blend between them (`playout/end.by.ts`). The cut is placed half a second LATE,
+because every error left there has a direction and a marker a moment after its time is on time while one a
+moment before is early. The player fades the last three seconds out and ends on the cut (see
+[`playout.md`](playout.md) and `stream/cut.check.liq`). A record that ends before the time anyway is left
+alone, as is one whose start cannot be known, and one that would play less than its own fade.
+
+**The projection puts a cut marker on its time** (`air.clock.ts`), and everything behind it with it, so the
+next walk does not plant the same occurrence again and the bands behind it are planned against the clock the
+listener hears. Only when the item in front is a record that starts before the time, since that is the only
+thing a cut can take seconds from. `hardAt` rides the lineup row (`station.lineup.repository.ts`), so a
+restart keeps it. A link said over a record's end never rides the record in front of a hard marker: the
+marker airs after the cut, not over the record.
+
+**When the order runs early, the marker waits behind a bed.** `waitBefore` (`hard.marker.ts`) asks whether
+the boundary BEFORE the time can take it: one the walk may still plant at, reached before the time, a wait no
+longer than `rotation.hardMarkerMaxWaitSeconds` (a minute by default; zero never waits), and a `bed` recording
+at least thirty seconds longer than the wait, since the wait is measured against a projection minutes ahead
+of air. Where waiting and cutting are both possible the walk takes whichever moves the order less, and where
+the wait's boundary has a break beside it the cut is taken instead. A wait plants two items at that boundary:
+the bed, as a fill running to the time, and the marker behind it with `hardAt`, both against the time rather
+than the projection. The bed is drawn own-first and never the one drawn last, and it is chosen BEFORE the
+marker is planted, because a marker planted where it waits with nothing in front of it would air early. The
+shelf is read only when a band is hard, through `listBeds`: the same music beds a show's breaks air over
+([`render.md`](render.md) § "Beds"), kept off `listReady` so a band can never draw one as a break, and scoped to the show on
+air the same way. Until a station has a bed, a hard marker never waits, and lands by cutting or soft. A bed
+under a break is mixed into the break's audio at render; a bed a marker waits behind airs as an item of its
+own and is cut at hand-over, because only the hand-over knows how long the wait really is.
+
+**Where the pusher's start comes from, and the one way a marker is still early.** The record in front of a
+cut is measured from the item on air: its observed start plus its length, or the player's own reading of
+what is left when that says it ends SOONER (`nextStartsAt`). The earlier is taken because the observed start
+is when this process first saw the item, which after a restart is the restart, minutes into the record; a
+start read that late cut the next record minutes short and put the marker early, and an earlier start can
+only make it play longer. What nothing at hand-over can do is lengthen anything: when the order reaches a
+marker sooner than the planner sized it for (a record taken out or skipped in front of it, a break dropped
+by its claim check, a bed missing), the record in front ends before the time or the bed runs out, and the
+marker airs early. That is reported rather than silent: the pusher warns with how early (`earlyByMs`), and
+the director warns when the bed itself is skipped. Re-planting a longer bed when the order moves is the fix
+that would close it, and is not built.
+
+**A fill is a recording that runs to an instant and no further** (`StationLineupSegmentItem.fillTo`). It is
+what waiting is made of: planted in front of a hard marker the order reaches early, handed over with `endBy`
+and `fill`, and cut by the pusher at whatever is left, down to a tenth of a second when the order has caught
+up, since a fill played whole puts the marker behind it late. The projection gives it exactly the time it
+fills. Its fade is three seconds or half of what is left, whichever is less: in the pinned image a
+one-second fill told to fade over its whole length never faded, and a two-second one fading over its last
+second fell cleanly to nothing on the cut, with the next item starting on the instant either way.
 
 ## Kinds an operator writes
 

@@ -203,6 +203,11 @@ export function ClockPanel() {
                                                             {daysOf(band)}
                                                         </Text>
                                                     )}
+                                                    {band.at === 'clock' && band.hard === true ? (
+                                                        <Text size="xs" c="dimmed">
+                                                            {t('clock.hard')}
+                                                        </Text>
+                                                    ) : undefined}
                                                 </Table.Td>
                                                 <Table.Td>
                                                     <RowOpener>
@@ -334,6 +339,8 @@ const bodyOf = (band: ClockBand): ClockBandInput => ({
     // The days go back for the topic's reason below: a reorder that dropped them would put a
     // weekday news show on at the weekend.
     ...(band.days === undefined || band.days.length === 0 ? {} : { days: band.days }),
+    // Whether it is hard goes back for the same reason: a reorder must not make the news soft.
+    ...(band.hard === undefined ? {} : { hard: band.hard }),
     ...(band.everyMs === undefined ? {} : { everyMs: band.everyMs }),
     // What it is about goes back too: `PUT` replaces the row, so a reorder that sent only the
     // position would quietly turn a technology bulletin into a general one.

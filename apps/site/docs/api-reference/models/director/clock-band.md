@@ -8,20 +8,21 @@ mdx:
 > One rule on the station's format clock: a sort of break, and when it happens
 
 <details>
-<summary>Attributes (11)</summary>
+<summary>Attributes (12)</summary>
 
-| Attribute    | Type                    | Required | Description                                                                                                                                                   |
-| ------------ | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | `string`                | Yes      | _read-only_                                                                                                                                                   |
-| `kind`       | `string`                | Yes      | Which sort of break this slot wants, as `segments.kind` spells it. Free text: a station that wants sponsor spots writes `sponsor` and drops the recordings in |
-| `at`         | `'clock' \| 'interval'` | Yes      | `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover                                                |
-| `hour`       | `number`                | No       | For a `clock` band: the hour it happens at. Absent means every hour, which is the common case                                                                 |
-| `minute`     | `number`                | No       | For a `clock` band: minutes past the hour                                                                                                                     |
-| `days`       | `number[]`              | No       | For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day                                         |
-| `everyMs`    | `number`                | No       | For an `interval` band: how far apart, in milliseconds                                                                                                        |
-| `position`   | `number`                | Yes      | Where this sits in the operator's own order, which is what settles a boundary two rules both want                                                             |
-| `enabled`    | `boolean`               | Yes      | A rule turned off without being lost                                                                                                                          |
-| `topicId`    | `string`                | No       | What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds                    |
-| `topicLabel` | `string`                | No       | That subject's name, so a list can be drawn without a second call. _read-only_                                                                                |
+| Attribute    | Type                    | Required | Description                                                                                                                                                                                                                                    |
+| ------------ | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`         | `string`                | Yes      | _read-only_                                                                                                                                                                                                                                    |
+| `kind`       | `string`                | Yes      | Which sort of break this slot wants, as `segments.kind` spells it. Free text: a station that wants sponsor spots writes `sponsor` and drops the recordings in                                                                                  |
+| `at`         | `'clock' \| 'interval'` | Yes      | `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover                                                                                                                                 |
+| `hour`       | `number`                | No       | For a `clock` band: the hour it happens at. Absent means every hour, which is the common case                                                                                                                                                  |
+| `minute`     | `number`                | No       | For a `clock` band: minutes past the hour                                                                                                                                                                                                      |
+| `days`       | `number[]`              | No       | For a `clock` band: the weekdays it happens on, Sunday 0, on the station's own clock. Absent or empty means every day                                                                                                                          |
+| `hard`       | `boolean`               | No       | For a `clock` band: airs at its time exactly and never before it, waiting when the order comes up early and cutting the record in the way when it runs late. Absent or false is a soft marker, which airs at the first boundary after its time |
+| `everyMs`    | `number`                | No       | For an `interval` band: how far apart, in milliseconds                                                                                                                                                                                         |
+| `position`   | `number`                | Yes      | Where this sits in the operator's own order, which is what settles a boundary two rules both want                                                                                                                                              |
+| `enabled`    | `boolean`               | Yes      | A rule turned off without being lost                                                                                                                                                                                                           |
+| `topicId`    | `string`                | No       | What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds                                                                                                     |
+| `topicLabel` | `string`                | No       | That subject's name, so a list can be drawn without a second call. _read-only_                                                                                                                                                                 |
 
 </details>

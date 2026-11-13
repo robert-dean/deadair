@@ -1489,3 +1489,47 @@ describe('PlayoutPusher air.wanted', () => {
         expect(said).toEqual([true]);
     });
 });
+
+// The record in front of a hard marker carries the instant it has to be over by, and the pusher cuts it to
+// that as it hands it over, against when the record on air actually started. See `end.by.ts`.
+describe('PlayoutPusher and a record that has to end by a hard marker', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('cuts it against the record on air, and keeps the cut on the rundown', async () => {
+        vi.useFakeTimers();
+        const start = Date.UTC(2026, 10, 13, 8, 55);
+        vi.setSystemTime(start);
+
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom([
+            { ...track('a'), durationMs: 240_000 },
+            { ...track('b'), durationMs: 240_000 },
+        ]);
+        rundown.attach(order);
+        const [first, second] = order.all();
+        // The director's half: the second record is the one in front of a marker at 09:00.
+        rundown.prepare([
+            { ...(first as { track: RundownTrack }).track, id: first!.id } as RundownItem,
+            { ...(second as { track: RundownTrack }).track, id: second!.id, endBy: Date.UTC(2026, 10, 13, 9, 0) } as RundownItem,
+        ]);
+        const { control, pushed } = scriptedControl();
+        const pusher = new PlayoutPusher(
+            rundown,
+            control as unknown as PlayoutControlClient,
+            stubAudience().audience,
+            config,
+            new Heartbeat(),
+            logger,
+        );
+
+        await pusher.reconcile();
+        control.reading = { queued: 0, ready: true, onAir: first!.id };
+        await pusher.reconcile();
+
+        // On air from 08:55 for four minutes, so the second starts at 08:59 and has one minute to play.
+        expect(pushed[1]).toContain('deadair_cut="1"');
+        expect(pushed[1]).toContain('liq_cue_out="60.5"');
+        expect(pushed[0]).not.toContain('deadair_cut');
+    });
+});

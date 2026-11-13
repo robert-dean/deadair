@@ -279,6 +279,23 @@ export interface StationLineupSegmentItem extends StationLineupLine {
      * existed, where the request record directly behind the dedication is taken to be its own.
      */
     dedicates?: string;
+    /**
+     * When this break is a HARD marker landing on its time: the instant, as epoch milliseconds, it airs
+     * at. The record in front of it is cut to end there, decided at that record's hand-over against what
+     * is actually on air (`playout/end.by.ts`), and the projection puts this item at exactly that time
+     * (`air.clock.ts`). Set when the item is planted and never updated, on {@link segmentKind}'s rule.
+     *
+     * Absent on every other break, a soft marker's included, which is every break there was before this.
+     */
+    hardAt?: number;
+    /**
+     * When this item is a FILL: the instant, as epoch milliseconds, it has to end at. A fill is a
+     * recording (a `bed`) planted in front of a hard marker the order reaches early, and it plays from its
+     * start until exactly that instant, which is the marker's time: cut at hand-over against what is
+     * actually on air (`playout/end.by.ts`), however little of it that leaves. The projection gives it
+     * exactly the length it fills (`air.clock.ts`). Set when planted and never updated.
+     */
+    fillTo?: number;
 }
 
 export type StationLineupItem = StationLineupTrackItem | StationLineupSegmentItem;
@@ -295,6 +312,10 @@ export interface SegmentPlacement {
     durationMs?: number;
     /** Somebody asked for this one. See {@link StationLineupLine.pinned}. */
     pinned?: true;
+    /** A hard marker's time. See {@link StationLineupSegmentItem.hardAt}. */
+    hardAt?: number;
+    /** The instant a fill ends at. See {@link StationLineupSegmentItem.fillTo}. */
+    fillTo?: number;
 }
 
 /**
@@ -1622,6 +1643,8 @@ export class StationLineup implements LiveOrder {
                 ...(placement.groupId === undefined ? {} : { groupId: placement.groupId }),
                 ...(placement.durationMs === undefined ? {} : { durationMs: placement.durationMs }),
                 ...(placement.pinned ? { pinned: true as const } : {}),
+                ...(placement.hardAt === undefined ? {} : { hardAt: placement.hardAt }),
+                ...(placement.fillTo === undefined ? {} : { fillTo: placement.fillTo }),
             });
         }
         return OK;

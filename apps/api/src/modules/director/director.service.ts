@@ -3286,6 +3286,8 @@ export class DirectorService {
             if (item.kind !== 'track' || item.track.trackId === undefined || item.track.cueOutMs === undefined) return [];
             const link = lineup.segmentRightAfter(item.id);
             if (link === undefined || link.state !== 'planned' || link.over !== undefined || link.groupId !== undefined) return [];
+            // A hard marker airs at its time after the record is cut, never over the record's end.
+            if (link.hardAt !== undefined) return [];
             return [{ record: item, link }];
         });
         if (pairs.length === 0) return new Map();
@@ -3530,11 +3532,15 @@ export class DirectorService {
                                 endOf: true as const,
                                 ...(endOf.loudnessLufs === undefined ? {} : { loudnessLufs: endOf.loudnessLufs }),
                             };
+                // A hard marker straight after this record: it has to be over by the marker's time, and
+                // the pusher cuts it to that against what is on air at hand-over. See `end.by.ts`.
+                const endBy = this.lineup?.segmentRightAfter(item.id)?.hardAt;
                 playable.push({
                     ...track,
                     id: item.id,
                     ...coverFields(pickedCover, artwork),
                     ...(voice === undefined ? {} : { voice }),
+                    ...(endBy === undefined || endOf !== undefined ? {} : { endBy }),
                 });
                 pending = undefined;
                 continue;
@@ -3562,6 +3568,14 @@ export class DirectorService {
                     detail: `A break was passed over at its slot because it is ${segment?.state ?? 'no longer in the library'}.`,
                     data: { segmentId: item.segmentId, state: segment?.state ?? 'gone' },
                 });
+                // A bed a hard marker was waiting behind. Without it the marker follows the record in
+                // front straight away, which is before its time, and nothing at this point can wait instead.
+                if (item.fillTo !== undefined) {
+                    this.logger.warn('director: the bed a hard marker was waiting behind is not there, so the marker may air early', {
+                        segment: item.segmentId,
+                        markerAt: new Date(item.fillTo).toISOString(),
+                    });
+                }
                 skipped.push(item.id);
                 continue;
             }
@@ -3800,6 +3814,9 @@ export class DirectorService {
             playable.push({
                 ...spoken,
                 id: item.id,
+                // A fill in front of a hard marker the order reached early: it plays until the marker's
+                // time and no further, cut by the pusher against what is on air. See `end.by.ts`.
+                ...(item.fillTo === undefined ? {} : { endBy: item.fillTo, fill: true as const }),
                 // Only where the line has no cover of its own, which is what keeps a syndicated
                 // episode's artwork ({@link programmeRundownTrack}) from being replaced by the
                 // picture for whatever kind its band happens to be called. The kind's picture wins

@@ -182,6 +182,7 @@ import {
     PADS_KEY,
 } from '#modules/render/pad.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
+import { BED_LEVEL_BOUNDS, BED_LEVEL_KEY } from '#modules/render/bed.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
     DEFAULT_DIALOGUE_KINDS,
@@ -1740,6 +1741,17 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         max: PAD_LEVEL_BOUNDS.max,
         control: 'slider',
         help: 'How loud an overlaid hit plays against the speech it lands on, judged from how loud the sound measured rather than how loud whoever made it mastered it. Six under is audible as a second thing and never louder than what is being said. A short sound the analyzer could not put a figure on plays as it is, and so does every hit on a station with no analyzer.',
+    },
+    {
+        group: 'render',
+        key: BED_LEVEL_KEY,
+        label: 'Sit a music bed under the words by (dB)',
+        type: 'number',
+        default: BED_LEVEL_BOUNDS.default,
+        min: BED_LEVEL_BOUNDS.min,
+        max: BED_LEVEL_BOUNDS.max,
+        control: 'slider',
+        help: 'How loud a music bed plays under a break, judged from how loud the bed measured. Eighteen under is there without ever getting in the way of a word. Beds are recordings of the kind bed in the library; a show with beds of its own airs those, and a show with none airs the ones scoped to nobody. A bed nobody has measured is taken to be mastered like a streaming record.',
     },
     {
         group: 'render',

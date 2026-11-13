@@ -1142,6 +1142,7 @@ export interface DeadairSegments {
   airsAt: DateTime | null;
   audioChecksum: string | null;
   audioExt: string | null;
+  bedSegmentId: string | null;
   claimsItemId: string | null;
   claimsPreviousItemId: string | null;
   claimsReadingUntil: DateTime | null;

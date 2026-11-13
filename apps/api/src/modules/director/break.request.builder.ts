@@ -262,6 +262,11 @@ export interface BreakRequestInput {
     context?: BreakWriteRequest['context'];
     /** What a requested break's words are worth at the model slot. Absent for a planted break. */
     priority?: BreakWriteRequest['priority'];
+    /**
+     * Whether the break airs over a music bed. A bedded break is never talked over a record, so it is
+     * offered no talk-up or talk-out budget to aim at. Absent is no bed.
+     */
+    bedded?: boolean;
 }
 
 /**
@@ -319,7 +324,7 @@ export class BreakRequestBuilder {
     async build(
         input: BreakRequestInput,
     ): Promise<{ request: BreakWriteRequest; chosen?: ChosenStory; handedFact?: string; handedClaims: HandedClaim[]; outlookSaid?: OutlookSaid }> {
-        const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority } = input;
+        const { kind, turn, neighbours, persona, coPresenters, lineup, airsAt, context, priority, bedded } = input;
 
         const zone = stationZone(this.config);
         // Gated on the setting rather than on `airsAt` alone: an hour phrasing is only as true as
@@ -458,8 +463,9 @@ export class BreakRequestBuilder {
             ...(subject === undefined ? {} : { subject }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
-            ...(await this.talkUp(lineup, kind, neighbours.next)),
-            ...(await this.talkOut(lineup, kind, neighbours.previous)),
+            // Neither for a break laid over a bed, which the director never talks over a record.
+            ...(bedded === true ? {} : await this.talkUp(lineup, kind, neighbours.next)),
+            ...(bedded === true ? {} : await this.talkOut(lineup, kind, neighbours.previous)),
             ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(kind, turn)),

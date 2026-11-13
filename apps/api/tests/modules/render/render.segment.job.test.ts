@@ -51,6 +51,8 @@ function harness(
         padPeak?: number;
         /** Settings as the STRINGS a config layer actually holds. */
         settings?: Record<string, string>;
+        /** The bed the row names, as `findByIds` answers it. Absent is a bed that is not there. */
+        bed?: Partial<Segment>;
     } = {},
 ) {
     const claimed = 'claimed' in options ? options.claimed : segment();
@@ -62,6 +64,11 @@ function harness(
         releaseForRetry: vi.fn(async () => options.released ?? true),
         recordLoudness: vi.fn(async () => {}),
         recordDuration: vi.fn(async () => {}),
+        findByIds: vi.fn(async (ids: string[]) =>
+            options.bed === undefined
+                ? new Map()
+                : new Map(ids.map(id => [id, { ...segment({ id, kind: 'bed', state: 'ready', source: 'library' }), ...options.bed }])),
+        ),
     } as unknown as SegmentRepository;
 
     const speech = {
@@ -115,6 +122,7 @@ function harness(
         analysis,
         config,
         signer,
+        mixer,
         { id: 'job-1' } as never,
         {} as never,
         logger as never,
@@ -654,5 +662,99 @@ describe('RenderSegmentJob and what a take is worth at the engine', () => {
         const calls = (speech.speak as unknown as { mock: { calls: unknown[][] } }).mock.calls;
         expect(calls.length).toBeGreaterThan(1);
         for (const call of calls) expect(call[1]).toEqual({ priority: 'background' });
+    });
+});
+
+describe('RenderSegmentJob laying a break over its bed', () => {
+    const bedded = () => segment({ bedSegmentId: 'bed-1' });
+    const readyBed = { audioChecksum: 'bed-sum', audioExt: 'flac' as const, loudnessLufs: -14 };
+
+    it('joins the spoken words over the bed the row names, and airs the result', async () => {
+        const { job, mixer, segments, store } = harness({ claimed: bedded(), bed: readyBed });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const [, urls, gapMs, options] = (
+            mixer.join as unknown as { mock: { calls: [string, string[], number, { bed: Record<string, unknown> }][] } }
+        ).mock.calls[0]!;
+        expect(urls).toHaveLength(1);
+        expect(urls[0]).toContain('/abc/mp3');
+        expect(gapMs).toBe(0);
+        expect(options.bed).toEqual(expect.objectContaining({ leadMs: 1500, tailMs: 1500 }));
+        expect(options.bed.url).toContain('bed-sum');
+        // Eighteen under the assumed speech level, from a bed measured at -14.
+        expect(options.bed.gainDb).toBeCloseTo(-26.5 - 18 + 14, 1);
+
+        expect(store.writeStream).toHaveBeenCalled();
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'joined-checksum', audioExt: 'flac' }));
+    });
+
+    it('moves the bed with the setting', async () => {
+        const { job, mixer } = harness({ claimed: bedded(), bed: readyBed, settings: { 'render.bedLevelDb': '-24' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const options = (mixer.join as unknown as { mock: { calls: [string, string[], number, { bed: { gainDb: number } }][] } }).mock.calls[0]![3];
+        expect(options.bed.gainDb).toBeCloseTo(-26.5 - 24 + 14, 1);
+    });
+
+    it('never goes near the mixer for a break with no bed', async () => {
+        const { job, mixer, segments } = harness();
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(mixer.join).not.toHaveBeenCalled();
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'abc', audioExt: 'mp3' }));
+    });
+
+    it('airs the words alone when the bed has gone', async () => {
+        const { job, mixer, segments } = harness({ claimed: bedded() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(mixer.join).not.toHaveBeenCalled();
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'abc', audioExt: 'mp3' }));
+    });
+
+    it('airs the words alone when there is no mixer, or it refused', async () => {
+        const { job, segments } = harness({ claimed: bedded(), bed: readyBed, join: async () => undefined });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'abc', audioExt: 'mp3' }));
+    });
+
+    it('airs the words alone when the mixer throws, rather than failing the break', async () => {
+        const { job, segments } = harness({
+            claimed: bedded(),
+            bed: readyBed,
+            join: async () => {
+                throw new Error('sidecar down');
+            },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.markFailed).not.toHaveBeenCalled();
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'abc' }));
+    });
+
+    it('lays the bed under a padded break after the pad is joined', async () => {
+        const { job, mixer } = harness({
+            claimed: segment({
+                script: 'Ambitious. [sfx:rimshot] They played it anyway.',
+                pads: [{ name: 'rimshot', padId: 'pad-1' }],
+                bedSegmentId: 'bed-1',
+            }),
+            bed: readyBed,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const calls = (mixer.join as unknown as { mock: { calls: [string, string[], number, { bed?: unknown }][] } }).mock.calls;
+        expect(calls).toHaveLength(2);
+        expect(calls[0]![3].bed).toBeUndefined();
+        expect(calls[1]![1]).toEqual([expect.stringContaining('joined-checksum')]);
+        expect(calls[1]![3].bed).toBeDefined();
     });
 });

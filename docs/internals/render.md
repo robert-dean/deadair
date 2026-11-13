@@ -353,6 +353,46 @@ operator naming an address is choosing a file exactly as dropping one in is, the
 allowlist, and what the rule still blocks is a CATALOGUE — a console panel that searches a sample library is
 this project steering somebody at files and vouching for them.
 
+## Beds
+
+**A music bed is a recording of kind `bed`, and it is fenced off from the shelf rather than given a table
+of its own.** A pad needed its own table because its identity is `(board, name)` and a segment's is its
+checksum; a bed is the other way round, an operator's recording with a checksum identity, an inbox folder
+(`media/segments/inbox/bed/`), the upload and URL doors, and a show scope (`segment_scopes`), all of which a
+segment already has. What it must NOT have is a segment's place on the shelf: `readyKinds()` feeds the format
+clock, so a held bed would make "bed" a bookable band, and a band naming it would air a bed on its own between
+two records. So `listReady` and `readyKinds` both exclude `BED_KIND`, and beds are read only through
+`SegmentRepository.listBeds`. The CC0-or-nothing rule in § "Pads" applies unchanged: the image ships no beds.
+
+**The bed is chosen when the break is PLANNED and kept on `segments.bed_segment_id`,** for the pad's
+write-time reason one stage earlier: only the planner knows which show a break airs in (`onAir`, the lineup's
+slot and presenter), and a render asking again would ask who is on NOW. `BedPicker` reads the beds once per
+planting pass, lazily, and deals them out with `chooseBed`: the show's own first, the beds scoped to nobody
+when it has none, another show's never (the recording rule in `BreakPlanner.ownFirst`), avoiding the bed the
+last break of the pass had where there is another. Only breaks the station WRITES get one (the station's own
+talk breaks, written bands, a programme's introduction). A recording off the shelf was produced already, a
+requested break may be an interruption spoken over a record, and a production is one programme rather than
+breaks. A read that fails plants the breaks without a bed.
+
+**A bedded break is never talked over a record**, because a record is a bed already and music over music is
+the one mix nobody wants. The director's talk-up and talk-out candidates both skip a row with a bed, and
+`BreakRequestBuilder` offers such a break no talk-up or talk-out budget, so the writer is not asked to aim at
+an intro it will never air over.
+
+**The bed is laid AFTER the words are made, as a second join.** `RenderSegmentJob.underBed` hands the mixer
+the finished voice (one take, or the padded join) as a single part with `AudioJoin.bed`: a span rather than an
+anchor, running `BED_LEAD_MS` before the first word and `BED_TAIL_MS` after the last, looped or cut by the
+sidecar to fit and faded at both edges. It is levelled `render.bedLevelDb` under the assumed speech level
+(eighteen by default) from the bed's measured loudness through `bedGainDb`, which differs from `padGainDb`
+twice on purpose: it always answers, assuming a streaming master (`ASSUMED_BED_LUFS`) for a bed nobody
+measured, since a bed left at its master is a record under the words; and its floor is far below `gain.ts`'
+twelve, because eighteen under is the ordinary case for a bed and a loud master needs thirty down. The words
+are not ducked: a bed is quiet by being mixed quiet, and a duck riding every pause would pump.
+
+**And the bed is never a requirement**, which is the pad join's rule again: no mixer, a refusal, a bed
+deleted since (`on delete set null` clears the row's reference), one not ready, a media type the store cannot
+hold, and a thrown error all answer the words as they were. A break that loses its bed is a break.
+
 ## Segments and their stages
 
 **A segment carries a state per STAGE** — `planned → writing → written → rendering → ready`, with `failed` off the side — because making a break is two jobs with different failure modes: `WriteBreakJob` decides the words and `RenderSegmentJob` produces the audio, each claiming the row with a conditional update so a duplicate send is free. `claimForRender` starts at `written`, which is what makes a retry after a failed render re-speak the words already on the row instead of paying a writer to invent different ones. A render the engine turned away as `unavailable` is not a failure at all: the job hands the row back to `written` with none of the three attempts spent, and `BreakPlanner.retryRenders` finds it through `SegmentRepository.handedBack`, which asks for rows whose LAST transition came out of `rendering` so that a break the writer has only just finished is not mistaken for one. It is asked for again on every boundary while it is inside the write-ahead window. Until 13 September that sweep read only `failed` rows, so every break a cold Chatterbox turned away at the start of a session sat at `written` until the director passed over it at its slot. Throughout, **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.

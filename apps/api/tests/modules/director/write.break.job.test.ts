@@ -769,6 +769,19 @@ describe('WriteBreakJob', () => {
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
         });
 
+        it('says nothing to a link laid over a music bed, which never airs over a record', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                segment: planned({ bedSegmentId: 'bed-1' }),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }), 'model');
+        });
+
         it('says nothing before a record whose singing it cannot place', async () => {
             const { job, writers } = harness({ lineup: await withTrackIds(), settings: { [TALK_UP_KEYS.enabled]: 'true' } });
 

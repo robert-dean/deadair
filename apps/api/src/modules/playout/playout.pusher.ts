@@ -30,6 +30,7 @@ import {
 } from './gain.js';
 import { DEFAULT_HANDOVER, HANDOVER_SETTING_KEY } from './crossfade.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { cutToEndBy } from './end.by.js';
 import { heldBy, PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
 import { resolvePublicUrl, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -522,11 +523,23 @@ export class PlayoutPusher {
                     previousBlendMs: this.previousBlendMs,
                     ...(pulled.next === undefined ? {} : { next: pulled.next }),
                 };
-                const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item, context), pulled.url));
+                // A record in front of a hard marker is cut here, against what is on air now, so it
+                // ends on the marker's time. See `end.by.ts`.
+                const item = cutToEndBy(pulled.item, this.rundown.nowPlaying(), this.previousBlendMs, Date.now());
+                const landed = await this.control.push(annotateUri(itemAnnotations(item, context), pulled.url));
+                if (landed && item.cutAtMs !== undefined) {
+                    this.rundown.noteCut(item.id, item.cutAtMs);
+                    this.logger.info('playout: cutting a record short so the hard marker after it airs on time', {
+                        item: item.id,
+                        title: item.title,
+                        cutAtMs: item.cutAtMs,
+                        endBy: new Date(item.endBy!).toISOString(),
+                    });
+                }
 
                 // Remembered AFTER the push, so a push that did not land does not leave the
                 // next item claiming to blend into a record the player never got.
-                this.previousBlendMs = landed ? blendOutOf(pulled.item, context) : 0;
+                this.previousBlendMs = landed ? blendOutOf(item, context) : 0;
 
                 // Armed as the record is handed over, which is the earliest honest moment: the id
                 // exists, the item is committed, and the script waits for that record to actually

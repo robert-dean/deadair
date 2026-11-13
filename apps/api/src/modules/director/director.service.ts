@@ -3284,6 +3284,8 @@ export class DirectorService {
             if (item.kind !== 'track' || item.track.trackId === undefined || item.track.cueOutMs === undefined) return [];
             const link = lineup.segmentRightAfter(item.id);
             if (link === undefined || link.state !== 'planned' || link.over !== undefined || link.groupId !== undefined) return [];
+            // A hard marker airs at its time after the record is cut, never over the record's end.
+            if (link.hardAt !== undefined) return [];
             return [{ record: item, link }];
         });
         if (pairs.length === 0) return new Map();
@@ -3526,11 +3528,15 @@ export class DirectorService {
                                 endOf: true as const,
                                 ...(endOf.loudnessLufs === undefined ? {} : { loudnessLufs: endOf.loudnessLufs }),
                             };
+                // A hard marker straight after this record: it has to be over by the marker's time, and
+                // the pusher cuts it to that against what is on air at hand-over. See `end.by.ts`.
+                const endBy = this.lineup?.segmentRightAfter(item.id)?.hardAt;
                 playable.push({
                     ...track,
                     id: item.id,
                     ...coverFields(pickedCover, artwork),
                     ...(voice === undefined ? {} : { voice }),
+                    ...(endBy === undefined || endOf !== undefined ? {} : { endBy }),
                 });
                 pending = undefined;
                 continue;

@@ -279,6 +279,15 @@ export interface StationLineupSegmentItem extends StationLineupLine {
      * existed, where the request record directly behind the dedication is taken to be its own.
      */
     dedicates?: string;
+    /**
+     * When this break is a HARD marker landing on its time: the instant, as epoch milliseconds, it airs
+     * at. The record in front of it is cut to end there, decided at that record's hand-over against what
+     * is actually on air (`playout/end.by.ts`), and the projection puts this item at exactly that time
+     * (`air.clock.ts`). Set when the item is planted and never updated, on {@link segmentKind}'s rule.
+     *
+     * Absent on every other break, a soft marker's included, which is every break there was before this.
+     */
+    hardAt?: number;
 }
 
 export type StationLineupItem = StationLineupTrackItem | StationLineupSegmentItem;
@@ -295,6 +304,8 @@ export interface SegmentPlacement {
     durationMs?: number;
     /** Somebody asked for this one. See {@link StationLineupLine.pinned}. */
     pinned?: true;
+    /** A hard marker's time. See {@link StationLineupSegmentItem.hardAt}. */
+    hardAt?: number;
 }
 
 /**
@@ -1604,6 +1615,7 @@ export class StationLineup implements LiveOrder {
                 ...(placement.groupId === undefined ? {} : { groupId: placement.groupId }),
                 ...(placement.durationMs === undefined ? {} : { durationMs: placement.durationMs }),
                 ...(placement.pinned ? { pinned: true as const } : {}),
+                ...(placement.hardAt === undefined ? {} : { hardAt: placement.hardAt }),
             });
         }
         return OK;

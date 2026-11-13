@@ -430,6 +430,15 @@ the voice over a record that keeps playing underneath.
 measured end, so the next record starts straight after the last word. See [`breaks.md`](breaks.md)
 § "Talking over the end of a record" for why the talk-over takes those seconds rather than sharing them.
 
+**A record cut short for a hard marker fades out and ends on its cut.** `RundownItem.cutAtMs` moves the
+record's `liq_cue_out` and stamps `deadair_cut`, and `playout_transition` fades the boundary's buffer out
+and plays the next item after it at full level, never blended and never faded in. The fade's length is
+stamped on BOTH sides of the boundary, because `cross` buffers the shorter of the two: the first version
+stamped the next item a hard join, and in the pinned image the cut record buffered a tenth of a second and
+never faded at all. The pusher decides the cut from `endBy` at hand-over (see [`breaks.md`](breaks.md)
+§ "Hard markers") and tells the rundown (`noteCut`), so the record's length while it airs is the one the
+player was given.
+
 **A cue is `handed` and the player never holds it, so the rundown never counts one.** The director marks a
 cue handed the moment it attaches it to a record, and it is armed on the mic chain rather than queued.
 `Rundown.handedIds` counted it anyway, so every reading found the player one item short: the cue was

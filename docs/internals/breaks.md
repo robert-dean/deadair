@@ -1629,9 +1629,31 @@ import, so a file never adds the second.
 
 ## Hard markers
 
-A hard marker is a clock band with `hard` set. It airs at its time exactly, and never before it. Nothing in
-the director acts on the flag yet, so a hard band still lands as a soft one does; the sections that follow
-are added as each half is built.
+A hard marker is a clock band with `hard` set. It airs at its time exactly, and never before it.
+
+**When the order runs late, the record in the way is cut, and it is decided twice.** The planner's anchored
+walk takes the same boundary a soft marker would, the first at or after the time, and asks `canLandOnTime`
+(`director/hard.marker.ts`) whether the record in front of it can be cut to end on the time: it has to be a
+record (speech is never cut), play at least thirty seconds first, and lose no more than
+`rotation.hardMarkerMaxCutSeconds` (two minutes by default; zero never cuts). If it can, the slot is claimed
+with the TARGET as its `airsAt`, so the words are about the moment they are heard, and the planted item
+carries `hardAt`. If it cannot, the marker lands soft and the log says why, because an operator who asked
+for the news on the dot should be able to find out why it was not. That first decision is made against the
+projection, which is a lower bound and minutes ahead of air. The second is exact: when the director prepares
+the record in front of a `hardAt` item it sets `RundownItem.endBy`, and the pusher, which with a lead of one
+hands that record over while exactly one item is airing, turns it into a cut point from that item's observed
+start, its length and the blend between them (`playout/end.by.ts`). The cut is placed half a second LATE,
+because every error left there has a direction and a marker a moment after its time is on time while one a
+moment before is early. The player fades the last three seconds out and ends on the cut (see
+[`playout.md`](playout.md) and `stream/cut.check.liq`). A record that ends before the time anyway is left
+alone, as is one whose start cannot be known, and one that would play less than its own fade.
+
+**The projection puts a cut marker on its time** (`air.clock.ts`), and everything behind it with it, so the
+next walk does not plant the same occurrence again and the bands behind it are planned against the clock the
+listener hears. Only when the item in front is a record that starts before the time, since that is the only
+thing a cut can take seconds from. `hardAt` rides the lineup row (`station.lineup.repository.ts`), so a
+restart keeps it. A link said over a record's end never rides the record in front of a hard marker: the
+marker airs after the cut, not over the record.
 
 ## Kinds an operator writes
 

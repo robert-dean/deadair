@@ -10,6 +10,7 @@ import { brokenClaim, reasonFor, type BrokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
 import { ClockBandRepository } from './clock.band.repository.js';
+import { canLandOnTime, resolveHardMarkers } from './hard.marker.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { CHATTINESS_SPACING, chattinessOf, type PersonaChattiness } from '#modules/personas/persona.sheet.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
@@ -687,13 +688,14 @@ export class BreakPlanner {
      */
     private async insert(lineup: StationLineup, placements: readonly Placement[]): Promise<boolean> {
         const result = lineup.insertSegments(
-            placements.map(({ segmentId, atIndex, kind, over, durationMs, pinned }) => ({
+            placements.map(({ segmentId, atIndex, kind, over, durationMs, pinned, hardAt }) => ({
                 segmentId,
                 atIndex,
                 segmentKind: kind,
                 ...(over === undefined ? {} : { over }),
                 ...(durationMs === undefined ? {} : { durationMs }),
                 ...(pinned ? { pinned } : {}),
+                ...(hardAt === undefined ? {} : { hardAt }),
             })),
         );
         if (result.ok) return true;
@@ -782,7 +784,7 @@ export class BreakPlanner {
         // the end of the order, which is a slot the walk can reach and the clock cannot describe.
         // `band` is what claimed the slot: an operator's band, or a kind the station's own rules plant
         // exactly as if one had asked for it (a jingle). Absent is the station's own talk break.
-        const claim = (atIndex: number, band?: Pick<ClockBand, 'kind' | 'topic'>, airsAt?: number): void => {
+        const claim = (atIndex: number, band?: Pick<ClockBand, 'kind' | 'topic'>, airsAt?: number, hardAt?: number): void => {
             if (taken.has(atIndex)) return;
             taken.add(atIndex);
             slots.push({
@@ -790,8 +792,11 @@ export class BreakPlanner {
                 ...(band === undefined ? {} : { band: band.kind }),
                 ...(band?.topic === undefined ? {} : { topic: band.topic }),
                 ...(airsAt === undefined ? {} : { airsAt }),
+                ...(hardAt === undefined ? {} : { hardAt }),
             });
         };
+        // Read once per walk, and only matters to a hard band.
+        const hardRules = resolveHardMarkers(this.config);
 
         // ── anchored ───────────────────────────────────────────────────────────
         for (const band of forBreaks) {
@@ -805,12 +810,25 @@ export class BreakPlanner {
             // topped up continuously and a later pass asks again against a longer order.
             if (at === undefined) continue;
 
+            // A HARD marker lands on its time by cutting the record in front of this boundary to end
+            // on it, when that record can take the cut. One that cannot lands soft, below, and says
+            // so: an operator who asked for the news on the dot should be able to find out why it
+            // was not. See `hard.marker.ts`.
+            const onTime = band.hard === true && canLandOnTime(items, projected, at, target, hardRules);
+            if (band.hard === true && !onTime) {
+                this.logger.info('director: a hard marker cannot land on its time here, so it airs at the boundary after it', {
+                    kind: band.kind,
+                    at: new Date(target).toISOString(),
+                    boundary: new Date(projected[at]!).toISOString(),
+                });
+            }
+
             // At or after the target is necessary and not sufficient. The first reachable boundary
             // can be a long way past it — the whole gap between here and it may already be inside
             // the window the player is holding, so the earliest slot the station can still program
             // is half an hour after the bulletin was due. A break that late is not a late bulletin,
             // it is the wrong one.
-            if (projected[at]! - target > BAND_LATENESS_MS) {
+            if (!onTime && projected[at]! - target > BAND_LATENESS_MS) {
                 this.logger.info('director: a slot on the station clock came round with no boundary near enough to use', {
                     kind: band.kind,
                     at: new Date(target).toISOString(),
@@ -861,7 +879,11 @@ export class BreakPlanner {
             // written about 14:14 describe a moment that has passed by the time anybody hears them.
             // The writer needs to know when this will actually be spoken; that the projection may be
             // a minute out is exactly what the claim window covers.
-            claim(at, band, projected[at]!);
+            //
+            // A hard marker on its time is the exception, and the reason it exists: it airs AT the
+            // target, so that is what it says, and what the record in front of it is cut to.
+            if (onTime) claim(at, band, target, target);
+            else claim(at, band, projected[at]!);
         }
 
         // ── the operator's own intervals ───────────────────────────────────────
@@ -1352,7 +1374,7 @@ export class BreakPlanner {
         // `previousIdent`'s rule, kept per kind because a band can name any kind.
         const drawn = new Map<string, string>();
 
-        for (const { atIndex, band, topic, airsAt } of wanted) {
+        for (const { atIndex, band, topic, airsAt, hardAt } of wanted) {
             // A slot the operator's clock placed is filled with EXACTLY the kind they named, and
             // never handed to the alternation below. That looks like it should have an exception
             // for `talkbreak`, which the station's own rule also plants, and it must not have one:
@@ -1363,7 +1385,7 @@ export class BreakPlanner {
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
                 const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder, onAir);
-                if (planted !== undefined) placements.push(planted);
+                if (planted !== undefined) placements.push(hardAt === undefined ? planted : { ...planted, hardAt });
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
                 continue;
@@ -1609,6 +1631,11 @@ interface Slot {
      * passed.
      */
     airsAt?: number;
+    /**
+     * The instant a HARD marker airs at, when this slot is one landing on its time. The record in front
+     * of the slot is cut to end on it at hand-over. See `hard.marker.ts`.
+     */
+    hardAt?: number;
 }
 
 /** One break, and where it goes. `written` distinguishes a row to write from an ident off the shelf. */
@@ -1630,6 +1657,8 @@ interface Placement {
     durationMs?: number;
     /** Somebody asked for this break, so a replan keeps it. See `StationLineupLine.pinned`. */
     pinned?: true;
+    /** A hard marker's time, carried onto the order. See `StationLineupSegmentItem.hardAt`. */
+    hardAt?: number;
 }
 
 /**

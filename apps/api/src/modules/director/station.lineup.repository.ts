@@ -271,6 +271,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   groupId?: unknown;
                   durationMs?: unknown;
                   dedicates?: unknown;
+                  hardAt?: unknown;
                   over?: { atMs?: unknown; endOf?: unknown };
                   mixedIn?: unknown;
                   requestId?: unknown;
@@ -312,6 +313,9 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 // Which record a dedication was said for. Without it a restart falls back to "the
                 // request directly behind it", which is right until something comes between them.
                 ...(typeof line.dedicates === 'string' ? { dedicates: line.dedicates } : {}),
+                // A hard marker's time. Without it a restart airs the marker soft and leaves the
+                // record in front of it uncut.
+                ...(typeof line.hardAt === 'number' && Number.isFinite(line.hardAt) ? { hardAt: line.hardAt } : {}),
                 // The length an episode was planted with, or the hour it runs projects as nothing
                 // after a restart and the clock behind it is planted an hour early.
                 ...(typeof line.durationMs === 'number' && Number.isFinite(line.durationMs) && line.durationMs > 0

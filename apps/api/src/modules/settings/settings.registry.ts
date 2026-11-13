@@ -33,6 +33,7 @@ import {
 import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
 import { LISTENING_PROFILE_DEFAULT, LISTENING_PROFILE_KEY } from '#modules/catalog/listening.profile.service.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
+import { DEFAULT_HARD_MARKERS, HARD_MARKER_CUT_RANGE, HARD_MARKER_KEYS } from '#modules/director/hard.marker.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import {
@@ -1144,6 +1145,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'break and a break always wins the boundary. Recordings dropped in the jingle folder, or uploaded as the jingle kind, are played ' +
             'first; with none, the station says one of its own lines, under Voice, Phrasings, ending on a hit from the soundboard if the presenter has one. ' +
             'Ten or so sounds like a commercial station; thirty is a nudge.',
+    },
+    {
+        group: 'breaks',
+        key: HARD_MARKER_KEYS.maxCutSeconds,
+        label: 'Seconds a hard marker may cut',
+        type: 'number',
+        default: DEFAULT_HARD_MARKERS.maxCutSeconds,
+        dependsOn: ROTATION_KEYS.breaks,
+        min: HARD_MARKER_CUT_RANGE.min,
+        max: HARD_MARKER_CUT_RANGE.max,
+        help:
+            'A band on the format clock switched to On the dot airs exactly at its time. When the music runs late, the record playing at that ' +
+            'time is faded out early to make room, by at most this many seconds; if it would take more, the band airs when the record ends, ' +
+            'as any other band does. Zero never cuts a record.',
     },
     {
         group: 'breaks',

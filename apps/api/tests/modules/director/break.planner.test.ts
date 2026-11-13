@@ -810,6 +810,66 @@ describe('BreakPlanner against the clock', () => {
         expect(plan).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
     });
 
+    // A hard marker airs ON its time: it takes the same boundary a soft one would, and the record in front
+    // of it is cut at hand-over to end on the time. Records here are five minutes from 09:00, so a band at
+    // :33 meets the boundary at 09:35 with the record in front playing from 09:30.
+    describe('a hard marker', () => {
+        const hard = (minute: number): ClockBand => ({ at: 'clock', minute, kind: 'news', hard: true });
+        const hardAtOf = (lineup: StationLineup): (number | undefined)[] =>
+            lineup.all().flatMap(item => (item.kind === 'segment' ? [item.hardAt] : []));
+
+        it('lands on its time, saying so, when the record in front can take the cut', async () => {
+            const { planner, plan } = build({ settings: utc(), bands: [hard(33)], canWrite: true });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(segmentsAt(lineup)).toEqual([7]);
+            expect(hardAtOf(lineup)).toEqual([Date.UTC(2026, 7, 13, 9, 33)]);
+            // What it says is about the time it airs, which is now the time it was asked for.
+            expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'news', airsAt: Date.UTC(2026, 7, 13, 9, 33) }));
+        });
+
+        it('lands soft when the cut would take more than the station allows', async () => {
+            const { planner, plan } = build({ settings: { ...utc(), 'rotation.hardMarkerMaxCutSeconds': '60' }, bands: [hard(33)], canWrite: true });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(segmentsAt(lineup)).toEqual([7]);
+            expect(hardAtOf(lineup)).toEqual([undefined]);
+            expect(plan).toHaveBeenCalledWith(expect.objectContaining({ airsAt: Date.UTC(2026, 7, 13, 9, 35) }));
+        });
+
+        it('never cuts with the limit at zero', async () => {
+            const { planner } = build({ settings: { ...utc(), 'rotation.hardMarkerMaxCutSeconds': '0' }, bands: [hard(34)], canWrite: true });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(hardAtOf(lineup)).toEqual([undefined]);
+        });
+
+        it('leaves a soft band exactly as it was', async () => {
+            const { planner, plan } = build({ settings: utc(), bands: [at(33, 'news')], canWrite: true });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+            expect(hardAtOf(lineup)).toEqual([undefined]);
+            expect(plan).toHaveBeenCalledWith(expect.objectContaining({ airsAt: Date.UTC(2026, 7, 13, 9, 35) }));
+        });
+
+        it('is planted once, however often the walk runs, since the projection now puts it on its time', async () => {
+            const { planner } = build({ settings: utc(), bands: [hard(33)], canWrite: true });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+            expect(await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine())).toBe(0);
+            expect(segmentsAt(lineup)).toEqual([7]);
+        });
+    });
+
     it('leaves a band alone once its boundary already holds a break', async () => {
         // `canWrite` matters here and was missing: without it nothing can produce a `news` break at
         // all, so both passes planted nothing and the case passed without ever reaching the guard it

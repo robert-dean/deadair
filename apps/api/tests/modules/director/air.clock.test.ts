@@ -126,3 +126,34 @@ describe('nextBoundaryAtOrAfter', () => {
         expect(nextBoundaryAtOrAfter(behind, 0, 0)).toBe(1);
     });
 });
+
+// A hard marker airs on its time because the record in front of it is cut to end there, so it is projected
+// AT its time and everything behind it moves with it. Only a record in front can be cut, and only one that
+// started before the time.
+describe('projectAirTimes and a hard marker', () => {
+    const marker = (hardAt: number): StationLineupItem => ({ id: id(), kind: 'segment', state: 'planned', segmentId: id(), hardAt });
+
+    it('puts a marker the order reaches late on its time, and what follows behind it', () => {
+        const items = [track(4 * MINUTE), marker(START + 3 * MINUTE), track(5 * MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)).toEqual([START, START + 3 * MINUTE, START + 3 * MINUTE]);
+    });
+
+    it('leaves a marker the order reaches early where the order puts it, since nothing here waits', () => {
+        const items = [track(2 * MINUTE), marker(START + 3 * MINUTE), track(5 * MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)[1]).toBe(START + 2 * MINUTE);
+    });
+
+    it('does not move a marker behind a break, which is never cut', () => {
+        const items = [segment(), marker(START - MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)[1]).toBe(START);
+    });
+
+    it('does not move a marker whose record starts after its time, which no cut can reach', () => {
+        const items = [track(4 * MINUTE), track(4 * MINUTE), marker(START + 3 * MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)[2]).toBe(START + 8 * MINUTE);
+    });
+});

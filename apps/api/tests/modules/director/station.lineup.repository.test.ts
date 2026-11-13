@@ -112,6 +112,15 @@ const items = (): StationLineupItem[] => [
     },
     { id: 'item-break', kind: 'segment', state: 'planned', segmentId: 'seg-break' },
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
+    // A hard marker keeps its time, or a restart airs it soft and leaves the record in front of it uncut.
+    {
+        id: 'item-on-the-dot',
+        kind: 'segment',
+        state: 'planned',
+        segmentId: 'seg-on-the-dot',
+        segmentKind: 'news',
+        hardAt: Date.UTC(2026, 10, 13, 9, 0),
+    },
     { id: 'item-episode', kind: 'segment', state: 'planned', segmentId: 'seg-episode', segmentKind: 'syndicated', durationMs: 3_723_000 },
     { id: 'item-cue', kind: 'segment', state: 'planned', segmentId: 'seg-cue', segmentKind: 'talk', over: { atMs: 4_500 } },
     { id: 'item-end-cue', kind: 'segment', state: 'handed', segmentId: 'seg-end-cue', segmentKind: 'talk', over: { atMs: 190_000, endOf: true } },

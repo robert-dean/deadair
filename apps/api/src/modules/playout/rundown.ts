@@ -241,6 +241,13 @@ export interface RundownItem {
      * cut and is ignored; see `playedCues` in `annotate.ts`.
      */
     cutAtMs?: number;
+    /**
+     * The instant, as epoch milliseconds, this record has to have finished by, because a HARD marker
+     * airs right after it at that time (`clock_bands.hard`). The director sets it when it prepares the
+     * record; the pusher turns it into {@link cutAtMs} as it hands the record over, against when the
+     * item on air actually started and how long it runs (`end.by.ts`). Absent on every other record.
+     */
+    endBy?: number;
 
     /**
      * How loud the record is, and how close it already runs to its ceiling.
@@ -857,6 +864,17 @@ export class Rundown {
      * on read rather than on a timer, so it is never served stale and nothing
      * pulses through the listeners every couple of seconds.
      */
+    /**
+     * The pusher cut a prepared record short as it handed it over (`end.by.ts`). Kept on the rundown's
+     * own copy so everything that reads the record's length while it airs (the next hand-over's start,
+     * above all) reads the length the player was actually given. A record this rundown no longer holds is
+     * ignored.
+     */
+    noteCut(id: string, cutAtMs: number): void {
+        const item = this.prepared.get(id);
+        if (item !== undefined) this.prepared.set(id, { ...item, cutAtMs });
+    }
+
     nowPlaying(): NowPlaying | undefined {
         const item = this.airing === undefined ? undefined : this.prepared.get(this.airing.id);
         if (!this.airing || !item) return undefined;

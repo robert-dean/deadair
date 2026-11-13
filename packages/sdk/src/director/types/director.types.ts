@@ -215,6 +215,8 @@ export interface PutOnAirInput {
     chartOrder?: 'countdown' | 'ranked' | 'unordered';
     /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says */
     chartPositions?: boolean;
+    /** Whether the breaks the station writes during this broadcast air over a music bed from the library: one scoped to the slot or host on air, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps every break dry */
+    beds?: boolean;
     /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
     concerts?: boolean;
     /** The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival */

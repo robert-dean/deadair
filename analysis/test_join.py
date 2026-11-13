@@ -12,7 +12,21 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from join import MAX_GAP_MS, MAX_PARTS, duration_ms, join_offsets, join_samples, place_overlay, trim_to_cues, with_gain, with_headroom
+from join import (
+    BED_MIN_FADE_MS,
+    MAX_BED_EDGE_MS,
+    MAX_GAP_MS,
+    MAX_PARTS,
+    duration_ms,
+    join_offsets,
+    join_samples,
+    lay_bed,
+    looped_to,
+    place_overlay,
+    trim_to_cues,
+    with_gain,
+    with_headroom,
+)
 from measure import SAMPLE_RATE
 
 
@@ -280,3 +294,91 @@ def test_a_boosted_part_is_brought_back_under_full_scale_by_the_headroom():
     joined = with_headroom(join_samples([words, sting], 0))
 
     assert float(np.max(np.abs(joined))) <= 1.0
+
+
+def test_a_bed_runs_from_the_lead_in_to_the_end_of_the_tail():
+    voice = tone(1.0, amplitude=0.3)
+    laid = lay_bed(voice, tone(10.0, freq=110.0, amplitude=0.2), lead_ms=500, tail_ms=1000)
+
+    assert laid.shape[0] == int(2.5 * SAMPLE_RATE)
+    # The words land half a second in, which is the lead-in.
+    head = laid[: int(0.5 * SAMPLE_RATE)]
+    assert float(np.max(np.abs(head))) <= 0.2 + 1e-6
+
+
+def test_the_words_are_neither_moved_nor_ducked_by_a_bed():
+    voice = tone(1.0, amplitude=0.3)
+    laid = lay_bed(voice, silence(5.0), lead_ms=200, tail_ms=200)
+
+    lead = int(0.2 * SAMPLE_RATE)
+    np.testing.assert_allclose(laid[lead : lead + voice.shape[0]], voice, atol=1e-7)
+
+
+def test_a_bed_is_mixed_at_the_gain_it_was_given():
+    bed = np.full((SAMPLE_RATE * 4, 1), 0.5, dtype=np.float32)
+    laid = lay_bed(silence(2.0), bed, lead_ms=0, tail_ms=0, gain_db=-18.0)
+
+    middle = laid[SAMPLE_RATE // 2 : SAMPLE_RATE]
+    assert float(np.max(np.abs(middle))) == pytest.approx(0.5 * 10 ** (-18 / 20), rel=1e-4)
+
+
+def test_a_bed_fades_in_over_the_lead_in_and_out_over_the_tail():
+    bed = np.full((SAMPLE_RATE * 6, 1), 0.5, dtype=np.float32)
+    laid = lay_bed(silence(1.0), bed, lead_ms=1000, tail_ms=1000)
+
+    assert abs(float(laid[0, 0])) < 1e-3
+    assert abs(float(laid[-1, 0])) < 1e-3
+    # Rising through the lead-in, full by the words.
+    assert float(laid[SAMPLE_RATE // 2, 0]) == pytest.approx(0.25, abs=0.01)
+    assert float(laid[int(1.5 * SAMPLE_RATE), 0]) == pytest.approx(0.5, abs=1e-4)
+
+
+def test_a_bed_with_no_lead_in_still_does_not_start_on_a_click():
+    bed = np.full((SAMPLE_RATE * 2, 1), 0.5, dtype=np.float32)
+    laid = lay_bed(silence(1.0), bed)
+
+    assert abs(float(laid[0, 0])) < 1e-3
+    assert float(laid[int(BED_MIN_FADE_MS * SAMPLE_RATE / 1000) + 10, 0]) == pytest.approx(0.5, abs=1e-4)
+
+
+def test_a_bed_shorter_than_the_break_comes_round_again():
+    looped = looped_to(tone(1.0, freq=220.0), int(3.5 * SAMPLE_RATE))
+
+    assert looped.shape[0] == int(3.5 * SAMPLE_RATE)
+    # Still sounding at the very end rather than having run out into silence.
+    assert float(np.max(np.abs(looped[-SAMPLE_RATE // 4 :]))) > 0.4
+
+
+def test_a_loop_seam_is_crossfaded_rather_than_butted():
+    # A constant bed crossfaded with itself stays constant across the seam: a
+    # butt join of a ramp would jump, and so would a crossfade that summed.
+    bed = np.full((SAMPLE_RATE, 1), 0.5, dtype=np.float32)
+    looped = looped_to(bed, SAMPLE_RATE * 3)
+
+    np.testing.assert_allclose(looped, 0.5, atol=1e-5)
+
+
+def test_a_bed_longer_than_the_break_is_cut_to_it():
+    assert looped_to(tone(10.0), SAMPLE_RATE).shape[0] == SAMPLE_RATE
+
+
+def test_a_bed_edge_outside_the_band_is_refused():
+    with pytest.raises(ValueError):
+        lay_bed(tone(1.0), tone(1.0), lead_ms=MAX_BED_EDGE_MS + 1)
+    with pytest.raises(ValueError):
+        lay_bed(tone(1.0), tone(1.0), tail_ms=-1)
+
+
+def test_a_bed_that_disagrees_about_channels_is_refused():
+    with pytest.raises(ValueError):
+        lay_bed(tone(1.0, channels=2), tone(1.0, channels=1))
+
+
+def test_a_short_bed_under_a_long_break_loops_to_exactly_the_length_asked():
+    # Five minutes over a four-second bed: the shape a bed is usually asked for, and the one a
+    # buffer grown by concatenation made quadratic.
+    frames = 300 * SAMPLE_RATE
+    looped = looped_to(tone(4.0, freq=220.0, channels=2), frames)
+
+    assert looped.shape == (frames, 2)
+    assert float(np.max(np.abs(looped[-SAMPLE_RATE:]))) > 0.4

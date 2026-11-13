@@ -37,3 +37,16 @@ describe('slotInput, for a festival', () => {
         expect(rulesAskedFor(input)).toEqual({});
     });
 });
+
+describe('slotInput, for music beds', () => {
+    it("carries a show's dry breaks onto its broadcast and its rules", () => {
+        const input = slotInput(slot({ beds: false }));
+
+        expect(input).toMatchObject({ beds: false });
+        expect(rulesAskedFor(input).rules).toEqual({ beds: false });
+    });
+
+    it('says nothing for a show that never answered, which is beds wherever the library has them', () => {
+        expect(slotInput(slot())).not.toHaveProperty('beds');
+    });
+});

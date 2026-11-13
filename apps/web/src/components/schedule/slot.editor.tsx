@@ -38,6 +38,7 @@ import {
     stationSourceValue,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
+import { ShowSoundField } from './show.sound.field';
 import { FestivalField } from './festival.field';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
 import { BLANK_RULE, datesIn, inputOfRule, ruleDraftOf, type RuleDraft } from './occasions.edits';
@@ -158,6 +159,9 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                   : source.kind === 'station'
                     ? { sourceStationPlaylistId: source.stationPlaylistId }
                     : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
+            // Unticked sends `false`, and ticked sends nothing unless the slot was dry, since a rewrite
+            // that leaves it out keeps what the slot had: absent is yes.
+            ...(values.beds ? (slot?.beds === false ? { beds: true } : {}) : { beds: false }),
             ...(values.personaId ? { personaId: values.personaId } : {}),
             ...(guestHostsOf(values.guestHosts).length === 0 ? {} : { guestHosts: guestHostsOf(values.guestHosts) }),
             ...(guestHostsOf(values.coHosts).length === 0 ? {} : { coHosts: guestHostsOf(values.coHosts) }),
@@ -400,6 +404,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                             <ConcertsField {...form.getInputProps('concerts', { type: 'checkbox' })} />
                             <FestivalField {...form.getInputProps('festivalId')} value={form.values.festivalId} />
 
+                            <ShowSoundField slotId={slot?.id} beds={form.getInputProps('beds', { type: 'checkbox' })} />
+
                             {/* Under the host it sits in for. */}
                             <GuestHostsField
                                 rows={form.values.guestHosts}
@@ -635,6 +641,8 @@ interface FormValues {
     /** Ticked sends nothing, which is yes; unticked sends `false`. Drawn only for a chart. */
     chartPositions: boolean;
     concerts: boolean;
+    /** Whether the show's written breaks air over a music bed. Absent on the slot is yes. */
+    beds: boolean;
     /** The festival this slot is built around, by id. Empty is none. */
     festivalId: string;
     personaId: string;
@@ -710,6 +718,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         chartOrder: slot?.sourceChartOrder ?? 'countdown',
         chartPositions: slot?.chartPositions ?? true,
         concerts: slot?.concerts ?? false,
+        beds: slot?.beds ?? true,
         festivalId: slot?.festivalId ?? '',
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',

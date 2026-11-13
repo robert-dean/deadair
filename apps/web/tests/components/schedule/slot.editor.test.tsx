@@ -34,6 +34,7 @@ vi.mock('../../../src/api/client', () => ({
         playlists: { listImportablePlaylists: () => listImportablePlaylists(), listStationPlaylists: () => listStationPlaylists() },
         personas: { listPersonas: () => listPersonas() },
         charts: { listCharts: () => listCharts() },
+        render: { listSegments: () => Promise.resolve({ segments: [] }) },
         schedule: {
             readSlotPlaylistPosition: (id: string) => readSlotPlaylistPosition(id),
             restartSlotPlaylist: (id: string) => restartSlotPlaylist(id),
@@ -70,6 +71,58 @@ const slot = (over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
 const noop = () => {};
 
 describe('SlotEditor', () => {
+    it('sends nothing about beds on an ordinary save, and false once they are switched off', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({}) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        await user.click(await screen.findByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('beds');
+
+        await user.click(screen.getByRole('checkbox', { name: /Music under the breaks/ }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+        expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ beds: false });
+    });
+
+    it('opens a dry show unticked, and says so out loud when its beds are turned back on', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ beds: false }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        const beds = await screen.findByRole('checkbox', { name: /Music under the breaks/ });
+        expect(beds).not.toBeChecked();
+        await user.click(beds);
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+        expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ beds: true });
+    });
+
     it('sends nothing about the switch on an ordinary save, and sends it once it is moved', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

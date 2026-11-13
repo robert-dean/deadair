@@ -146,6 +146,8 @@ A rule names what to say by one word, written after **Say a** as the **Sort of b
 | `narration` | The next piece of a book or column the station reads out. See [putting a series on the clock](./narrations.md#putting-a-series-on-the-clock). | A narration plugin and a series, named under **About**. |
 | your own word | A [kind of break you wrote](./breaks.md#kinds-of-break-you-write) under Voice, Kinds of break. | The kind switched on, and a model writing the breaks. |
 
+A music bed (a recording of the kind `bed`) is never offered here: it runs under the station's own breaks rather than airing as one. See [music beds](./breaks.md#music-beds).
+
 A rule runs every day unless you pick days for it under **on**: a news edition Monday to Friday, a different one at the weekend. The list shows the days under the time, such as "Mon–Fri", and the days are on the station's own clock.
 
 A rule can be about a subject, such as a news category or a weather location. A bulletin asked for a category it cannot fill declines the slot rather than air the wrong story under the right name. A category marked off air is kept out of every bulletin, which is how a publisher's deals desk stays off your news. Edits apply from the next boundary.

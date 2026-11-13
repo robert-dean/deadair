@@ -19,6 +19,7 @@ import { isSyndicatedKind, SYNDICATED_KIND } from '#modules/podcasts/syndicated.
 import { isCarriedKind } from './carried.kind.js';
 import { SyndicatedSource } from '#modules/podcasts/syndicated.source.js';
 import { stationZone } from './clock.words.js';
+import { BedPicker, NO_BEDS } from '#modules/render/bed.choice.js';
 import { SegmentRepository, type OnAir, type Segment, type ShelvedSegment, type StrandedRelease } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
@@ -349,6 +350,9 @@ export class BreakPlanner {
         // docs/internals/breaks.md.
         const onAir = onAirOf(lineup.slotId, presenting?.id);
         const idents = ownFirst(await this.segments.listReady(IDENT_KIND, onAir));
+        // The show's music beds, for every break this pass writes. Read only if one is planted, and
+        // never on a show that asked for its breaks dry.
+        const beds = this.bedsFor(onAir, lineup);
 
         if (!canWrite && idents.length === 0 && wanted.every(slot => slot.band === undefined)) {
             // Not a fault, and deliberately not a warning: a station with no idents recorded and
@@ -366,6 +370,7 @@ export class BreakPlanner {
             await this.lastKindBefore(lineup, wanted[0]!.atIndex),
             segmentsOn(lineup),
             onAir,
+            beds,
         );
         if (placements.length === 0) return programmes;
 
@@ -406,7 +411,14 @@ export class BreakPlanner {
         const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup), onAirOf(lineup.slotId, lineup.personaId));
         if (placements.length === 0) return 0;
 
-        const introduced = await this.introduce(lineup, rules, placements, wanted, quiet);
+        const introduced = await this.introduce(
+            lineup,
+            rules,
+            placements,
+            wanted,
+            quiet,
+            this.bedsFor(onAirOf(lineup.slotId, lineup.personaId), lineup),
+        );
         if (!(await this.insert(lineup, introduced))) return 0;
 
         this.logger.info('director: put a programme into the running order', {
@@ -437,6 +449,7 @@ export class BreakPlanner {
         placements: readonly Placement[],
         wanted: readonly Slot[],
         quiet: number | undefined,
+        beds: Pick<BedPicker, 'next'> = NO_BEDS,
     ): Promise<Placement[]> {
         if (!rules.breaks || !this.writers.canWrite(TALK_BREAK_KIND) || this.speech.speaker() === undefined) return [...placements];
 
@@ -451,7 +464,13 @@ export class BreakPlanner {
             if (quiet !== undefined && placement.atIndex <= quiet) continue;
 
             const at = airsAt.get(placement.atIndex);
-            const intro = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break', ...(at === undefined ? {} : { airsAt: at }) });
+            const bedSegmentId = await beds.next();
+            const intro = await this.segments.plan({
+                kind: TALK_BREAK_KIND,
+                label: 'Talk break',
+                ...(at === undefined ? {} : { airsAt: at }),
+                ...(bedSegmentId === undefined ? {} : { bedSegmentId }),
+            });
             introduced.push({ segmentId: intro.id, atIndex: placement.atIndex, kind: TALK_BREAK_KIND, written: true });
         }
 
@@ -1339,6 +1358,7 @@ export class BreakPlanner {
         lastKind: string | undefined,
         onOrder: Set<string>,
         onAir: OnAir,
+        beds: Pick<BedPicker, 'next'> = NO_BEDS,
     ): Promise<Placement[]> {
         const placements: Placement[] = [];
         let previousKind = lastKind;
@@ -1362,7 +1382,7 @@ export class BreakPlanner {
             // writes a clock, never once said what time it was. What makes a break a band's is that
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
-                const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder, onAir);
+                const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder, onAir, beds);
                 if (planted !== undefined) placements.push(planted);
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
@@ -1378,10 +1398,12 @@ export class BreakPlanner {
                 // `airsAt` rides the row for `fillBand`'s reason exactly, and it is the ordinary
                 // break rather than the scheduled one that had been going without: the words are
                 // asked for on a later pass and nothing recomputes the projection in between.
+                const bedSegmentId = await beds.next();
                 const segment = await this.segments.plan({
                     kind: TALK_BREAK_KIND,
                     label: 'Talk break',
                     ...(airsAt === undefined ? {} : { airsAt }),
+                    ...(bedSegmentId === undefined ? {} : { bedSegmentId }),
                 });
                 placements.push({ segmentId: segment.id, atIndex, kind: TALK_BREAK_KIND, written: true });
                 previousKind = TALK_BREAK_KIND;
@@ -1424,6 +1446,7 @@ export class BreakPlanner {
         topic: ClockBandSubject | undefined,
         onOrder: Set<string>,
         onAir: OnAir,
+        beds: Pick<BedPicker, 'next'> = NO_BEDS,
     ): Promise<Placement | undefined> {
         // Somebody else's programme is neither written nor drawn off the shelf: the episode this
         // band's show means is decided by `SyndicatedSource`, the same question the podcasts
@@ -1475,6 +1498,9 @@ export class BreakPlanner {
         }
 
         if (this.writers.canWrite(kind) && this.speech.speaker() !== undefined) {
+            // Every break the station writes for a band airs over the show's bed where it has one:
+            // a recording off the shelf below was produced already and gets none.
+            const bedSegmentId = await beds.next();
             // `airsAt` travels on the row rather than in the write job's payload, because the words
             // are asked for on a LATER pass than this one and nothing recomputes the schedule in
             // between: `ripen` re-offers whatever is still planned and knows nothing about bands.
@@ -1489,6 +1515,7 @@ export class BreakPlanner {
                 // and nothing recomputes the clock in between. The KEY rather than the id, because
                 // that is what the writer for the kind reads and what a log line names.
                 ...(topic === undefined ? {} : { context: { topic: topic.key } }),
+                ...(bedSegmentId === undefined ? {} : { bedSegmentId }),
             });
             return { segmentId: segment.id, atIndex, kind, written: true };
         }
@@ -1528,6 +1555,22 @@ export class BreakPlanner {
         const segment = choose(available, drawn.get(kind));
         drawn.set(kind, segment.id);
         return { segmentId: segment.id, atIndex, kind, written: false };
+    }
+
+    /**
+     * The music beds for one planting pass on this show. See `BedPicker`.
+     *
+     * Only breaks the station WRITES are laid over one: a recording drawn off the shelf was produced
+     * already, a requested break may be an interruption spoken over a record, and a production's
+     * beats are one programme rather than breaks. A bed never costs a break, so a read that fails is
+     * logged and the pass plants its breaks without one.
+     */
+    private bedsFor(onAir: OnAir, lineup: StationLineup): Pick<BedPicker, 'next'> {
+        // Absent is yes: see `StationLineupRules.beds`.
+        if (lineup.rules.beds === false) return NO_BEDS;
+        return new BedPicker(this.segments, onAir, error =>
+            this.logger.warn(`director: could not read the show's music beds, so this pass plants its breaks without one (${errorText(error)})`),
+        );
     }
 
     /**

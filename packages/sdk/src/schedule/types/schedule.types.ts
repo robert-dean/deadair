@@ -157,6 +157,8 @@ export interface ScheduleSlot {
     mixInSimilar?: boolean;
     /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out */
     chartPositions?: boolean;
+    /** Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had */
+    beds?: boolean;
     /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
     concerts?: boolean;
     /** The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this */
@@ -237,6 +239,8 @@ export interface ScheduleSlotInput {
     mixInSimilar?: boolean;
     /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out */
     chartPositions?: boolean;
+    /** Whether the breaks the station writes during this stretch of the day air over a music bed: one of the library's `bed` recordings scoped to this slot or its host, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps this show's breaks dry. A rewrite that leaves it out keeps what the slot had */
+    beds?: boolean;
     /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
     concerts?: boolean;
     /** The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this */

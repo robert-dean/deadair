@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { PLUGIN_CAPABILITY_MIXER, type AudioJoin, type AudioOverlay, type JoinedAudio } from '@deadair/plugin-sdk';
+import { PLUGIN_CAPABILITY_MIXER, type AudioBed, type AudioJoin, type AudioOverlay, type JoinedAudio } from '@deadair/plugin-sdk';
 import { asMixerPlugin, type MixerPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -133,7 +133,7 @@ export class MixerService {
         label: string,
         urls: readonly string[],
         gapMs: number,
-        options: { overlays?: readonly AudioOverlay[]; gainsDb?: readonly (number | undefined)[] } = {},
+        options: { overlays?: readonly AudioOverlay[]; gainsDb?: readonly (number | undefined)[]; bed?: AudioBed; trim?: boolean } = {},
     ): Promise<JoinedAudio | undefined> {
         const mixer = this.mixer();
         if (mixer === undefined) return undefined;
@@ -149,6 +149,10 @@ export class MixerService {
             // Omitted rather than sent empty, so an ordinary join puts the same request on the wire
             // it did before overlays existed.
             ...(options.overlays === undefined || options.overlays.length === 0 ? {} : { overlays: [...options.overlays] }),
+            // And a bed only where one was asked for, on the same argument.
+            ...(options.bed === undefined ? {} : { bed: options.bed }),
+            // And the trim only where a caller turned it off: absent is the plugin's own default, yes.
+            ...(options.trim === undefined ? {} : { trim: options.trim }),
         };
 
         try {

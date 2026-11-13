@@ -229,6 +229,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // What this break's words are worth at the one model slot, judged by `priorityForUrgency`
             // alone. Absent for a planted break, which is the gate's `air` default.
             ...(asked === undefined ? {} : { priority: priorityForUrgency(asked.urgency) }),
+            ...(segment.bedSegmentId === undefined ? {} : { bedded: true }),
             ...(festival === undefined ? {} : { festival: festival.told }),
         });
 

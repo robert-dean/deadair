@@ -5,11 +5,14 @@ import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
+import { resolvePlayoutBaseUrl, segmentAudioUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
 import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import { withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
 import { PadJoiner } from './pad.join.js';
+import { BED_LEAD_MS, BED_TAIL_MS, bedGainDb, bedLevelDb } from './bed.settings.js';
+import { MixerService } from './mixer.service.js';
+import { extensionForMime } from './segment.store.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
 import { SpeechService, type SpokenAudio } from './speech.service.js';
@@ -83,6 +86,8 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         private readonly config: AppConfig,
         // The measurement's URL is fetched by the analyzer with no session, so it is signed.
         private readonly signer: AudioUrlSigner,
+        // What lays a break over its bed. Unused by a break with none.
+        private readonly mixer: MixerService,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -123,7 +128,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         }
 
         try {
-            const audio = await this.produce(segment, script, payload.priority);
+            const audio = await this.underBed(segment, await this.produce(segment, script, payload.priority));
 
             // The words that went to the engine are kept beside the words on the row, because they
             // are not the same words and only one of them explains the audio. See `SpokenAudio`.
@@ -201,6 +206,69 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // `transposeForSpeech` doing it downstream: this is the one path where the words reaching
         // the engine are deliberately not the words on the row.
         return await this.say(withoutPads(script), segment, priority);
+    }
+
+    /**
+     * The break laid over its music bed, or the break as it was for anything that did not work.
+     *
+     * A second pass over the finished words rather than a field on the pad join, so a break with a
+     * drop and a bed is the padded break first and the bed under all of it, and a break with only a
+     * bed never goes near the pad path. **The bed is an improvement and never a requirement**, which
+     * is {@link produce}'s rule again: no bed on the row, a bed since deleted or not yet ready, no
+     * mixer, a refusal, a media type the store cannot hold all answer the words as they were.
+     */
+    private async underBed(segment: Segment, voice: SpokenAudio): Promise<SpokenAudio> {
+        if (segment.bedSegmentId === undefined) return voice;
+
+        try {
+            const bed = (await this.segments.findByIds([segment.bedSegmentId])).get(segment.bedSegmentId);
+            if (bed?.state !== 'ready' || bed.audioChecksum === undefined || bed.audioExt === undefined) {
+                this.logger.info('render: a break names a bed that is not there to lay, so it airs as words', {
+                    job: this.context.id,
+                    segment: segment.id,
+                    bed: segment.bedSegmentId,
+                });
+                return voice;
+            }
+
+            const base = resolvePlayoutBaseUrl(this.config);
+            const joined = await this.mixer.join(segment.label, [this.signer.sign(storedAudioUrl(base, voice.checksum, voice.ext))], 0, {
+                // The words are finished audio, already trimmed where they were spoken or joined: a
+                // second trim could take a drop at the edge of a padded break, or a breath, with it.
+                trim: false,
+                bed: {
+                    url: this.signer.sign(storedAudioUrl(base, bed.audioChecksum, bed.audioExt)),
+                    gainDb: bedGainDb(bed.loudnessLufs, bedLevelDb(this.config)),
+                    leadMs: BED_LEAD_MS,
+                    tailMs: BED_TAIL_MS,
+                },
+            });
+            if (joined === undefined) return voice;
+
+            const ext = extensionForMime(joined.mime);
+            if (ext === undefined) {
+                await joined.audio.cancel().catch(() => {});
+                this.logger.warn('render: a break laid over its bed came back as something the station cannot serve', {
+                    job: this.context.id,
+                    segment: segment.id,
+                    mime: joined.mime,
+                });
+                return voice;
+            }
+
+            const checksum = await this.store.writeStream(joined.audio, ext);
+            this.logger.info('render: laid a break over its bed', { job: this.context.id, segment: segment.id, bed: bed.id, ext });
+
+            // The words the engine was handed are unchanged: nobody spoke the bed.
+            return { ...voice, checksum, ext, pluginId: 'joined' };
+        } catch (error) {
+            this.logger.warn('render: could not lay a break over its bed, so it airs as words', {
+                job: this.context.id,
+                segment: segment.id,
+                error: errorText(error),
+            });
+            return voice;
+        }
     }
 
     /**

@@ -442,7 +442,7 @@ export class ScheduleService {
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const stored = (await this.slots.list()).find(slot => slot.id === id);
-        const draft = draftOf(keepingSwitch(keepingRecurrence(body, stored), stored));
+        const draft = draftOf(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored));
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
         await this.refuseFestival(draft);
@@ -620,6 +620,7 @@ export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.mixInSimilar === undefined ? {} : { mixInSimilar: body.mixInSimilar }),
         ...(body.chartPositions === undefined ? {} : { chartPositions: body.chartPositions }),
         ...(body.concerts === undefined ? {} : { concerts: body.concerts }),
+        ...(body.beds === undefined ? {} : { beds: body.beds }),
         ...(body.festivalId === undefined ? {} : { festivalId: body.festivalId }),
         ...(body.breaks === undefined ? {} : { breaks: body.breaks }),
         ...(body.requestShow === undefined ? {} : { requestShow: body.requestShow }),
@@ -721,6 +722,17 @@ function keepingRecurrence(body: ScheduleSlotInput, stored: ScheduleSlot | undef
     if (stored?.dates === undefined || !isRecurrence(stored.dates)) return body;
 
     return { ...body, recurrence: occasionRuleFields(stored.dates.rule) };
+}
+
+/**
+ * A body that says nothing about beds leaves the slot's answer where it is.
+ *
+ * `keepingSwitch`'s argument for a field absent means yes on: a client built before the field existed
+ * (an older desktop or phone app) rewrites the whole row without it, and reading that as yes would put
+ * beds back under a show its operator had made dry because somebody corrected its name.
+ */
+function keepingBeds(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
+    return body.beds === undefined && stored?.beds !== undefined ? { ...body, beds: stored.beds } : body;
 }
 
 /**
@@ -832,6 +844,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
+        ...(slot.beds === undefined ? {} : { beds: slot.beds }),
         ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),

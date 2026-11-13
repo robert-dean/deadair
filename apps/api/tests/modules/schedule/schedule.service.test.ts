@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
+import { draftOf, ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
 import type { ScheduleRepository } from '../../../src/modules/schedule/schedule.repository.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
@@ -797,5 +797,36 @@ describe('a slot that is switched off', () => {
         const service = build({ slots: list });
         await service.update('a', input({ label: 'renamed' }));
         expect(list[0]?.off).toBeUndefined();
+    });
+});
+
+describe("a slot's music beds", () => {
+    const input = (over: Partial<ScheduleSlotInput> = {}): ScheduleSlotInput => ({
+        label: 'x',
+        startsAtMinutes: 600,
+        endsAtMinutes: 720,
+        days: [],
+        mode: 'rotation',
+        onEnd: 'extend',
+        ...over,
+    });
+
+    it('carries a show that asked for dry breaks onto the wire and back', () => {
+        expect(draftOf(input({ beds: false }))).toMatchObject({ beds: false });
+        expect(draftOf(input())).not.toHaveProperty('beds');
+    });
+
+    it('stays dry through an edit from a client that never heard of beds', async () => {
+        const list = [{ ...slot('a', 600, 720), beds: false }];
+        const service = build({ slots: list });
+        await service.update('a', input({ label: 'renamed' }));
+        expect(list[0]).toMatchObject({ label: 'renamed', beds: false });
+    });
+
+    it('takes a bed back when the edit says so', async () => {
+        const list = [{ ...slot('a', 600, 720), beds: false }];
+        const service = build({ slots: list });
+        await service.update('a', input({ beds: true }));
+        expect(list[0]).toMatchObject({ beds: true });
     });
 });

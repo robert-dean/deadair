@@ -556,6 +556,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
+        ...(slot.beds === undefined ? {} : { beds: slot.beds }),
         // And its festival, or a drag would turn a festival weekend back into an ordinary show.
         ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),

@@ -3546,6 +3546,17 @@ describe('DirectorService talking a link up to the post', () => {
         expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 7_000 } });
     });
 
+    it('airs a link laid over a music bed in the gap, because a record is a bed already', async () => {
+        const built = build({ items: ['a', 'b'], segments: [{ ...link(6_000), bedSegmentId: 'bed-1' }], vocalMarkers: { 'track-a': sung } });
+        built.station.set(TALK_UP_KEYS.enabled, 'true');
+        await built.seedCatalogued();
+        built.lineup.insertSegment('seg-1', 0);
+        await built.director.start();
+        await settle();
+
+        expect(built.rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
     it('airs a link too long for the intro in the gap rather than trimming it', async () => {
         const { rundown } = await run({ durationMs: 14_000, markers: sung, setting: 'true' });
         expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
@@ -3683,6 +3694,11 @@ describe('DirectorService talking a link over the end of a record', () => {
 
     it('airs the link in the gap when it has never been switched on', async () => {
         const { rundown } = await run({});
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('never rides the end of a record with a link laid over a music bed', async () => {
+        const { rundown } = await run({ talkOut: 'true', segment: link(6_000, { bedSegmentId: 'bed-1' }) });
         expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
     });
 

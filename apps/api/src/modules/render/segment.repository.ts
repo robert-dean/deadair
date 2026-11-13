@@ -146,6 +146,15 @@ export interface Segment {
      */
     pads: PadHit[];
     /**
+     * The music bed this break airs over, as the bed's own segment id. See {@link BED_KIND}.
+     *
+     * Chosen by the planner when the break is planned, because only it knows which show the break
+     * airs in, and kept here so a render (or a re-render) lays the same bed the show had. Absent for a
+     * break with no bed, which is most of them and every one before beds existed. A break that has a
+     * bed is never talked over a record: a record is a bed already.
+     */
+    bedSegmentId?: string;
+    /**
      * When this break is expected to AIR, as epoch millis, for one placed by a rule on the station
      * clock.
      *
@@ -243,6 +252,8 @@ export interface PlannedSegment {
      * step later.
      */
     pads?: readonly PadHit[];
+    /** The music bed it airs over. See {@link Segment.bedSegmentId}. */
+    bedSegmentId?: string;
     /** What decided the words. See {@link Segment.writer}. */
     writer?: string;
     /** A note for the birth event, when there is one worth keeping. */
@@ -415,6 +426,7 @@ interface SegmentRow {
     productionOrdinal: number | null;
     /** Read through {@link padHitsIn}, so an unreadable value is a break that hits nothing. */
     pads: unknown;
+    bedSegmentId: string | null;
 }
 
 /**
@@ -455,6 +467,7 @@ const SEGMENT_COLUMNS = [
     'productionId',
     'productionOrdinal',
     'pads',
+    'bedSegmentId',
 ] as const;
 
 /** What the library scan writes, and what the repository recognises as an import. */
@@ -470,6 +483,21 @@ export const LIBRARY_SOURCE = 'library';
  * none of `importFile`'s checksum dedupe, since its identity is the episode it is and not its bytes.
  */
 export const SYNDICATED_SOURCE = 'syndicated';
+
+/**
+ * The kind of a MUSIC BED: a recording that runs under a break rather than airing as one.
+ *
+ * A library kind like any other, so it arrives through the same three doors (the inbox folder
+ * `media/segments/inbox/bed/`, the upload, the URL), is measured as any recording is, and is scoped
+ * to shows with the same picker. What makes it different is that it is never an ITEM: kept off the
+ * shelf a band draws from ({@link SegmentRepository.listReady}) and out of {@link
+ * SegmentRepository.readyKinds}, or the format clock would offer "bed" as an hour an operator can
+ * schedule around and the planner would air one on its own between two records. The pad's argument
+ * for not being a `segments.kind`, answered the other way round: a bed has an inbox, a checksum
+ * identity and a show scope, all of which a segment already has, so it is a kind that is fenced
+ * off rather than a table of its own. Drawn instead by {@link SegmentRepository.listBeds}.
+ */
+export const BED_KIND = 'bed';
 
 /**
  * Rows read back as `undefined` rather than `null` (see the note in CLAUDE.md), so every optional
@@ -502,6 +530,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
         ...(row.claimsPreviousItemId == null ? {} : { claimsPreviousItemId: row.claimsPreviousItemId }),
         pads: padHitsIn(row.pads),
+        ...(row.bedSegmentId == null ? {} : { bedSegmentId: row.bedSegmentId }),
         ...(row.requestId == null ? {} : { requestId: row.requestId }),
         // Read back defensively, like every other jsonb column here: a value that is not an object
         // is a context nothing can read, and no context and an unreadable one are one state to every
@@ -882,6 +911,8 @@ export class SegmentRepository extends DataRepository {
             .selectFrom('deadair.segments')
             .select([...SEGMENT_COLUMNS, 'showScoped'])
             .where('kind', '=', kind)
+            // A bed is never a break, so a band that names `bed` draws nothing. See BED_KIND.
+            .where('kind', '!=', BED_KIND)
             .where('state', '=', 'ready')
             .where('productionId', 'is', null)
             // Nor is an episode of somebody else's programme: it airs once, at its show's slot, and
@@ -920,6 +951,17 @@ export class SegmentRepository extends DataRepository {
             .execute();
 
         return rows.map(toShelved);
+    }
+
+    /**
+     * The music beds that may run under a break on this show. See {@link BED_KIND}.
+     *
+     * {@link listRecordings}' question asked of beds, with its answer: only what an operator gave the
+     * station, only what is ready, and only what is scoped to nobody or to the show or presenter on
+     * air, with `forShow` saying which are the show's own so the caller can prefer them.
+     */
+    async listBeds(onAir?: OnAir): Promise<ShelvedSegment[]> {
+        return this.listRecordings(BED_KIND, onAir);
     }
 
     /**
@@ -999,6 +1041,8 @@ export class SegmentRepository extends DataRepository {
             // And an episode is not a shelf kind either: `syndicated` is offered on the format clock
             // because a podcast plugin can carry it, never because an episode happens to be held.
             .where('source', '!=', SYNDICATED_SOURCE)
+            // Nor is a bed: it runs under a break, and a band of beds would air one on its own.
+            .where('kind', '!=', BED_KIND)
             .execute();
 
         return rows.map(row => row.kind);
@@ -1106,6 +1150,7 @@ export class SegmentRepository extends DataRepository {
                 personaId: planned.personaId ?? null,
                 writer: planned.writer ?? null,
                 pads: JSON.stringify(planned.pads ?? []),
+                bedSegmentId: planned.bedSegmentId ?? null,
                 airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
                 requestId: planned.requestId ?? null,
                 context: planned.context === undefined ? null : sql<string>`${JSON.stringify(planned.context)}::jsonb`,

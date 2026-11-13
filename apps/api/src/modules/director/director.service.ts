@@ -3208,6 +3208,8 @@ export class DirectorService {
             if (item.kind !== 'segment' || item.over !== undefined) return [];
             const segment = segments.get(item.segmentId);
             if (segment?.state !== 'ready' || segment.kind !== TALK_BREAK_KIND || segment.durationMs === undefined) return [];
+            // A break laid over a music bed airs in the gap: a record is a bed already. See `Segment.bedSegmentId`.
+            if (segment.bedSegmentId !== undefined) return [];
             const next = this.lineup?.trackRightAfter(item.id);
             if (next?.track.trackId === undefined) return [];
             return [{ itemId: item.id, trackId: next.track.trackId, cueInMs: next.track.cueInMs, outgoing: this.outgoingUnder(item.id, next) }];
@@ -3294,6 +3296,8 @@ export class DirectorService {
                 const ready = pairs.flatMap(pair => {
                     const segment = segments.get(pair.link.segmentId);
                     if (segment?.state !== 'ready' || segment.kind !== TALK_BREAK_KIND || segment.durationMs === undefined) return [];
+                    // A break laid over a music bed airs in the gap: a record is a bed already. See `Segment.bedSegmentId`.
+                    if (segment.bedSegmentId !== undefined) return [];
                     if (segment.claimsTime !== undefined) return [];
                     const next = lineup.nextTrackAfter(pair.link.id);
                     if (brokenClaim(segment, { previous: pair.record.id, next: next?.id }, Date.now()) !== undefined) return [];

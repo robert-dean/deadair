@@ -1528,6 +1528,14 @@ rather than failing where the thing behind you cannot join what it was given; a
 station that asks has somewhere to go, since a programme whose parts were not
 joined simply airs as its parts.
 
+A join may also carry `overlays` (a sound at a MOMENT, anchored to a boundary
+between two parts) and a `bed` (a sound for a SPAN, running under every part from
+`leadMs` before the first to `tailMs` after the last). Loop a bed that is shorter
+than what it runs under, cut one that is longer, fade it in and out across its
+edges, and leave the parts where they are: what you answer is longer than the
+parts by exactly `leadMs + tailMs`. The station asks for edges of a second or two,
+and the bundled mixer refuses one past five seconds.
+
 `transcode(request)` is what `transcode` requires: one URL, a bitrate and a
 channel count in, a smaller copy out, as a `mime` and a stream. The station asks
 for it when a listener shares a talk break and keeps what you answer for a while,

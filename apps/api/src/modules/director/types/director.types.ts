@@ -309,6 +309,12 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says',
         ),
+    beds: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether the breaks the station writes during this broadcast air over a music bed from the library: one scoped to the slot or host on air, or else one scoped to nobody. Absent is yes, wherever the library holds a bed for it. False keeps every break dry',
+        ),
     concerts: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()

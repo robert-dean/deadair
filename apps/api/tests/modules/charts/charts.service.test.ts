@@ -354,3 +354,20 @@ describe("ChartsService and the station's own charts", () => {
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('connection refused'));
     });
 });
+
+describe('ChartsService.readChart', () => {
+    it("carries last week's position onto the page, where the source gave one", async () => {
+        const fetchChart = vi.fn(async (): Promise<ChartEntry[]> => [
+            { ...entry(1, 'Glory Box', 'Portishead'), lastWeek: 4 },
+            entry(2, 'Roads', 'Portishead'),
+        ]);
+        const service = build([record(LASTFM, {}, { fetchChart })]);
+
+        const page = await service.readChart(qualifyChartId(LASTFM, 'top-100'), {});
+
+        expect(page.records).toEqual([
+            { rank: 1, title: 'Glory Box', artist: 'Portishead', lastWeek: 4 },
+            { rank: 2, title: 'Roads', artist: 'Portishead' },
+        ]);
+    });
+});

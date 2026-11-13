@@ -26,6 +26,7 @@ contract ChartRecord: { # One record's place in a chart
     year?: int(min=0)
     peak?: int(min=1) # Best position this record has reached, where the source tracks it
     weeksOn?: int(min=0) # How many editions it has appeared in, where the source tracks it
+    lastWeek?: int(min=1) # Its position in the edition before this one, where the source tracks it. Absent when the source does not publish it or the record was not on that edition
 }
 
 contract ChartQuery: {

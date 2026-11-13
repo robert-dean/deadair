@@ -102,6 +102,7 @@ export class ChartsService {
                 ...(entry.year === undefined ? {} : { year: entry.year }),
                 ...(entry.peak === undefined ? {} : { peak: entry.peak }),
                 ...(entry.weeksOn === undefined ? {} : { weeksOn: entry.weeksOn }),
+                ...(entry.lastWeek === undefined ? {} : { lastWeek: entry.lastWeek }),
             })),
         };
     }

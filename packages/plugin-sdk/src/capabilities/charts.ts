@@ -88,6 +88,14 @@ export interface ChartEntry {
     peak?: number;
     /** How many editions it has appeared in, where the source tracks it. */
     weeksOn?: number;
+    /**
+     * Its position in the edition before this one, where the source tracks it.
+     *
+     * Absent says nothing either way: a source that does not publish it, or a record that was not
+     * on the previous edition. A presenter reads "new this week" off `weeksOn` being 1, never off
+     * this being missing, because most sources leave it out for every entry.
+     */
+    lastWeek?: number;
 }
 
 /**

@@ -33,6 +33,7 @@ export interface ChartEntryLike {
     year?: number;
     peak?: number;
     weeksOn?: number;
+    lastWeek?: number;
 }
 
 /**
@@ -113,7 +114,7 @@ export const chartPicks = (entries: readonly ChartEntryLike[], options: ChartPic
 /**
  * Where an entry stands, as the pick carries it.
  *
- * Only a positive whole number is passed on for the two optional figures. They come from somebody
+ * Only a positive whole number is passed on for the three optional figures. They come from somebody
  * else's service, and a presenter reading out "a peak of zero" is the one way this could be worse
  * than saying nothing.
  */
@@ -122,6 +123,7 @@ const placingOf = (entry: ChartEntryLike, name: string | undefined): ChartPlacin
     ...(name === undefined ? {} : { name }),
     ...(isPosition(entry.peak) ? { peak: entry.peak } : {}),
     ...(isPosition(entry.weeksOn) ? { weeksOn: entry.weeksOn } : {}),
+    ...(isPosition(entry.lastWeek) ? { lastWeek: entry.lastWeek } : {}),
 });
 
 const isPosition = (value: number | undefined): value is number => value !== undefined && Number.isInteger(value) && value > 0;

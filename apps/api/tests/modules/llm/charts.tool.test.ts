@@ -94,6 +94,7 @@ describe('reading one chart', () => {
         year: 1981,
         peak: 1,
         weeksOn: 14,
+        lastWeek: 5,
     };
 
     it('answers with the records, keeping the lead artist and the other credits apart', async () => {
@@ -105,6 +106,14 @@ describe('reading one chart', () => {
 
         expect(result.chartId).toBe(CHART);
         expect(result.records[0]).toMatchObject({ rank: 3, title: 'Under Pressure', artist: 'Queen', featuring: ['David Bowie'] });
+    });
+
+    it("passes on the peak, the run and last week's position, so the model can say a record climbed", async () => {
+        const { tool } = build({ entries: [entry] });
+
+        const result = (await (await only(tool)).run({ chartId: CHART })) as { records: Record<string, unknown>[] };
+
+        expect(result.records[0]).toMatchObject({ peak: 1, weeksOn: 14, lastWeek: 5 });
     });
 
     it('passes an edition through when the model asked for one', async () => {

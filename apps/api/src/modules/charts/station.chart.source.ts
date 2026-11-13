@@ -94,4 +94,5 @@ export const toChartEntry = (entry: StationChartEntry): ChartEntry => ({
     artist: entry.artist,
     ...(entry.peak === undefined ? {} : { peak: entry.peak }),
     ...(entry.weeksOn === undefined ? {} : { weeksOn: entry.weeksOn }),
+    ...(entry.lastWeek === undefined ? {} : { lastWeek: entry.lastWeek }),
 });

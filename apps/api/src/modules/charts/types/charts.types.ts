@@ -39,6 +39,12 @@ export const ChartRecord = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
         .describe('How many editions it has appeared in, where the source tracks it'),
+    lastWeek: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1))
+        .optional()
+        .describe(
+            'Its position in the edition before this one, where the source tracks it. Absent when the source does not publish it or the record was not on that edition',
+        ),
 });
 export type ChartRecord = z.infer<typeof ChartRecord>;
 

@@ -49,15 +49,20 @@ describe('StationChartSource', () => {
     });
 
     it('reads the weekly chart for the edition the repository settles on, with movement on each entry', async () => {
-        const { source, repository } = build([tally('Glory Box', 5), tally('Roads', 3), tally('Glory Box', 2, '2026-10-26')]);
+        const { source, repository } = build([
+            tally('Glory Box', 5),
+            tally('Roads', 3),
+            tally('Glory Box', 2, '2026-10-26'),
+            tally('Roads', 4, '2026-10-26'),
+        ]);
 
         const entries = await source.fetch('top-40', 40, '2026-11-04');
 
         expect(repository.editionWeek).toHaveBeenCalledWith(expect.any(String), '2026-11-04');
         expect(repository.history).toHaveBeenCalledWith('main', expect.any(String), WEEK, 52);
         expect(entries).toEqual([
-            { rank: 1, title: 'Glory Box', artist: 'Portishead', peak: 1, weeksOn: 2 },
-            { rank: 2, title: 'Roads', artist: 'Portishead', peak: 2, weeksOn: 1 },
+            { rank: 1, title: 'Glory Box', artist: 'Portishead', peak: 1, weeksOn: 2, lastWeek: 2 },
+            { rank: 2, title: 'Roads', artist: 'Portishead', peak: 1, weeksOn: 2, lastWeek: 1 },
         ]);
     });
 

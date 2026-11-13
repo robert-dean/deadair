@@ -286,6 +286,8 @@ export interface ChartPlacing {
     peak?: number;
     /** How many editions it has appeared in, where the source tracks it. */
     weeksOn?: number;
+    /** Its position in the edition before, where the source tracks it and the record was on it. */
+    lastWeek?: number;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */

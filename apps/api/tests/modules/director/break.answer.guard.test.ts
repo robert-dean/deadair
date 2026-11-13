@@ -27,6 +27,25 @@ describe('writeDecline, against the record a break hands over to', () => {
         );
     });
 
+    it("does not take last week's chart position for a temperature", () => {
+        const next: BreakTrack = { title: 'Glory Box', artist: 'Portishead', chart: { rank: 3, name: 'Top 40', lastWeek: 12 } };
+
+        expect(
+            writeDecline("It's 57 and clear in Atlanta. Up from number 12, at number 3, Portishead, Glory Box.", {
+                weather: reading,
+                cues: { next },
+                names: [next],
+            }),
+        ).toBeUndefined();
+        expect(
+            writeDecline("It's 57 and clear in Atlanta. Up from number 14, at number 3, Portishead, Glory Box.", {
+                weather: reading,
+                cues: { next },
+                names: [next],
+            })?.fault,
+        ).toBe('invented-figure');
+    });
+
     it('does not read the time of day out of a cued record, with its credit said in full', () => {
         const next: BreakTrack = { title: '1989 ft. The Midnight', artist: 'Nightly' };
 

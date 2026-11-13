@@ -68,7 +68,10 @@ export function projectAirTimes(items: readonly StationLineupItem[], anchorAt: n
             at = item.hardAt;
         }
         times[index] = at;
-        at += lengthOf(item);
+        // A fill runs to its instant and no further, however long its recording is: it is cut there at
+        // hand-over. One the order reaches after its instant is cut to nothing.
+        if (!isTrackItem(item) && item.fillTo !== undefined) at = Math.max(at, item.fillTo);
+        else at += lengthOf(item);
     }
 
     return times;

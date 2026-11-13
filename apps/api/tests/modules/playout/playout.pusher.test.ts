@@ -1514,7 +1514,14 @@ describe('PlayoutPusher and a record that has to end by a hard marker', () => {
             { ...(second as { track: RundownTrack }).track, id: second!.id, endBy: Date.UTC(2026, 10, 13, 9, 0) } as RundownItem,
         ]);
         const { control, pushed } = scriptedControl();
-        const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, config, new Heartbeat(), logger);
+        const pusher = new PlayoutPusher(
+            rundown,
+            control as unknown as PlayoutControlClient,
+            stubAudience().audience,
+            config,
+            new Heartbeat(),
+            logger,
+        );
 
         await pusher.reconcile();
         control.reading = { queued: 0, ready: true, onAir: first!.id };

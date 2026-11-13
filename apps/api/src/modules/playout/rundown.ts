@@ -248,6 +248,12 @@ export interface RundownItem {
      * item on air actually started and how long it runs (`end.by.ts`). Absent on every other record.
      */
     endBy?: number;
+    /**
+     * This item is a FILL: a recording that exists to take up the time before a hard marker the order
+     * reached early, so it is cut at {@link endBy} however little of it that leaves, down to almost
+     * nothing when the order has caught up, and never played whole. A record is never a fill.
+     */
+    fill?: true;
 
     /**
      * How loud the record is, and how close it already runs to its ceiling.

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
     blendOutOf,
     CUT_KEY,
+    cutFadeOf,
     cutOf,
     DUCK_BED_KEY,
     DUCK_GAIN_KEY,
@@ -483,5 +484,25 @@ describe('a record cut short for a hard marker', () => {
     it('leaves a record with no cut exactly as it was', () => {
         expect(cutOf(measured())).toBeUndefined();
         expect(playedCues(measured())).toEqual({ cueInMs: 1_000, cueOutMs: 210_000 });
+    });
+});
+
+// How long a cut item fades over: three seconds, or half of what is left of it when that is less, since a
+// fill can be cut to almost nothing and the player cannot fade a buffer as long as the track.
+describe('cutFadeOf', () => {
+    it('is three seconds for a record cut well into it', () => {
+        expect(cutFadeOf({ cueInMs: 1_000, cueOutMs: 200_000, cutAtMs: 90_000 })).toBe(CUT_FADE_MS);
+    });
+
+    it('is half of what is left of a short one', () => {
+        expect(cutFadeOf({ durationMs: 120_000, cutAtMs: 2_000 })).toBe(1_000);
+    });
+
+    it('never asks the player to buffer less than a hard join', () => {
+        expect(cutFadeOf({ durationMs: 120_000, cutAtMs: 100 })).toBe(100);
+    });
+
+    it('is nothing for an item that is not cut', () => {
+        expect(cutFadeOf({ durationMs: 120_000 })).toBeUndefined();
     });
 });

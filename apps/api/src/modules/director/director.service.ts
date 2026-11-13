@@ -3802,6 +3802,9 @@ export class DirectorService {
             playable.push({
                 ...spoken,
                 id: item.id,
+                // A fill in front of a hard marker the order reached early: it plays until the marker's
+                // time and no further, cut by the pusher against what is on air. See `end.by.ts`.
+                ...(item.fillTo === undefined ? {} : { endBy: item.fillTo, fill: true as const }),
                 // Only where the line has no cover of its own, which is what keeps a syndicated
                 // episode's artwork ({@link programmeRundownTrack}) from being replaced by the
                 // picture for whatever kind its band happens to be called. The kind's picture wins

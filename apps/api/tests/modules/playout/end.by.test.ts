@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { cutToEndBy, END_BY_GUARD_MS, nextStartsAt } from '../../../src/modules/playout/end.by.js';
+import { cutToEndBy, END_BY_GUARD_MS, FILL_LEAST_MS, nextStartsAt } from '../../../src/modules/playout/end.by.js';
 import type { NowPlaying, RundownItem } from '../../../src/modules/playout/rundown.js';
 
 const NINE = Date.UTC(2026, 10, 13, 9, 0);
@@ -77,5 +77,30 @@ describe('cutToEndBy', () => {
     it('does not cut a record to less than its own fade, which would be a sting rather than a record', () => {
         const next = record('next', { endBy: NINE - 2 * MINUTE + 1_000 });
         expect(cutToEndBy(next, onAir, 0, now)).toBe(next);
+    });
+});
+
+// A fill takes up the time before a hard marker the order reached early. It is cut however little is left,
+// and to next to nothing when the order has caught up, because played whole it would put the marker late.
+describe('cutToEndBy and a fill', () => {
+    const now = NINE - 5 * MINUTE;
+    const bed = (endBy: number): RundownItem => record('bed', { durationMs: 3 * MINUTE, endBy, fill: true });
+
+    it('plays until the instant, a moment late rather than early', () => {
+        // The item on air ends at 08:58, so a fill to 08:58:40 plays forty seconds.
+        expect(cutToEndBy(bed(NINE - 2 * MINUTE + 40_000), onAir, 0, now).cutAtMs).toBe(40_000 + END_BY_GUARD_MS);
+    });
+
+    it('is cut even when that leaves less than its own fade, unlike a record', () => {
+        expect(cutToEndBy(bed(NINE - 2 * MINUTE + 1_000), onAir, 0, now).cutAtMs).toBe(1_000 + END_BY_GUARD_MS);
+    });
+
+    it('is cut to next to nothing when the order has already reached the instant', () => {
+        expect(cutToEndBy(bed(NINE - 3 * MINUTE), onAir, 0, now).cutAtMs).toBe(FILL_LEAST_MS);
+    });
+
+    it('plays whole only when its recording runs out before the instant, which the planner does not choose', () => {
+        const short = bed(NINE + 10 * MINUTE);
+        expect(cutToEndBy(short, onAir, 0, now)).toBe(short);
     });
 });

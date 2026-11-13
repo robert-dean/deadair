@@ -272,6 +272,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   durationMs?: unknown;
                   dedicates?: unknown;
                   hardAt?: unknown;
+                  fillTo?: unknown;
                   over?: { atMs?: unknown; endOf?: unknown };
                   mixedIn?: unknown;
                   requestId?: unknown;
@@ -316,6 +317,8 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 // A hard marker's time. Without it a restart airs the marker soft and leaves the
                 // record in front of it uncut.
                 ...(typeof line.hardAt === 'number' && Number.isFinite(line.hardAt) ? { hardAt: line.hardAt } : {}),
+                // A fill's end. Without it a restart plays the whole bed and puts the marker behind it late.
+                ...(typeof line.fillTo === 'number' && Number.isFinite(line.fillTo) ? { fillTo: line.fillTo } : {}),
                 // The length an episode was planted with, or the hour it runs projects as nothing
                 // after a restart and the clock behind it is planted an hour early.
                 ...(typeof line.durationMs === 'number' && Number.isFinite(line.durationMs) && line.durationMs > 0

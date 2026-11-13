@@ -157,3 +157,27 @@ describe('projectAirTimes and a hard marker', () => {
         expect(projectAirTimes(items, START, 0)[2]).toBe(START + 8 * MINUTE);
     });
 });
+
+// A fill runs to its instant and no further, whatever its recording's length: it is cut there at hand-over.
+describe('projectAirTimes and a fill', () => {
+    const fill = (fillTo: number): StationLineupItem => ({
+        id: id(),
+        kind: 'segment',
+        state: 'planned',
+        segmentId: id(),
+        durationMs: 3 * MINUTE,
+        fillTo,
+    });
+
+    it('takes exactly the time up to its instant', () => {
+        const items = [track(2 * MINUTE), fill(START + 3 * MINUTE), segment(), track(4 * MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)).toEqual([START, START + 2 * MINUTE, START + 3 * MINUTE, START + 3 * MINUTE]);
+    });
+
+    it('takes no time when the order reaches it after its instant', () => {
+        const items = [track(4 * MINUTE), fill(START + 3 * MINUTE), track(4 * MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)[2]).toBe(START + 4 * MINUTE);
+    });
+});

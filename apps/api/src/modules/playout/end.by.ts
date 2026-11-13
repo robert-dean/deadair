@@ -22,6 +22,12 @@ import { CUT_FADE_MS, type NowPlaying, type RundownItem } from './rundown.js';
 export const END_BY_GUARD_MS = 500;
 
 /**
+ * The least of a fill that is ever played: a tenth of a second, the player's own hard join. Not zero,
+ * because a track the player is told to read nothing of is one it produces nothing for.
+ */
+export const FILL_LEAST_MS = 100;
+
+/**
  * When the item handed over now will start: just after the one on air ends, or now when nothing is.
  *
  * `undefined` when the item on air has no length anybody knows, which is an unmeasured record with no
@@ -53,6 +59,12 @@ export function cutToEndBy(item: RundownItem, onAir: NowPlaying | undefined, ble
 
     const cueIn = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? item.cueInMs : 0;
     const cutAtMs = cueIn + (item.endBy - startsAt) + END_BY_GUARD_MS;
+    // A fill exists only to take up time, so it is cut however little is left, and to next to nothing
+    // when the order has caught up: played whole it would put the marker behind it late.
+    if (item.fill === true) {
+        const fill = { ...item, cutAtMs: Math.max(cueIn + FILL_LEAST_MS, cutAtMs) };
+        return cutOf(fill) === undefined ? item : fill;
+    }
     // Less of the record than its own fade is not a record any more, it is a sting: it plays to its end
     // and the marker behind it is late, which is what a soft marker would have been anyway.
     if (cutAtMs - cueIn < CUT_FADE_MS) return item;

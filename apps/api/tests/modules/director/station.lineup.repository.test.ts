@@ -112,6 +112,8 @@ const items = (): StationLineupItem[] => [
     },
     { id: 'item-break', kind: 'segment', state: 'planned', segmentId: 'seg-break' },
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
+    // A fill keeps its end, or a restart plays the whole bed and puts the marker behind it late.
+    { id: 'item-fill', kind: 'segment', state: 'planned', segmentId: 'seg-bed', segmentKind: 'bed', fillTo: Date.UTC(2026, 10, 13, 9, 0) },
     // A hard marker keeps its time, or a restart airs it soft and leaves the record in front of it uncut.
     {
         id: 'item-on-the-dot',

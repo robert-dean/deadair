@@ -1655,6 +1655,14 @@ thing a cut can take seconds from. `hardAt` rides the lineup row (`station.lineu
 restart keeps it. A link said over a record's end never rides the record in front of a hard marker: the
 marker airs after the cut, not over the record.
 
+**A fill is a recording that runs to an instant and no further** (`StationLineupSegmentItem.fillTo`). It is
+what waiting is made of: planted in front of a hard marker the order reaches early, handed over with `endBy`
+and `fill`, and cut by the pusher at whatever is left, down to a tenth of a second when the order has caught
+up, since a fill played whole puts the marker behind it late. The projection gives it exactly the time it
+fills. Its fade is three seconds or half of what is left, whichever is less: in the pinned image a
+one-second fill told to fade over its whole length never faded, and a two-second one fading over its last
+second fell cleanly to nothing on the cut, with the next item starting on the instant either way.
+
 ## Kinds an operator writes
 
 **A kind of break can be a ROW, and what it costs is that it has no floor.** `deadair.break_kinds`

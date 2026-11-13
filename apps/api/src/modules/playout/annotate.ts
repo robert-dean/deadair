@@ -450,6 +450,21 @@ export function playedCues(
 }
 
 /**
+ * How long a cut item fades out over, or `undefined` when it is not cut.
+ *
+ * {@link CUT_FADE_MS}, or half of what is left of the item when that is less. Half rather than all of it:
+ * measured in the pinned image, a one-second fill stamped to fade over its whole length was never faded at
+ * all, while a two-second one fading over its last second fell cleanly to nothing on the cut. Never less
+ * than {@link HARD_JOIN_MS}, the least the player can be told to buffer.
+ */
+export function cutFadeOf(item: Pick<RundownItem, 'cueInMs' | 'cueOutMs' | 'cutAtMs' | 'durationMs'>): number | undefined {
+    const cut = cutOf(item);
+    if (cut === undefined) return undefined;
+    const start = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? item.cueInMs : 0;
+    return Math.max(HARD_JOIN_MS, Math.min(CUT_FADE_MS, Math.round((cut - start) / 2)));
+}
+
+/**
  * Where a record cut short for a hard marker stops, or `undefined` when it plays to its own end.
  *
  * A cut is honoured only when it is one: inside the audio the player would otherwise read. One at or past
@@ -616,7 +631,8 @@ export function blendOutOf(item: RundownItem, context: AnnotationContext): numbe
     // `radio.liq` fades the buffer and plays the next item after it. The buffer is still this long on
     // BOTH sides, because `cross` buffers the shorter of the two stamps; measured in the pinned image, a
     // cut whose successor was stamped a hard join buffered a tenth of a second and never faded at all.
-    if (cutOf(item) !== undefined) return CUT_FADE_MS;
+    const fade = cutFadeOf(item);
+    if (fade !== undefined) return fade;
     return blendFor(item, context.next, context);
 }
 

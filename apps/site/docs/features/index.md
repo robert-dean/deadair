@@ -7,6 +7,8 @@ description: The seven things a deadair station does, why each is built the way 
 
 deadair is a radio station you run yourself. It picks the records, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result. It plays your music, not its own: it programmes what your provider already gives you, a Spotify account, a YouTube Music account, or a media server you run: Navidrome or another Subsonic server, Jellyfin, Emby, or Plex. There is one mount and one running order, so everybody hears the same thing at the same moment. There is no per-listener shuffle and no skip button. What is on is what is on, and the station decides.
 
+These pages use radio's words for things, because a station is what it runs. If one is new to you, [the glossary](../glossary.md) says what it means here in a sentence or two.
+
 ## It keeps a running order, and one thing owns it
 
 The station works from a forward lineup several hours deep, which you can read and edit, and every item in it carries its own state. It is not a queue topped up behind the listener. Exactly one part of the station writes it: the console, the schedule and the model all send it requests rather than editing it themselves. That is what makes an edit made at 3pm still true at 3.05. What the order is asked to play, hour by hour, is [the programme](./programme.md). See [the running order](./running-order.md).

@@ -1,7 +1,7 @@
 ---
 title: 'Remove an occasion'
 sidebar_label: 'Remove an occasion'
-sidebar_position: 8
+sidebar_position: 13
 mdx:
     format: 'md'
 ---

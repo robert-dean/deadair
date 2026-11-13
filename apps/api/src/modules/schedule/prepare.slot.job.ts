@@ -99,6 +99,7 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             ...(slot.brief ? { brief: slot.brief } : {}),
             ...(slot.era === undefined ? {} : { era: slot.era }),
             ...(slot.moods === undefined ? {} : { mood: slot.moods[0]! }),
+            ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
             broadcast: { mode: slot.mode, slotId },
             // The show has not started, so the broadcast on air is the last one and nothing in it is
             // this show's to seed from. See `SimilarSetGenerator.seeds`.

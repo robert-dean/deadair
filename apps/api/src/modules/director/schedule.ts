@@ -263,6 +263,11 @@ export interface ScheduleSlot {
     /** Whether the show's written breaks air over a music bed. Absent is yes; see `StationLineupRules.beds`. */
     beds?: boolean;
     /**
+     * The festival this slot is built around: its show plays the bill and its host may talk about the
+     * festival from the stored row. Absent is no festival. See `StationLineupRules.festivalId`.
+     */
+    festivalId?: string;
+    /**
      * The days this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *
      * {@link days} still applies inside a range, so "the Fridays in December" is a range and a mask.

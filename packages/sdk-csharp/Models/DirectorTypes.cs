@@ -735,6 +735,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
 
+    /// <summary>The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival</summary>
+    [JsonPropertyName("festivalId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? FestivalId { get; init; }
+
     /// <summary>An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends</summary>
     [JsonPropertyName("albumId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

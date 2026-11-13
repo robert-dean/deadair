@@ -70,7 +70,7 @@ import type {
     MessagingSender,
     OutboundMessage,
 } from './capabilities/messaging.js';
-import type { Concert, ConcertQuery } from './capabilities/concerts.js';
+import type { Concert, ConcertQuery, FestivalListing, FestivalQuery } from './capabilities/concerts.js';
 import type { LyricLine, LyricWord, TrackLyrics } from './capabilities/lyrics.js';
 import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
@@ -282,6 +282,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     WeatherReading: IsJsonSafe<WeatherReading>;
     ConcertQuery: IsJsonSafe<ConcertQuery>;
     Concert: IsJsonSafe<Concert>;
+    FestivalQuery: IsJsonSafe<FestivalQuery>;
+    FestivalListing: IsJsonSafe<FestivalListing>;
     AlmanacQuery: IsJsonSafe<AlmanacQuery>;
     AlmanacSubject: IsJsonSafe<AlmanacSubject>;
     AlmanacEntry: IsJsonSafe<AlmanacEntry>;
@@ -407,6 +409,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'WeatherReading',
     'ConcertQuery',
     'Concert',
+    'FestivalQuery',
+    'FestivalListing',
     'AlmanacQuery',
     'AlmanacSubject',
     'AlmanacEntry',

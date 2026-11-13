@@ -148,6 +148,8 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 ...(mood === undefined ? {} : { mood }),
                 // Not staged: an avoided mood holds for the whole broadcast.
                 ...(lineup.avoidMoods === undefined ? {} : { avoidMoods: lineup.avoidMoods }),
+                // Off the order's rules, for the brief's reason: every refill of the show reads it.
+                ...(lineup.rules.festivalId === undefined ? {} : { festivalId: lineup.rules.festivalId }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // The songs the lineup ALREADY holds, which history knows nothing about: a

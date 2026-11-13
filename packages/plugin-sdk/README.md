@@ -900,6 +900,20 @@ a fact about that artist, so a tribute night or a similarly named band must be d
 **Answer only with what is on.** Leave out anything cancelled, postponed or undated. **An empty list is
 the ordinary answer.** A service that refused throws, for a `weather` plugin's reason.
 
+A concert plugin may also list festivals by name, for an operator adding one to the station's Festivals:
+
+```ts
+async findFestivals(query: FestivalQuery): Promise<FestivalListing[]> {
+    const listings = await this.searchFestivals(query.name, query.from);
+    return listings.map(toFestivalListing); // id, name, startsOn, endsOn, venue, city, url, acts
+}
+```
+
+It is optional, and it is asked only when somebody looks a festival up, never on air. What it answers is
+shown to the operator, who edits it before it is kept, so unlike `getConcerts` it may carry what you are
+unsure of. Leave out what is not on, and leave the festival's own name out of `acts`, since services list
+the festival among its performers. A refusal throws, and the console names the plugin that could not answer.
+
 ## Saying what it is like outside
 
 A `weather` plugin has one method, and the caller supplies the place:

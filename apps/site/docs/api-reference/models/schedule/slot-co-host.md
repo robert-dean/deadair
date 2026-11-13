@@ -1,6 +1,6 @@
 ---
 title: 'SlotCoHost'
-sidebar_position: 11
+sidebar_position: 16
 mdx:
     format: 'md'
 ---

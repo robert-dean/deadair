@@ -43,6 +43,7 @@ public final class Deadair: Sendable {
     public let render: RenderClient
     public let requests: RequestsClient
     public let requestsParty: RequestsPartyClient
+    public let festivals: FestivalsClient
     public let occasions: OccasionsClient
     public let schedule: ScheduleClient
     public let settings: SettingsClient
@@ -97,6 +98,7 @@ public final class Deadair: Sendable {
         self.render = RenderClient(http: http)
         self.requests = RequestsClient(http: http)
         self.requestsParty = RequestsPartyClient(http: http)
+        self.festivals = FestivalsClient(http: http)
         self.occasions = OccasionsClient(http: http)
         self.schedule = ScheduleClient(http: http)
         self.settings = SettingsClient(http: http)

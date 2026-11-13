@@ -267,6 +267,8 @@ export interface BreakRequestInput {
      * offered no talk-up or talk-out budget to aim at. Absent is no bed.
      */
     bedded?: boolean;
+    /** The festival the show is built around, as this break may talk about it. See `break.festival.ts`. */
+    festival?: BreakWriteRequest['festival'];
 }
 
 /**
@@ -437,6 +439,7 @@ export class BreakRequestBuilder {
             ...(occasion === undefined
                 ? {}
                 : { occasion: { words: occasion.words, validFrom: occasion.validFrom, validUntil: occasion.validUntil } }),
+            ...(input.festival === undefined ? {} : { festival: input.festival }),
             ...(mood === undefined ? {} : { mood }),
             // The same instant a fourth time, and the only one of the four nothing is TOLD. The three
             // above are the moment as words, which is what a model can use; this is the moment as a

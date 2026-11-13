@@ -38,6 +38,8 @@ export function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
         // Absent is yes, so only an answer is carried: see `StationLineupRules.beds`.
         ...(slot.beds === undefined ? {} : { beds: slot.beds }),
+        // On the order's rules rather than in a batch, for the brief's reason: `onEnd: 'extend'` keeps asking.
+        ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
         // The same three-way, and absent is the mode's answer: a countdown slot is a setlist that says yes.
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         // A kind of show rather than a station setting, so absent is simply no.

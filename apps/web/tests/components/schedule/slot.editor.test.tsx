@@ -21,6 +21,13 @@ const listCharts = vi.fn();
 const listStationPlaylists = vi.fn(async () => ({ playlists: [] as unknown[] }));
 const readSlotPlaylistPosition = vi.fn(async (_id: string): Promise<{ title?: string; artist?: string }> => ({}));
 const restartSlotPlaylist = vi.fn(async (_id: string) => undefined);
+const FESTIVAL_LIST = {
+    festivals: [
+        { id: 'f-on', name: 'Shaky Knees', startsOn: '2999-05-07', endsOn: '2999-05-09', acts: [], state: 'upcoming' },
+        { id: 'f-over', name: 'Old Fest', startsOn: '2001-05-07', endsOn: '2001-05-09', acts: [], state: 'over' },
+    ],
+};
+const listFestivals = vi.fn(async () => FESTIVAL_LIST);
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -32,6 +39,7 @@ vi.mock('../../../src/api/client', () => ({
             readSlotPlaylistPosition: (id: string) => readSlotPlaylistPosition(id),
             restartSlotPlaylist: (id: string) => restartSlotPlaylist(id),
             listOccasions: () => Promise.resolve({ occasions: [], calendars: [{ calendar: 'hebrew', months: ['Tishri', 'Kislev'] }] }),
+            listFestivals: () => listFestivals(),
         },
     },
 }));
@@ -1038,6 +1046,55 @@ describe('SlotEditor', () => {
         await setupUser().click(box);
         await setupUser().click(screen.getByRole('button', { name: 'Save' }));
         expect(onSubmit.mock.calls[1]![0]).toEqual(expect.objectContaining({ concerts: true }));
+    });
+
+    it('offers the festivals still to come, and sends the one chosen', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        render(
+            <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />,
+        );
+
+        await user.click(await screen.findByRole('combobox', { name: 'Built around a festival' }));
+        expect(await screen.findByRole('option', { name: 'Shaky Knees' })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Old Fest' })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('option', { name: 'Shaky Knees' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ festivalId: 'f-on' }));
+    });
+
+    it('keeps a festival a slot already names, even one that is over, and sends none for a slot with none', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+        const onSubmit = vi.fn();
+        const { unmount } = render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ festivalId: 'f-over' }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        expect(await screen.findByDisplayValue('Old Fest')).toBeInTheDocument();
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ festivalId: 'f-over' }));
+        unmount();
+
+        render(
+            <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />,
+        );
+        await screen.findByRole('combobox', { name: 'Built around a festival' });
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[1]![0]).not.toHaveProperty('festivalId');
     });
 
     it("opens a slot that plays one of the station's own playlists on it, and sends it back alone", async () => {

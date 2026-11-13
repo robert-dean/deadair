@@ -321,6 +321,12 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
         ),
+    festivalId: z
+        .uuid()
+        .optional()
+        .describe(
+            'The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival',
+        ),
     albumId: z
         .uuid()
         .optional()

@@ -39,6 +39,7 @@ import {
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { ShowSoundField } from './show.sound.field';
+import { FestivalField } from './festival.field';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
 import { BLANK_RULE, datesIn, inputOfRule, ruleDraftOf, type RuleDraft } from './occasions.edits';
 import { ResumePlaylistField } from './playlist.resume.field';
@@ -198,6 +199,8 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             // Sent whatever the mode, since a feature that is silent today may be given a host later and
             // the field is only hidden there, not cleared. Nothing at all for the station's own.
             ...writerOrderInput(values.writerOrder),
+            // Sent only when one is chosen: absent is no festival, and PUT replaces the row.
+            ...(values.festivalId === '' ? {} : { festivalId: values.festivalId }),
             mode: values.mode,
             onEnd: values.onEnd,
         };
@@ -399,6 +402,7 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
 
                             <HostField {...form.getInputProps('personaId')} />
                             <ConcertsField {...form.getInputProps('concerts', { type: 'checkbox' })} />
+                            <FestivalField {...form.getInputProps('festivalId')} value={form.values.festivalId} />
 
                             <ShowSoundField slotId={slot?.id} beds={form.getInputProps('beds', { type: 'checkbox' })} />
 
@@ -639,6 +643,8 @@ interface FormValues {
     concerts: boolean;
     /** Whether the show's written breaks air over a music bed. Absent on the slot is yes. */
     beds: boolean;
+    /** The festival this slot is built around, by id. Empty is none. */
+    festivalId: string;
     personaId: string;
     brief: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
@@ -713,6 +719,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         chartPositions: slot?.chartPositions ?? true,
         concerts: slot?.concerts ?? false,
         beds: slot?.beds ?? true,
+        festivalId: slot?.festivalId ?? '',
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',

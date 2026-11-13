@@ -130,6 +130,13 @@ describe('SlotAirService.apply', () => {
         expect(jobs.send).toHaveBeenCalled();
     });
 
+    it('replans when the slot gains a festival, since the bill changes which records are chosen', async () => {
+        const { service, jobs } = build({ slot: { ...church, festivalId: '0a0b0c0d-0000-4000-8000-0000000000f1' } });
+
+        expect((await service.apply(SLOT)).replanning).toBe(true);
+        expect(jobs.send).toHaveBeenCalled();
+    });
+
     it('clears the period and the moods when the slot no longer has them', async () => {
         const { service, director } = build({ slot: { ...church, moods: undefined }, order: onAir({ eraFrom: 1970, eraTo: 1989 }) });
 
@@ -230,6 +237,20 @@ describe('programmeOf and changeFrom', () => {
         });
 
         expect(changeFrom(programme, onAir())).toEqual({});
+    });
+
+    it('carries a festival on the rules, so applying a slot that names one changes the show on air', () => {
+        const festivalId = '0a0b0c0d-0000-4000-8000-0000000000f1';
+        const programme = programmeOf({
+            name: 'Church',
+            brief: 'Sunday service, the Devil’s way.',
+            moods: ['fear', 'anger'],
+            requestShow: true,
+            requestFollowOn: 4,
+            festivalId,
+        });
+
+        expect(changeFrom(programme, onAir()).rules).toMatchObject({ festivalId });
     });
 
     it('treats a reordered mood list as a change, because the moods are stages in order', () => {

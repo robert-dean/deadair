@@ -40,6 +40,7 @@ import {
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 import { nextOccasionDate, occasionRuleFields, occasionRuleOf, type OccasionRule, type OccasionRuleFields } from './occasion.rule.js';
 import { project, stamp, type StationDate } from './schedule.occurrences.js';
+import { FestivalRepository } from './festival.repository.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
 
 /** A week, which is what a schedule page opens on. */
@@ -183,6 +184,8 @@ export class ScheduleService {
         private readonly director: DirectorService,
         // For refusing a guest host who is not a host. Resolved per request like the director above.
         private readonly personas: PersonaRepository,
+        // For refusing a festival that is not there, which the foreign key would answer as a 500.
+        private readonly festivals: FestivalRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -429,6 +432,7 @@ export class ScheduleService {
         const draft = draftOf(body);
         await this.refuseOverlap(draft);
         await this.refusePeople(draft);
+        await this.refuseFestival(draft);
 
         const created = await this.slots.create(draft);
         this.logger.info('schedule: an operator added a slot', { slot: created.id, label: created.label, startsAt: created.startsAtMinutes });
@@ -441,6 +445,7 @@ export class ScheduleService {
         const draft = draftOf(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored));
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
+        await this.refuseFestival(draft);
 
         const updated = await this.slots.update(id, draft);
         if (updated === undefined) throw httpError(404).withDetails({ message: `schedule slot "${id}" does not exist` });
@@ -507,6 +512,18 @@ export class ScheduleService {
                 ? `that overlaps the special "${clash.label || 'another special'}", which is already on then. Two specials cannot be on at once — move the dates or the hours of one of them.`
                 : `that overlaps "${clash.label || 'another slot'}", which is already on then. Two blocks cannot be on at once — take the days they share off one of them.`,
         });
+    }
+
+    /**
+     * A festival named on a slot has to be one this station holds. Refused at the save rather than voided at
+     * the changeover, unlike a host or a playlist, because the festival lives in this database and the
+     * check is one read; a festival removed later clears the slot by its foreign key.
+     */
+    private async refuseFestival(draft: ScheduleSlotDraft): Promise<void> {
+        if (draft.festivalId === undefined) return;
+        if ((await this.festivals.find(draft.festivalId)) === undefined) {
+            throw httpError(400).withDetails({ message: `there is no festival "${draft.festivalId}" on this station` });
+        }
     }
 
     /**
@@ -604,6 +621,7 @@ export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.chartPositions === undefined ? {} : { chartPositions: body.chartPositions }),
         ...(body.concerts === undefined ? {} : { concerts: body.concerts }),
         ...(body.beds === undefined ? {} : { beds: body.beds }),
+        ...(body.festivalId === undefined ? {} : { festivalId: body.festivalId }),
         ...(body.breaks === undefined ? {} : { breaks: body.breaks }),
         ...(body.requestShow === undefined ? {} : { requestShow: body.requestShow }),
         ...(body.requestFollowOn === undefined ? {} : { requestFollowOn: body.requestFollowOn }),
@@ -827,6 +845,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
         ...(slot.beds === undefined ? {} : { beds: slot.beds }),
+        ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),

@@ -27,6 +27,7 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { BreakFestival, BreakFestivalSlot } from './break.festival.js';
 import type { PadUseNote } from '#modules/render/pad.cues.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
@@ -140,6 +141,12 @@ export interface BreakTrack {
      * the reason `concertWindow` gives, so it needs no claim of its own.
      */
     concert?: BreakConcert;
+    /**
+     * This record's artist's place on the bill of the festival the show is built around, on a festival
+     * show's talk break while the festival is still to come or on. Set by `WriteBreakJob` from the
+     * stored bill, so it carries no claim window beyond {@link BreakWriteRequest.festival}'s.
+     */
+    festival?: BreakFestivalSlot;
     /** An album track the station has not aired in months, drawn because of it. Shown as material like {@link chart}. */
     deepCut?: true;
     /**
@@ -743,6 +750,11 @@ export interface BreakWriteRequest {
      * `heldToOccasion`. The floor fills `{{occasion}}` from it and stamps the window when a phrasing says it.
      */
     occasion?: RoughTime;
+    /**
+     * The festival the show is built around, on a talk break while it is still to come or on at the
+     * instant the break is heard. Every word of it is the stored row's. See `break.festival.ts`.
+     */
+    festival?: BreakFestival;
     /**
      * The mood stage of the stretch this break airs in, off the running order's stages. Absent for a
      * broadcast that leans into none.

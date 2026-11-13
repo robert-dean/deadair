@@ -288,6 +288,15 @@ export interface ScheduleSlot {
      */
     resumePlaylist?: boolean;
     /**
+     * Whether a playlist slot airs its playlist in a shuffled order rather than the playlist's own.
+     *
+     * Absent is no, and only `true` is ever stored on a slot read back. Drawn each time the block
+     * opens, including a takeover ending inside it (migration 0137). Overrides {@link resumePlaylist} at the
+     * opening without clearing it: where a playlist got to means nothing in an order drawn fresh each
+     * time. Means nothing for a chart or for a slot with no playlist.
+     */
+    shufflePlaylist?: boolean;
+    /**
      * Whether this special is a booked LIVE SHOW: a presenter taking the air through the live input.
      *
      * Only a special can be one, and it names no source (migration 0121 checks both). It is never IN

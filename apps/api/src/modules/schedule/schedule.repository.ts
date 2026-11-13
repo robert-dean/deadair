@@ -226,6 +226,8 @@ function columnsOf(draft: ScheduleSlotDraft) {
         // Only on a playlist, so a slot whose source moves to a chart does not carry a choice that means
         // nothing there back to the console as though it still applied.
         resumePlaylist: draft.resumePlaylist === true && isPlaylistSource(draft.source),
+        // Only on a playlist, for the same reason.
+        shufflePlaylist: draft.shufflePlaylist === true && isPlaylistSource(draft.source),
         live: draft.live === true,
         enabled: draft.off !== true,
         mode: draft.mode,
@@ -310,6 +312,7 @@ function toSlot(row: {
     yearly: boolean;
     recurrence: unknown;
     resumePlaylist: boolean;
+    shufflePlaylist: boolean;
     live: boolean;
     enabled: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
@@ -368,6 +371,7 @@ function toSlot(row: {
         // The shape check in `0128` is what makes this cast true.
         ...(row.recurrence == null ? {} : { dates: { rule: row.recurrence as OccasionRule } }),
         ...(row.resumePlaylist ? { resumePlaylist: true } : {}),
+        ...(row.shufflePlaylist ? { shufflePlaylist: true } : {}),
         ...(row.live ? { live: true } : {}),
         ...(row.enabled ? {} : { off: true }),
         mode: row.mode,

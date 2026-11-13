@@ -614,6 +614,7 @@ export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...guestHostsOf(body),
         ...coHostsOf(body),
         ...(body.resumePlaylist === true ? { resumePlaylist: true } : {}),
+        ...(body.shufflePlaylist === true ? { shufflePlaylist: true } : {}),
         ...liveOf(body),
         ...(body.enabled === false ? { off: true } : {}),
         mode: body.mode,
@@ -843,6 +844,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
               }),
         // Always sent, false included, so a client reading a slot never has to know what absent means.
         resumePlaylist: slot.resumePlaylist === true,
+        shufflePlaylist: slot.shufflePlaylist === true,
         live: slot.live === true,
         mode: slot.mode,
         onEnd: slot.onEnd,

@@ -169,7 +169,7 @@ the source, which the changeover does anyway, and a chart reads by looking up ev
 
 **A playlist slot can pick its playlist up where it left off, and the place it keeps is in the
 playlist, never in the running order** (migration 0102, `director/playlist.resume.ts`). A playlist slot
-airs its playlist in the playlist's own order, and `sourceTracks` reads it whole at every opening. A long
+airs its playlist in the playlist's own order, and `sourceTracks` reads it whole at every opening. A slot with `shuffle_playlist` (migration 0137) draws that order afresh at each opening instead (`DirectorConsoleService.shuffledOrder`, `playlist.resume.ts`), and skips the resume below, since a place means nothing in an order drawn fresh. A long
 playlist on a short recurring slot therefore aired its first hour every night and never the rest, and an
 operator's takeover ending inside the block was a second opening that started it over mid-show. A slot
 with `resume_playlist` keeps one fact beside it in `schedule_playlist_positions`, one row per slot as a

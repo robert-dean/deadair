@@ -46,6 +46,7 @@ const storedRow = (source: Record<string, string | number | boolean | null>) => 
     endsOn: null,
     yearly: false,
     resumePlaylist: true,
+    shufflePlaylist: true,
     live: false,
     enabled: true,
     mode: 'setlist',
@@ -91,6 +92,7 @@ const draft = (source: ScheduleSlotDraft['source']): ScheduleSlotDraft => ({
     days: [],
     ...(source === undefined ? {} : { source }),
     resumePlaylist: true,
+    shufflePlaylist: true,
     mode: 'setlist',
     onEnd: 'extend',
 });
@@ -132,6 +134,7 @@ describe('ScheduleRepository.update', () => {
         expect(clearsPosition(statements)).toBe(false);
         expect(statements.some(sql => sql.startsWith('delete from "deadair"."schedule_prepared_sets"'))).toBe(true);
         expect(slot?.resumePlaylist).toBe(true);
+        expect(slot?.shufflePlaylist).toBe(true);
     });
 
     it('writes resuming off for a slot whose source is not a playlist, whatever the draft says', async () => {
@@ -144,6 +147,30 @@ describe('ScheduleRepository.update', () => {
         const at = statements.findIndex(sql => sql.startsWith('update'));
         const placeholder = Number(/"resume_playlist" = \$(\d+)/.exec(statements[at] ?? '')?.[1]);
         expect(parameters[at]?.[placeholder - 1]).toBe(false);
+    });
+
+    it('writes shuffling off for a slot whose source is not a playlist, whatever the draft says', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const chart = { sourceChartId: 'deadair.lastfm:top' };
+        const db = fakeDb(storedRow(chart), storedRow(chart), statements, parameters);
+        await new ScheduleRepository(db, new StationIdentity()).update(SLOT, draft({ chartId: 'deadair.lastfm:top' }));
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        const placeholder = Number(/"shuffle_playlist" = \$(\d+)/.exec(statements[at] ?? '')?.[1]);
+        expect(placeholder).toBeGreaterThan(0);
+        expect(parameters[at]?.[placeholder - 1]).toBe(false);
+    });
+
+    it('writes shuffling on for a playlist slot that asks for it', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const db = fakeDb(storedRow(playlist), storedRow(playlist), statements, parameters);
+        await new ScheduleRepository(db, new StationIdentity()).update(SLOT, draft({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }));
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        const placeholder = Number(/"shuffle_playlist" = \$(\d+)/.exec(statements[at] ?? '')?.[1]);
+        expect(parameters[at]?.[placeholder - 1]).toBe(true);
     });
 });
 

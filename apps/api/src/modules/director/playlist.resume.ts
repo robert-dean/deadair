@@ -46,3 +46,19 @@ export function resumeAfter<T extends { title: string; artist: string }>(tracks:
     const from = resumeIndex(tracks, lastKey);
     return [...tracks.slice(from), ...tracks.slice(0, from)];
 }
+
+/**
+ * A playlist's records in a fresh order, for a slot that shuffles its playlist (`shufflePlaylist`).
+ *
+ * Fisher-Yates over a copy, so the caller's list is untouched. `random` is a parameter for the reason
+ * `storiesFor`'s `now` is one: a test can pin the order. Every record is kept, so a shuffled opening
+ * airs the whole playlist, once, in whatever order the draw gives it.
+ */
+export function shuffledOrder<T>(tracks: readonly T[], random: () => number = Math.random): T[] {
+    const out = [...tracks];
+    for (let index = out.length - 1; index > 0; index--) {
+        const other = Math.floor(random() * (index + 1));
+        [out[index], out[other]] = [out[other] as T, out[index] as T];
+    }
+    return out;
+}

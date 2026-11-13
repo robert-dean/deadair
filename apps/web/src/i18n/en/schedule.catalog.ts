@@ -169,6 +169,11 @@ export const schedule = {
             restartFailed: 'It could not be started from the top.',
             unsaved: 'Save the slot to see where it will pick up.',
         },
+        shuffle: {
+            label: 'Shuffle the playlist',
+            description:
+                'Each time this slot opens, the playlist airs in a fresh order, drawn once and kept for that block, rather than in the order the provider lists it. The records are the same; only the order changes. A shuffled slot does not pick its playlist up where it left off.',
+        },
         coHosts: {
             label: 'Co-hosts',
             description:

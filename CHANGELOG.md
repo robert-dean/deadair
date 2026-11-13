@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.98.1] — 2026-11-12
+
+- A listener no longer ends up far behind the Desk after the audio chain stalls. When something held Liquidsoap's streaming loop, it used to produce everything it had missed (up to a minute of it) as one burst afterwards, and every player that received the burst stayed that far behind for the rest of the session, hearing the previous record while the Desk named the next. A stall longer than eight seconds is now dropped instead: it is heard once as a gap and the stream comes back in step. `CLOCK_MAX_LATENCY_S` moves the threshold.
+
 ## [0.98.0] — 2026-11-12
 
 - A band on the format clock can now ask for `trivia`: one fact about the music the station plays, passed on between records. Every fact comes from what the station already knows about its records, each with the published passage that supports it, never from a model's memory. Only music the station has played is used, nothing the operator has disliked or suspended, and the same fact is not offered twice in a week. Without a model the station reads the fact out inside its own phrasings, which are under Voice, Phrasings as "How the station passes on a piece of trivia"; with one, the presenter picks one of six and says it in their own voice, and an answer naming a year the station was never given is declined.
@@ -2023,7 +2027,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.98.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.98.1...HEAD
+[0.98.1]: https://github.com/robert-dean/deadair/compare/v0.98.0...v0.98.1
 [0.98.0]: https://github.com/robert-dean/deadair/compare/v0.97.5...v0.98.0
 [0.97.5]: https://github.com/robert-dean/deadair/compare/v0.97.4...v0.97.5
 [0.97.4]: https://github.com/robert-dean/deadair/compare/v0.97.3...v0.97.4

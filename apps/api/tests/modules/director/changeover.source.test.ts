@@ -1,7 +1,7 @@
 // What a changeover break is about. The property worth pinning is the one judgement the source makes
-// for every writer: whether the host who finished is somebody else. Both sides go through
-// `PersonaRepository.presenting`, so a broadcast that named nobody is compared as the station's default
-// host, which is who actually presented it.
+// for every writer: whether the host who finished is somebody else. A broadcast that named nobody is
+// compared as the station's default host, which is who actually presented it; one that named a host
+// since deleted thanks nobody, since the default never presented it.
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -83,6 +83,14 @@ describe('ChangeoverSource', () => {
         });
         // And one presented by somebody else thanks the default.
         expect((await changeovers.changeoverFor('changeover', {}, persona('p-ruth')))?.outgoing?.id).toBe('p-default');
+    });
+
+    it('thanks nobody, not the station’s own host, when the outgoing host has since been deleted', async () => {
+        const { source: changeovers } = source();
+
+        const change = await changeovers.changeoverFor('changeover', { outgoingPersonaId: 'p-gone', outgoingShow: 'Breakfast' }, persona('p-ruth'));
+
+        expect(change).toEqual({ outgoingShow: 'Breakfast' });
     });
 
     it('thanks nobody on a station with no persona at all', async () => {

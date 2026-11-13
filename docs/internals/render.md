@@ -362,7 +362,10 @@ checksum; a bed is the other way round, an operator's recording with a checksum 
 segment already has. What it must NOT have is a segment's place on the shelf: `readyKinds()` feeds the format
 clock, so a held bed would make "bed" a bookable band, and a band naming it would air a bed on its own between
 two records. So `listReady` and `readyKinds` both exclude `BED_KIND`, and beds are read only through
-`SegmentRepository.listBeds`. The CC0-or-nothing rule in § "Pads" applies unchanged: the image ships no beds.
+`SegmentRepository.listBeds`. The one place a bed airs as an item of its own is in front of a hard marker the
+order reaches early, where it fills the wait and is cut at hand-over to end on the marker's time, never played
+at its full length (see [`breaks.md`](breaks.md) § "Hard markers"). The CC0-or-nothing rule in § "Pads"
+applies unchanged: the image ships no beds.
 
 **The bed is chosen when the break is PLANNED and kept on `segments.bed_segment_id`,** for the pad's
 write-time reason one stage earlier: only the planner knows which show a break airs in (`onAir`, the lineup's

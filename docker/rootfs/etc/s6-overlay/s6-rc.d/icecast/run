@@ -1,5 +1,11 @@
 #!/bin/sh
 # The server the stream is published to.
+#
+# `timeout-kill` beside this file is what makes a restart finish, as it is for the audio chain. On
+# 2026-11-15 a re-rendered config restarted this service, and Icecast closed its listening socket
+# and never exited: the supervisor waited, the config watch waited behind it, and the station was
+# off air until the process was killed by hand. The timeout applies only to a service taken DOWN,
+# which is why the config watch restarts this one down-then-up.
 exec 2>&1
 
 # The config the app renders, or the committed one until it has. A cold station has never had a

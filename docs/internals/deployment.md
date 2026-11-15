@@ -37,13 +37,17 @@ on it airs until the station arms it, and its password is `HARBOR_PASSWORD`, whi
 
 **The API runs its compiled `dist`**, which is what the conditional imports map bought.
 
-**The config watch restarts the two services whose config changed** rather than stopping the container, which
-is the same mechanism doing less damage. **A restart of the audio chain is bounded**: its service carries a
-`timeout-kill` of ten seconds, because on 2026-09-13 a Liquidsoap that had stopped playing also stopped halfway
-through its own shutdown, and a supervisor waiting for a process that will never exit is a restart that never
-finishes. **The timeout applies only to a service taken DOWN**, so the config watch restarts the audio chain with
-`s6-svc -wD -d` then `-wu -u` and never with `-r`: measured against this image's s6-overlay, a service ignoring
-the stop signal survived `-ruwr` indefinitely, with or without the timeout, and `-d` killed it on time. **The
+**The config watch restarts the services whose config changed** rather than stopping the container, which
+is the same mechanism doing less damage. **Every restart it makes is bounded**: Liquidsoap, Icecast and the shim
+each carry a `timeout-kill` of ten seconds, because a supervisor waiting for a process that will never exit is a
+restart that never finishes, and the watch is one loop, so it waits too and misses every later change. On
+2026-09-13 a Liquidsoap that had stopped playing also stopped halfway through its own shutdown. On 2026-11-15 a
+stream setting re-rendered `icecast.xml` and Icecast closed its listening socket without exiting: Liquidsoap was
+refused, playout stood down, and the station was off air for five minutes until the process was killed by hand,
+because only the audio chain had been given the timeout. **The timeout applies only to a service taken DOWN**, so
+the config watch restarts all three with `s6-svc -wD -d` then `-wu -u` and never with `-r`: measured against this
+image's s6-overlay, a service ignoring the stop signal survived `-ruwr` indefinitely, with or without the
+timeout, and `-d` killed it on time. A service added to the watch needs both, the file and the shape. **The
 same watch is how the station asks for the audio chain back**: a new mtime on `/data/streamconfig/liquidsoap.restart`
 restarts Liquidsoap alone, the shim keeping its session. A file already there when the watch starts is history
 rather than a request, and the watch reads nothing but the mtime, so the app never holds the supervisor's

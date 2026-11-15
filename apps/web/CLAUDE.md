@@ -6,6 +6,11 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) is the reference beside this file: every token per theme,
+the status vocabulary, and each shared component's props, states and variants. It says what a piece
+is; this file says why. A change to `theme.ts`, `tokens.css` or `src/components/shared/` updates the
+reference in the same commit.
+
 **The console is a broadcast desk, and the design language is enforced by structure rather than by
 discipline.** `apps/web` is Mantine v9 and nothing else — no CSS-in-JS, no utility framework. The
 system has four parts and each exists because the alternative already went wrong once.

@@ -70,10 +70,11 @@ class PlaybackLog(private val player: Player, private val journal: (String) -> U
         session.onPlayWhenReady(playWhenReady, stopReason(reason))?.let(journal)
     }
 
-    // Why the audio was briefly ducked or held, and when it was let go: a transient audio-focus
-    // loss (another app made a sound) suppresses playback and then clears, and that pair is what
-    // the shared journal needs to show a stream pausing for a notification and coming back on its
-    // own, told apart from a stop the listener pressed. Written to both logcat and the journal.
+    // Why the audio was held, and when it was let go: a transient audio-focus loss (another app
+    // made a sound) suppresses playback and then clears, and that pair is what the shared journal
+    // needs to show a stream pausing for a notification and coming back on its own, told apart from
+    // a stop the listener pressed. A loss that only ducks is a lower volume and never reaches here.
+    // Written to both logcat and the journal.
     override fun onPlaybackSuppressionReasonChanged(reason: Int) {
         write(Log.INFO, "suppression ${suppressionName(reason)}")
     }
@@ -117,6 +118,7 @@ class PlaybackLog(private val player: Player, private val journal: (String) -> U
             when (reason) {
                 Player.PLAYBACK_SUPPRESSION_REASON_NONE -> "none"
                 Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS -> "transient-audio-focus"
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT -> "unsuitable-audio-output"
                 else -> "$reason"
             }
     }

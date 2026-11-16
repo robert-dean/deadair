@@ -50,6 +50,16 @@ sealed interface ReconnectNote {
     data object GaveUpWaiting : ReconnectNote {
         override val line = "policy stop: no network for too long"
     }
+
+    /** Another app held the audio for longer than a voice note or a short video, so the stream was released. */
+    data object GaveUpHeld : ReconnectNote {
+        override val line = "policy stop: held by another app for too long"
+    }
+
+    /** A hold long enough to leave the buffer behind the air ended, so playback went back to live. */
+    data object BackToLive : ReconnectNote {
+        override val line = "policy jump to the live edge: held by another app"
+    }
 }
 
 /**
@@ -105,6 +115,12 @@ class ReconnectPolicy(
     /** The give-up timer of a transient audio-focus loss, or `null` when playback is not held by one. */
     private var suppressed: Cancel? = null
 
+    /** The timer that marks the current hold as [heldLong], or `null` when there is no hold or it already has. */
+    private var holding: Cancel? = null
+
+    /** Whether the current transient audio-focus loss has lasted [STALE_HOLD_MS], so its buffer is behind the air. */
+    private var heldLong = false
+
     /** Whether the phone has a network to reach the station over. Assumed until told otherwise. */
     private var online = true
 
@@ -145,7 +161,7 @@ class ReconnectPolicy(
 
         val waiting = awaitingNetwork != null
         val retrying = pending != null
-        cancel()
+        cancelPending()
         if (!wantsPlay()) return
         when {
             waiting || retrying -> {
@@ -182,7 +198,7 @@ class ReconnectPolicy(
             // moot.
             Player.STATE_READY -> {
                 backoff.reset()
-                cancel()
+                cancelPending()
             }
             // A live stream never ends on purpose, so reaching ENDED is a drop like any other, not
             // a stream that finished normally.
@@ -192,7 +208,7 @@ class ReconnectPolicy(
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         if (playWhenReady) return
-        cancel()
+        cancelPending()
         // A pause the listener pressed already stops through LivePlayer's pause-is-stop override.
         // These two reasons are pauses Media3 makes INTERNALLY (audio focus lost, headphones
         // unplugged) which never reach that override, so the socket (and the audience gate's
@@ -205,37 +221,80 @@ class ReconnectPolicy(
     }
 
     override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
-        suppressed?.invoke()
-        suppressed = null
+        val wasHeldLong = heldLong
+        cancelHold()
         when (playbackSuppressionReason) {
-            Player.PLAYBACK_SUPPRESSION_REASON_NONE -> return
-            // A transient audio-focus loss (a notification, a short video, a nav prompt) is Media3
-            // ducking or holding playback, and it resumes on its own when focus comes back. Stopping
-            // here turned that resume into a permanent stop: the station went quiet whenever another
-            // app made a sound, and stayed quiet. So it is given [TRANSIENT_SUPPRESSION_LIMIT_MS] to
-            // come back, and only a loss that outlasts it (a phone call, say) releases the socket the
-            // audience gate counts as a listener.
-            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS -> {
-                suppressed = schedule(TRANSIENT_SUPPRESSION_LIMIT_MS) {
-                    suppressed = null
-                    cancel()
-                    stop()
+            // A hold that ended. Media3 resumes from the position it held, and the player kept its
+            // buffer through the hold, so after more than a moment that position is behind the air:
+            // the lock screen names the record on air while the listener hears an older one, and an
+            // Icecast mount that stopped reading may have been dropped by the server meanwhile. So a
+            // long hold goes back to live, as a stream that fell behind the live window does; a
+            // notification's second or two is left to play on.
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE -> {
+                if (wasHeldLong && online && wantsPlay()) {
+                    note(ReconnectNote.BackToLive)
+                    toLiveEdge()
                 }
+                return
+            }
+            // A transient audio-focus loss (a notification, a short video, a nav prompt) is Media3
+            // holding playback, and it resumes on its own when focus comes back. A loss that only
+            // asks to duck is a lower volume and never reaches here. Stopping here turned that resume
+            // into a permanent stop: the station went quiet whenever another app made a sound, and
+            // stayed quiet. So it is given [TRANSIENT_SUPPRESSION_LIMIT_MS] to come back, and only a
+            // loss that outlasts it (a phone call, say) releases the socket the audience gate counts
+            // as a listener.
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS -> {
+                holding = schedule(STALE_HOLD_MS) {
+                    holding = null
+                    heldLong = true
+                }
+                suppressed =
+                    schedule(TRANSIENT_SUPPRESSION_LIMIT_MS) {
+                        suppressed = null
+                        cancel()
+                        if (wantsPlay()) {
+                            note(ReconnectNote.GaveUpHeld)
+                            stop()
+                        }
+                    }
                 return
             }
         }
         // Any other suppression (an unsuitable audio route, say) holds a socket open for nobody with
         // no resume coming, which the audience gate counts as a listener the same as an unwanted
         // pause does, so it is released at once.
-        cancel()
+        cancelPending()
         stop()
     }
 
-    /** Drop the pending retry, if there is one, and stop waiting for the network. */
+    /**
+     * Drop the pending retry, if there is one, stop waiting for the network, and forget any hold by
+     * another app: whoever calls this is starting the stream over, and a give-up timer left from
+     * the stream before would stop the new one.
+     */
     fun cancel() {
+        cancelPending()
+        cancelHold()
+    }
+
+    /**
+     * Drop the pending retry and stop waiting for the network, leaving a hold by another app be: a
+     * stream that recovers or moves network while it is held is still held, and still owes a stop
+     * if the hold outlasts [TRANSIENT_SUPPRESSION_LIMIT_MS].
+     */
+    private fun cancelPending() {
         cancelRetry()
         awaitingNetwork?.invoke()
         awaitingNetwork = null
+    }
+
+    private fun cancelHold() {
+        suppressed?.invoke()
+        suppressed = null
+        holding?.invoke()
+        holding = null
+        heldLong = false
     }
 
     private fun cancelRetry() {
@@ -263,7 +322,7 @@ class ReconnectPolicy(
     /** Try the stream again after a wait, for as long as that is worth doing. */
     private fun retryLater() {
         if (!wantsPlay()) {
-            cancel()
+            cancelPending()
             return
         }
         cancelRetry()
@@ -317,5 +376,12 @@ class ReconnectPolicy(
          * station airing to a socket nobody is hearing.
          */
         const val TRANSIENT_SUPPRESSION_LIMIT_MS = 2 * 60_000L
+
+        /**
+         * How long a transient audio-focus loss may hold playback before resuming from the held
+         * position would leave the listener noticeably behind the air. A notification sound is over
+         * well inside it; a voice note is not.
+         */
+        const val STALE_HOLD_MS = 10_000L
     }
 }

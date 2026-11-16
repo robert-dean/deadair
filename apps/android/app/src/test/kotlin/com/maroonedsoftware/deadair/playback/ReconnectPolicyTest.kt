@@ -265,11 +265,37 @@ class ReconnectPolicyTest {
     }
 
     @Test
-    fun `suppression stops`() = runTest {
+    fun `a transient audio-focus loss is left to Media3 to resume`() = runTest {
         var stops = 0
         val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
 
         policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(60_000)
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+        advanceTimeBy(10 * 60_000)
+
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `a transient audio-focus loss that lasts too long stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(2 * 60_000 - 1)
+        assertEquals(0, stops)
+        advanceTimeBy(2)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `any other suppression stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
 
         assertEquals(1, stops)
     }

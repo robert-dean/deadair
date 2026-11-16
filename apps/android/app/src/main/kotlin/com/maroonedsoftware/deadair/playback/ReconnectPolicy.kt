@@ -102,6 +102,9 @@ class ReconnectPolicy(
 ) : Player.Listener {
     private var pending: Cancel? = null
 
+    /** The give-up timer of a transient audio-focus loss, or `null` when playback is not held by one. */
+    private var suppressed: Cancel? = null
+
     /** Whether the phone has a network to reach the station over. Assumed until told otherwise. */
     private var online = true
 
@@ -202,10 +205,28 @@ class ReconnectPolicy(
     }
 
     override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
-        // Suppressed playback (a transient focus loss with no pause, an unsuitable route, ...)
-        // still holds a connected socket open for nobody, which the audience gate counts as a
-        // listener the same as an unwanted pause does.
-        if (playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) return
+        suppressed?.invoke()
+        suppressed = null
+        when (playbackSuppressionReason) {
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE -> return
+            // A transient audio-focus loss (a notification, a short video, a nav prompt) is Media3
+            // ducking or holding playback, and it resumes on its own when focus comes back. Stopping
+            // here turned that resume into a permanent stop: the station went quiet whenever another
+            // app made a sound, and stayed quiet. So it is given [TRANSIENT_SUPPRESSION_LIMIT_MS] to
+            // come back, and only a loss that outlasts it (a phone call, say) releases the socket the
+            // audience gate counts as a listener.
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS -> {
+                suppressed = schedule(TRANSIENT_SUPPRESSION_LIMIT_MS) {
+                    suppressed = null
+                    cancel()
+                    stop()
+                }
+                return
+            }
+        }
+        // Any other suppression (an unsuitable audio route, say) holds a socket open for nobody with
+        // no resume coming, which the audience gate counts as a listener the same as an unwanted
+        // pause does, so it is released at once.
         cancel()
         stop()
     }
@@ -289,5 +310,12 @@ class ReconnectPolicy(
          * playing out of a pocket half an hour after it went quiet is a surprise, not a feature.
          */
         const val OFFLINE_LIMIT_MS = 15 * 60_000L
+
+        /**
+         * How long a transient audio-focus loss may hold playback before the stream is stopped. Long
+         * enough for a voice note or a short video, short enough that a phone call does not keep the
+         * station airing to a socket nobody is hearing.
+         */
+        const val TRANSIENT_SUPPRESSION_LIMIT_MS = 2 * 60_000L
     }
 }

@@ -587,10 +587,10 @@ playout_bed = playout_queue
 # the value is parsed as `sscanf " %f dB"` falling back to `float_of_string` and a bare `-3` would
 # be a linear factor of minus three.
 #
-# It sits after the cue trim and before `normalize` on purpose: the gain is not decided against
+# It sits after the cue trim and before the follower (`playout_follow`) on purpose: the gain is not decided against
 # silence, and the follower is handed audio that is already at the target and has nothing left to do.
 # The trim is no longer an operator to sit after (2.4.5 does it during request resolution), so the
-# ordering that matters here is only the one against `normalize`.
+# ordering that matters here is only the one against the follower.
 #
 # An unmeasured track passes through at 1.0, which is the ordinary case.
 playout_bed = amplify(1., override="liq_amplify", playout_bed)
@@ -656,7 +656,7 @@ playout_bed = amplify(override=null, {playout_fade_gain()}, playout_bed)
 # distance over the threshold divided by the ratio.
 #
 # Placement mirrors the mic chain: AFTER the app's `amplify`, because a threshold only means
-# anything against an input the app has already levelled, and BEFORE `normalize`, which is cut-only
+# anything against an input the app has already levelled, and BEFORE the follower (`playout_follow`), which is cut-only
 # and now sees a break whose peaks are already in order.
 #
 # The threshold and the makeup are the mic chain's too, and so is the reason they are getters: see
@@ -735,8 +735,47 @@ playout_bed = compress(
 # fighting the static gain the way an up-and-down follower would.
 #
 # These numbers can only be judged by listening, and they are a first answer rather than a tuned one.
+#
+# **It is the stdlib follower copied here WITHOUT its `delay_line`, and that is the whole point of the
+# copy.** `normalize` ends in `amplify({v()}, delay_line(lookahead, s))`, and at the default
+# `lookahead=0.` the delay does nothing to the audio but sits between the queue and `cross`, where
+# it lets `cross`'s child clock read the queue faster than real time at every blended boundary. The
+# surplus piles up inside the graph, so the listener falls further behind the queue (and so behind
+# every title, cover and `remainingMs` the app takes from it) by roughly the blend's length at each
+# blend, and only a restart gives it back. Measured on air on 2026-11-15: 2 min 20 s behind the
+# console, every listener alike. Reproduced in the pinned image with 10 s tones and 3 s blends: the
+# decoder finished each one 4 to 6 s apart while `cross` moved on every 7 s, 18 s behind after 12
+# records; with this copy, the two land in the same second. The same zero `delay_line` under
+# `cross` is what made 2.4.6 flap the bed (stream/README.md), so this is not a 2.4.5 quirk.
+#
+# Line for line it is `normalize(target=-13., threshold=-25., up=30., gain_max=0.,
+# track_sensitive=false)` with the stdlib's own defaults for the rest (`down` 0.1 s, `gain_min`
+# -12 dB, a 0.5 s RMS window), and `override=null` on the amplify so a stamp that escaped the strip
+# above could never replace the follower's gain again. Do not put `normalize` back here, and do not
+# add a lookahead: `stream/playout.check.py` fails on either.
+def playout_follow(~target_db, ~threshold_db, ~up_s, ~down_s, ~cut_max_db, ~window_s, s) =
+  measured = rms.smooth(duration=window_s, s)
+  level_now = measured.rms
+  smoothed = source.methods(measured)
+  gain = ref(1.)
+  step = frame.duration()
+  target = lin_of_dB(target_db)
+  threshold = lin_of_dB(threshold_db)
+  lowest = lin_of_dB(cut_max_db)
+  def follow_frame() =
+    level = level_now()
+    if level >= threshold then
+      ease = if gain() * level <= target then up_s else down_s end
+      gain := gain() + (1. - exp(0. - step / ease)) * ((target / level) - gain())
+      gain := max(lowest, min(1., gain()))
+    end
+  end
+  smoothed.on_frame(synchronous=true, follow_frame)
+  amplify(override=null, {gain()}, smoothed)
+end
+
 playout_bed =
-  normalize(target=-13., threshold=-25., up=30., gain_max=0., track_sensitive=false, playout_bed)
+  playout_follow(target_db=-13., threshold_db=-25., up_s=30., down_s=0.1, cut_max_db=-12., window_s=0.5, playout_bed)
 
 # Blend one record into the next.
 #
@@ -747,7 +786,7 @@ playout_bed =
 # record's intro can absorb it. Nothing here decides how long a blend is; this decides what happens
 # during one.
 #
-# Placement: ABOVE `normalize`, so the two records being blended are each already at the station's
+# Placement: ABOVE the follower (`playout_follow`), so the two records being blended are each already at the station's
 # level and the follower is never chasing a mixture. Below the `on_track` handlers, which stay on
 # `playout_queue` and report what the queue did rather than what the listener heard.
 #
@@ -2205,7 +2244,7 @@ harbor.http.register.simple(port=harbor_port, method="POST", "/control/metadata"
 # What must NOT be added alongside it: a loudness normaliser, a stereo widener, a bus compressor.
 # Every one of them reshapes masters that are already mastered, and the station has no editorial
 # claim on how a record sounds. Per-track levelling belongs on the LEAF sources, where the static
-# `amplify` and the `normalize` behind it already sit, so tracks arrive at a consistent level and
+# `amplify` and the follower behind it (`playout_follow`) already sit, so tracks arrive at a consistent level and
 # this stage only has to catch the peaks. The static gain makes that more true rather than less:
 # a limiter fed material that is already at the target reduces less often.
 #

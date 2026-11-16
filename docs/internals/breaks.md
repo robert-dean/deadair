@@ -284,7 +284,12 @@ after a restart, 12s two hours later. A link timed correctly 2s into "Back In Bl
 lines of "Gloryhole", the record before it, because the clock had started 12s before Back In Black could be
 heard. `playout_note_heard` zeroes it where a record's metadata leaves the cross, and the cue waits for that
 record there too. The app's own figures (`startedAt`, the reading's `remainingMs`) still come from the queue
-and run ahead by the same lead; nothing times a cue against them.
+and run ahead by the same lead; nothing times a cue against them. The drift itself had a cause, found on
+2026-11-16: the stdlib `normalize` below `cross` carried a zero-length `delay_line` that let the crossfade
+read the queue faster than real time at every blend, so the lead grew by about a blend's length each time
+(2 min 20 s by 2026-11-15). The follower is now `playout_follow` without it, and the lead holds at the
+buffer `cross` keeps; see `stream/README.md` on the level follower. The cue still starts at the cross's
+output, which is where the listener is either way.
 
 **The window has a start as well as an end: the record before may still be singing under the intro.**
 The talk-up's clock starts as the blend BEGINS, so for the length of the blend the outgoing record's last

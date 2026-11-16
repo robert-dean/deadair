@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.101.1] — 2026-11-16
+
+- Saving a stream setting can no longer leave the station off air behind a stream server that will not stop. The container restarts Icecast when its config changes, and an Icecast that closed its port but never exited used to be waited on for ever, with nothing else restarted or noticed until somebody killed it by hand. Icecast and the track shim are now stopped within ten seconds whatever they do, the way the audio chain already was, and the station comes back on its own.
+
 ## [0.101.0] — 2026-11-13
 
 - The band editor on the schedule page has an "On the dot" switch for a band at a time of day, which makes it a hard marker, and the clock list tags a hard band "on the dot".
@@ -2055,7 +2059,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.101.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.101.1...HEAD
+[0.101.1]: https://github.com/robert-dean/deadair/compare/v0.101.0...v0.101.1
 [0.101.0]: https://github.com/robert-dean/deadair/compare/v0.100.0...v0.101.0
 [0.100.0]: https://github.com/robert-dean/deadair/compare/v0.99.0...v0.100.0
 [0.99.0]: https://github.com/robert-dean/deadair/compare/v0.98.1...v0.99.0

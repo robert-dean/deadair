@@ -8,6 +8,11 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.27.2] — 2026-11-16
+
+- On HLS the record on screen now changes when the new record is heard, not several seconds before. The app reads the titles the station stamps into each HLS segment, as it already did with the MP3 stream's. When a change on HLS never shows up in those titles (the same record twice, or two breaks in a row), the screen still moves on its own, about 20 seconds after the player's buffer runs out. The MP3 stream is unchanged.
+- Playback no longer stops for good when another app briefly takes the sound, such as a notification, a voice note or a short video: it carries on by itself when that app is done, and after anything longer than a few seconds it comes back at what is on air now rather than where it left off. A sound that holds on for more than two minutes, such as a phone call, still stops it, and the playback log now says that was why.
+
 ## [0.27.1] — 2026-11-10
 
 - Catch back up to the station after the stream stalls. Each stall used to leave the app that much further behind for the rest of the session (up to about 30 seconds on HLS, with no limit on MP3); once it is more than eight seconds behind, the app now jumps back to live when the next record starts, never during a break.
@@ -308,7 +313,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.27.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.27.2...HEAD
+[0.27.2]: https://github.com/robert-dean/deadair/compare/android-v0.27.1...android-v0.27.2
 [0.27.1]: https://github.com/robert-dean/deadair/compare/android-v0.27.0...android-v0.27.1
 [0.27.0]: https://github.com/robert-dean/deadair/compare/android-v0.26.2...android-v0.27.0
 [0.26.2]: https://github.com/robert-dean/deadair/compare/android-v0.26.1...android-v0.26.2

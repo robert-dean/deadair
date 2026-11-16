@@ -8,6 +8,7 @@ import androidx.media3.common.Metadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.icy.IcyInfo
+import androidx.media3.extractor.metadata.id3.TextInformationFrame
 import com.maroonedsoftware.deadair.AppGraph
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.Reading
@@ -231,9 +232,22 @@ class PlaybackConductor(
     private val metadataListener =
         object : Player.Listener {
             override fun onMetadata(metadata: Metadata) {
+                var id3Title: String? = null
+                var id3Artist: String? = null
                 for (i in 0 until metadata.length()) {
-                    (metadata.get(i) as? IcyInfo)?.let { gate.onIcyTitle(it.title) }
+                    when (val entry = metadata.get(i)) {
+                        is IcyInfo -> gate.onIcyTitle(entry.title)
+                        // HLS carries no ICY, but Liquidsoap stamps every packed-audio segment with
+                        // ID3 frames, and the player hands them over when THAT segment plays. Without
+                        // this the gate had only the buffer-length guess on HLS and flipped the
+                        // screen to the next record while the old one was still audible.
+                        is TextInformationFrame -> when (entry.id) {
+                            "TIT2" -> id3Title = entry.values.firstOrNull()
+                            "TPE1" -> id3Artist = entry.values.firstOrNull()
+                        }
+                    }
                 }
+                if (id3Title != null) gate.onIcyTitle(listOfNotNull(id3Artist, id3Title).joinToString(" - "))
             }
         }
 

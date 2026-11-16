@@ -236,6 +236,44 @@ class NowPlayingGateTest {
     }
 
     @Test
+    fun `a stream that names its records waits past the buffer for the in-band change`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+        gate.onIcyTitle("Someone - A Song")
+        // The answer the first title's refresh asks for: still the same record.
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+        assertEquals(1, pushes)
+
+        // HLS: the player holds six seconds, but the segmenter adds more it never sees. The buffer
+        // running out is not the record reaching the ears; the ID3 title changing is.
+        gate.onPoll(reading(startedAt = 2_000, title = "Next"), bufferedMs = 6_000)
+        advanceTimeBy(10_000)
+        assertEquals(1, pushes)
+
+        gate.onIcyTitle("Someone - Next")
+        assertEquals(2, pushes)
+    }
+
+    @Test
+    fun `a stream that names its records still falls back to the timer`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+        gate.onIcyTitle("Someone - A Song")
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+
+        // The same title aired twice never changes in-band, so the timer must still release it.
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 6_000)
+        advanceTimeBy(25_999)
+        assertEquals(1, pushes)
+        advanceTimeBy(2)
+        assertEquals(2, pushes)
+    }
+
+    @Test
     fun `an ICY change releases the held reading early`() = runTest {
         var pushed: NowPlaying? = null
         var pushes = 0

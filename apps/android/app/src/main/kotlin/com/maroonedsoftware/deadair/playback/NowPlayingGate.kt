@@ -58,6 +58,15 @@ class NowPlayingGate(
     private var seenFirst = false
     private var lastIcyTitle: String? = null
 
+    /**
+     * The stream has been naming its records in-band (ICY on MP3, ID3 on HLS), so a title change is
+     * coming and the buffer timer is only the fallback for when it does not. `totalBufferedDuration`
+     * is what the PLAYER holds, not how far behind the encoder the ears are: on HLS the segmenter
+     * and the playlist add seconds it never sees, and timing the release off it alone flipped the
+     * screen to the next record while the last one was still playing.
+     */
+    private var inBand = false
+
     /** An ICY change has asked the station for a fresh reading, and the next one is that answer. */
     private var awaitingRefresh = false
 
@@ -131,7 +140,8 @@ class NowPlayingGate(
         held = reading
         heldAired = heard
         cancelPending()
-        pending = schedule((bufferedMs - ageMs).coerceAtLeast(0)) { releaseHeld() }
+        val grace = if (inBand) IN_BAND_GRACE_MS else 0
+        pending = schedule((bufferedMs - ageMs).coerceAtLeast(0) + grace) { releaseHeld() }
     }
 
     /**
@@ -146,6 +156,7 @@ class NowPlayingGate(
      * seconds, when `latest` was at worst three seconds stale and usually already the new record.
      */
     fun onIcyTitle(title: String?) {
+        if (title != null) inBand = true
         if (title == lastIcyTitle) return
         lastIcyTitle = title
         if (!seenFirst) return
@@ -174,6 +185,9 @@ class NowPlayingGate(
      */
     fun cancel() {
         cancelPending()
+        // A format change may swap a mount that names its records for one that does not.
+        inBand = false
+        lastIcyTitle = null
         held = null
         heldAired = null
         lastPushedShown = null
@@ -219,6 +233,11 @@ class NowPlayingGate(
         val show: String?,
         val host: String?,
     )
+
+    private companion object {
+        /** How long past the buffer an in-band stream may take to name the new record. */
+        const val IN_BAND_GRACE_MS = 20_000L
+    }
 
     private fun NowPlaying?.shown() =
         Shown(

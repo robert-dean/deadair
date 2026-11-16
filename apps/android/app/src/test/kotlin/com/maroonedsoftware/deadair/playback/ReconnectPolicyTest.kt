@@ -265,11 +265,137 @@ class ReconnectPolicyTest {
     }
 
     @Test
-    fun `suppression stops`() = runTest {
+    fun `a transient audio-focus loss is left to Media3 to resume`() = runTest {
         var stops = 0
         val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
 
         policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(60_000)
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+        advanceTimeBy(10 * 60_000)
+
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `a transient audio-focus loss that lasts too long stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(2 * 60_000 - 1)
+        assertEquals(0, stops)
+        advanceTimeBy(2)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `the limit starts again with each hold, not from the first of a run`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(90_000)
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(90_000)
+        assertEquals(0, stops)
+        advanceTimeBy(30_001)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `a hold that outlasts the limit is noted before it stops`() = runTest {
+        val notes = mutableListOf<ReconnectNote>()
+        val policy = policy(wantsPlay = { true }, note = { notes += it })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(2 * 60_000 + 1)
+
+        assertEquals(listOf(ReconnectNote.GaveUpHeld), notes)
+    }
+
+    @Test
+    fun `a hold that outlasts the limit stops nothing the listener already stopped`() = runTest {
+        var stops = 0
+        var playing = true
+        val policy = policy(wantsPlay = { playing }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        playing = false
+        advanceTimeBy(2 * 60_000 + 1)
+
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `cancel forgets a hold, so a stream started over is not stopped by the one before`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(100_000)
+        policy.cancel()
+        advanceTimeBy(10 * 60_000)
+
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `a stream that recovers while held is still stopped when the hold outlasts the limit`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        policy.onPlaybackStateChanged(Player.STATE_READY)
+        policy.onNetwork(1L)
+        policy.onNetwork(2L)
+        advanceTimeBy(2 * 60_000 + 1)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `a long hold goes back to live when it ends, and a short one plays on`() = runTest {
+        var jumps = 0
+        val notes = mutableListOf<ReconnectNote>()
+        val policy = policy(wantsPlay = { true }, toLiveEdge = { jumps += 1 }, note = { notes += it })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(2_000)
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+        assertEquals(0, jumps)
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(30_000)
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+
+        assertEquals(1, jumps)
+        assertEquals(listOf(ReconnectNote.BackToLive), notes)
+    }
+
+    @Test
+    fun `a long hold the listener stopped during does not go back to live`() = runTest {
+        var jumps = 0
+        var playing = true
+        val policy = policy(wantsPlay = { playing }, toLiveEdge = { jumps += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+        advanceTimeBy(30_000)
+        playing = false
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+
+        assertEquals(0, jumps)
+    }
+
+    @Test
+    fun `any other suppression stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
 
         assertEquals(1, stops)
     }

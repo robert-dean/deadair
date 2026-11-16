@@ -125,9 +125,15 @@ moment the poll is slower than the buffer. And the display being lit is itself a
 `PlaybackService` registers for `ACTION_SCREEN_ON`/`OFF` and `PlaybackConductor` subscribes to
 `watched` while it is on and playing — because the lock screen, the shade and a car's screen are
 drawn by other processes out of the media session, and none of them is a collector this app can
-count. What stays coarse while the display is off: HLS, which carries no ICY at all, and a sleep
-timer armed for the end of a record that the operator then SKIPS, which fires up to thirty seconds
-late. Both were accepted knowingly; neither is ever what somebody is looking at while it is wrong.
+count. HLS carries no ICY, but Liquidsoap stamps every packed-audio segment with ID3 `TIT2`/`TPE1`
+and Media3 hands them over when that segment plays, so the conductor passes them to the gate's
+`onSegmentTitle` and the same rule holds there. On HLS alone the gate's fallback timer waits 20
+seconds past the buffer, because `totalBufferedDuration` misses the playlist's start offset and any
+stall never made up; on a mount the buffer is the whole delay and gets nothing added, since a change
+that never moves the title (two breaks in a row, both labelled with the station's name) pays that
+wait in full. What stays coarse while the display is off: a sleep timer armed for the end of a
+record that the operator then SKIPS, which fires up to thirty seconds late. Accepted knowingly; it
+is never what somebody is looking at while it is wrong.
 
 **Giving up on the stream means stopping, not standing down.** `ReconnectPolicy` has always had a
 five-minute budget so a listener who walked away from a dead station does not come back to a dead
@@ -215,9 +221,9 @@ thing on every road back.
 is `null` for it and the store keeps nothing, so an install from before it existed that never chose
 is Automatic now and one that chose MP3 keeps it. `chooseMount` plays HLS where the station
 publishes it and MP3 where it does not, and neither is a fallback. The price is HLS's: several
-seconds further behind the live edge, and no ICY title, so with the display dark the lock screen
-moves on the thirty-second poll as described above. Accepted, because a handover that cuts the
-stream is worse than a title that changes late.
+seconds further behind the live edge, and a change that never moves the segments' ID3 title waits
+20 seconds longer to reach the lock screen than it would on a mount. Accepted, because a handover
+that cuts the stream is worse than a title that changes late.
 
 **A listener who fell behind is brought back to live at the next record, because nothing else ever
 would.** HLS plays at a pinned 1.0 (ExoPlayer's catch-up time-stretch is audible on music), so a

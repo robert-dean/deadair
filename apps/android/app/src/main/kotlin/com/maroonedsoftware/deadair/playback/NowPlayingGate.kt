@@ -58,6 +58,21 @@ class NowPlayingGate(
     private var seenFirst = false
     private var lastIcyTitle: String? = null
 
+    /**
+     * The stream names its records in its HLS segments' ID3 frames, so the buffer timer is only the
+     * fallback for a change that never names itself, and it gets [SEGMENT_GRACE_MS] on top.
+     *
+     * HLS only, and that is the point: `totalBufferedDuration` is what the PLAYER holds, which on a
+     * mount really is how far behind the encoder the ears are, so an ICY stream releases on the
+     * buffer exactly as before. On HLS the playlist's start offset and any stall the player never
+     * made up add seconds it never sees, and timing the release off the buffer alone flipped the
+     * screen to the next record while the last one was still playing. A change that does not move
+     * the in-band title at all (the same record twice, two breaks in a row both labelled with the
+     * station's name) still waits for the timer, so the grace is a cost paid on every one of those,
+     * and paying it on a mount would buy nothing.
+     */
+    private var segmentTitled = false
+
     /** An ICY change has asked the station for a fresh reading, and the next one is that answer. */
     private var awaitingRefresh = false
 
@@ -75,8 +90,9 @@ class NowPlayingGate(
     /**
      * A fresh poll reading. `bufferedMs` is the player's own `totalBufferedDuration` at the moment
      * of the poll: however much audio is already sitting in the buffer is exactly how far behind
-     * the poll the listener's ears are, so it is also how long the held reading may wait before
-     * being pushed anyway, ICY title or not.
+     * the poll the listener's ears are on a mount, so it is also how long the held reading may wait
+     * before being pushed anyway, ICY title or not. On HLS it is not the whole delay, and the wait
+     * is [SEGMENT_GRACE_MS] longer: see [segmentTitled].
      *
      * `ageMs` is how long ago that reading was actually TAKEN. It was assumed to be nothing for as
      * long as the poll ran every three seconds no matter what, and then it stopped being nothing:
@@ -117,8 +133,9 @@ class NowPlayingGate(
             return
         }
 
-        // A buffer longer than the poll interval (routine on HLS, which carries no ICY of its own)
-        // means this same moved track is seen again before its release fires. Cancelling and rescheduling on every one of those polls would push the release out
+        // A buffer longer than the poll interval (routine on HLS, and longer still with the segment
+        // grace on top) means this same moved track is seen again before its release fires.
+        // Cancelling and rescheduling on every one of those polls would push the release out
         // by another `bufferedMs` each time and it would never actually happen. So a poll that is
         // still describing the track already held just refreshes the fields that will eventually be
         // pushed, without touching the timer already counting down to that release.
@@ -131,7 +148,8 @@ class NowPlayingGate(
         held = reading
         heldAired = heard
         cancelPending()
-        pending = schedule((bufferedMs - ageMs).coerceAtLeast(0)) { releaseHeld() }
+        val grace = if (segmentTitled) SEGMENT_GRACE_MS else 0
+        pending = schedule((bufferedMs - ageMs).coerceAtLeast(0) + grace) { releaseHeld() }
     }
 
     /**
@@ -165,6 +183,18 @@ class NowPlayingGate(
     }
 
     /**
+     * The title an HLS segment's ID3 frames carry, delivered when THAT segment plays.
+     *
+     * The same decision as [onIcyTitle], and it also marks the stream as one whose release waits
+     * [SEGMENT_GRACE_MS] past the buffer for the title to move: see [segmentTitled] for why only
+     * this path does.
+     */
+    fun onSegmentTitle(title: String?) {
+        if (title != null) segmentTitled = true
+        onIcyTitle(title)
+    }
+
+    /**
      * Drop a pending release, if there is one, and whatever it would have pushed.
      *
      * Also forgets what was last pushed. `PlaybackConductor` calls this right before it sets a
@@ -174,6 +204,9 @@ class NowPlayingGate(
      */
     fun cancel() {
         cancelPending()
+        // A format change may swap HLS for a mount, where the buffer is the whole delay again.
+        segmentTitled = false
+        lastIcyTitle = null
         held = null
         heldAired = null
         lastPushedShown = null
@@ -219,6 +252,15 @@ class NowPlayingGate(
         val show: String?,
         val host: String?,
     )
+
+    private companion object {
+        /**
+         * How long past the buffer an HLS stream may take to name the new record: the playlist's
+         * start offset (three two-second segments) plus the eight seconds of unmade-up stalls
+         * `LiveDrift` lets accumulate before it jumps back to live, with room to spare.
+         */
+        const val SEGMENT_GRACE_MS = 20_000L
+    }
 
     private fun NowPlaying?.shown() =
         Shown(

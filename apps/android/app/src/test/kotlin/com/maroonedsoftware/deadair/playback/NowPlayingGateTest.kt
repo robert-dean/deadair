@@ -236,12 +236,12 @@ class NowPlayingGateTest {
     }
 
     @Test
-    fun `a stream that names its records waits past the buffer for the in-band change`() = runTest {
+    fun `a stream that names its records in its segments waits past the buffer for the change`() = runTest {
         var pushes = 0
         val gate = gate { pushes += 1 }
 
         gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
-        gate.onIcyTitle("Someone - A Song")
+        gate.onSegmentTitle("Someone - A Song")
         // The answer the first title's refresh asks for: still the same record.
         gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
         assertEquals(1, pushes)
@@ -252,17 +252,17 @@ class NowPlayingGateTest {
         advanceTimeBy(10_000)
         assertEquals(1, pushes)
 
-        gate.onIcyTitle("Someone - Next")
+        gate.onSegmentTitle("Someone - Next")
         assertEquals(2, pushes)
     }
 
     @Test
-    fun `a stream that names its records still falls back to the timer`() = runTest {
+    fun `a stream that names its records in its segments still falls back to the timer`() = runTest {
         var pushes = 0
         val gate = gate { pushes += 1 }
 
         gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
-        gate.onIcyTitle("Someone - A Song")
+        gate.onSegmentTitle("Someone - A Song")
         gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
 
         // The same title aired twice never changes in-band, so the timer must still release it.
@@ -271,6 +271,42 @@ class NowPlayingGateTest {
         assertEquals(1, pushes)
         advanceTimeBy(2)
         assertEquals(2, pushes)
+    }
+
+    @Test
+    fun `an ICY stream that does not change its title releases on the buffer alone`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+        gate.onIcyTitle("Deadair")
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+
+        // Two breaks in a row, both labelled with the station's name: the mount's title never
+        // moves, and on a mount the buffer IS the whole delay, so no grace is added to it.
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 6_000)
+        advanceTimeBy(5_999)
+        assertEquals(1, pushes)
+        advanceTimeBy(2)
+        assertEquals(2, pushes)
+    }
+
+    @Test
+    fun `a format change forgets that the segments named their records`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+        gate.onSegmentTitle("Someone - A Song")
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+
+        // HLS to a mount: the next release is timed off the buffer again.
+        gate.cancel()
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 6_000)
+        val afterCancel = pushes
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 6_000)
+        advanceTimeBy(6_001)
+        assertEquals(afterCancel + 1, pushes)
     }
 
     @Test

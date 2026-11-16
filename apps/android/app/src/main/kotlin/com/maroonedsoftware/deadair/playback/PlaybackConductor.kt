@@ -247,7 +247,7 @@ class PlaybackConductor(
                         }
                     }
                 }
-                if (id3Title != null) gate.onIcyTitle(listOfNotNull(id3Artist, id3Title).joinToString(" - "))
+                if (id3Title != null) gate.onSegmentTitle(listOfNotNull(id3Artist, id3Title).joinToString(" - "))
             }
         }
 

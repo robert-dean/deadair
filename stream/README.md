@@ -168,13 +168,13 @@ to the target and landed within 20ms. `radio.liq` therefore sets `settings.decod
 Liquidsoap bump, a `seek mismatch` line against an `.ogg` means this needs checking again.
 
 Then it is **set to the station's level**, from the same measurement: `amplify(override="liq_amplify")`
-sits between the trim and `normalize`, acting on a gain the app resolved before the record was handed
+sits between the trim and the level follower, acting on a gain the app resolved before the record was handed
 over (`apps/api/src/modules/playout/gain.ts`, stamped by `annotate.ts`). Same silent failure as the
 cue keys — the annotation is accepted and ignored without the operator — plus one of its own: the
 value carries a `dB` suffix, and without it Liquidsoap reads the number as a linear factor, so `-3 dB`
 and `-3` differ by the audio being inverted and amplified tenfold.
 
-`normalize` stays, demoted, and **it can only pull down**. It is now what catches records the station
+The level follower stays, demoted, and **it can only pull down**. It is now what catches records the station
 has not measured, and its arguments are set against the one thing a follower reliably gets wrong: a
 fade is a level falling for tens of seconds, which reads as a record that needs lifting, so the
 default follower rides the gain up as the music leaves and makes an ending get louder. `threshold=-25.`
@@ -193,16 +193,30 @@ top of the follower's range and is pulled back down over `down`, a tenth of a se
 smoother behind it is still reading the tail of the record that just ended and so holds it there
 longer. A record following a fade opens at full level, and under a crossfade the swell is the whole
 transition: the outgoing tail rides whatever cut it had earned while the incoming record is mixed in
-with none. `track_sensitive=false` is what makes the sentence true rather than merely written, and the
+with none. `track_sensitive=false` is what makes the sentence true rather than merely written (`playout_follow`
+has no reset at all, which comes to the same thing), and the
 reset it removes is not the safety it looks like, because the only state left to carry is a cut,
 released by `up` over thirty seconds and never inside a fade. When coverage is complete the operator
 comes out entirely and `gain.ts` is the whole level policy.
+
+**The follower is `playout_follow`, a copy of the stdlib `normalize` without its `delay_line`, and it
+has to stay that way.** `normalize` ends in `amplify({v()}, delay_line(lookahead, s))`. At the default
+`lookahead=0.` that delay does nothing to the audio, but under `cross` it lets the crossfade's child
+clock read the queue faster than real time at every blended boundary. The surplus piles up inside the
+graph and is never given back, so the listener falls behind the queue by roughly a blend's length at
+each blend, and everything the app takes from the queue (titles, covers, `remainingMs`, the console)
+runs that far ahead of what is heard. On air on 2026-11-15 every listener, the Icecast mounts and HLS
+alike, was 2 min 20 s behind the console, grown in steps over a day and cleared only by a restart.
+Reproduced against the pinned image with 10 s tones and 3 s blends: the decoder finished each record
+4 to 6 s after the last while `cross` moved on every 7 s, 18 s behind after 12 records. With the copy
+the two land in the same second, and the arguments are the same ones `normalize` was given, with the
+stdlib's defaults for the rest. `playout.check.py` asserts it (see [Checking it](#checking-it)).
 
 `radio.liq` is read once at process start, so a change here needs `docker compose restart liquidsoap`;
 `config-watch.sh` watches `radio.env` and nothing else.
 
 Then one record is **blended into the next**, from the same measurement again: `cross` sits above
-`normalize`, so the two records overlapping are each already at the station's level and the follower
+the follower, so the two records overlapping are each already at the station's level and the follower
 is never chasing a mixture. The length is `min(outgoing.outro, incoming.intro)`, decided by the app
 per boundary (`apps/api/src/modules/playout/crossfade.ts`) and stamped as `liq_cross_duration`. So a
 record that ends cold is barely ridden and one that fades is ridden only as far as the next record's
@@ -384,11 +398,14 @@ python3 stream/voice.check.py --segment break.mp3
 
 `playout.check.py` runs the WHOLE of `radio.liq` rather than an excerpt of it, in the image
 `stream/Dockerfile` pins, so moving the pin is enough to point it at the new version. It takes the
-lease, pushes three records stamped the way the app stamps a hard join, and checks that the first
-one aired, that `cross` analysed both boundaries, and that the script logged a handful of switch
-lines rather than hundreds. Liquidsoap 2.4.6 fails it: the bed flapped on every frame, which took
-the station off air on 2026-10-19 while every excerpt passed (see
-[the version section](#liquidsoap-version-and-what-to-check-after-a-bump)). It needs only Docker
+lease, pushes four records stamped with a three-second blend, and checks that the first one aired,
+that `cross` analysed every boundary, that the script logged a handful of switch lines rather than
+hundreds, that each record's decoder finished within a second of `cross` reaching the boundary out
+of it, and that the boundaries came a record less its blend apart. Liquidsoap 2.4.6 failed the switch count while the follower was `normalize`: the bed
+flapped on every frame, which took the station off air on 2026-10-19 while every excerpt passed (see
+[the version section](#liquidsoap-version-and-what-to-check-after-a-bump)). 2.4.5 failed the last
+one, the decoder leading by about two more seconds at each blend, which was the listener lag of
+2026-11-15 (see the note on `playout_follow`). It needs only Docker
 and `python3`; `--image` tries a candidate before the pin moves:
 
 ```
@@ -426,8 +443,8 @@ reading runs ahead of the listener by whatever is buffered. It is display-only a
 against it, so it is left alone rather than corrected into a second number that could disagree.
 
 The target is in THREE places and they have to agree: `playout.targetLufs` in `deadair.settings`,
-which is what the app gains each record to, and the two `normalize(target=…)` calls here — the
-playout follower and the local music bed — which are what everything unmeasured is pulled toward.
+which is what the app gains each record to, and the two `target=-13` followers here (`playout_follow`
+and the music bed's `normalize`), which are what everything unmeasured is pulled toward.
 Change one and change the others, or the follower spends every record undoing the static gain and
 the fallback bed sits at a different level from the programme.
 
@@ -450,6 +467,7 @@ stage was doing exactly what it was told.
 Two call sites in `radio.liq` had the same latent fault and were made to pass `override=null`
 explicitly: the duck (where the discarded factor was the duck RAMP, so no stamped record ever ducked
 under the voice) and the `VOICE_GAIN_DB` trim in the mic chain (where it was the operator's own knob).
+`playout_follow`, which replaced `normalize` in the playout chain, passes it too, for the same reason.
 The trim has since been retired, and the note it carried stays in the mic chain for whoever adds an
 `amplify` there again.
 
@@ -1145,7 +1163,7 @@ on the mount skipped. The first record went out alongside `cross` reporting
 `End of track reached while buffering next track data` and `Source created multiple tracks in a
 single frame!`.
 
-**The cause is `normalize`'s zero lookahead under `cross`, not the transition.** `normalize` wraps
+**The cause was `normalize`'s zero lookahead under `cross`, not the transition.** `normalize` wraps
 its input in `delay_line(lookahead, …)`, and `lookahead` defaults to 0. A `delay_line(0.)` below
 `cross` makes `cross` ready and not ready on alternate frames on 2.4.6, so the fallback above it
 switches every 20 ms. Narrowed on 2026-10-19 against both images: `request.queue` →
@@ -1159,13 +1177,16 @@ for a zero delay is a single frame, and `cross`'s child clock reads past it. The
 (savonet/liquidsoap#5296) was the first suspect and is not involved: on air the flap began at 11:40:23, the
 moment the first record was ready, and `cross` did not reach its first boundary until 11:42:10, so
 the transition and its `sequence` cannot have started it. That is not filed upstream yet.
-Passing `lookahead=0.02` to `normalize` makes the full script quiet on 2.4.6 (three switch lines
-and both boundaries crossed, against 1,201 lines and none), so that is the change to make with the
-next bump if upstream has not fixed it by then.
+Passing `lookahead=0.02` to `normalize` made the full script quiet on 2.4.6 (three switch lines
+and both boundaries crossed, against 1,201 lines and none). The same zero delay turned out to be
+the listener lag on 2.4.5 too (see the note on `playout_follow` above), and the follower no longer
+has a `delay_line` at all: `playout.check.py` passed its checks against 2.4.6 on
+2026-11-16. Any lookahead would put the delay back, so do not reach for that fix again.
 
 The `.check.py` harnesses all passed on 2.4.6, because each runs an excerpt and none had
 `normalize`, `cross` and the bed fallback in one graph. `playout.check.py` runs the whole script
-and is the one that fails on 2.4.6 (see [Checking it](#checking-it)). Run it before moving the pin.
+and is the one that failed on 2.4.6 until the follower lost its delay (see [Checking it](#checking-it)).
+Run it before moving the pin.
 
 **Liquidsoap logs to stdout and only to stdout**, so every one of those findings needed
 `docker compose logs`. That is a wall for anything without the Docker socket — see

@@ -2,7 +2,7 @@
 
 Every other check here runs an excerpt copied out of radio.liq. This one runs the script itself, in
 the image stream/Dockerfile pins (Docker, no dev stack needed), and drives it the way the app does:
-take the lease on /control/onair, push three records stamped with the hard-join blend, and keep the
+take the lease on /control/onair, push four records stamped with a three-second blend, and keep the
 lease renewed while they play. See stream/README.md.
 
 It exists because Liquidsoap 2.4.6 took the station off air on 2026-10-19 and every excerpt passed.
@@ -10,11 +10,18 @@ From the first record on, `bed` (the fallback over the queue, the music bed and 
 between the queue and the ident on every frame, about 3,000 times a minute, and the mount skipped.
 The cause needs `normalize` and `cross` and the fallback in one graph, which no excerpt had.
 
-Three things must hold, and the third is the one 2.4.6 fails:
+Five things must hold. The third is the one 2.4.6 failed and the fourth the one 2.4.5 failed, both
+until the level follower stopped being the stdlib `normalize`:
 
   aired      the status reading names the first record as on air, so the run tested something
-  crossed    `cross` analysed both boundaries, so the records followed one another through it
+  crossed    `cross` analysed every boundary, so the records followed one another through it
   steady     the script logged a handful of switch lines in the whole run, not hundreds
+  in step    each record's decoder finished within a second of `cross` analysing the boundary out of
+             it. `normalize`'s zero `delay_line` let `cross` read the queue faster than real time at
+             every blend, so the decoder ran further ahead of what aired with each one: two seconds
+             a boundary here, 2 min 20 s on air on 2026-11-15 (see the note on `playout_follow`).
+  on time    consecutive boundaries came a record less its blend apart, so `cross` itself kept real
+             time and could not have hidden a lead by running ahead with its input
 
 `--image savonet/liquidsoap:vX` runs it against a candidate before the pin moves.
 """
@@ -37,13 +44,19 @@ RATE = 44_100
 HERE = os.path.dirname(os.path.abspath(__file__))
 SECRET = "check"
 RECORD_S = 8.0
-RECORDS = 3
-# Long enough for all three records and both boundaries, with a few seconds of ident after the last.
+RECORDS = 4
+# A plain blend, the boundary that let the queue run ahead. A hard join never did.
+BLEND_S = 3.0
+# Long enough for every record and every boundary, with a few seconds of ident after the last.
 RUN_S = RECORDS * RECORD_S + 6
 # 2.4.5 logs seven switch lines across every switch in the script over this run: the boot, the gate
 # opening onto the queue, and the queue running dry after the last record. 2.4.6 logged over a
 # thousand. Anything past this is the bed flapping.
 MAX_SWITCHES = 15
+# The log stamps whole seconds, so in step reads as 0 or 1 here. Running ahead read 2, 4, 6.
+MAX_LEAD_S = 1
+# Consecutive boundaries are a record less its blend apart in real time, give or take the same second.
+BOUNDARY_S = RECORD_S - BLEND_S
 
 
 def pinned_image() -> str:
@@ -91,7 +104,7 @@ def main() -> int:
     port = free_port()
     name = f"deadair-playout-check-{port}"
     with tempfile.TemporaryDirectory() as work:
-        for i, hz in enumerate([400.0, 1300.0, 2700.0][:RECORDS]):
+        for i, hz in enumerate([400.0, 1300.0, 2700.0, 600.0][:RECORDS]):
             tone(os.path.join(work, f"r{i}.wav"), hz, RECORD_S)
         os.makedirs(os.path.join(work, "music"))
         # The defaults the container would boot on, with a secret so the control endpoints answer, an
@@ -128,12 +141,13 @@ def main() -> int:
                         return 1
                     time.sleep(0.5)
 
-            # Stamped as annotate.ts stamps a boundary the station does not blend, which is most of them.
+            # Stamped as annotate.ts stamps a plain blend: the same length on both sides of each boundary.
             for i in range(RECORDS):
+                into = "0.1" if i == 0 else f"{BLEND_S}"
                 control(
                     port,
                     "/control/push",
-                    f'annotate:deadair_item="item{i}",liq_cross_end_duration="0.1",liq_cross_start_duration="0.1",liq_amplify="0 dB":/w/r{i}.wav',
+                    f'annotate:deadair_item="item{i}",liq_cross_end_duration="{BLEND_S}",liq_cross_start_duration="{into}",liq_amplify="0 dB":/w/r{i}.wav',
                 )
 
             end = time.time() + RUN_S
@@ -150,10 +164,28 @@ def main() -> int:
     switches = [line for line in lines if "] Switch to " in line]
     analysed = [line for line in lines if re.search(r"\[cross:\d\] Analysis:", line)]
 
+    def stamp(line: str) -> float:
+        return time.mktime(time.strptime(line[:19], "%Y/%m/%d %H:%M:%S"))
+
+    decoded = [line for line in lines if re.search(r'Decoding "/w/r\d+\.wav" ended', line)]
+    # The k-th record's decoder end against the k-th analysis, which is the boundary out of it.
+    leads = [int(stamp(a) - stamp(d)) for d, a in zip(decoded, analysed)]
+    # And the boundaries themselves keep real time, so a fault that sped up `cross` along with its input
+    # (moving both ends of each lead together) still shows.
+    spacing = [int(stamp(b) - stamp(a)) for a, b in zip(analysed, analysed[1:])]
+
     checks = [
         ("the first record aired", aired),
-        (f"cross analysed both boundaries ({len(analysed)})", len(analysed) >= RECORDS - 1),
+        (f"cross analysed every boundary ({len(analysed)})", len(analysed) >= RECORDS - 1),
         (f"the script switched {len(switches)} times, at most {MAX_SWITCHES}", len(switches) <= MAX_SWITCHES),
+        (
+            f"the decoder and what aired were {leads} s apart, at most {MAX_LEAD_S}",
+            len(leads) >= RECORDS - 1 and all(abs(lead) <= MAX_LEAD_S for lead in leads),
+        ),
+        (
+            f"boundaries came {spacing} s apart, {BOUNDARY_S:g} give or take {MAX_LEAD_S}",
+            len(spacing) >= RECORDS - 2 and all(abs(gap - BOUNDARY_S) <= MAX_LEAD_S for gap in spacing),
+        ),
     ]
     for label, ok in checks:
         print(f"{'PASS' if ok else 'FAIL'}  {label}")

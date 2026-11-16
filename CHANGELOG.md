@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.101.2] — 2026-11-16
+
+- Listeners no longer fall further behind the console with every crossfade. The station's level follower let the
+  crossfade read ahead of real time at each blended boundary, so over a day the audio on every mount and on HLS
+  drifted minutes behind the titles, covers and timings the console shows, until Liquidsoap restarted. The follower
+  now does the same job without that, and the gap stays at the crossfade's own few seconds.
+
 ## [0.101.1] — 2026-11-16
 
 - Saving a stream setting can no longer leave the station off air behind a stream server that will not stop. The container restarts Icecast when its config changes, and an Icecast that closed its port but never exited used to be waited on for ever, with nothing else restarted or noticed until somebody killed it by hand. Icecast and the track shim are now stopped within ten seconds whatever they do, the way the audio chain already was, and the station comes back on its own.
@@ -2059,7 +2066,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.101.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.101.2...HEAD
+[0.101.2]: https://github.com/robert-dean/deadair/compare/v0.101.1...v0.101.2
 [0.101.1]: https://github.com/robert-dean/deadair/compare/v0.101.0...v0.101.1
 [0.101.0]: https://github.com/robert-dean/deadair/compare/v0.100.0...v0.101.0
 [0.100.0]: https://github.com/robert-dean/deadair/compare/v0.99.0...v0.100.0

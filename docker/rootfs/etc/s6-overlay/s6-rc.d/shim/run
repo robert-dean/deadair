@@ -1,5 +1,9 @@
 #!/bin/sh
 # The track shim: what turns a provider's stream into something the audio chain can fetch.
+#
+# `timeout-kill` beside this file bounds a restart, for the reason the audio chain's run script
+# gives: a process that ignores the stop signal is otherwise waited on for ever, and so is the
+# config watch that asked. The config watch restarts this one down-then-up for the same reason.
 exec 2>&1
 
 # The same file the audio chain reads, because the two share the secrets that let them talk to

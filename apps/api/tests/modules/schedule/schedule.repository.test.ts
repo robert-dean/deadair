@@ -36,6 +36,7 @@ const storedRow = (source: Record<string, string | number | boolean | null>) => 
     chartPositions: null,
     concerts: null,
     beds: null,
+    mixFlow: null,
     breaks: null,
     requestShow: null,
     requestFollowOn: null,

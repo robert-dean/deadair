@@ -1650,6 +1650,26 @@ describe("DirectorService moving a resuming slot's place in its playlist", () =>
         }
     });
 
+    it('marks a record a listener asked for, so a mix flow never counts it', async () => {
+        const { director, rundown, history, seed } = build();
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: scheduled, tracks: [track('x'), track('y')] });
+        const first = director.order()!.items.find(item => item.kind === 'track');
+        const line = (director as unknown as { lineup: { all(): { id: string; requestId?: string }[] } }).lineup
+            .all()
+            .find(item => item.id === first?.id);
+        line!.requestId = 'req-1';
+
+        await airNext(rundown);
+        await airNext(rundown);
+
+        expect(vi.mocked(history.record).mock.calls.map(([row]) => [row.item.externalId, row.requested])).toEqual([
+            ['x', true],
+            ['y', undefined],
+        ]);
+    });
+
     it('still records the history row when the place cannot be written', async () => {
         const { director, rundown, positions, history, seed } = build();
         positions.advance.mockRejectedValue(new Error('the database went away'));

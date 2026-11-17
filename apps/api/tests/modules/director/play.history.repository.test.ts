@@ -145,3 +145,27 @@ describe('PlayHistoryRepository.prune', () => {
         expect(PLAY_HISTORY_KEPT_DAYS).toBeGreaterThan(PLAY_HISTORY_RETENTION_DAYS);
     });
 });
+
+describe('PlayHistoryRepository.countedDuringBroadcast', () => {
+    it("answers one broadcast's records oldest first, leaving out the ones a listener asked for", async () => {
+        const captured: Captured = { queries: [] };
+        const late = DateTime.fromISO('2026-11-15T21:00:00Z');
+        const early = DateTime.fromISO('2026-11-15T20:00:00Z');
+        const repository = new PlayHistoryRepository(
+            fakeDb(
+                [
+                    { track_id: 't2', title: 'Two', artist: 'B', aired_at: late },
+                    { track_id: null, title: 'One', artist: 'A', aired_at: early },
+                ],
+                captured,
+            ),
+        );
+
+        expect(await repository.countedDuringBroadcast('b1')).toEqual([
+            { title: 'One', artist: 'A', airedAtMs: early.toMillis() },
+            { trackId: 't2', title: 'Two', artist: 'B', airedAtMs: late.toMillis() },
+        ]);
+        expect(captured.queries[0]!.sql).toMatch(/"broadcast_id" = \$1 and "requested" = \$2/);
+        expect(captured.queries[0]!.parameters.slice(0, 2)).toEqual(['b1', false]);
+    });
+});

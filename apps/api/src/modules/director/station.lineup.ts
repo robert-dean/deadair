@@ -1,3 +1,4 @@
+import type { MixFlow } from '#modules/schedule/types/mix.types.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { randomUUID } from 'node:crypto';
 import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
@@ -402,6 +403,16 @@ export interface StationLineupRules {
      * its next refill and its next break. A festival removed since reads as none.
      */
     festivalId?: string;
+    /**
+     * The show's mix flow: nodes and wires that every record the station proposes is followed down
+     * before it may air, holding it at a block or at a limit it would take past its amount, and adding
+     * records its `require` nodes say are due.
+     *
+     * A show rule for `festivalId`'s reason: it is read where the choice is made and travels through
+     * `reprogramme`. Requests and their follow-ons are never judged by it and never counted. Absent, or a
+     * flow with no nodes, is no flow: the show chooses exactly as it would without one.
+     */
+    mixFlow?: MixFlow;
     /**
      * Whether one record may be blended into the next.
      *

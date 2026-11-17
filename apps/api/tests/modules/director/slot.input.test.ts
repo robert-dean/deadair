@@ -50,3 +50,26 @@ describe('slotInput, for music beds', () => {
         expect(slotInput(slot())).not.toHaveProperty('beds');
     });
 });
+
+describe('slotInput, for a mix flow', () => {
+    const flow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' as const },
+            { id: 'air', kind: 'onAir' as const },
+        ],
+        links: [{ from: 'picks', out: 0, to: 'air', in: 0 }],
+    };
+
+    it("carries a show's flow onto its broadcast and its rules", () => {
+        const input = slotInput(slot({ mixFlow: flow }));
+
+        expect(input.mixFlow).toEqual(flow);
+        expect(rulesAskedFor(input).rules).toEqual({ mixFlow: flow });
+    });
+
+    it('carries no flow for a show with none, or with one that has no nodes', () => {
+        expect(slotInput(slot())).not.toHaveProperty('mixFlow');
+        expect(slotInput(slot({ mixFlow: { version: 1, nodes: [], links: [] } }))).not.toHaveProperty('mixFlow');
+    });
+});

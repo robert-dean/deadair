@@ -173,6 +173,24 @@ export interface TrackStanding {
     suspended: boolean;
 }
 
+/**
+ * A `deadair.tracks` row's band's main genre, as SQL: the first genre its artist's enrichment lists, by
+ * provider id where several have, else the genre the station's model named for a band no provider gave
+ * one (`artist_genre_judgements`, 0145). A provider's genre always wins; the judgement only fills a gap.
+ */
+const mainGenreOfTrack = () => sql<string | null>`coalesce(
+    (
+        select e.data -> 'genres' ->> 0
+        from deadair.artist_enrichment e
+        where e.artist_id = deadair.tracks.artist_id
+          and jsonb_typeof(e.data -> 'genres') = 'array'
+          and coalesce(e.data -> 'genres' ->> 0, '') <> ''
+        order by e.provider
+        limit 1
+    ),
+    (select j.genre from deadair.artist_genre_judgements j where j.artist_id = deadair.tracks.artist_id and j.genre is not null)
+)`;
+
 @Injectable()
 export class CandidatesRepository extends DataRepository {
     /**
@@ -473,6 +491,62 @@ export class CandidatesRepository extends DataRepository {
 
         for (const row of rows) if (row.tags != null && row.tags.length > 0) tags.set(row.trackId, row.tags);
         return tags;
+    }
+
+    /**
+     * Each record's band's MAIN genre: the first genre its artist's enrichment lists, for a show's mix
+     * flow to split and count by.
+     *
+     * The artist's rather than the record's, and the first rather than any, because "is this black metal"
+     * asked of every tag answers yes for Mercyful Fate and Behemoth, whose second tags say so, and a
+     * limit on black metal would then count most of a metal show. Last.fm lists an artist's tags by
+     * weight, so the first is what most listeners call the band; it is the one provider writing ordered
+     * artist genres on the live station (3618 of 4205 artists). Where several providers have, the first
+     * by provider id answers, so the answer does not change from one read to the next.
+     *
+     * A record whose artist has no genres answers with nothing, which a genre split reads as matching no
+     * branch.
+     */
+    async mainGenresFor(trackIds: readonly string[]): Promise<Map<string, string>> {
+        const genres = new Map<string, string>();
+        if (trackIds.length === 0) return genres;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .select('deadair.tracks.id as trackId')
+            .select(mainGenreOfTrack().as('genre'))
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        for (const row of rows) if (row.genre != null) genres.set(row.trackId, row.genre);
+        return genres;
+    }
+
+    /**
+     * A random handful of library records whose band's main genre contains one of `genres`, for a
+     * show's mix flow that requires one (`MixRequireSetGenerator`).
+     *
+     * Loose on purpose, a word anywhere in the main genre, because the caller matches what comes back
+     * with `refinesGenre`, which a SQL copy of would be a second matcher; a loose positive draw is safe
+     * where a loose exclusion is not. The main genre is {@link mainGenresFor}'s, the first its artist's
+     * enrichment lists. Whether a record can air is the resolver's to judge.
+     */
+    async sampleByMainGenre(genres: readonly string[], limit: number): Promise<{ trackId: string; title: string; artist: string; genre: string }[]> {
+        const words = genres.map(genre => genre.trim()).filter(genre => genre.length > 0);
+        if (words.length === 0 || limit <= 0) return [];
+
+        const mainGenre = mainGenreOfTrack();
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist'])
+            .select(mainGenre.as('genre'))
+            .where(mainGenre, 'ilike', sql<string>`any(${sql.val(words.map(word => `%${word.replace(/[%_\\]/g, '')}%`))}::text[])`)
+            .orderBy(sql`random()`)
+            .limit(Math.floor(limit))
+            .execute();
+
+        return rows.flatMap(row => (row.genre == null ? [] : [{ trackId: row.trackId, title: row.title, artist: row.artist, genre: row.genre }]));
     }
 
     /**

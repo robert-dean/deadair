@@ -1,3 +1,4 @@
+import type { MixFlow } from '../../schedule/types/mix.types.js';
 import type { Rating } from '../../catalog/types/catalog.types.js';
 import type { ScriptRating } from '../../render/types/render.types.js';
 
@@ -219,6 +220,8 @@ export interface PutOnAirInput {
     beds?: boolean;
     /** Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no */
     concerts?: boolean;
+    /** The rules this broadcast's records pass before they air: blocks, limits on a genre's share or count, records it requires. The station enforces them on every record it proposes; a listener's request and what follows it are never judged or counted. Absent is no flow */
+    mixFlow?: MixFlow;
     /** The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival */
     festivalId?: string;
     /** An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends */

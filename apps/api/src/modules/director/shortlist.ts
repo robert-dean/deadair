@@ -174,6 +174,7 @@ export class Shortlist {
                     ...(inputs.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: inputs.avoidArtistKeys }),
                     ...(inputs.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: inputs.queuedArtistKeys }),
                     ...(inputs.broadcast === undefined ? {} : { broadcast: inputs.broadcast }),
+                    ...(inputs.mix === undefined ? {} : { mix: inputs.mix }),
                 }),
             );
 

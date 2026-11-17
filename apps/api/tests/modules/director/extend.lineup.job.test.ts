@@ -4,6 +4,8 @@
 // asked for, and must decline politely for every lineup that is not a rotation
 // rather than generating into a Christmas setlist.
 
+import type { MixInForce } from '../../../src/modules/director/mix.flow.js';
+import type { MixFlowReader } from '../../../src/modules/director/mix.flow.reader.js';
 import type { OccasionService } from '../../../src/modules/schedule/occasion.service.js';
 import type { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
@@ -82,6 +84,8 @@ interface Options {
     slotId?: string;
     /** The slot the schedule says is in force. */
     inForce?: ScheduleSlot;
+    /** What the show's mix flow reader answers. Absent is a show with no flow. */
+    mix?: MixInForce;
 }
 
 function build(options: Options & { stationRules?: Record<string, string> } = {}) {
@@ -100,6 +104,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
     });
 
     const schedule = { inForce: vi.fn(async () => options.inForce) } as unknown as ScheduleService;
+    const mixFlow = { read: vi.fn(async () => options.mix) } as unknown as MixFlowReader;
 
     const lineups = {
         load: vi.fn(async () => (options.missing ? undefined : lineup)),
@@ -148,6 +153,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
             station.config,
             schedule,
             { on: vi.fn(async () => undefined) } as unknown as OccasionService,
+            mixFlow,
             contextFor(options.expiresIn),
             container,
             logger,
@@ -190,6 +196,16 @@ describe('ExtendLineupJob', () => {
         await job.run({ count: 5 });
 
         expect(generate.mock.calls[0]![0]!.festivalId).toBe('f1');
+    });
+
+    it("hands the show's mix flow and its counts to the generator and the resolver alike", async () => {
+        const mix: MixInForce = { flow: { version: 1, nodes: [], links: [] }, ctx: { hour: 20, showProgress: 10, counted: [] } };
+        const { job, generate, resolve } = build({ mix });
+
+        await job.run({ count: 5 });
+
+        expect(generate.mock.calls[0]![0]!.mix).toBe(mix);
+        expect((resolve.mock.calls[0] as unknown[])[2]).toMatchObject({ mix });
     });
 
     it('passes the operator’s brief on every refill, not just the first', async () => {

@@ -1,3 +1,4 @@
+import type { MixFlow } from '#modules/schedule/types/mix.types.js';
 /**
  * The station's daypart schedule: which source, which host and which brief, by the wall clock.
  *
@@ -267,6 +268,11 @@ export interface ScheduleSlot {
      * festival from the stored row. Absent is no festival. See `StationLineupRules.festivalId`.
      */
     festivalId?: string;
+    /**
+     * The rules this slot's records pass before they air, as the canvas draws them. Absent is no flow.
+     * See `StationLineupRules.mixFlow`.
+     */
+    mixFlow?: MixFlow;
     /**
      * The days this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *

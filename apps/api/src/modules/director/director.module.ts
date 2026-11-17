@@ -74,6 +74,12 @@ import { SlotPlaylistService } from './slot.playlist.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { RefillPreemption } from './refill.preemption.js';
+import { MixFlowReader } from './mix.flow.reader.js';
+import { ArtistGenreRepository } from './artist.genre.repository.js';
+import { ArtistGenreService } from './artist.genre.service.js';
+import { MixJudgeRepository } from './mix.judge.repository.js';
+import { MixJudgeService } from './mix.judge.service.js';
+import { MixRequireSetGenerator } from './mix.require.set.generator.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { AsRunRepository } from './as.run.repository.js';
 import { RouteRepository } from './route.repository.js';
@@ -135,6 +141,7 @@ export const DirectorModule: ServerKitModule = {
         // Scoped, so a refill or a break reads its show's festival once and the next one reads it fresh.
         registry.register(FestivalBill).useClass(FestivalBill).asScoped();
         registry.register(FestivalSetGenerator).useClass(FestivalSetGenerator).asScoped();
+        registry.register(MixRequireSetGenerator).useClass(MixRequireSetGenerator).asScoped();
         // A SINGLETON among scoped generators, and only because it holds one boolean. The draw
         // below discovers that the advisory policy has left the station nothing to play, and a feed
         // producer writes on edges — so the flag saying "already said this" has to outlive the
@@ -157,6 +164,11 @@ export const DirectorModule: ServerKitModule = {
         // above and for the opposite reason: this says "the refill running in THIS scope was
         // interrupted", and a singleton would let one refill's interruption buy another one a retry.
         registry.register(RefillPreemption).useClass(RefillPreemption).asScoped();
+        registry.register(MixFlowReader).useClass(MixFlowReader).asScoped();
+        registry.register(ArtistGenreRepository).useClass(ArtistGenreRepository).asScoped();
+        registry.register(ArtistGenreService).useClass(ArtistGenreService).asScoped();
+        registry.register(MixJudgeRepository).useClass(MixJudgeRepository).asScoped();
+        registry.register(MixJudgeService).useClass(MixJudgeService).asScoped();
         registry
             .register(SetGenerator)
             .useFactory(
@@ -195,8 +207,12 @@ export const DirectorModule: ServerKitModule = {
                     // A festival show's bill goes ahead of even those, for its share: the show is made
                     // of its bill, and the brief's acts and the model have the rest of the hour. See
                     // `FestivalSetGenerator`.
+                    //
+                    // And what a show's mix flow REQUIRES goes ahead of all of it: a record the show
+                    // has promised is not a share of the hour. See `MixRequireSetGenerator`.
                     new SetGeneratorChain(
                         [
+                            container.get(MixRequireSetGenerator),
                             container.get(FestivalSetGenerator),
                             container.get(BriefArtistSetGenerator),
                             container.get(ModelSetGenerator),

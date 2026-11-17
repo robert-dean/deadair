@@ -48,9 +48,10 @@ and `shared/config.rows.ts` are that, and the rule the whole file keeps is that 
 never in the row: it is merged back exactly once, in memory, so a plugin's own schema can judge a
 form that has one.
 
-**Every kind of call names its models as an ordered list, and nobody has to TYPE one.** The nine
+**Every kind of call names its models as an ordered list, and nobody has to TYPE one.** The eleven
 model settings (the talk break, the set generator, fact extraction, the two lyric passes, the two persona
-passes, the persona writer and productions) are each a `list` with one `model` column whose
+passes, the persona writer, productions, and the two for a show's mix flow: naming a band's genre and judging
+a record) are each a `list` with one `model` column whose
 `optionsFrom: 'llm.models'` the console resolves by asking whichever plugin `llm.pluginId` names for its
 `model` suggestions: the same call that plugin's own settings form makes, so one cache entry serves all of
 them. The console draws them as a list box: the models in the order they are tried, each moved, removed or
@@ -174,7 +175,7 @@ tie-break on duplicate names, which these do not have.
 filters what the registry offers by name, and a name nothing offers right now is simply absent. The mood walk
 (`lyrics/lyric.moods.service.ts`) is the case it exists for: judging one record's mood may search the web
 about that record and has no business with the catalog, the charts or the news, and a model offered all
-seven spends its few steps wandering. It still holds the slot only at `background` priority. The persona
+seven spends its few steps wandering. It still holds the slot only at `background` priority. The genre walk for a show's mix flow (`director/artist.genre.service.ts`, behind `mixFlow.artistGenres`, off) has the same shape and the same one tool: it names a main genre for a band no provider gave one, once per band and instructions, and `programming.md` § "A show's mix flow" says what reads it. So does the judge (`director/mix.judge.service.ts`), which answers the yes-or-no questions a show's judge split has left pending. The persona
 story pass is the other case, narrowed the other way for a different reason: it may look at the station's own
 music and nothing that reads the world, because what it writes can be stored unreviewed (see `personas.md`,
 "The stories"). Both name their tools through the constants exported beside each source (`SEARCH_MUSIC_TOOL`

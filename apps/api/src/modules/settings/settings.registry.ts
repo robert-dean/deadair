@@ -1,3 +1,4 @@
+import { ARTIST_GENRES_DEFAULT, MIX_FLOW_KEYS } from '#modules/director/mix.flow.keys.js';
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_LIVE_AUTOMATION, LIVE_AUTOMATION_KEY } from '#modules/playout/live.automation.js';
@@ -2084,6 +2085,33 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
         help: "Nothing is waiting on a mood, so a slower and more careful model costs you nothing here. List the models to try, in order: the first one that answers is used, and one that fails before answering is passed over for the next, and asked last for a minute after. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: MIX_FLOW_KEYS.artistGenres,
+        label: 'Let a model name a genre for bands that have none',
+        type: 'boolean',
+        default: ARTIST_GENRES_DEFAULT,
+        help: 'A show’s mix flow sorts and counts records by their band’s main genre, the first genre the band’s enrichment lists. Some bands have none, so their records match no genre and slip past a limit on one. With this on, a model names a main genre for each of those bands, once, and the station keeps the answer. A genre from enrichment always wins over it. It runs in the background at the lowest priority, so a talk break always gets the model first.',
+    },
+    {
+        group: 'llm',
+        key: MIX_FLOW_KEYS.genreModel,
+        label: 'Models for naming genres',
+        type: 'list',
+        dependsOn: MIX_FLOW_KEYS.artistGenres,
+        default: '',
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "Nothing is waiting on a band's genre, so a slower and more careful model costs you nothing here. List the models to try, in order: the first one that answers is used. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: MIX_FLOW_KEYS.judgeModel,
+        label: 'Models for a show’s AI judge',
+        type: 'list',
+        default: '',
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "A show's mix flow can ask a model a yes-or-no question about a record, such as whether a pop record is a sinful pop hit. Each record is asked once and the answer kept; a record waits a refill for its answer. List the models to try, in order. Leave the list empty for the plugin's own default.",
     },
     {
         group: 'llm',

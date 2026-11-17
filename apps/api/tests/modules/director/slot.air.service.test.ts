@@ -137,6 +137,24 @@ describe('SlotAirService.apply', () => {
         expect(jobs.send).toHaveBeenCalled();
     });
 
+    it('does not replan a show whose mix flow is unchanged, though the slot and the order each hold their own copy', async () => {
+        const flow = {
+            version: 1,
+            nodes: [
+                { id: 'picks', kind: 'picks' as const },
+                { id: 'air', kind: 'onAir' as const },
+            ],
+            links: [{ from: 'picks', out: 0, to: 'air', in: 0 }],
+        };
+        const { service, jobs } = build({
+            slot: { ...church, mixFlow: flow, callins: true },
+            order: onAir({ rules: { requestShow: true, requestFollowOn: 4, mixFlow: structuredClone(flow) } }),
+        });
+
+        expect((await service.apply(SLOT)).replanning).toBe(false);
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
     it('clears the period and the moods when the slot no longer has them', async () => {
         const { service, director } = build({ slot: { ...church, moods: undefined }, order: onAir({ eraFrom: 1970, eraTo: 1989 }) });
 

@@ -120,6 +120,14 @@ describe('shortlistPrompt', () => {
     });
 });
 
+describe("shortlistPrompt, with a show's mix flow", () => {
+    it('states its limits among the rules', () => {
+        const rule = '- Never Burzum. Name one and it is dropped and something else plays.';
+        const [system] = shortlistPrompt({ count: 2, list: LIST }, { mixRules: [rule] });
+        expect(system!.content).toContain(rule);
+    });
+});
+
 describe('shortlistPrompt, marking what the operator plays elsewhere', () => {
     const userOf = (listening?: string[]): string =>
         shortlistPrompt({ count: 2, list: LIST, ...(listening === undefined ? {} : { listening }) })[1]!.content as string;

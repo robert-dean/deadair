@@ -1,3 +1,4 @@
+import { budgetLeft, mixBudgetSentences } from './mix.flow.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
@@ -366,6 +367,8 @@ export class ModelSetGenerator extends SetGenerator {
         // Off, or a brief it cannot serve yet, and the model searches exactly as it did before.
         // Read per refill like the rest. Off, the prompt is word for word what it was before reasons.
         const reasons = settingIsOn(this.config, MODEL_GENERATOR_KEYS.reasons, MODEL_REASONS_DEFAULT);
+        // The show's mix flow's limits, told to the model for the per-artist cap's reason: see `mixBudgetSentences`.
+        const mixRules = inputs.mix === undefined ? [] : mixBudgetSentences(budgetLeft(inputs.mix.flow, inputs.mix.ctx));
         const list = settingIsOn(this.config, MODEL_GENERATOR_KEYS.shortlist, MODEL_SHORTLIST_DEFAULT)
             ? await this.shortlist.build(inputs, reach)
             : undefined;
@@ -404,6 +407,7 @@ export class ModelSetGenerator extends SetGenerator {
                           // about without the history to check it against, and it is judged at the resolver.
                           cleanOnly: demandsClean(advisoryPolicy(this.config)),
                           maxPerArtist: inputs.rules.maxPerArtist,
+                          ...(mixRules.length === 0 ? {} : { mixRules }),
                           ...(reasons ? { reasons } : {}),
                           ...(this.similarity.canNameTagged() ? { tagSearch: true } : {}),
                       },
@@ -420,6 +424,7 @@ export class ModelSetGenerator extends SetGenerator {
                       {
                           station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                           maxPerArtist: inputs.rules.maxPerArtist,
+                          ...(mixRules.length === 0 ? {} : { mixRules }),
                           ...(reasons ? { reasons } : {}),
                       },
                   );

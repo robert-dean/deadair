@@ -18,3 +18,4 @@ paths:
 - A break is disposable and a record is not: a failed segment is skipped, a cold record is held.
 - `COMMIT_LEAD` and `PLAYOUT_LEAD` move together, and Liquidsoap's `prefetch` comes from the same constant.
 - No decoding, mixing or encoding happens in Node. Liquidsoap does it; check a `.liq` edit with `liquidsoap --check` (`stream/README.md`).
+- A show's mix flow is judged in `PickResolver`, LAST, on the batch in airing order. A request and its follow-ons are never judged (they resolve with `keepOrder` and get no flow) and never counted (`play_history.requested`). A new slot field that changes which records are chosen goes in `slotInput`, `rulesAskedFor` and `CHOICE_RULES`. `docs/internals/programming.md` § "A show's mix flow".

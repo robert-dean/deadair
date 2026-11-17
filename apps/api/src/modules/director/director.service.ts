@@ -4095,6 +4095,10 @@ export class DirectorService {
         // Off the running order rather than the shared holder, because this one CAN say which
         // broadcast without asking: the record that just aired came out of this order.
         const broadcastId = this.lineup?.broadcastId;
+        // Off the order's own line for this record, which is the only place that knows it was asked
+        // for: a mix flow never counts a request or what a request show played after one.
+        const line = this.lineup?.all().find(candidate => candidate.id === item.id);
+        const requested = line?.kind === 'track' && (line.requestId !== undefined || line.followsRequestId !== undefined);
 
         void inScope(this.container, async scope =>
             scope.get(PlayHistoryRepository).record({
@@ -4102,6 +4106,7 @@ export class DirectorService {
                 source,
                 stationKey: this.identity.stationKey,
                 ...(broadcastId === undefined ? {} : { broadcastId }),
+                ...(requested ? { requested } : {}),
             }),
         ).catch(error =>
             // One lost row costs a little accuracy in the repeat window. Nothing about

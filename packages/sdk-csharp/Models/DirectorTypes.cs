@@ -735,6 +735,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
 
+    /// <summary>The rules this broadcast's records pass before they air: blocks, limits on a genre's share or count, records it requires. The station enforces them on every record it proposes; a listener's request and what follows it are never judged or counted. Absent is no flow</summary>
+    [JsonPropertyName("mixFlow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MixFlow? MixFlow { get; init; }
+
     /// <summary>The festival this broadcast is built around, from `GET /festivals`. It plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival</summary>
     [JsonPropertyName("festivalId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

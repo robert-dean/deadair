@@ -1,3 +1,6 @@
+import { holdMixFlow, judgeKey, judgeQuestions, walkRecord, type MixInForce, type MixRecord } from './mix.flow.js';
+import { MixJudgeRepository } from './mix.judge.repository.js';
+import { mixRecordOf } from './mix.flow.context.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
@@ -121,11 +124,18 @@ export interface ScreenCandidate {
 }
 
 /** A resolved track with its keys still attached, so the last rule can be applied to it. */
-type Airable = RundownTrack & RotationCandidate;
+type Airable = RundownTrack & RotationCandidate & { mixEntry?: string };
 
 /** Drop the keys again. They are a rotation concern and a rundown item has no business carrying them. */
-const toRundownTrack = ({ songKey: _song, artistKey: _artist, creditKey: _credit, acts: _acts, rating: _rating, ...track }: Airable): RundownTrack =>
-    track;
+const toRundownTrack = ({
+    songKey: _song,
+    artistKey: _artist,
+    creditKey: _credit,
+    acts: _acts,
+    rating: _rating,
+    mixEntry: _entry,
+    ...track
+}: Airable): RundownTrack => track;
 
 /**
  * Turning a chosen track into something the station can actually air.
@@ -198,6 +208,8 @@ export class PickResolver {
         // that decides what airs: a repeat the floor let back in that this then drops never aired.
         private readonly repeatWatch: RepeatWatch,
         private readonly identity: StationIdentity,
+        // The model's stored answers to a show's judge splits, and where an unanswered one is asked for.
+        private readonly judgements: MixJudgeRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -263,6 +275,12 @@ export class PickResolver {
             keepOrder?: boolean;
             /** The broadcast these picks are for, which a mode- or slot-scoped never-play rule is judged against. */
             broadcast?: PickBroadcast;
+            /**
+             * The show's mix flow and its counts so far, judged LAST, on the batch in the order it will
+             * air: a record a block or a limit holds is left out. Never passed with `keepOrder` or
+             * `overrule`, which is how a request and its follow-ons are exempt. See `holdMixFlow`.
+             */
+            mix?: MixInForce;
             /**
              * A listener insisted on this record after the station turned it down, so judge it by the
              * three things nobody at the radio can overrule and nothing else: a never-play rule, a
@@ -373,6 +391,8 @@ export class PickResolver {
                 ...(pick.deepCut === true ? { deepCut: true as const } : {}),
                 // Why the model picked it, for the as-run log and nothing else. See `pick.reason.ts`.
                 ...(pick.pickedBecause === undefined ? {} : { pickedBecause: pick.pickedBecause }),
+                // Which `require` node asked for it, so the flow walks it from there. Stripped by `toRundownTrack`.
+                ...(pick.mixEntry === undefined ? {} : { mixEntry: pick.mixEntry }),
             });
         }
 
@@ -389,7 +409,81 @@ export class PickResolver {
         // keeps one artist off their own heels, and this keeps their second record a cooldown after
         // the first rather than two records after it. Not for `keepOrder` either: a countdown, a
         // request and a mixed-in record are placed rather than programmed, and keep the order given.
-        return holdArtistCooldown(spaceArtists(resolved, seedArtistKey), rules.artistCooldownMinutes, recordSpacingLength, want).map(toRundownTrack);
+        const spaced = holdArtistCooldown(spaceArtists(resolved, seedArtistKey), rules.artistCooldownMinutes, recordSpacingLength, want);
+        if (options.mix === undefined || spaced.length === 0) return spaced.map(toRundownTrack);
+        // Last of all, on the order the batch will air in, because a limit counts as it goes: the
+        // third black metal record is held because of the two in front of it.
+        return (await this.holdForMix(spaced, options.mix)).map(toRundownTrack);
+    }
+
+    /** {@link resolve}'s last step: the batch without what the show's mix flow holds. See `holdMixFlow`. */
+    private async holdForMix(batch: readonly Airable[], mix: MixInForce): Promise<Airable[]> {
+        const read = await this.mixRecordsFor(batch, mix);
+        const records = batch.map((entry, index) => ({
+            entry,
+            ...read[index]!,
+            ...(entry.trackId === undefined ? {} : { trackId: entry.trackId }),
+            ...(entry.mixEntry === undefined ? {} : { mixEntry: entry.mixEntry }),
+        }));
+        const { kept, held, gaveWay } = holdMixFlow(records, mix);
+        if (held.length > 0 || gaveWay) {
+            this.logger.debug("director: the show's mix flow held some chosen tracks", {
+                offered: batch.length,
+                kept: kept.length,
+                held: held.map(({ record, at }) => `${record.artist}: ${record.title} at ${at}`),
+            });
+        }
+        if (gaveWay)
+            this.logger.warn("director: the show's mix flow would have held every record in a batch; its limits gave way", { kept: kept.length });
+        await this.askLater(
+            mix,
+            held.map(({ record, at }) => ({ record, at })),
+        );
+        return kept.map(record => record.entry);
+    }
+
+    /**
+     * The flow's view of some records: each one's band's main genre, release year and the model's stored
+     * answers to the flow's questions. A read that fails costs what it read and never the batch: a flow
+     * that cannot read genres still holds by band, and a judge with no answers holds what it asks about.
+     */
+    private async mixRecordsFor(
+        items: readonly { title: string; artist: string; trackId?: string; year?: number }[],
+        mix: MixInForce,
+    ): Promise<MixRecord[]> {
+        const trackIds = items.flatMap(item => (item.trackId === undefined ? [] : [item.trackId]));
+        const questions = judgeQuestions(mix.flow).map(question => question.key);
+        const [genres, judged] = await Promise.all([
+            this.candidates.mainGenresFor(trackIds).catch(error => {
+                this.logger.warn('director: could not read main genres for the mix flow', { error: errorText(error) });
+                return new Map<string, string>();
+            }),
+            questions.length === 0 || trackIds.length === 0
+                ? Promise.resolve(new Map<string, Map<string, boolean>>())
+                : this.judgements.answersFor(trackIds, questions).catch(error => {
+                      this.logger.warn("director: could not read the model's answers for the mix flow", { error: errorText(error) });
+                      return new Map<string, Map<string, boolean>>();
+                  }),
+        ]);
+        return items.map(item => ({ ...mixRecordOf(item, genres, judged), ...(item.year === undefined ? {} : { year: item.year }) }));
+    }
+
+    /** Write a pending question for each record held at a judge split for want of an answer, so `MixJudgeJob` asks. */
+    private async askLater(mix: MixInForce, held: readonly { record: MixRecord & { trackId?: string }; at: string }[]): Promise<void> {
+        const byQuestion = new Map<string, { question: string; trackIds: Set<string> }>();
+        for (const { record, at } of held) {
+            const node = mix.flow.nodes.find(candidate => candidate.id === at);
+            if (node?.kind !== 'split' || node.splitBy !== 'judged' || node.question === undefined || record.trackId === undefined) continue;
+            const key = judgeKey(node.question);
+            const entry = byQuestion.get(key) ?? { question: node.question, trackIds: new Set<string>() };
+            entry.trackIds.add(record.trackId);
+            byQuestion.set(key, entry);
+        }
+        for (const [key, { question, trackIds }] of byQuestion) {
+            await this.judgements.askLater(key, question, [...trackIds]).catch(error => {
+                this.logger.warn("director: could not ask the model about records the mix flow's judge held", { error: errorText(error) });
+            });
+        }
     }
 
     /**
@@ -545,9 +639,15 @@ export class PickResolver {
             broadcast?: PickBroadcast;
             /** How many the caller needs, which the queued artists and the window give way to. */
             want: number;
+            /**
+             * The show's mix flow, so a record it would hold now is not offered: each judged on its own
+             * against the counts so far, since nothing has been chosen to count yet. `resolve` judges the
+             * chosen batch in order.
+             */
+            mix?: MixInForce;
         },
     ): Promise<T[]> {
-        const { era, avoidSongKeys, avoidArtistKeys, queuedArtistKeys, broadcast, want } = options;
+        const { era, avoidSongKeys, avoidArtistKeys, queuedArtistKeys, broadcast, want, mix } = options;
         const keyed = candidates
             .map((candidate, index) => ({
                 candidate,
@@ -570,7 +670,22 @@ export class PickResolver {
 
         const offered = [...ownedLeft, ...namedLeft].sort((left, right) => left.index - right.index);
         const uncapped = { ...rules, maxPerArtist: 0, maxPerAlbum: 0 };
-        return (await this.holdWindows(offered, uncapped, recent, queuedArtistKeys, want, false)).map(entry => entry.candidate);
+        const windowed = (await this.holdWindows(offered, uncapped, recent, queuedArtistKeys, want, false)).map(entry => entry.candidate);
+        if (mix === undefined || windowed.length === 0) return windowed;
+        const read = await this.mixRecordsFor(windowed, mix);
+        const walks = windowed.map((candidate, index) => ({
+            candidate,
+            record: { ...read[index]!, ...(candidate.trackId === undefined ? {} : { trackId: candidate.trackId }) },
+            walk: walkRecord(mix.flow, read[index]!, mix.ctx),
+        }));
+        const open = walks.filter(entry => entry.walk.heldAt === undefined).map(entry => entry.candidate);
+        // What a judge held for want of an answer is asked about now, so it can be offered next refill.
+        await this.askLater(
+            mix,
+            walks.flatMap(entry => (entry.walk.heldAt === undefined ? [] : [{ record: entry.record, at: entry.walk.heldAt }])),
+        );
+        // Never narrower than nothing: a flow that would hold the whole list leaves it to `resolve`.
+        return open.length > 0 ? open : windowed;
     }
 
     /**

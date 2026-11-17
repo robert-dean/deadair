@@ -1,3 +1,4 @@
+import { hasMixFlow } from './mix.flow.shape.js';
 import { Container, Injectable } from 'injectkit';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
@@ -100,6 +101,10 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             ...(slot.era === undefined ? {} : { era: slot.era }),
             ...(slot.moods === undefined ? {} : { mood: slot.moods[0]! }),
             ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
+            // The show's mix flow with nothing counted yet: its opening is its start, in its first hour.
+            ...(hasMixFlow(slot.mixFlow)
+                ? { mix: { flow: slot.mixFlow, ctx: { hour: Math.floor(slot.startsAtMinutes / 60), showProgress: 0, counted: [] } } }
+                : {}),
             broadcast: { mode: slot.mode, slotId },
             // The show has not started, so the broadcast on air is the last one and nothing in it is
             // this show's to seed from. See `SimilarSetGenerator.seeds`.

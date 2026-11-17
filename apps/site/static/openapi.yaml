@@ -11270,6 +11270,9 @@ components:
                 concerts:
                     type: boolean
                     description: "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no"
+                mixFlow:
+                    '$ref': '#/components/schemas/MixFlow'
+                    description: "The rules this broadcast's records pass before they air: blocks, limits on a genre's share or count, records it requires. The station enforces them on every record it proposes; a listener's request and what follows it are never judged or counted. Absent is no flow"
                 festivalId:
                     type: string
                     format: uuid
@@ -17434,6 +17437,196 @@ components:
                     description: 'The plugins that were asked and could not answer, so an empty list is not read as nothing being on'
             required: [listings]
             description: 'What looking a festival up found, soonest first'
+        MixFlow:
+            type: object
+            properties:
+                version:
+                    type: integer
+                    minimum: 1
+                    maximum: 1
+                    description: 'The shape of this document. 1'
+                nodes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MixNode'
+                    maxItems: 64
+                links:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MixLink'
+                    maxItems: 128
+                    description: 'The wires'
+            required: [version, nodes, links]
+            description: "A show's mix flow: nodes and the wires between them, as the console's canvas draws them. Records enter at the one `picks` node and leave at the one `onAir` node; a record the station proposes is followed down the wires, and the first node that holds it (a `block`, or a limit it would take past its amount) keeps it off the air. `require` nodes add a record when they fall due. A record a listener asked for, and what follows it, is never judged and never counted"
+        MixLink:
+            type: object
+            properties:
+                from:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'The node the wire leaves'
+                out:
+                    type: integer
+                    minimum: 0
+                    maximum: 9
+                    description: 'Which of its outputs: 0 for every node but a `split`, whose outputs are its branches in order and then "everything else". Each output takes one wire, and every record output has to lead somewhere: a loose one would drop records without a word'
+                to:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'The node the wire enters'
+                in:
+                    type: integer
+                    minimum: 0
+                    maximum: 9
+                    description: "Which of its inputs: 0 is records for every node but `merge`, whose four inputs are 0 to 3 and take as many wires as reach them; a `limitShare`'s input 1 takes a number, from a `timeSwitch`, in place of its own `percent`"
+            required: [from, out, to, in]
+            description: "A wire from one node's output to another node's input, by socket number from 0"
+        MixNode:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'Unique in the flow'
+                kind:
+                    type: string
+                    enum:
+                        - picks
+                        - onAir
+                        - block
+                        - split
+                        - limitShare
+                        - limitCount
+                        - noRepeat
+                        - merge
+                        - require
+                        - timeSwitch
+                    description: '`picks` is what the station proposes and `onAir` what may air. `block` keeps the named bands off. `split` sends each record down the first branch it matches. `limitShare` and `limitCount` hold records past an amount of what has passed through them. `noRepeat` holds a record when the last record aired also passed through it. `merge` joins wires. `require` adds a record when due. `timeSwitch` is a number that changes at an hour'
+                bands:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    maxItems: 50
+                    description: '`block`: the bands it keeps off, matched by name, ignoring case'
+                splitBy:
+                    type: string
+                    enum: [genre, artist, decade, hour, showProgress, lastGenre, judged]
+                    description: '`split`: what it reads. `genre` is the band''s main genre, which matches a branch''s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch''s range. `judged` is the model''s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked'
+                branches:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MixBranch'
+                    maxItems: 8
+                    description: '`split`: its outputs in order, before the last output, "everything else"'
+                question:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: '`split` by `judged`: what the model is asked about each record, once'
+                percent:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                    description: '`limitShare`: at most this percent of the counted records in each `per` may pass through it. A number wired into its input 1 wins over this'
+                count:
+                    type: integer
+                    minimum: 0
+                    maximum: 1000
+                    description: '`limitCount`: at most this many records in each `per` may pass through it'
+                per:
+                    type: string
+                    enum: [show, hour]
+                    description: '`limitShare` and `limitCount`: what the amount is counted over. Absent is `show`'
+                requireGenres:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    maxItems: 4
+                    description: '`require`: the main genres that satisfy it'
+                requireMode:
+                    type: string
+                    enum: [any, each]
+                    description: '`require`: `any` is due until one record of any of `requireGenres` has aired in the show, `each` until one of each has. Absent is `any`'
+                songs:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MixSong'
+                    maxItems: 20
+                    description: '`require`: the records it adds, the one aired longest ago first. Absent or empty adds a library record of a required genre'
+                afterPercent:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                    description: '`require`: not due before this percent of the show has gone. Absent is 0'
+                fromHour:
+                    type: integer
+                    minimum: 0
+                    maximum: 23
+                    description: "`timeSwitch`: the hour on the station's clock it changes at"
+                thenValue:
+                    type: number
+                    minimum: 0
+                    maximum: 1000
+                    description: '`timeSwitch`: its value from `fromHour` to the end of the show'
+                elseValue:
+                    type: number
+                    minimum: 0
+                    maximum: 1000
+                    description: '`timeSwitch`: its value before `fromHour`'
+                fromBrief:
+                    type: string
+                    maxLength: 200
+                    description: 'The phrase of the brief this node was drafted from, shown on the canvas. Nothing reads it'
+                x:
+                    type: number
+                    description: 'Where the canvas draws it. Nothing else reads it'
+                y:
+                    type: number
+            required: [id, kind]
+            description: 'One node on the canvas. `kind` says what it is and which of the fields beside it count'
+        MixBranch:
+            type: object
+            properties:
+                values:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    maxItems: 20
+                    description: 'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`'
+                min:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                    description: 'The lowest it matches, for `hour` and `showProgress`, inclusive'
+                max:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                    description: 'The highest, exclusive'
+            description: 'One output of a `split`'
+        MixSong:
+            type: object
+            properties:
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                artist:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                    description: 'Who made it: a record is found by title and artist together'
+            required: [title, artist]
+            description: 'A record a `require` node may add'
         Occasion:
             type: object
             properties:
@@ -17725,6 +17918,9 @@ components:
                 concerts:
                     type: boolean
                     description: "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no"
+                mixFlow:
+                    '$ref': '#/components/schemas/MixFlow'
+                    description: "The rules this stretch of the day's records pass before they air, drawn as a flow of nodes and wires: blocks, limits on a genre's share or count, records it requires. The station enforces them itself, on every record it proposes, which a brief cannot promise. Absent or with no nodes is no flow, and the show plays exactly as it would without one. A rewrite that leaves it out keeps what the slot had"
                 festivalId:
                     type: string
                     format: uuid

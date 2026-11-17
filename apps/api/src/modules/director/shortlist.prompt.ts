@@ -42,6 +42,8 @@ export interface ShortlistPromptRequest {
 export interface ShortlistPromptSettings {
     station?: string;
     maxPerArtist?: number;
+    /** The show's mix flow's limits and blocks as rule lines. See `SetPromptSettings.mixRules`. */
+    mixRules?: readonly string[];
     /** Ask for a short reason beside each record (`llm.setReasons`). Absent asks for numbers alone, exactly as before. */
     reasons?: boolean;
 }
@@ -67,6 +69,7 @@ function systemPrompt(settings: ShortlistPromptSettings): string {
         '- Choose from the list to fit what the operator asked for, and answer with the NUMBERS of the records you chose.',
         '- Spread the records across as many different artists as the list allows, and never put two by the same artist next to each other.',
         ...(cap !== undefined && cap > 0 ? [`- At most ${cap} record${cap === 1 ? '' : 's'} by any one artist will be used.`] : []),
+        ...(settings.mixRules ?? []),
         '- Records marked "like" an artist are neighbours of the acts the operator named. Use them to vary the hour, not to replace those acts.',
         '- Order them so the set flows: think about what follows what.',
         '- If the operator asks for a particular record or a style the list does not have, you may search for it with search_music and add it as',

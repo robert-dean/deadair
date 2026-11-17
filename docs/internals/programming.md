@@ -564,6 +564,90 @@ lean on for a few hours, one per station, read by talk breaks, changeovers and b
 calls. It lives beside the steer on the console's rules tab and is described in `docs/internals/breaks.md`
 § "The talk direction".
 
+## A show's mix flow
+
+**Amounts in a brief reach only the model, and the model cannot keep count.** "Black metal only now and
+then" and "a rare sinful pop hit" in the Church show's brief were read by the model, which chooses part of
+each refill (`BriefArtistSetGenerator` takes 40% from the acts the brief names with no model at all), plans
+one batch at a time and never sees a running count. Over five Sundays the show aired black metal on about a
+quarter of its plays and its gospel line nothing. A **mix flow** is what the station enforces itself: a show's
+rules as nodes and wires (`schedule/mix.types.ck`, `schedule_slots.mix_flow`, 0143), carried onto the
+broadcast's rules (`StationLineupRules.mixFlow`) the way a festival is.
+
+**The record is followed down the wires, one at a time** (`director/mix.flow.ts`, `walkRecord`). It enters at
+Picks; a Split sends it down the first branch it matches, else "everything else"; a Block holds a named band;
+a Limit share or Limit count holds it when it would take the records that passed through that node past the
+node's amount, per show or per hour; No two in a row holds it when the last counted record passed through the
+same node; a Merge joins wires; reaching On air means it may air. A Split reads the band's main genre, the
+artist, the decade, the hour, how far through the show it is, the genre of the last record, or the model's
+answer to a question. A Time switch is a number rather than a record path: wired into a Limit share's input 1,
+it gives that limit one share before an hour and another from it, and wins over the node's own `percent`.
+Every node is a pure test on the record and the counts, so one function serves the resolver, the shortlist
+and the counts themselves. **A limit's group is whatever passed through
+it**, and the counts come from replaying the show's aired and queued records through the flow as it is now
+(`countThrough`), each in the hour and at the point in the show it aired, so a flow edited mid-show counts
+the show so far by its new wiring. A record a Require added is replayed from Picks, since the history does
+not say which node added it, so once it is queued it counts against the limits it skipped. The first record of a
+group is always let through, so 10% is a share and never a ban on a show that has aired nothing yet.
+`mixFlowProblems` (`schedule/mix.flow.validate.ts`) refuses at the save anything that would not run as drawn:
+a loose output, which would drop records without a word; a circle; a wire joining records to a number; a node
+missing what it needs.
+
+**A record's genre is its BAND'S MAIN genre**, the first its artist's enrichment lists
+(`CandidatesRepository.mainGenresFor`), matched with `refinesGenre` so "Norwegian black metal" is black metal.
+Not every tag, because "is this black metal" asked of every tag answers yes for Mercyful Fate and Behemoth,
+whose second tags say so, and a limit on black metal would then count most of a metal show. The cost is the
+other direction: Behemoth is death metal to a flow (Last.fm's first tag), and a flow author who disagrees
+splits by artist. A band no provider gave a genre matches no genre branch, unless the genre walk has named
+it one: with `mixFlow.artistGenres` on, `ArtistGenreJob` has the model name a main genre for each such band,
+led by what is about to air, and `mainGenresFor` falls back to it (`artist_genre_judgements`, 0145). A
+provider's genre always wins, so the walk only ever fills a gap; 587 of 4205 live artists had none on
+2026-11-17.
+
+**What counts, and what never does.** `play_history.requested` (0144) marks a record a listener asked for and
+what a request show played after one, written off the running order's own line when the record airs, and
+`countedDuringBroadcast` leaves them out; the queued half of the counts leaves out lines with `requestId` or
+`followsRequestId` too. A request and its follow-ons are also never JUDGED: they resolve with `keepOrder` and
+are handed no flow. A listener who asks for a black metal record has not used up the show's black metal.
+
+**Held at the resolver, last, on the batch in the order it will air** (`PickResolver.holdForMix`, after the
+artist cooldown), each kept record counted before the next is judged so one batch cannot take a share twice.
+A held record is simply not in the batch; the order asks again when it runs short. It fails open in one case:
+when the flow would hold every record in a batch that had some, the limits give way and the log says so,
+because a show starved into silence by its own amounts is worse than one over them. A record is given back
+only if it reaches On air with the limits lifted, so a Block anywhere on its path still holds it; a record
+waiting for the judge's answer is given back only when lifting the limits alone gives back nothing, which is
+the one way a record can air before its answer.
+**The model is told the budget**, as it is told the per-artist cap and for the same reason: `budgetLeft` says
+what each limit and block allows now and `mixBudgetSentences` words it ("No more records (main genre black
+metal) this hour. Any you name are dropped"), into both `setPrompt` and `shortlistPrompt`; and `screen` leaves
+off the shortlist a record the flow would hold now. `MixFlowReader` reads the counts for a refill and
+a replan; a read that fails costs that batch its flow and never the batch. A prepared opening is judged with
+nothing counted.
+
+**A judge split asks the model what a tag cannot say.** Tags say a record is pop; nothing in the catalog
+says it is the "sinful pop hit" a brief meant. A split with `splitBy: judged` carries a yes-or-no `question`, and the
+walk sends a record down the branch its STORED answer names (`mix_judgements`, 0146, keyed by `judgeKey`, a
+hash of the normalised question, so two shows asking the same thing share answers). **A record with no
+answer yet is held at the split** and the picker writes the question pending (`MixJudgeRepository.askLater`,
+from both `resolve` and the shortlist); `MixJudgeJob` answers pending rows every five minutes at background
+priority, the web search its one tool, and "could not place it" is kept as no. The cost is that a record waits
+a refill for its first answer, the same spirit as a band with no genre matching none: nothing airs on a guess,
+and the model is never asked anything on air. Nothing is asked unless an operator drew a judge, so it has no
+switch of its own; `llm.judgeModel` says which models answer. Not built: asking ahead of a show's start for
+the records its flow is likely to meet, so its first refill has answers to read.
+
+**A Require node is a promise, so its record goes FIRST** (`MixRequireSetGenerator`, ahead of the festival
+and the brief's acts in the chain). A prose "rare pop hit" produced one pop record in five Sundays; a require
+node is due once the show is past its `afterPercent` and nothing counted satisfies it (`dueRequirements`:
+`any` of its genres, or `each` in turn, or one of its listed records when it names no genre), and the
+generator adds one record per due node: of its listed records the one aired longest ago and not already
+queued, else a library record whose band's main genre refines one wanted (`sampleByMainGenre`, a loose
+positive draw matched precisely in code). The pick names its node (`TrackPick.mixEntry`), and the resolver
+walks it FROM THAT NODE, so wiring decides what judges a required record: wired into Merge it skips the
+show's limits, and a Block downstream still holds it. A requirement whose record did not air is still due next
+refill, because nothing in the show satisfied it.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

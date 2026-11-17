@@ -195,6 +195,17 @@ export interface DeadairArtistEnrichment {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairArtistGenreJudgements {
+  artistId: string;
+  failures: Generated<number>;
+  genre: string | null;
+  judgedAt: DateTime | null;
+  lastError: string | null;
+  retryAfter: DateTime | null;
+  updatedAt: Generated<DateTime>;
+  version: string;
+}
+
 export interface DeadairArtistRecords {
   album: string | null;
   artist: string;
@@ -547,6 +558,20 @@ export interface DeadairMetricSamples {
   sum: number;
 }
 
+export interface DeadairMixJudgements {
+  answer: boolean | null;
+  createdAt: Generated<DateTime>;
+  failures: Generated<number>;
+  judgedAt: DateTime | null;
+  lastError: string | null;
+  question: string;
+  questionKey: string;
+  retryAfter: DateTime | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+  version: string | null;
+}
+
 export interface DeadairNarrationPieces {
   airedAt: DateTime | null;
   artworkUrl: string | null;
@@ -878,6 +903,7 @@ export interface DeadairPlayHistory {
   externalId: string;
   id: Generated<string>;
   pluginId: string;
+  requested: Generated<boolean>;
   songKey: string;
   source: Generated<string>;
   stationKey: Generated<string>;
@@ -1067,6 +1093,7 @@ export interface DeadairScheduleSlots {
   label: Generated<string>;
   live: Generated<boolean>;
   maxPerArtist: number | null;
+  mixFlow: Json | null;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
   moods: string[] | null;
@@ -1481,6 +1508,7 @@ export interface DB {
   "deadair.albumSources": DeadairAlbumSources;
   "deadair.artAssets": DeadairArtAssets;
   "deadair.artistEnrichment": DeadairArtistEnrichment;
+  "deadair.artistGenreJudgements": DeadairArtistGenreJudgements;
   "deadair.artistRecords": DeadairArtistRecords;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
@@ -1508,6 +1536,7 @@ export interface DB {
   "deadair.messagingIdentities": DeadairMessagingIdentities;
   "deadair.messagingLinkCodes": DeadairMessagingLinkCodes;
   "deadair.metricSamples": DeadairMetricSamples;
+  "deadair.mixJudgements": DeadairMixJudgements;
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;

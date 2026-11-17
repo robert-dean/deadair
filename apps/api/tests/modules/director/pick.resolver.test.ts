@@ -6,6 +6,9 @@ import { DateTime } from 'luxon';
 // track and not a gap on the mount.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { MixJudgeRepository } from '../../../src/modules/director/mix.judge.repository.js';
+import { judgeKey } from '../../../src/modules/director/mix.flow.js';
+import type { MixFlow } from '../../../src/modules/schedule/types/mix.types.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
@@ -109,6 +112,8 @@ interface Options {
     years?: Record<string, number>;
     /** Artist keys `dislikedArtistKeys` answers with, for a record the library does not hold. */
     dislikedArtists?: string[];
+    /** The model's stored answers per track id, by question key. */
+    answers?: Record<string, Record<string, boolean>>;
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -119,10 +124,21 @@ const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: num
 });
 
 function build(options: Options = {}) {
+    const judgements = {
+        answersFor: vi.fn(
+            async (trackIds: readonly string[]) =>
+                new Map(trackIds.flatMap(id => (options.answers?.[id] === undefined ? [] : [[id, new Map(Object.entries(options.answers[id]!))]]))),
+        ),
+        askLater: vi.fn(async () => {}),
+    } as unknown as MixJudgeRepository & { askLater: ReturnType<typeof vi.fn> };
     const blockRules = { list: vi.fn(async () => options.blockRules ?? []) } as never;
     const candidates = {
         knownActs: vi.fn(async (acts: readonly string[]) => new Set(acts.filter(act => (options.knownActs ?? []).includes(act)))),
         tagsFor: vi.fn(async (trackIds: readonly string[]) => new Map(trackIds.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
+        // The first of a track's tags stands in for its band's main genre.
+        mainGenresFor: vi.fn(
+            async (trackIds: readonly string[]) => new Map(trackIds.flatMap(id => (options.tags?.[id]?.[0] ? [[id, options.tags[id]![0]!]] : []))),
+        ),
         bindingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, TrackBinding>();
             for (const id of trackIds) {
@@ -244,9 +260,11 @@ function build(options: Options = {}) {
             activity,
             repeatWatch,
             new StationIdentity(),
+            judgements,
             config,
             logger,
         ),
+        judgements,
         repeatWatch,
         candidates,
         tracks,
@@ -1798,5 +1816,110 @@ describe('PickResolver.screen', () => {
 
         expect(await resolver.screen([], windows(), { want: 5 })).toEqual([]);
         expect(history.songKeysSince).not.toHaveBeenCalled();
+    });
+});
+
+describe("PickResolver with a show's mix flow", () => {
+    const flow: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'block', kind: 'block', bands: ['Burzum'] },
+            { id: 'split', kind: 'split', splitBy: 'genre', branches: [{ values: ['black metal'] }] },
+            { id: 'count', kind: 'limitCount', count: 1, per: 'show' },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'block', in: 0 },
+            { from: 'block', out: 0, to: 'split', in: 0 },
+            { from: 'split', out: 0, to: 'count', in: 0 },
+            { from: 'count', out: 0, to: 'merge', in: 0 },
+            { from: 'split', out: 1, to: 'merge', in: 1 },
+            { from: 'merge', out: 0, to: 'air', in: 0 },
+        ],
+    };
+    const ids = ['bm-1', 'heavy', 'bm-2', 'burzum'];
+    const built = () =>
+        build({
+            bindings: Object.fromEntries(ids.map(id => [id, binding(id)])),
+            metadata: {
+                'bm-1': { title: 'Freezing Moon', credit: 'Mayhem' },
+                heavy: { title: 'Holy Diver', credit: 'Dio' },
+                'bm-2': { title: 'I Am the Black Wizards', credit: 'Emperor' },
+                burzum: { title: 'Dunkelheit', credit: 'Burzum' },
+            },
+            tags: { 'bm-1': ['black metal'], heavy: ['heavy metal'], 'bm-2': ['Norwegian black metal'], burzum: ['black metal'] },
+        });
+    const picks: TrackPick[] = [
+        { title: 'Freezing Moon', artist: 'Mayhem', trackId: 'bm-1' },
+        { title: 'Holy Diver', artist: 'Dio', trackId: 'heavy' },
+        { title: 'I Am the Black Wizards', artist: 'Emperor', trackId: 'bm-2' },
+        { title: 'Dunkelheit', artist: 'Burzum', trackId: 'burzum' },
+    ];
+
+    it('leaves out what the flow holds, counting the batch as it goes', async () => {
+        const { resolver } = built();
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { mix: { flow, ctx: { hour: 20, showProgress: 0, counted: [] } } });
+        expect(resolved.map(track => track.trackId).sort()).toEqual(['bm-1', 'heavy']);
+    });
+
+    it("walks a required record from its own node, so wired into Merge it skips the flow's limit", async () => {
+        const { resolver } = built();
+        const required = {
+            ...flow,
+            nodes: [...flow.nodes, { id: 'need', kind: 'require' as const, requireGenres: ['black metal'] }],
+            links: [...flow.links, { from: 'need', out: 0, to: 'merge', in: 2 }],
+        };
+        const resolved = await resolver.resolve([picks[0]!, { ...picks[2]!, mixEntry: 'need' }], OPEN_RULES, {
+            mix: { flow: required, ctx: { hour: 20, showProgress: 0, counted: [] } },
+        });
+        expect(resolved.map(track => track.trackId).sort()).toEqual(['bm-1', 'bm-2']);
+        expect(resolved.every(track => !('mixEntry' in track))).toBe(true);
+    });
+
+    it('judges nothing by it when the caller keeps the order, as a request does', async () => {
+        const { resolver } = built();
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { keepOrder: true });
+        expect(resolved).toHaveLength(4);
+    });
+});
+
+describe("PickResolver with a show's judge split", () => {
+    const question = 'a sinful pop hit?';
+    const flow: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'judge', kind: 'split', splitBy: 'judged', question, branches: [{ values: ['yes'] }] },
+            { id: 'block', kind: 'block', bands: ['Nobody'] },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'judge', in: 0 },
+            { from: 'judge', out: 0, to: 'merge', in: 0 },
+            { from: 'judge', out: 1, to: 'block', in: 0 },
+            { from: 'block', out: 0, to: 'merge', in: 1 },
+            { from: 'merge', out: 0, to: 'air', in: 0 },
+        ],
+    };
+
+    it('airs an answered record, holds an unanswered one and asks about it for next time', async () => {
+        const { resolver, judgements } = build({
+            bindings: { thriller: binding('thriller'), unknown: binding('unknown') },
+            metadata: { thriller: { title: 'Thriller', credit: 'Michael Jackson' }, unknown: { title: 'Perfect', credit: 'Ed Sheeran' } },
+            answers: { thriller: { [judgeKey(question)]: true } },
+        });
+        const resolved = await resolver.resolve(
+            [
+                { title: 'Thriller', artist: 'Michael Jackson', trackId: 'thriller' },
+                { title: 'Perfect', artist: 'Ed Sheeran', trackId: 'unknown' },
+            ],
+            OPEN_RULES,
+            { mix: { flow, ctx: { hour: 20, showProgress: 0, counted: [] } } },
+        );
+        expect(resolved.map(track => track.trackId)).toEqual(['thriller']);
+        expect(judgements.askLater).toHaveBeenCalledWith(judgeKey(question), question, ['unknown']);
     });
 });

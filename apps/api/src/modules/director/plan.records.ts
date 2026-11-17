@@ -8,6 +8,7 @@
  * are the records", and nothing either side of that.
  */
 
+import type { MixInForce } from './mix.flow.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickBroadcast, PickResolver } from './pick.resolver.js';
@@ -46,6 +47,8 @@ export interface PlanRequest {
     avoidMoods?: readonly LyricMood[];
     /** The festival the broadcast is built around, read off the order's rules. See `SetInputs.festivalId`. */
     festivalId?: string;
+    /** The show's mix flow and its counts so far. See `SetInputs.mix`. */
+    mix?: MixInForce;
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
     /**
@@ -194,6 +197,7 @@ export const planRecords = async (
             ...(request.mood === undefined ? {} : { mood: request.mood }),
             ...(request.avoidMoods === undefined || request.avoidMoods.length === 0 ? {} : { avoidMoods: request.avoidMoods }),
             ...(request.festivalId === undefined ? {} : { festivalId: request.festivalId }),
+            ...(request.mix === undefined ? {} : { mix: request.mix }),
             avoidSongKeys: request.avoidSongKeys,
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
             ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
@@ -223,6 +227,7 @@ export const planRecords = async (
         ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
         ...(request.seedArtistKey === undefined ? {} : { seedArtistKey: request.seedArtistKey }),
         ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
+        ...(request.mix === undefined ? {} : { mix: request.mix }),
         // What the cooldown gives way to: the batch this was asked for, not the oversample. See
         // `applyRulesHoldingQueue` and `holdArtistCooldown`.
         want: request.count,

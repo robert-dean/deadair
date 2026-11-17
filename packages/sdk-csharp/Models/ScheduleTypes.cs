@@ -390,6 +390,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
 
+    /// <summary>The rules this stretch of the day's records pass before they air, drawn as a flow of nodes and wires: blocks, limits on a genre's share or count, records it requires. The station enforces them itself, on every record it proposes, which a brief cannot promise. Absent or with no nodes is no flow, and the show plays exactly as it would without one. A rewrite that leaves it out keeps what the slot had</summary>
+    [JsonPropertyName("mixFlow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MixFlow? MixFlow { get; init; }
+
     /// <summary>The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this</summary>
     [JsonPropertyName("festivalId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -590,6 +595,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("concerts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Concerts { get; init; }
+
+    /// <summary>The rules this stretch of the day's records pass before they air, drawn as a flow of nodes and wires: blocks, limits on a genre's share or count, records it requires. The station enforces them itself, on every record it proposes, which a brief cannot promise. Absent or with no nodes is no flow, and the show plays exactly as it would without one. A rewrite that leaves it out keeps what the slot had</summary>
+    [JsonPropertyName("mixFlow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MixFlow? MixFlow { get; init; }
 
     /// <summary>The festival this stretch of the day is built around, from `GET /festivals`. Its show plays the acts on the bill and its host may talk about the festival, from what the station holds about it, until its last day. Absent is no festival. Removing the festival clears this</summary>
     [JsonPropertyName("festivalId")]

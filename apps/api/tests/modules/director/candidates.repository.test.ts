@@ -277,3 +277,43 @@ describe('CandidatesRepository.findManyByName', () => {
         expect(captured.statements).toHaveLength(0);
     });
 });
+
+describe('CandidatesRepository.mainGenresFor', () => {
+    it("reads the first genre of the artist's enrichment, never the record's own tags", async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).mainGenresFor(['track-1']);
+
+        const sql = captured.statements[0]?.sql ?? '';
+        expect(sql).toContain("e.data -> 'genres' ->> 0");
+        expect(sql).toContain('from deadair.artist_enrichment e');
+        expect(sql).not.toContain('track_enrichment');
+        // The model's genre fills a gap a provider left, and never overrides one.
+        expect(sql).toMatch(/coalesce\([\s\S]*artist_enrichment[\s\S]*artist_genre_judgements/);
+        // One answer however many providers wrote genres, and the same one each time.
+        expect(sql).toContain('order by e.provider');
+    });
+
+    it('asks nothing for no tracks', async () => {
+        const captured: Captured = { statements: [] };
+        expect((await new CandidatesRepository(fakeDb(captured)).mainGenresFor([])).size).toBe(0);
+        expect(captured.statements).toHaveLength(0);
+    });
+});
+
+describe('CandidatesRepository.sampleByMainGenre', () => {
+    it('draws at random by a word in the main genre, leaving the precise match to the caller', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sampleByMainGenre(['pop'], 10);
+
+        const statement = captured.statements[0]!;
+        expect(statement.sql).toContain('ilike any(');
+        expect(statement.sql).toContain('random()');
+        expect(statement.parameters).toContainEqual(['%pop%']);
+    });
+
+    it('asks nothing for no genres', async () => {
+        const captured: Captured = { statements: [] };
+        expect(await new CandidatesRepository(fakeDb(captured)).sampleByMainGenre([' '], 10)).toEqual([]);
+        expect(captured.statements).toHaveLength(0);
+    });
+});

@@ -221,6 +221,20 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void AShowKeepsItsMixFlowAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var flow = new MixFlow
+        {
+            Version = 1,
+            Nodes = [new MixNode { Id = "picks", Kind = MixNodeKind.Picks }, new MixNode { Id = "air", Kind = MixNodeKind.OnAir }],
+            Links = [new MixLink { From = "picks", Out = 0, To = "air", In = 0 }],
+        };
+        var input = SlotDraft.From(Slot() with { MixFlow = flow }).ToInput()!;
+
+        Assert.Same(flow, input.MixFlow);
+    }
+
+    [Fact]
     public void ARequestShowIsStillOneAfterASave_ThoughTheEditorDoesNotDrawIt()
     {
         var input = SlotDraft.From(Slot() with { RequestShow = true }).ToInput()!;

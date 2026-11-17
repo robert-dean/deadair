@@ -68,4 +68,4 @@ The voice has to speak the language too. Rhapsode and Chatterbox's multilingual 
 
 ## In the console
 
-**Settings → Providers** for which plugin writes and which one speaks, beside every other job more than one of your plugins can do; **Settings → Words** for the model per job; the language model plugin's page, under Settings → Plugins, for the providers themselves. **Voice** in the rail, or the V key, holds Voices (with a preview of each), Pronunciations, Soundboard, and What it said: every break written, and every one declined.
+**Settings → Providers** for which plugin writes and which one speaks, beside every other job more than one of your plugins can do; **Settings → Words** for the model per job; the language model plugin's page, under Settings → Plugins, for the providers themselves. **Voice** in the header, or the V key, holds Voices (with a preview of each), Pronunciations, Soundboard, and What it said: every break written, and every one declined.

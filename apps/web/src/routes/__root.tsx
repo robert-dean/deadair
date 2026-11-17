@@ -21,7 +21,6 @@ import { JumpTo } from '../components/shell/jump.to';
 import { PhoneTabs } from '../components/shell/phone.tabs';
 import { DESTINATION_KEYS } from '../components/shell/destinations';
 import { ShellHeader } from '../components/shell/shell.header';
-import { ShellRail } from '../components/shell/shell.rail';
 import { useLogoutFlow } from '../components/shell/use.logout.flow';
 import { useShellAccount } from '../components/shell/use.shell.account';
 import { useAccountLanguage } from '../api/languages.queries';
@@ -147,12 +146,7 @@ export function RootLayout() {
     }
 
     return (
-        <AppShell
-            header={{ height: 52 }}
-            navbar={signedIn ? { width: 204, breakpoint: 'sm', collapsed: { mobile: true } } : undefined}
-            footer={signedIn && phone ? { height: 64 } : undefined}
-            padding="md"
-        >
+        <AppShell header={{ height: 52 }} footer={signedIn && phone ? { height: 64 } : undefined} padding="md">
             {/* First focusable element in the document, so it is the first Tab stop on every page.
                 Everything else in the shell comes before the content it names: the wordmark, the
                 tally, the jump button, four destinations, two pinned links — eight stops before an
@@ -167,20 +161,12 @@ export function RootLayout() {
             <ShellHeader
                 signedIn={signedIn}
                 status={playout.data}
+                attention={attention.data?.items}
                 loggingOut={logout.isPending}
                 onLogout={() => {
                     void handleLogout();
                 }}
             />
-            {signedIn ? (
-                <ShellRail
-                    attention={attention.data?.items}
-                    loggingOut={logout.isPending}
-                    onLogout={() => {
-                        void handleLogout();
-                    }}
-                />
-            ) : undefined}
             <AppShell.Main id="main" tabIndex={-1}>
                 {/* Above everything, including the page's own failures, and drawn whether or not
                     anybody is signed in: an unreachable API is why the login page will not submit

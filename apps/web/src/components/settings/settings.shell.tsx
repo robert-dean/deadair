@@ -62,7 +62,7 @@ export interface SettingsSection {
      *
      * "Words" and "Measurement" name subjects rather than settings, so an operator looking for the
      * model has no way to tell which one to open. It was dropped when the sections became a strip of
-     * tabs, which had nowhere to put it; the rail and the phone's list both do.
+     * tabs, which had nowhere to put it; the desk's section column (as a tooltip) and the phone's list both do.
      */
     hint: string;
     /** The declared group this section draws, for the ones that draw one. */
@@ -79,7 +79,7 @@ type BlurbedSectionId = Exclude<SettingsSectionId, 'appearance' | 'languages' | 
 /**
  * One entry of the list below. Its words are getters that read the catalog each time they are asked
  * for, rather than strings resolved once at import, so a change of language reaches every surface
- * that draws the list (the rail, the phone's index, the command palette) on its next render.
+ * that draws the list (the section column, the phone's index, the command palette) on its next render.
  */
 function section(id: SettingsSectionId, more: Pick<SettingsSection, 'group' | 'route'> = {}): SettingsSection {
     return {
@@ -189,10 +189,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 ];
 
 /**
- * Which heading each section sits under in the rail, where 22 rows in one run had nothing to scan by.
+ * Which heading each section sits under in the section column, where 22 rows in one run had nothing to scan by.
  *
- * Only the rail reads this. `SETTINGS_SECTIONS` must keep a group's sections together, because the rail
- * draws a heading wherever this changes from one row to the next.
+ * The section column reads this. `SETTINGS_SECTIONS` must keep a group's sections together, because the
+ * column draws a heading wherever this changes from one row to the next.
  */
 export const SETTINGS_RAIL_GROUPS = {
     station: 'station',

@@ -257,7 +257,7 @@ export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces, signa
                  * What the chrome is made of, which is the only thing that decides whether a
                  * console's backdrop is ever seen.
                  *
-                 * The header, the rail and the phone tabs sit over the fixed body gradient and, at
+                 * The header and the phone tabs sit over the fixed body gradient and, at
                  * `--mantine-color-body`, hide the part of it that is worth seeing — the wash is
                  * brightest at the top of the viewport, which is precisely where the header is. On a
                  * desk that costs nothing, because a desk is lit by one dim lamp the colour of its

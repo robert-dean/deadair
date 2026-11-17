@@ -75,8 +75,8 @@ export interface NavDestination extends NavLink {
     /**
      * The key the shell binds to reach it.
      *
-     * Only the four in the rail have one. A shortcut is for a place you go on purpose, which is the
-     * same reason `nav.footer.tsx` gives for Check-up and Settings not having one.
+     * Only the four header tabs have one. A shortcut is for a place an operator goes to run the
+     * broadcast; Check-up and Settings are reached from something that sent them there.
      */
     hint?: string;
     sections: NavSection[];
@@ -166,11 +166,10 @@ export const NAV_DESTINATIONS: NavDestination[] = [
 ];
 
 /**
- * The two under the rule at the bottom, which are not destinations in the sense the four above are.
+ * The two pinned at the right of the header, which are not destinations in the sense the four are.
  *
  * Nobody opens the console to look at Settings; they arrive at it from something that sent them.
- * `nav.footer.tsx` draws these and has always drawn Settings' sections — this only puts Check-up's
- * four beside them, so the rule the rail now follows has no exception left in it.
+ * Their sections are each one's own business: Check-up's tab strip, Settings' section column.
  */
 export const NAV_FOOTER_DESTINATIONS: NavDestination[] = [
     {

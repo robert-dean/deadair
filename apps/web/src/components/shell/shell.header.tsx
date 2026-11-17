@@ -3,7 +3,10 @@ import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
 import { useTranslation } from 'react-i18next';
 import type { ComponentProps } from 'react';
+import type { AttentionItem } from '@deadair/sdk';
 
+import { HeaderDestinations, HeaderPinned } from './header.nav';
+import { OnAirChip } from './on.air.chip';
 import { PhoneMenu } from './phone.menu';
 import { StationClock } from './station.clock';
 import { StationMark } from './station.mark';
@@ -13,12 +16,17 @@ import { UpdateNotice } from './update.notice';
 interface Props {
     signedIn: boolean;
     status: ComponentProps<typeof StationTally>['status'];
+    /** What wants somebody, for the destinations' badges. */
+    attention: readonly AttentionItem[] | undefined;
     loggingOut: boolean;
     onLogout: () => void;
 }
 
-/** Split out of `__root.tsx` unchanged: the bar across the top of every page. */
-export function ShellHeader({ signedIn, status, loggingOut, onLogout }: Props) {
+/**
+ * The bar across the top of every page, and since the rail went, the way around the console: the
+ * four destinations as tabs, Check-up and Settings pinned right, and what is on air.
+ */
+export function ShellHeader({ signedIn, status, attention, loggingOut, onLogout }: Props) {
     const { t } = useTranslation('routes');
 
     return (
@@ -34,13 +42,15 @@ export function ShellHeader({ signedIn, status, loggingOut, onLogout }: Props) {
                 station IS at this moment, so it reads as part of the identity rather than
                 as one more control. The clock stays right, where a clock belongs. */}
                 {signedIn ? <StationTally status={status} /> : undefined}
+                {signedIn ? <HeaderDestinations attention={attention} /> : undefined}
                 <Box style={{ flex: 1, minWidth: 0 }} />
-                {/* The way to anywhere, and the clock. Logout was in this corner and is in the
-                rail's footer now: the header's right edge is where an operator looks for
-                the state of the station and the way to move around it, and a control for
-                ending your session is neither. */}
+                {/* What is on air, then Check-up and Settings, the way to anywhere, the clock and
+                the menu. The right edge is where an operator looks for the state of the station
+                and the way to move around it. */}
                 {signedIn ? (
                     <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+                        <OnAirChip status={status} />
+                        <HeaderPinned attention={attention} />
                         {/* Only when a newer release is out. See the component for why it is
                         here rather than in the attention list. */}
                         <UpdateNotice enabled={signedIn} />
@@ -51,13 +61,13 @@ export function ShellHeader({ signedIn, status, loggingOut, onLogout }: Props) {
                             c="dimmed"
                             onClick={spotlight.open}
                             rightSection={<Kbd size="xs">⌘K</Kbd>}
-                            visibleFrom="sm"
+                            visibleFrom="xl"
                         >
                             {t('root.jumpTo')}
                         </Button>
-                        {/* The same door with no keycap on it: a phone has no ⌘K, and a button
-                        reading "Jump to anything" is wider than the header can spare. */}
-                        <ActionIcon variant="default" size="lg" aria-label={t('root.jumpTo')} onClick={spotlight.open} hiddenFrom="sm">
+                        {/* The same door with no words on it, below the widest screens: the four
+                        tabs and the chip take the room the label had. */}
+                        <ActionIcon variant="default" size="lg" aria-label={t('root.jumpTo')} onClick={spotlight.open} hiddenFrom="xl">
                             <IconSearch size={18} stroke={1.8} />
                         </ActionIcon>
                         {/* Not on a phone: the phone's own status bar is already a clock an
@@ -66,8 +76,8 @@ export function ShellHeader({ signedIn, status, loggingOut, onLogout }: Props) {
                         <Box visibleFrom="sm">
                             <StationClock />
                         </Box>
-                        {/* The rail's footer, for a viewport that has no rail — see the
-                        component for why this is not the drawer coming back. */}
+                        {/* Logout, and on a phone Check-up and Settings too, which the header
+                        has no room to pin there. */}
                         <PhoneMenu loggingOut={loggingOut} onLogout={onLogout} />
                     </Group>
                 ) : undefined}

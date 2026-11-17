@@ -108,4 +108,4 @@ The map shows only what the station has already asked. It never asks a plugin to
 
 ## In the console
 
-**Library** in the rail, or the L key: Tracks, Artists, Similar, Playlists, Charts, News, [Podcasts](./podcasts.md) and [Readings](./narrations.md). A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, Spotify's playback authorization and YouTube Music's cookie are on its page under Settings → Plugins. Measurement has its own section in Settings.
+**Library** in the header, or the L key: Tracks, Artists, Similar, Playlists, Charts, News, [Podcasts](./podcasts.md) and [Readings](./narrations.md). A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, Spotify's playback authorization and YouTube Music's cookie are on its page under Settings → Plugins. Measurement has its own section in Settings.

@@ -40,8 +40,10 @@ vi.mock('../../src/api/client', () => ({
     },
 }));
 
-function logoutButton() {
-    return screen.getByRole('button', { name: 'Logout' });
+/** Logout sits in the corner menu now the rail is gone, so reaching it is two presses. */
+async function pressLogout(user: ReturnType<typeof setupUser>) {
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Logout' }));
 }
 
 beforeEach(() => {
@@ -60,7 +62,7 @@ describe('RootLayout', () => {
     it('hides the nav and Logout while anonymous', () => {
         render(<RootLayout />);
 
-        expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
     });
 
@@ -68,7 +70,7 @@ describe('RootLayout', () => {
         setSession('token-123', 3600);
         render(<RootLayout />);
 
-        expect(await screen.findByRole('button', { name: 'Logout' })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'More' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Desk' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
@@ -109,7 +111,7 @@ describe('RootLayout', () => {
         setSession('token-123', -1);
         render(<RootLayout />);
 
-        expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
     });
 
@@ -117,9 +119,9 @@ describe('RootLayout', () => {
         logout.mockResolvedValue(undefined);
         setSession('token-123', 3600);
         render(<RootLayout />);
-        await screen.findByRole('button', { name: 'Logout' });
+        await screen.findByRole('button', { name: 'More' });
 
-        await setupUser().click(logoutButton());
+        await pressLogout(setupUser());
 
         await waitFor(() => {
             expect(navigate).toHaveBeenCalledWith({ to: '/login' });
@@ -132,9 +134,9 @@ describe('RootLayout', () => {
         logout.mockRejectedValue(new SdkError(500, 'Internal Server Error', { statusCode: 500, message: 'Revoke exploded' }, new Headers()));
         setSession('token-123', 3600);
         render(<RootLayout />);
-        await screen.findByRole('button', { name: 'Logout' });
+        await screen.findByRole('button', { name: 'More' });
 
-        await setupUser().click(logoutButton());
+        await pressLogout(setupUser());
 
         expect(await screen.findByText('Sign-out incomplete')).toBeInTheDocument();
         expect(screen.getByText(/Revoke exploded/)).toBeInTheDocument();
@@ -148,9 +150,9 @@ describe('RootLayout', () => {
         const queryClient = createTestQueryClient();
         queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
         render(<RootLayout />, { queryClient });
-        await screen.findByRole('button', { name: 'Logout' });
+        await screen.findByRole('button', { name: 'More' });
 
-        await setupUser().click(logoutButton());
+        await pressLogout(setupUser());
 
         await waitFor(() => {
             expect(queryClient.getQueryData(['onboarding', 'requirements'])).toBeUndefined();
@@ -163,9 +165,9 @@ describe('RootLayout', () => {
         const queryClient = createTestQueryClient();
         queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
         render(<RootLayout />, { queryClient });
-        await screen.findByRole('button', { name: 'Logout' });
+        await screen.findByRole('button', { name: 'More' });
 
-        await setupUser().click(logoutButton());
+        await pressLogout(setupUser());
 
         await waitFor(() => {
             expect(queryClient.getQueryData(['onboarding', 'requirements'])).toBeUndefined();
@@ -176,10 +178,10 @@ describe('RootLayout', () => {
         logout.mockRejectedValue(new Error('offline'));
         setSession('token-123', 3600);
         render(<RootLayout />);
-        await screen.findByRole('button', { name: 'Logout' });
+        await screen.findByRole('button', { name: 'More' });
 
         const user = setupUser();
-        await user.click(logoutButton());
+        await pressLogout(user);
         expect(await screen.findByText('Sign-out incomplete')).toBeInTheDocument();
 
         await user.click(screen.getByRole('button', { name: 'Dismiss' }));
@@ -222,7 +224,7 @@ describe('RootLayout', () => {
             setSession('token-123', 3600);
             render(<RootLayout />);
 
-            expect(await screen.findByRole('button', { name: 'Logout' })).toBeInTheDocument();
+            expect(await screen.findByRole('button', { name: 'More' })).toBeInTheDocument();
         });
     });
 });

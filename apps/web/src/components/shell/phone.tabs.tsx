@@ -1,7 +1,7 @@
 import { Group, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import type { NavItemProps } from './nav.item';
+import type { NavLink } from './destinations';
 
 /**
  * The four destinations a phone gets, and nothing else.
@@ -11,7 +11,7 @@ import type { NavItemProps } from './nav.item';
  * Check-up is what you open when something is wrong and you are sitting down, and Settings is not a
  * thing anybody configures on a phone. Both are still reachable, from the rows that link to them.
  */
-const PHONE_TABS: (Pick<NavItemProps, 'to'> & { labelKey: 'desk' | 'programme' | 'library' | 'voice' })[] = [
+const PHONE_TABS: (Pick<NavLink, 'to'> & { labelKey: 'desk' | 'programme' | 'library' | 'voice' })[] = [
     { to: '/', labelKey: 'desk' },
     { to: '/schedule', labelKey: 'programme' },
     { to: '/catalog/tracks', labelKey: 'library' },
@@ -25,11 +25,10 @@ const PHONE_TABS: (Pick<NavItemProps, 'to'> & { labelKey: 'desk' | 'programme' |
  * open it, then choose — and it covers the thing you were looking at while you decide. The bar is
  * one tap and never hides the page.
  *
- * No mono key here, and deliberately not: `side.nav.tsx` draws the same letter beside each
- * destination because `SideNav` is where the shell binds it as a real keyboard shortcut. A phone
- * has no keyboard, so the letter would be a character that means nothing, costing a line of height
- * on the one viewport with the least of it to spare. No icon either — the desktop rail has none,
- * and two navs disagreeing about whether a destination has an icon is worse than neither having one.
+ * No key letter here, and deliberately not: the header's tabs name the letter the shell binds as a
+ * keyboard shortcut, and a phone has no keyboard, so it would be a character that means nothing. No
+ * icon either: the header's tabs have none, and two navs disagreeing about whether a destination has
+ * an icon is worse than neither having one.
  */
 export function PhoneTabs() {
     const { t } = useTranslation('shell');

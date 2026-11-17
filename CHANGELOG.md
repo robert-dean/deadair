@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.102.0] — 2026-11-17
+
+- A rotation show can now have a mix flow drawn in the console: the show's editor, under Programme, has a Draw a mix flow button that opens a canvas for the show's music rules, saved with the show. Records run from Picks to On air through the nodes you add, such as Block bands, Split, Limit share, Limit count and Require, each with its settings inside it. The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and Remove it takes the flow off.
+- A show can carry its own music rules, which the station follows on every record it picks for the show instead of hoping the model keeps count. The rules can keep named bands off the show, sort records by their band's main genre, the artist, the decade, the hour or how far into the show it is, cap a kind of record at a share of each hour or show or at a number, keep two of a kind from playing back to back, allow a bigger share after a given hour, and promise a record once the show is far enough in: one from a list, the one played longest ago first, or any record whose band's main genre matches. The model is told how much of each cap is left, so it stops suggesting records the station would turn down. A listener's request, and what a request show plays after one, is never held back by these rules and never counted against them. A rule can also ask the model a yes-or-no question about each record, such as whether a pop record is a sinful pop hit; each record is asked once in the background, and waits until the station next plans its music for its first answer. A new setting, off by default, lets a model name a main genre for bands that have none, so their records are sorted and counted too. For now the rules are set through the API (`mixFlow` on a schedule slot, or on a broadcast put on air by hand); an editor in the console is coming. The desktop app keeps a show's rules when it saves the show.
+
 ## [0.101.2] — 2026-11-16
 
 - Listeners no longer fall further behind the console with every crossfade. The station's level follower let the
@@ -2066,7 +2071,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.101.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.102.0...HEAD
+[0.102.0]: https://github.com/robert-dean/deadair/compare/v0.101.2...v0.102.0
 [0.101.2]: https://github.com/robert-dean/deadair/compare/v0.101.1...v0.101.2
 [0.101.1]: https://github.com/robert-dean/deadair/compare/v0.101.0...v0.101.1
 [0.101.0]: https://github.com/robert-dean/deadair/compare/v0.100.0...v0.101.0

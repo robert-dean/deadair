@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.18.3] — 2026-11-17
+
+- A show can carry its own music rules, which the station follows on every record it picks for the show instead of hoping the model keeps count. The rules can keep named bands off the show, sort records by their band's main genre, the artist, the decade, the hour or how far into the show it is, cap a kind of record at a share of each hour or show or at a number, keep two of a kind from playing back to back, allow a bigger share after a given hour, and promise a record once the show is far enough in: one from a list, the one played longest ago first, or any record whose band's main genre matches. The model is told how much of each cap is left, so it stops suggesting records the station would turn down. A listener's request, and what a request show plays after one, is never held back by these rules and never counted against them. A rule can also ask the model a yes-or-no question about each record, such as whether a pop record is a sinful pop hit; each record is asked once in the background, and waits until the station next plans its music for its first answer. A new setting, off by default, lets a model name a main genre for bands that have none, so their records are sorted and counted too. For now the rules are set through the API (`mixFlow` on a schedule slot, or on a broadcast put on air by hand); an editor in the console is coming. The desktop app keeps a show's rules when it saves the show.
+
 ## [0.18.2] — 2026-11-13
 
 - Editing or moving a band on the format clock keeps whether it is a hard marker, which is set from the web console.
@@ -208,7 +212,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.3...HEAD
+[0.18.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.2...desktop-v0.18.3
 [0.18.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.1...desktop-v0.18.2
 [0.18.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.0...desktop-v0.18.1
 [0.18.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.17.5...desktop-v0.18.0

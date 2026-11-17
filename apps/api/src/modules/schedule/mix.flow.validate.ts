@@ -16,7 +16,7 @@ const NAMES: Record<MixNode['kind'], string> = {
 };
 
 /** Split bases that match a branch's `values`; the rest match its `min`/`max` range. */
-const BY_VALUES = new Set(['genre', 'artist', 'decade', 'mood', 'lastGenre', 'judged']);
+const BY_VALUES = new Set(['genre', 'artist', 'decade', 'lastGenre', 'judged']);
 
 /**
  * Every reason a flow cannot be saved, each naming the node it is about, or none.

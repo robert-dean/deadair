@@ -165,7 +165,9 @@ function choosesDifferently(change: ProgrammeChange, order: StationLineupSnapsho
     if (change.brief !== undefined || change.era !== undefined || change.moods !== undefined || change.avoidMoods !== undefined) return true;
     if (change.rules === undefined) return false;
     const rules = change.rules;
-    return CHOICE_RULES.some(key => rules[key] !== order.rules?.[key]);
+    // `same` and not `!==`: a mix flow is an object, read afresh from the slot and from the order, and
+    // two reads of one flow are never the same reference.
+    return CHOICE_RULES.some(key => !same(rules[key], order.rules?.[key]));
 }
 
 /** The parts of the slot that differ from the show on air and only a changeover can bring about. */

@@ -10,9 +10,9 @@ mdx:
 <details>
 <summary>Attributes (2)</summary>
 
-| Attribute | Type     | Required | Description |
-| --------- | -------- | -------- | ----------- |
-| `title`   | `string` | Yes      |             |
-| `artist`  | `string` | No       |             |
+| Attribute | Type     | Required | Description                                                 |
+| --------- | -------- | -------- | ----------------------------------------------------------- |
+| `title`   | `string` | Yes      |                                                             |
+| `artist`  | `string` | Yes      | Who made it: a record is found by title and artist together |
 
 </details>

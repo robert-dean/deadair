@@ -18,6 +18,8 @@ export interface MixContextInputs {
     genres: ReadonlyMap<string, string>;
     /** The model's stored answers by track id, then question key: `MixJudgeRepository.answersFor`. */
     judged?: ReadonlyMap<string, ReadonlyMap<string, boolean>>;
+    /** Release years by track id, for a split by decade: `CandidatesRepository.yearsFor`. */
+    years?: ReadonlyMap<string, number>;
     /** The hour on the station's clock at an instant. */
     hourOf: (ms: number) => number;
     nowMs: number;
@@ -51,11 +53,22 @@ export function mixRecordOf(
  */
 export function buildMixContext(inputs: MixContextInputs): MixContext {
     const hour = inputs.hourOf(inputs.nowMs);
+    const progress = progressOf(inputs.show, inputs.nowMs);
     const records = [
-        ...inputs.aired.map(record => ({ ...mixRecordOf(record, inputs.genres, inputs.judged), hour: inputs.hourOf(record.airedAtMs) })),
-        ...inputs.queued.map(record => ({ ...mixRecordOf(record, inputs.genres, inputs.judged), hour })),
+        ...inputs.aired.map(record => ({
+            ...withYear(mixRecordOf(record, inputs.genres, inputs.judged), record, inputs.years),
+            hour: inputs.hourOf(record.airedAtMs),
+            progress: progressOf(inputs.show, record.airedAtMs),
+        })),
+        ...inputs.queued.map(record => ({ ...withYear(mixRecordOf(record, inputs.genres, inputs.judged), record, inputs.years), hour, progress })),
     ];
-    return { hour, showProgress: progressOf(inputs.show, inputs.nowMs), counted: countThrough(inputs.flow, records) };
+    return { hour, showProgress: progress, counted: countThrough(inputs.flow, records) };
+}
+
+/** A record with its release year looked up, when the catalog knows one. */
+function withYear(record: MixRecord, source: MixSourceRecord, years: ReadonlyMap<string, number> | undefined): MixRecord {
+    const year = source.trackId === undefined ? undefined : years?.get(source.trackId);
+    return year === undefined ? record : { ...record, year };
 }
 
 /** How far through the show an instant is, as a percent clamped to 0 and 100. */

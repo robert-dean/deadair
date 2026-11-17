@@ -18,7 +18,7 @@ export interface MixLink {
  * generated from [MixBranch](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
  */
 export interface MixBranch {
-    /** What it matches, for `genre`, `artist`, `mood`, `lastGenre` (a genre or anything refining it) and `judged` (`yes` or `no`); a decade as `1980` */
+    /** What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980` */
     values?: string[];
     /** The lowest it matches, for `hour` and `showProgress`, inclusive */
     min?: number;
@@ -32,7 +32,8 @@ export interface MixBranch {
  */
 export interface MixSong {
     title: string;
-    artist?: string;
+    /** Who made it: a record is found by title and artist together */
+    artist: string;
 }
 
 /**
@@ -47,7 +48,7 @@ export interface MixNode {
     /** `block`: the bands it keeps off, matched by name, ignoring case */
     bands?: string[];
     /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
-    splitBy?: 'genre' | 'artist' | 'decade' | 'mood' | 'hour' | 'showProgress' | 'lastGenre' | 'judged';
+    splitBy?: 'genre' | 'artist' | 'decade' | 'hour' | 'showProgress' | 'lastGenre' | 'judged';
     /** `split`: its outputs in order, before the last output, "everything else" */
     branches?: MixBranch[];
     /** `split` by `judged`: what the model is asked about each record, once */
@@ -62,7 +63,7 @@ export interface MixNode {
     requireGenres?: string[];
     /** `require`: `any` is due until one record of any of `requireGenres` has aired in the show, `each` until one of each has. Absent is `any` */
     requireMode?: 'any' | 'each';
-    /** `require`: the records it adds, freshest first. Absent or empty adds a library record of a required genre */
+    /** `require`: the records it adds, the one aired longest ago first. Absent or empty adds a library record of a required genre */
     songs?: MixSong[];
     /** `require`: not due before this percent of the show has gone. Absent is 0 */
     afterPercent?: number;

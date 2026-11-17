@@ -20,7 +20,7 @@ data class MixLink(
 /** One output of a `split` */
 @Serializable
 data class MixBranch(
-    /** What it matches, for `genre`, `artist`, `mood`, `lastGenre` (a genre or anything refining it) and `judged` (`yes` or `no`); a decade as `1980` */
+    /** What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980` */
     val values: List<String>? = null,
     /** The lowest it matches, for `hour` and `showProgress`, inclusive */
     val min: Double? = null,
@@ -32,7 +32,8 @@ data class MixBranch(
 @Serializable
 data class MixSong(
     val title: String,
-    val artist: String? = null,
+    /** Who made it: a record is found by title and artist together */
+    val artist: String,
 )
 
 /** One node on the canvas. `kind` says what it is and which of the fields beside it count */
@@ -60,7 +61,7 @@ data class MixNode(
     val requireGenres: List<String>? = null,
     /** `require`: `any` is due until one record of any of `requireGenres` has aired in the show, `each` until one of each has. Absent is `any` */
     val requireMode: MixNodeRequireMode? = null,
-    /** `require`: the records it adds, freshest first. Absent or empty adds a library record of a required genre */
+    /** `require`: the records it adds, the one aired longest ago first. Absent or empty adds a library record of a required genre */
     val songs: List<MixSong>? = null,
     /** `require`: not due before this percent of the show has gone. Absent is 0 */
     val afterPercent: Double? = null,
@@ -130,7 +131,6 @@ enum class MixNodeSplitBy {
     GENRE,
     ARTIST,
     DECADE,
-    MOOD,
     HOUR,
     SHOW_PROGRESS,
     LAST_GENRE,
@@ -150,7 +150,6 @@ object MixNodeSplitBySerializer : SdkEnumSerializer<MixNodeSplitBy>(
     MixNodeSplitBy.GENRE to "genre",
     MixNodeSplitBy.ARTIST to "artist",
     MixNodeSplitBy.DECADE to "decade",
-    MixNodeSplitBy.MOOD to "mood",
     MixNodeSplitBy.HOUR to "hour",
     MixNodeSplitBy.SHOW_PROGRESS to "showProgress",
     MixNodeSplitBy.LAST_GENRE to "lastGenre",

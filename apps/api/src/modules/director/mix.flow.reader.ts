@@ -24,7 +24,7 @@ export interface MixLineup {
 
 export interface MixReaders {
     history: Pick<PlayHistoryRepository, 'countedDuringBroadcast'>;
-    candidates: Pick<CandidatesRepository, 'mainGenresFor'>;
+    candidates: Pick<CandidatesRepository, 'mainGenresFor' | 'yearsFor'>;
     judgements: Pick<MixJudgeRepository, 'answersFor'>;
     schedule: Pick<ScheduleService, 'inForce'>;
     config: AppConfig;
@@ -66,9 +66,11 @@ export async function readMixInForce(
         const trackIds = [...aired, ...queuedRecords].flatMap(record => (record.trackId === undefined ? [] : [record.trackId]));
         const unique = [...new Set(trackIds)];
         const questions = judgeQuestions(flow).map(question => question.key);
-        const [genres, judged] = await Promise.all([
+        const decades = flow.nodes.some(node => node.kind === 'split' && node.splitBy === 'decade');
+        const [genres, judged, years] = await Promise.all([
             readers.candidates.mainGenresFor(unique),
             questions.length === 0 ? Promise.resolve(new Map<string, Map<string, boolean>>()) : readers.judgements.answersFor(unique, questions),
+            decades ? readers.candidates.yearsFor(unique) : Promise.resolve(new Map<string, number>()),
         ]);
         const show =
             slot !== undefined && slot.id === lineup.slotId
@@ -82,6 +84,7 @@ export async function readMixInForce(
                 queued: queuedRecords,
                 genres,
                 judged,
+                years,
                 hourOf: ms => readClock(ms, zone).hour,
                 nowMs: now,
                 ...(show === undefined ? {} : { show }),

@@ -45,7 +45,7 @@ public struct MixLink: Codable, Equatable, Sendable {
 
 /// One output of a `split`
 public struct MixBranch: Codable, Equatable, Sendable {
-    /// What it matches, for `genre`, `artist`, `mood`, `lastGenre` (a genre or anything refining it) and `judged` (`yes` or `no`); a decade as `1980`
+    /// What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`
     public var values: [String]?
     /// The lowest it matches, for `hour` and `showProgress`, inclusive
     public var min: Double?
@@ -82,9 +82,10 @@ public struct MixBranch: Codable, Equatable, Sendable {
 /// A record a `require` node may add
 public struct MixSong: Codable, Equatable, Sendable {
     public var title: String
-    public var artist: String?
+    /// Who made it: a record is found by title and artist together
+    public var artist: String
 
-    public init(title: String, artist: String? = nil) {
+    public init(title: String, artist: String) {
         self.title = title
         self.artist = artist
     }
@@ -97,13 +98,13 @@ public struct MixSong: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.title = try container.decode(String.self, forKey: .title)
-        self.artist = try container.decodeIfPresent(String.self, forKey: .artist)
+        self.artist = try container.decode(String.self, forKey: .artist)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.title, forKey: .title)
-        try container.encodeIfPresent(self.artist, forKey: .artist)
+        try container.encode(self.artist, forKey: .artist)
     }
 }
 
@@ -131,7 +132,7 @@ public struct MixNode: Codable, Equatable, Sendable {
     public var requireGenres: [String]?
     /// `require`: `any` is due until one record of any of `requireGenres` has aired in the show, `each` until one of each has. Absent is `any`
     public var requireMode: MixNodeRequireMode?
-    /// `require`: the records it adds, freshest first. Absent or empty adds a library record of a required genre
+    /// `require`: the records it adds, the one aired longest ago first. Absent or empty adds a library record of a required genre
     public var songs: [MixSong]?
     /// `require`: not due before this percent of the show has gone. Absent is 0
     public var afterPercent: Double?
@@ -349,7 +350,6 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
     case genre
     case artist
     case decade
-    case mood
     case hour
     case showProgress
     case lastGenre
@@ -360,7 +360,7 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
     case unknown
 
     /// The members the contract declares. `unknown` is not one of them.
-    public static let allCases: [MixNodeSplitBy] = [.genre, .artist, .decade, .mood, .hour, .showProgress, .lastGenre, .judged]
+    public static let allCases: [MixNodeSplitBy] = [.genre, .artist, .decade, .hour, .showProgress, .lastGenre, .judged]
 
     /// The wire spelling, or `nil` for `unknown`, which has none.
     public var rawValue: String? {
@@ -368,7 +368,6 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
         case .genre: return "genre"
         case .artist: return "artist"
         case .decade: return "decade"
-        case .mood: return "mood"
         case .hour: return "hour"
         case .showProgress: return "showProgress"
         case .lastGenre: return "lastGenre"
@@ -383,7 +382,6 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
         case "genre": self = .genre
         case "artist": self = .artist
         case "decade": self = .decade
-        case "mood": self = .mood
         case "hour": self = .hour
         case "showProgress": self = .showProgress
         case "lastGenre": self = .lastGenre

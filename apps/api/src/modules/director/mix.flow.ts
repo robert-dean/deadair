@@ -6,7 +6,7 @@ import { refinesGenre, sameTag } from './genre.match.js';
  * A show's mix flow, evaluated: one record followed down the wires.
  *
  * Every node is a pure test on the one record and on what the show has counted so far, so the walk is a
- * function and not a stream: the resolver, the explain route and the simulation all call this one, and
+ * function and not a stream: the resolver, the shortlist and the flow's counts all call this one, and
  * none of them can disagree about where a record goes. The flow is assumed valid (`mixFlowProblems`
  * refused anything else at the save); a walk that meets a wire it cannot follow stops and lets the
  * record through, because a flow that cannot say no is a flow that has nothing to say.
@@ -20,8 +20,6 @@ export interface MixRecord {
     mainGenre?: string;
     /** Its release year, for a split by decade. */
     year?: number;
-    /** Moods a model has judged it to be in, for a split by mood. */
-    moods?: readonly string[];
     /**
      * The model's stored answers about this record, by question key (`judgeKey`), for a split by
      * `judged`. A question with no answer yet holds the record at that split.
@@ -52,6 +50,8 @@ export function judgedAnswer(node: MixNode, record: MixRecord): boolean | undefi
 export interface CountedRecord extends MixRecord {
     /** The hour on the station's clock it aired in, or is about to. */
     hour: number;
+    /** How far through the show it aired, or is about to, as a percent. Absent reads as the start. */
+    progress?: number;
     path: readonly string[];
 }
 
@@ -157,8 +157,6 @@ function matches(node: MixNode, branch: MixBranch, record: MixRecord, ctx: MixCo
             return values.some(wanted => sameTag(record.artist, wanted));
         case 'decade':
             return record.year !== undefined && values.some(wanted => Math.floor(record.year! / 10) * 10 === Number(wanted));
-        case 'mood':
-            return (record.moods ?? []).some(mood => values.includes(mood));
         case 'hour':
             return inRange(ctx.hour, branch);
         case 'showProgress':
@@ -219,7 +217,12 @@ function holds(wires: Wires, node: MixNode, record: MixRecord, ctx: MixContext):
  * given the path it took: it aired, so it is counted through every node on its way whatever the counts
  * would say now.
  */
-export function walkRecord(flow: MixFlow, record: MixRecord, ctx: MixContext, options: { entry?: string; holding?: boolean } = {}): MixWalk {
+export function walkRecord(
+    flow: MixFlow,
+    record: MixRecord,
+    ctx: MixContext,
+    options: { entry?: string; holding?: boolean; blocksOnly?: boolean } = {},
+): MixWalk {
     const wires = new Wires(flow);
     const path: string[] = [];
     let node = options.entry === undefined ? wires.picks() : wires.node(options.entry);
@@ -227,7 +230,9 @@ export function walkRecord(flow: MixFlow, record: MixRecord, ctx: MixContext, op
     for (let step = 0; node !== undefined && step <= flow.nodes.length; step += 1) {
         path.push(node.id);
         if (node.kind === 'onAir') return { path };
-        if (options.holding !== false && holds(wires, node, record, ctx)) return { path, heldAt: node.id };
+        // `blocksOnly` is giving way: only a Block holds. See `holdMixFlow`.
+        const counts = options.blocksOnly !== true || node.kind === 'block';
+        if (options.holding !== false && counts && holds(wires, node, record, ctx)) return { path, heldAt: node.id };
         node = wires.next(node.id, node.kind === 'split' ? splitOutput(node, record, ctx) : 0);
     }
     return { path };
@@ -240,10 +245,12 @@ export function walkRecord(flow: MixFlow, record: MixRecord, ctx: MixContext, op
  * counts the show so far by its new wiring: a limit added at nine o'clock knows how much of its genre
  * the show has already aired.
  */
-export function countThrough(flow: MixFlow, records: readonly (MixRecord & { hour: number })[]): CountedRecord[] {
+export function countThrough(flow: MixFlow, records: readonly (MixRecord & { hour: number; progress?: number })[]): CountedRecord[] {
     const counted: CountedRecord[] = [];
     for (const record of records) {
-        const { path } = walkRecord(flow, record, { hour: record.hour, showProgress: 0, counted }, { holding: false });
+        // In its own hour and at its own point in the show, so a split by hour or by progress counts it
+        // where it aired rather than where the show is now.
+        const { path } = walkRecord(flow, record, { hour: record.hour, showProgress: record.progress ?? 0, counted }, { holding: false });
         counted.push({ ...record, path });
     }
     return counted;
@@ -324,7 +331,6 @@ const SPLIT_WORDS: Record<Exclude<NonNullable<MixNode['splitBy']>, 'judged'>, st
     genre: 'main genre',
     artist: 'artist',
     decade: 'decade',
-    mood: 'mood',
     hour: 'hour',
     showProgress: 'percent of the show',
     lastGenre: 'after a record of main genre',
@@ -372,16 +378,36 @@ export function holdMixFlow<T extends MixRecord & { mixEntry?: string }>(
         const walk = walkRecord(mix.flow, record, { ...mix.ctx, counted }, record.mixEntry === undefined ? {} : { entry: record.mixEntry });
         if (walk.heldAt === undefined) {
             kept.push(record);
-            counted.push({ ...record, hour: mix.ctx.hour, path: walk.path });
+            counted.push({ ...record, hour: mix.ctx.hour, progress: mix.ctx.showProgress, path: walk.path });
         } else held.push({ record, at: walk.heldAt });
     }
     if (kept.length > 0 || held.length === 0) return { kept, held, gaveWay: false };
 
-    const wires = new Wires(mix.flow);
-    const limited = held.filter(entry => wires.node(entry.at)?.kind !== 'block');
-    return limited.length === 0
-        ? { kept, held, gaveWay: false }
-        : { kept: limited.map(entry => entry.record), held: held.filter(entry => !limited.includes(entry)), gaveWay: true };
+    // Giving way, in two steps. A record is given back only if it reaches On air with the limits lifted,
+    // so a Block anywhere on its path still holds it, wherever it sits. A record waiting for the judge's
+    // answer is given back only when lifting the limits alone gives back nothing, because a judge exists
+    // to keep records off until it has answered.
+    const blocksOnly = (record: T) =>
+        walkRecord(mix.flow, record, mix.ctx, { blocksOnly: true, ...(record.mixEntry === undefined ? {} : { entry: record.mixEntry }) }).heldAt ===
+        undefined;
+    for (const judgeHolds of [true, false]) {
+        const back = held.filter(entry => (judgeHolds ? reachesPastLimits(mix.flow, entry.record, mix.ctx) : blocksOnly(entry.record)));
+        if (back.length > 0) return { kept: back.map(entry => entry.record), held: held.filter(entry => !back.includes(entry)), gaveWay: true };
+    }
+    return { kept, held, gaveWay: false };
+}
+
+/** Whether a record reaches On air with every limit lifted, still held by blocks and by a pending judge. */
+function reachesPastLimits(flow: MixFlow, record: MixRecord & { mixEntry?: string }, ctx: MixContext): boolean {
+    const wires = new Wires(flow);
+    let node = record.mixEntry === undefined ? wires.picks() : wires.node(record.mixEntry);
+    for (let step = 0; node !== undefined && step <= flow.nodes.length; step += 1) {
+        if (node.kind === 'onAir') return true;
+        const limit = node.kind === 'limitShare' || node.kind === 'limitCount' || node.kind === 'noRepeat';
+        if (!limit && holds(wires, node, record, ctx)) return false;
+        node = wires.next(node.id, node.kind === 'split' ? splitOutput(node, record, ctx) : 0);
+    }
+    return true;
 }
 
 /**

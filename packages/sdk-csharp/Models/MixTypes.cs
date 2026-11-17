@@ -34,7 +34,7 @@ public sealed record MixLink
 /// <summary>One output of a `split`</summary>
 public sealed record MixBranch
 {
-    /// <summary>What it matches, for `genre`, `artist`, `mood`, `lastGenre` (a genre or anything refining it) and `judged` (`yes` or `no`); a decade as `1980`</summary>
+    /// <summary>What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`</summary>
     [JsonPropertyName("values")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Values { get; init; }
@@ -56,9 +56,9 @@ public sealed record MixSong
     [JsonPropertyName("title")]
     public required string Title { get; init; }
 
+    /// <summary>Who made it: a record is found by title and artist together</summary>
     [JsonPropertyName("artist")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Artist { get; init; }
+    public required string Artist { get; init; }
 }
 
 /// <summary>One node on the canvas. `kind` says what it is and which of the fields beside it count</summary>
@@ -117,7 +117,7 @@ public sealed record MixNode
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public MixNodeRequireMode? RequireMode { get; init; }
 
-    /// <summary>`require`: the records it adds, freshest first. Absent or empty adds a library record of a required genre</summary>
+    /// <summary>`require`: the records it adds, the one aired longest ago first. Absent or empty adds a library record of a required genre</summary>
     [JsonPropertyName("songs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<MixSong>? Songs { get; init; }
@@ -288,9 +288,6 @@ public enum MixNodeSplitBy
     [JsonStringEnumMemberName("decade")]
     Decade,
 
-    [JsonStringEnumMemberName("mood")]
-    Mood,
-
     [JsonStringEnumMemberName("hour")]
     Hour,
 
@@ -334,7 +331,6 @@ public sealed class MixNodeSplitByConverter : JsonConverter<MixNodeSplitBy>
         "genre" => MixNodeSplitBy.Genre,
         "artist" => MixNodeSplitBy.Artist,
         "decade" => MixNodeSplitBy.Decade,
-        "mood" => MixNodeSplitBy.Mood,
         "hour" => MixNodeSplitBy.Hour,
         "showProgress" => MixNodeSplitBy.ShowProgress,
         "lastGenre" => MixNodeSplitBy.LastGenre,
@@ -347,7 +343,6 @@ public sealed class MixNodeSplitByConverter : JsonConverter<MixNodeSplitBy>
         MixNodeSplitBy.Genre => "genre",
         MixNodeSplitBy.Artist => "artist",
         MixNodeSplitBy.Decade => "decade",
-        MixNodeSplitBy.Mood => "mood",
         MixNodeSplitBy.Hour => "hour",
         MixNodeSplitBy.ShowProgress => "showProgress",
         MixNodeSplitBy.LastGenre => "lastGenre",

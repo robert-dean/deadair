@@ -16,7 +16,7 @@ const SYSTEM = [
     'Answer with a JSON object and nothing else: {"answer": true}, {"answer": false} or {"unknown": true}.',
 ].join('\n');
 
-/** Changes when the instructions do, so a record's answers are asked again under the new ones. */
+/** Changes when the instructions do. Kept with each answer to say which instructions gave it; an answer is not asked again when it changes. */
 export const MIX_JUDGE_VERSION = createHash('sha256').update(SYSTEM).digest('hex').slice(0, 12);
 
 export interface JudgeSubject {

@@ -30,7 +30,7 @@ export const MixBranch = z.strictObject({
         .max(20)
         .optional()
         .describe(
-            'What it matches, for `genre`, `artist`, `mood`, `lastGenre` (a genre or anything refining it) and `judged` (`yes` or `no`); a decade as `1980`',
+            'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`',
         ),
     min: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(100))
@@ -49,7 +49,7 @@ export type MixBranch = z.infer<typeof MixBranch>;
  */
 export const MixSong = z.strictObject({
     title: z.string().min(1).max(500),
-    artist: z.string().max(500).optional(),
+    artist: z.string().min(1).max(500).describe('Who made it: a record is found by title and artist together'),
 });
 export type MixSong = z.infer<typeof MixSong>;
 
@@ -66,7 +66,7 @@ export const MixNode = z.strictObject({
         ),
     bands: z.array(z.string().min(1).max(200)).max(50).optional().describe('`block`: the bands it keeps off, matched by name, ignoring case'),
     splitBy: z
-        .enum(['genre', 'artist', 'decade', 'mood', 'hour', 'showProgress', 'lastGenre', 'judged'])
+        .enum(['genre', 'artist', 'decade', 'hour', 'showProgress', 'lastGenre', 'judged'])
         .optional()
         .describe(
             '`split`: what it reads. `genre` is the band\'s main genre, which matches a branch\'s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch\'s range. `judged` is the model\'s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked',
@@ -95,7 +95,7 @@ export const MixNode = z.strictObject({
         .array(MixSong)
         .max(20)
         .optional()
-        .describe('`require`: the records it adds, freshest first. Absent or empty adds a library record of a required genre'),
+        .describe('`require`: the records it adds, the one aired longest ago first. Absent or empty adds a library record of a required genre'),
     afterPercent: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(100))
         .optional()

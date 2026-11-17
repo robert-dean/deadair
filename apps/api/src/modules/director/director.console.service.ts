@@ -1,3 +1,4 @@
+import { mixFlowProblems } from '#modules/schedule/mix.flow.validate.js';
 import { Injectable } from 'injectkit';
 import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { stationCover } from '#modules/art/art.source.token.js';
@@ -505,6 +506,13 @@ export class DirectorConsoleService {
      */
     async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false, night?: ScheduledNight): Promise<StationAir> {
         const mode = input.mode ?? 'rotation';
+
+        // A flow sent by hand is judged as a saved one is, so the walk's "assumed valid" holds on this
+        // path too. A slot's own flow was checked when it was saved.
+        const flowProblems = mixFlowProblems(input.mixFlow);
+        if (flowProblems.length > 0) {
+            throw httpError(400).withDetails({ message: `the mix flow cannot run as drawn: ${flowProblems.join('; ')}`, problems: flowProblems });
+        }
 
         // Which slot of the day this lands in, stamped even though the operator chose the source
         // themselves. That is what makes a manual takeover hold until the NEXT slot begins: the

@@ -256,3 +256,79 @@ describe('a judge split', () => {
         expect(judgeQuestions(flow)).toEqual([{ key: judgeKey(question), question }]);
     });
 });
+
+describe('giving way', () => {
+    const wired = (nodes: MixFlow['nodes'], links: MixLink[]): MixFlow => ({ version: 1, nodes, links });
+
+    it('never gives back a record a Block further down its path would hold', () => {
+        const flow = wired(
+            [
+                { id: 'picks', kind: 'picks' },
+                { id: 'count', kind: 'limitCount', count: 1, per: 'show' },
+                { id: 'block', kind: 'block', bands: ['Ed Sheeran'] },
+                { id: 'air', kind: 'onAir' },
+            ],
+            [wire('picks', 'count'), wire('count', 'block'), wire('block', 'air')],
+        );
+        const spent: CountedRecord = { ...rec('Dio'), hour: 20, path: ['picks', 'count', 'block', 'air'] };
+        expect(holdMixFlow([rec('Ed Sheeran')], { flow, ctx: ctx([spent]) })).toMatchObject({ gaveWay: false, kept: [] });
+        expect(holdMixFlow([rec('Iron Maiden')], { flow, ctx: ctx([spent]) })).toMatchObject({ gaveWay: true, kept: [{ artist: 'Iron Maiden' }] });
+    });
+
+    it('gives back a record waiting for the judge only when lifting the limits gives back nothing', () => {
+        const question = 'a sinful pop hit?';
+        const flow = wired(
+            [
+                { id: 'picks', kind: 'picks' },
+                { id: 'split', kind: 'split', splitBy: 'genre', branches: [{ values: ['pop'] }] },
+                { id: 'judge', kind: 'split', splitBy: 'judged', question, branches: [{ values: ['yes'] }] },
+                { id: 'count', kind: 'limitCount', count: 0, per: 'show' },
+                { id: 'merge', kind: 'merge' },
+                { id: 'air', kind: 'onAir' },
+            ],
+            [
+                wire('picks', 'split'),
+                wire('split', 'judge', 0),
+                wire('judge', 'merge', 0, 0),
+                wire('judge', 'merge', 1, 1),
+                wire('split', 'count', 1),
+                wire('count', 'merge', 0, 2),
+                wire('merge', 'air'),
+            ],
+        );
+        const unanswered = rec('Michael Jackson', 'pop');
+        const limited = rec('Dio', 'heavy metal');
+        expect(holdMixFlow([unanswered, limited], { flow, ctx: ctx() }).kept.map(record => record.artist)).toEqual(['Dio']);
+        expect(holdMixFlow([unanswered], { flow, ctx: ctx() })).toMatchObject({ gaveWay: true, kept: [{ artist: 'Michael Jackson' }] });
+    });
+});
+
+describe('counting by how far through the show', () => {
+    it('counts a record through the branch for where in the show it aired, not where the show is now', () => {
+        const flow: MixFlow = {
+            version: 1,
+            nodes: [
+                { id: 'picks', kind: 'picks' },
+                { id: 'half', kind: 'split', splitBy: 'showProgress', branches: [{ min: 0, max: 50 }] },
+                { id: 'first', kind: 'limitCount', count: 5 },
+                { id: 'second', kind: 'limitCount', count: 5 },
+                { id: 'merge', kind: 'merge' },
+                { id: 'air', kind: 'onAir' },
+            ],
+            links: [
+                wire('picks', 'half'),
+                wire('half', 'first', 0),
+                wire('half', 'second', 1),
+                wire('first', 'merge', 0, 0),
+                wire('second', 'merge', 0, 1),
+                wire('merge', 'air'),
+            ],
+        };
+        const [early, late] = countThrough(flow, [
+            { ...rec('A'), hour: 20, progress: 10 },
+            { ...rec('B'), hour: 21, progress: 70 },
+        ]);
+        expect(early!.path).toContain('first');
+        expect(late!.path).toContain('second');
+    });
+});

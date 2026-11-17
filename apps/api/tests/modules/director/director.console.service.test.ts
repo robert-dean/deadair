@@ -707,6 +707,21 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { beds: false } } });
     });
 
+    it('refuses a mix flow that cannot run as drawn, before anything goes on air', async () => {
+        const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
+        const loose = {
+            version: 1,
+            nodes: [
+                { id: 'picks', kind: 'picks' as const },
+                { id: 'air', kind: 'onAir' as const },
+            ],
+            links: [],
+        };
+
+        await expect(service.putOnAir({ chartId: 'deadair.lastfm:top-100', mixFlow: loose })).rejects.toMatchObject({ statusCode: 400 });
+        expect(posted()).toHaveLength(0);
+    });
+
     it('binds a setlist asking its host to talk as a rule of the broadcast, which is how a countdown gets a host', async () => {
         const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
 

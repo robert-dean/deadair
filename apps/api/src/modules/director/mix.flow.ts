@@ -328,7 +328,7 @@ export interface MixInForce {
  * EVERY record in a batch that had some, the ones a limit held (never a block) are let back so the show
  * is not starved into silence by its own amounts. `gaveWay` says so for the caller's log.
  */
-export function holdMixFlow<T extends MixRecord>(
+export function holdMixFlow<T extends MixRecord & { mixEntry?: string }>(
     records: readonly T[],
     mix: MixInForce,
 ): { kept: T[]; held: { record: T; at: string }[]; gaveWay: boolean } {
@@ -336,7 +336,8 @@ export function holdMixFlow<T extends MixRecord>(
     const kept: T[] = [];
     const held: { record: T; at: string }[] = [];
     for (const record of records) {
-        const walk = walkRecord(mix.flow, record, { ...mix.ctx, counted });
+        // A required record is walked from the `require` node that asked for it. See `TrackPick.mixEntry`.
+        const walk = walkRecord(mix.flow, record, { ...mix.ctx, counted }, record.mixEntry === undefined ? {} : { entry: record.mixEntry });
         if (walk.heldAt === undefined) {
             kept.push(record);
             counted.push({ ...record, hour: mix.ctx.hour, path: walk.path });

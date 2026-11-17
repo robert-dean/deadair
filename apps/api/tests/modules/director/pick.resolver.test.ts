@@ -1851,6 +1851,20 @@ describe("PickResolver with a show's mix flow", () => {
         expect(resolved.map(track => track.trackId).sort()).toEqual(['bm-1', 'heavy']);
     });
 
+    it("walks a required record from its own node, so wired into Merge it skips the flow's limit", async () => {
+        const { resolver } = built();
+        const required = {
+            ...flow,
+            nodes: [...flow.nodes, { id: 'need', kind: 'require' as const, requireGenres: ['black metal'] }],
+            links: [...flow.links, { from: 'need', out: 0, to: 'merge', in: 2 }],
+        };
+        const resolved = await resolver.resolve([picks[0]!, { ...picks[2]!, mixEntry: 'need' }], OPEN_RULES, {
+            mix: { flow: required, ctx: { hour: 20, showProgress: 0, counted: [] } },
+        });
+        expect(resolved.map(track => track.trackId).sort()).toEqual(['bm-1', 'bm-2']);
+        expect(resolved.every(track => !('mixEntry' in track))).toBe(true);
+    });
+
     it('judges nothing by it when the caller keeps the order, as a request does', async () => {
         const { resolver } = built();
         const resolved = await resolver.resolve(picks, OPEN_RULES, { keepOrder: true });

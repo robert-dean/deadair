@@ -297,3 +297,21 @@ describe('CandidatesRepository.mainGenresFor', () => {
         expect(captured.statements).toHaveLength(0);
     });
 });
+
+describe('CandidatesRepository.sampleByMainGenre', () => {
+    it('draws at random by a word in the main genre, leaving the precise match to the caller', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sampleByMainGenre(['pop'], 10);
+
+        const statement = captured.statements[0]!;
+        expect(statement.sql).toContain('ilike any(');
+        expect(statement.sql).toContain('random()');
+        expect(statement.parameters).toContainEqual(['%pop%']);
+    });
+
+    it('asks nothing for no genres', async () => {
+        const captured: Captured = { statements: [] };
+        expect(await new CandidatesRepository(fakeDb(captured)).sampleByMainGenre([' '], 10)).toEqual([]);
+        expect(captured.statements).toHaveLength(0);
+    });
+});

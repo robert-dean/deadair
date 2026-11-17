@@ -515,6 +515,41 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * A random handful of library records whose band's main genre contains one of `genres`, for a
+     * show's mix flow that requires one (`MixRequireSetGenerator`).
+     *
+     * Loose on purpose, a word anywhere in the main genre, because the caller matches what comes back
+     * with `refinesGenre`, which a SQL copy of would be a second matcher; a loose positive draw is safe
+     * where a loose exclusion is not. The main genre is {@link mainGenresFor}'s, the first its artist's
+     * enrichment lists. Whether a record can air is the resolver's to judge.
+     */
+    async sampleByMainGenre(genres: readonly string[], limit: number): Promise<{ trackId: string; title: string; artist: string; genre: string }[]> {
+        const words = genres.map(genre => genre.trim()).filter(genre => genre.length > 0);
+        if (words.length === 0 || limit <= 0) return [];
+
+        const mainGenre = sql<string | null>`(
+            select e.data -> 'genres' ->> 0
+            from deadair.artist_enrichment e
+            where e.artist_id = deadair.tracks.artist_id
+              and jsonb_typeof(e.data -> 'genres') = 'array'
+              and coalesce(e.data -> 'genres' ->> 0, '') <> ''
+            order by e.provider
+            limit 1
+        )`;
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist'])
+            .select(mainGenre.as('genre'))
+            .where(mainGenre, 'ilike', sql<string>`any(${sql.val(words.map(word => `%${word.replace(/[%_\\]/g, '')}%`))}::text[])`)
+            .orderBy(sql`random()`)
+            .limit(Math.floor(limit))
+            .execute();
+
+        return rows.flatMap(row => (row.genre == null ? [] : [{ trackId: row.trackId, title: row.title, artist: row.artist, genre: row.genre }]));
+    }
+
+    /**
      * A batch of records' titles and their albums' names, for a `version` never-play rule
      * (`live.version.ts`), which reads the version markers a provider wrote there. A record with no
      * album answers with its title alone.

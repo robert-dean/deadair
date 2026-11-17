@@ -613,6 +613,17 @@ budget cut the picks held from about 95 a show to about 6. `MixFlowReader` reads
 a replan; a read that fails costs that batch its flow and never the batch. A prepared opening is judged with
 nothing counted.
 
+**A Require node is a promise, so its record goes FIRST** (`MixRequireSetGenerator`, ahead of the festival
+and the brief's acts in the chain). A prose "rare pop hit" produced one pop record in five Sundays; a require
+node is due once the show is past its `afterPercent` and nothing counted satisfies it (`dueRequirements`:
+`any` of its genres, or `each` in turn, or one of its listed records when it names no genre), and the
+generator adds one record per due node: of its listed records the one aired longest ago and not already
+queued, else a library record whose band's main genre refines one wanted (`sampleByMainGenre`, a loose
+positive draw matched precisely in code). The pick names its node (`TrackPick.mixEntry`), and the resolver
+walks it FROM THAT NODE, so wiring decides what judges a required record: wired into Merge it skips the
+show's limits, and a Block downstream still holds it. A requirement whose record did not air is still due next
+refill, because nothing in the show satisfied it.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

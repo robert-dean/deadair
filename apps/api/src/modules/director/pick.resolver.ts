@@ -123,11 +123,18 @@ export interface ScreenCandidate {
 }
 
 /** A resolved track with its keys still attached, so the last rule can be applied to it. */
-type Airable = RundownTrack & RotationCandidate;
+type Airable = RundownTrack & RotationCandidate & { mixEntry?: string };
 
 /** Drop the keys again. They are a rotation concern and a rundown item has no business carrying them. */
-const toRundownTrack = ({ songKey: _song, artistKey: _artist, creditKey: _credit, acts: _acts, rating: _rating, ...track }: Airable): RundownTrack =>
-    track;
+const toRundownTrack = ({
+    songKey: _song,
+    artistKey: _artist,
+    creditKey: _credit,
+    acts: _acts,
+    rating: _rating,
+    mixEntry: _entry,
+    ...track
+}: Airable): RundownTrack => track;
 
 /**
  * Turning a chosen track into something the station can actually air.
@@ -381,6 +388,8 @@ export class PickResolver {
                 ...(pick.deepCut === true ? { deepCut: true as const } : {}),
                 // Why the model picked it, for the as-run log and nothing else. See `pick.reason.ts`.
                 ...(pick.pickedBecause === undefined ? {} : { pickedBecause: pick.pickedBecause }),
+                // Which `require` node asked for it, so the flow walks it from there. Stripped by `toRundownTrack`.
+                ...(pick.mixEntry === undefined ? {} : { mixEntry: pick.mixEntry }),
             });
         }
 
@@ -413,7 +422,12 @@ export class PickResolver {
                 this.logger.warn('director: could not read main genres for the mix flow', { error: errorText(error) });
                 return new Map<string, string>();
             });
-        const records = batch.map(entry => ({ entry, ...mixRecordOf(entry, genres), ...(entry.year === undefined ? {} : { year: entry.year }) }));
+        const records = batch.map(entry => ({
+            entry,
+            ...mixRecordOf(entry, genres),
+            ...(entry.year === undefined ? {} : { year: entry.year }),
+            ...(entry.mixEntry === undefined ? {} : { mixEntry: entry.mixEntry }),
+        }));
         const { kept, held, gaveWay } = holdMixFlow(records, mix);
         if (held.length > 0 || gaveWay) {
             this.logger.debug("director: the show's mix flow held some chosen tracks", {

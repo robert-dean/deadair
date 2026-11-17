@@ -49,6 +49,12 @@ export interface TrackPick {
      * not by the resolver, the rotation rules or the repeat window. See `pick.reason.ts`.
      */
     pickedBecause?: string;
+    /**
+     * The `require` node of the show's mix flow that asked for this record, set by
+     * `MixRequireSetGenerator` alone. The resolver walks it from that node rather than from Picks, so
+     * wiring decides what judges a required record. Never carried onto the record that airs.
+     */
+    mixEntry?: string;
 }
 
 /**

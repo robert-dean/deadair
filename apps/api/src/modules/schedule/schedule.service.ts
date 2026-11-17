@@ -1,3 +1,5 @@
+import { hasMixFlow } from './mix.flow.shape.js';
+import { mixFlowProblems } from './mix.flow.validate.js';
 import { Injectable } from 'injectkit';
 import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -433,6 +435,7 @@ export class ScheduleService {
         await this.refuseOverlap(draft);
         await this.refusePeople(draft);
         await this.refuseFestival(draft);
+        refuseMixFlow(draft);
 
         const created = await this.slots.create(draft);
         this.logger.info('schedule: an operator added a slot', { slot: created.id, label: created.label, startsAt: created.startsAtMinutes });
@@ -442,10 +445,11 @@ export class ScheduleService {
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const stored = (await this.slots.list()).find(slot => slot.id === id);
-        const draft = draftOf(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored));
+        const draft = draftOf(keepingMixFlow(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored), stored));
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
         await this.refuseFestival(draft);
+        refuseMixFlow(draft);
 
         const updated = await this.slots.update(id, draft);
         if (updated === undefined) throw httpError(404).withDetails({ message: `schedule slot "${id}" does not exist` });
@@ -622,6 +626,8 @@ export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.concerts === undefined ? {} : { concerts: body.concerts }),
         ...(body.beds === undefined ? {} : { beds: body.beds }),
         ...(body.festivalId === undefined ? {} : { festivalId: body.festivalId }),
+        // An empty flow is how a client clears one, and is stored as none.
+        ...(hasMixFlow(body.mixFlow) ? { mixFlow: body.mixFlow } : {}),
         ...(body.breaks === undefined ? {} : { breaks: body.breaks }),
         ...(body.requestShow === undefined ? {} : { requestShow: body.requestShow }),
         ...(body.requestFollowOn === undefined ? {} : { requestFollowOn: body.requestFollowOn }),
@@ -722,6 +728,28 @@ function keepingRecurrence(body: ScheduleSlotInput, stored: ScheduleSlot | undef
     if (stored?.dates === undefined || !isRecurrence(stored.dates)) return body;
 
     return { ...body, recurrence: occasionRuleFields(stored.dates.rule) };
+}
+
+/**
+ * A body that says nothing about the mix flow leaves the slot's flow where it is.
+ *
+ * `keepingBeds`' argument: a client built before the field existed (an older desktop app) rewrites the
+ * whole row without it, and reading that as "no flow" would quietly lift every limit on a show because
+ * somebody corrected its name. A client that means to clear the flow sends one with no nodes.
+ */
+function keepingMixFlow(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
+    return body.mixFlow === undefined && stored?.mixFlow !== undefined ? { ...body, mixFlow: stored.mixFlow } : body;
+}
+
+/**
+ * A flow that would not run as drawn is refused at the save, every reason at once, so the canvas can put
+ * each on its node. See `mixFlowProblems`.
+ */
+function refuseMixFlow(draft: ScheduleSlotDraft): void {
+    const problems = mixFlowProblems(draft.mixFlow);
+    if (problems.length > 0) {
+        throw httpError(400).withDetails({ message: `the mix flow cannot run as drawn: ${problems.join('; ')}`, problems });
+    }
 }
 
 /**
@@ -846,6 +874,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
         ...(slot.concerts === undefined ? {} : { concerts: slot.concerts }),
         ...(slot.beds === undefined ? {} : { beds: slot.beds }),
         ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
+        ...(slot.mixFlow === undefined ? {} : { mixFlow: slot.mixFlow }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),

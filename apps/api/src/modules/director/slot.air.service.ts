@@ -27,6 +27,7 @@ const CHOICE_RULES = [
     'artistCooldownMinutes',
     'maxPerArtist',
     'festivalId',
+    'mixFlow',
 ] as const satisfies readonly (keyof StationLineupRules)[];
 
 /**

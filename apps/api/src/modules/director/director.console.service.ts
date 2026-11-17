@@ -2097,6 +2097,7 @@ export function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRule
         ...(input.concerts === undefined ? {} : { concerts: input.concerts }),
         ...(input.beds === undefined ? {} : { beds: input.beds }),
         ...(input.festivalId === undefined ? {} : { festivalId: input.festivalId }),
+        ...(input.mixFlow === undefined || input.mixFlow.nodes.length === 0 ? {} : { mixFlow: input.mixFlow }),
         ...(input.requestShow === undefined ? {} : { requestShow: input.requestShow }),
         ...(input.requestFollowOn === undefined ? {} : { requestFollowOn: input.requestFollowOn }),
         ...(input.requestCooldownMinutes === undefined ? {} : { requestCooldownMinutes: input.requestCooldownMinutes }),

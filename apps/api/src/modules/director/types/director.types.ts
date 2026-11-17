@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MixFlow } from '../../schedule/types/mix.types.js';
 import { Rating } from '../../catalog/types/catalog.types.js';
 import { ScriptRating } from '../../render/types/render.types.js';
 
@@ -321,6 +322,9 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
         ),
+    mixFlow: MixFlow.optional().describe(
+        "The rules this broadcast's records pass before they air: blocks, limits on a genre's share or count, records it requires. The station enforces them on every record it proposes; a listener's request and what follows it are never judged or counted. Absent is no flow",
+    ),
     festivalId: z
         .uuid()
         .optional()

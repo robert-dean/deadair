@@ -1067,6 +1067,7 @@ export interface DeadairScheduleSlots {
   label: Generated<string>;
   live: Generated<boolean>;
   maxPerArtist: number | null;
+  mixFlow: Json | null;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
   moods: string[] | null;

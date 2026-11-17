@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MixFlow } from './mix.types.js';
 import { PackImportPlan } from '../../topics/types/topics.types.js';
 
 /**
@@ -275,6 +276,9 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
         ),
+    mixFlow: MixFlow.optional().describe(
+        "The rules this stretch of the day's records pass before they air, drawn as a flow of nodes and wires: blocks, limits on a genre's share or count, records it requires. The station enforces them itself, on every record it proposes, which a brief cannot promise. Absent or with no nodes is no flow, and the show plays exactly as it would without one. A rewrite that leaves it out keeps what the slot had",
+    ),
     festivalId: z
         .uuid()
         .optional()
@@ -492,6 +496,9 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             "Whether the host may mention an artist's next show near the station, when the record either side of a break is theirs and a concert plugin knows of one. Absent is no",
         ),
+    mixFlow: MixFlow.optional().describe(
+        "The rules this stretch of the day's records pass before they air, drawn as a flow of nodes and wires: blocks, limits on a genre's share or count, records it requires. The station enforces them itself, on every record it proposes, which a brief cannot promise. Absent or with no nodes is no flow, and the show plays exactly as it would without one. A rewrite that leaves it out keeps what the slot had",
+    ),
     festivalId: z
         .uuid()
         .optional()

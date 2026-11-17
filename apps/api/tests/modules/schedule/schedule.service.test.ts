@@ -5,6 +5,7 @@
 // projection the timetable draws, answered here so a page can lead with what is on rather than
 // deriving station-local dates in a browser that does not know the station's timezone.
 
+import type { MixFlow } from '../../../src/modules/schedule/types/mix.types.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
@@ -828,5 +829,56 @@ describe("a slot's music beds", () => {
         const service = build({ slots: list });
         await service.update('a', input({ beds: true }));
         expect(list[0]).toMatchObject({ beds: true });
+    });
+});
+
+describe("a slot's mix flow", () => {
+    const input = (over: Partial<ScheduleSlotInput> = {}): ScheduleSlotInput => ({
+        label: 'x',
+        startsAtMinutes: 600,
+        endsAtMinutes: 720,
+        days: [],
+        mode: 'rotation',
+        onEnd: 'extend',
+        ...over,
+    });
+    const flow: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'block', kind: 'block', bands: ['Burzum'] },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'block', in: 0 },
+            { from: 'block', out: 0, to: 'air', in: 0 },
+        ],
+    };
+
+    it('carries a flow through, and stores an empty one as none', () => {
+        expect(draftOf(input({ mixFlow: flow }))).toMatchObject({ mixFlow: flow });
+        expect(draftOf(input({ mixFlow: { version: 1, nodes: [], links: [] } }))).not.toHaveProperty('mixFlow');
+    });
+
+    it('keeps its flow through an edit from a client that never heard of one', async () => {
+        const list = [{ ...slot('a', 600, 720), mixFlow: flow }];
+        const service = build({ slots: list });
+        await service.update('a', input({ label: 'renamed' }));
+        expect(list[0]).toMatchObject({ label: 'renamed', mixFlow: flow });
+    });
+
+    it('clears it when the edit sends a flow with no nodes', async () => {
+        const list = [{ ...slot('a', 600, 720), mixFlow: flow }];
+        const service = build({ slots: list });
+        await service.update('a', input({ mixFlow: { version: 1, nodes: [], links: [] } }));
+        expect(list[0]?.mixFlow).toBeUndefined();
+    });
+
+    it('refuses a flow that cannot run, naming the node', async () => {
+        const service = build({ slots: [] });
+        const loose = { ...flow, links: [flow.links[0]!] };
+        await expect(service.create(input({ mixFlow: loose }))).rejects.toMatchObject({
+            details: { message: expect.stringContaining('Block "block" leads nowhere') },
+        });
     });
 });

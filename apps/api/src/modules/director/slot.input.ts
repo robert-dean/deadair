@@ -40,6 +40,8 @@ export function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean
         ...(slot.beds === undefined ? {} : { beds: slot.beds }),
         // On the order's rules rather than in a batch, for the brief's reason: `onEnd: 'extend'` keeps asking.
         ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
+        // On the order's rules for the festival's reason. An empty flow is no flow, and is not carried.
+        ...(slot.mixFlow === undefined || slot.mixFlow.nodes.length === 0 ? {} : { mixFlow: slot.mixFlow }),
         // The same three-way, and absent is the mode's answer: a countdown slot is a setlist that says yes.
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         // A kind of show rather than a station setting, so absent is simply no.

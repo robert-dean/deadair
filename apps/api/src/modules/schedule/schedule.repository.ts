@@ -1,3 +1,4 @@
+import type { MixFlow } from './types/mix.types.js';
 import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
@@ -211,6 +212,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         concerts: draft.concerts ?? null,
         beds: draft.beds ?? null,
         festivalId: draft.festivalId ?? null,
+        mixFlow: draft.mixFlow === undefined ? null : JSON.stringify(draft.mixFlow),
         breaks: draft.breaks ?? null,
         requestShow: draft.requestShow ?? null,
         requestFollowOn: draft.requestFollowOn ?? null,
@@ -304,6 +306,7 @@ function toSlot(row: {
     concerts: boolean | null;
     beds: boolean | null;
     festivalId: string | null;
+    mixFlow: unknown;
     breaks: boolean | null;
     requestShow: boolean | null;
     requestFollowOn: number | null;
@@ -360,6 +363,7 @@ function toSlot(row: {
         ...(row.concerts == null ? {} : { concerts: row.concerts }),
         ...(row.beds == null ? {} : { beds: row.beds }),
         ...(row.festivalId == null ? {} : { festivalId: row.festivalId }),
+        ...(row.mixFlow == null ? {} : { mixFlow: row.mixFlow as MixFlow }),
         ...(row.breaks == null ? {} : { breaks: row.breaks }),
         ...(row.requestShow == null ? {} : { requestShow: row.requestShow }),
         ...(row.requestFollowOn == null ? {} : { requestFollowOn: row.requestFollowOn }),

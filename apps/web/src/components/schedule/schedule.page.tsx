@@ -559,6 +559,8 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.beds === undefined ? {} : { beds: slot.beds }),
         // And its festival, or a drag would turn a festival weekend back into an ordinary show.
         ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
+        // And its mix flow, which the station would keep anyway, but a body that says what it means is clearer.
+        ...(slot.mixFlow === undefined ? {} : { mixFlow: slot.mixFlow }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
         ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),

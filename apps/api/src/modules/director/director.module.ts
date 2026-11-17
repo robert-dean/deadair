@@ -75,6 +75,8 @@ import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { MixFlowReader } from './mix.flow.reader.js';
+import { ArtistGenreRepository } from './artist.genre.repository.js';
+import { ArtistGenreService } from './artist.genre.service.js';
 import { MixRequireSetGenerator } from './mix.require.set.generator.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { AsRunRepository } from './as.run.repository.js';
@@ -161,6 +163,8 @@ export const DirectorModule: ServerKitModule = {
         // interrupted", and a singleton would let one refill's interruption buy another one a retry.
         registry.register(RefillPreemption).useClass(RefillPreemption).asScoped();
         registry.register(MixFlowReader).useClass(MixFlowReader).asScoped();
+        registry.register(ArtistGenreRepository).useClass(ArtistGenreRepository).asScoped();
+        registry.register(ArtistGenreService).useClass(ArtistGenreService).asScoped();
         registry
             .register(SetGenerator)
             .useFactory(

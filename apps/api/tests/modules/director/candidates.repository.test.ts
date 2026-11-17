@@ -287,6 +287,8 @@ describe('CandidatesRepository.mainGenresFor', () => {
         expect(sql).toContain("e.data -> 'genres' ->> 0");
         expect(sql).toContain('from deadair.artist_enrichment e');
         expect(sql).not.toContain('track_enrichment');
+        // The model's genre fills a gap a provider left, and never overrides one.
+        expect(sql).toMatch(/coalesce\([\s\S]*artist_enrichment[\s\S]*artist_genre_judgements/);
         // One answer however many providers wrote genres, and the same one each time.
         expect(sql).toContain('order by e.provider');
     });

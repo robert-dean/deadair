@@ -6,6 +6,7 @@
 import { LYRIC_MOODS_KEYS, LYRIC_SUBJECT_KEYS } from '../../../src/modules/lyrics/lyrics.keys.js';
 
 import { describe, expect, it } from 'vitest';
+import { MIX_FLOW_KEYS } from '../../../src/modules/director/mix.flow.keys.js';
 
 import { derivedModels, derivedSettings, MODEL_SETTING_KEYS } from '../../../src/modules/settings/settings.derived.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
@@ -99,7 +100,7 @@ describe('derivedSettings', () => {
 
 describe('derivedModels', () => {
     it('finds every model setting in the registry, and nothing that is not one', () => {
-        // Read off the registry by the suggestion list the nine share, so this is the check that the
+        // Read off the registry by the suggestion list the ten share, so this is the check that the
         // property still picks out exactly them.
         expect([...MODEL_SETTING_KEYS].sort()).toEqual(
             [
@@ -111,6 +112,7 @@ describe('derivedModels', () => {
                 PERSONA_MODEL_KEY,
                 LYRIC_MOODS_KEYS.model,
                 LYRIC_SUBJECT_KEYS.model,
+                MIX_FLOW_KEYS.genreModel,
                 PRODUCTION_MODEL_KEY,
             ].sort(),
         );

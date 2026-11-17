@@ -9,6 +9,7 @@ import { PlaylistFillJob } from '#modules/playlists/playlist.fill.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { LyricsJob } from '#modules/lyrics/lyrics.job.js';
 import { LyricMoodsJob } from '#modules/lyrics/lyric.moods.job.js';
+import { ArtistGenreJob } from '#modules/director/artist.genre.job.js';
 import { LyricSubjectsJob } from '#modules/lyrics/lyric.subjects.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
@@ -191,6 +192,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'catalog.label_moods': {
         job: LyricMoodsJob,
         cron: '13-59/15 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
+    },
+
+    // The genre walk for a show's mix flow, on the mood walk's terms and off its minutes. Asks nothing
+    // while `mixFlow.artistGenres` is off.
+    'catalog.name_artist_genres': {
+        job: ArtistGenreJob,
+        cron: '8-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 

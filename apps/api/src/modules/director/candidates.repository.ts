@@ -173,6 +173,24 @@ export interface TrackStanding {
     suspended: boolean;
 }
 
+/**
+ * A `deadair.tracks` row's band's main genre, as SQL: the first genre its artist's enrichment lists, by
+ * provider id where several have, else the genre the station's model named for a band no provider gave
+ * one (`artist_genre_judgements`, 0145). A provider's genre always wins; the judgement only fills a gap.
+ */
+const mainGenreOfTrack = () => sql<string | null>`coalesce(
+    (
+        select e.data -> 'genres' ->> 0
+        from deadair.artist_enrichment e
+        where e.artist_id = deadair.tracks.artist_id
+          and jsonb_typeof(e.data -> 'genres') = 'array'
+          and coalesce(e.data -> 'genres' ->> 0, '') <> ''
+        order by e.provider
+        limit 1
+    ),
+    (select j.genre from deadair.artist_genre_judgements j where j.artist_id = deadair.tracks.artist_id and j.genre is not null)
+)`;
+
 @Injectable()
 export class CandidatesRepository extends DataRepository {
     /**
@@ -496,17 +514,7 @@ export class CandidatesRepository extends DataRepository {
         const rows = await this.db
             .selectFrom('deadair.tracks')
             .select('deadair.tracks.id as trackId')
-            .select(
-                sql<string | null>`(
-                    select e.data -> 'genres' ->> 0
-                    from deadair.artist_enrichment e
-                    where e.artist_id = deadair.tracks.artist_id
-                      and jsonb_typeof(e.data -> 'genres') = 'array'
-                      and coalesce(e.data -> 'genres' ->> 0, '') <> ''
-                    order by e.provider
-                    limit 1
-                )`.as('genre'),
-            )
+            .select(mainGenreOfTrack().as('genre'))
             .where('deadair.tracks.id', 'in', [...trackIds])
             .execute();
 
@@ -527,15 +535,7 @@ export class CandidatesRepository extends DataRepository {
         const words = genres.map(genre => genre.trim()).filter(genre => genre.length > 0);
         if (words.length === 0 || limit <= 0) return [];
 
-        const mainGenre = sql<string | null>`(
-            select e.data -> 'genres' ->> 0
-            from deadair.artist_enrichment e
-            where e.artist_id = deadair.tracks.artist_id
-              and jsonb_typeof(e.data -> 'genres') = 'array'
-              and coalesce(e.data -> 'genres' ->> 0, '') <> ''
-            order by e.provider
-            limit 1
-        )`;
+        const mainGenre = mainGenreOfTrack();
         const rows = await this.db
             .selectFrom('deadair.tracks')
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')

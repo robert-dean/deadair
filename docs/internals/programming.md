@@ -592,7 +592,10 @@ missing what it needs.
 Not every tag, because "is this black metal" asked of every tag answers yes for Mercyful Fate and Behemoth,
 whose second tags say so, and a limit on black metal would then count most of a metal show. The cost is the
 other direction: Behemoth is death metal to a flow (Last.fm's first tag), and a flow author who disagrees
-splits by artist. A band with no genre matches no genre branch.
+splits by artist. A band no provider gave a genre matches no genre branch, unless the genre walk has named
+it one: with `mixFlow.artistGenres` on, `ArtistGenreJob` has the model name a main genre for each such band,
+led by what is about to air, and `mainGenresFor` falls back to it (`artist_genre_judgements`, 0145). A
+provider's genre always wins, so the walk only ever fills a gap; 587 of 4205 live artists had none.
 
 **What counts, and what never does.** `play_history.requested` (0144) marks a record a listener asked for and
 what a request show played after one, written off the running order's own line when the record airs, and

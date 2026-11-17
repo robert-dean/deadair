@@ -195,6 +195,17 @@ export interface DeadairArtistEnrichment {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairArtistGenreJudgements {
+  artistId: string;
+  failures: Generated<number>;
+  genre: string | null;
+  judgedAt: DateTime | null;
+  lastError: string | null;
+  retryAfter: DateTime | null;
+  updatedAt: Generated<DateTime>;
+  version: string;
+}
+
 export interface DeadairArtistRecords {
   album: string | null;
   artist: string;
@@ -1483,6 +1494,7 @@ export interface DB {
   "deadair.albumSources": DeadairAlbumSources;
   "deadair.artAssets": DeadairArtAssets;
   "deadair.artistEnrichment": DeadairArtistEnrichment;
+  "deadair.artistGenreJudgements": DeadairArtistGenreJudgements;
   "deadair.artistRecords": DeadairArtistRecords;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;

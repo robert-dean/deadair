@@ -476,6 +476,45 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * Each record's band's MAIN genre: the first genre its artist's enrichment lists, for a show's mix
+     * flow to split and count by.
+     *
+     * The artist's rather than the record's, and the first rather than any, because "is this black metal"
+     * asked of every tag answers yes for Mercyful Fate and Behemoth, whose second tags say so, and a
+     * limit on black metal would then count most of a metal show. Last.fm lists an artist's tags by
+     * weight, so the first is what most listeners call the band; it is the one provider writing ordered
+     * artist genres on the live station (3618 of 4205 artists). Where several providers have, the first
+     * by provider id answers, so the answer does not change from one read to the next.
+     *
+     * A record whose artist has no genres answers with nothing, which a genre split reads as matching no
+     * branch.
+     */
+    async mainGenresFor(trackIds: readonly string[]): Promise<Map<string, string>> {
+        const genres = new Map<string, string>();
+        if (trackIds.length === 0) return genres;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .select('deadair.tracks.id as trackId')
+            .select(
+                sql<string | null>`(
+                    select e.data -> 'genres' ->> 0
+                    from deadair.artist_enrichment e
+                    where e.artist_id = deadair.tracks.artist_id
+                      and jsonb_typeof(e.data -> 'genres') = 'array'
+                      and coalesce(e.data -> 'genres' ->> 0, '') <> ''
+                    order by e.provider
+                    limit 1
+                )`.as('genre'),
+            )
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        for (const row of rows) if (row.genre != null) genres.set(row.trackId, row.genre);
+        return genres;
+    }
+
+    /**
      * A batch of records' titles and their albums' names, for a `version` never-play rule
      * (`live.version.ts`), which reads the version markers a provider wrote there. A record with no
      * album answers with its title alone.

@@ -277,3 +277,23 @@ describe('CandidatesRepository.findManyByName', () => {
         expect(captured.statements).toHaveLength(0);
     });
 });
+
+describe('CandidatesRepository.mainGenresFor', () => {
+    it("reads the first genre of the artist's enrichment, never the record's own tags", async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).mainGenresFor(['track-1']);
+
+        const sql = captured.statements[0]?.sql ?? '';
+        expect(sql).toContain("e.data -> 'genres' ->> 0");
+        expect(sql).toContain('from deadair.artist_enrichment e');
+        expect(sql).not.toContain('track_enrichment');
+        // One answer however many providers wrote genres, and the same one each time.
+        expect(sql).toContain('order by e.provider');
+    });
+
+    it('asks nothing for no tracks', async () => {
+        const captured: Captured = { statements: [] };
+        expect((await new CandidatesRepository(fakeDb(captured)).mainGenresFor([])).size).toBe(0);
+        expect(captured.statements).toHaveLength(0);
+    });
+});

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Anchor, Group, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Box, Group, Stack, Text, Title } from '@mantine/core';
 import { IconChevronLeft } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import type { StationSettingDescriptor } from '@deadair/sdk';
 import { i18n } from '../../i18n/i18n.setup';
 import { EmbeddedPage } from '../shared/page.header';
 import { usePhone } from '../shared/use.phone';
+import { SettingsSectionNav } from './settings.section.nav';
 
 /**
  * Every section there is.
@@ -279,10 +280,8 @@ export const SETTINGS_ROUTES: Record<
 
 export interface SettingsShellProps {
     /**
-     * Which section is being read, or nothing for the list of them.
-     *
-     * Only a phone reads this, and only to decide whether to draw the way back: on a desk the rail
-     * says where the operator is, and it reads that off the router rather than off a prop.
+     * Which section is being read, or nothing for the list of them. A desk lights it in the section
+     * column; a phone reads it only to decide whether to draw the way back.
      */
     active?: SettingsSectionId;
     children: ReactNode;
@@ -298,8 +297,8 @@ export interface SettingsShellProps {
  * most of the sections are off-screen while somebody is looking for one, and a strip has nowhere to
  * put the sentence saying what each one holds.
  *
- * Now neither. The rail lists them on a desk and `SettingsIndex` lists them on a phone, so this
- * draws the destination and gets out of the way.
+ * Now a column of its own on a desk, `SettingsSectionNav`, with a search box over it; on a phone
+ * `SettingsIndex` is the list and each section carries a way back to it.
  *
  * **The sections still save one at a time.** The API write is partial, so a section cannot clear
  * another, and the line under the title is where that is said.
@@ -308,8 +307,8 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
     const { t } = useTranslation('settings');
     const phone = usePhone();
 
-    // The rail is collapsed on a phone, so a section reached from the list has nothing to get back
-    // to it with. On a desk the rail is the way back and a second one would be clutter.
+    // On a phone a section reached from the list has nothing else to get back to it with. On a desk
+    // the section column is beside it, and a second way back would be clutter.
     const back = phone && active !== undefined;
 
     return (
@@ -330,8 +329,22 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
                 </Text>
             </Stack>
 
-            {/* Stops each section drawing a second `<h1>` under the destination's own. */}
-            <EmbeddedPage>{children}</EmbeddedPage>
+            {phone ? (
+                // Stops each section drawing a second `<h1>` under the destination's own.
+                <EmbeddedPage>{children}</EmbeddedPage>
+            ) : (
+                <Group align="flex-start" gap="xl" wrap="nowrap">
+                    <Box
+                        w={232}
+                        style={{ flexShrink: 0, position: 'sticky', top: 'calc(var(--app-shell-header-offset, 52px) + var(--mantine-spacing-md))' }}
+                    >
+                        <SettingsSectionNav active={active} />
+                    </Box>
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                        <EmbeddedPage>{children}</EmbeddedPage>
+                    </Box>
+                </Group>
+            )}
         </Stack>
     );
 }

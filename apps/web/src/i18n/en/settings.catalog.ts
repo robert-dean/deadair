@@ -852,6 +852,12 @@ export const settings = {
         answers: 'Answers',
         noAnswer: 'No answer',
     },
+    // The column of sections beside the one being read, on a desk.
+    sectionNav: {
+        label: 'Settings sections',
+        search: 'Find a section',
+        nothing: 'No section matches.',
+    },
     shell: {
         allSettings: 'All settings',
         title: 'Settings',

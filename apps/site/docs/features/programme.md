@@ -92,6 +92,26 @@ A block can also steer away from moods under **Steers away from**: a morning sho
 
 **A new show can travel from one artist to another.** Under **Desk → Plan**, **Start a new show**, **Or travel from one artist to another** takes a **From** and a **To** artist. The station finds a way between them through artists your library holds, one record each, where every step is either a record the two artists are credited on together or a similarity source naming them alike. **Preview the route** shows each stop and how it connects before anything airs. Each stop's record is held to the same rules as any other, so a stop with nothing the station may play is left out and the route closes up around it. On air, the presenter can say how a record connects to the one before it. A route is for a show you put on yourself: a timetable block cannot have one yet.
 
+## A show's mix flow
+
+A brief can say "black metal only now and then", but only the model reads it, and the model chooses one batch at a time without keeping count. A **mix flow** is a show's music rules that the station follows on every record it picks for that show, however the record was chosen. Open a rotation block in its editor and choose **Draw a mix flow**.
+
+The flow is a canvas. Records enter at **Picks** and leave at **On air**, and you wire nodes between them by dragging from an output to an input:
+
+- **Block bands** keeps the named bands off the show.
+- **Split** sends each record down the first branch it matches: by its band's main genre, the artist, the decade, the hour, how far into the show it is, the genre of the record before it, or the model's yes-or-no answer to a question you write, such as "a sinful pop hit?". Anything that matches no branch goes down **everything else**.
+- **Limit share** lets at most a percent of what passes through it air in each hour or show, and **Limit count** at most a number.
+- **No two in a row** keeps two of what passes through it from playing back to back.
+- **Time switch** is a number that changes at an hour. Wire it into a Limit share to allow, say, 10% before 22:00 and 30% after.
+- **Require** promises a record once the show is far enough in: one from a list, the one played longest ago first, or any record whose band's main genre matches.
+- **Merge** joins wires.
+
+A band's main genre is the first genre its information lists, so a band tagged both death metal and black metal counts as whichever comes first. Split by artist when you disagree. For bands with no genre at all, turn on **Let a model name a genre for bands that have none** under **Settings**.
+
+The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and the station refuses to save a flow that cannot run. A record held back by the flow is simply not chosen; the station picks something else. The model is told how much of each limit is left, so it stops suggesting records the flow would turn down. A listener's request, and what a request show plays after one, is never held back by the flow and never counted against it. A question for the model is answered once per record in the background, so a record waits until the station next plans its music before its first answer.
+
+The flow is saved with the show, and like the rest of a block it takes effect the next time the block starts, or now with **Save and apply now**. **Remove it** takes the flow off.
+
 ## Your opinion, and the rules nothing gets round
 
 Records, albums and artists can each be liked, neutral or disliked. A dislike anywhere wins outright: dislike an artist and none of their records air. Otherwise the strongest like carries. Liking an artist means more of them; liking one song means that song more often.

@@ -637,6 +637,14 @@ and the model is never asked anything on air. Nothing is asked unless an operato
 switch of its own; `llm.judgeModel` says which models answer. Not built: asking ahead of a show's start for
 the records its flow is likely to meet, so its first refill has answers to read.
 
+**The console draws a flow on a canvas** (`apps/web/src/components/mix`, React Flow, MIT), opened from a
+rotation slot's editor and saved with the slot. Each node's settings are inputs inside the node and each
+socket a handle, numbered as the contract numbers them (`socketsOf`, a copy of the API's). The canvas marks
+on the node what would stop the flow running (`flowProblems`, a short copy of `mixFlowProblems`), refuses a
+wire between unlike sockets or into a socket that already has one but a Merge's, keeps a split's wires on
+their branches when its branches change (`relinkSplit`), and draws a dashed wire from each limit back to
+Picks that is never stored: it is what the model is told. The station's own check stays the authority.
+
 **A Require node is a promise, so its record goes FIRST** (`MixRequireSetGenerator`, ahead of the festival
 and the brief's acts in the chain). A prose "rare pop hit" produced one pop record in five Sundays; a require
 node is due once the show is past its `afterPercent` and nothing counted satisfies it (`dueRequirements`:

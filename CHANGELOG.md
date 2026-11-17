@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.103.0] — 2026-11-17
+
+- A show's mix flow can be drafted from its brief. Choose **Draft from the brief** on a block, and the station's model reads the brief and lays out the flow: bands kept off, genres held to a share or a number, records the show promises, and a question for the model where a genre cannot say which records are meant. Beside the canvas, each phrase of the brief is listed with what it became, and pointing at one lights its nodes. Where a phrase is unclear the draft asks, and answering drafts it again. Nothing is saved until you save the show. The models it uses are a new setting, **Models for drafting a show's mix flow**.
+
 ## [0.102.0] — 2026-11-17
 
 - A rotation show can now have a mix flow drawn in the console: the show's editor, under Programme, has a Draw a mix flow button that opens a canvas for the show's music rules, saved with the show. Records run from Picks to On air through the nodes you add, such as Block bands, Split, Limit share, Limit count and Require, each with its settings inside it. The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and Remove it takes the flow off.
@@ -2071,7 +2075,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.102.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.103.0...HEAD
+[0.103.0]: https://github.com/robert-dean/deadair/compare/v0.102.0...v0.103.0
 [0.102.0]: https://github.com/robert-dean/deadair/compare/v0.101.2...v0.102.0
 [0.101.2]: https://github.com/robert-dean/deadair/compare/v0.101.1...v0.101.2
 [0.101.1]: https://github.com/robert-dean/deadair/compare/v0.101.0...v0.101.1

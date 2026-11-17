@@ -6,6 +6,7 @@ import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type McpToolContext } from '@maroonedsoftware/mcp';
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
+import { MixDraftService } from '#src/modules/director/mix.draft.service.js';
 import { ScheduleFileService } from '#src/modules/schedule/schedule.file.service.js';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
 import { SlotAirService } from '#src/modules/director/slot.air.service.js';
@@ -22,6 +23,7 @@ import {
     SlotPlaylistPosition,
 } from '../modules/schedule/types/schedule.types.js';
 import { PackImportPlan } from '../modules/topics/types/topics.types.js';
+import { MixFlowDraft, MixFlowDraftRequest } from '../modules/schedule/types/mix.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -38,6 +40,7 @@ const ReadTimetableArgs = z.object({ query: ScheduleTimetableQuery.optional() })
 const ExportScheduleArgs = z.object({});
 const PreviewScheduleImportArgs = z.object({ body: SchedulePack });
 const ImportScheduleArgs = z.object({ body: SchedulePack });
+const DraftMixFlowArgs = z.object({ body: MixFlowDraftRequest });
 const UpdateScheduleSlotArgs = z.object({ id: z.string().min(1).max(100), body: ScheduleSlotInput });
 const DeleteScheduleSlotArgs = z.object({ id: z.string().min(1).max(100) });
 const ApplyScheduleSlotToAirArgs = z.object({ id: z.string().min(1).max(100) });
@@ -205,6 +208,30 @@ export class ImportScheduleMcpTool implements McpToolHandler {
 }
 
 /**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/mix-draft`
+ */
+@Injectable()
+export class DraftMixFlowMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'draft_mix_flow',
+        description:
+            "Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing",
+        inputSchema: z.toJSONSchema(DraftMixFlowArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(MixFlowDraft, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, DraftMixFlowArgs);
+        const result = await container.get(MixDraftService).draft(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
  * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `PUT /schedule/{id}`
  */
 @Injectable()
@@ -335,6 +362,7 @@ export function registerScheduleMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('export_schedule', container.get(ExportScheduleMcpTool));
     map.set('preview_schedule_import', container.get(PreviewScheduleImportMcpTool));
     map.set('import_schedule', container.get(ImportScheduleMcpTool));
+    map.set('draft_mix_flow', container.get(DraftMixFlowMcpTool));
     map.set('update_schedule_slot', container.get(UpdateScheduleSlotMcpTool));
     map.set('delete_schedule_slot', container.get(DeleteScheduleSlotMcpTool));
     map.set('apply_schedule_slot_to_air', container.get(ApplyScheduleSlotToAirMcpTool));
@@ -351,6 +379,7 @@ export function registerScheduleMcpToolClasses(registry: Registry): void {
     registry.register(ExportScheduleMcpTool).useClass(ExportScheduleMcpTool).asSingleton();
     registry.register(PreviewScheduleImportMcpTool).useClass(PreviewScheduleImportMcpTool).asSingleton();
     registry.register(ImportScheduleMcpTool).useClass(ImportScheduleMcpTool).asSingleton();
+    registry.register(DraftMixFlowMcpTool).useClass(DraftMixFlowMcpTool).asSingleton();
     registry.register(UpdateScheduleSlotMcpTool).useClass(UpdateScheduleSlotMcpTool).asSingleton();
     registry.register(DeleteScheduleSlotMcpTool).useClass(DeleteScheduleSlotMcpTool).asSingleton();
     registry.register(ApplyScheduleSlotToAirMcpTool).useClass(ApplyScheduleSlotToAirMcpTool).asSingleton();

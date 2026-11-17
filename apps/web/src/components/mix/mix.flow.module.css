@@ -102,3 +102,60 @@
 .budget {
     background: var(--mantine-color-grape-5);
 }
+
+/* A node drawn from the phrase the pointer is on, in the readings beside the canvas. */
+.node[data-lit='true'] {
+    border-color: var(--mantine-color-grape-5);
+    box-shadow: 0 0 0 2px var(--mantine-color-grape-5);
+}
+
+/* The phrase of the brief a drafted node came from, under its title. */
+.from {
+    padding: 4px 10px 0;
+    color: var(--da-text-secondary);
+    font-style: italic;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.readings {
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    flex: none;
+    min-height: 0;
+    background: var(--da-panel);
+    border: 1px solid var(--da-border);
+    border-radius: var(--mantine-radius-md);
+}
+
+.reading {
+    overflow-wrap: anywhere;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border: 1px solid var(--da-border);
+    border-radius: var(--mantine-radius-sm);
+    background: var(--da-raised);
+}
+
+.reading[data-drawn='true'] {
+    cursor: default;
+}
+
+.reading[data-drawn='true']:hover {
+    border-color: var(--mantine-color-grape-5);
+}
+
+.reading[data-question='true'] {
+    border-color: var(--mantine-color-grape-7);
+}
+
+@media (max-width: 900px) {
+    .readings {
+        width: 100%;
+    }
+}

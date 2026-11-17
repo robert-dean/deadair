@@ -116,6 +116,21 @@ public sealed class ScheduleClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Draft mix flow
+    /// Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing
+    /// </summary>
+    /// <exception cref="SdkException">On 502, 503.</exception>
+    public async Task<MixFlowDraft> DraftMixFlowAsync(MixFlowDraftRequest body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("schedule", "mix-draft"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<MixFlowDraft>(response);
+    }
+
+    /// <summary>
     /// Update schedule slot
     /// Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
     /// </summary>

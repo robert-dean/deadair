@@ -656,6 +656,42 @@ walks it FROM THAT NODE, so wiring decides what judges a required record: wired 
 show's limits, and a Block downstream still holds it. A requirement whose record did not air is still due next
 refill, because nothing in the show satisfied it.
 
+**A flow can be drafted from the brief, and the model writes RULES, not the graph** (`director/mix.draft.ts`,
+`MixDraftService`, `POST /schedule/mix-draft`). The model is good at reading "black metal only now and then"
+as a tenth of an hour and bad at numbering sockets, and a wiring slip is exactly what a save refuses. So it
+answers with a short list of rules (block, limit, require, no two in a row), each with the phrase it came from,
+plus the phrases it left to the picks and the ones it was unsure of as a question with options, and
+`buildMixDraft` lays the rules out in one shape every time. Picks, a Block per band list, then one LANE per
+limit or "never two in a row": a genre split whose branch runs through the rule (a Time switch feeding a
+share for "a third after ten", a judge behind the split when a genre cannot say which records are meant,
+its "no" held by a count of 0 or passed on as the model says) and whose "everything else" skips it, both
+joining at the lane's OWN Merge before the next lane. That last part is what makes every record meet
+every rule that matches it: with one Merge at the end, a black metal record taken by a metal lane never
+reached the black metal lane after it, so "never two black metal in a row" beside "metal at most 30%"
+held nothing while its reading said it applied. Require nodes skip the lanes, because a promise is not
+counted against the show's limits, but pass a Block naming every band the brief bans on their way to the
+final Merge: wired straight in, a required "black metal" could draw Burzum. A draft takes at most 3 bans,
+6 lanes and 4 promises, so what it builds always fits the contract's 64 nodes and 128 wires, and says what
+it left out. Every flow it builds passes `mixFlowProblems` and the contract's own schema, a test walks all
+511 combinations of rule kinds through both, and others walk real records through drafted flows, because a
+flow can be well formed and still hold the wrong records. The prompt carries the library's 60 commonest
+main genres with their band counts (`commonMainGenres`), so the model names "black metal" rather than a
+synonym no tag matches. An unreadable answer is asked once more, then refused (502), never repaired by
+guesswork (a drafted flow failing `mixFlowProblems` would be the builder's bug, and answers 500); an answer that ran out of time is NOT asked again (503), because a second try spends the same
+budget the same way. It asks for no thinking (`reasoningEffort: 'none'`): this is extraction, and at
+`medium` gemma4:26b on a 16 GB GPU spent the whole budget thinking and answered nothing, where without it
+the same model drafted the Church brief in ten to twenty seconds. A fixed effort in the model plugin still
+overrides it. The budget is 75 seconds plus 15 of queueing, under the 100 seconds a proxy in front of a
+station commonly allows (Cloudflare's), so the operator reads the station's reason and not a proxy's timeout
+page; a second try gets only what is left of that one deadline. The route is exempt from the request
+transaction (`mixDraftExemption`), as drafting a persona is, so a connection the director shares is not held
+for a model's answer. It runs at `preview` priority on its own model list (`llm.mixDraftModel`), and nothing is saved: the
+operator looks the draft over on the canvas, answers its questions (which redrafts with the answers in the
+prompt) and saves the show as usual. The Church draft blocked Burzum, held black metal to 10% and allowed
+one judged pop hit a show; it also promised a gospel record the brief only allowed, which is what the
+questions and the canvas are for. The console's side is `apps/web/src/components/mix` (`mix.readings.tsx`
+beside the canvas: pointing at a phrase lights the nodes drawn from it).
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

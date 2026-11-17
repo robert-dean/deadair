@@ -48,10 +48,10 @@ and `shared/config.rows.ts` are that, and the rule the whole file keeps is that 
 never in the row: it is merged back exactly once, in memory, so a plugin's own schema can judge a
 form that has one.
 
-**Every kind of call names its models as an ordered list, and nobody has to TYPE one.** The eleven
+**Every kind of call names its models as an ordered list, and nobody has to TYPE one.** The twelve
 model settings (the talk break, the set generator, fact extraction, the two lyric passes, the two persona
-passes, the persona writer, productions, and the two for a show's mix flow: naming a band's genre and judging
-a record) are each a `list` with one `model` column whose
+passes, the persona writer, productions, and the three for a show's mix flow: naming a band's genre, judging
+a record and drafting a flow from a brief) are each a `list` with one `model` column whose
 `optionsFrom: 'llm.models'` the console resolves by asking whichever plugin `llm.pluginId` names for its
 `model` suggestions: the same call that plugin's own settings form makes, so one cache entry serves all of
 them. The console draws them as a list box: the models in the order they are tried, each moved, removed or

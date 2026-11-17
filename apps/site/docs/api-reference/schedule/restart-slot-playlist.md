@@ -1,7 +1,7 @@
 ---
 title: 'Restart slot playlist'
 sidebar_label: 'Restart slot playlist'
-sidebar_position: 25
+sidebar_position: 26
 mdx:
     format: 'md'
 ---

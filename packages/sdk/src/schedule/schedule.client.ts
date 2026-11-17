@@ -2,6 +2,7 @@ import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type { PackImportPlan } from '../topics/types/topics.types.js';
 import type { FestivalInput, FestivalList, FestivalLookup } from './types/festivals.types.js';
+import type { MixFlowDraft, MixFlowDraftRequest } from './types/mix.types.js';
 import type { OccasionImportPlan, OccasionImportResult, OccasionInput, OccasionList, OccasionOrder, OccasionPack } from './types/occasions.types.js';
 import type {
     ScheduleImportResult,
@@ -242,6 +243,19 @@ export class ScheduleClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<ScheduleImportResult>(result);
+    }
+
+    /**
+     * @name Draft mix flow
+     * @description Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing
+     */
+    async draftMixFlow(body: MixFlowDraftRequest): Promise<MixFlowDraft> {
+        const result = await this.fetch(`/schedule/mix-draft`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<MixFlowDraft>(result);
     }
 
     /**

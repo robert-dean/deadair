@@ -124,6 +124,15 @@ export const personaDraftExemption: TransactionExemption = ({ method, path }) =>
 export const personaRehearsalExemption: TransactionExemption = ({ method, path }) =>
     method === 'POST' && path.startsWith('/personas/') && path.endsWith('/rehearse');
 
+// Drafting a show's mix flow from its brief, the persona draft's case again: the model holds the
+// connection and there is nothing to make atomic. `MixDraftService` holds `LlmService`, config, a
+// logger and `CandidatesRepository`, whose one call here (`commonMainGenres`) is a plain select made
+// BEFORE the model is asked. The call is `tools: false`, nothing is enqueued, and the drafted flow is
+// saved, if at all, through the slot PUT, whose transaction is doing its job. What it cost was a
+// connection held for up to 90 seconds of queueing and generation on a button an operator presses
+// again and again while tuning a brief, from a pool the director's refills and commits share.
+export const mixDraftExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/schedule/mix-draft';
+
 // Hearing a voice, which is the strongest case on this list rather than the weakest: the request
 // transaction cannot protect what these routes do at ALL.
 //
@@ -183,6 +192,7 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     tuneInExemption,
     personaDraftExemption,
     personaRehearsalExemption,
+    mixDraftExemption,
     voiceSampleExemption,
     speechPreviewExemption,
     oauthDiscoveryExemption,

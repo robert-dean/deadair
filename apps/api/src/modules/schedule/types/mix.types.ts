@@ -54,6 +54,37 @@ export const MixSong = z.strictObject({
 export type MixSong = z.infer<typeof MixSong>;
 
 /**
+ * One answer to a question a draft asked
+ * generated from [MixDraftAnswer](../../../../data/contracts/schedule/mix.types.ck)
+ */
+export const MixDraftAnswer = z.strictObject({
+    question: z.string().min(1).max(300).describe('The question, as the draft asked it'),
+    answer: z.string().min(1).max(200).describe('What the operator chose or wrote'),
+});
+export type MixDraftAnswer = z.infer<typeof MixDraftAnswer>;
+
+/**
+ * One phrase of a brief and what the draft made of it
+ * generated from [MixDraftReading](../../../../data/contracts/schedule/mix.types.ck)
+ */
+export const MixDraftReading = z.strictObject({
+    quote: z.string().max(200).describe('The phrase, as the brief has it'),
+    note: z.string().max(300).describe('What it became, in plain words, or why it became nothing'),
+    nodeIds: z
+        .array(z.string().min(1).max(40))
+        .max(8)
+        .optional()
+        .describe('The nodes drawn from it. Absent for a phrase about taste, which is left to the picks'),
+    question: z
+        .string()
+        .max(300)
+        .optional()
+        .describe('Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it'),
+    options: z.array(z.string().min(1).max(200)).max(6).optional().describe('Answers to offer for `question`'),
+});
+export type MixDraftReading = z.infer<typeof MixDraftReading>;
+
+/**
  * One node on the canvas. `kind` says what it is and which of the fields beside it count
  * generated from [MixNode](../../../../data/contracts/schedule/mix.types.ck)
  */
@@ -122,6 +153,20 @@ export const MixNode = z.strictObject({
 export type MixNode = z.infer<typeof MixNode>;
 
 /**
+ * What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked
+ * generated from [MixFlowDraftRequest](../../../../data/contracts/schedule/mix.types.ck)
+ */
+export const MixFlowDraftRequest = z.strictObject({
+    brief: z.string().min(1).max(500).describe("The show's brief, in the operator's own words"),
+    answers: z
+        .array(MixDraftAnswer)
+        .max(10)
+        .optional()
+        .describe('Answers to the questions an earlier draft of the same brief asked, so the next one can settle them'),
+});
+export type MixFlowDraftRequest = z.infer<typeof MixFlowDraftRequest>;
+
+/**
  * A show's mix flow: nodes and the wires between them, as the console's canvas draws them. Records enter at the one `picks` node and leave at the one `onAir` node; a record the station proposes is followed down the wires, and the first node that holds it (a `block`, or a limit it would take past its amount) keeps it off the air. `require` nodes add a record when they fall due. A record a listener asked for, and what follows it, is never judged and never counted
  * generated from [MixFlow](../../../../data/contracts/schedule/mix.types.ck)
  */
@@ -133,3 +178,14 @@ export const MixFlow = z.strictObject({
     links: z.array(MixLink).max(128).describe('The wires'),
 });
 export type MixFlow = z.infer<typeof MixFlow>;
+
+/**
+ * A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual
+ * generated from [MixFlowDraft](../../../../data/contracts/schedule/mix.types.ck)
+ */
+export const MixFlowDraft = z.strictObject({
+    flow: MixFlow.describe('The drafted flow, laid out for the canvas. It passes the same check a saved flow does'),
+    readings: z.array(MixDraftReading).max(40).describe('Each phrase of the brief the model read, and what became of it'),
+    model: z.string().optional().describe('The model that drafted it'),
+});
+export type MixFlowDraft = z.infer<typeof MixFlowDraft>;

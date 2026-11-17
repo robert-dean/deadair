@@ -36,6 +36,30 @@ data class MixSong(
     val artist: String,
 )
 
+/** One answer to a question a draft asked */
+@Serializable
+data class MixDraftAnswer(
+    /** The question, as the draft asked it */
+    val question: String,
+    /** What the operator chose or wrote */
+    val answer: String,
+)
+
+/** One phrase of a brief and what the draft made of it */
+@Serializable
+data class MixDraftReading(
+    /** The phrase, as the brief has it */
+    val quote: String,
+    /** What it became, in plain words, or why it became nothing */
+    val note: String,
+    /** The nodes drawn from it. Absent for a phrase about taste, which is left to the picks */
+    val nodeIds: List<String>? = null,
+    /** Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it */
+    val question: String? = null,
+    /** Answers to offer for `question` */
+    val options: List<String>? = null,
+)
+
 /** One node on the canvas. `kind` says what it is and which of the fields beside it count */
 @Serializable
 data class MixNode(
@@ -78,6 +102,15 @@ data class MixNode(
     val y: Double? = null,
 )
 
+/** What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked */
+@Serializable
+data class MixFlowDraftRequest(
+    /** The show's brief, in the operator's own words */
+    val brief: String,
+    /** Answers to the questions an earlier draft of the same brief asked, so the next one can settle them */
+    val answers: List<MixDraftAnswer>? = null,
+)
+
 /** A show's mix flow: nodes and the wires between them, as the console's canvas draws them. Records enter at the one `picks` node and leave at the one `onAir` node; a record the station proposes is followed down the wires, and the first node that holds it (a `block`, or a limit it would take past its amount) keeps it off the air. `require` nodes add a record when they fall due. A record a listener asked for, and what follows it, is never judged and never counted */
 @Serializable
 data class MixFlow(
@@ -86,6 +119,17 @@ data class MixFlow(
     val nodes: List<MixNode>,
     /** The wires */
     val links: List<MixLink>,
+)
+
+/** A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual */
+@Serializable
+data class MixFlowDraft(
+    /** The drafted flow, laid out for the canvas. It passes the same check a saved flow does */
+    val flow: MixFlow,
+    /** Each phrase of the brief the model read, and what became of it */
+    val readings: List<MixDraftReading>,
+    /** The model that drafted it */
+    val model: String? = null,
 )
 
 /** `picks` is what the station proposes and `onAir` what may air. `block` keeps the named bands off. `split` sends each record down the first branch it matches. `limitShare` and `limitCount` hold records past an amount of what has passed through them. `noRepeat` holds a record when the last record aired also passed through it. `merge` joins wires. `require` adds a record when due. `timeSwitch` is a number that changes at an hour */

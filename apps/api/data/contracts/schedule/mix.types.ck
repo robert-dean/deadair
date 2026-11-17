@@ -54,3 +54,31 @@ contract MixSong: {
     title: string(min=1, max=500)
     artist: string(min=1, max=500) # Who made it: a record is found by title and artist together
 }
+
+# What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked
+contract MixFlowDraftRequest: {
+    brief: string(min=1, max=500) # The show's brief, in the operator's own words
+    answers?: array(MixDraftAnswer, max=10) # Answers to the questions an earlier draft of the same brief asked, so the next one can settle them
+}
+
+# One answer to a question a draft asked
+contract MixDraftAnswer: {
+    question: string(min=1, max=300) # The question, as the draft asked it
+    answer: string(min=1, max=200) # What the operator chose or wrote
+}
+
+# A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual
+contract MixFlowDraft: {
+    flow: MixFlow # The drafted flow, laid out for the canvas. It passes the same check a saved flow does
+    readings: array(MixDraftReading, max=40) # Each phrase of the brief the model read, and what became of it
+    model?: string # The model that drafted it
+}
+
+# One phrase of a brief and what the draft made of it
+contract MixDraftReading: {
+    quote: string(max=200) # The phrase, as the brief has it
+    note: string(max=300) # What it became, in plain words, or why it became nothing
+    nodeIds?: array(string(min=1, max=40), max=8) # The nodes drawn from it. Absent for a phrase about taste, which is left to the picks
+    question?: string(max=300) # Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it
+    options?: array(string(min=1, max=200), max=6) # Answers to offer for `question`
+}

@@ -7,6 +7,7 @@ options {
         ScheduleFileService: "#src/modules/schedule/schedule.file.service.js"
         SlotPlaylistService: "#src/modules/director/slot.playlist.service.js"
         SlotAirService: "#src/modules/director/slot.air.service.js"
+        MixDraftService: "#src/modules/director/mix.draft.service.js"
     }
     security: {
         # The floor is the WRITE end, as in personas beside it: this file is one read and three
@@ -144,6 +145,29 @@ operation /schedule/import: {
             200: {
                 application/json: ScheduleImportResult
             }
+        }
+    }
+}
+
+# Drafting a mix flow is a question to the station's model and writes nothing, so it is a route beside
+# the slot rather than a part of saving one, and it takes the brief in the body rather than a slot id:
+# the brief being drafted from is the one in the editor, which may not be saved yet, or be a new show's.
+
+operation /schedule/mix-draft: {
+    post: { # Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing
+        name: Draft mix flow
+        service: MixDraftService.draft
+        request: {
+            application/json: MixFlowDraftRequest
+        }
+        response: {
+            200: {
+                application/json: MixFlowDraft
+            }
+            # The model's answer could not be read as rules, twice.
+            502:
+            # The station has no model, it was needed on air, or it took too long.
+            503:
         }
     }
 }

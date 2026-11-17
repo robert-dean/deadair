@@ -12,6 +12,7 @@ import {
     DEFAULT_TRANSACTION_EXEMPTIONS,
     infraExemption,
     isTransactionExempt,
+    mixDraftExemption,
     nowPlayingExemption,
     personaDraftExemption,
     personaRehearsalExemption,
@@ -116,6 +117,18 @@ describe('personaDraftExemption', () => {
     it('exempts nothing else that merely starts with the same path', () => {
         expect(exempt('GET', '/personas/generate')).toBe(false);
         expect(exempt('POST', '/personas/generate/again')).toBe(false);
+    });
+});
+
+describe('mixDraftExemption', () => {
+    it("exempts drafting a show's mix flow, and nothing that saves one", () => {
+        // A model call that writes nothing; the drafted flow is saved through the slot PUT, whose
+        // transaction is doing its job.
+        expect(mixDraftExemption({ method: 'POST', path: '/schedule/mix-draft' })).toBe(true);
+        expect(exempt('POST', '/schedule/mix-draft')).toBe(true);
+        expect(exempt('PUT', '/schedule/some-slot')).toBe(false);
+        expect(exempt('POST', '/schedule')).toBe(false);
+        expect(exempt('GET', '/schedule/mix-draft')).toBe(false);
     });
 });
 

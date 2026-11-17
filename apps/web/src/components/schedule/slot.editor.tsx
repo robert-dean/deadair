@@ -495,6 +495,7 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                                     value={form.values.mixFlow}
                                     onChange={flow => form.setFieldValue('mixFlow', flow)}
                                     showName={form.values.label}
+                                    brief={form.values.brief}
                                     changed={form.isDirty('mixFlow')}
                                 />
                             ) : undefined}

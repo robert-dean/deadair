@@ -108,6 +108,84 @@ public struct MixSong: Codable, Equatable, Sendable {
     }
 }
 
+/// One answer to a question a draft asked
+public struct MixDraftAnswer: Codable, Equatable, Sendable {
+    /// The question, as the draft asked it
+    public var question: String
+    /// What the operator chose or wrote
+    public var answer: String
+
+    public init(question: String, answer: String) {
+        self.question = question
+        self.answer = answer
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case question = "question"
+        case answer = "answer"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.question = try container.decode(String.self, forKey: .question)
+        self.answer = try container.decode(String.self, forKey: .answer)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.question, forKey: .question)
+        try container.encode(self.answer, forKey: .answer)
+    }
+}
+
+/// One phrase of a brief and what the draft made of it
+public struct MixDraftReading: Codable, Equatable, Sendable {
+    /// The phrase, as the brief has it
+    public var quote: String
+    /// What it became, in plain words, or why it became nothing
+    public var note: String
+    /// The nodes drawn from it. Absent for a phrase about taste, which is left to the picks
+    public var nodeIds: [String]?
+    /// Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it
+    public var question: String?
+    /// Answers to offer for `question`
+    public var options: [String]?
+
+    public init(quote: String, note: String, nodeIds: [String]? = nil, question: String? = nil, options: [String]? = nil) {
+        self.quote = quote
+        self.note = note
+        self.nodeIds = nodeIds
+        self.question = question
+        self.options = options
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case quote = "quote"
+        case note = "note"
+        case nodeIds = "nodeIds"
+        case question = "question"
+        case options = "options"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.quote = try container.decode(String.self, forKey: .quote)
+        self.note = try container.decode(String.self, forKey: .note)
+        self.nodeIds = try container.decodeIfPresent([String].self, forKey: .nodeIds)
+        self.question = try container.decodeIfPresent(String.self, forKey: .question)
+        self.options = try container.decodeIfPresent([String].self, forKey: .options)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.quote, forKey: .quote)
+        try container.encode(self.note, forKey: .note)
+        try container.encodeIfPresent(self.nodeIds, forKey: .nodeIds)
+        try container.encodeIfPresent(self.question, forKey: .question)
+        try container.encodeIfPresent(self.options, forKey: .options)
+    }
+}
+
 /// One node on the canvas. `kind` says what it is and which of the fields beside it count
 public struct MixNode: Codable, Equatable, Sendable {
     /// Unique in the flow
@@ -239,6 +317,36 @@ public struct MixNode: Codable, Equatable, Sendable {
     }
 }
 
+/// What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked
+public struct MixFlowDraftRequest: Codable, Equatable, Sendable {
+    /// The show's brief, in the operator's own words
+    public var brief: String
+    /// Answers to the questions an earlier draft of the same brief asked, so the next one can settle them
+    public var answers: [MixDraftAnswer]?
+
+    public init(brief: String, answers: [MixDraftAnswer]? = nil) {
+        self.brief = brief
+        self.answers = answers
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case brief = "brief"
+        case answers = "answers"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.brief = try container.decode(String.self, forKey: .brief)
+        self.answers = try container.decodeIfPresent([MixDraftAnswer].self, forKey: .answers)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.brief, forKey: .brief)
+        try container.encodeIfPresent(self.answers, forKey: .answers)
+    }
+}
+
 /// A show's mix flow: nodes and the wires between them, as the console's canvas draws them. Records enter at the one `picks` node and leave at the one `onAir` node; a record the station proposes is followed down the wires, and the first node that holds it (a `block`, or a limit it would take past its amount) keeps it off the air. `require` nodes add a record when they fall due. A record a listener asked for, and what follows it, is never judged and never counted
 public struct MixFlow: Codable, Equatable, Sendable {
     /// The shape of this document. 1
@@ -271,6 +379,42 @@ public struct MixFlow: Codable, Equatable, Sendable {
         try container.encode(self.version, forKey: .version)
         try container.encode(self.nodes, forKey: .nodes)
         try container.encode(self.links, forKey: .links)
+    }
+}
+
+/// A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual
+public struct MixFlowDraft: Codable, Equatable, Sendable {
+    /// The drafted flow, laid out for the canvas. It passes the same check a saved flow does
+    public var flow: MixFlow
+    /// Each phrase of the brief the model read, and what became of it
+    public var readings: [MixDraftReading]
+    /// The model that drafted it
+    public var model: String?
+
+    public init(flow: MixFlow, readings: [MixDraftReading], model: String? = nil) {
+        self.flow = flow
+        self.readings = readings
+        self.model = model
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case flow = "flow"
+        case readings = "readings"
+        case model = "model"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.flow = try container.decode(MixFlow.self, forKey: .flow)
+        self.readings = try container.decode([MixDraftReading].self, forKey: .readings)
+        self.model = try container.decodeIfPresent(String.self, forKey: .model)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.flow, forKey: .flow)
+        try container.encode(self.readings, forKey: .readings)
+        try container.encodeIfPresent(self.model, forKey: .model)
     }
 }
 

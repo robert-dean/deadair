@@ -100,7 +100,7 @@ describe('derivedSettings', () => {
 
 describe('derivedModels', () => {
     it('finds every model setting in the registry, and nothing that is not one', () => {
-        // Read off the registry by the suggestion list the eleven share, so this is the check that the
+        // Read off the registry by the suggestion list the twelve share, so this is the check that the
         // property still picks out exactly them.
         expect([...MODEL_SETTING_KEYS].sort()).toEqual(
             [
@@ -114,6 +114,7 @@ describe('derivedModels', () => {
                 LYRIC_SUBJECT_KEYS.model,
                 MIX_FLOW_KEYS.genreModel,
                 MIX_FLOW_KEYS.judgeModel,
+                MIX_FLOW_KEYS.draftModel,
                 PRODUCTION_MODEL_KEY,
             ].sort(),
         );

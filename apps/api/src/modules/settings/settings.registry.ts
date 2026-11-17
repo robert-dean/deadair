@@ -2115,6 +2115,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'llm',
+        key: MIX_FLOW_KEYS.draftModel,
+        label: 'Models for drafting a show’s mix flow',
+        type: 'list',
+        default: '',
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "The show editor can draft a mix flow from a show's brief: you are waiting for it, and it is one careful reading, so your best model is the right one here. List the models to try, in order. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
         key: LYRIC_SUBJECT_KEYS.enabled,
         label: 'Let a model say what each record is about',
         type: 'boolean',

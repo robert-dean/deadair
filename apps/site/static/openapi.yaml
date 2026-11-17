@@ -6814,6 +6814,28 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ScheduleImportResult'
+    '/schedule/mix-draft':
+        post:
+            operationId: draft
+            summary: 'Draft mix flow'
+            description: "Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/MixFlowDraftRequest'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/MixFlowDraft'
+                '502':
+                    description: 'Response 502'
+                '503':
+                    description: 'Response 503'
     '/schedule/{id}':
         put:
             operationId: updateScheduleSlot
@@ -17627,6 +17649,87 @@ components:
                     description: 'Who made it: a record is found by title and artist together'
             required: [title, artist]
             description: 'A record a `require` node may add'
+        MixFlowDraftRequest:
+            type: object
+            properties:
+                brief:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                    description: "The show's brief, in the operator's own words"
+                answers:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MixDraftAnswer'
+                    maxItems: 10
+                    description: 'Answers to the questions an earlier draft of the same brief asked, so the next one can settle them'
+            required: [brief]
+            description: "What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked"
+        MixDraftAnswer:
+            type: object
+            properties:
+                question:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                    description: 'The question, as the draft asked it'
+                answer:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'What the operator chose or wrote'
+            required: [question, answer]
+            description: 'One answer to a question a draft asked'
+        MixFlowDraft:
+            type: object
+            properties:
+                flow:
+                    '$ref': '#/components/schemas/MixFlow'
+                    description: 'The drafted flow, laid out for the canvas. It passes the same check a saved flow does'
+                readings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MixDraftReading'
+                    maxItems: 40
+                    description: 'Each phrase of the brief the model read, and what became of it'
+                model:
+                    type: string
+                    description: 'The model that drafted it'
+            required: [flow, readings]
+            description: "A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual"
+        MixDraftReading:
+            type: object
+            properties:
+                quote:
+                    type: string
+                    maxLength: 200
+                    description: 'The phrase, as the brief has it'
+                note:
+                    type: string
+                    maxLength: 300
+                    description: 'What it became, in plain words, or why it became nothing'
+                nodeIds:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 40
+                    maxItems: 8
+                    description: 'The nodes drawn from it. Absent for a phrase about taste, which is left to the picks'
+                question:
+                    type: string
+                    maxLength: 300
+                    description: 'Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it'
+                options:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    maxItems: 6
+                    description: 'Answers to offer for `question`'
+            required: [quote, note]
+            description: 'One phrase of a brief and what the draft made of it'
         Occasion:
             type: object
             properties:

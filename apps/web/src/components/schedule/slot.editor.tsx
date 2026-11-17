@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Button, Chip, Divider, Group, Modal, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
-import type { ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
+import type { MixFlow, ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -40,6 +40,7 @@ import {
 import { ErrorAlert } from '../shared/error.alert';
 import { ShowSoundField } from './show.sound.field';
 import { FestivalField } from './festival.field';
+import { MixFlowField } from '../mix/mix.flow.field';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
 import { BLANK_RULE, datesIn, inputOfRule, ruleDraftOf, type RuleDraft } from './occasions.edits';
 import { ResumePlaylistField } from './playlist.resume.field';
@@ -201,6 +202,10 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
             ...writerOrderInput(values.writerOrder),
             // Sent only when one is chosen: absent is no festival, and PUT replaces the row.
             ...(values.festivalId === '' ? {} : { festivalId: values.festivalId }),
+            // Sent when there is one, and as one with no nodes when the show had one and it was
+            // removed: a save that leaves it out keeps what the show had. Kept whatever the mode, since
+            // the field is only hidden under a setlist, not cleared.
+            ...mixFlowInput(values.mixFlow, slot?.mixFlow),
             mode: values.mode,
             onEnd: values.onEnd,
         };
@@ -483,6 +488,16 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                                     perArtist={form.getInputProps('maxPerArtist')}
                                 />
                             ) : undefined}
+
+                            {/* Only a rotation picks its own records, so only a rotation has a flow to judge them by. */}
+                            {form.values.mode === 'rotation' ? (
+                                <MixFlowField
+                                    value={form.values.mixFlow}
+                                    onChange={flow => form.setFieldValue('mixFlow', flow)}
+                                    showName={form.values.label}
+                                    changed={form.isDirty('mixFlow')}
+                                />
+                            ) : undefined}
                         </>
                     )}
 
@@ -645,6 +660,8 @@ interface FormValues {
     beds: boolean;
     /** The festival this slot is built around, by id. Empty is none. */
     festivalId: string;
+    /** The show's mix flow. Absent, or one with no nodes, is none. */
+    mixFlow: MixFlow | undefined;
     personaId: string;
     brief: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
@@ -720,6 +737,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         concerts: slot?.concerts ?? false,
         beds: slot?.beds ?? true,
         festivalId: slot?.festivalId ?? '',
+        mixFlow: slot?.mixFlow,
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',
@@ -759,3 +777,10 @@ const repeatRulesOf = (slot: ScheduleSlot | undefined): Pick<ScheduleSlotInput, 
 
 /** Whether records that sound like this source can be mixed into it: a playlist of either kind, and nothing else. */
 const mixesInto = (source: ReturnType<typeof splitSource>): boolean => source?.kind === 'playlist' || source?.kind === 'station';
+
+/** What a save says about the show's mix flow: the flow, a flow with no nodes to clear one, or nothing to keep it. */
+export function mixFlowInput(flow: MixFlow | undefined, saved: MixFlow | undefined): Pick<ScheduleSlotInput, 'mixFlow'> {
+    if (flow !== undefined && flow.nodes.length > 0) return { mixFlow: flow };
+    if (saved !== undefined && saved.nodes.length > 0) return { mixFlow: { version: 1, nodes: [], links: [] } };
+    return {};
+}

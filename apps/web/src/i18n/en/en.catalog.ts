@@ -8,6 +8,7 @@ import { charts } from './charts.catalog.ts';
 import { common } from './common.catalog.ts';
 import { desk } from './desk.catalog.ts';
 import { library } from './library.catalog.ts';
+import { mix } from './mix.catalog.ts';
 import { narrations } from './narrations.catalog.ts';
 import { news } from './news.catalog.ts';
 import { onair } from './onair.catalog.ts';
@@ -58,6 +59,7 @@ export const en = {
     catalog,
     library,
     schedule,
+    mix,
     programme,
     station,
     trends,

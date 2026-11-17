@@ -1,0 +1,104 @@
+/* The canvas wears the console's surfaces, so it follows the theme like every other panel. React Flow
+   draws from its own `--xy-*` variables; these point them at the `--da-*` tokens. */
+.canvas {
+    --xy-background-color: var(--da-bg);
+    --xy-background-pattern-color: var(--da-border);
+    --xy-edge-stroke: var(--da-phosphor);
+    --xy-edge-stroke-selected: var(--da-text);
+    --xy-connectionline-stroke: var(--da-phosphor);
+    --xy-controls-button-background-color: var(--da-panel);
+    --xy-controls-button-color: var(--da-text);
+    --xy-controls-button-border-color: var(--da-border);
+    --xy-minimap-background-color: var(--da-panel);
+    --xy-attribution-background-color: transparent;
+    height: 100%;
+    width: 100%;
+    border: 1px solid var(--da-border);
+    border-radius: var(--mantine-radius-md);
+    overflow: hidden;
+}
+
+.node {
+    background: var(--da-raised);
+    border: 1px solid var(--da-border-strong);
+    border-radius: var(--mantine-radius-md);
+    min-width: 200px;
+    max-width: 280px;
+    color: var(--da-text);
+    font-size: var(--mantine-font-size-xs);
+}
+
+.node[data-selected='true'] {
+    border-color: var(--da-phosphor);
+    box-shadow: 0 0 0 1px var(--da-phosphor);
+}
+
+.node[data-problem='true'] {
+    border-color: var(--mantine-color-red-6);
+}
+
+.title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--da-border);
+    background: var(--da-panel);
+    border-radius: var(--mantine-radius-md) var(--mantine-radius-md) 0 0;
+    font-weight: 600;
+    cursor: grab;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px 10px;
+}
+
+.socket {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 22px;
+    color: var(--da-text-secondary);
+}
+
+.socketOut {
+    justify-content: flex-end;
+}
+
+.branch {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    border: 1px solid var(--da-border);
+    border-radius: var(--mantine-radius-sm);
+}
+
+.handle {
+    width: 11px;
+    height: 11px;
+    border: 2px solid var(--da-raised);
+}
+
+.records {
+    background: var(--da-phosphor);
+}
+
+.number {
+    background: var(--mantine-color-orange-6);
+}
+
+.budget {
+    background: var(--mantine-color-grape-5);
+}

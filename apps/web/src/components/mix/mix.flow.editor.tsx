@@ -46,7 +46,13 @@ const socketOf = (handle: string | null | undefined): number | undefined => {
 export function MixFlowEditor({ opened, flow, title, onDone, onClose }: Props) {
     const { t } = useTranslation('mix');
     return (
-        <Modal opened={opened} onClose={onClose} fullScreen title={t('editor.title') + (title ? `: ${title}` : '')} closeOnEscape={false}>
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            fullScreen
+            title={title ? t('editor.titleNamed', { show: title }) : t('editor.title')}
+            closeOnEscape={false}
+        >
             {opened ? (
                 <ReactFlowProvider>
                     <Canvas initial={flow ?? starterFlow()} onDone={onDone} onClose={onClose} />

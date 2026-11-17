@@ -2,4 +2,4 @@
 '@deadair/web': minor
 ---
 
-A rotation show's editor has a Mix flow section that opens a canvas for drawing the show's music rules: Picks and On air, with Block bands, Split, Limit share, Limit count, No two in a row, Merge, Require and Time switch between them, each node's settings inside it. The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and the flow is saved with the show. Remove it takes the flow off.
+A rotation show can now have a mix flow drawn in the console: the show's editor, under Programme, has a Draw a mix flow button that opens a canvas for the show's music rules, saved with the show. Records run from Picks to On air through the nodes you add, such as Block bands, Split, Limit share, Limit count and Require, each with its settings inside it. The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and Remove it takes the flow off.

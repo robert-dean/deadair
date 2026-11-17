@@ -4,6 +4,7 @@ import type { MixFlow } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { Eyebrow } from '../shared/eyebrow';
+
 /** Loaded when first opened, so the canvas library is not in every page's first download. */
 const MixFlowEditor = lazy(async () => ({ default: (await import('./mix.flow.editor')).MixFlowEditor }));
 

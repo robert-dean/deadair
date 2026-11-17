@@ -106,7 +106,7 @@ The flow is a canvas. Records enter at **Picks** and leave at **On air**, and yo
 - **Require** promises a record once the show is far enough in: one from a list, the one played longest ago first, or any record whose band's main genre matches.
 - **Merge** joins wires.
 
-A band's main genre is the first genre its information lists, so a band tagged both death metal and black metal counts as whichever comes first. Split by artist when you disagree. For bands with no genre at all, turn on **Let a model name a genre for bands that have none** under **Settings**.
+A band's main genre is the first genre its information lists, so a band tagged both death metal and black metal counts as whichever comes first. Split by artist when you disagree. For bands with no genre at all, turn on **Let a model name a genre for bands that have none** under **Settings**, **Words**.
 
 The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and the station refuses to save a flow that cannot run. A record held back by the flow is simply not chosen; the station picks something else. The model is told how much of each limit is left, so it stops suggesting records the flow would turn down. A listener's request, and what a request show plays after one, is never held back by the flow and never counted against it. A question for the model is answered once per record in the background, so a record waits until the station next plans its music before its first answer.
 

@@ -14,7 +14,8 @@ export const mix = {
     },
     editor: {
         title: 'Mix flow',
-        help: 'Records enter at Picks and leave at On air. Drag from an output to an input to wire them; select a wire or a node and press Backspace to remove it.',
+        titleNamed: 'Mix flow: {{show}}',
+        help: 'Records enter at Picks and leave at On air. Drag from an output to an input to wire them; select a wire or a node and press Backspace or Delete to remove it.',
         add: 'Add',
         done: 'Use this flow',
         cancel: 'Discard changes',
@@ -83,7 +84,6 @@ export const mix = {
         elseValue: 'Before that',
         yes: 'yes',
         no: 'no',
-        deleteNode: 'Remove this node',
     },
     splitBy: {
         genre: 'main genre',

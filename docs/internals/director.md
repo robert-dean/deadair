@@ -126,6 +126,13 @@ and reads as none on an order that still names it. A schedule file never carries
 row. A client's `PUT` replaces the slot, so the web console's editor and the desktop's `SlotDraft` both send it
 back untouched; an older desktop build saving a festival slot drops the tie, which leaves an ordinary show
 rather than a wrong one.
+**A slot's MIX FLOW rides the order's rules the same way** (`schedule_slots.mix_flow`, 0143; `slotInput` to
+`PutOnAirInput.mixFlow` to `StationLineupRules.mixFlow`, and in `CHOICE_RULES`, so applying a slot whose flow
+changed chooses the planned records again). Unlike a festival it is kept through a save that leaves it out
+(`keepingMixFlow`, `keepingBeds`' argument): an older desktop build rewriting the row would otherwise lift
+every limit on a show because somebody corrected its name, so a client clears one by sending a flow with no
+nodes. It travels in a schedule file, since it names nothing of this station's. What it does to the picks is
+`docs/internals/programming.md` § "A show's mix flow".
 A festival can also be LOOKED UP (`GET /festivals/lookup`): `ConcertService.findFestivals` asks every
 `concerts` plugin with the optional `findFestivals` (Ticketmaster's lists festivals by keyword), and the
 console fills its form from a listing. The import is a starting point, kept as the row's

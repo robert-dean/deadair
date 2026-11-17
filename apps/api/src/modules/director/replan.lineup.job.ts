@@ -11,6 +11,7 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
+import { MixFlowReader } from './mix.flow.reader.js';
 import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, ranOutOfTime, songKeysOf } from './plan.records.js';
 import { creditKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
@@ -73,6 +74,8 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // Which slot is in force, for the mood stage a batch will air in. See `mood.stage.ts`.
         private readonly schedule: ScheduleService,
         private readonly occasions: OccasionService,
+        // The show's mix flow with its counts so far. See `mix.flow.reader.ts`.
+        private readonly mixFlow: MixFlowReader,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -153,6 +156,13 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
             this.config,
         );
 
+        // What the show's mix flow allows, counted over what aired and what will still air in front of
+        // this batch. Requests are left out of both. Absent for a show with no flow.
+        const mix = await this.mixFlow.read(
+            lineup,
+            surviving.filter(item => item.state === 'handed' || item.state === 'planned'),
+        );
+
         const planned = await planRecords(
             this.generator,
             this.resolver,
@@ -171,6 +181,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 ...(lineup.avoidMoods === undefined ? {} : { avoidMoods: lineup.avoidMoods }),
                 // Off the order's rules, for the brief's reason: every refill of the show reads it.
                 ...(lineup.rules.festivalId === undefined ? {} : { festivalId: lineup.rules.festivalId }),
+                ...(mix === undefined ? {} : { mix }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is

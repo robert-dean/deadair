@@ -10,6 +10,8 @@ import {
     budgetLeft,
     countThrough,
     dueRequirements,
+    holdMixFlow,
+    mixBudgetSentences,
     walkRecord,
     type CountedRecord,
     type MixContext,
@@ -191,5 +193,37 @@ describe('buildMixContext', () => {
 
     it('reads a show with no window as its start', () => {
         expect(progressOf(undefined, 5)).toBe(0);
+    });
+});
+
+describe('holdMixFlow', () => {
+    const mix = (counted: CountedRecord[] = []) => ({ flow: church(), ctx: ctx(counted) });
+
+    it('counts each kept record before judging the next, so one batch cannot take a share twice', () => {
+        const batch = [
+            rec('Mayhem', 'black metal', 'One'),
+            ...Array.from({ length: 3 }, () => rec('Dio', 'heavy metal')),
+            rec('Emperor', 'black metal', 'Two'),
+        ];
+        const { kept, held } = holdMixFlow(batch, mix(heavy(4)));
+        expect(kept.map(record => record.title)).toEqual(['One', 'A record', 'A record', 'A record']);
+        expect(held.map(entry => [entry.record.title, entry.at])).toEqual([['Two', 'share']]);
+    });
+
+    it('lets a limit give way when it would hold the whole batch, and never a block', () => {
+        const spent = { ...rec('Britney Spears', 'pop'), hour: 20, path: ['picks', 'block', 'split', 'row', 'count', 'merge', 'air'] };
+        const popOnly = holdMixFlow([rec('Michael Jackson', 'pop')], mix([...heavy(2), spent]));
+        expect(popOnly).toMatchObject({ gaveWay: true, kept: [{ artist: 'Michael Jackson' }] });
+        expect(holdMixFlow([rec('Burzum', 'black metal')], mix())).toMatchObject({ gaveWay: false, kept: [] });
+    });
+});
+
+describe('mixBudgetSentences', () => {
+    it('words each limit and block as what will happen', () => {
+        expect(mixBudgetSentences(budgetLeft(church(), ctx([...heavy(9), blackMetal()])))).toEqual([
+            '- Never Burzum. Name one and it is dropped and something else plays.',
+            '- No more records (main genre black metal) this hour. Any you name are dropped and something else plays.',
+            '- At most 1 more record (main genre pop) in this show. Name more and the extra ones are dropped.',
+        ]);
     });
 });

@@ -564,6 +564,55 @@ lean on for a few hours, one per station, read by talk breaks, changeovers and b
 calls. It lives beside the steer on the console's rules tab and is described in `docs/internals/breaks.md`
 § "The talk direction".
 
+## A show's mix flow
+
+**Amounts in a brief reach only the model, and the model cannot keep count.** "Black metal only now and
+then" and "a rare sinful pop hit" in the Church show's brief were read by the model, which chooses part of
+each refill (`BriefArtistSetGenerator` takes 40% from the acts the brief names with no model at all), plans
+one batch at a time and never sees a running count. Over five Sundays the show aired black metal on about a
+quarter of its plays and its gospel line nothing. A **mix flow** is what the station enforces itself: a show's
+rules as nodes and wires (`schedule/mix.types.ck`, `schedule_slots.mix_flow`, 0143), carried onto the
+broadcast's rules (`StationLineupRules.mixFlow`) the way a festival is.
+
+**The record is followed down the wires, one at a time** (`director/mix.flow.ts`, `walkRecord`). It enters at
+Picks; a Split sends it down the first branch it matches, else "everything else"; a Block holds a named band;
+a Limit share or Limit count holds it when it would take the records that passed through that node past the
+node's amount, per show or per hour; No two in a row holds it when the last counted record passed through the
+same node; reaching On air means it may air. Every node is a pure test on the record and the counts, so one
+function serves the resolver, the shortlist and the simulation. **A limit's group is whatever passed through
+it**, and the counts come from replaying the show's aired and queued records through the flow as it is now
+(`countThrough`), so a flow edited mid-show counts the show so far by its new wiring. The first record of a
+group is always let through, so 10% is a share and never a ban on a show that has aired nothing yet.
+`mixFlowProblems` (`schedule/mix.flow.validate.ts`) refuses at the save anything that would not run as drawn:
+a loose output, which would drop records without a word; a circle; a wire joining records to a number; a node
+missing what it needs.
+
+**A record's genre is its BAND'S MAIN genre**, the first its artist's enrichment lists
+(`CandidatesRepository.mainGenresFor`), matched with `refinesGenre` so "Norwegian black metal" is black metal.
+Not every tag, because "is this black metal" asked of every tag answers yes for Mercyful Fate and Behemoth,
+whose second tags say so, and a limit on black metal would then count most of a metal show. The cost is the
+other direction: Behemoth is death metal to a flow (Last.fm's first tag), and a flow author who disagrees
+splits by artist. A band with no genre matches no genre branch.
+
+**What counts, and what never does.** `play_history.requested` (0144) marks a record a listener asked for and
+what a request show played after one, written off the running order's own line when the record airs, and
+`countedDuringBroadcast` leaves them out; the queued half of the counts leaves out lines with `requestId` or
+`followsRequestId` too. A request and its follow-ons are also never JUDGED: they resolve with `keepOrder` and
+are handed no flow. A listener who asks for a black metal record has not used up the show's black metal.
+
+**Held at the resolver, last, on the batch in the order it will air** (`PickResolver.holdForMix`, after the
+artist cooldown), each kept record counted before the next is judged so one batch cannot take a share twice.
+A held record is simply not in the batch; the order asks again when it runs short. It fails open in one case:
+when the flow would hold every record in a batch that had some, what a LIMIT held (never a block) is let back
+and the log says so, because a show starved into silence by its own amounts is worse than one over them.
+**The model is told the budget**, as it is told the per-artist cap and for the same reason: `budgetLeft` says
+what each limit and block allows now and `mixBudgetSentences` words it ("No more records (main genre black
+metal) this hour. Any you name are dropped"), into both `setPrompt` and `shortlistPrompt`; and `screen` leaves
+off the shortlist a record the flow would hold now. Measured in the design's simulation, telling the model the
+budget cut the picks held from about 95 a show to about 6. `MixFlowReader` reads the counts for a refill and
+a replan; a read that fails costs that batch its flow and never the batch. A prepared opening is judged with
+nothing counted.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

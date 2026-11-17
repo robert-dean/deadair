@@ -136,6 +136,11 @@ export interface SetPromptSettings {
      * sentence saying at most 0 records may be used would be false in the most damaging direction.
      */
     maxPerArtist?: number;
+    /**
+     * The show's mix flow's limits and blocks as rule lines (`mixBudgetSentences`), for `maxPerArtist`'s
+     * reason: the resolver holds them whatever the model names. Absent or empty sends nothing.
+     */
+    mixRules?: readonly string[];
 
     /**
      * Whether the station may play only records positively marked clean.
@@ -408,6 +413,7 @@ function systemPrompt(settings: SetPromptSettings): string {
                   `- At most ${settings.maxPerArtist} record${settings.maxPerArtist === 1 ? '' : 's'} by any one artist will be used. Name more and the extra ones are dropped and ordinary rotation plays instead, so a thirteenth track by your favourite act costs you a slot — spend it on another artist. similar_artists is how you find one.`,
               ]
             : []),
+        ...(settings.mixRules ?? []),
         '- Order them so the set flows: think about what follows what.',
         // Same shape as the dislikes below: stated as a fact about what will happen rather than as
         // a prohibition, because a model told a rule is advisory spends picks testing it.

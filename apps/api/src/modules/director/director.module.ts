@@ -74,6 +74,7 @@ import { SlotPlaylistService } from './slot.playlist.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { RefillPreemption } from './refill.preemption.js';
+import { MixFlowReader } from './mix.flow.reader.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { AsRunRepository } from './as.run.repository.js';
 import { RouteRepository } from './route.repository.js';
@@ -157,6 +158,7 @@ export const DirectorModule: ServerKitModule = {
         // above and for the opposite reason: this says "the refill running in THIS scope was
         // interrupted", and a singleton would let one refill's interruption buy another one a retry.
         registry.register(RefillPreemption).useClass(RefillPreemption).asScoped();
+        registry.register(MixFlowReader).useClass(MixFlowReader).asScoped();
         registry
             .register(SetGenerator)
             .useFactory(

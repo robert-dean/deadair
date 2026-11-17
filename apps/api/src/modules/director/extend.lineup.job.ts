@@ -11,6 +11,7 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
+import { MixFlowReader } from './mix.flow.reader.js';
 import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, ranOutOfTime, songKeysOf } from './plan.records.js';
 import { creditKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
@@ -72,6 +73,8 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         // Which slot is in force, for the mood stage a batch will air in. See `mood.stage.ts`.
         private readonly schedule: ScheduleService,
         private readonly occasions: OccasionService,
+        // The show's mix flow with its counts so far. See `mix.flow.reader.ts`.
+        private readonly mixFlow: MixFlowReader,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -131,6 +134,10 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         // The stage of the slot's mood this batch will mostly air in, measured from where it starts.
         const mood = await refillMood(lineup, lineup.upcoming(), count, this.schedule, this.occasions, this.config);
 
+        // What the show's mix flow allows, counted over what aired and what will still air in front of
+        // this batch. Requests are left out of both. Absent for a show with no flow.
+        const mix = await this.mixFlow.read(lineup, lineup.upcoming());
+
         const planned = await planRecords(
             this.generator,
             this.resolver,
@@ -150,6 +157,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 ...(lineup.avoidMoods === undefined ? {} : { avoidMoods: lineup.avoidMoods }),
                 // Off the order's rules, for the brief's reason: every refill of the show reads it.
                 ...(lineup.rules.festivalId === undefined ? {} : { festivalId: lineup.rules.festivalId }),
+                ...(mix === undefined ? {} : { mix }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // The songs the lineup ALREADY holds, which history knows nothing about: a

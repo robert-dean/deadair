@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 // track and not a gap on the mount.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { MixFlow } from '../../../src/modules/schedule/types/mix.types.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
@@ -123,6 +124,10 @@ function build(options: Options = {}) {
     const candidates = {
         knownActs: vi.fn(async (acts: readonly string[]) => new Set(acts.filter(act => (options.knownActs ?? []).includes(act)))),
         tagsFor: vi.fn(async (trackIds: readonly string[]) => new Map(trackIds.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
+        // The first of a track's tags stands in for its band's main genre.
+        mainGenresFor: vi.fn(
+            async (trackIds: readonly string[]) => new Map(trackIds.flatMap(id => (options.tags?.[id]?.[0] ? [[id, options.tags[id]![0]!]] : []))),
+        ),
         bindingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, TrackBinding>();
             for (const id of trackIds) {
@@ -1798,5 +1803,57 @@ describe('PickResolver.screen', () => {
 
         expect(await resolver.screen([], windows(), { want: 5 })).toEqual([]);
         expect(history.songKeysSince).not.toHaveBeenCalled();
+    });
+});
+
+describe("PickResolver with a show's mix flow", () => {
+    const flow: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'block', kind: 'block', bands: ['Burzum'] },
+            { id: 'split', kind: 'split', splitBy: 'genre', branches: [{ values: ['black metal'] }] },
+            { id: 'count', kind: 'limitCount', count: 1, per: 'show' },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'block', in: 0 },
+            { from: 'block', out: 0, to: 'split', in: 0 },
+            { from: 'split', out: 0, to: 'count', in: 0 },
+            { from: 'count', out: 0, to: 'merge', in: 0 },
+            { from: 'split', out: 1, to: 'merge', in: 1 },
+            { from: 'merge', out: 0, to: 'air', in: 0 },
+        ],
+    };
+    const ids = ['bm-1', 'heavy', 'bm-2', 'burzum'];
+    const built = () =>
+        build({
+            bindings: Object.fromEntries(ids.map(id => [id, binding(id)])),
+            metadata: {
+                'bm-1': { title: 'Freezing Moon', credit: 'Mayhem' },
+                heavy: { title: 'Holy Diver', credit: 'Dio' },
+                'bm-2': { title: 'I Am the Black Wizards', credit: 'Emperor' },
+                burzum: { title: 'Dunkelheit', credit: 'Burzum' },
+            },
+            tags: { 'bm-1': ['black metal'], heavy: ['heavy metal'], 'bm-2': ['Norwegian black metal'], burzum: ['black metal'] },
+        });
+    const picks: TrackPick[] = [
+        { title: 'Freezing Moon', artist: 'Mayhem', trackId: 'bm-1' },
+        { title: 'Holy Diver', artist: 'Dio', trackId: 'heavy' },
+        { title: 'I Am the Black Wizards', artist: 'Emperor', trackId: 'bm-2' },
+        { title: 'Dunkelheit', artist: 'Burzum', trackId: 'burzum' },
+    ];
+
+    it('leaves out what the flow holds, counting the batch as it goes', async () => {
+        const { resolver } = built();
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { mix: { flow, ctx: { hour: 20, showProgress: 0, counted: [] } } });
+        expect(resolved.map(track => track.trackId).sort()).toEqual(['bm-1', 'heavy']);
+    });
+
+    it('judges nothing by it when the caller keeps the order, as a request does', async () => {
+        const { resolver } = built();
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { keepOrder: true });
+        expect(resolved).toHaveLength(4);
     });
 });

@@ -445,6 +445,12 @@ describe('setPrompt', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/by any one artist will be used/);
     });
 
+    it("tells the picker the show's mix flow limits, beside the cap, and nothing when there are none", () => {
+        const rule = '- No more records (main genre black metal) this hour. Any you name are dropped and something else plays.';
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { mixRules: [rule] }))).toContain(rule);
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { mixRules: [] }))).not.toMatch(/main genre/);
+    });
+
     it('says one RECORD rather than one records', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }, { maxPerArtist: 1 }))).toMatch(/At most 1 record by any one artist/);
     });

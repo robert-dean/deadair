@@ -310,3 +310,66 @@ function describeBranch(node: MixNode, branch: MixBranch): string {
     if (branch.values !== undefined && branch.values.length > 0) return `${words} ${branch.values.join(' or ')}`;
     return `${words} ${branch.min ?? 0} to ${branch.max ?? 'end'}`;
 }
+
+/** A show's flow and what it has counted so far, as the picker is handed them. */
+export interface MixInForce {
+    flow: MixFlow;
+    ctx: MixContext;
+}
+
+/**
+ * A batch, in the order it will air, without the records the flow holds.
+ *
+ * Each kept record is counted before the next is judged, so a batch cannot take a share twice over
+ * by bringing three black metal records in at once. A held record is simply not in the batch: the
+ * running order asks again when it runs short, and the next ask is told the budget.
+ *
+ * Fails open in one case, the station's rule for a gate that cannot answer: when the flow would hold
+ * EVERY record in a batch that had some, the ones a limit held (never a block) are let back so the show
+ * is not starved into silence by its own amounts. `gaveWay` says so for the caller's log.
+ */
+export function holdMixFlow<T extends MixRecord>(
+    records: readonly T[],
+    mix: MixInForce,
+): { kept: T[]; held: { record: T; at: string }[]; gaveWay: boolean } {
+    const counted = [...mix.ctx.counted];
+    const kept: T[] = [];
+    const held: { record: T; at: string }[] = [];
+    for (const record of records) {
+        const walk = walkRecord(mix.flow, record, { ...mix.ctx, counted });
+        if (walk.heldAt === undefined) {
+            kept.push(record);
+            counted.push({ ...record, hour: mix.ctx.hour, path: walk.path });
+        } else held.push({ record, at: walk.heldAt });
+    }
+    if (kept.length > 0 || held.length === 0) return { kept, held, gaveWay: false };
+
+    const wires = new Wires(mix.flow);
+    const limited = held.filter(entry => wires.node(entry.at)?.kind !== 'block');
+    return limited.length === 0
+        ? { kept, held, gaveWay: false }
+        : { kept: limited.map(entry => entry.record), held: held.filter(entry => !limited.includes(entry)), gaveWay: true };
+}
+
+/**
+ * The flow's limits and blocks as lines for the model's prompt: what it may still choose and what it
+ * may not. Stated as what will HAPPEN, the way the per-artist cap is, because the resolver holds these
+ * whatever the model does, and a model that knows the arithmetic stops spending picks on records the
+ * rules then drop.
+ */
+export function mixBudgetSentences(lines: readonly MixBudgetLine[]): string[] {
+    return lines.flatMap(line => {
+        const which = line.reaching.length === 0 ? '' : ` (${line.reaching.join(', ')})`;
+        if (line.kind === 'block') {
+            const bands = line.bands ?? [];
+            if (bands.length === 0) return [];
+            return [
+                `- Never ${bands.join(', ')}${line.reaching.length === 0 ? '' : ` among records${which}`}. Name one and it is dropped and something else plays.`,
+            ];
+        }
+        if (line.left === undefined || !Number.isFinite(line.left)) return [];
+        const per = line.per === 'hour' ? 'this hour' : 'in this show';
+        if (line.left === 0) return [`- No more records${which} ${per}. Any you name are dropped and something else plays.`];
+        return [`- At most ${line.left} more ${line.left === 1 ? 'record' : 'records'}${which} ${per}. Name more and the extra ones are dropped.`];
+    });
+}

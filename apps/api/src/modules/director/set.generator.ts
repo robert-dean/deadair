@@ -1,3 +1,4 @@
+import type { MixInForce } from './mix.flow.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { PickBroadcast } from './never.play.js';
@@ -108,6 +109,12 @@ export interface SetInputs {
      * festival, and a festival removed since reads as none.
      */
     festivalId?: string;
+    /**
+     * The show's mix flow and what it has counted so far. `PickResolver` holds what the flow holds
+     * whatever a generator did; a generator that talks to the model tells it the budget, and the
+     * shortlist leaves out what would be held, so the model's picks are not spent on dropped records.
+     */
+    mix?: MixInForce;
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

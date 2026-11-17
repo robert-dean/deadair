@@ -1,3 +1,5 @@
+import { holdMixFlow, walkRecord, type MixInForce } from './mix.flow.js';
+import { mixRecordOf } from './mix.flow.context.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
@@ -264,6 +266,12 @@ export class PickResolver {
             /** The broadcast these picks are for, which a mode- or slot-scoped never-play rule is judged against. */
             broadcast?: PickBroadcast;
             /**
+             * The show's mix flow and its counts so far, judged LAST, on the batch in the order it will
+             * air: a record a block or a limit holds is left out. Never passed with `keepOrder` or
+             * `overrule`, which is how a request and its follow-ons are exempt. See `holdMixFlow`.
+             */
+            mix?: MixInForce;
+            /**
              * A listener insisted on this record after the station turned it down, so judge it by the
              * three things nobody at the radio can overrule and nothing else: a never-play rule, a
              * `clean-only` advisory policy, and a copy some provider will actually serve.
@@ -389,7 +397,34 @@ export class PickResolver {
         // keeps one artist off their own heels, and this keeps their second record a cooldown after
         // the first rather than two records after it. Not for `keepOrder` either: a countdown, a
         // request and a mixed-in record are placed rather than programmed, and keep the order given.
-        return holdArtistCooldown(spaceArtists(resolved, seedArtistKey), rules.artistCooldownMinutes, recordSpacingLength, want).map(toRundownTrack);
+        const spaced = holdArtistCooldown(spaceArtists(resolved, seedArtistKey), rules.artistCooldownMinutes, recordSpacingLength, want);
+        if (options.mix === undefined || spaced.length === 0) return spaced.map(toRundownTrack);
+        // Last of all, on the order the batch will air in, because a limit counts as it goes: the
+        // third black metal record is held because of the two in front of it.
+        return (await this.holdForMix(spaced, options.mix)).map(toRundownTrack);
+    }
+
+    /** {@link resolve}'s last step: the batch without what the show's mix flow holds. See `holdMixFlow`. */
+    private async holdForMix(batch: readonly Airable[], mix: MixInForce): Promise<Airable[]> {
+        const genres = await this.candidates
+            .mainGenresFor(batch.flatMap(entry => (entry.trackId === undefined ? [] : [entry.trackId])))
+            .catch(error => {
+                // A flow that cannot read genres still holds by band, and holds nothing by genre.
+                this.logger.warn('director: could not read main genres for the mix flow', { error: errorText(error) });
+                return new Map<string, string>();
+            });
+        const records = batch.map(entry => ({ entry, ...mixRecordOf(entry, genres), ...(entry.year === undefined ? {} : { year: entry.year }) }));
+        const { kept, held, gaveWay } = holdMixFlow(records, mix);
+        if (held.length > 0 || gaveWay) {
+            this.logger.debug("director: the show's mix flow held some chosen tracks", {
+                offered: batch.length,
+                kept: kept.length,
+                held: held.map(({ record, at }) => `${record.artist}: ${record.title} at ${at}`),
+            });
+        }
+        if (gaveWay)
+            this.logger.warn("director: the show's mix flow would have held every record in a batch; its limits gave way", { kept: kept.length });
+        return kept.map(record => record.entry);
     }
 
     /**
@@ -545,9 +580,15 @@ export class PickResolver {
             broadcast?: PickBroadcast;
             /** How many the caller needs, which the queued artists and the window give way to. */
             want: number;
+            /**
+             * The show's mix flow, so a record it would hold now is not offered: each judged on its own
+             * against the counts so far, since nothing has been chosen to count yet. `resolve` judges the
+             * chosen batch in order.
+             */
+            mix?: MixInForce;
         },
     ): Promise<T[]> {
-        const { era, avoidSongKeys, avoidArtistKeys, queuedArtistKeys, broadcast, want } = options;
+        const { era, avoidSongKeys, avoidArtistKeys, queuedArtistKeys, broadcast, want, mix } = options;
         const keyed = candidates
             .map((candidate, index) => ({
                 candidate,
@@ -570,7 +611,21 @@ export class PickResolver {
 
         const offered = [...ownedLeft, ...namedLeft].sort((left, right) => left.index - right.index);
         const uncapped = { ...rules, maxPerArtist: 0, maxPerAlbum: 0 };
-        return (await this.holdWindows(offered, uncapped, recent, queuedArtistKeys, want, false)).map(entry => entry.candidate);
+        const windowed = (await this.holdWindows(offered, uncapped, recent, queuedArtistKeys, want, false)).map(entry => entry.candidate);
+        if (mix === undefined || windowed.length === 0) return windowed;
+        const genres = await this.candidates
+            .mainGenresFor(windowed.flatMap(candidate => (candidate.trackId === undefined ? [] : [candidate.trackId])))
+            .catch(() => new Map<string, string>());
+        const open = windowed.filter(
+            candidate =>
+                walkRecord(
+                    mix.flow,
+                    { ...mixRecordOf(candidate, genres), ...(candidate.year === undefined ? {} : { year: candidate.year }) },
+                    mix.ctx,
+                ).heldAt === undefined,
+        );
+        // Never narrower than nothing: a flow that would hold the whole list leaves it to `resolve`.
+        return open.length > 0 ? open : windowed;
     }
 
     /**

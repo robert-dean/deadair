@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { MixDraftService } from '#src/modules/director/mix.draft.service.js';
 import { ScheduleFileService } from '#src/modules/schedule/schedule.file.service.js';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
 import { SlotAirService } from '#src/modules/director/slot.air.service.js';
 import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
+import { MixFlowDraft, MixFlowDraftRequest } from '../modules/schedule/types/mix.types.js';
 import { PackImportPlan } from '../modules/topics/types/topics.types.js';
 import {
     ScheduleImportResult,
@@ -116,6 +118,21 @@ ScheduleRouter.post('/schedule/import', requirePolicy({ policy: 'platform.manage
 
     const service = ctx.container.get(ScheduleFileService);
     const result: ScheduleImportResult = await service.importPack(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule/mix-draft`
+ */
+ScheduleRouter.post('/schedule/mix-draft', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, MixFlowDraftRequest);
+
+    const service = ctx.container.get(MixDraftService);
+    const result: MixFlowDraft = await service.draft(body);
 
     ctx.status = 200;
     ctx.type = 'application/json';

@@ -317,3 +317,23 @@ describe('CandidatesRepository.sampleByMainGenre', () => {
         expect(captured.statements).toHaveLength(0);
     });
 });
+
+describe('CandidatesRepository.commonMainGenres', () => {
+    it('counts bands by their main genre, the enrichment first and the judgement after, commonest first', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).commonMainGenres(60);
+
+        const statement = captured.statements[0]!;
+        expect(statement.sql).toContain('deadair.artist_enrichment');
+        expect(statement.sql).toContain('deadair.artist_genre_judgements');
+        expect(statement.sql.indexOf('artist_enrichment')).toBeLessThan(statement.sql.indexOf('artist_genre_judgements'));
+        expect(statement.sql).toMatch(/order by count\(\*\) desc/);
+        expect(statement.parameters).toContain(60);
+    });
+
+    it('asks nothing for none', async () => {
+        const captured: Captured = { statements: [] };
+        expect(await new CandidatesRepository(fakeDb(captured)).commonMainGenres(0)).toEqual([]);
+        expect(captured.statements).toHaveLength(0);
+    });
+});

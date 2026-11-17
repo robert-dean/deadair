@@ -1,6 +1,6 @@
 ---
 title: 'ScheduleTimetableQuery'
-sidebar_position: 24
+sidebar_position: 28
 mdx:
     format: 'md'
 ---

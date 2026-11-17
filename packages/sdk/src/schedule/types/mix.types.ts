@@ -37,6 +37,34 @@ export interface MixSong {
 }
 
 /**
+ * One answer to a question a draft asked
+ * generated from [MixDraftAnswer](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
+ */
+export interface MixDraftAnswer {
+    /** The question, as the draft asked it */
+    question: string;
+    /** What the operator chose or wrote */
+    answer: string;
+}
+
+/**
+ * One phrase of a brief and what the draft made of it
+ * generated from [MixDraftReading](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
+ */
+export interface MixDraftReading {
+    /** The phrase, as the brief has it */
+    quote: string;
+    /** What it became, in plain words, or why it became nothing */
+    note: string;
+    /** The nodes drawn from it. Absent for a phrase about taste, which is left to the picks */
+    nodeIds?: string[];
+    /** Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it */
+    question?: string;
+    /** Answers to offer for `question` */
+    options?: string[];
+}
+
+/**
  * One node on the canvas. `kind` says what it is and which of the fields beside it count
  * generated from [MixNode](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
  */
@@ -81,6 +109,17 @@ export interface MixNode {
 }
 
 /**
+ * What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked
+ * generated from [MixFlowDraftRequest](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
+ */
+export interface MixFlowDraftRequest {
+    /** The show's brief, in the operator's own words */
+    brief: string;
+    /** Answers to the questions an earlier draft of the same brief asked, so the next one can settle them */
+    answers?: MixDraftAnswer[];
+}
+
+/**
  * A show's mix flow: nodes and the wires between them, as the console's canvas draws them. Records enter at the one `picks` node and leave at the one `onAir` node; a record the station proposes is followed down the wires, and the first node that holds it (a `block`, or a limit it would take past its amount) keeps it off the air. `require` nodes add a record when they fall due. A record a listener asked for, and what follows it, is never judged and never counted
  * generated from [MixFlow](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
  */
@@ -90,4 +129,17 @@ export interface MixFlow {
     nodes: MixNode[];
     /** The wires */
     links: MixLink[];
+}
+
+/**
+ * A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual
+ * generated from [MixFlowDraft](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
+ */
+export interface MixFlowDraft {
+    /** The drafted flow, laid out for the canvas. It passes the same check a saved flow does */
+    flow: MixFlow;
+    /** Each phrase of the brief the model read, and what became of it */
+    readings: MixDraftReading[];
+    /** The model that drafted it */
+    model?: string;
 }

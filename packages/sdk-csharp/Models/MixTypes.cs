@@ -61,6 +61,45 @@ public sealed record MixSong
     public required string Artist { get; init; }
 }
 
+/// <summary>One answer to a question a draft asked</summary>
+public sealed record MixDraftAnswer
+{
+    /// <summary>The question, as the draft asked it</summary>
+    [JsonPropertyName("question")]
+    public required string Question { get; init; }
+
+    /// <summary>What the operator chose or wrote</summary>
+    [JsonPropertyName("answer")]
+    public required string Answer { get; init; }
+}
+
+/// <summary>One phrase of a brief and what the draft made of it</summary>
+public sealed record MixDraftReading
+{
+    /// <summary>The phrase, as the brief has it</summary>
+    [JsonPropertyName("quote")]
+    public required string Quote { get; init; }
+
+    /// <summary>What it became, in plain words, or why it became nothing</summary>
+    [JsonPropertyName("note")]
+    public required string Note { get; init; }
+
+    /// <summary>The nodes drawn from it. Absent for a phrase about taste, which is left to the picks</summary>
+    [JsonPropertyName("nodeIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? NodeIds { get; init; }
+
+    /// <summary>Asked when the phrase could mean more than one thing. The draft made its best guess, and answering redrafts it</summary>
+    [JsonPropertyName("question")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Question { get; init; }
+
+    /// <summary>Answers to offer for `question`</summary>
+    [JsonPropertyName("options")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Options { get; init; }
+}
+
 /// <summary>One node on the canvas. `kind` says what it is and which of the fields beside it count</summary>
 public sealed record MixNode
 {
@@ -157,6 +196,19 @@ public sealed record MixNode
     public double? Y { get; init; }
 }
 
+/// <summary>What a show's mix flow is drafted from: the show's brief as the operator has it now, saved or not, and any answers to the questions an earlier draft asked</summary>
+public sealed record MixFlowDraftRequest
+{
+    /// <summary>The show's brief, in the operator's own words</summary>
+    [JsonPropertyName("brief")]
+    public required string Brief { get; init; }
+
+    /// <summary>Answers to the questions an earlier draft of the same brief asked, so the next one can settle them</summary>
+    [JsonPropertyName("answers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<MixDraftAnswer>? Answers { get; init; }
+}
+
 /// <summary>A show's mix flow: nodes and the wires between them, as the console's canvas draws them. Records enter at the one `picks` node and leave at the one `onAir` node; a record the station proposes is followed down the wires, and the first node that holds it (a `block`, or a limit it would take past its amount) keeps it off the air. `require` nodes add a record when they fall due. A record a listener asked for, and what follows it, is never judged and never counted</summary>
 public sealed record MixFlow
 {
@@ -170,6 +222,23 @@ public sealed record MixFlow
     /// <summary>The wires</summary>
     [JsonPropertyName("links")]
     public required List<MixLink> Links { get; init; }
+}
+
+/// <summary>A mix flow the station's model drafted from a brief, and what it made of each phrase. Nothing is saved: the operator looks it over on the canvas and saves it with the show as usual</summary>
+public sealed record MixFlowDraft
+{
+    /// <summary>The drafted flow, laid out for the canvas. It passes the same check a saved flow does</summary>
+    [JsonPropertyName("flow")]
+    public required MixFlow Flow { get; init; }
+
+    /// <summary>Each phrase of the brief the model read, and what became of it</summary>
+    [JsonPropertyName("readings")]
+    public required List<MixDraftReading> Readings { get; init; }
+
+    /// <summary>The model that drafted it</summary>
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }
 
 /// <summary>`picks` is what the station proposes and `onAir` what may air. `block` keeps the named bands off. `split` sends each record down the first branch it matches. `limitShare` and `limitCount` hold records past an amount of what has passed through them. `noRepeat` holds a record when the last record aired also passed through it. `merge` joins wires. `require` adds a record when due. `timeSwitch` is a number that changes at an hour</summary>

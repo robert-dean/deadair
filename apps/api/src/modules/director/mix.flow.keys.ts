@@ -13,6 +13,8 @@ export const MIX_FLOW_KEYS = {
     genreModel: 'llm.genreModel',
     /** Which models answer a judge split's questions, `provider:model`, in order. Empty for the plugin's default. */
     judgeModel: 'llm.judgeModel',
+    /** Which models draft a show's flow from its brief, `provider:model`, in order. Empty for the plugin's default. */
+    draftModel: 'llm.mixDraftModel',
 } as const;
 
 /** OFF. See {@link MIX_FLOW_KEYS.artistGenres}. */

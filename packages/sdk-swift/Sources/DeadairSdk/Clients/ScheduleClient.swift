@@ -69,6 +69,16 @@ public final class ScheduleClient: Sendable {
         return try http.decodeJSON(ScheduleImportResult.self, from: response)
     }
 
+    /// Draft mix flow
+    /// Drafts a show's mix flow from its brief with the station's model: blocks, limits, required records and judge questions, each drawn from a phrase, and the phrases about taste left to the picks. Writes nothing
+    /// - Throws: `SdkError` on 502, 503
+    public func draftMixFlow(body: MixFlowDraftRequest) async throws -> MixFlowDraft {
+        var request = SdkRequest(method: "POST", path: ["schedule", "mix-draft"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(MixFlowDraft.self, from: response)
+    }
+
     /// Update schedule slot
     /// Rewrites a slot. Takes effect at its next boundary rather than immediately; to change the show on air too, when it is this slot's, apply the slot afterwards with `POST /schedule/{id}/apply`
     public func updateScheduleSlot(id: String, body: ScheduleSlotInput) async throws -> ScheduleSlotList {

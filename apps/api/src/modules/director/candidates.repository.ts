@@ -550,6 +550,39 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * The library's commonest main genres and how many bands have each, for drafting a show's mix flow
+     * (`MixDraftService`): told these, the model names a genre the station's own tags will match rather
+     * than a synonym nothing matches. A band's main genre is {@link mainGenresFor}'s, read per artist.
+     */
+    async commonMainGenres(limit: number): Promise<{ genre: string; bands: number }[]> {
+        if (limit <= 0) return [];
+        const rows = await sql<{ genre: string; bands: string | number }>`
+            with genres as (
+                select lower(coalesce(
+                    (
+                        select e.data -> 'genres' ->> 0
+                        from deadair.artist_enrichment e
+                        where e.artist_id = a.id
+                          and jsonb_typeof(e.data -> 'genres') = 'array'
+                          and coalesce(e.data -> 'genres' ->> 0, '') <> ''
+                        order by e.provider
+                        limit 1
+                    ),
+                    (select j.genre from deadair.artist_genre_judgements j where j.artist_id = a.id and j.genre is not null)
+                )) as genre
+                from deadair.artists a
+            )
+            select genre, count(*) as bands
+            from genres
+            where genre is not null and genre <> ''
+            group by genre
+            order by count(*) desc, genre
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+        return rows.rows.map(row => ({ genre: row.genre, bands: Number(row.bands) }));
+    }
+
+    /**
      * A batch of records' titles and their albums' names, for a `version` never-play rule
      * (`live.version.ts`), which reads the version markers a provider wrote there. A record with no
      * album answers with its title alone.

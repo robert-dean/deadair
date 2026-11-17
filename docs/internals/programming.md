@@ -656,6 +656,25 @@ walks it FROM THAT NODE, so wiring decides what judges a required record: wired 
 show's limits, and a Block downstream still holds it. A requirement whose record did not air is still due next
 refill, because nothing in the show satisfied it.
 
+**A flow can be drafted from the brief, and the model writes RULES, not the graph** (`director/mix.draft.ts`,
+`MixDraftService`, `POST /schedule/mix-draft`). The model is good at reading "black metal only now and then"
+as a tenth of an hour and bad at numbering sockets, and a wiring slip is exactly what a save refuses. So it
+answers with a short list of rules (block, limit, require, no two in a row), each with the phrase it came from,
+plus the phrases it left to the picks and the ones it was unsure of as a question with options, and
+`buildMixDraft` lays the rules out in one shape every time: Picks, a Block per band list, then a genre split
+per limited group whose branch runs through its limit (a Time switch feeding it for "a third after ten") to
+the Merge and whose "everything else" runs on to the next split; a limit that needs a judge has the judge
+behind its genre split, its "no" held by a count of 0 or passed on as the model says; Require nodes enter at
+the Merge, so a promise never meets the limits. Every flow it builds passes `mixFlowProblems`, and a test
+walks all 511 combinations of rule kinds through that check. The prompt carries the library's 60 commonest
+main genres with their band counts (`commonMainGenres`), so the model names "black metal" rather than a
+synonym no tag matches. An unreadable answer is asked once more, then refused (502), never repaired by guesswork;
+it runs at `preview` priority on its own model list (`llm.mixDraftModel`), and nothing is saved: the
+operator looks the draft over on the canvas, answers its questions (which redrafts with the answers in the
+prompt) and saves the show as usual. Given the Church brief, gemma4:26b on a 16 GB GPU drafted the mockup's graph in
+ten to twenty seconds: Burzum blocked, black metal at 10%, one judged pop hit a show. It also promised a
+gospel record the brief only allowed, which is what the questions and the canvas are for.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

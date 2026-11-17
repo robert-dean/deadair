@@ -878,6 +878,7 @@ export interface DeadairPlayHistory {
   externalId: string;
   id: Generated<string>;
   pluginId: string;
+  requested: Generated<boolean>;
   songKey: string;
   source: Generated<string>;
   stationKey: Generated<string>;

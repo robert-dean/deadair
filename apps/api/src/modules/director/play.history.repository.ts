@@ -20,6 +20,11 @@ export interface PlayHistoryEntry {
      * listener demonstrably heard, over a missing label, would be the wrong way round.
      */
     broadcastId?: string;
+    /**
+     * Whether it was a listener's request, or a record a request show played after one. A mix flow
+     * never counts those: see migration 0144. Absent is no.
+     */
+    requested?: boolean;
 }
 
 /**
@@ -111,6 +116,7 @@ export class PlayHistoryRepository extends DataRepository {
                 songKey: songKey(item.title, [item.artist]),
                 artistKey: artistKey([item.artist]),
                 source: entry.source,
+                requested: entry.requested === true,
             })
             .execute();
 
@@ -358,6 +364,37 @@ export class PlayHistoryRepository extends DataRepository {
 
         // `== null`: a SQL NULL reads back as `undefined` while the generated type says `null`.
         return rows.map(row => ({ ...(row.trackId == null ? {} : { trackId: String(row.trackId) }), title: row.title, artist: row.artist }));
+    }
+
+    /**
+     * The records a broadcast has aired that a mix flow counts, oldest first, with when each aired.
+     *
+     * Requests, and what a request show played after one, are left out: a listener who asked for a
+     * black metal record has not used up the show's black metal. Bounded because a flow counts one
+     * show, and the longest show is a day of records.
+     */
+    async countedDuringBroadcast(
+        broadcastId: string,
+        limit = 500,
+    ): Promise<{ trackId?: string; title: string; artist: string; airedAtMs: number }[]> {
+        if (limit <= 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.playHistory')
+            .select(['trackId', 'title', 'artist', 'airedAt'])
+            .where('broadcastId', '=', broadcastId)
+            .where('requested', '=', false)
+            .orderBy('airedAt', 'desc')
+            .limit(Math.floor(limit))
+            .execute();
+
+        // `== null`: a SQL NULL reads back as `undefined` while the generated type says `null`.
+        return rows.reverse().map(row => ({
+            ...(row.trackId == null ? {} : { trackId: String(row.trackId) }),
+            title: row.title,
+            artist: row.artist,
+            airedAtMs: row.airedAt.toMillis(),
+        }));
     }
 
     /**

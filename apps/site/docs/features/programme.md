@@ -110,6 +110,12 @@ A band's main genre is the first genre its information lists, so a band tagged b
 
 The canvas marks anything that would stop the flow running, such as a branch that leads nowhere, and the station refuses to save a flow that cannot run. A record held back by the flow is simply not chosen; the station picks something else. The model is told how much of each limit is left, so it stops suggesting records the flow would turn down. A listener's request, and what a request show plays after one, is never held back by the flow and never counted against it. A question for the model is answered once per record in the background, so a record waits until the station next plans its music before its first answer.
 
+### Drafting a flow from the brief
+
+You rarely need to draw a flow from nothing. Choose **Draft from the brief** in a rotation block that has a brief (once a flow is drawn, the button is on the canvas, where it asks before replacing what you have drawn), and the station's model reads the brief and lays out a flow: bands it should never play, genres held to a share or a number, records the show promises, and a question for the model where a genre cannot say which records are meant. It takes a few seconds to a minute.
+
+Beside the canvas, **What the draft read** lists each phrase of the brief and what it became. Point at one to light up the nodes drawn from it. Phrases about taste and mood, such as "dark" or "deep cuts", are left to the picks as before. Where a phrase could mean two different rules, the draft makes its best guess and asks; choose an answer and **Draft again with these answers**. Nothing is saved until you save the show, so check the draft, change anything it got wrong, then save. The models it uses are **Models for drafting a show's mix flow** under **Settings**, **Words**: a draft needs a model that answers within about a minute.
+
 The flow is saved with the show, and like the rest of a block it takes effect the next time the block starts, or now with **Save and apply now**. **Remove it** takes the flow off.
 
 ## Your opinion, and the rules nothing gets round

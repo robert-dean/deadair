@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ScheduleImportResult, SchedulePack, ScheduleSlotInput, ScheduleSlotList } from '@deadair/sdk';
+import type { MixFlowDraftRequest, ScheduleImportResult, SchedulePack, ScheduleSlotInput, ScheduleSlotList } from '@deadair/sdk';
 
 import { saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
@@ -169,4 +169,9 @@ export function useImportSchedule() {
             queryClient.setQueryData(queryKeys.schedule.list(), answer.list);
         },
     });
+}
+
+/** Drafts a show's mix flow from its brief with the station's model. Writes nothing, so it touches no cache. */
+export function useDraftMixFlow() {
+    return useMutation({ mutationFn: (body: MixFlowDraftRequest) => sdk.schedule.draftMixFlow(body) });
 }

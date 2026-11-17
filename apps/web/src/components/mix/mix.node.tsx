@@ -12,6 +12,8 @@ import classes from './mix.flow.module.css';
 export interface MixNodeData extends Record<string, unknown> {
     node: MixNode;
     problems: readonly FlowProblem[];
+    /** Drawn from the phrase the operator is pointing at in the draft's readings. */
+    lit?: boolean;
     onChange: (next: MixNode, relink?: { removed: number } | { addedAt: number }) => void;
 }
 
@@ -45,11 +47,16 @@ export function MixNodeView({ data, selected }: NodeProps<MixFlowNode>) {
     const set = (part: Partial<MixNode>) => onChange({ ...node, ...part } as MixNode);
 
     return (
-        <div className={classes.node} data-selected={selected === true} data-problem={problems.length > 0}>
+        <div className={classes.node} data-selected={selected === true} data-problem={problems.length > 0} data-lit={data.lit === true}>
             <div className={classes.title}>
                 <span className={classes.dot} style={{ background: DOT[node.kind] }} />
                 <span>{t(`kinds.${node.kind}`)}</span>
             </div>
+            {node.fromBrief === undefined || node.fromBrief.length === 0 ? undefined : (
+                <div className={classes.from} title={node.fromBrief}>
+                    {t('draft.quoted', { quote: node.fromBrief })}
+                </div>
+            )}
             <div className={classes.body}>
                 {node.kind === 'picks' ? (
                     <>

@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Button, Group, List, Menu, Modal, Stack, Text } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Group, List, Menu, Modal, Popover, Stack, Text, Tooltip } from '@mantine/core';
+import { IconPlus, IconSparkles } from '@tabler/icons-react';
 import {
     Background,
     Controls,
@@ -15,15 +15,21 @@ import {
     type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import type { MixFlow, MixLink, MixNode } from '@deadair/sdk';
+import type { MixDraftReading, MixFlow, MixLink, MixNode } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
+import { useDraftMixFlow } from '../../api/schedule.queries';
 import { useTheme } from '../../theme.store';
+import { ErrorAlert } from '../shared/error.alert';
+import { MixReadings } from './mix.readings';
 import { flowProblems, freshNode, nextId, PALETTE_KINDS, relinkSplit, socketsOf, starterFlow, type FlowProblem } from './mix.kinds';
 import { MixNodeView, type MixFlowNode } from './mix.node';
 import classes from './mix.flow.module.css';
 
 const NODE_TYPES = { mix: MixNodeView };
+
+/** Far enough out that a drafted flow, about a dozen nodes in a row, fits the canvas whole. */
+const MIN_ZOOM = 0.2;
 
 /** A link's edge id: stable for the same wire, so React Flow keeps its selection across a redraw. */
 const edgeId = (link: MixLink) => `${link.from}:${link.out}->${link.to}:${link.in}`;
@@ -43,7 +49,7 @@ const socketOf = (handle: string | null | undefined): number | undefined => {
  * to Picks are drawn and never stored: they are what the station tells the model about what each limit
  * has left.
  */
-export function MixFlowEditor({ opened, flow, title, onDone, onClose }: Props) {
+export function MixFlowEditor({ opened, flow, title, brief, draftOnOpen, onDone, onClose }: Props) {
     const { t } = useTranslation('mix');
     return (
         <Modal
@@ -55,7 +61,13 @@ export function MixFlowEditor({ opened, flow, title, onDone, onClose }: Props) {
         >
             {opened ? (
                 <ReactFlowProvider>
-                    <Canvas initial={flow ?? starterFlow()} onDone={onDone} onClose={onClose} />
+                    <Canvas
+                        initial={flow ?? starterFlow()}
+                        brief={brief ?? ''}
+                        draftOnOpen={draftOnOpen === true}
+                        onDone={onDone}
+                        onClose={onClose}
+                    />
                 </ReactFlowProvider>
             ) : undefined}
         </Modal>
@@ -67,16 +79,81 @@ interface Props {
     /** The show's flow, or nothing for a show that has none yet, which starts from Picks wired to On air. */
     flow: MixFlow | undefined;
     title?: string;
+    /** The show's brief as the editor holds it, saved or not, which a draft is made from. */
+    brief?: string;
+    /** Start a draft from the brief as soon as the canvas opens. */
+    draftOnOpen?: boolean;
     onDone: (flow: MixFlow) => void;
     onClose: () => void;
 }
 
-function Canvas({ initial, onDone, onClose }: { initial: MixFlow; onDone: (flow: MixFlow) => void; onClose: () => void }) {
+interface CanvasProps {
+    initial: MixFlow;
+    brief: string;
+    draftOnOpen: boolean;
+    onDone: (flow: MixFlow) => void;
+    onClose: () => void;
+}
+
+function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
     const { t } = useTranslation('mix');
     const theme = useTheme();
-    const { screenToFlowPosition } = useReactFlow();
+    const { screenToFlowPosition, fitView, getNodes, getInternalNode } = useReactFlow();
     const [flow, setFlow] = useState<MixFlow>(initial);
     const problems = useMemo(() => flowProblems(flow), [flow]);
+
+    // A draft replaces the drawing and brings what the model read of each phrase, its questions among them.
+    const drafting = useDraftMixFlow();
+    const [readings, setReadings] = useState<MixDraftReading[] | undefined>();
+    const [model, setModel] = useState<string | undefined>();
+    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [lit, setLit] = useState<readonly string[]>([]);
+    const [confirming, setConfirming] = useState(false);
+    const canDraft = brief.trim().length > 0;
+    const drawn = flow.nodes.length > 2 || flow.links.length > 1;
+
+    const draft = useCallback(
+        (withAnswers: Record<string, string>) => {
+            const answered = Object.entries(withAnswers).map(([question, answer]) => ({ question, answer }));
+            drafting.mutate(
+                { brief: brief.trim(), ...(answered.length === 0 ? {} : { answers: answered }) },
+                {
+                    onSuccess: answer => {
+                        setFlow(answer.flow);
+                        setReadings(answer.readings);
+                        setModel(answer.model);
+                        setLit([]);
+                        refit.current = true;
+                    },
+                },
+            );
+        },
+        [brief, drafting],
+    );
+
+    // A draft lays out a whole new flow, so the view fits it once React Flow has measured every node
+    // in it, which it reports as `dimensions` changes (`onNodesChange`). Fitting any sooner fits the
+    // nodes being replaced, and `useNodesInitialized` still answers for those on the render the new
+    // ones arrive.
+    const refit = useRef(false);
+    const fitWhenMeasured = useCallback(() => {
+        if (!refit.current) return;
+        requestAnimationFrame(() => {
+            // The nodes handed to React Flow are rebuilt from the flow on every render and carry no
+            // size; React Flow keeps what it measured on its own copy.
+            const measured = getNodes().every(node => getInternalNode(node.id)?.measured.width !== undefined);
+            if (!refit.current || !measured) return;
+            refit.current = false;
+            void fitView({ padding: 0.1, minZoom: MIN_ZOOM });
+        });
+    }, [fitView, getNodes, getInternalNode]);
+
+    const opening = useRef(draftOnOpen && canDraft);
+    useEffect(() => {
+        if (!opening.current) return;
+        opening.current = false;
+        draft({});
+    }, [draft]);
 
     const changeNode = useCallback((next: MixNode, relink?: { removed: number } | { addedAt: number }) => {
         setFlow(current => ({
@@ -94,9 +171,9 @@ function Canvas({ initial, onDone, onClose }: { initial: MixFlow; onDone: (flow:
                 position: { x: node.x ?? 0, y: node.y ?? 0 },
                 // Picks and On air are what every flow is; removing either leaves nothing that can run.
                 deletable: node.kind !== 'picks' && node.kind !== 'onAir',
-                data: { node, problems: problems.filter(problem => problem.nodeId === node.id), onChange: changeNode },
+                data: { node, problems: problems.filter(problem => problem.nodeId === node.id), lit: lit.includes(node.id), onChange: changeNode },
             })),
-        [flow.nodes, problems, changeNode],
+        [flow.nodes, problems, lit, changeNode],
     );
 
     const edges: Edge[] = useMemo(() => {
@@ -135,27 +212,31 @@ function Canvas({ initial, onDone, onClose }: { initial: MixFlow; onDone: (flow:
         return [...wires, ...budget];
     }, [flow.links, flow.nodes]);
 
-    const onNodesChange = useCallback((changes: NodeChange<MixFlowNode>[]) => {
-        setFlow(current => {
-            let next = current;
-            for (const change of changes) {
-                if (change.type === 'position' && change.position !== undefined) {
-                    const { x, y } = change.position;
-                    next = {
-                        ...next,
-                        nodes: next.nodes.map(node => (node.id === change.id ? { ...node, x: Math.round(x), y: Math.round(y) } : node)),
-                    };
-                } else if (change.type === 'remove') {
-                    next = {
-                        ...next,
-                        nodes: next.nodes.filter(node => node.id !== change.id),
-                        links: next.links.filter(link => link.from !== change.id && link.to !== change.id),
-                    };
+    const onNodesChange = useCallback(
+        (changes: NodeChange<MixFlowNode>[]) => {
+            if (changes.some(change => change.type === 'dimensions')) fitWhenMeasured();
+            setFlow(current => {
+                let next = current;
+                for (const change of changes) {
+                    if (change.type === 'position' && change.position !== undefined) {
+                        const { x, y } = change.position;
+                        next = {
+                            ...next,
+                            nodes: next.nodes.map(node => (node.id === change.id ? { ...node, x: Math.round(x), y: Math.round(y) } : node)),
+                        };
+                    } else if (change.type === 'remove') {
+                        next = {
+                            ...next,
+                            nodes: next.nodes.filter(node => node.id !== change.id),
+                            links: next.links.filter(link => link.from !== change.id && link.to !== change.id),
+                        };
+                    }
                 }
-            }
-            return next;
-        });
-    }, []);
+                return next;
+            });
+        },
+        [fitWhenMeasured],
+    );
 
     const onEdgesChange = useCallback((changes: EdgeChange[]) => {
         const removed = new Set(changes.flatMap(change => (change.type === 'remove' ? [change.id] : [])));
@@ -201,6 +282,44 @@ function Canvas({ initial, onDone, onClose }: { initial: MixFlow; onDone: (flow:
                     {t('editor.help')}
                 </Text>
                 <Group gap="xs">
+                    <Popover opened={confirming} onChange={setConfirming} position="bottom-end" withArrow>
+                        <Popover.Target>
+                            <Tooltip label={t('draft.noBrief')} disabled={canDraft} multiline w={260}>
+                                <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="grape"
+                                    leftSection={<IconSparkles size={14} />}
+                                    disabled={!canDraft}
+                                    loading={drafting.isPending}
+                                    onClick={() => (drawn ? setConfirming(true) : draft({}))}
+                                >
+                                    {t('draft.button')}
+                                </Button>
+                            </Tooltip>
+                        </Popover.Target>
+                        <Popover.Dropdown>
+                            <Stack gap="xs" maw={260}>
+                                <Text size="sm">{t('draft.replace')}</Text>
+                                <Group gap="xs" justify="flex-end">
+                                    <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
+                                        {t('draft.replaceCancel')}
+                                    </Button>
+                                    <Button
+                                        size="xs"
+                                        color="grape"
+                                        onClick={() => {
+                                            setConfirming(false);
+                                            setAnswers({});
+                                            draft({});
+                                        }}
+                                    >
+                                        {t('draft.replaceConfirm')}
+                                    </Button>
+                                </Group>
+                            </Stack>
+                        </Popover.Dropdown>
+                    </Popover>
                     <Menu position="bottom-end" withinPortal>
                         <Menu.Target>
                             <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}>
@@ -227,24 +346,40 @@ function Canvas({ initial, onDone, onClose }: { initial: MixFlow; onDone: (flow:
                 </Group>
             </Group>
 
-            <div className={classes.canvas} style={{ flex: 1, minHeight: 0 }}>
-                <ReactFlow<MixFlowNode>
-                    nodes={nodes}
-                    edges={edges}
-                    nodeTypes={NODE_TYPES}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    isValidConnection={isValidConnection}
-                    colorMode={theme.scheme}
-                    deleteKeyCode={['Backspace', 'Delete']}
-                    fitView
-                    proOptions={{ hideAttribution: true }}
-                >
-                    <Background gap={24} />
-                    <Controls showInteractive={false} />
-                </ReactFlow>
-            </div>
+            {drafting.isError ? <ErrorAlert title={t('draft.failed')} error={drafting.error} onDismiss={() => drafting.reset()} /> : undefined}
+
+            <Group gap="sm" align="stretch" wrap="nowrap" style={{ flex: 1, minHeight: 0 }}>
+                <div className={classes.canvas} style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+                    <ReactFlow<MixFlowNode>
+                        nodes={nodes}
+                        edges={edges}
+                        nodeTypes={NODE_TYPES}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        isValidConnection={isValidConnection}
+                        colorMode={theme.scheme}
+                        deleteKeyCode={['Backspace', 'Delete']}
+                        fitView
+                        minZoom={MIN_ZOOM}
+                        proOptions={{ hideAttribution: true }}
+                    >
+                        <Background gap={24} />
+                        <Controls showInteractive={false} />
+                    </ReactFlow>
+                </div>
+                {drafting.isPending || readings !== undefined ? (
+                    <MixReadings
+                        readings={readings ?? []}
+                        pending={drafting.isPending}
+                        {...(model === undefined ? {} : { model })}
+                        answers={answers}
+                        onAnswer={(question, answer) => setAnswers(current => ({ ...current, [question]: answer }))}
+                        onPoint={setLit}
+                        onRedraft={() => draft(answers)}
+                    />
+                ) : undefined}
+            </Group>
 
             <Group gap="lg" align="flex-start" wrap="wrap">
                 <Stack gap={4}>

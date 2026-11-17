@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { Button, Group, Stack, Text } from '@mantine/core';
+import { IconSparkles } from '@tabler/icons-react';
 import type { MixFlow } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
@@ -15,9 +16,12 @@ const MixFlowEditor = lazy(async () => ({ default: (await import('./mix.flow.edi
  * without saving keeps nothing, as with every other field here. Removing it sends a flow with no nodes,
  * which is how the station is told to clear one: a save that says nothing keeps what the show had.
  */
-export function MixFlowField({ value, onChange, showName, changed }: Props) {
+export function MixFlowField({ value, onChange, showName, brief, changed }: Props) {
     const { t } = useTranslation('mix');
     const [open, setOpen] = useState(false);
+    // Opened by "Draft from the brief" rather than to draw, so the canvas starts a draft as it opens.
+    const [drafting, setDrafting] = useState(false);
+    const hasBrief = (brief ?? '').trim().length > 0;
     const nodes = value?.nodes.length ?? 0;
 
     return (
@@ -33,9 +37,30 @@ export function MixFlowField({ value, onChange, showName, changed }: Props) {
                 </Text>
             ) : undefined}
             <Group gap="xs">
-                <Button size="xs" variant="light" onClick={() => setOpen(true)}>
+                <Button
+                    size="xs"
+                    variant="light"
+                    onClick={() => {
+                        setDrafting(false);
+                        setOpen(true);
+                    }}
+                >
                     {nodes === 0 ? t('field.create') : t('field.edit')}
                 </Button>
+                {nodes === 0 && hasBrief ? (
+                    <Button
+                        size="xs"
+                        variant="light"
+                        color="grape"
+                        leftSection={<IconSparkles size={14} />}
+                        onClick={() => {
+                            setDrafting(true);
+                            setOpen(true);
+                        }}
+                    >
+                        {t('field.draft')}
+                    </Button>
+                ) : undefined}
                 {nodes === 0 ? undefined : (
                     <Button size="xs" variant="subtle" color="gray" onClick={() => onChange({ version: 1, nodes: [], links: [] })}>
                         {t('field.clear')}
@@ -48,6 +73,8 @@ export function MixFlowField({ value, onChange, showName, changed }: Props) {
                         opened={open}
                         flow={nodes === 0 ? undefined : value}
                         {...(showName ? { title: showName } : {})}
+                        {...(brief === undefined ? {} : { brief })}
+                        draftOnOpen={drafting}
                         onClose={() => setOpen(false)}
                         onDone={flow => {
                             onChange(flow);
@@ -65,6 +92,8 @@ interface Props {
     value: MixFlow | undefined;
     onChange: (flow: MixFlow) => void;
     showName?: string;
+    /** The show's brief as the form holds it, which a draft is made from. */
+    brief?: string;
     /** Whether it differs from what was saved, which the line under the summary says. */
     changed?: boolean;
 }

@@ -174,7 +174,7 @@ tie-break on duplicate names, which these do not have.
 filters what the registry offers by name, and a name nothing offers right now is simply absent. The mood walk
 (`lyrics/lyric.moods.service.ts`) is the case it exists for: judging one record's mood may search the web
 about that record and has no business with the catalog, the charts or the news, and a model offered all
-seven spends its few steps wandering. It still holds the slot only at `background` priority. The genre walk for a show's mix flow (`director/artist.genre.service.ts`, behind `mixFlow.artistGenres`, off) has the same shape and the same one tool: it names a main genre for a band no provider gave one, once per band and instructions, and `programming.md` § "A show's mix flow" says what reads it. The persona
+seven spends its few steps wandering. It still holds the slot only at `background` priority. The genre walk for a show's mix flow (`director/artist.genre.service.ts`, behind `mixFlow.artistGenres`, off) has the same shape and the same one tool: it names a main genre for a band no provider gave one, once per band and instructions, and `programming.md` § "A show's mix flow" says what reads it. So does the judge (`director/mix.judge.service.ts`), which answers the yes-or-no questions a show's judge split has left pending. The persona
 story pass is the other case, narrowed the other way for a different reason: it may look at the station's own
 music and nothing that reads the world, because what it writes can be stored unreviewed (see `personas.md`,
 "The stories"). Both name their tools through the constants exported beside each source (`SEARCH_MUSIC_TOOL`

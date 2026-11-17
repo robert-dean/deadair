@@ -44,7 +44,7 @@ data class MixNode(
     val kind: MixNodeKind,
     /** `block`: the bands it keeps off, matched by name, ignoring case */
     val bands: List<String>? = null,
-    /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, and is refused until the station can ask one */
+    /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
     val splitBy: MixNodeSplitBy? = null,
     /** `split`: its outputs in order, before the last output, "everything else" */
     val branches: List<MixBranch>? = null,
@@ -124,7 +124,7 @@ object MixNodeKindSerializer : SdkEnumSerializer<MixNodeKind>(
     MixNodeKind.TIME_SWITCH to "timeSwitch",
 )
 
-/** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, and is refused until the station can ask one */
+/** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
 @Serializable(with = MixNodeSplitBySerializer::class)
 enum class MixNodeSplitBy {
     GENRE,

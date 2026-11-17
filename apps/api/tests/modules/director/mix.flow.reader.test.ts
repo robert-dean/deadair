@@ -32,6 +32,7 @@ function readers(over: Partial<MixReaders> = {}): MixReaders {
             countedDuringBroadcast: vi.fn(async () => [{ trackId: 'aired', title: 'Aired', artist: 'A', airedAtMs: Date.UTC(2026, 10, 15, 20) }]),
         },
         candidates: { mainGenresFor: vi.fn(async (ids: readonly string[]) => new Map(ids.map(id => [id, `${id} genre`]))) },
+        judgements: { answersFor: vi.fn(async () => new Map()) },
         schedule: { inForce: vi.fn(async () => undefined) },
         config: { get: vi.fn((key: string, fallback?: unknown) => (key === 'station.timezone' ? 'UTC' : fallback)) } as never,
         logger: { warn: vi.fn() } as never,

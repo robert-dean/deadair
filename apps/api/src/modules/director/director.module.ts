@@ -77,6 +77,8 @@ import { RefillPreemption } from './refill.preemption.js';
 import { MixFlowReader } from './mix.flow.reader.js';
 import { ArtistGenreRepository } from './artist.genre.repository.js';
 import { ArtistGenreService } from './artist.genre.service.js';
+import { MixJudgeRepository } from './mix.judge.repository.js';
+import { MixJudgeService } from './mix.judge.service.js';
 import { MixRequireSetGenerator } from './mix.require.set.generator.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { AsRunRepository } from './as.run.repository.js';
@@ -165,6 +167,8 @@ export const DirectorModule: ServerKitModule = {
         registry.register(MixFlowReader).useClass(MixFlowReader).asScoped();
         registry.register(ArtistGenreRepository).useClass(ArtistGenreRepository).asScoped();
         registry.register(ArtistGenreService).useClass(ArtistGenreService).asScoped();
+        registry.register(MixJudgeRepository).useClass(MixJudgeRepository).asScoped();
+        registry.register(MixJudgeService).useClass(MixJudgeService).asScoped();
         registry
             .register(SetGenerator)
             .useFactory(

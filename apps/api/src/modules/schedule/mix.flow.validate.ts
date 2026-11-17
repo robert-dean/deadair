@@ -19,12 +19,6 @@ const NAMES: Record<MixNode['kind'], string> = {
 const BY_VALUES = new Set(['genre', 'artist', 'decade', 'mood', 'lastGenre', 'judged']);
 
 /**
- * The split bases the station can answer today. `judged` is in the contract so that it changes once, and
- * is refused until the station can put a question to the model and store the answer.
- */
-const ANSWERABLE = new Set(['genre', 'artist', 'decade', 'mood', 'hour', 'showProgress', 'lastGenre']);
-
-/**
  * Every reason a flow cannot be saved, each naming the node it is about, or none.
  *
  * A flow that saved wrong would not fail loudly: a loose wire drops records, a cycle never finishes, a
@@ -122,7 +116,11 @@ function kindProblems(node: MixNode, inUsed: ReadonlySet<string>): string[] {
             return (node.bands?.length ?? 0) === 0 ? ['names no bands to keep off'] : [];
         case 'split': {
             if (node.splitBy === undefined) return ['does not say what it splits by'];
-            if (!ANSWERABLE.has(node.splitBy)) return [`splits by "${node.splitBy}", which the station cannot answer yet`];
+            if (node.splitBy === 'judged') {
+                if (node.question === undefined || node.question.trim() === '') return ['asks the model nothing; give it a question'];
+                const answers = (node.branches ?? []).flatMap(branch => branch.values ?? []);
+                if (answers.some(answer => answer !== 'yes' && answer !== 'no')) return ['has a branch for an answer other than yes or no'];
+            }
             const branches = node.branches ?? [];
             if (branches.length === 0) return ['has no branches'];
             if (BY_VALUES.has(node.splitBy)) {

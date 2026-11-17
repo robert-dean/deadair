@@ -16,6 +16,8 @@ export interface MixContextInputs {
     queued: readonly MixSourceRecord[];
     /** Main genre by track id: `CandidatesRepository.mainGenresFor`. */
     genres: ReadonlyMap<string, string>;
+    /** The model's stored answers by track id, then question key: `MixJudgeRepository.answersFor`. */
+    judged?: ReadonlyMap<string, ReadonlyMap<string, boolean>>;
     /** The hour on the station's clock at an instant. */
     hourOf: (ms: number) => number;
     nowMs: number;
@@ -24,9 +26,19 @@ export interface MixContextInputs {
 }
 
 /** A record the walk can read, with its main genre looked up. */
-export function mixRecordOf(record: MixSourceRecord, genres: ReadonlyMap<string, string>): MixRecord {
+export function mixRecordOf(
+    record: MixSourceRecord,
+    genres: ReadonlyMap<string, string>,
+    judged?: ReadonlyMap<string, ReadonlyMap<string, boolean>>,
+): MixRecord {
     const genre = record.trackId === undefined ? undefined : genres.get(record.trackId);
-    return { title: record.title, artist: record.artist, ...(genre === undefined ? {} : { mainGenre: genre }) };
+    const answers = record.trackId === undefined ? undefined : judged?.get(record.trackId);
+    return {
+        title: record.title,
+        artist: record.artist,
+        ...(genre === undefined ? {} : { mainGenre: genre }),
+        ...(answers === undefined ? {} : { judged: answers }),
+    };
 }
 
 /**
@@ -40,8 +52,8 @@ export function mixRecordOf(record: MixSourceRecord, genres: ReadonlyMap<string,
 export function buildMixContext(inputs: MixContextInputs): MixContext {
     const hour = inputs.hourOf(inputs.nowMs);
     const records = [
-        ...inputs.aired.map(record => ({ ...mixRecordOf(record, inputs.genres), hour: inputs.hourOf(record.airedAtMs) })),
-        ...inputs.queued.map(record => ({ ...mixRecordOf(record, inputs.genres), hour })),
+        ...inputs.aired.map(record => ({ ...mixRecordOf(record, inputs.genres, inputs.judged), hour: inputs.hourOf(record.airedAtMs) })),
+        ...inputs.queued.map(record => ({ ...mixRecordOf(record, inputs.genres, inputs.judged), hour })),
     ];
     return { hour, showProgress: progressOf(inputs.show, inputs.nowMs), counted: countThrough(inputs.flow, records) };
 }

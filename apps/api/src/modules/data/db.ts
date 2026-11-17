@@ -558,6 +558,20 @@ export interface DeadairMetricSamples {
   sum: number;
 }
 
+export interface DeadairMixJudgements {
+  answer: boolean | null;
+  createdAt: Generated<DateTime>;
+  failures: Generated<number>;
+  judgedAt: DateTime | null;
+  lastError: string | null;
+  question: string;
+  questionKey: string;
+  retryAfter: DateTime | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+  version: string | null;
+}
+
 export interface DeadairNarrationPieces {
   airedAt: DateTime | null;
   artworkUrl: string | null;
@@ -1522,6 +1536,7 @@ export interface DB {
   "deadair.messagingIdentities": DeadairMessagingIdentities;
   "deadair.messagingLinkCodes": DeadairMessagingLinkCodes;
   "deadair.metricSamples": DeadairMetricSamples;
+  "deadair.mixJudgements": DeadairMixJudgements;
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;

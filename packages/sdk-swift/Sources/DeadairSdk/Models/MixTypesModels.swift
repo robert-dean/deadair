@@ -115,7 +115,7 @@ public struct MixNode: Codable, Equatable, Sendable {
     public var kind: MixNodeKind
     /// `block`: the bands it keeps off, matched by name, ignoring case
     public var bands: [String]?
-    /// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, and is refused until the station can ask one
+    /// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
     public var splitBy: MixNodeSplitBy?
     /// `split`: its outputs in order, before the last output, "everything else"
     public var branches: [MixBranch]?
@@ -344,7 +344,7 @@ public enum MixNodeKind: Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, and is refused until the station can ask one
+/// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
 public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
     case genre
     case artist

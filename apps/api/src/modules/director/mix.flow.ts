@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { MixBranch, MixFlow, MixNode } from '#modules/schedule/types/mix.types.js';
 import { refinesGenre, sameTag } from './genre.match.js';
 
@@ -21,6 +22,30 @@ export interface MixRecord {
     year?: number;
     /** Moods a model has judged it to be in, for a split by mood. */
     moods?: readonly string[];
+    /**
+     * The model's stored answers about this record, by question key (`judgeKey`), for a split by
+     * `judged`. A question with no answer yet holds the record at that split.
+     */
+    judged?: ReadonlyMap<string, boolean>;
+}
+
+/** A judge question as the key its answers are stored under: the same question asked by two shows shares them. */
+export function judgeKey(question: string): string {
+    return createHash('sha256').update(question.trim().toLowerCase().replace(/\s+/g, ' ')).digest('hex').slice(0, 24);
+}
+
+/** The questions a flow's judge splits ask, each once, with the key their answers are stored under. */
+export function judgeQuestions(flow: MixFlow): { key: string; question: string }[] {
+    const questions = new Map<string, string>();
+    for (const node of flow.nodes) {
+        if (node.kind === 'split' && node.splitBy === 'judged' && node.question !== undefined) questions.set(judgeKey(node.question), node.question);
+    }
+    return [...questions].map(([key, question]) => ({ key, question }));
+}
+
+/** The stored answer to a judged split's question about a record, or `undefined` while it is pending. */
+export function judgedAnswer(node: MixNode, record: MixRecord): boolean | undefined {
+    return node.question === undefined ? undefined : record.judged?.get(judgeKey(node.question));
 }
 
 /** A record the show has already counted, with the nodes its own walk passed through. */
@@ -138,7 +163,10 @@ function matches(node: MixNode, branch: MixBranch, record: MixRecord, ctx: MixCo
             return inRange(ctx.hour, branch);
         case 'showProgress':
             return inRange(ctx.showProgress, branch);
-        case 'judged':
+        case 'judged': {
+            const answer = judgedAnswer(node, record);
+            return answer !== undefined && values.includes(answer ? 'yes' : 'no');
+        }
         case undefined:
             return false;
     }
@@ -157,6 +185,10 @@ function inRange(value: number, branch: MixBranch): boolean {
  */
 function holds(wires: Wires, node: MixNode, record: MixRecord, ctx: MixContext): boolean {
     switch (node.kind) {
+        // A question the model has not answered about this record yet: never aired on a guess. The record
+        // waits a refill while `MixJudgeJob` asks, the same spirit as a band with no genre matching none.
+        case 'split':
+            return node.splitBy === 'judged' && judgedAnswer(node, record) === undefined;
         case 'block': {
             const bands = node.bands ?? [];
             return bands.some(band => sameTag(record.artist, band));

@@ -77,7 +77,7 @@ public sealed record MixNode
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Bands { get; init; }
 
-    /// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, and is refused until the station can ask one</summary>
+    /// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked</summary>
     [JsonPropertyName("splitBy")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public MixNodeSplitBy? SplitBy { get; init; }
@@ -269,7 +269,7 @@ public sealed class MixNodeKindConverter : JsonConverter<MixNodeKind>
     };
 }
 
-/// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, and is refused until the station can ask one</summary>
+/// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked</summary>
 [JsonConverter(typeof(MixNodeSplitByConverter))]
 public enum MixNodeSplitBy
 {

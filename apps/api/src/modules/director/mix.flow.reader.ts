@@ -8,7 +8,8 @@ import { errorText } from '#modules/shared/error.text.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { readClock } from './clock.bands.js';
 import { stationZone } from './clock.words.js';
-import type { MixInForce } from './mix.flow.js';
+import { judgeQuestions, type MixInForce } from './mix.flow.js';
+import { MixJudgeRepository } from './mix.judge.repository.js';
 import { buildMixContext } from './mix.flow.context.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { minutesIntoSlot, minutesLeftInSlot } from './schedule.js';
@@ -24,6 +25,7 @@ export interface MixLineup {
 export interface MixReaders {
     history: Pick<PlayHistoryRepository, 'countedDuringBroadcast'>;
     candidates: Pick<CandidatesRepository, 'mainGenresFor'>;
+    judgements: Pick<MixJudgeRepository, 'answersFor'>;
     schedule: Pick<ScheduleService, 'inForce'>;
     config: AppConfig;
     logger: Logger;
@@ -62,7 +64,12 @@ export async function readMixInForce(
             ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
         }));
         const trackIds = [...aired, ...queuedRecords].flatMap(record => (record.trackId === undefined ? [] : [record.trackId]));
-        const genres = await readers.candidates.mainGenresFor([...new Set(trackIds)]);
+        const unique = [...new Set(trackIds)];
+        const questions = judgeQuestions(flow).map(question => question.key);
+        const [genres, judged] = await Promise.all([
+            readers.candidates.mainGenresFor(unique),
+            questions.length === 0 ? Promise.resolve(new Map<string, Map<string, boolean>>()) : readers.judgements.answersFor(unique, questions),
+        ]);
         const show =
             slot !== undefined && slot.id === lineup.slotId
                 ? { startMs: now - minutesIntoSlot(slot, now, zone) * 60_000, endMs: now + minutesLeftInSlot(slot, now, zone) * 60_000 }
@@ -74,6 +81,7 @@ export async function readMixInForce(
                 aired,
                 queued: queuedRecords,
                 genres,
+                judged,
                 hourOf: ms => readClock(ms, zone).hour,
                 nowMs: now,
                 ...(show === undefined ? {} : { show }),
@@ -94,6 +102,7 @@ export class MixFlowReader {
     constructor(
         private readonly history: PlayHistoryRepository,
         private readonly candidates: CandidatesRepository,
+        private readonly judgements: MixJudgeRepository,
         private readonly schedule: ScheduleService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -103,6 +112,7 @@ export class MixFlowReader {
         return await readMixInForce(lineup, ahead, {
             history: this.history,
             candidates: this.candidates,
+            judgements: this.judgements,
             schedule: this.schedule,
             config: this.config,
             logger: this.logger,

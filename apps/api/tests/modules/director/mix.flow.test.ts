@@ -11,6 +11,8 @@ import {
     countThrough,
     dueRequirements,
     holdMixFlow,
+    judgeKey,
+    judgeQuestions,
     mixBudgetSentences,
     walkRecord,
     type CountedRecord,
@@ -225,5 +227,32 @@ describe('mixBudgetSentences', () => {
             '- No more records (main genre black metal) this hour. Any you name are dropped and something else plays.',
             '- At most 1 more record (main genre pop) in this show. Name more and the extra ones are dropped.',
         ]);
+    });
+});
+
+describe('a judge split', () => {
+    const question = 'a sinful pop hit?';
+    const flow: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'judge', kind: 'split', splitBy: 'judged', question, branches: [{ values: ['yes'] }] },
+            { id: 'block', kind: 'block', bands: ['Ed Sheeran'] },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [wire('picks', 'judge'), wire('judge', 'merge', 0, 0), wire('judge', 'block', 1), wire('block', 'merge', 0, 1), wire('merge', 'air')],
+    };
+    const answered = (answer: boolean): MixRecord => ({ ...rec('Michael Jackson', 'pop'), judged: new Map([[judgeKey(question), answer]]) });
+
+    it('sends a record by its stored answer, and holds one the model has not answered yet', () => {
+        expect(walkRecord(flow, answered(true), ctx()).path).toEqual(['picks', 'judge', 'merge', 'air']);
+        expect(walkRecord(flow, answered(false), ctx()).path).toEqual(['picks', 'judge', 'block', 'merge', 'air']);
+        expect(walkRecord(flow, rec('Michael Jackson', 'pop'), ctx())).toEqual({ path: ['picks', 'judge'], heldAt: 'judge' });
+    });
+
+    it('keys a question the same however it is spaced or capitalised, so two shows share answers', () => {
+        expect(judgeKey('A sinful  pop hit?')).toBe(judgeKey(' a sinful pop hit? '));
+        expect(judgeQuestions(flow)).toEqual([{ key: judgeKey(question), question }]);
     });
 });

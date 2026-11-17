@@ -69,7 +69,7 @@ export const MixNode = z.strictObject({
         .enum(['genre', 'artist', 'decade', 'mood', 'hour', 'showProgress', 'lastGenre', 'judged'])
         .optional()
         .describe(
-            '`split`: what it reads. `genre` is the band\'s main genre, which matches a branch\'s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch\'s range. `judged` is the model\'s stored answer to `question`, and is refused until the station can ask one',
+            '`split`: what it reads. `genre` is the band\'s main genre, which matches a branch\'s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch\'s range. `judged` is the model\'s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked',
         ),
     branches: z.array(MixBranch).max(8).optional().describe('`split`: its outputs in order, before the last output, "everything else"'),
     question: z.string().min(1).max(200).optional().describe('`split` by `judged`: what the model is asked about each record, once'),

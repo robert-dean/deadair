@@ -616,6 +616,18 @@ budget cut the picks held from about 95 a show to about 6. `MixFlowReader` reads
 a replan; a read that fails costs that batch its flow and never the batch. A prepared opening is judged with
 nothing counted.
 
+**A judge split asks the model what a tag cannot say.** Tags say a record is pop; nothing in the catalog
+says it is the "sinful pop hit" a brief meant. A split `by: judged` carries a yes-or-no `question`, and the
+walk sends a record down the branch its STORED answer names (`mix_judgements`, 0146, keyed by `judgeKey`, a
+hash of the normalised question, so two shows asking the same thing share answers). **A record with no
+answer yet is held at the split** and the picker writes the question pending (`MixJudgeRepository.askLater`,
+from both `resolve` and the shortlist); `MixJudgeJob` answers pending rows every five minutes at background
+priority, the web search its one tool, and "could not place it" is kept as no. The cost is that a record waits
+a refill for its first answer, the same spirit as a band with no genre matching none: nothing airs on a guess,
+and the model is never asked anything on air. Nothing is asked unless an operator drew a judge, so it has no
+switch of its own; `llm.judgeModel` says which models answer. Not built: asking ahead of a show's start for
+the records its flow is likely to meet, so its first refill has answers to read.
+
 **A Require node is a promise, so its record goes FIRST** (`MixRequireSetGenerator`, ahead of the festival
 and the brief's acts in the chain). A prose "rare pop hit" produced one pop record in five Sundays; a require
 node is due once the show is past its `afterPercent` and nothing counted satisfies it (`dueRequirements`:

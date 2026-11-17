@@ -10,6 +10,7 @@ import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { LyricsJob } from '#modules/lyrics/lyrics.job.js';
 import { LyricMoodsJob } from '#modules/lyrics/lyric.moods.job.js';
 import { ArtistGenreJob } from '#modules/director/artist.genre.job.js';
+import { MixJudgeJob } from '#modules/director/mix.judge.job.js';
 import { LyricSubjectsJob } from '#modules/lyrics/lyric.subjects.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
@@ -201,6 +202,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: ArtistGenreJob,
         cron: '8-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
+    },
+
+    // A show's judge split: answers what the picker left pending. Every five minutes, since a record
+    // waits a refill for its answer; with nothing pending it is one query.
+    'catalog.judge_mix': {
+        job: MixJudgeJob,
+        cron: '2-59/5 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 
     // The mood walk's twin, a few minutes behind it so the two do not queue on the model together.

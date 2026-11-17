@@ -107,8 +107,16 @@ describe('mixFlowProblems', () => {
         expect(mixFlowProblems(replacing(unwired, 'share', { percent: 10 }))).toEqual([]);
     });
 
-    it('refuses a question for the model until the station can ask one', () => {
-        const judged = replacing(church(), 'split', { splitBy: 'judged', question: 'a sinful pop hit?' });
-        expect(mixFlowProblems(judged)).toContain('Split "split" splits by "judged", which the station cannot answer yet');
+    it('takes a question for the model, with yes and no as its only answers', () => {
+        const judged = replacing(church(), 'split', {
+            splitBy: 'judged',
+            question: 'a sinful pop hit?',
+            branches: [{ values: ['yes'] }, { values: ['no'] }],
+        });
+        expect(mixFlowProblems(judged)).toEqual([]);
+        expect(mixFlowProblems(replacing(judged, 'split', { question: ' ' }))).toContain('Split "split" asks the model nothing; give it a question');
+        expect(mixFlowProblems(replacing(judged, 'split', { branches: [{ values: ['maybe'] }, { values: ['no'] }] }))).toContain(
+            'Split "split" has a branch for an answer other than yes or no',
+        );
     });
 });

@@ -6,6 +6,8 @@ import { DateTime } from 'luxon';
 // track and not a gap on the mount.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { MixJudgeRepository } from '../../../src/modules/director/mix.judge.repository.js';
+import { judgeKey } from '../../../src/modules/director/mix.flow.js';
 import type { MixFlow } from '../../../src/modules/schedule/types/mix.types.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -110,6 +112,8 @@ interface Options {
     years?: Record<string, number>;
     /** Artist keys `dislikedArtistKeys` answers with, for a record the library does not hold. */
     dislikedArtists?: string[];
+    /** The model's stored answers per track id, by question key. */
+    answers?: Record<string, Record<string, boolean>>;
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -120,6 +124,13 @@ const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: num
 });
 
 function build(options: Options = {}) {
+    const judgements = {
+        answersFor: vi.fn(
+            async (trackIds: readonly string[]) =>
+                new Map(trackIds.flatMap(id => (options.answers?.[id] === undefined ? [] : [[id, new Map(Object.entries(options.answers[id]!))]]))),
+        ),
+        askLater: vi.fn(async () => {}),
+    } as unknown as MixJudgeRepository & { askLater: ReturnType<typeof vi.fn> };
     const blockRules = { list: vi.fn(async () => options.blockRules ?? []) } as never;
     const candidates = {
         knownActs: vi.fn(async (acts: readonly string[]) => new Set(acts.filter(act => (options.knownActs ?? []).includes(act)))),
@@ -249,9 +260,11 @@ function build(options: Options = {}) {
             activity,
             repeatWatch,
             new StationIdentity(),
+            judgements,
             config,
             logger,
         ),
+        judgements,
         repeatWatch,
         candidates,
         tracks,
@@ -1869,5 +1882,44 @@ describe("PickResolver with a show's mix flow", () => {
         const { resolver } = built();
         const resolved = await resolver.resolve(picks, OPEN_RULES, { keepOrder: true });
         expect(resolved).toHaveLength(4);
+    });
+});
+
+describe("PickResolver with a show's judge split", () => {
+    const question = 'a sinful pop hit?';
+    const flow: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'judge', kind: 'split', splitBy: 'judged', question, branches: [{ values: ['yes'] }] },
+            { id: 'block', kind: 'block', bands: ['Nobody'] },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'judge', in: 0 },
+            { from: 'judge', out: 0, to: 'merge', in: 0 },
+            { from: 'judge', out: 1, to: 'block', in: 0 },
+            { from: 'block', out: 0, to: 'merge', in: 1 },
+            { from: 'merge', out: 0, to: 'air', in: 0 },
+        ],
+    };
+
+    it('airs an answered record, holds an unanswered one and asks about it for next time', async () => {
+        const { resolver, judgements } = build({
+            bindings: { thriller: binding('thriller'), unknown: binding('unknown') },
+            metadata: { thriller: { title: 'Thriller', credit: 'Michael Jackson' }, unknown: { title: 'Perfect', credit: 'Ed Sheeran' } },
+            answers: { thriller: { [judgeKey(question)]: true } },
+        });
+        const resolved = await resolver.resolve(
+            [
+                { title: 'Thriller', artist: 'Michael Jackson', trackId: 'thriller' },
+                { title: 'Perfect', artist: 'Ed Sheeran', trackId: 'unknown' },
+            ],
+            OPEN_RULES,
+            { mix: { flow, ctx: { hour: 20, showProgress: 0, counted: [] } } },
+        );
+        expect(resolved.map(track => track.trackId)).toEqual(['thriller']);
+        expect(judgements.askLater).toHaveBeenCalledWith(judgeKey(question), question, ['unknown']);
     });
 });

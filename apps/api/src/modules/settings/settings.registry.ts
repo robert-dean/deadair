@@ -2106,6 +2106,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'llm',
+        key: MIX_FLOW_KEYS.judgeModel,
+        label: 'Models for a show’s AI judge',
+        type: 'list',
+        default: '',
+        columns: [{ key: MODEL_LIST_COLUMN, label: 'Model', type: 'select', required: true, optionsFrom: 'llm.models' }],
+        help: "A show's mix flow can ask a model a yes-or-no question about a record, such as whether a pop record is a sinful pop hit. Each record is asked once and the answer kept; a record waits a refill for its answer. List the models to try, in order. Leave the list empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
         key: LYRIC_SUBJECT_KEYS.enabled,
         label: 'Let a model say what each record is about',
         type: 'boolean',

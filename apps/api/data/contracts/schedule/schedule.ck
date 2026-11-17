@@ -166,7 +166,7 @@ operation /schedule/mix-draft: {
             }
             # The model's answer could not be read as rules, twice.
             502:
-            # The station has no model, or it was needed on air.
+            # The station has no model, it was needed on air, or it took too long.
             503:
         }
     }

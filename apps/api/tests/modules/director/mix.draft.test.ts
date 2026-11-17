@@ -5,7 +5,8 @@ import { buildMixDraft, mixDraftPrompt, readMixDraft, type DraftRule } from '../
 import { MixDraftService } from '../../../src/modules/director/mix.draft.service.js';
 import { MIX_FLOW_KEYS } from '../../../src/modules/director/mix.flow.keys.js';
 import { mixFlowProblems } from '../../../src/modules/schedule/mix.flow.validate.js';
-import type { MixFlow, MixNode } from '../../../src/modules/schedule/types/mix.types.js';
+import { MixFlow, type MixNode } from '../../../src/modules/schedule/types/mix.types.js';
+import { walkRecord, type MixContext } from '../../../src/modules/director/mix.flow.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() }) as unknown as Logger;
@@ -115,13 +116,15 @@ describe('buildMixDraft', () => {
         expect(judge.question).toBe('Is this a famous, sinful pop hit?');
         expect(outOf(flow, genreSplits[1]!.id, 0)).toBe(judge.id);
         const counts = byKind(flow, 'limitCount');
-        expect(counts.find(node => node.id === outOf(flow, judge.id, 0))).toMatchObject({ count: 1, per: 'show' });
-        expect(counts.find(node => node.id === outOf(flow, judge.id, 1))).toMatchObject({ count: 0 });
+        expect(counts.find(node => node.id === outOf(flow, judge.id, 0))).toMatchObject({ id: 'limitCount-1', count: 1, per: 'show' });
+        expect(counts.find(node => node.id === outOf(flow, judge.id, 1))).toMatchObject({ id: 'limitCount-2', count: 0 });
 
-        // The promise skips the limits, entering at the Merge.
+        // The promise skips the limits but passes a Block of every banned band on its way in.
         const [require] = byKind(flow, 'require');
         expect(require).toMatchObject({ requireGenres: ['pop', 'gospel'], requireMode: 'any', afterPercent: 40 });
-        expect(outOf(flow, require!.id)).toBe(byKind(flow, 'merge')[0]!.id);
+        const guard = flow.nodes.find(node => node.id === outOf(flow, require!.id))!;
+        expect(guard).toMatchObject({ kind: 'block', bands: ['Burzum'] });
+        expect(flow.nodes.find(node => node.id === outOf(flow, guard.id))?.kind).toBe('merge');
 
         expect(readings.find(reading => reading.quote === 'black metal only now and then')?.nodeIds).toEqual(
             expect.arrayContaining([genreSplits[0]!.id, share.id, clock.id]),
@@ -143,7 +146,7 @@ describe('buildMixDraft', () => {
             readings: [],
         });
         const judge = byKind(flow, 'split').find(node => node.splitBy === 'judged')!;
-        expect(outOf(flow, judge.id, 1)).toBe('merge-1');
+        expect(flow.nodes.find(node => node.id === outOf(flow, judge.id, 1))?.kind).toBe('merge');
         expect(byKind(flow, 'limitCount')).toHaveLength(1);
         expect(mixFlowProblems(flow)).toEqual([]);
     });
@@ -181,7 +184,103 @@ describe('buildMixDraft', () => {
             const rules = kinds.filter((_, index) => mask & (1 << index));
             const { flow } = buildMixDraft({ rules, readings: [] });
             expect({ mask, problems: mixFlowProblems(flow) }).toEqual({ mask, problems: [] });
+            expect(MixFlow.safeParse(flow).success).toBe(true);
         }
+    });
+});
+
+describe('what a drafted flow does to a record', () => {
+    const at = (counted: MixContext['counted'] = []): MixContext => ({ hour: 20, showProgress: 50, counted });
+    const limit = (genres: string[], amount: { percent?: number; count?: number }): DraftRule => ({
+        kind: 'limit',
+        match: { genres },
+        ...amount,
+        per: 'show',
+        others: 'pass',
+        quote: genres.join(' '),
+        note: '',
+    });
+
+    it('holds a required record by a band the brief bans', () => {
+        const { flow } = buildMixDraft({
+            rules: [
+                { kind: 'block', bands: ['Burzum'], quote: 'No Burzum', note: '' },
+                {
+                    kind: 'require',
+                    genres: ['black metal'],
+                    songs: [],
+                    mode: 'any',
+                    afterPercent: 40,
+                    quote: 'always one black metal record',
+                    note: '',
+                },
+            ],
+            readings: [],
+        });
+        const require = byKind(flow, 'require')[0]!.id;
+        const banned = walkRecord(flow, { title: 'Dunkelheit', artist: 'Burzum', mainGenre: 'black metal' }, at(), { entry: require });
+        expect(flow.nodes.find(node => node.id === banned.heldAt)?.kind).toBe('block');
+        expect(
+            walkRecord(flow, { title: 'Freezing Moon', artist: 'Mayhem', mainGenre: 'black metal' }, at(), { entry: require }).heldAt,
+        ).toBeUndefined();
+    });
+
+    it('takes a record through every rule that matches it, not only the first', () => {
+        const { flow } = buildMixDraft({
+            rules: [
+                // Shares of 100% hold nothing, so what holds the second record below is the guard alone.
+                limit(['metal'], { percent: 100 }),
+                limit(['black metal'], { percent: 100 }),
+                { kind: 'noRepeat', genres: ['black metal'], quote: 'never two', note: '' },
+            ],
+            readings: [],
+        });
+        const record = { title: 'Freezing Moon', artist: 'Mayhem', mainGenre: 'black metal' };
+        const walked = walkRecord(flow, record, at());
+        const kinds = walked.path.map(id => flow.nodes.find(node => node.id === id)!.kind);
+        expect(kinds.filter(kind => kind === 'limitShare')).toHaveLength(2);
+        expect(kinds).toContain('noRepeat');
+        expect(kinds.at(-1)).toBe('onAir');
+
+        // And the "never two in a row" holds the second of two.
+        const second = walkRecord(flow, { ...record, title: 'Deathcrush' }, at([{ ...record, hour: 20, progress: 40, path: walked.path }]));
+        expect(flow.nodes.find(node => node.id === second.heldAt)?.kind).toBe('noRepeat');
+    });
+
+    it('fits the contract however many rules the model names, and says what it left out', () => {
+        const rules: DraftRule[] = [
+            ...Array.from({ length: 5 }, (_, index): DraftRule => ({ kind: 'block', bands: [`Band ${index}`], quote: `ban ${index}`, note: '' })),
+            ...Array.from({ length: 9 }, (_, index): DraftRule => ({
+                kind: 'limit',
+                match: { genres: [`genre ${index}`], question: `Is it ${index}?` },
+                percent: 10,
+                per: 'hour',
+                later: { fromHour: 22, percent: 30 },
+                others: 'hold',
+                quote: `limit ${index}`,
+                note: '',
+            })),
+            ...Array.from({ length: 7 }, (_, index): DraftRule => ({
+                kind: 'noRepeat',
+                genres: [`genre ${index}`],
+                quote: `repeat ${index}`,
+                note: '',
+            })),
+            ...Array.from({ length: 6 }, (_, index): DraftRule => ({
+                kind: 'require',
+                genres: [`genre ${index}`],
+                songs: [],
+                mode: 'any',
+                afterPercent: 0,
+                quote: `require ${index}`,
+                note: '',
+            })),
+        ];
+        const { flow, readings } = buildMixDraft({ rules, readings: [] });
+        expect(mixFlowProblems(flow)).toEqual([]);
+        expect(MixFlow.safeParse(flow).success).toBe(true);
+        expect(readings.filter(reading => reading.note.startsWith('Left out'))).not.toHaveLength(0);
+        expect(readings.length).toBeLessThanOrEqual(40);
     });
 });
 
@@ -237,9 +336,33 @@ describe('MixDraftService', () => {
 
         const twice = service([
             { text: 'no', finishReason: 'stop', model: 'm' },
-            { text: '{"rules": [', finishReason: 'budget', model: 'm' },
+            { text: 'still no', finishReason: 'stop', model: 'm' },
         ]);
         await expect(twice.drafts.draft({ brief: 'x' })).rejects.toMatchObject({ statusCode: 502 });
+    });
+
+    it('does not ask again when the model ran out of time, and asks it not to think', async () => {
+        const { drafts, llm } = service([{ text: '{"rules": [', finishReason: 'budget', model: 'm' }]);
+        await expect(drafts.draft({ brief: 'x' })).rejects.toMatchObject({ statusCode: 503 });
+        expect(llm.converse).toHaveBeenCalledTimes(1);
+        expect(llm.converse).toHaveBeenCalledWith(expect.objectContaining({ reasoningEffort: 'none' }), expect.anything());
+    });
+
+    it('gives the second try only what is left of one deadline', async () => {
+        vi.useFakeTimers();
+        try {
+            const { drafts, llm } = service([]);
+            llm.converse.mockImplementationOnce(async () => {
+                vi.advanceTimersByTime(80_000);
+                return { text: 'no', finishReason: 'stop', model: 'm' };
+            });
+            await expect(drafts.draft({ brief: 'x' })).rejects.toMatchObject({ statusCode: 502 });
+            // 80 of 90 seconds gone leaves too little to ask again.
+            expect(llm.converse).toHaveBeenCalledTimes(1);
+            expect(llm.converse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ budgetMs: 75_000, maxWaitMs: 15_000 }));
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('answers 503 when the model is busy on air or not there', async () => {

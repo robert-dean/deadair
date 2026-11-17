@@ -115,6 +115,9 @@ export function readMixDraft(answer: string): ReadDraft | undefined {
         const rule = ruleOf(raw, quote, note);
         if (typeof rule === 'string') readings.push({ quote, note: rule });
         else rules.push(rule);
+        if (typeof rule !== 'string' && rule.kind === 'limit' && rule.later === undefined && isRecord(raw.later)) {
+            readings.push({ quote, note: 'A change at an hour was left out: it changes a share, and this limit is a number.' });
+        }
     }
 
     for (const raw of Array.isArray(parsed.taste) ? parsed.taste : []) {
@@ -209,11 +212,26 @@ const LANE_Y = SPINE_Y + 340;
 const REQUIRE_Y = SPINE_Y - 380;
 
 /**
+ * The most of each kind of rule one draft takes, so every flow it builds fits the contract's 64 nodes
+ * and 128 wires: a lane is at most seven nodes and nine wires. A brief that asks for more has the rest
+ * listed as left out, to be drawn by hand.
+ */
+const MOST = { block: 3, lane: 6, require: 4 } as const;
+
+type LaneRule = DraftRule & { kind: 'limit' | 'noRepeat' };
+
+/**
  * The flow the rules make, laid out left to right, and which nodes each phrase became.
  *
- * Always one that passes `mixFlowProblems`: every split's branch and "everything else" leads on, every
- * limit leads to the Merge, and nothing feeds back. With no rules it is Picks wired to On air, which
- * plays exactly as a show with no flow.
+ * Every record meets every rule that matches it. Each limit or "never two in a row" is a LANE on the
+ * spine: a split whose matching branch runs through the rule and whose "everything else" skips it, both
+ * joining again at the lane's own Merge before the next lane, so a black metal record meets a metal
+ * limit and then a black metal one. A Require's record skips the lanes (a promise is not counted against
+ * the show's limits) but still passes a Block naming every band the brief bans, so a required genre can
+ * never bring a banned band back.
+ *
+ * Always one that passes `mixFlowProblems`. With no rules it is Picks wired to On air, which plays
+ * exactly as a show with no flow.
  */
 export function buildMixDraft(draft: ReadDraft): { flow: MixFlow; readings: MixDraftReading[] } {
     const nodes: MixNode[] = [];
@@ -227,108 +245,121 @@ export function buildMixDraft(draft: ReadDraft): { flow: MixFlow; readings: MixD
     };
     const wire = (from: string, to: string, out = 0, into = 0) => links.push({ from, out, to, in: into });
     const fromBrief = (quote: string) => (quote.length === 0 ? {} : { fromBrief: quote.slice(0, 200) });
+    const leftOut = (rule: DraftRule) =>
+        readings.push({ quote: rule.quote, note: 'Left out: a drafted flow holds only so many rules. Draw this one by hand.' });
+
+    const blocks = draft.rules.filter(rule => rule.kind === 'block');
+    const requires = draft.rules.filter(rule => rule.kind === 'require');
+    const limits = draft.rules.filter(rule => rule.kind === 'limit');
+    const repeats = draft.rules.filter(rule => rule.kind === 'noRepeat');
+
+    /** A "never two in a row" whose genres are a plain limit's rides that limit's lane; the rest get a lane of their own. */
+    const riding = new Map<DraftRule, DraftRule & { kind: 'noRepeat' }>();
+    for (const repeat of repeats) {
+        const lane = limits.find(limit => limit.match.question === undefined && sameGenres(limit.match.genres, repeat.genres) && !riding.has(limit));
+        if (lane !== undefined) riding.set(lane, repeat);
+    }
+    const lanes: LaneRule[] = [...limits, ...repeats.filter(repeat => ![...riding.values()].includes(repeat))];
+
+    for (const rule of blocks.slice(MOST.block)) leftOut(rule);
+    for (const rule of lanes.slice(MOST.lane)) {
+        leftOut(rule);
+        const repeat = riding.get(rule);
+        if (repeat !== undefined) leftOut(repeat);
+    }
+    for (const rule of requires.slice(MOST.require)) leftOut(rule);
 
     nodes.push({ id: 'picks', kind: 'picks', x: 0, y: SPINE_Y });
     let x = STEP_X;
     /** The output records leave by on the spine, waiting for the next node. */
     let tail = { node: 'picks', out: 0 };
 
-    for (const rule of draft.rules) {
-        if (rule.kind !== 'block') continue;
+    const keptBlocks = blocks.slice(0, MOST.block);
+    for (const rule of keptBlocks) {
         const block = id('block');
         nodes.push({ id: block, kind: 'block', bands: rule.bands, ...fromBrief(rule.quote), x, y: SPINE_Y });
         wire(tail.node, block, tail.out);
         tail = { node: block, out: 0 };
         x += STEP_X;
-        readings.push({ quote: rule.quote, note: rule.note || `Never plays ${rule.bands.join(', ')}.`, nodeIds: [block] });
+        readings.push({ quote: rule.quote, note: noteOf(rule.note, `Never plays ${rule.bands.join(', ')}.`), nodeIds: [block] });
     }
 
-    const lanes = draft.rules.filter(rule => rule.kind === 'limit');
-    const repeats = draft.rules.filter(rule => rule.kind === 'noRepeat');
-    const requires = draft.rules.filter(rule => rule.kind === 'require');
-    /** A "never two in a row" whose genres are a limit's rides that limit's lane; the rest get a lane of their own. */
-    const riding = new Map<DraftRule, DraftRule & { kind: 'noRepeat' }>();
-    for (const repeat of repeats) {
-        const lane = lanes.find(limit => limit.match.question === undefined && sameGenres(limit.match.genres, repeat.genres) && !riding.has(limit));
-        if (lane !== undefined) riding.set(lane, repeat);
-    }
-    const ownLanes = repeats.filter(repeat => ![...riding.values()].includes(repeat));
-
-    if (lanes.length + ownLanes.length + requires.length === 0) {
-        nodes.push({ id: 'air', kind: 'onAir', x, y: SPINE_Y });
-        wire(tail.node, 'air', tail.out);
-        return { flow: { version: 1, nodes, links }, readings: [...readings, ...draft.readings] };
-    }
-
-    const merge = 'merge-1';
-    used.set('merge', 1);
-    /** Wires into the Merge, drawn once its place is known. */
-    const intoMerge: { from: string; out: number; into: number }[] = [];
-
-    const lane = (rule: DraftRule & { kind: 'limit' | 'noRepeat' }) => {
+    const lane = (rule: LaneRule) => {
         const drawn: string[] = [];
         const genres = rule.kind === 'limit' ? rule.match.genres : rule.genres;
         const question = rule.kind === 'limit' ? rule.match.question : undefined;
-        let entry: { node: string; out: number } | undefined;
+        const join = id('merge');
+        /** Wires into the lane's Merge, drawn once its place is known. */
+        const joining: { from: string; out: number }[] = [];
+        const startX = x;
+        let match: { node: string; out: number };
 
         if (genres.length > 0) {
             const split = id('split');
-            nodes.push({ id: split, kind: 'split', splitBy: 'genre', branches: [{ values: genres }], ...fromBrief(rule.quote), x, y: SPINE_Y });
+            nodes.push({
+                id: split,
+                kind: 'split',
+                splitBy: 'genre',
+                branches: [{ values: genres }],
+                ...fromBrief(rule.quote),
+                x: startX,
+                y: SPINE_Y,
+            });
             wire(tail.node, split, tail.out);
+            joining.push({ from: split, out: 1 });
             drawn.push(split);
-            entry = { node: split, out: 0 };
-            tail = { node: split, out: 1 };
-        }
-        if (question !== undefined) {
+            match = { node: split, out: 0 };
+            if (question !== undefined) {
+                const judge = id('split');
+                nodes.push({
+                    id: judge,
+                    kind: 'split',
+                    splitBy: 'judged',
+                    question,
+                    branches: [{ values: ['yes'] }],
+                    ...fromBrief(rule.quote),
+                    x: startX,
+                    y: LANE_Y,
+                });
+                wire(split, judge, 0);
+                drawn.push(judge);
+                match = { node: judge, out: 0 };
+                if (rule.kind === 'limit' && rule.others === 'hold') {
+                    // The genre's records the judge says no to: a count of none holds every one of them.
+                    // Numbered after the lane's own limit, below.
+                    joining.push({ from: `hold:${judge}`, out: 0 });
+                } else {
+                    joining.push({ from: judge, out: 1 });
+                }
+            }
+        } else {
+            // A question with no genre asks about every record, so the judge sits on the spine.
             const judge = id('split');
-            const judgeX = x;
-            const judgeY = entry === undefined ? SPINE_Y : LANE_Y;
             nodes.push({
                 id: judge,
                 kind: 'split',
                 splitBy: 'judged',
-                question,
+                question: question!,
                 branches: [{ values: ['yes'] }],
                 ...fromBrief(rule.quote),
-                x: judgeX,
-                y: judgeY,
+                x: startX,
+                y: SPINE_Y,
             });
-            if (entry === undefined) {
-                wire(tail.node, judge, tail.out);
-                tail = { node: judge, out: 1 };
-            } else {
-                wire(entry.node, judge, entry.out);
-                if (rule.kind === 'limit' && rule.others === 'hold') {
-                    const none = id('limitCount');
-                    nodes.push({
-                        id: none,
-                        kind: 'limitCount',
-                        count: 0,
-                        per: 'show',
-                        ...fromBrief(rule.quote),
-                        x: judgeX + STEP_X,
-                        y: judgeY + 300,
-                    });
-                    wire(judge, none, 1);
-                    intoMerge.push({ from: none, out: 0, into: 1 });
-                    drawn.push(none);
-                } else {
-                    intoMerge.push({ from: judge, out: 1, into: 1 });
-                }
-            }
+            wire(tail.node, judge, tail.out);
+            joining.push({ from: judge, out: 1 });
             drawn.push(judge);
-            entry = { node: judge, out: 0 };
+            match = { node: judge, out: 0 };
         }
 
-        let at = { node: entry!.node, out: entry!.out };
-        let laneX = x + STEP_X;
-        const laneY = question !== undefined && genres.length > 0 ? LANE_Y : LANE_Y - 40;
+        let laneX = startX + STEP_X;
+        let at = match;
         if (rule.kind === 'limit') {
-            const limit = id(rule.percent !== undefined ? 'limitShare' : 'limitCount');
+            const share = rule.percent !== undefined;
+            const limit = id(share ? 'limitShare' : 'limitCount');
             nodes.push(
-                rule.percent !== undefined
-                    ? { id: limit, kind: 'limitShare', percent: rule.percent, per: rule.per, ...fromBrief(rule.quote), x: laneX, y: laneY }
-                    : { id: limit, kind: 'limitCount', count: rule.count ?? 0, per: rule.per, ...fromBrief(rule.quote), x: laneX, y: laneY },
+                share
+                    ? { id: limit, kind: 'limitShare', percent: rule.percent!, per: rule.per, ...fromBrief(rule.quote), x: laneX, y: LANE_Y }
+                    : { id: limit, kind: 'limitCount', count: rule.count ?? 0, per: rule.per, ...fromBrief(rule.quote), x: laneX, y: LANE_Y },
             );
             wire(at.node, limit, at.out);
             drawn.push(limit);
@@ -341,8 +372,8 @@ export function buildMixDraft(draft: ReadDraft): { flow: MixFlow; readings: MixD
                     thenValue: rule.later.percent,
                     elseValue: rule.percent ?? 0,
                     ...fromBrief(rule.quote),
-                    x: laneX - STEP_X,
-                    y: laneY + 300,
+                    x: laneX,
+                    y: LANE_Y + 300,
                 });
                 wire(clock, limit, 0, 1);
                 drawn.push(clock);
@@ -350,48 +381,95 @@ export function buildMixDraft(draft: ReadDraft): { flow: MixFlow; readings: MixD
             at = { node: limit, out: 0 };
             laneX += STEP_X;
         }
+
+        const holdIndex = joining.findIndex(entry => entry.from.startsWith('hold:'));
+        if (holdIndex >= 0) {
+            const judge = joining[holdIndex]!.from.slice('hold:'.length);
+            const none = id('limitCount');
+            nodes.push({ id: none, kind: 'limitCount', count: 0, per: 'show', ...fromBrief(rule.quote), x: laneX, y: LANE_Y + 300 });
+            wire(judge, none, 1);
+            joining[holdIndex] = { from: none, out: 0 };
+            drawn.push(none);
+        }
+
         const repeat = rule.kind === 'noRepeat' ? rule : riding.get(rule);
         if (repeat !== undefined) {
             const guard = id('noRepeat');
-            nodes.push({ id: guard, kind: 'noRepeat', ...fromBrief(repeat.quote), x: laneX, y: laneY });
+            nodes.push({ id: guard, kind: 'noRepeat', ...fromBrief(repeat.quote), x: laneX, y: LANE_Y });
             wire(at.node, guard, at.out);
             at = { node: guard, out: 0 };
-            if (repeat !== rule) readings.push({ quote: repeat.quote, note: repeat.note || 'Never two in a row.', nodeIds: [guard] });
+            laneX += STEP_X;
             drawn.push(guard);
+            if (repeat !== rule) readings.push({ quote: repeat.quote, note: noteOf(repeat.note, 'Never two in a row.'), nodeIds: [guard] });
         }
-        intoMerge.push({ from: at.node, out: at.out, into: 1 });
-        readings.push({ quote: rule.quote, note: rule.note || describe(rule), nodeIds: drawn });
-        x += STEP_X * (question !== undefined && genres.length > 0 ? 3 : 2);
+
+        nodes.push({ id: join, kind: 'merge', x: laneX, y: SPINE_Y });
+        wire(at.node, join, at.out, 1);
+        for (const entry of joining) wire(entry.from, join, entry.out, 0);
+        tail = { node: join, out: 0 };
+        x = laneX + STEP_X;
+
+        readings.push({ quote: rule.quote, note: noteOf(rule.note, describe(rule)), nodeIds: drawn });
+        if (rule.kind === 'limit' && question !== undefined && genres.length === 0) {
+            readings.push({
+                quote: rule.quote,
+                note: 'This asks the model about every record the show picks, and holds each one until it is answered, so the first refills lean on what has been answered already.',
+            });
+        }
     };
 
-    for (const rule of lanes) lane(rule);
-    for (const rule of ownLanes) lane(rule);
+    for (const rule of lanes.slice(0, MOST.lane)) lane(rule);
 
-    nodes.push({ id: merge, kind: 'merge', x, y: SPINE_Y });
-    wire(tail.node, merge, tail.out, 0);
-    for (const into of intoMerge) wire(into.from, merge, into.out, into.into);
-
-    requires.forEach((rule, index) => {
-        const require = id('require');
-        nodes.push({
-            id: require,
-            kind: 'require',
-            requireGenres: rule.genres,
-            requireMode: rule.mode,
-            ...(rule.songs.length === 0 ? {} : { songs: rule.songs }),
-            afterPercent: rule.afterPercent,
-            ...fromBrief(rule.quote),
-            x: x - STEP_X * (requires.length - index),
-            y: REQUIRE_Y,
+    const keptRequires = requires.slice(0, MOST.require);
+    if (keptRequires.length === 0) {
+        nodes.push({ id: 'air', kind: 'onAir', x, y: SPINE_Y });
+        wire(tail.node, 'air', tail.out);
+    } else {
+        const finish = id('merge');
+        const banned = [...new Set(keptBlocks.flatMap(rule => rule.bands))].slice(0, 50);
+        let into: { node: string; x: number } = { node: finish, x };
+        if (banned.length > 0) {
+            // A promised record still never brings back a band the brief bans.
+            const block = id('block');
+            nodes.push({ id: block, kind: 'block', bands: banned, x: x - STEP_X, y: REQUIRE_Y });
+            wire(block, finish, 0, 2);
+            into = { node: block, x: x - STEP_X };
+        }
+        if (keptRequires.length > 1 && into.node !== finish) {
+            // A Block takes one wire in, so several promises are joined first.
+            const gather = id('merge');
+            nodes.push({ id: gather, kind: 'merge', x: into.x - STEP_X, y: REQUIRE_Y });
+            wire(gather, into.node, 0, 0);
+            into = { node: gather, x: into.x - STEP_X };
+        }
+        keptRequires.forEach((rule, index) => {
+            const require = id('require');
+            nodes.push({
+                id: require,
+                kind: 'require',
+                requireGenres: rule.genres,
+                requireMode: rule.mode,
+                ...(rule.songs.length === 0 ? {} : { songs: rule.songs }),
+                afterPercent: rule.afterPercent,
+                ...fromBrief(rule.quote),
+                x: into.x - STEP_X * (keptRequires.length - index),
+                y: REQUIRE_Y - 300,
+            });
+            wire(require, into.node, 0, into.node === finish ? 2 : 0);
+            readings.push({ quote: rule.quote, note: noteOf(rule.note, 'A promised record.'), nodeIds: [require] });
         });
-        wire(require, merge, 0, 2);
-        readings.push({ quote: rule.quote, note: rule.note || 'A promised record.', nodeIds: [require] });
-    });
+        nodes.push({ id: finish, kind: 'merge', x, y: SPINE_Y });
+        wire(tail.node, finish, tail.out, 0);
+        nodes.push({ id: 'air', kind: 'onAir', x: x + STEP_X, y: SPINE_Y });
+        wire(finish, 'air');
+    }
 
-    nodes.push({ id: 'air', kind: 'onAir', x: x + STEP_X, y: SPINE_Y });
-    wire(merge, 'air');
+    return { flow: { version: 1, nodes, links }, readings: [...readings, ...draft.readings].slice(0, 40) };
+}
 
-    return { flow: { version: 1, nodes, links }, readings: [...readings, ...draft.readings] };
+/** The model's own note, or the station's when it gave none, within what a reading holds. */
+function noteOf(note: string, fallback: string): string {
+    return (note.length > 0 ? note : fallback).slice(0, 300);
 }
 
 function describe(rule: DraftRule & { kind: 'limit' | 'noRepeat' }): string {

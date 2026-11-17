@@ -3,6 +3,7 @@ import { Stack, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
+import { useSectionAttention } from '../shell/use.section.attention';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 import { i18n } from '../../i18n/i18n.setup';
@@ -90,6 +91,7 @@ export interface CheckupShellProps {
  */
 export function CheckupShell({ active, children }: CheckupShellProps) {
     const { t } = useTranslation('station');
+    const sectionAttention = useSectionAttention({ to: '/checkup', sections: CHECKUP_TABS.map(tab => ({ to: CHECKUP_ROUTES[tab.key] })) });
     const navigate = useNavigate();
 
     return (
@@ -103,6 +105,7 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
                 tabs={CHECKUP_TABS}
                 active={active}
                 label={t('shell.title')}
+                attention={sectionAttention}
                 onSelect={key => {
                     void navigate({ to: CHECKUP_ROUTES[key] });
                 }}

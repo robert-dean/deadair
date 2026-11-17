@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
 import { i18n } from '../../i18n/i18n.setup';
+import { useSectionAttention } from '../shell/use.section.attention';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 
@@ -66,6 +67,7 @@ export interface LibraryShellProps {
  */
 export function LibraryShell({ active, children }: LibraryShellProps) {
     const { t } = useTranslation('library');
+    const sectionAttention = useSectionAttention({ to: '/catalog/tracks', sections: LIBRARY_TABS.map(tab => ({ to: LIBRARY_ROUTES[tab.key] })) });
     const navigate = useNavigate();
 
     return (
@@ -80,6 +82,7 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
                 tabs={LIBRARY_TABS}
                 active={active}
                 label={t('title')}
+                attention={sectionAttention}
                 onSelect={key => {
                     // Each tab is its own route, so this is a real navigation rather than a state
                     // change: the back button steps between them and every page keeps the loader

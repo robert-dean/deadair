@@ -1,27 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
-import { Box, Button, Group } from '@mantine/core';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { Badge, Box, Button, Group, Text, Tooltip } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
-import { usePhone } from './use.phone';
+import { severityColor, type Severity } from './status';
 import classes from './destination.tabs.module.css';
 
 export interface DestinationTab<TKey extends string> {
     key: TKey;
     label: string;
-    /** The heading it sits under in the rail, for a destination with too many rows to scan. Tabs sharing one are neighbours. */
+    /**
+     * The heading its tabs sit under, for a destination with too many to scan. Tabs sharing one are
+     * neighbours, and the strip draws the heading once, before the first of them.
+     */
     group?: string;
     /**
      * What is behind this tab, in a sentence.
      *
-     * Not drawn by the strip, which has no room for it and does not need it: a strip is read left to
-     * right by somebody already inside the destination. It is drawn by the RAIL, where these are rows
-     * rather than tabs and several of them name a subject rather than a page — "Subjects", "Charts"
-     * and "Soundboard" all say nothing on their own. It lives here beside the label rather than in
-     * `shell/destinations.ts` for the reason the palette already imports these tables rather than
-     * restating them: two lists of the same tabs are two lists that drift.
+     * Several tabs name a subject rather than a page — "Subjects", "Charts" and "Soundboard" say
+     * nothing on their own — so the strip shows this as the tab's tooltip. It lives here beside the
+     * label rather than in `shell/destinations.ts` for the reason the palette already imports these
+     * tables rather than restating them: two lists of the same tabs are two lists that drift.
      */
     hint?: string;
-    /** How many things on this tab want somebody, if any. Zero draws nothing. */
-    attention?: number;
+}
+
+/** How many things on one tab want somebody, and how bad the worst of them is. */
+export interface TabAttention {
+    count: number;
+    severity: Severity;
 }
 
 export interface DestinationTabsProps<TKey extends string> {
@@ -30,6 +36,11 @@ export interface DestinationTabsProps<TKey extends string> {
     onSelect: (key: TKey) => void;
     /** Named for the screen reader, because a page can carry more than one of these. */
     label: string;
+    /**
+     * What wants somebody on each tab, in the order of `tabs`; `useSectionAttention` reads it. Absent
+     * or a zero count draws nothing.
+     */
+    attention?: readonly (TabAttention | undefined)[];
 }
 
 /**
@@ -59,13 +70,20 @@ export interface DestinationTabsProps<TKey extends string> {
  * These are `Button`s, which have no such cap.
  *
  * Two things make the row honest about what it is hiding. The selected tab is scrolled into view, so
- * landing on `/settings/grants` does not show a strip that starts at Station; and the edge the
- * content continues past is faded, so a cut-off tab reads as more-to-see rather than as a tab that
- * has been truncated. Both are gated on the row actually overflowing, so a destination whose tabs fit
- * — every one of them on a desktop — is drawn exactly as it was before.
+ * landing on the last tab does not show a strip that starts at the first; and the edge the content
+ * continues past is faded, so a cut-off tab reads as more-to-see rather than as a tab that has been
+ * truncated. Both are gated on the row actually overflowing.
+ *
+ * ## On every viewport
+ *
+ * It was drawn on a phone only, because a desk listed the same sections down the rail. The rail is
+ * the thing being replaced by tabs in the header, so the strip is how a destination's sections are
+ * reached everywhere. The scrolling and fading above are what make that safe on a desk too: Voice's
+ * eleven tabs measured 1122px in a 964px column at a 1200px window, and that row now scrolls with
+ * its far edge faded rather than claiming to fit.
  */
-export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, label }: DestinationTabsProps<TKey>) {
-    const phone = usePhone();
+export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, label, attention }: DestinationTabsProps<TKey>) {
+    const { t } = useTranslation();
     const strip = useRef<HTMLDivElement>(null);
 
     // Which edges the row continues past, which is what decides whether it is faded. Both false is
@@ -115,14 +133,6 @@ export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, l
     // and a solid overlay would have to know the page's background to fake the fade.
     const fade = maskFor(beyond);
 
-    // Nothing at all on a desk, where the rail lists these instead.
-    //
-    // Here rather than at the four call sites, because it is one rule about what a destination's
-    // sections ARE and not four pages each remembering it: a fifth destination gets the behaviour by
-    // rendering this, which is the only way a rule like that stays true. The hooks above still run —
-    // they must, since the strip is mounted again the moment the window narrows past `sm`.
-    if (!phone) return undefined;
-
     return (
         // The rule the tabs sit ON, so the selected one reads as connected to what is below it rather
         // than as a pill floating above a panel. On the rail rather than on the strip: see the note
@@ -139,41 +149,71 @@ export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, l
                 aria-label={label}
                 style={fade === undefined ? undefined : { maskImage: fade, WebkitMaskImage: fade }}
             >
-                {tabs.map(tab => {
+                {tabs.map((tab, index) => {
                     const selected = tab.key === active;
+                    const waiting = attention?.[index];
+                    const count = waiting && waiting.count > 0 ? waiting : undefined;
+                    // A heading wherever the group changes, so a long strip reads in the same runs
+                    // the destination is organised in. Not a tab: it takes no focus and is skipped by
+                    // the tablist's arrow keys.
+                    const heading = tab.group !== undefined && tab.group !== tabs[index - 1]?.group ? tab.group : undefined;
                     return (
-                        <Button
-                            key={tab.key}
-                            role="tab"
-                            aria-selected={selected}
-                            variant="subtle"
-                            color="gray"
-                            radius={0}
-                            size="compact-md"
-                            fw={selected ? 600 : 400}
-                            c={selected ? 'var(--da-text)' : 'var(--da-text-secondary)'}
-                            onClick={() => onSelect(tab.key)}
-                            rightSection={tab.attention ? <Box aria-hidden w={6} h={6} bg="yellow.4" style={{ borderRadius: '50%' }} /> : undefined}
-                            style={{
-                                // Never squashed to make the row fit, which is what a flex item does
-                                // by default and what `wrap="nowrap"` turns loose: ten tabs in 326px
-                                // rendered as "S A F F V( V M S W F", one letter each. That is the
-                                // same unreadable row the old `Badge` strip produced, reached by a
-                                // different route — `Badge` capped its own width, and this is flex
-                                // shrinking. A row that cannot be read is worse than one that wraps,
-                                // so the tabs keep their width and the strip scrolls instead.
-                                flexShrink: 0,
-                                // Drawn as a border rather than a pseudo-element, and it meets the
-                                // rail's line because the strip sits directly on it. It used to be
-                                // pulled down onto that line by `marginBottom: -1`, which is a pixel
-                                // outside the strip's content box and is now clipped by the
-                                // `overflow-y` that scrolling one row costs — a 2px underline drawn
-                                // 1px thick, on the selected tab only.
-                                borderBottom: `2px solid ${selected ? 'var(--da-phosphor)' : 'transparent'}`,
-                            }}
-                        >
-                            {tab.label}
-                        </Button>
+                        <Fragment key={tab.key}>
+                            {heading === undefined ? undefined : (
+                                <Text
+                                    component="span"
+                                    role="presentation"
+                                    ff="monospace"
+                                    size="xs"
+                                    tt="uppercase"
+                                    c="dimmed"
+                                    className={classes.group}
+                                    style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}
+                                >
+                                    {heading}
+                                </Text>
+                            )}
+                            <Tooltip label={tab.hint} disabled={tab.hint === undefined} openDelay={500} withinPortal>
+                                <Button
+                                    role="tab"
+                                    aria-selected={selected}
+                                    aria-label={count ? t('destinationTabs.attention', { label: tab.label, count: count.count }) : undefined}
+                                    variant="subtle"
+                                    color="gray"
+                                    radius={0}
+                                    size="compact-md"
+                                    fw={selected ? 600 : 400}
+                                    c={selected ? 'var(--da-text)' : 'var(--da-text-secondary)'}
+                                    onClick={() => onSelect(tab.key)}
+                                    rightSection={
+                                        count ? (
+                                            <Badge aria-hidden size="sm" circle variant="filled" color={severityColor[count.severity]}>
+                                                {count.count}
+                                            </Badge>
+                                        ) : undefined
+                                    }
+                                    style={{
+                                        // Never squashed to make the row fit, which is what a flex item does
+                                        // by default and what `wrap="nowrap"` turns loose: ten tabs in 326px
+                                        // rendered as "S A F F V( V M S W F", one letter each. That is the
+                                        // same unreadable row the old `Badge` strip produced, reached by a
+                                        // different route — `Badge` capped its own width, and this is flex
+                                        // shrinking. A row that cannot be read is worse than one that wraps,
+                                        // so the tabs keep their width and the strip scrolls instead.
+                                        flexShrink: 0,
+                                        // Drawn as a border rather than a pseudo-element, and it meets the
+                                        // rail's line because the strip sits directly on it. It used to be
+                                        // pulled down onto that line by `marginBottom: -1`, which is a pixel
+                                        // outside the strip's content box and is now clipped by the
+                                        // `overflow-y` that scrolling one row costs — a 2px underline drawn
+                                        // 1px thick, on the selected tab only.
+                                        borderBottom: `2px solid ${selected ? 'var(--da-phosphor)' : 'transparent'}`,
+                                    }}
+                                >
+                                    {tab.label}
+                                </Button>
+                            </Tooltip>
+                        </Fragment>
                     );
                 })}
             </Group>

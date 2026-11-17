@@ -81,10 +81,10 @@ describe('VoicePage', () => {
         });
     });
 
-    it('draws no strip at all on a desk, where the rail lists these instead', () => {
+    it('draws its tab strip on a desk too, with the tab it is on selected', () => {
         render(<VoicePage tab="characters" onSelect={() => undefined} />);
 
-        expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Characters' })).toHaveAttribute('aria-selected', 'true');
     });
 
     it('draws only the tab it is on', () => {

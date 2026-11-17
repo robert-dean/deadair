@@ -15,6 +15,7 @@ import { ScriptsPage } from '../scripts/scripts.page';
 import { SegmentsPage } from '../segments/segments.page';
 import { TopicsPage } from '../topics/topics.page';
 import { VoicesPage } from '../voices/voices.page';
+import { useSectionAttention } from '../shell/use.section.attention';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 
@@ -98,13 +99,14 @@ export interface VoicePageProps {
  */
 export function VoicePage({ tab, segment, persona, onSelect }: VoicePageProps) {
     const { t } = useTranslation('voice');
+    const sectionAttention = useSectionAttention({ to: '/voice', sections: VOICE_TABS.map(() => ({ to: '/voice' })) });
     return (
         <Stack gap="lg">
             {/* Name only: each tab opens with its own description, and the rail says what every
                 section is. See `library.shell.tsx`. */}
             <Title order={1}>{t('title')}</Title>
 
-            <DestinationTabs tabs={VOICE_TABS} active={tab} onSelect={onSelect} label={t('title')} />
+            <DestinationTabs tabs={VOICE_TABS} active={tab} onSelect={onSelect} label={t('title')} attention={sectionAttention} />
 
             <EmbeddedPage>{body(tab, segment, persona)}</EmbeddedPage>
         </Stack>

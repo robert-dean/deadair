@@ -32,3 +32,15 @@
 .strip::-webkit-scrollbar {
     display: none;
 }
+
+/* A group's heading in the strip: dimmed, set apart from the tab before it, never squashed. */
+.group {
+    flex-shrink: 0;
+    align-self: center;
+    padding-inline: var(--mantine-spacing-sm) var(--mantine-spacing-xxs);
+    white-space: nowrap;
+}
+
+.group:first-child {
+    padding-inline-start: 0;
+}

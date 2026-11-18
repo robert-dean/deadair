@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.104.1] — 2026-11-18
+
+- The console's header fits on a 1440-pixel screen again. A long title on air used to push the clock and the menu off the right edge; now the on-air chip shortens the title instead. Below 1600 pixels **Jump to anything** is the search icon, so there is room for the title in the Neon theme as well.
+
 ## [0.104.0] — 2026-11-18
 
 - Check-up opens with a tile for each section (on air, what needs you, plugins, the model, the disk, the loops, the library and the build), each showing its state at a glance and taking you to that section or to its own page. Settings now lays out one setting per row, with its label and help on the left and the control on the right, and saves from a bar that appears only once you have changed something, with a Discard button that puts the section back the way it was saved.
@@ -2092,7 +2096,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.1...HEAD
+[0.104.1]: https://github.com/robert-dean/deadair/compare/v0.104.0...v0.104.1
 [0.104.0]: https://github.com/robert-dean/deadair/compare/v0.103.0...v0.104.0
 [0.103.0]: https://github.com/robert-dean/deadair/compare/v0.102.0...v0.103.0
 [0.102.0]: https://github.com/robert-dean/deadair/compare/v0.101.2...v0.102.0
